@@ -142,7 +142,7 @@ def error_page(message: str, status_code: int, user_display_name: str = "User") 
     content = Div(
         H1(f"Error {status_code}", cls="text-3xl font-bold text-error mb-4"),
         P(message, cls="text-lg text-base-content/70"),
-        cls="flex flex-col items-center justify-center min-h-[400px] p-8"
+        cls="flex flex-col items-center justify-center min-h-[400px] p-8",
     )
 
     return create_profile_page(
@@ -260,9 +260,7 @@ def setup_user_profile_routes(rt, services):
         }
 
         # Update user preferences - ONE PATH (no fallback)
-        update_result = await services.user_service.update_preferences(
-            user_uid, preferences_update
-        )
+        update_result = await services.user_service.update_preferences(user_uid, preferences_update)
 
         if update_result.is_error:
             # Log detailed error for debugging (don't leak to user)

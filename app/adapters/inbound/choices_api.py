@@ -239,6 +239,84 @@ def create_choices_api_routes(
         # Use intelligence service (analytics methods consolidated here)
         return await choice_service.intelligence.get_decision_patterns(user_uid, days=lookback_days)
 
+    # ========================================================================
+    # INTELLIGENCE ROUTES (High-Value Analytics)
+    # ========================================================================
+    # These expose advanced intelligence methods not covered by IntelligenceRouteFactory
+
+    @rt("/api/choices/intelligence/impact")
+    @require_ownership_query(get_choice_service, uid_param="choice_uid")
+    @boundary_handler()
+    async def analyze_choice_impact_route(
+        request: Request, user_uid: str, entity: Any
+    ) -> Result[Any]:
+        """
+        Analyze cross-domain impact of a decision.
+
+        Query params:
+            choice_uid: UID of choice to analyze (ownership verified)
+
+        Returns:
+            ChoiceImpactAnalysis with affected domains, relationships, and impact scores
+        """
+        return await choice_service.intelligence.analyze_choice_impact(entity.uid)
+
+    @rt("/api/choices/intelligence/quality-correlations")
+    @boundary_handler()
+    async def get_quality_correlations_route(request: Request, user_uid: str) -> Result[Any]:
+        """
+        What factors correlate with good decisions?
+
+        Analyzes user's past decisions to identify patterns that lead to
+        positive vs negative outcomes.
+
+        Returns:
+            Dict with correlation scores for decision factors (confidence,
+            principle alignment, time pressure, domain, etc.)
+        """
+        return await choice_service.intelligence.get_choice_quality_correlations(user_uid)
+
+    @rt("/api/choices/intelligence/predict-quality")
+    @require_ownership_query(get_choice_service, uid_param="choice_uid")
+    @boundary_handler()
+    async def predict_decision_quality_route(
+        request: Request, user_uid: str, entity: Any
+    ) -> Result[Any]:
+        """
+        Predict quality of pending decision.
+
+        Uses historical patterns to estimate likely outcome quality
+        before making the decision.
+
+        Query params:
+            choice_uid: UID of pending choice (ownership verified)
+
+        Returns:
+            DecisionQualityPrediction with estimated quality score,
+            confidence, and contributing factors
+        """
+        return await choice_service.intelligence.predict_decision_quality(entity.uid, user_uid)
+
+    @rt("/api/choices/intelligence/domain-patterns")
+    @boundary_handler()
+    async def get_domain_decision_patterns_route(request: Request, user_uid: str) -> Result[Any]:
+        """
+        Get decision patterns by life domain.
+
+        Analyzes how user makes decisions across different life domains
+        (work, health, relationships, etc.).
+
+        Query params:
+            days (optional): Number of days to analyze (default: 90)
+
+        Returns:
+            Dict mapping domains to decision pattern metrics
+        """
+        params = dict(request.query_params)
+        days = int(params.get("days", 90))
+
+        return await choice_service.intelligence.get_domain_decision_patterns(user_uid, days=days)
+
     return []  # Routes registered via @rt() decorators (no objects returned)
 
 

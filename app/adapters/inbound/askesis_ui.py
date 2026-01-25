@@ -94,7 +94,8 @@ class AskesisUI:
                             Button(
                                 "Send Message",
                                 type="submit",
-                                variant=ButtonT.primary, cls="px-8",
+                                variant=ButtonT.primary,
+                                cls="px-8",
                                 id="send-btn",
                             ),
                             cls="flex items-center justify-between",
@@ -132,7 +133,8 @@ class AskesisUI:
                 Div(
                     Button(
                         "Show quick shortcuts",
-                        variant=ButtonT.ghost, cls="btn-sm",
+                        variant=ButtonT.ghost,
+                        cls="btn-sm",
                         **{
                             "onclick": "document.getElementById('shortcuts').classList.toggle('hidden')",
                         },

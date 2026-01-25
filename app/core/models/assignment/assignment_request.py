@@ -84,3 +84,67 @@ class AssignmentQueryRequest(BaseModel):
     end_date: datetime | None = Field(None, description="End date filter")
     limit: int = Field(50, ge=1, le=500, description="Max results")
     offset: int = Field(0, ge=0, description="Pagination offset")
+
+
+# ========================================================================
+# CONTENT MANAGEMENT REQUEST MODELS
+# ========================================================================
+
+
+class CategorizeAssignmentRequest(BaseModel):
+    """Request to categorize an assignment."""
+
+    category: str = Field(
+        ...,
+        description="Category from AssignmentCategory constants",
+        examples=["daily", "weekly", "reflection", "work"],
+    )
+
+
+class AddTagsRequest(BaseModel):
+    """Request to add tags to an assignment."""
+
+    tags: list[str] = Field(
+        ...,
+        min_length=1,
+        description="List of tags to add",
+        examples=[["work", "priority", "review"]],
+    )
+
+
+class RemoveTagsRequest(BaseModel):
+    """Request to remove tags from an assignment."""
+
+    tags: list[str] = Field(
+        ..., min_length=1, description="List of tags to remove"
+    )
+
+
+class BulkCategorizeRequest(BaseModel):
+    """Request to categorize multiple assignments."""
+
+    assignment_uids: list[str] = Field(
+        ..., min_length=1, description="List of assignment UIDs"
+    )
+    category: str = Field(..., description="Category to assign")
+
+
+class BulkTagRequest(BaseModel):
+    """Request to tag multiple assignments."""
+
+    assignment_uids: list[str] = Field(
+        ..., min_length=1, description="List of assignment UIDs"
+    )
+    tags: list[str] = Field(..., min_length=1, description="List of tags to add")
+
+
+class BulkDeleteRequest(BaseModel):
+    """Request to delete multiple assignments."""
+
+    assignment_uids: list[str] = Field(
+        ..., min_length=1, description="List of assignment UIDs to delete"
+    )
+    soft_delete: bool = Field(
+        default=True,
+        description="If True, archive instead of permanent delete",
+    )

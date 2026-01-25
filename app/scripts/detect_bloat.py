@@ -43,10 +43,12 @@ class BloatDetector:
         self.event_definitions: dict[str, list[str]] = defaultdict(list)  # event_class -> [files]
         self.event_publications: dict[str, list[str]] = defaultdict(list)  # event_class -> [files]
         self.event_subscriptions: dict[str, list[str]] = defaultdict(list)  # event_class -> [files]
+        self.event_imports: dict[str, list[str]] = defaultdict(list)  # NEW: event_class -> [files]
 
         # Method tracking
         self.method_definitions: dict[str, list[str]] = defaultdict(list)  # method_name -> [files]
         self.method_calls: dict[str, list[str]] = defaultdict(list)  # method_name -> [files]
+        self.reflection_calls: dict[str, list[str]] = defaultdict(list)  # NEW: method_name -> [files using reflection]
 
         # Service method tracking (public methods in services)
         self.service_methods: dict[str, dict[str, list[str]]] = defaultdict(
@@ -99,6 +101,9 @@ class BloatDetector:
                     if "core/services" in str(py_file) and "_service.py" in py_file.name:
                         self._scan_service_methods(content, str(relative_path), py_file.stem)
 
+                # Scan for event imports
+                self._scan_event_imports(content, str(relative_path))
+
                 # Scan for event publications
                 self._scan_event_publications(content, str(relative_path))
 
@@ -126,6 +131,18 @@ class BloatDetector:
                                 print(f"  📝 Found event definition: {node.name} in {file_path}")
         except SyntaxError:
             pass  # Skip files with syntax errors
+
+    def _scan_event_imports(self, content: str, file_path: str) -> None:
+        """Track event imports to correlate with usage."""
+        # Pattern: from core.events import EventName
+        # Pattern: from core.events.{module}_events import EventName
+        import_pattern = r'from core\.events(?:\.\w+)? import .*?([A-Z]\w+(?:Event|Created|Updated|Deleted|Completed|Made|Recorded|Paid|Achieved|Mastered|Started|Changed|Assessed|Generated|Earned|Broken|Missed|Reached|Abandoned|Analyzed|Invalidated|Practiced|Milestone|Rescheduled|Applied|Task|Habit|Choice|Journal))'
+        matches = re.finditer(import_pattern, content)
+        for match in matches:
+            event_class = match.group(1)
+            self.event_imports[event_class].append(file_path)
+            if self.verbose:
+                print(f"  📥 Found event import: {event_class} in {file_path}")
 
     def _scan_event_publications(self, content: str, file_path: str) -> None:
         """Scan for event publications (event_bus.publish_async calls)."""
@@ -169,14 +186,14 @@ class BloatDetector:
         # Build comprehensive pattern
         suffix_pattern = "|".join(event_suffixes)
 
-        # Method 1: event = EventClass(...) then publish_async(event)
+        # Method 1: event = EventClass(...) then publish_async(event) OR publish_event(...)
         # Match any capitalized class ending with event suffixes
         event_instantiation_pattern = rf"(\w+)\s*=\s*([A-Z]\w*(?:{suffix_pattern}))\("
         matches = re.finditer(event_instantiation_pattern, content)
         for match in matches:
             event_class = match.group(2)
-            # Check if followed by publish_async (increased lookahead for multiline constructors)
-            if "publish_async" in content[match.end() : match.end() + 1500]:
+            # Check if followed by publish_async OR publish_event (increased lookahead for multiline constructors)
+            if "publish_async" in content[match.end() : match.end() + 1500] or "publish_event" in content[match.end() : match.end() + 1500]:
                 self.event_publications[event_class].append(file_path)
                 if self.verbose:
                     print(f"  📤 Found event publication: {event_class} in {file_path}")
@@ -189,6 +206,16 @@ class BloatDetector:
             self.event_publications[event_class].append(file_path)
             if self.verbose:
                 print(f"  📤 Found event publication: {event_class} in {file_path}")
+
+        # Method 3: publish_event(event_bus, EventClass(...), logger)
+        # This is the MOST COMMON pattern in SKUEL
+        helper_publish_pattern = rf"publish_event\([^,]+,\s*([A-Z]\w*(?:{suffix_pattern}))\("
+        matches = re.finditer(helper_publish_pattern, content)
+        for match in matches:
+            event_class = match.group(1)
+            self.event_publications[event_class].append(file_path)
+            if self.verbose:
+                print(f"  📤 Found event publication (helper): {event_class} in {file_path}")
 
     def _scan_event_subscriptions(self, content: str, file_path: str) -> None:
         """Scan for event subscriptions (event_bus.subscribe calls)."""
@@ -224,7 +251,7 @@ class BloatDetector:
             pass
 
     def _scan_method_calls(self, content: str, file_path: str) -> None:
-        """Scan for method calls."""
+        """Scan for method calls including reflection patterns."""
         # Pattern: .method_name(  or  service.method_name(
         method_call_pattern = r"\.(\w+)\("
         matches = re.finditer(method_call_pattern, content)
@@ -240,6 +267,39 @@ class BloatDetector:
                 service_name = smatch.group(1)
                 method_name = smatch.group(2)
                 self.service_method_calls[service_name][method_name].append(file_path)
+
+        # NEW: Detect reflection-based method calls
+        # Pattern: getattr(obj, "method_name") or getattr(Service, "method_name")
+        reflection_pattern = r'getattr\([^,]+,\s*["\'](\w+)["\']'
+        matches = re.finditer(reflection_pattern, content)
+        for match in matches:
+            method_name = match.group(1)
+            self.method_calls[method_name].append(file_path)
+            self.reflection_calls[method_name].append(file_path)
+            if self.verbose:
+                print(f"  🔍 Found reflection call: {method_name} in {file_path}")
+
+        # NEW: Track dynamic method construction (f"{var}_method_suffix")
+        # Pattern: getattr(obj, f"{entity}_create_to_pure") or similar
+        # This catches ConversionService patterns like {entity}_to_pure, {entity}_to_dto
+        dynamic_pattern = r'getattr\([^,]+,\s*f["\'][^"\']*\{[^}]+\}[^"\']*?(_to_\w+|_create_to_\w+|_update_to_\w+)["\']'
+        matches = re.finditer(dynamic_pattern, content)
+        for match in matches:
+            method_suffix = match.group(1)
+            # Mark this as a reflection pattern usage
+            self.reflection_calls[f"*{method_suffix}"].append(file_path)
+            if self.verbose:
+                print(f"  🔍 Found dynamic reflection pattern: *{method_suffix} in {file_path}")
+
+        # NEW: Special pattern for ConversionService - any getattr on ConversionService/V2 is reflection
+        # Pattern: getattr(ConversionService[V2], ...)
+        conversion_service_pattern = r'getattr\((ConversionService(?:V2)?),\s*(\w+)'
+        matches = re.finditer(conversion_service_pattern, content)
+        for match in matches:
+            # Mark all conversion service methods as reflection-used
+            self.reflection_calls["*conversion_service*"].append(file_path)
+            if self.verbose:
+                print(f"  🔍 Found ConversionService reflection usage in {file_path}")
 
     def find_unused_events(self) -> list[dict[str, Any]]:
         """Find events that are defined but never published."""
@@ -303,6 +363,24 @@ class BloatDetector:
                     )
 
         return unused
+
+    def _is_reflection_method(self, service: str, method: str) -> bool:
+        """Check if method is used via reflection."""
+        # Direct reflection call
+        if method in self.reflection_calls:
+            return True
+
+        # ConversionService - if we found any ConversionService reflection usage
+        if service == "conversion_service":
+            # If we detected ConversionService reflection usage, all its methods are reflection-used
+            if "*conversion_service*" in self.reflection_calls:
+                return True
+            # Check for patterns like *_to_pure, *_to_dto, etc.
+            for pattern in self.reflection_calls.keys():
+                if pattern.startswith("*") and pattern[1:] in method:
+                    return True
+
+        return False
 
     def generate_report(
         self, check_events: bool = True, check_methods: bool = True
@@ -406,6 +484,9 @@ class BloatDetector:
                         print(f"    {RED}✗{RESET} {item['method']}")
                         if item["called_in"]:
                             print(f"      (called internally in {len(item['called_in'])} places)")
+                        # NEW: Note if used via reflection
+                        if self._is_reflection_method(item['service'], item['method']):
+                            print(f"      {CYAN}ℹ️  Used via reflection (getattr){RESET}")
                     print()
             else:
                 print(f"  {GREEN}✓ No unused service methods found!{RESET}\n")

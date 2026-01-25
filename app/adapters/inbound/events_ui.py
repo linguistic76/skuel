@@ -823,7 +823,8 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                         Button(
                             "Cancel",
                             type="button",
-                            variant=ButtonT.ghost, cls="ml-2",
+                            variant=ButtonT.ghost,
+                            cls="ml-2",
                             **{
                                 "hx-get": "/events",
                                 "hx-target": "body",

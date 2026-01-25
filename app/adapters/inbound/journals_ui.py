@@ -31,7 +31,17 @@ from starlette.requests import Request
 from core.auth import require_authenticated_user
 from core.models.enums.journal_enums import JournalType
 from core.models.journal.journal_pure import create_journal
-from core.ui.daisy_components import Button, ButtonT, Card, CardBody, Container, Div, Input, Label, Span
+from core.ui.daisy_components import (
+    Button,
+    ButtonT,
+    Card,
+    CardBody,
+    Container,
+    Div,
+    Input,
+    Label,
+    Span,
+)
 from core.utils.logging import get_logger
 from ui.layouts.navbar import create_navbar_for_request
 

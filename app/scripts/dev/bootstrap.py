@@ -389,7 +389,12 @@ async def _wire_all_routes(
         from adapters.inbound.assignments_ui import create_assignments_ui_routes
 
         create_assignments_api_routes(
-            app, rt, services.assignments, services.processing_pipeline, services.assignments_query
+            app,
+            rt,
+            services.assignments,
+            services.processing_pipeline,
+            services.assignments_query,
+            services.assignments_core,
         )
         create_assignments_ui_routes(app, rt, services.assignments, services.processing_pipeline)
         logger.info(

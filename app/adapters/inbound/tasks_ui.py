@@ -349,7 +349,9 @@ def create_tasks_ui_routes(
                 scheduled = date.fromisoformat(scheduled_date_str)
                 due = date.fromisoformat(due_date_str)
                 if due < scheduled:
-                    return Result.fail(Errors.validation("Due date cannot be before scheduled date"))
+                    return Result.fail(
+                        Errors.validation("Due date cannot be before scheduled date")
+                    )
             except ValueError:
                 return Result.fail(Errors.validation("Invalid date format"))
 
