@@ -562,14 +562,14 @@ async def _wire_all_routes(
     # Report Generation API routes
     from routes.api.report_routes import create_report_routes
 
-    create_report_routes(app, services)
+    create_report_routes(app, rt, services)
     logger.info("✅ Report routes registered (FastHTML-aligned)")
 
-    # Journal Project API routes
-    from routes.api.journal_project_routes import create_journal_project_routes
+    # Journal Projects routes (Factory pattern)
+    from adapters.inbound.journal_projects_routes import create_journal_projects_routes
 
-    create_journal_project_routes(app, services)
-    logger.info("✅ Journal project API routes registered (FastHTML-aligned)")
+    create_journal_projects_routes(app, rt, services)
+    logger.info("✅ Journal projects routes registered (Factory pattern)")
 
     # GraphQL API routes (REQUIRED - fail-fast)
     # One Path Forward: GraphQL uses SearchRouter (January 2026)

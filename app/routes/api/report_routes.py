@@ -13,6 +13,8 @@ FastHTML Conventions Applied:
 - Function names define routes
 - Query parameters with type hints
 - Automatic parameter extraction
+- Result[T] pattern with @boundary_handler
+- @rt() decorators for route registration
 
 Endpoints:
 - GET /reports/generate - Generate report for any domain and period
@@ -28,6 +30,7 @@ from typing import Any
 from core.models.shared_enums import ReportType
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
@@ -37,12 +40,14 @@ logger = get_logger(__name__)
 # ============================================================================
 
 
-def create_report_routes(app, services):
+def create_report_routes(app, rt, services):
     """Create and register report routes (FastHTML-aligned)."""
 
-    @app.get("/reports/generate")
+    @rt("/reports/generate")
     @boundary_handler()
-    async def generate(request) -> Any:
+    async def generate(
+        user_uid: str, report_type: str, period_start: str, period_end: str
+    ) -> Result[Any]:
         """
         Generate statistical report for any domain and period.
 
@@ -57,72 +62,70 @@ def create_report_routes(app, services):
         - 400: Invalid parameters
         - 503: Report service not available
         """
-        params = dict(request.query_params)
-        user_uid = params.get("user_uid")
-        report_type_str = params.get("report_type")
-        period_start_str = params.get("period_start")
-        period_end_str = params.get("period_end")
-
-        # Validate required params
-        if not user_uid:
-            return {"error": "user_uid is required"}, 400
-        if not report_type_str:
-            return {
-                "error": "report_type is required (tasks, habits, goals, events, finance, choices)"
-            }, 400
-        if not period_start_str or not period_end_str:
-            return {"error": "period_start and period_end are required (YYYY-MM-DD format)"}, 400
-
         # Check service availability
         if not services.reports:
-            return {"error": "Report service not available"}, 503
+            return Result.fail(
+                Errors.system("Report service not available", service="ReportsService")
+            )
 
         # Parse report type
         try:
-            report_type = ReportType(report_type_str.lower())
+            parsed_report_type = ReportType(report_type.lower())
         except ValueError:
-            return {
-                "error": f"Invalid report_type. Must be one of: {', '.join(r.value for r in ReportType)}"
-            }, 400
+            return Result.fail(
+                Errors.validation(
+                    f"Invalid report_type. Must be one of: {', '.join(r.value for r in ReportType)}",
+                    field="report_type",
+                    value=report_type,
+                )
+            )
 
         # Parse dates
         try:
-            period_start = datetime.strptime(period_start_str, "%Y-%m-%d").date()
-            period_end = datetime.strptime(period_end_str, "%Y-%m-%d").date()
+            parsed_period_start = datetime.strptime(period_start, "%Y-%m-%d").date()
+            parsed_period_end = datetime.strptime(period_end, "%Y-%m-%d").date()
         except ValueError:
-            return {"error": "Invalid date format. Use YYYY-MM-DD"}, 400
+            return Result.fail(
+                Errors.validation(
+                    "Invalid date format. Use YYYY-MM-DD",
+                    field="period_start/period_end",
+                    value=f"{period_start}/{period_end}",
+                )
+            )
 
         # Generate report
         result = await services.reports.generate_report(
             user_uid=user_uid,
-            report_type=report_type,
-            period_start=period_start,
-            period_end=period_end,
+            report_type=parsed_report_type,
+            period_start=parsed_period_start,
+            period_end=parsed_period_end,
         )
 
         if result.is_error:
             logger.error(f"Failed to generate report: {result.error}")
-            return {"error": "Report generation failed", "details": str(result.error)}, 500
+            return result
 
         report = result.value
 
         # Return report data
-        return {
-            "uid": report.uid,
-            "report_type": report.report_type.value,
-            "user_uid": report.user_uid,
-            "period_start": report.period_start.isoformat(),
-            "period_end": report.period_end.isoformat(),
-            "period_days": report.get_period_days(),
-            "generated_at": report.generated_at.isoformat(),
-            "title": report.title,
-            "metrics": report.metrics,
-            "markdown": report.markdown_content,
-        }, 200
+        return Result.ok(
+            {
+                "uid": report.uid,
+                "report_type": report.report_type.value,
+                "user_uid": report.user_uid,
+                "period_start": report.period_start.isoformat(),
+                "period_end": report.period_end.isoformat(),
+                "period_days": report.get_period_days(),
+                "generated_at": report.generated_at.isoformat(),
+                "title": report.title,
+                "metrics": report.metrics,
+                "markdown": report.markdown_content,
+            }
+        )
 
-    @app.get("/reports/monthly")
+    @rt("/reports/monthly")
     @boundary_handler()
-    async def monthly(request) -> Any:
+    async def monthly(user_uid: str, report_type: str, year: str, month: str) -> Result[Any]:
         """
         Generate monthly report for a domain.
 
@@ -137,60 +140,54 @@ def create_report_routes(app, services):
         - 400: Invalid parameters
         - 503: Report service not available
         """
-        params = dict(request.query_params)
-        user_uid = params.get("user_uid")
-        report_type_str = params.get("report_type")
-        year_str = params.get("year")
-        month_str = params.get("month")
-
-        # Validate
-        if not user_uid:
-            return {"error": "user_uid is required"}, 400
-        if not report_type_str:
-            return {"error": "report_type is required"}, 400
-        if not year_str or not month_str:
-            return {"error": "year and month are required"}, 400
-
         # Check service
         if not services.reports:
-            return {"error": "Report service not available"}, 503
+            return Result.fail(
+                Errors.system("Report service not available", service="ReportsService")
+            )
 
         # Parse
         try:
-            report_type = ReportType(report_type_str.lower())
-            year = int(year_str)
-            month = int(month_str)
-            if not (1 <= month <= 12):
-                return {"error": "month must be between 1 and 12"}, 400
+            parsed_report_type = ReportType(report_type.lower())
+            parsed_year = int(year)
+            parsed_month = int(month)
+            if not (1 <= parsed_month <= 12):
+                return Result.fail(
+                    Errors.validation("month must be between 1 and 12", field="month", value=month)
+                )
         except ValueError as e:
-            return {"error": f"Invalid parameter: {e}"}, 400
+            return Result.fail(Errors.validation(f"Invalid parameter: {e}", field="year/month"))
 
         # Generate
         result = await services.reports.generate_monthly_report(
-            user_uid=user_uid, report_type=report_type, year=year, month=month
+            user_uid=user_uid, report_type=parsed_report_type, year=parsed_year, month=parsed_month
         )
 
         if result.is_error:
             logger.error(f"Failed to generate monthly report: {result.error}")
-            return {"error": "Report generation failed"}, 500
+            return result
 
         report = result.value
 
-        return {
-            "uid": report.uid,
-            "report_type": report.report_type.value,
-            "user_uid": report.user_uid,
-            "period_start": report.period_start.isoformat(),
-            "period_end": report.period_end.isoformat(),
-            "generated_at": report.generated_at.isoformat(),
-            "title": report.title,
-            "metrics": report.metrics,
-            "markdown": report.markdown_content,
-        }, 200
+        return Result.ok(
+            {
+                "uid": report.uid,
+                "report_type": report.report_type.value,
+                "user_uid": report.user_uid,
+                "period_start": report.period_start.isoformat(),
+                "period_end": report.period_end.isoformat(),
+                "generated_at": report.generated_at.isoformat(),
+                "title": report.title,
+                "metrics": report.metrics,
+                "markdown": report.markdown_content,
+            }
+        )
 
-    @app.get("/reports/weekly")
+    @rt("/reports/weekly")
     @boundary_handler()
-    async def weekly(request) -> Any:
+    async def weekly(
+        user_uid: str, report_type: str, week_start: str | None = None
+    ) -> Result[Any]:
         """
         Generate weekly report for a domain.
 
@@ -204,61 +201,60 @@ def create_report_routes(app, services):
         - 400: Invalid parameters
         - 503: Report service not available
         """
-        params = dict(request.query_params)
-        user_uid = params.get("user_uid")
-        report_type_str = params.get("report_type")
-        week_start_str = params.get("week_start")
-
-        # Validate
-        if not user_uid:
-            return {"error": "user_uid is required"}, 400
-        if not report_type_str:
-            return {"error": "report_type is required"}, 400
-
         # Check service
         if not services.reports:
-            return {"error": "Report service not available"}, 503
+            return Result.fail(
+                Errors.system("Report service not available", service="ReportsService")
+            )
 
         # Parse report type
         try:
-            report_type = ReportType(report_type_str.lower())
+            parsed_report_type = ReportType(report_type.lower())
         except ValueError:
-            return {"error": "Invalid report_type"}, 400
+            return Result.fail(
+                Errors.validation("Invalid report_type", field="report_type", value=report_type)
+            )
 
         # Parse week_start if provided
-        week_start = None
-        if week_start_str:
+        parsed_week_start = None
+        if week_start:
             try:
-                week_start = datetime.strptime(week_start_str, "%Y-%m-%d").date()
+                parsed_week_start = datetime.strptime(week_start, "%Y-%m-%d").date()
             except ValueError:
-                return {"error": "Invalid date format. Use YYYY-MM-DD"}, 400
+                return Result.fail(
+                    Errors.validation(
+                        "Invalid date format. Use YYYY-MM-DD", field="week_start", value=week_start
+                    )
+                )
 
         # Generate
         result = await services.reports.generate_weekly_report(
-            user_uid=user_uid, report_type=report_type, week_start=week_start
+            user_uid=user_uid, report_type=parsed_report_type, week_start=parsed_week_start
         )
 
         if result.is_error:
             logger.error(f"Failed to generate weekly report: {result.error}")
-            return {"error": "Report generation failed"}, 500
+            return result
 
         report = result.value
 
-        return {
-            "uid": report.uid,
-            "report_type": report.report_type.value,
-            "user_uid": report.user_uid,
-            "period_start": report.period_start.isoformat(),
-            "period_end": report.period_end.isoformat(),
-            "generated_at": report.generated_at.isoformat(),
-            "title": report.title,
-            "metrics": report.metrics,
-            "markdown": report.markdown_content,
-        }, 200
+        return Result.ok(
+            {
+                "uid": report.uid,
+                "report_type": report.report_type.value,
+                "user_uid": report.user_uid,
+                "period_start": report.period_start.isoformat(),
+                "period_end": report.period_end.isoformat(),
+                "generated_at": report.generated_at.isoformat(),
+                "title": report.title,
+                "metrics": report.metrics,
+                "markdown": report.markdown_content,
+            }
+        )
 
-    @app.get("/reports/yearly")
+    @rt("/reports/yearly")
     @boundary_handler()
-    async def yearly(request) -> Any:
+    async def yearly(user_uid: str, report_type: str, year: str) -> Result[Any]:
         """
         Generate yearly report for a domain.
 
@@ -272,62 +268,56 @@ def create_report_routes(app, services):
         - 400: Invalid parameters
         - 503: Report service not available
         """
-        params = dict(request.query_params)
-        user_uid = params.get("user_uid")
-        report_type_str = params.get("report_type")
-        year_str = params.get("year")
-
-        # Validate
-        if not user_uid:
-            return {"error": "user_uid is required"}, 400
-        if not report_type_str:
-            return {"error": "report_type is required"}, 400
-        if not year_str:
-            return {"error": "year is required"}, 400
-
         # Check service
         if not services.reports:
-            return {"error": "Report service not available"}, 503
+            return Result.fail(
+                Errors.system("Report service not available", service="ReportsService")
+            )
 
         # Parse
         try:
-            report_type = ReportType(report_type_str.lower())
-            year = int(year_str)
+            parsed_report_type = ReportType(report_type.lower())
+            parsed_year = int(year)
         except ValueError as e:
-            return {"error": f"Invalid parameter: {e}"}, 400
+            return Result.fail(Errors.validation(f"Invalid parameter: {e}", field="year"))
 
         # Generate
         result = await services.reports.generate_yearly_report(
-            user_uid=user_uid, report_type=report_type, year=year
+            user_uid=user_uid, report_type=parsed_report_type, year=parsed_year
         )
 
         if result.is_error:
             logger.error(f"Failed to generate yearly report: {result.error}")
-            return {"error": "Report generation failed"}, 500
+            return result
 
         report = result.value
 
-        return {
-            "uid": report.uid,
-            "report_type": report.report_type.value,
-            "user_uid": report.user_uid,
-            "period_start": report.period_start.isoformat(),
-            "period_end": report.period_end.isoformat(),
-            "generated_at": report.generated_at.isoformat(),
-            "title": report.title,
-            "metrics": report.metrics,
-            "markdown": report.markdown_content,
-        }, 200
+        return Result.ok(
+            {
+                "uid": report.uid,
+                "report_type": report.report_type.value,
+                "user_uid": report.user_uid,
+                "period_start": report.period_start.isoformat(),
+                "period_end": report.period_end.isoformat(),
+                "generated_at": report.generated_at.isoformat(),
+                "title": report.title,
+                "metrics": report.metrics,
+                "markdown": report.markdown_content,
+            }
+        )
 
-    @app.get("/reports/health-check")
-    async def health_check() -> tuple[dict[str, Any], int]:
+    @rt("/reports/health-check")
+    @boundary_handler()
+    async def health_check() -> Result[Any]:
         """Check if report service is available."""
-        return {
-            "service": "reports",
-            "available": services.reports is not None,
-            "report_types": [r.value for r in ReportType],
-            "timestamp": datetime.now().isoformat(),
-        }, 200
+        return Result.ok(
+            {
+                "service": "reports",
+                "available": services.reports is not None,
+                "report_types": [r.value for r in ReportType],
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     logger.info("✅ Report routes registered (FastHTML-aligned)")
 
