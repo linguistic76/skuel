@@ -1,8 +1,9 @@
 """
-API Models
-==========
+API Request Models
+==================
 
-Data models for API requests and responses.
+Pydantic models for validating API request bodies.
+Response models removed - use Result[T] pattern instead.
 """
 
 __version__ = "1.0"
@@ -11,40 +12,6 @@ __version__ = "1.0"
 from typing import Any
 
 from pydantic import BaseModel
-
-
-class SKUELResponse(BaseModel):
-    """Base response model for SKUEL API"""
-
-    success: bool = True
-    data: Any = None
-    message: str | None = None
-
-
-class SKUELErrorResponse(BaseModel):
-    """Error response model for SKUEL API"""
-
-    success: bool = False
-    error: str
-    details: dict[str, Any] | None = None
-
-
-def create_error_response(error: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Create an error response dictionary"""
-    response = {"success": False, "error": error}
-    if details:
-        response["details"] = details
-    return response
-
-
-def create_success_response(data: Any = None, message: str | None = None) -> dict[str, Any]:
-    """Create a success response dictionary"""
-    response = {"success": True}
-    if data is not None:
-        response["data"] = data
-    if message:
-        response["message"] = message
-    return response
 
 
 # Request models for various endpoints

@@ -1,25 +1,25 @@
 """
-API Response Helpers - Centralized Response Formatting
-======================================================
+API Response Helpers - Result[T] Boundary Conversion
+====================================================
 
-Standardized JSON API response helpers used across all intelligence APIs.
+Converts Result[T] to JSONResponse at HTTP boundaries via @boundary_handler.
 
-This module provides consistent response formatting for:
-- Success responses with data
-- Error responses with details
-- Intelligence-specific metadata
-- Standardized status codes
-
-Usage:
-    from core.utils.api_responses import success_response, error_response
-
+Modern Usage (via boundary_handler):
     @rt("/api/example", methods=["GET"])
+    @boundary_handler()
     async def example_route(request):
-        try:
-            data = await service.get_data()
-            return success_response(data)
-        except Exception as e:
-            return error_response(str(e), status_code=500)
+        result = await service.get_data()
+        return result  # Auto-converted to JSONResponse
+
+Legacy Direct Usage (calendar UI components only):
+    from core.utils.api_responses import error_response
+    return error_response("Not found", status_code=404)
+
+Available Functions:
+    - success_response() - Used by @boundary_handler
+    - error_response() - Used by @boundary_handler
+    - build_metadata() - Used by services
+    - intelligence_metadata() - Used by intelligence services
 """
 
 from datetime import datetime
@@ -106,145 +106,6 @@ def error_response(
     return JSONResponse(content=content, status_code=status_code, headers=headers or {})
 
 
-def intelligence_response(
-    data: Any,
-    status_code: int = 200,
-    intelligence_version: str = "v2",
-    generated_at: datetime | None = None,
-    confidence: float | None = None,
-    headers: dict[str, str] | None = None,
-) -> JSONResponse:
-    """
-    Create intelligence-specific success response with metadata.
-
-    Args:
-        data: Intelligence data,
-        status_code: HTTP status code (default 200),
-        intelligence_version: Version of intelligence engine (default "v2"),
-        generated_at: Timestamp of generation (defaults to now),
-        confidence: Optional confidence score (0.0-1.0),
-        headers: Optional custom headers
-
-    Returns:
-        JSONResponse with intelligence metadata,
-
-    Example:
-        >>> intelligence_response({"insights": [...]}, ConfidenceLevel.HIGH)
-        JSONResponse({
-            "success": True,
-            "data": {"insights": [...]},
-            "intelligence_version": "v2",
-            "generated_at": "2025-10-09T...",
-            "confidence": 0.92
-        }, 200)
-    """
-    metadata = {
-        "intelligence_version": intelligence_version,
-        "generated_at": (generated_at or datetime.now()).isoformat(),
-    }
-
-    if confidence is not None:
-        metadata["confidence"] = confidence
-
-    return success_response(data=data, status_code=status_code, headers=headers, metadata=metadata)
-
-
-def analytics_response(
-    data: Any,
-    period: str | None = None,
-    aggregation: str | None = None,
-    total_count: int | None = None,
-    status_code: int = 200,
-    headers: dict[str, str] | None = None,
-) -> JSONResponse:
-    """
-    Create analytics-specific success response with metadata.
-
-    Args:
-        data: Analytics data,
-        period: Time period of analytics (e.g., "day", "week", "month"),
-        aggregation: Aggregation method used (e.g., "sum", "average", "count"),
-        total_count: Total number of items analyzed,
-        status_code: HTTP status code (default 200),
-        headers: Optional custom headers
-
-    Returns:
-        JSONResponse with analytics metadata,
-
-    Example:
-        >>> analytics_response({"metrics": {...}}, period="week", total_count=150)
-        JSONResponse({
-            "success": True,
-            "data": {"metrics": {...}},
-            "period": "week",
-            "total_count": 150,
-            "generated_at": "2025-10-09T..."
-        }, 200)
-    """
-    metadata = {"generated_at": datetime.now().isoformat()}
-
-    if period:
-        metadata["period"] = period
-
-    if aggregation:
-        metadata["aggregation"] = aggregation
-
-    if total_count is not None:
-        metadata["total_count"] = total_count
-
-    return success_response(data=data, status_code=status_code, headers=headers, metadata=metadata)
-
-
-def recommendation_response(
-    recommendations: Any,
-    recommendation_type: str | None = None,
-    personalization_score: float | None = None,
-    total_candidates: int | None = None,
-    status_code: int = 200,
-    headers: dict[str, str] | None = None,
-) -> JSONResponse:
-    """
-    Create recommendation-specific success response with metadata.
-
-    Args:
-        recommendations: List of recommendations,
-        recommendation_type: Type of recommendations (e.g., "content", "learning", "tasks"),
-        personalization_score: Personalization score (0.0-1.0),
-        total_candidates: Total number of items considered,
-        status_code: HTTP status code (default 200),
-        headers: Optional custom headers
-
-    Returns:
-        JSONResponse with recommendation metadata,
-
-    Example:
-        >>> recommendation_response(
-        ...     [...], recommendation_type="learning", personalization_score=0.87
-        ... )
-        JSONResponse({
-            "success": True,
-            "data": [...],
-            "recommendation_type": "learning",
-            "personalization_score": 0.87,
-            "generated_at": "2025-10-09T..."
-        }, 200)
-    """
-    metadata = {"generated_at": datetime.now().isoformat()}
-
-    if recommendation_type:
-        metadata["recommendation_type"] = recommendation_type
-
-    if personalization_score is not None:
-        metadata["personalization_score"] = personalization_score
-
-    if total_candidates is not None:
-        metadata["total_candidates"] = total_candidates
-
-    return success_response(
-        data=recommendations, status_code=status_code, headers=headers, metadata=metadata
-    )
-
-
 def build_metadata(user_uid: str | None = None, **kwargs: Any) -> dict[str, Any]:
     """
     Build standardized metadata block for intelligence responses.
@@ -310,13 +171,8 @@ def intelligence_metadata(
 
 
 __all__ = [
-    "analytics_response",
     "build_metadata",
     "error_response",
-    "error_response_legacy",
     "intelligence_metadata",
-    "intelligence_response",
-    "recommendation_response",
     "success_response",
-    "success_response_legacy",
 ]

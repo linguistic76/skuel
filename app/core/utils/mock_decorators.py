@@ -16,7 +16,7 @@ Usage:
     @rt("/api/recommendations", methods=["GET"])
     @mock_endpoint(reason="Awaiting ML model training", version="v1")
     async def get_recommendations(request):
-        return success_response(MOCK_RECOMMENDATIONS)
+        return Result.ok(MOCK_RECOMMENDATIONS)
 """
 
 import functools
@@ -66,7 +66,7 @@ def mock_endpoint(
             backend_required=True
         )
         async def get_ai_suggestions(request):
-            return success_response(MOCK_AI_SUGGESTIONS)
+            return Result.ok(MOCK_AI_SUGGESTIONS)
     """
 
     def decorator(func: Callable) -> Callable:
@@ -137,7 +137,7 @@ def stub_endpoint(status: str = "minimal_implementation", todos: list | None = N
         async def optimize_habit_schedule(request):
             # Minimal implementation - just validates input
             body = await request.json()
-            return success_response({"message": "Optimization queued"})
+            return Result.ok({"message": "Optimization queued"})
     """
 
     def decorator(func: Callable) -> Callable:
