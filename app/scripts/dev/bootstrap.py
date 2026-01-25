@@ -548,6 +548,13 @@ async def _wire_all_routes(
     setup_user_profile_routes(rt, services)
     logger.info("✅ User profile hub routes registered")
 
+    # User pins routes (entity pinning/bookmarking)
+    if services.user_relationships:
+        from adapters.inbound.user_pins_api import create_user_pins_routes
+
+        create_user_pins_routes(app, rt, services.user_relationships)
+        logger.info("✅ User pins routes registered (4 endpoints: get, pin, unpin, reorder)")
+
     # Orchestration API routes (Phase 1 - Essential)
     from adapters.inbound.orchestration_routes import create_orchestration_routes
 
