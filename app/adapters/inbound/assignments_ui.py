@@ -96,8 +96,16 @@ def _get_status_badge_class(status: str) -> str:
     return classes.get(status, "badge-ghost")
 
 
-def _render_assignment_card(assignment: Any) -> Any:
-    """Render a single assignment card."""
+def _render_assignment_card(assignment: Any, is_pinned: bool = False) -> Any:
+    """
+    Render a single assignment card.
+
+    Args:
+        assignment: Assignment entity
+        is_pinned: Whether this assignment is pinned
+    """
+    from components.shared.pin_button import PinButton
+
     file_size_mb = (assignment.file_size / 1024 / 1024) if hasattr(assignment, "file_size") else 0
     return Div(
         Div(
@@ -117,11 +125,13 @@ def _render_assignment_card(assignment: Any) -> Any:
                     ),
                 ),
                 Div(
+                    PinButton(entity_uid=assignment.uid, is_pinned=is_pinned, size="xs"),
                     A(
                         "View",
                         href=f"/assignments/{assignment.uid}",
                         cls="btn btn-sm btn-ghost",
                     ),
+                    cls="flex gap-2",
                 ),
                 cls="flex items-center gap-4",
             ),

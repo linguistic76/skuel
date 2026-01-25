@@ -41,30 +41,41 @@ def create_user_pins_routes(_app, rt, user_relationship_service):
         return await user_relationship_service.get_pinned_entities(user_uid)
 
     @rt("/api/user/pins", methods=["POST"])
-    @boundary_handler()
-    async def pin_entity(request: Request) -> Result[bool]:
+    async def pin_entity(request: Request):
         """
         Pin an entity.
 
-        JSON body:
+        JSON body or form data:
         - entity_uid: UID of entity to pin
 
         Returns:
-        - True if pinned successfully
+        - Updated pin button HTML (for HTMX) or JSON (for API)
         """
         user_uid = require_authenticated_user(request)
 
-        body = await request.json()
-        entity_uid = body.get("entity_uid")
+        # Try JSON first, then form data (HTMX sends form data)
+        try:
+            body = await request.json()
+            entity_uid = body.get("entity_uid")
+        except Exception:
+            form = await request.form()
+            entity_uid = form.get("entity_uid")
 
         if not entity_uid:
             return Result.fail(Errors.validation("entity_uid required"))
 
-        return await user_relationship_service.pin_entity(user_uid, entity_uid)
+        result = await user_relationship_service.pin_entity(user_uid, entity_uid)
+
+        if result.is_error:
+            return result
+
+        # Return updated pin button for HTMX
+        from components.shared.pin_button import PinButton
+
+        return PinButton(entity_uid=entity_uid, is_pinned=True)
 
     @rt("/api/user/pins/{entity_uid}", methods=["DELETE"])
-    @boundary_handler()
-    async def unpin_entity(request: Request, entity_uid: str) -> Result[bool]:
+    async def unpin_entity(request: Request, entity_uid: str):
         """
         Unpin an entity.
 
@@ -72,10 +83,18 @@ def create_user_pins_routes(_app, rt, user_relationship_service):
         - entity_uid: UID of entity to unpin
 
         Returns:
-        - True if unpinned successfully
+        - Updated pin button HTML (for HTMX) or JSON (for API)
         """
         user_uid = require_authenticated_user(request)
-        return await user_relationship_service.unpin_entity(user_uid, entity_uid)
+        result = await user_relationship_service.unpin_entity(user_uid, entity_uid)
+
+        if result.is_error:
+            return result
+
+        # Return updated pin button for HTMX
+        from components.shared.pin_button import PinButton
+
+        return PinButton(entity_uid=entity_uid, is_pinned=False)
 
     @rt("/api/user/pins/reorder", methods=["POST"])
     @boundary_handler()
