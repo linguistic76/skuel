@@ -11,9 +11,7 @@ Usage:
     await PinnedItemsWidget(user_uid="user.mike", user_relationship_service=services.user_relationships)
 """
 
-from fasthtml.common import A, Div, H3, Li, Span, Ul
-
-from core.ui.daisy_components import Card
+from fasthtml.common import H3, A, Div, Li, Span, Ul
 
 
 async def PinnedItemsWidget(user_uid: str, user_relationship_service):

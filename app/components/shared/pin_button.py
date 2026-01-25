@@ -17,8 +17,6 @@ Usage:
 
 from fasthtml.common import Button, Span
 
-from core.ui.daisy_components import ButtonT
-
 
 def PinButton(entity_uid: str, is_pinned: bool = False, show_text: bool = False, size: str = "sm"):
     """

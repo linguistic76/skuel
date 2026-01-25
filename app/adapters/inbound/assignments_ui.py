@@ -38,12 +38,11 @@ from fasthtml.common import (
     Select,
     Span,
 )
-
-from core.ui.daisy_components import Button, ButtonT
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
 from core.auth import require_authenticated_user
+from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
 from ui.layouts.navbar import create_navbar_for_request
 
