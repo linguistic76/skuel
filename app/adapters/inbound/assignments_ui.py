@@ -216,6 +216,125 @@ def _render_processed_content(content: str | None, has_content: bool) -> Any:
     )
 
 
+def _render_category_selector(assignment: Any) -> Any:
+    """Render category selector for assignment."""
+    current_category = getattr(assignment.metadata, "category", None) if hasattr(assignment, "metadata") else None
+    categories = ["daily", "weekly", "reflection", "work", "personal", "other"]
+
+    return Div(
+        Label("Category:", cls="label"),
+        Select(
+            *[Option(cat.title(), value=cat, selected=(cat == current_category)) for cat in categories],
+            cls="select select-bordered w-full",
+            hx_post=f"/api/assignments/categorize?assignment_uid={assignment.uid}&user_uid={assignment.user_uid}",
+            hx_trigger="change",
+            hx_target=f"#category-display-{assignment.uid}",
+            hx_swap="outerHTML",
+            hx_vals='js:{category: event.target.value}',
+        ),
+        id=f"category-selector-{assignment.uid}",
+        cls="form-control",
+    )
+
+
+def _render_category_display(assignment: Any) -> Any:
+    """Render category display with edit button."""
+    current_category = getattr(assignment.metadata, "category", "none") if hasattr(assignment, "metadata") else "none"
+
+    return Div(
+        Span(f"Category: {current_category.title()}", cls="badge badge-primary"),
+        Button(
+            "Change",
+            cls="btn btn-xs btn-ghost ml-2",
+            hx_get=f"/assignments/{assignment.uid}/category-selector",
+            hx_target=f"#category-display-{assignment.uid}",
+            hx_swap="outerHTML",
+        ),
+        id=f"category-display-{assignment.uid}",
+    )
+
+
+def _render_tags_manager(assignment: Any) -> Any:
+    """Render tags manager for assignment."""
+    tags = getattr(assignment.metadata, "tags", []) if hasattr(assignment, "metadata") else []
+
+    tag_elements = [
+        Span(
+            tag,
+            Button(
+                "×",
+                cls="btn btn-xs btn-ghost ml-1",
+                hx_post=f"/api/assignments/tags/remove?assignment_uid={assignment.uid}&user_uid={assignment.user_uid}",
+                hx_vals=f'js:{{tags: ["{tag}"]}}',
+                hx_target=f"#tags-manager-{assignment.uid}",
+                hx_swap="outerHTML",
+            ),
+            cls="badge badge-secondary mr-2 mb-2",
+        )
+        for tag in tags
+    ]
+
+    return Div(
+        Div(*tag_elements, cls="flex flex-wrap") if tags else Div("No tags", cls="text-sm text-base-content/60"),
+        Form(
+            Input(
+                type="text",
+                name="new_tag",
+                placeholder="Add tag...",
+                cls="input input-bordered input-sm w-full max-w-xs",
+            ),
+            Button("Add Tag", type="submit", cls="btn btn-primary btn-sm ml-2"),
+            cls="flex items-center mt-2",
+            hx_post=f"/api/assignments/tags/add?assignment_uid={assignment.uid}&user_uid={assignment.user_uid}",
+            hx_vals='js:{tags: [document.querySelector(\'[name="new_tag"]\').value]}',
+            hx_target=f"#tags-manager-{assignment.uid}",
+            hx_swap="outerHTML",
+        ),
+        id=f"tags-manager-{assignment.uid}",
+        cls="p-4 bg-base-200 rounded-lg",
+    )
+
+
+def _render_status_buttons(assignment: Any) -> Any:
+    """Render status workflow buttons (publish/archive/draft)."""
+    current_status = assignment.status
+
+    return Div(
+        Div(
+            Button(
+                "📤 Publish",
+                cls="btn btn-success btn-sm",
+                hx_post=f"/api/assignments/publish?assignment_uid={assignment.uid}&user_uid={assignment.user_uid}",
+                hx_target=f"#status-buttons-{assignment.uid}",
+                hx_swap="outerHTML",
+                disabled=(current_status == "published"),
+            ),
+            Button(
+                "📁 Archive",
+                cls="btn btn-warning btn-sm ml-2",
+                hx_post=f"/api/assignments/archive?assignment_uid={assignment.uid}&user_uid={assignment.user_uid}",
+                hx_target=f"#status-buttons-{assignment.uid}",
+                hx_swap="outerHTML",
+                disabled=(current_status == "archived"),
+            ),
+            Button(
+                "📝 Mark as Draft",
+                cls="btn btn-ghost btn-sm ml-2",
+                hx_post=f"/api/assignments/draft?assignment_uid={assignment.uid}&user_uid={assignment.user_uid}",
+                hx_target=f"#status-buttons-{assignment.uid}",
+                hx_swap="outerHTML",
+                disabled=(current_status == "draft"),
+            ),
+            cls="flex gap-2",
+        ),
+        Div(
+            Span(f"Current status: {current_status}", cls="text-xs text-base-content/60 mt-2 block"),
+        ),
+        id=f"status-buttons-{assignment.uid}",
+        cls="p-4 bg-base-200 rounded-lg",
+    )
+
+
 # ============================================================================
 # ROUTE CREATION
 # ============================================================================
@@ -678,6 +797,40 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
             logger.error(f"Error loading assignment content: {e}", exc_info=True)
             return _render_processed_content(None, False)
 
+    # ========================================================================
+    # CONTENT MANAGEMENT UI ROUTES
+    # ========================================================================
+
+    @rt("/assignments/{uid}/category-selector")
+    async def get_category_selector(request: Request, uid: str) -> Any:
+        """HTMX endpoint for category selector."""
+        try:
+            result = await _assignment_service.get_assignment(uid)
+            if result.is_error:
+                return Div("Assignment not found", cls="text-error")
+
+            assignment = result.value
+            return _render_category_selector(assignment)
+
+        except Exception as e:
+            logger.error(f"Error loading category selector: {e}", exc_info=True)
+            return Div("Error loading category selector", cls="text-error")
+
+    @rt("/assignments/{uid}/tags-manager")
+    async def get_tags_manager(request: Request, uid: str) -> Any:
+        """HTMX endpoint for tags manager."""
+        try:
+            result = await _assignment_service.get_assignment(uid)
+            if result.is_error:
+                return Div("Assignment not found", cls="text-error")
+
+            assignment = result.value
+            return _render_tags_manager(assignment)
+
+        except Exception as e:
+            logger.error(f"Error loading tags manager: {e}", exc_info=True)
+            return Div("Error loading tags manager", cls="text-error")
+
     logger.info("Assignments UI routes created successfully")
 
     return [
@@ -687,4 +840,6 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
         get_assignments_grid,
         get_assignment_info,
         get_assignment_content,
+        get_category_selector,
+        get_tags_manager,
     ]
