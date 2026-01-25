@@ -11,8 +11,6 @@ __version__ = "1.0"
 from datetime import date
 from typing import Any
 
-from adapters.inbound.response_helpers import error_response
-
 # Pydantic schemas for boundary
 from core.auth import require_admin
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
@@ -89,7 +87,8 @@ def create_finance_api_routes(
 
     @rt("/api/expenses/date-range")
     @require_admin(user_service_getter)
-    async def get_expenses_by_date_range_route(request, current_user):
+    @boundary_handler()
+    async def get_expenses_by_date_range_route(request, current_user) -> Result[Any]:
         """Get expenses within a date range (admin only)"""
         params = dict(request.query_params)
 
@@ -122,9 +121,10 @@ def create_finance_api_routes(
             )
         else:
             error = result.error
-            return error_response(
-                error.user_message or error.message if error else "Unknown error",
-                error.details if error else None,
+            return Result.fail(
+                Errors.system(
+                    message=error.user_message or error.message if error else "Unknown error"
+                )
             )
 
     @rt("/api/expenses/search")

@@ -246,6 +246,7 @@ related: []
 
 | Document | Updated | Lines |
 |----------|---------|-------|
+| [Domain Route Config Migration](migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-01-24.md) | 2026-01-24 | 251 |
 | [Neo4j Label Standardization Migration Plan](migrations/NEO4J_LABEL_STANDARDIZATION.md) | 2025-11-27 | 167 |
 | [Ports to Protocols Migration History](migrations/PORTS_TO_PROTOCOLS_MIGRATION.md) | 2026-01-03 | 385 |
 

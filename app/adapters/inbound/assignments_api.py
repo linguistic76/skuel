@@ -23,17 +23,34 @@ Routes:
 """
 
 import tempfile
+from pathlib import Path
+from typing import Any
 
+from starlette.background import BackgroundTask
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
-from adapters.inbound.response_helpers import error_response, success_response
 from core.models.assignment import assignment_to_response
 from core.models.assignment.assignment import AssignmentStatus, AssignmentType, ProcessorType
+from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.routes.assignments.api")
+
+
+# ============================================================================
+# TEMP FILE CLEANUP HELPER
+# ============================================================================
+
+
+def cleanup_temp_file(filepath: str):
+    """Background task to cleanup temp files after response"""
+    try:
+        Path(filepath).unlink()
+    except Exception as e:
+        logger.warning(f"Failed to cleanup temp file {filepath}: {e}")
 
 
 # ============================================================================
@@ -71,7 +88,8 @@ def create_assignments_api_routes(
     # ========================================================================
 
     @rt("/api/assignments/upload")
-    async def upload_assignment_route(request: Request):
+    @boundary_handler(success_status=201)
+    async def upload_assignment_route(request: Request) -> Result[Any]:
         """
         Upload file for processing.
 
@@ -85,124 +103,123 @@ def create_assignments_api_routes(
         Returns:
         - 201 Created with assignment details
         """
+        # Get form data
+        form = await request.form()
+        uploaded_file = form.get("file")
+
+        if not uploaded_file:
+            return Result.fail(Errors.validation("No file provided", field="file"))
+
+        # Extract parameters
+        user_uid = form.get("user_uid")
+        if not user_uid:
+            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
+
+        assignment_type_str = form.get("assignment_type", "transcript")
+
+        # Debug logging
+        logger.info(
+            f"Received assignment_type from form: '{assignment_type_str}' (type: {type(assignment_type_str).__name__})"
+        )
+        logger.info(f"All form fields: {dict(form)}")
+
+        # Validate assignment_type
         try:
-            # Get form data
-            form = await request.form()
-            uploaded_file = form.get("file")
-
-            if not uploaded_file:
-                return error_response("No file provided", status_code=400)
-
-            # Extract parameters
-            user_uid = form.get("user_uid")
-            if not user_uid:
-                return error_response("user_uid is required", status_code=400)
-
-            assignment_type_str = form.get("assignment_type", "transcript")
-
-            # Debug logging
-            logger.info(
-                f"Received assignment_type from form: '{assignment_type_str}' (type: {type(assignment_type_str).__name__})"
-            )
-            logger.info(f"All form fields: {dict(form)}")
-
-            try:
-                assignment_type = AssignmentType(assignment_type_str)
-            except ValueError:
-                return error_response(
+            assignment_type = AssignmentType(assignment_type_str)
+        except ValueError:
+            return Result.fail(
+                Errors.validation(
                     f"Invalid assignment type: '{assignment_type_str}' (received as {type(assignment_type_str).__name__})",
-                    status_code=400,
+                    field="assignment_type",
                 )
-
-            processor_type_str = form.get("processor_type", "automatic")
-            try:
-                processor_type = ProcessorType(processor_type_str)
-            except ValueError:
-                return error_response(
-                    f"Invalid processor type: {processor_type_str}", status_code=400
-                )
-
-            # Type narrow auto_process to str
-            auto_process_val = form.get("auto_process", "false")
-            if isinstance(auto_process_val, str):
-                auto_process = auto_process_val.lower() == "true"
-            else:
-                auto_process = False
-
-            # Type narrow uploaded_file to UploadFile
-            if not isinstance(uploaded_file, UploadFile):
-                logger.error(
-                    f"Invalid file upload object: expected UploadFile, got {type(uploaded_file)}"
-                )
-                return error_response(
-                    "Invalid file upload - file must be uploadable", status_code=400
-                )
-
-            file_content = await uploaded_file.read()
-            filename = uploaded_file.filename
-
-            logger.info(
-                f"File upload: {filename} ({len(file_content)} bytes, type={assignment_type.value})"
             )
 
-            # Submit file
-            result = await assignment_service.submit_file(
-                file_content=file_content,
-                original_filename=filename,
-                user_uid=user_uid,
-                assignment_type=assignment_type,
-                processor_type=processor_type,
+        # Validate processor_type
+        processor_type_str = form.get("processor_type", "automatic")
+        try:
+            processor_type = ProcessorType(processor_type_str)
+        except ValueError:
+            return Result.fail(
+                Errors.validation(
+                    f"Invalid processor type: {processor_type_str}", field="processor_type"
+                )
             )
 
-            if result.is_error:
-                error = result.expect_error()
-                return error_response(
-                    error.user_message or error.message, details=error.details, status_code=500
+        # Type narrow auto_process to str
+        auto_process_val = form.get("auto_process", "false")
+        if isinstance(auto_process_val, str):
+            auto_process = auto_process_val.lower() == "true"
+        else:
+            auto_process = False
+
+        # Type narrow uploaded_file to UploadFile
+        if not isinstance(uploaded_file, UploadFile):
+            logger.error(
+                f"Invalid file upload object: expected UploadFile, got {type(uploaded_file)}"
+            )
+            return Result.fail(Errors.validation("Invalid file upload"))
+
+        file_content = await uploaded_file.read()
+        filename = uploaded_file.filename
+
+        # Size limit (100MB)
+        if len(file_content) > 100_000_000:
+            return Result.fail(Errors.validation("File too large (max 100MB)", field="file"))
+
+        logger.info(
+            f"File upload: {filename} ({len(file_content)} bytes, type={assignment_type.value})"
+        )
+
+        # Submit file
+        result = await assignment_service.submit_file(
+            file_content=file_content,
+            original_filename=filename,
+            user_uid=user_uid,
+            assignment_type=assignment_type,
+            processor_type=processor_type,
+        )
+
+        if result.is_error:
+            return result
+
+        assignment = result.value
+
+        # Auto-process if requested
+        if auto_process:
+            logger.info(f"Auto-processing assignment: {assignment.uid}")
+            process_result = await processing_service.process_assignment(assignment.uid)
+
+            if process_result.is_error:
+                # Return assignment anyway, but note processing failed
+                error = process_result.expect_error()
+                logger.warning(f"Auto-processing failed for {assignment.uid}: {error.message}")
+
+                # Processing failed but upload succeeded
+                return Result.ok(
+                    {
+                        "assignment": assignment_to_response(assignment),
+                        "processing_status": "failed",
+                        "processing_error": error.user_message or error.message,
+                        "message": "File uploaded but processing failed",
+                    }
                 )
 
-            assignment = result.value
+            assignment = process_result.value
 
-            # Auto-process if requested
-            if auto_process:
-                logger.info(f"Auto-processing assignment: {assignment.uid}")
-                process_result = await processing_service.process_assignment(assignment.uid)
-
-                if process_result.is_error:
-                    # Return assignment anyway, but note processing failed
-                    error = process_result.expect_error()
-                    logger.warning(f"Auto-processing failed for {assignment.uid}: {error.message}")
-
-                    # Processing failed but upload succeeded
-                    return success_response(
-                        data={
-                            "assignment": assignment_to_response(assignment),
-                            "processing_status": "failed",
-                            "processing_error": error.user_message or error.message,
-                            "message": "File uploaded but processing failed",
-                        },
-                        status_code=201,
-                    )
-
-                assignment = process_result.value
-
-            # Return success response
-            return success_response(
-                data={
-                    "assignment": assignment_to_response(assignment),
-                    "message": "File uploaded successfully",
-                },
-                status_code=201,
-            )
-
-        except Exception as e:
-            logger.error(f"Error uploading file: {e}", exc_info=True)
-            return error_response(f"Failed to upload file: {e!s}", status_code=500)
+        # Return success response
+        return Result.ok(
+            {
+                "assignment": assignment_to_response(assignment),
+                "message": "File uploaded successfully",
+            }
+        )
 
     # ========================================================================
     # LIST & QUERY
     # ========================================================================
 
     @rt("/api/assignments")
+    @boundary_handler()
     async def list_assignments_route(
         request: Request,
         user_uid: str | None = None,
@@ -210,7 +227,7 @@ def create_assignments_api_routes(
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ):
+    ) -> Result[Any]:
         """
         List assignments for a user with filters.
 
@@ -224,61 +241,58 @@ def create_assignments_api_routes(
         Returns:
         - List of assignments
         """
-        try:
-            if not user_uid:
-                return error_response("user_uid is required")
+        if not user_uid:
+            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
-            # Parse optional enum filters
-            parsed_assignment_type = None
-            if assignment_type:
-                try:
-                    parsed_assignment_type = AssignmentType(assignment_type)
-                except ValueError:
-                    return error_response(f"Invalid assignment type: {assignment_type}")
-
-            parsed_status = None
-            if status:
-                try:
-                    parsed_status = AssignmentStatus(status)
-                except ValueError:
-                    return error_response(f"Invalid status: {status}")
-
-            # List assignments
-            result = await assignment_service.list_assignments(
-                user_uid=user_uid,
-                assignment_type=parsed_assignment_type,
-                status=parsed_status,
-                limit=limit,
-                offset=offset,
-            )
-
-            if result.is_error:
-                return error_response(
-                    result.error.user_message if result.error else "Failed to list assignments",
-                    status_code=500,
+        # Parse optional enum filters
+        parsed_assignment_type = None
+        if assignment_type:
+            try:
+                parsed_assignment_type = AssignmentType(assignment_type)
+            except ValueError:
+                return Result.fail(
+                    Errors.validation(
+                        f"Invalid assignment type: {assignment_type}", field="assignment_type"
+                    )
                 )
 
-            assignments = result.value
+        parsed_status = None
+        if status:
+            try:
+                parsed_status = AssignmentStatus(status)
+            except ValueError:
+                return Result.fail(Errors.validation(f"Invalid status: {status}", field="status"))
 
-            return success_response(
-                {
-                    "assignments": [assignment_to_response(a) for a in assignments],
-                    "count": len(assignments),
-                    "limit": limit,
-                    "offset": offset,
-                }
-            )
+        # List assignments
+        result = await assignment_service.list_assignments(
+            user_uid=user_uid,
+            assignment_type=parsed_assignment_type,
+            status=parsed_status,
+            limit=limit,
+            offset=offset,
+        )
 
-        except Exception as e:
-            logger.error(f"Error listing assignments: {e}", exc_info=True)
-            return error_response(f"Failed to list assignments: {e!s}", status_code=500)
+        if result.is_error:
+            return result
+
+        assignments = result.value
+
+        return Result.ok(
+            {
+                "assignments": [assignment_to_response(a) for a in assignments],
+                "count": len(assignments),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     # ========================================================================
     # GET ASSIGNMENT DETAILS
     # ========================================================================
 
     @rt("/api/assignments/get")
-    async def get_assignment_route(request: Request, uid: str):
+    @boundary_handler()
+    async def get_assignment_route(request: Request, uid: str) -> Result[Any]:
         """
         Get assignment details by UID.
 
@@ -288,31 +302,24 @@ def create_assignments_api_routes(
         Returns:
         - Assignment details
         """
-        try:
-            result = await assignment_service.get_assignment(uid)
+        result = await assignment_service.get_assignment(uid)
 
-            if result.is_error:
-                return error_response(
-                    result.error.user_message if result.error else "Failed to get assignment",
-                    status_code=500,
-                )
+        if result.is_error:
+            return result
 
-            assignment = result.value
-            if not assignment:
-                return error_response(f"Assignment not found: {uid}", status_code=404)
+        assignment = result.value
+        if not assignment:
+            return Result.fail(Errors.not_found(resource="Assignment", identifier=uid))
 
-            return success_response(assignment_to_response(assignment))
-
-        except Exception as e:
-            logger.error(f"Error getting assignment: {e}", exc_info=True)
-            return error_response(f"Failed to get assignment: {e!s}", status_code=500)
+        return Result.ok(assignment_to_response(assignment))
 
     # ========================================================================
     # GET ASSIGNMENT PROCESSED CONTENT
     # ========================================================================
 
     @rt("/api/assignments/content")
-    async def get_assignment_content_route(request: Request, uid: str):
+    @boundary_handler()
+    async def get_assignment_content_route(request: Request, uid: str) -> Result[Any]:
         """
         Get processed content for an assignment.
 
@@ -322,47 +329,41 @@ def create_assignments_api_routes(
         Returns:
         - Processed content (transcript text)
         """
-        try:
-            # Get assignment
-            assignment_result = await assignment_service.get_assignment(uid)
-            if assignment_result.is_error or not assignment_result.value:
-                return error_response(f"Assignment not found: {uid}", status_code=404)
+        # Get assignment
+        assignment_result = await assignment_service.get_assignment(uid)
+        if assignment_result.is_error or not assignment_result.value:
+            return Result.fail(Errors.not_found(resource="Assignment", identifier=uid))
 
-            assignment = assignment_result.value
+        assignment = assignment_result.value
 
-            # If not completed, return pending status
-            if not assignment.is_completed:
-                return success_response(
-                    {"content": None, "message": "Assignment not yet processed"}
-                )
+        # If not completed, return pending status
+        if not assignment.is_completed:
+            return Result.ok({"content": None, "message": "Assignment not yet processed"})
 
-            # Return processed content
-            if assignment.processed_content:
-                return success_response(
-                    {
-                        "content": assignment.processed_content,
-                        "source": "assignment",
-                    }
-                )
-
-            # No processed_content
-            return success_response(
+        # Return processed content
+        if assignment.processed_content:
+            return Result.ok(
                 {
-                    "content": None,
-                    "message": "Processed content not available.",
+                    "content": assignment.processed_content,
+                    "source": "assignment",
                 }
             )
 
-        except Exception as e:
-            logger.error(f"Error getting assignment content: {e}", exc_info=True)
-            return error_response(f"Failed to get assignment content: {e!s}", status_code=500)
+        # No processed_content
+        return Result.ok(
+            {
+                "content": None,
+                "message": "Processed content not available.",
+            }
+        )
 
     # ========================================================================
     # PROCESS ASSIGNMENT
     # ========================================================================
 
     @rt("/api/assignments/process")
-    async def process_assignment_route(request: Request, uid: str):
+    @boundary_handler()
+    async def process_assignment_route(request: Request, uid: str) -> Result[Any]:
         """
         Process an assignment.
 
@@ -375,36 +376,28 @@ def create_assignments_api_routes(
         Returns:
         - Updated assignment with processed content
         """
-        try:
-            # Get optional instructions
-            instructions = None
-            if request.method == "POST":
-                try:
-                    body = await request.json()
-                    instructions = body.get("instructions")
-                except Exception:
-                    pass  # No body provided
+        # Get optional instructions
+        instructions = None
+        if request.method == "POST":
+            try:
+                body = await request.json()
+                instructions = body.get("instructions")
+            except Exception:
+                pass  # No body provided
 
-            result = await processing_service.process_assignment(uid, instructions)
+        result = await processing_service.process_assignment(uid, instructions)
 
-            if result.is_error:
-                error = result.expect_error()
-                return error_response(
-                    error.user_message or error.message, details=error.details, status_code=500
-                )
+        if result.is_error:
+            return result
 
-            assignment = result.value
+        assignment = result.value
 
-            return success_response(
-                {
-                    "assignment": assignment_to_response(assignment),
-                    "message": "Assignment processed successfully",
-                }
-            )
-
-        except Exception as e:
-            logger.error(f"Error processing assignment: {e}", exc_info=True)
-            return error_response(f"Failed to process assignment: {e!s}", status_code=500)
+        return Result.ok(
+            {
+                "assignment": assignment_to_response(assignment),
+                "message": "Assignment processed successfully",
+            }
+        )
 
     # ========================================================================
     # FILE DOWNLOADS
@@ -421,40 +414,48 @@ def create_assignments_api_routes(
         Returns:
         - File response with original file
         """
-        try:
-            # Get assignment
-            assignment_result = await assignment_service.get_assignment(uid)
-            if assignment_result.is_error:
-                return error_response("Assignment not found", status_code=404)
+        from starlette.responses import Response
 
-            assignment = assignment_result.value
-            if not assignment:
-                return error_response("Assignment not found", status_code=404)
-
-            # Get file content
-            file_result = await assignment_service.get_file_content(uid)
-            if file_result.is_error:
-                return error_response(
-                    file_result.error.user_message if file_result.error else "File not found",
-                    status_code=404,
-                )
-
-            file_content = file_result.value
-
-            # Write to temporary file for response
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                temp_file.write(file_content)
-                temp_path = temp_file.name
-
-            return FileResponse(
-                path=temp_path,
-                filename=assignment.original_filename,
-                media_type=assignment.file_type,
+        # Get assignment
+        assignment_result = await assignment_service.get_assignment(uid)
+        if assignment_result.is_error:
+            return Response(
+                content=f"Error: {assignment_result.error.user_message if assignment_result.error else 'Assignment not found'}",
+                status_code=404,
+                media_type="text/plain",
             )
 
-        except Exception as e:
-            logger.error(f"Error downloading file: {e}", exc_info=True)
-            return error_response(f"Failed to download file: {e!s}", status_code=500)
+        assignment = assignment_result.value
+        if not assignment:
+            return Response(
+                content="Error: Assignment not found", status_code=404, media_type="text/plain"
+            )
+
+        # Get file content
+        file_result = await assignment_service.get_file_content(uid)
+        if file_result.is_error:
+            return Response(
+                content=f"Error: {file_result.error.user_message if file_result.error else 'File not found'}",
+                status_code=404,
+                media_type="text/plain",
+            )
+
+        file_content = file_result.value
+
+        # Create temp file
+        temp_file = tempfile.NamedTemporaryFile(
+            delete=False, suffix=Path(assignment.original_filename).suffix
+        )
+        temp_file.write(file_content)
+        temp_file.close()
+
+        # Return file with background cleanup task
+        return FileResponse(
+            path=temp_file.name,
+            filename=assignment.original_filename,
+            media_type=assignment.file_type,
+            background=BackgroundTask(cleanup_temp_file, temp_file.name),
+        )
 
     @rt("/api/assignments/download-processed")
     async def download_processed_file_route(request: Request, uid: str):
@@ -467,52 +468,63 @@ def create_assignments_api_routes(
         Returns:
         - File response with processed file
         """
-        try:
-            # Get assignment
-            assignment_result = await assignment_service.get_assignment(uid)
-            if assignment_result.is_error:
-                return error_response("Assignment not found", status_code=404)
+        from starlette.responses import Response
 
-            assignment = assignment_result.value
-            if not assignment:
-                return error_response("Assignment not found", status_code=404)
-
-            if not assignment.processed_file_path:
-                return error_response("No processed file available", status_code=404)
-
-            # Get processed file content
-            file_result = await assignment_service.get_processed_file_content(uid)
-            if file_result.is_error:
-                return error_response(
-                    file_result.error.user_message
-                    if file_result.error
-                    else "Processed file not found",
-                    status_code=404,
-                )
-
-            file_content = file_result.value
-
-            # Write to temporary file for response
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                temp_file.write(file_content)
-                temp_path = temp_file.name
-
-            processed_filename = f"processed_{assignment.original_filename}"
-
-            return FileResponse(
-                path=temp_path, filename=processed_filename, media_type="text/plain"
+        # Get assignment
+        assignment_result = await assignment_service.get_assignment(uid)
+        if assignment_result.is_error:
+            return Response(
+                content=f"Error: {assignment_result.error.user_message if assignment_result.error else 'Assignment not found'}",
+                status_code=404,
+                media_type="text/plain",
             )
 
-        except Exception as e:
-            logger.error(f"Error downloading processed file: {e}", exc_info=True)
-            return error_response(f"Failed to download processed file: {e!s}", status_code=500)
+        assignment = assignment_result.value
+        if not assignment:
+            return Response(
+                content="Error: Assignment not found", status_code=404, media_type="text/plain"
+            )
+
+        if not assignment.processed_file_path:
+            return Response(
+                content="Error: No processed file available",
+                status_code=404,
+                media_type="text/plain",
+            )
+
+        # Get processed file content
+        file_result = await assignment_service.get_processed_file_content(uid)
+        if file_result.is_error:
+            return Response(
+                content=f"Error: {file_result.error.user_message if file_result.error else 'Processed file not found'}",
+                status_code=404,
+                media_type="text/plain",
+            )
+
+        file_content = file_result.value
+
+        # Create temp file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
+        temp_file.write(file_content)
+        temp_file.close()
+
+        processed_filename = f"processed_{assignment.original_filename}"
+
+        # Return file with background cleanup task
+        return FileResponse(
+            path=temp_file.name,
+            filename=processed_filename,
+            media_type="text/plain",
+            background=BackgroundTask(cleanup_temp_file, temp_file.name),
+        )
 
     # ========================================================================
     # STATISTICS
     # ========================================================================
 
     @rt("/api/assignments/statistics")
-    async def get_statistics_route(request: Request, user_uid: str | None = None):
+    @boundary_handler()
+    async def get_statistics_route(request: Request, user_uid: str | None = None) -> Result[Any]:
         """
         Get assignment statistics for a user.
 
@@ -522,23 +534,15 @@ def create_assignments_api_routes(
         Returns:
         - Statistics by type and status
         """
-        try:
-            if not user_uid:
-                return error_response("user_uid is required")
+        if not user_uid:
+            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
-            result = await assignment_service.get_assignment_statistics(user_uid)
+        result = await assignment_service.get_assignment_statistics(user_uid)
 
-            if result.is_error:
-                return error_response(
-                    result.error.user_message if result.error else "Failed to get statistics",
-                    status_code=500,
-                )
+        if result.is_error:
+            return result
 
-            return success_response(result.value)
-
-        except Exception as e:
-            logger.error(f"Error getting statistics: {e}", exc_info=True)
-            return error_response(f"Failed to get statistics: {e!s}", status_code=500)
+        return Result.ok(result.value)
 
     logger.info("Assignments API routes created successfully")
 

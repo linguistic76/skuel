@@ -548,19 +548,19 @@ async def _wire_all_routes(
     logger.info("✅ User profile hub routes registered")
 
     # Orchestration API routes (Phase 1 - Essential)
-    from routes.api.orchestration_routes import create_orchestration_routes
+    from adapters.inbound.orchestration_routes import create_orchestration_routes
 
     create_orchestration_routes(app, rt, services)
     logger.info("✅ Orchestration API routes registered (Phase 1 - Essential)")
 
     # Advanced API routes (Phase 2 - Optional)
-    from routes.api.advanced_routes import create_advanced_routes
+    from adapters.inbound.advanced_routes import create_advanced_routes
 
     create_advanced_routes(app, rt, services)
     logger.info("✅ Advanced API routes registered (Phase 2 - Optional)")
 
     # Report Generation API routes
-    from routes.api.report_routes import create_report_routes
+    from adapters.inbound.report_routes import create_report_routes
 
     create_report_routes(app, rt, services)
     logger.info("✅ Report routes registered (FastHTML-aligned)")

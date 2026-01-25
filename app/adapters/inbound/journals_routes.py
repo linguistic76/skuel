@@ -35,7 +35,7 @@ Factory that wires Journals API routes for transcript processing.
 - Current: Pure processing service with API-only access
 """
 
-from adapters.inbound.assignments_content_api import create_assignments_content_api_routes
+from adapters.inbound.journals_api import create_journals_api_routes
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.journals")
@@ -70,7 +70,7 @@ def create_journals_routes(app, rt, services, _sync_service=None):
         raise ValueError("Transcript processor required for journals routes - fail-fast")
 
     # Wire API routes (JSON endpoints for CRUD, analytics, transcription integration)
-    api_routes = create_assignments_content_api_routes(app, rt, transcript_processor, services)
+    api_routes = create_journals_api_routes(app, rt, transcript_processor, services)
 
     logger.info("✅ Journals routes registered (processing service)")
     logger.info(f"   - API routes: {len(api_routes)} endpoints (transcript processing)")
