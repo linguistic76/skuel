@@ -11,8 +11,6 @@ Routes:
 - POST /api/user/pins/reorder - Reorder pinned entities
 """
 
-from typing import Any
-
 from starlette.requests import Request
 
 from core.auth import require_authenticated_user
