@@ -30,7 +30,17 @@ from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.services.protocols.facade_protocols import ChoicesFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
-from core.ui.daisy_components import Button, ButtonT, Div, Input, Label, Option, Select, Span, Textarea
+from core.ui.daisy_components import (
+    Button,
+    ButtonT,
+    Div,
+    Input,
+    Label,
+    Option,
+    Select,
+    Span,
+    Textarea,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
@@ -834,12 +844,14 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
             Div(
                 Button(
                     "Edit",
-                    variant=ButtonT.outline, cls="mr-2",
+                    variant=ButtonT.outline,
+                    cls="mr-2",
                     **{"hx-get": f"/choices/{uid}/edit", "hx-target": "#modal"},
                 ),
                 Button(
                     "Add Option",
-                    variant=ButtonT.secondary, cls="mr-2",
+                    variant=ButtonT.secondary,
+                    cls="mr-2",
                     **{"hx-get": f"/choices/{uid}/add-option", "hx-target": "#modal"},
                 )
                 if status == "pending"
@@ -892,7 +904,8 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                     ),
                     Button(
                         "Close",
-                        variant=ButtonT.ghost, cls="ml-2",
+                        variant=ButtonT.ghost,
+                        cls="ml-2",
                         **{"onclick": "this.closest('.modal').remove()"},
                     ),
                     cls="modal-box",
@@ -952,7 +965,8 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                         Button(
                             "Cancel",
                             type="button",
-                            variant=ButtonT.ghost, cls="ml-2",
+                            variant=ButtonT.ghost,
+                            cls="ml-2",
                             **{"onclick": "this.closest('.modal').remove()"},
                         ),
                     ),
@@ -1093,7 +1107,8 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                         Button(
                             "Cancel",
                             type="button",
-                            variant=ButtonT.ghost, cls="ml-2",
+                            variant=ButtonT.ghost,
+                            cls="ml-2",
                             **{"onclick": "this.closest('.modal').remove()"},
                         ),
                     ),
@@ -1208,7 +1223,8 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                         Button(
                             "Cancel",
                             type="button",
-                            variant=ButtonT.ghost, cls="ml-2",
+                            variant=ButtonT.ghost,
+                            cls="ml-2",
                             **{"onclick": "this.closest('.modal').remove()"},
                         ),
                     ),

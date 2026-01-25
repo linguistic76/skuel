@@ -33,6 +33,14 @@ from starlette.responses import FileResponse
 
 from core.models.assignment import assignment_to_response
 from core.models.assignment.assignment import AssignmentStatus, AssignmentType, ProcessorType
+from core.models.assignment.assignment_request import (
+    AddTagsRequest,
+    BulkCategorizeRequest,
+    BulkDeleteRequest,
+    BulkTagRequest,
+    CategorizeAssignmentRequest,
+    RemoveTagsRequest,
+)
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -59,7 +67,12 @@ def cleanup_temp_file(filepath: str):
 
 
 def create_assignments_api_routes(
-    _app, rt, assignment_service, processing_service, assignments_query_service=None
+    _app,
+    rt,
+    assignment_service,
+    processing_service,
+    assignments_query_service=None,
+    assignments_core_service=None,
 ):
     """
     Create all assignment API routes.
@@ -70,6 +83,7 @@ def create_assignments_api_routes(
         assignment_service: AssignmentSubmissionService
         processing_service: AssignmentProcessorService
         assignments_query_service: AssignmentsQueryService for cross-domain queries
+        assignments_core_service: AssignmentsCoreService for content management
     """
 
     # FAIL-FAST: Validate required services BEFORE any route registration
@@ -543,6 +557,297 @@ def create_assignments_api_routes(
             return result
 
         return Result.ok(result.value)
+
+    # ========================================================================
+    # CONTENT MANAGEMENT ROUTES
+    # ========================================================================
+
+    if assignments_core_service:
+
+        @rt("/api/assignments/categorize")
+        @boundary_handler()
+        async def categorize_assignment_route(
+            request: Request, assignment_uid: str, user_uid: str
+        ) -> Result[Any]:
+            """
+            Categorize an assignment.
+
+            Query parameters:
+            - assignment_uid: Assignment UID
+            - user_uid: User UID
+
+            JSON body:
+            - category: Category string
+            """
+            body = await request.json()
+            req = CategorizeAssignmentRequest.model_validate(body)
+
+            # Verify ownership through get_assignment
+            assignment_result = await assignment_service.get_assignment(assignment_uid)
+            if assignment_result.is_error:
+                return assignment_result
+
+            assignment = assignment_result.value
+            if assignment.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+
+            return await assignments_core_service.categorize_assignment(
+                uid=assignment_uid, category=req.category
+            )
+
+        @rt("/api/assignments/tags/add")
+        @boundary_handler()
+        async def add_tags_route(
+            request: Request, assignment_uid: str, user_uid: str
+        ) -> Result[Any]:
+            """
+            Add tags to an assignment.
+
+            Query parameters:
+            - assignment_uid: Assignment UID
+            - user_uid: User UID
+
+            JSON body:
+            - tags: List of tag strings
+            """
+            body = await request.json()
+            req = AddTagsRequest.model_validate(body)
+
+            # Verify ownership
+            assignment_result = await assignment_service.get_assignment(assignment_uid)
+            if assignment_result.is_error:
+                return assignment_result
+
+            assignment = assignment_result.value
+            if assignment.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+
+            return await assignments_core_service.add_tags(uid=assignment_uid, tags=req.tags)
+
+        @rt("/api/assignments/tags/remove")
+        @boundary_handler()
+        async def remove_tags_route(
+            request: Request, assignment_uid: str, user_uid: str
+        ) -> Result[Any]:
+            """
+            Remove tags from an assignment.
+
+            Query parameters:
+            - assignment_uid: Assignment UID
+            - user_uid: User UID
+
+            JSON body:
+            - tags: List of tag strings to remove
+            """
+            body = await request.json()
+            req = RemoveTagsRequest.model_validate(body)
+
+            # Verify ownership
+            assignment_result = await assignment_service.get_assignment(assignment_uid)
+            if assignment_result.is_error:
+                return assignment_result
+
+            assignment = assignment_result.value
+            if assignment.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+
+            return await assignments_core_service.remove_tags(uid=assignment_uid, tags=req.tags)
+
+        @rt("/api/assignments/publish")
+        @boundary_handler()
+        async def publish_assignment_route(
+            request: Request, assignment_uid: str, user_uid: str
+        ) -> Result[Any]:
+            """
+            Publish an assignment.
+
+            Query parameters:
+            - assignment_uid: Assignment UID
+            - user_uid: User UID
+            """
+            # Verify ownership
+            assignment_result = await assignment_service.get_assignment(assignment_uid)
+            if assignment_result.is_error:
+                return assignment_result
+
+            assignment = assignment_result.value
+            if assignment.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+
+            return await assignments_core_service.publish_assignment(uid=assignment_uid)
+
+        @rt("/api/assignments/archive")
+        @boundary_handler()
+        async def archive_assignment_route(
+            request: Request, assignment_uid: str, user_uid: str
+        ) -> Result[Any]:
+            """
+            Archive an assignment.
+
+            Query parameters:
+            - assignment_uid: Assignment UID
+            - user_uid: User UID
+            """
+            # Verify ownership
+            assignment_result = await assignment_service.get_assignment(assignment_uid)
+            if assignment_result.is_error:
+                return assignment_result
+
+            assignment = assignment_result.value
+            if assignment.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+
+            return await assignments_core_service.archive_assignment(uid=assignment_uid)
+
+        @rt("/api/assignments/draft")
+        @boundary_handler()
+        async def mark_as_draft_route(
+            request: Request, assignment_uid: str, user_uid: str
+        ) -> Result[Any]:
+            """
+            Mark assignment as draft.
+
+            Query parameters:
+            - assignment_uid: Assignment UID
+            - user_uid: User UID
+            """
+            # Verify ownership
+            assignment_result = await assignment_service.get_assignment(assignment_uid)
+            if assignment_result.is_error:
+                return assignment_result
+
+            assignment = assignment_result.value
+            if assignment.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+
+            return await assignments_core_service.mark_as_draft(uid=assignment_uid)
+
+        @rt("/api/assignments/bulk/categorize")
+        @boundary_handler()
+        async def bulk_categorize_route(request: Request, user_uid: str) -> Result[Any]:
+            """
+            Bulk categorize assignments.
+
+            Query parameters:
+            - user_uid: User UID
+
+            JSON body:
+            - assignment_uids: List of assignment UIDs
+            - category: Category string
+            """
+            body = await request.json()
+            req = BulkCategorizeRequest.model_validate(body)
+
+            # Verify user owns all assignments
+            for uid in req.assignment_uids:
+                assignment_result = await assignment_service.get_assignment(uid)
+                if assignment_result.is_error:
+                    return assignment_result
+
+                assignment = assignment_result.value
+                if assignment.user_uid != user_uid:
+                    return Result.fail(
+                        Errors.validation(f"You do not own assignment {uid}", field="assignment_uids")
+                    )
+
+            return await assignments_core_service.bulk_categorize(
+                uids=req.assignment_uids, category=req.category
+            )
+
+        @rt("/api/assignments/bulk/tag")
+        @boundary_handler()
+        async def bulk_tag_route(request: Request, user_uid: str) -> Result[Any]:
+            """
+            Bulk tag assignments.
+
+            Query parameters:
+            - user_uid: User UID
+
+            JSON body:
+            - assignment_uids: List of assignment UIDs
+            - tags: List of tag strings
+            """
+            body = await request.json()
+            req = BulkTagRequest.model_validate(body)
+
+            # Verify ownership
+            for uid in req.assignment_uids:
+                assignment_result = await assignment_service.get_assignment(uid)
+                if assignment_result.is_error:
+                    return assignment_result
+
+                assignment = assignment_result.value
+                if assignment.user_uid != user_uid:
+                    return Result.fail(
+                        Errors.validation(f"You do not own assignment {uid}", field="assignment_uids")
+                    )
+
+            return await assignments_core_service.bulk_tag(uids=req.assignment_uids, tags=req.tags)
+
+        @rt("/api/assignments/bulk/delete")
+        @boundary_handler()
+        async def bulk_delete_route(request: Request, user_uid: str) -> Result[Any]:
+            """
+            Bulk delete assignments.
+
+            Query parameters:
+            - user_uid: User UID
+
+            JSON body:
+            - assignment_uids: List of assignment UIDs
+            - soft_delete: Boolean (default True)
+            """
+            body = await request.json()
+            req = BulkDeleteRequest.model_validate(body)
+
+            # Verify ownership
+            for uid in req.assignment_uids:
+                assignment_result = await assignment_service.get_assignment(uid)
+                if assignment_result.is_error:
+                    return assignment_result
+
+                assignment = assignment_result.value
+                if assignment.user_uid != user_uid:
+                    return Result.fail(
+                        Errors.validation(f"You do not own assignment {uid}", field="assignment_uids")
+                    )
+
+            return await assignments_core_service.bulk_delete(
+                uids=req.assignment_uids, soft_delete=req.soft_delete
+            )
+
+        @rt("/api/assignments/by-category")
+        @boundary_handler()
+        async def get_by_category_route(
+            request: Request, user_uid: str, category: str, limit: int = 50
+        ) -> Result[Any]:
+            """
+            Get assignments by category.
+
+            Query parameters:
+            - user_uid: User UID
+            - category: Category string
+            - limit: Max results (default 50)
+            """
+            return await assignments_core_service.get_assignments_by_category(
+                category=category, limit=limit, user_uid=user_uid
+            )
+
+        @rt("/api/assignments/recent")
+        @boundary_handler()
+        async def get_recent_route(request: Request, user_uid: str, limit: int = 10) -> Result[Any]:
+            """
+            Get recent assignments.
+
+            Query parameters:
+            - user_uid: User UID
+            - limit: Max results (default 10)
+            """
+            return await assignments_core_service.get_recent_assignments(
+                limit=limit, user_uid=user_uid
+            )
+
+        logger.info("✅ Assignment content management routes registered (12 new routes)")
 
     logger.info("Assignments API routes created successfully")
 

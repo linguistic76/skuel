@@ -49,7 +49,17 @@ from core.utils.processor_functions import (
     extract_uids_list,
     extract_uids_set,
 )
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
+
+
+def _process_pin_success(records: list) -> Result[bool]:
+    """Process pin operation result."""
+    return Result.ok(True) if records else Result.fail(Errors.not_found("Entity not found"))
+
+
+def _process_unpin_success(records: list) -> Result[bool]:
+    """Process unpin operation result."""
+    return Result.ok(True) if records else Result.fail(Errors.not_found("Pin not found"))
 
 
 class UserRelationshipService:
@@ -83,7 +93,7 @@ class UserRelationshipService:
         self.executor = GraphQueryExecutor(driver)  # Generic query executor
 
     # ========================================================================
-    # Pinned Entities (1 method)
+    # Pinned Entities (4 methods)
     # ========================================================================
 
     async def get_pinned_entities(self, user_uid: str) -> Result[list[str]]:
@@ -110,6 +120,90 @@ class UserRelationshipService:
             params={"user_uid": user_uid},
             processor=extract_uids_list,
             operation="get_pinned_entities",
+        )
+
+    async def pin_entity(self, user_uid: str, entity_uid: str) -> Result[bool]:
+        """
+        Pin an entity for quick access.
+
+        Adds to end of current pinned list (max order + 1).
+
+        Args:
+            user_uid: User UID
+            entity_uid: Entity UID to pin (task, goal, KU, etc.)
+
+        Returns:
+            Result[bool] - True if pinned successfully
+        """
+        # Get current max order
+        current_pins_result = await self.get_pinned_entities(user_uid)
+        if current_pins_result.is_error:
+            return current_pins_result
+
+        current_count = len(current_pins_result.value)
+
+        return await self.executor.execute(
+            query=f"""
+                MATCH (user:User {{uid: $user_uid}})
+                MATCH (entity {{uid: $entity_uid}})
+                MERGE (user)-[r:{RelationshipName.PINNED}]->(entity)
+                ON CREATE SET r.order = $order
+                RETURN true as success
+            """,
+            params={"user_uid": user_uid, "entity_uid": entity_uid, "order": current_count},
+            processor=_process_pin_success,
+            operation="pin_entity",
+        )
+
+    async def unpin_entity(self, user_uid: str, entity_uid: str) -> Result[bool]:
+        """
+        Unpin an entity.
+
+        Removes PINNED relationship and reorders remaining pins.
+
+        Args:
+            user_uid: User UID
+            entity_uid: Entity UID to unpin
+
+        Returns:
+            Result[bool] - True if unpinned successfully
+        """
+        return await self.executor.execute(
+            query=f"""
+                MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.PINNED}]->(entity {{uid: $entity_uid}})
+                DELETE r
+                RETURN true as success
+            """,
+            params={"user_uid": user_uid, "entity_uid": entity_uid},
+            processor=_process_unpin_success,
+            operation="unpin_entity",
+        )
+
+    async def reorder_pins(self, user_uid: str, ordered_entity_uids: list[str]) -> Result[int]:
+        """
+        Reorder pinned entities.
+
+        Sets order property on PINNED relationships based on list position.
+
+        Args:
+            user_uid: User UID
+            ordered_entity_uids: List of entity UIDs in desired order
+
+        Returns:
+            Result[int] - Number of pins reordered
+        """
+        return await self.executor.execute(
+            query=f"""
+                MATCH (user:User {{uid: $user_uid}})
+                UNWIND range(0, size($uids) - 1) AS idx
+                WITH user, idx, $uids[idx] AS entity_uid
+                MATCH (user)-[r:{RelationshipName.PINNED}]->(entity {{uid: entity_uid}})
+                SET r.order = idx
+                RETURN count(r) as count
+            """,
+            params={"user_uid": user_uid, "uids": ordered_entity_uids},
+            processor=extract_created_count,
+            operation="reorder_pins",
         )
 
     # ========================================================================

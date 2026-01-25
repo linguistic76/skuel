@@ -185,9 +185,7 @@ def create_report_routes(app, rt, services):
 
     @rt("/reports/weekly")
     @boundary_handler()
-    async def weekly(
-        user_uid: str, report_type: str, week_start: str | None = None
-    ) -> Result[Any]:
+    async def weekly(user_uid: str, report_type: str, week_start: str | None = None) -> Result[Any]:
         """
         Generate weekly report for a domain.
 

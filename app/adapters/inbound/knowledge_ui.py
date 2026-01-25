@@ -162,13 +162,15 @@ class KnowledgeUIComponents:
         buttons = [
             Button(
                 "👁️ View",
-                variant=ButtonT.outline, cls="btn-sm",
+                variant=ButtonT.outline,
+                cls="btn-sm",
                 hx_get=f"/knowledge/{uid}/details",
                 hx_target="#modal" if compact else "#main-content",
             ),
             Button(
                 "✏️ Edit",
-                variant=ButtonT.ghost, cls="btn-sm",
+                variant=ButtonT.ghost,
+                cls="btn-sm",
                 hx_get=f"/knowledge/{uid}/edit",
                 hx_target="#modal",
             ),
@@ -178,7 +180,8 @@ class KnowledgeUIComponents:
             buttons.append(
                 Button(
                     "🕸️ Graph",
-                    variant=ButtonT.secondary, cls="btn-sm",
+                    variant=ButtonT.secondary,
+                    cls="btn-sm",
                     hx_get=f"/knowledge/{uid}/graph",
                     hx_target="#main-content",
                 )

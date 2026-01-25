@@ -100,7 +100,9 @@ def create_journal_projects_api_routes(
         """
         if not journal_feedback_service:
             return Result.fail(
-                Errors.system("Journal feedback service not available", service="JournalFeedbackService")
+                Errors.system(
+                    "Journal feedback service not available", service="JournalFeedbackService"
+                )
             )
 
         if not journals_service:
@@ -113,22 +115,16 @@ def create_journal_projects_api_routes(
             body = await request.json()
             feedback_request = JournalFeedbackRequest(**body)
         except Exception as e:
-            return Result.fail(
-                Errors.validation(f"Invalid request body: {e}", field="body")
-            )
+            return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         # Get entry and project
         entry_result = await journals_service.get_journal(feedback_request.entry_uid)
         if entry_result.is_error or not entry_result.value:
-            return Result.fail(
-                Errors.not_found("Journal entry", feedback_request.entry_uid)
-            )
+            return Result.fail(Errors.not_found("Journal entry", feedback_request.entry_uid))
 
         project_result = await journal_projects_service.get_project(feedback_request.project_uid)
         if project_result.is_error or not project_result.value:
-            return Result.fail(
-                Errors.not_found("Journal project", feedback_request.project_uid)
-            )
+            return Result.fail(Errors.not_found("Journal project", feedback_request.project_uid))
 
         entry = entry_result.value
         project = project_result.value
