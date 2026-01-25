@@ -179,12 +179,17 @@ class TodoistTaskComponents:
     # ========================================================================
 
     @staticmethod
-    def render_task_item(task: Any, user_uid: str | None = None) -> Any:
+    def render_task_item(task: Any, user_uid: str | None = None, is_pinned: bool = False) -> Any:
         """
         Render single task row in Todoist style.
 
-        Layout: [checkbox] [clickable: title + @project + P1-4 + due + assignee]
+        Layout: [checkbox] [pin] [clickable: title + @project + P1-4 + due + assignee]
         Clicking the row (not checkbox) opens edit modal via HTMX.
+
+        Args:
+            task: Task entity
+            user_uid: User UID (unused, kept for compatibility)
+            is_pinned: Whether this task is pinned
         """
         is_completed = task.status == ActivityStatus.COMPLETED
 
@@ -196,6 +201,14 @@ class TodoistTaskComponents:
             hx_post=f"/tasks/{task.uid}/toggle",
             hx_target=f"#task-{task.uid}",
             hx_swap="outerHTML",
+            **{"x-on:click.stop": ""},  # Prevent click from bubbling to row
+        )
+
+        # Pin button - with click.stop to prevent triggering row click
+        from components.shared.pin_button import PinButton
+
+        pin_btn = Div(
+            PinButton(entity_uid=task.uid, is_pinned=is_pinned, size="xs"),
             **{"x-on:click.stop": ""},  # Prevent click from bubbling to row
         )
 
@@ -250,6 +263,7 @@ class TodoistTaskComponents:
 
         return Li(
             checkbox,
+            pin_btn,
             clickable_content,
             id=f"task-{task.uid}",
             cls=row_cls,

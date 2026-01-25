@@ -213,8 +213,17 @@ class GoalsViewComponents:
         )
 
     @staticmethod
-    def _render_goal_item(goal: Goal, user_uid: str | None = None) -> Div:
-        """Render a single goal item for the list."""
+    def _render_goal_item(goal: Goal, user_uid: str | None = None, is_pinned: bool = False) -> Div:
+        """
+        Render a single goal item for the list.
+
+        Args:
+            goal: Goal entity
+            user_uid: User UID (unused, kept for compatibility)
+            is_pinned: Whether this goal is pinned
+        """
+        from components.shared.pin_button import PinButton
+
         uid = goal.uid
         title = goal.title
         description = goal.description or ""
@@ -294,6 +303,7 @@ class GoalsViewComponents:
                         cls="btn btn-xs btn-ghost",
                         **{"hx-get": f"/goals/{uid}/edit", "hx-target": "#modal"},
                     ),
+                    PinButton(entity_uid=uid, is_pinned=is_pinned, show_text=True, size="xs"),
                     cls="flex gap-2 mt-3",
                 ),
                 cls="p-4",
