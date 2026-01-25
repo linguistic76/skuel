@@ -1,0 +1,7 @@
+version: 0.1
+type: Choice
+uid: ch:start-25min-now
+title: Start a 25-minute block now
+summary: Pick one topic, set a timer, go.
+tags: [focus, pomodoro]
+applies_to_steps: [ps:lp:study-skills-101:step-1]

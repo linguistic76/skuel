@@ -1,0 +1,17 @@
+
+  Most of the domains exist in pairs:
+
+  MOC + Ku
+  Ls + Lp
+  Tasks + Events
+  Goals + Habits
+  Principles + Choices
+  Assignments + Reports (this grouping is a little looser than the others)
+
+  Individual domains include: LifePath, Calendar,
+
+  Infrastructure entitites/ components: HTML pages w TailwindCSS + DaisyUi, Search, Askesis, Messaging.
+
+  That provides an architecture of 14 domains + 4 components.
+
+  Is there a better label for the 4 components, than components?

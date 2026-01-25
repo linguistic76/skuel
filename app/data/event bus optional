@@ -1,0 +1,184 @@
+
+
+● Great question! Let me explain what "backward compatible" means in this context with concrete examples.
+
+  The Pattern: Optional Event Bus
+
+  When I say "optional event_bus," here's what that means in practice:
+
+  Service Initialization - Event Bus is Optional
+
+  # choices_core_service.py
+  def __init__(self, backend: ChoicesOperations, event_bus=None) -> None:
+      """
+      Args:
+          backend: Protocol-based backend for choice operations
+          event_bus: Event bus for publishing domain events (optional)  # ← Optional!
+      """
+      super().__init__(backend, "choices")
+      self.event_bus = event_bus  # Can be None
+
+  Event Publishing - Guarded by None Check
+
+  # In evaluate_choice_outcome()
+  if self.event_bus:  # ← Only publish if event_bus exists
+      event = ChoiceOutcomeRecorded(...)
+      await self.event_bus.publish_async(event)
+  else:
+      # If no event_bus, just skip publishing - core logic still works!
+      pass
+
+  What "Backward Compatible" Means
+
+  ✅ Old Code Still Works
+
+  Before events (existing code):
+  # Bootstrap or test that creates service WITHOUT event_bus
+  choices_service = ChoicesCoreService(backend=choices_backend)
+
+  # Still works perfectly - no events published, but CRUD operations succeed
+  result = await choices_service.evaluate_choice_outcome(uid, evaluation)
+  # Returns Result[Choice] successfully
+
+  After events (new code):
+  # Bootstrap wires event_bus
+  choices_service = ChoicesCoreService(
+      backend=choices_backend,
+      event_bus=event_bus  # ← NEW parameter
+  )
+
+  # Now publishes events AND performs CRUD operations
+  result = await choices_service.evaluate_choice_outcome(uid, evaluation)
+  # Returns Result[Choice] successfully + publishes ChoiceOutcomeRecorded event
+
+  Why This Design?
+
+  1. Zero Breaking Changes
+
+  # ❌ NOT BACKWARD COMPATIBLE - Would break existing code:
+  def __init__(self, backend, event_bus):  # Required parameter!
+      if not event_bus:
+          raise ValueError("event_bus is required")  # Crashes old code!
+
+  # ✅ BACKWARD COMPATIBLE - Old code works unchanged:
+  def __init__(self, backend, event_bus=None):  # Optional parameter
+      self.event_bus = event_bus  # None is fine
+
+  2. Services Work Independently
+
+  The core insight: Event publishing is an enhancement, not a requirement.
+
+  # Core functionality (CRUD) works WITHOUT events
+  async def evaluate_choice_outcome(...) -> Result[Choice]:
+      # 1. Get existing choice
+      existing_result = await self.get_choice(choice_uid)
+
+      # 2. Update with outcome data
+      dto.actual_outcome = evaluation.actual_outcome
+      dto.satisfaction_score = evaluation.satisfaction_score
+
+      # 3. Save to database
+      update_result = await self.backend.update_choice(choice_uid, dto.to_dict())
+
+      # 4. [OPTIONAL] Publish event IF event_bus exists
+      if self.event_bus:
+          await self.event_bus.publish_async(event)
+
+      # 5. Return result (works whether events published or not!)
+      return Result.ok(choice)
+
+  3. Incremental Migration Path
+
+  You can wire up event_bus gradually across services:
+
+  # Phase 1: Only choices service gets event_bus
+  choices_service = ChoicesCoreService(backend, event_bus=event_bus)
+  habits_service = HabitsService(backend)  # No event_bus yet
+
+  # Phase 2: Add habits too
+  choices_service = ChoicesCoreService(backend, event_bus=event_bus)
+  habits_service = HabitsService(backend, event_bus=event_bus)  # Now wired
+
+  # Phase 3: Eventually all services wired (current state)
+
+  4. Easier Testing
+
+  # Unit test - no event infrastructure needed
+  async def test_evaluate_choice_outcome():
+      service = ChoicesCoreService(backend=mock_backend)  # No event_bus
+
+      result = await service.evaluate_choice_outcome(uid, evaluation)
+
+      assert result.is_ok
+      assert result.value.satisfaction_score == 4
+      # Test passes - no need to mock event_bus!
+
+  # Integration test - verify events published
+  async def test_choice_outcome_publishes_event():
+      mock_event_bus = MockEventBus()
+      service = ChoicesCoreService(backend, event_bus=mock_event_bus)
+
+      await service.evaluate_choice_outcome(uid, evaluation)
+
+      assert mock_event_bus.published_events[0].event_type == "choice.outcome_recorded"
+
+  The Philosophy
+
+  This follows your principle: "Fail-fast dependencies, but events are different."
+
+  Events Are Not Dependencies
+
+  # Dependencies (backends, drivers) - REQUIRED:
+  if not backend:
+      raise ValueError("backend is required")  # Fail immediately
+
+  # Events - OPTIONAL enhancement:
+  if self.event_bus:
+      await self.event_bus.publish_async(event)  # Nice to have, not essential
+
+  Why Events Are Optional
+
+  1. Event publishing is cross-cutting, not core logic
+    - Saving a choice = core functionality (must work)
+    - Publishing ChoiceOutcomeRecorded = notification to subscribers (enhancement)
+  2. Zero coupling between services
+    - ChoicesService doesn't know WHO subscribes to ChoiceOutcomeRecorded
+    - ChoicesService doesn't fail if NO ONE subscribes
+    - Subscribers can come and go without affecting publisher
+  3. Event infrastructure can fail without breaking app
+    - Event bus crashes? Core CRUD still works
+    - No subscribers? Publisher doesn't care
+    - Publish fails? Log warning, continue processing
+
+  Comparison: Required vs Optional
+
+  Required Dependency (Backend):
+
+  async def evaluate_choice_outcome(...):
+      # Backend is REQUIRED - can't save without it
+      result = await self.backend.update_choice(uid, dto)
+      if result.is_error:
+          return result  # Propagate error - this is critical!
+
+  Optional Dependency (Event Bus):
+
+  async def evaluate_choice_outcome(...):
+      # Event bus is OPTIONAL - can save without it
+      if self.event_bus:
+          try:
+              await self.event_bus.publish_async(event)
+          except Exception as e:
+              self.logger.warning(f"Failed to publish event: {e}")
+              # Continue! Core operation succeeded, event is bonus
+
+  Summary
+
+  "Backward compatible with optional event_bus" means:
+
+  1. ✅ Services work WITHOUT event_bus (old code unchanged)
+  2. ✅ Services work WITH event_bus (new capabilities added)
+  3. ✅ No breaking changes to existing service creation
+  4. ✅ Tests don't require event infrastructure
+  5. ✅ Events are layered on top, not baked into core logic
+
+  This is additive enhancement, not architectural requirement. The service does its job (CRUD) regardless of event publishi

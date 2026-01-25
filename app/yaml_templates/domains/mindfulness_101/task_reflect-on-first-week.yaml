@@ -1,0 +1,36 @@
+version: 1.0
+type: Task
+
+uid: task:reflect-on-first-week
+title: Reflect on your first week
+description: |
+  After completing one week of practice (5-7 days), take 5 minutes to reflect:
+
+  Prompt questions:
+  - What patterns did you notice in your wandering mind?
+  - What was easier than expected?
+  - What was harder than expected?
+  - How did the practice affect the rest of your day?
+  - What do you want to continue/adjust?
+
+# Task Properties
+duration_minutes: 5
+priority: medium
+status: draft
+
+# Timing
+due_date: null
+scheduled_date: null
+
+# Learning Integration
+applies_knowledge_uids:
+  - ku:breath-awareness-basics
+  - ku:mind-wandering-happens
+
+fulfills_goal_uid: goal:mindfulness-beginner
+
+# Metadata
+tags:
+  - reflection
+  - meta-cognition
+  - week-1-milestone

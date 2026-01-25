@@ -1,0 +1,11 @@
+version: 0.1
+type: KnowledgeUnit
+uid: ku:spaced-repetition-basics
+title: Spaced Repetition — Basics
+summary: Why short reviews beat cramming, and how to start.
+tags: [memory, review, beginner]
+knowledge:
+  kind: article
+  body_path: content/study/spaced-repetition-basics.md
+relations:
+  belongs_to_clusters: [kc:study-skills-foundations]

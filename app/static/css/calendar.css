@@ -1,0 +1,74 @@
+/**
+ * Calendar CSS Styles
+ * ====================
+ *
+ * Styles for the SKUEL calendar views (month, week, day).
+ * Extracted from calendar_routes.py for separation of concerns.
+ */
+
+/* Calendar Item Hover Effects */
+.calendar-item {
+    transition: all 0.2s ease;
+}
+
+.calendar-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Calendar Grid Layout */
+.calendar-grid {
+    min-height: 600px;
+}
+
+/* Timeline Slot Height */
+.timeline-slot {
+    min-height: 60px;
+}
+
+/* Dragging State */
+.dragging {
+    opacity: 0.5;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .grid-cols-7 {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        font-size: 0.75rem;
+    }
+
+    .grid-cols-8 {
+        grid-template-columns: 3rem repeat(7, minmax(0, 1fr));
+    }
+}
+
+/* Item Details Modal */
+#item-details-modal {
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Quick Add Modal */
+#quick-add-modal > div {
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

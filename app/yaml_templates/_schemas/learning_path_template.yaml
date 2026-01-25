@@ -1,0 +1,126 @@
+# Learning Path Template
+# ======================
+# This is a TEMPLATE EXAMPLE, not a validation schema.
+# It shows ALL valid fields for LearningPath YAML files.
+#
+# Purpose: Use this as a reference when creating learning paths.
+# Location: Use this structure in /home/mike/0bsidian/skuel/domains/{domain_name}/
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: LearningPath
+
+# uid: Unique identifier
+# Pattern: lp:path-name
+# Example: lp:study-skills-101, lp:mindfulness-101
+uid: lp:example-path
+
+# name: Display name for this learning path
+# Type: String
+# Example: "Study Skills 101 — Simple & Steady"
+name: Example Learning Path Name
+
+# goal: What the learner will achieve
+# Type: String
+# Purpose: Clear statement of the end goal
+# Example: "Build foundational study skills through focused blocks and spaced repetition"
+goal: What the learner will achieve by completing this path
+
+# domain: Knowledge domain classification
+# Valid values: personal, professional, technical, health, financial, social
+# Default: personal
+domain: personal
+
+# OPTIONAL FIELDS
+# ---------------
+
+# path_type: Type of learning path structure
+# Valid values: structured, adaptive, exploratory, project_based, mentored
+# Default: structured
+# Note: 'structured' is most common for linear learning paths
+path_type: structured
+
+# difficulty: Overall difficulty level
+# Valid values: beginner, intermediate, advanced, expert
+# Default: intermediate
+# Example: "beginner" for introductory paths
+difficulty: beginner
+
+# steps: List of learning step UIDs that compose this path
+# Type: List of strings (LearningStep UIDs)
+# Note: Can reference separate LearningStep YAML files
+# Example: [ls:example-path:step-1, ls:example-path:step-2]
+steps:
+  - ls:example-path:step-1
+  - ls:example-path:step-2
+
+# prerequisites: Knowledge required before starting this path
+# Type: List of KnowledgeUnit UIDs
+# Purpose: What the learner should know before beginning
+# Example: [ku:basic-concepts]
+prerequisites:
+  - ku:prerequisite-knowledge
+
+# outcomes: Learning outcomes upon completion
+# Type: List of strings
+# Purpose: What the learner will be able to do after finishing
+outcomes:
+  - Execute focused 25-minute study blocks
+  - Create effective notes using headers and bullets
+  - Apply spaced repetition for durable memory
+  - Manage distractions during study sessions
+
+# estimated_hours: Total time to complete the path
+# Type: Float
+# Unit: Hours
+# Purpose: Help learners plan their time
+# Example: 1.5 = 90 minutes total
+estimated_hours: 1.5
+
+# created_by: Creator of this learning path (optional)
+# Type: String (user UID or identifier)
+# Example: "user:mike", "system"
+created_by: system
+
+# METADATA FIELDS (Auto-populated, DO NOT SET)
+# --------------------------------------------
+# These fields are automatically set by the system:
+# - created_at: Timestamp when created
+# - updated_at: Timestamp when last modified
+
+# ALTERNATIVE: EMBEDDED LEARNING STEPS
+# ------------------------------------
+# Instead of referencing separate step files, you can embed steps directly:
+
+# steps:
+#   - uid: ls:example-path:step-1
+#     title: First Step Title
+#     intent: What to accomplish
+#     knowledge_uid: ku:first-topic
+#     sequence: 1
+#     mastery_threshold: 0.7
+#     estimated_hours: 1.0
+#
+#   - uid: ls:example-path:step-2
+#     title: Second Step Title
+#     intent: What to accomplish next
+#     knowledge_uid: ku:second-topic
+#     sequence: 2
+#     mastery_threshold: 0.7
+#     estimated_hours: 0.5
+#     prerequisites:
+#       - ls:example-path:step-1
+
+# NOTES
+# -----
+# 1. The 'steps' field can either:
+#    a) List UIDs referencing separate LearningStep YAML files, OR
+#    b) Embed full LearningStep definitions inline
+# 2. Use 'structured' path_type for linear, sequential learning
+# 3. Use 'adaptive' for paths that adjust based on learner performance
+# 4. Use 'exploratory' for non-linear, learner-directed paths
+# 5. Use 'project_based' for hands-on learning with a final project
+# 6. prerequisites should list foundational knowledge needed to start
+# 7. outcomes should be concrete, measurable learning objectives

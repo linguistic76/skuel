@@ -1,0 +1,19 @@
+
+
+● Revised approach:
+
+  | Priority | Source       | When                             |
+  |----------|--------------|----------------------------------|
+  | 1st      | Local /docs/ | Always check first               |
+  | 2nd      | CLAUDE.md    | Quick reference                  |
+  | 3rd      | Context7 MCP | Only when local is missing/stale |
+
+  Key files for external libraries:
+  - FastHTML: /docs/fasthtml-llms.txt (10,177 lines - comprehensive)
+  - Neo4j: /docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md (1,519 lines)
+  - Pydantic: /docs/patterns/three_tier_type_system.md (322 lines)
+
+  The philosophy: Context7 becomes a maintenance tool for updating local docs when needed, not the primary lookup source. This gives you:
+  - Zero latency for common questions
+  - SKUEL-specific patterns (how YOU use the library)
+  - Stability - local docs reflect what's actually in use

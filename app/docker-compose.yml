@@ -1,0 +1,67 @@
+# docker-compose.yml
+# SKUEL Application Docker Compose Configuration
+# ==============================================
+# This file runs ONLY the SKUEL application in Docker.
+# Neo4j infrastructure runs separately from /infra.
+#
+# ⚠️ RECOMMENDED WORKFLOW:
+#    cd ~/infra && docker compose up -d              # Start Neo4j
+#    cd ~/skuel00 && docker compose up -d            # Start app (Docker)
+#    OR: cd ~/skuel00 && poetry run python main.py   # Start app (local)
+#
+# This docker-compose.yml is for:
+#   - Running SKUEL app in Docker (connects to /infra Neo4j)
+#   - CI/CD environments (requires external Neo4j)
+#   - Testing containerized application deployment
+#
+# For full production deployment (including Neo4j), use docker-compose.production.yml
+# ==============================================
+
+services:
+  # --------------------------------------------------------------------------
+  # SKUEL Application
+  # --------------------------------------------------------------------------
+  # Connects to Neo4j running in /infra (via host.docker.internal on Mac/Windows
+  # or 172.17.0.1 on Linux)
+  # --------------------------------------------------------------------------
+  skuel-app:
+    build: .
+    container_name: skuel-app
+    environment:
+      # Neo4j connection to /infra instance
+      # Use host.docker.internal (Mac/Win) or 172.17.0.1 (Linux) to connect to host
+      NEO4J_URI: ${NEO4J_URI:-bolt://host.docker.internal:7687}
+      NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+
+      # Application settings
+      APP_HOST: 0.0.0.0  # Must be 0.0.0.0 for Docker
+      APP_PORT: ${APP_PORT:-5001}
+      APP_DEBUG: ${APP_DEBUG:-false}
+
+      # AI Services (optional)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+
+      # Paths
+      OBSIDIAN_VAULT_PATH: ${OBSIDIAN_VAULT_PATH:-./vault}
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${APP_PORT:-5001}:5001"
+    volumes:
+      - .:/app
+      - ${OBSIDIAN_VAULT_PATH:-./vault}:/app/vault
+      - ./static:/app/static
+      - ./templates:/app/templates
+      - ./logs:/app/logs
+    networks:
+      - skuel-network
+    restart: unless-stopped
+    # Note: Requires Neo4j running in /infra (cd ~/infra && docker compose up -d)
+    command: python skuel.py
+
+networks:
+  skuel-network:
+    driver: bridge

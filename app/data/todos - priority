@@ -1,0 +1,15 @@
+
+  1. Incomplete Features (16 TODOs in services)
+
+  Key ones to address:
+  core/services/yaml_ingestion_service.py:775
+    - Goal conversion requires ConversionServiceV2 integration
+
+  core/services/markdown_sync_service.py:532
+    - Sync status tracking not implemented
+
+  core/services/user/user_context_cache.py:129
+    - Event bus integration for cache invalidation
+
+  core/services/events/events_intelligence_service.py:220
+    - Missing get_event_goals() in relationship service

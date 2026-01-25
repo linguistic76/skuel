@@ -1,0 +1,108 @@
+# Learning Step Template
+# ======================
+# This is a TEMPLATE EXAMPLE, not a validation schema.
+# It shows ALL valid fields for LearningStep YAML files.
+#
+# Purpose: Use this as a reference when creating learning path steps.
+# Location: Use this structure in /home/mike/0bsidian/skuel/domains/{domain_name}/
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: LearningStep
+
+# uid: Unique identifier
+# Pattern: ls:path-name:step-number
+# Example: ls:study-skills-101:step-1, ls:mindfulness-101:step-2
+uid: ls:example-path:step-1
+
+# title: Display title for this step
+# Length: 1-200 characters
+# Example: "One 25-Minute Block Today", "Make Five Cards + Quick Review"
+title: Example Step Title
+
+# intent: Learning objective for this step
+# Purpose: What the learner should accomplish
+# Example: "Pick one topic, run a single 25-minute block, and log it"
+intent: What the learner should achieve in this step
+
+# knowledge_uid: Reference to the KnowledgeUnit for this step
+# Type: String (must be valid KnowledgeUnit UID)
+# Pattern: ku:topic-name
+# Example: ku:note-taking-basics
+knowledge_uid: ku:example-topic
+
+# sequence: Order of this step in the learning path
+# Type: Integer >= 0
+# Example: 1 for first step, 2 for second step, etc.
+sequence: 1
+
+# OPTIONAL FIELDS
+# ---------------
+
+# mastery_threshold: Required mastery level to complete this step
+# Type: Float between 0.0 and 1.0
+# Default: 0.7 (70% mastery)
+# Example: 0.8 = requires 80% mastery before moving on
+mastery_threshold: 0.7
+
+# estimated_hours: Expected time to complete this step
+# Type: Float > 0
+# Default: 1.0
+# Unit: Hours
+# Example: 0.5 = 30 minutes, 2.0 = 2 hours
+estimated_hours: 1.0
+
+# current_mastery: Current mastery level (DO NOT SET MANUALLY)
+# Type: Float between 0.0 and 1.0
+# Default: 0.0
+# Note: This is updated by the system as the learner progresses
+current_mastery: 0.0
+
+# completed: Whether this step is completed (DO NOT SET MANUALLY)
+# Type: Boolean
+# Default: false
+# Note: This is updated by the system when mastery_threshold is reached
+completed: false
+
+# completed_at: Timestamp of completion (DO NOT SET MANUALLY)
+# Type: Datetime
+# Note: Auto-set when step is marked complete
+
+# notes: Additional notes or guidance for this step
+# Type: String (multi-line supported)
+# Purpose: Provide context, tips, or reminders
+notes: |
+  Optional notes about this learning step.
+
+  You can provide:
+  - Additional context
+  - Tips for success
+  - Common pitfalls to avoid
+  - Resources to reference
+
+# prerequisites: Other learning steps that must be completed first
+# Type: List of LearningStep UIDs
+# Purpose: Enforce learning sequence dependencies
+# Example: [ls:study-skills-101:step-1]
+prerequisites:
+  - ls:example-path:prerequisite-step
+
+# RELATIONSHIP FIELDS (Reference Only - Not Primary Data)
+# -------------------------------------------------------
+# These are shown in learning path YAML, not in individual step files:
+# - primary_knowledge: Main knowledge for this step (shown in path definition)
+# - supporting_knowledge: Supplementary knowledge (shown in path definition)
+# - principles: Guiding principles (shown in path definition)
+# - choices: Available choices (shown in path definition)
+# - habits: Supporting habits (shown in path definition)
+# - tasks: Related tasks (shown in path definition)
+
+# NOTES
+# -----
+# 1. LearningStep files are typically embedded in LearningPath YAML, not separate files
+# 2. The uid, knowledge_uid, and sequence fields are REQUIRED
+# 3. title and intent are REQUIRED by the LearningStepCreateRequest Pydantic model
+# 4. Progress tracking fields (current_mastery, completed, completed_at) are auto-managed
+# 5. prerequisites create a dependency graph for the learning path

@@ -1,0 +1,89 @@
+# Review Calculus Derivatives Task
+# =================================
+# A focused review task for reinforcing derivative concepts
+
+version: 1.0
+type: Task
+
+uid: task:review-calculus-derivatives
+title: Review Derivative Rules and Applications
+
+description: |
+  Complete a focused review of derivative rules including:
+  - Power rule
+  - Product rule
+  - Quotient rule
+  - Chain rule
+
+  Work through 5-10 practice problems covering each rule type.
+  Focus on understanding WHY each rule works, not just memorizing.
+
+# Time and scheduling
+duration_minutes: 25
+scheduled_date: "2025-10-05"
+scheduled_time: "09:00"
+
+# Task properties
+priority: high
+status: pending
+completion_status: not_started
+
+# Task relationships
+fulfills_goal_uid: goal:master-calculus-fundamentals
+reinforces_habit_uid: habit:daily-25min-focus-block
+
+related_knowledge_units:
+  - ku:derivative-rules
+  - ku:chain-rule
+  - ku:derivative-applications
+
+# Context and motivation
+context: |
+  This review is part of Week 2 of the calculus fundamentals learning path.
+  Derivatives are crucial for understanding rates of change and optimization
+  problems, which are foundational to advanced mathematics and physics.
+
+  Yesterday's session introduced the derivative definition. Today focuses on
+  practical rules for computing derivatives efficiently.
+
+# Success criteria
+completion_criteria: |
+  Task is complete when:
+  - All 4 derivative rules reviewed (power, product, quotient, chain)
+  - 5-10 practice problems solved correctly
+  - Can explain when to use each rule
+  - Notes created in own words
+  - Ready to teach concept to someone else
+
+# Resources needed
+required_resources:
+  - Khan Academy derivative practice problems
+  - Notebook for working through problems
+  - Calculus reference sheet
+  - Timer (for 25-minute Pomodoro)
+
+# Potential obstacles
+obstacles_and_solutions:
+  - obstacle: "Chain rule still feels confusing"
+    solution: "Watch 3Blue1Brown chain rule video, then try visual problems"
+
+  - obstacle: "Making algebraic errors"
+    solution: "Slow down, show all steps, verify with Symbolab"
+
+  - obstacle: "Running out of time"
+    solution: "Focus on quality over quantity - 5 problems done well beats 10 done poorly"
+
+# Follow-up tasks
+follow_up_tasks:
+  - "Practice mixed derivative problems (combining multiple rules)"
+  - "Apply derivatives to real-world rate of change problems"
+  - "Quiz myself on derivative rules without reference materials"
+
+tags:
+  - calculus
+  - derivatives
+  - mathematics
+  - review
+  - practice
+  - learning
+  - pomodoro-sized

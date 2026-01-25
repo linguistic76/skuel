@@ -1,0 +1,97 @@
+
+  1. Stub Implementation Detected ⚠
+
+  The tests exposed that get_knowledge_gaps_for_goal() is not fully implemented:
+
+  def get_knowledge_gaps_for_goal(self, _goal_uid: str) -> list[str]:
+      """Get missing knowledge for a goal"""
+      # Would need goal-knowledge mapping
+      gaps = []
+      for knowledge_uid, prereqs in self.prerequisites_needed.items():
+          if prereqs and knowledge_uid not in self.mastered_knowledge_uids:
+              gaps.append(knowledge_uid)
+      return gaps  # ❌ Ignores goal_uid parameter!
+
+  The Problem:
+  - Signature says: "Get gaps FOR A SPECIFIC GOAL"
+  - Implementation does: "Get ALL knowledge gaps (ignores goal)"
+  - Test passes because it doesn't verify goal-specific filtering
+
+  Evidence from test:
+  gaps = context.get_knowledge_gaps_for_goal("goal:build_webapp")
+  assert "ku:web_dev" in gaps  # ✓ Passes, but only by accident
+
+  The test should have verified:
+  - Knowledge related to goal:build_webapp IS included
+  - Knowledge related to OTHER goals is NOT included
+
+  2. Missing Goal-Knowledge Mapping 🔍
+
+  The context doesn't have a field to track which knowledge supports which goals:
+
+  # Context has:
+  tasks_by_goal: dict[str, list[str]]  # ✓ Task-goal relationship
+  habits_by_goal: dict[str, list[str]]  # ✓ Habit-goal relationship
+
+  # Context is missing:
+  knowledge_by_goal: dict[str, list[str]]  # ❌ Not present!
+
+  Why this matters:
+  - Can't answer: "What knowledge do I need for THIS goal?"
+  - Can't calculate: "Goal progress based on knowledge mastery"
+  - The stub implementation exists because the data structure is missing
+
+   3. No Validation Tests ⚠
+
+  All tests use valid data. None test error conditions:
+
+  # No tests for:
+  - Empty user_uid
+  - Negative cache_ttl_seconds
+  - Invalid enum values
+  - None values where not expected
+  - Circular relationships
+  - Duplicate UIDs in lists
+
+  Real-world risks:
+  context = UnifiedUserContext(
+      user_uid="",  # Empty UID - should this be allowed?
+      cache_ttl_seconds=-100,  # Negative TTL - what happens?
+      active_task_uids=["task:1", "task:1", "task:1"],  # Duplicates - OK?
+  )
+
+
+
+  5. Intelligence Method Assumptions 🧠
+
+  The intelligence methods assume data is already correct:
+
+  def calculate_life_alignment(self, life_path_knowledge_uids: list[str]) -> float:
+      # Assumes: knowledge_mastery dict has all the UIDs
+      # Assumes: Mastery values are 0.0-1.0
+      # Assumes: No duplicates in life_path_knowledge_uids
+
+      for ku_uid in life_path_knowledge_uids:
+          substance = self.knowledge_mastery.get(ku_uid, 0.0)  # Defaults to 0.0
+          total_substance += substance  # What if substance is None? Negative?
+
+  No tests verify:
+  - What if knowledge_mastery is missing a UID? (returns 0.0 - correct?)
+  - What if mastery value is > 1.0? (should be impossible, but...)
+  - What if life_path_knowledge_uids is empty? (returns 0.0 - tested ✓)
+
+  6. Property Assumptions 📊
+
+  The mastery_average property divides by count without checking for zero:
+
+  @property
+  def mastery_average(self) -> float:
+      if not self.knowledge_mastery:
+          return 0.0
+      return sum(self.knowledge_mastery.values()) / len(self.knowledge_mastery)
+      # ✓ Checks if dict is empty
+      # ❌ Doesn't check if values are valid numbers
+
+  Edge case not tested:
+  knowledge_mastery = {"ku:broken": "not_a_number"}  # Type hint says float
+  # This would crash at runtime!

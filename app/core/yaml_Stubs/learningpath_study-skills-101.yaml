@@ -1,0 +1,31 @@
+version: 0.1
+type: LearningPath
+uid: lp:study-skills-101
+title: Study Skills 101 — Simple & Steady
+summary: Start with one focused block and a tiny review habit.
+tags: [study, beginner, conversational]
+audience: teen-general
+progress_model:
+  kind: simple-checkpoints
+  completion_rule: any-4-days-in-7
+steps:
+  - uid: ps:lp:study-skills-101:step-1
+    title: One 25-Minute Block Today
+    intent: Pick one topic, run a single 25-minute block, and log it.
+    primary_knowledge: [ku:note-taking-basics]
+    supporting_knowledge: [ku:distraction-handling]
+    principles: [pr:plan-then-execute, pr:small-wins]
+    choices: [ch:start-25min-now, ch:plan-two-blocks-tomorrow]
+    habits: [hb:daily-25min-focus]
+    tasks: [tk:log-first-3-blocks]
+    events_projection:
+      template: ev:study-block-25min
+      frequency_hint: daily
+  - uid: ps:lp:study-skills-101:step-2
+    title: Make Five Cards + Quick Review
+    intent: Turn today’s concepts into 5 cards and sweep your notes.
+    primary_knowledge: [ku:spaced-repetition-basics]
+    principles: [pr:small-wins]
+    choices: [ch:create-5-flashcards]
+    habits: [hb:weekly-review-30min]
+    tasks: [tk:make-5-cards, tk:weekly-review]

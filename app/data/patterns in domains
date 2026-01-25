@@ -1,0 +1,18 @@
+
+  Pattern:
+  Each domain service now defines 4 class attributes:
+
+  _date_field: str = "due_date"  # Domain-specific date field
+  _completed_statuses: list[str] = [ActivityStatus.COMPLETED.value]
+  _dto_class = TaskDTO
+  _model_class = Task
+
+  The unified get_user_items_in_range() method in BaseService uses these attributes to dynamically configure the query.
+
+  Exceptions:
+  - PrinciplesCoreService - Kept custom implementation because it uses boolean is_active field instead of status enum (documented architectural difference)
+
+  Verification:
+  - All 6 services pass syntax checking
+  - 63/63 integration tests pass
+  - Class attributes verified for all services

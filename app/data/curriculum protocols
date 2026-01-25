@@ -1,0 +1,71 @@
+
+● Summary: Curriculum Protocol Hierarchy Created
+
+  I've successfully created the CurriculumOperations[T] protocol hierarchy. Here's what was implemented:
+
+  New File Created
+
+  /core/services/protocols/curriculum_protocols.py (~500 lines)
+
+  Protocol Hierarchy
+
+  CurriculumOperations[T]  ← Base for all curriculum domains
+      ├── Inherits: BackendOperations[T] (25+ methods: CRUD, relationships, traversal)
+      ├── Inherits: GraphRelationshipOperations (get_related_uids, count_related)
+      │
+      └── Curriculum-Specific Methods:
+          ├── get_with_content()      → Result[T]
+          ├── get_with_context()      → Result[T]
+          ├── get_prerequisites()     → Result[list[T]]
+          ├── get_enables()           → Result[list[T]]
+          ├── get_hierarchy()         → Result[dict]
+          └── get_user_curriculum()   → Result[list[T]]
+
+  KuOperations(CurriculumOperations[Ku]):
+      ├── get_ku(), get_user_kus()              # KU retrieval
+      ├── get_semantic_links()                   # Semantic relationships
+      ├── get_substance_score()                  # Applied knowledge tracking
+      └── get_learning_steps_using()             # Curriculum integration
+
+  LsOperations(CurriculumOperations[Ls]):
+      ├── get_ls(), get_user_steps()             # LS retrieval
+      ├── get_knowledge_uids()                   # KU aggregation
+      ├── get_practice_summary()                 # Habits/Tasks/Events
+      ├── get_path_steps()                       # LP integration
+      └── get_guiding_principles()               # Guidance
+
+  LpOperations(CurriculumOperations[Lp]):
+      ├── get_lp(), list_user_paths()            # LP retrieval
+      ├── get_steps(), get_next_step()           # Step navigation
+      ├── calculate_progress(), is_mastered()    # Progress tracking
+      ├── get_aligned_goals()                    # Motivational alignment
+      └── get_milestone_events()                 # Milestones
+
+  Key Consistency Improvements
+
+  | Aspect               | Before            | After                                 |
+  |----------------------|-------------------|---------------------------------------|
+  | Return Types         | dict | None       | Result[T]                             |
+  | Base Protocol        | None (standalone) | BackendOperations[T]                  |
+  | Relationship Queries | Manual Cypher     | Inherited methods                     |
+  | Search               | Per-service       | Inherited from EntitySearchOperations |
+  | CRUD                 | Re-implemented    | Inherited from CrudOperations         |
+
+  Exports Updated
+
+  from core.services.protocols import (
+      CurriculumOperations,  # Base for KU, LS, LP
+      KuOperations,          # Knowledge Unit operations
+      LsOperations,          # Learning Step operations
+      LpOperations,          # Learning Path operations
+      KuOperationsLegacy,    # Deprecated - for migration
+  )
+
+  Next Steps (Future Work)
+
+  1. Create CurriculumBaseService - Parallel to BaseService, provides curriculum-specific shared behavior
+  2. Migrate KuCoreService - First service to use new protocols
+  3. Migrate LsCoreService and LpCoreService
+  4. Remove KuOperationsLegacy once migration complete
+
+  This establishes the foundational protocol architecture for curriculum domains, enabling the same consistency benefits that Activity domains already enjoy.

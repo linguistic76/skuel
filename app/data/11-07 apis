@@ -1,0 +1,54 @@
+
+● Excellent catch! Let me show you SKUEL's architectural consistency for UI vs API:
+
+  SKUEL's UI Architecture Pattern
+
+  File Naming Convention
+
+  adapters/inbound/
+  ├── *_api.py       # JSON API routes (no UI elements)
+  ├── *_ui.py        # UI routes (HTML/HTMX with components)
+  └── *_routes.py    # Mixed or legacy
+
+  Import Patterns
+
+  API Files (*_api.py):
+  # analytics_api.py, tasks_api.py, goals_api.py, etc.
+  from core.utils.error_boundary import boundary_handler
+  from core.utils.result_simplified import Result
+
+  # Returns JSON via @boundary_handler()
+  @rt("/api/analytics/learning-velocity")
+  @boundary_handler()
+  async def learning_velocity(request):
+      return Result.ok(metrics)  # → JSON response
+
+  UI Files (*_ui.py):
+  # tasks_ui.py, habits_ui.py, goals_ui.py, etc.
+  from fasthtml.common import Response
+  from monsterui.franken import H1, H2, Card, Div, Button  # ← UI components!
+  from components.shared_ui_components import SharedUIComponents
+
+  # Returns HTML fragments
+  @rt("/tasks")
+  def tasks_dashboard(request):
+      return Div(
+          H1("Tasks"),
+          Card(...)  # ← FastHTML/MonsterUI elements
+      )
+
+  Key Architectural Decisions
+
+  1. SKUEL uses MonsterUI/FrankenUI for UI components (per CLAUDE.md):
+  "Use FrankenUI rather than custom Tailwind. If FrankenUI does not provide the component try DaisyUI."
+
+  2. Separation of Concerns:
+  - *_api.py → JSON-only, no HTML
+  - *_ui.py → HTML/HTMX with MonsterUI components
+  - components/* → Reusable UI components
+
+  3. No Star Imports:
+  - Neither API nor UI files use from fasthtml.common import *
+  - UI files import specific elements: from monsterui.franken import H1, Div, Card
+  - API files only import Response or Request if needed
+

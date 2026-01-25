@@ -1,0 +1,61 @@
+
+● Summary: GenericRelationshipsFetcher Implementation Complete
+
+  What Was Created
+
+  New File: core/models/relationships/generic_fetcher.py (~130 lines)
+  - fetch_relationships_parallel() - Generic function that executes N queries in parallel and constructs a dataclass
+  - validate_query_specs() - Development-time validation helper
+
+  Files Refactored (6 domains)
+
+  | Domain    | File                       | Before   | After   | Lines Saved |
+  |-----------|----------------------------|----------|---------|-------------|
+  | Task      | task_relationships.py      | 28 lines | 6 lines | ~22         |
+  | Goal      | goal_relationships.py      | 26 lines | 6 lines | ~20         |
+  | Event     | event_relationships.py     | 18 lines | 6 lines | ~12         |
+  | Habit     | habit_relationships.py     | 13 lines | 6 lines | ~7          |
+  | Choice    | choice_relationships.py    | 14 lines | 6 lines | ~8          |
+  | Principle | principle_relationships.py | 14 lines | 6 lines | ~8          |
+
+  Total Lines Saved: ~77 lines of repetitive asyncio.gather() + Result unpacking code
+
+  Pattern Before vs After
+
+  Before (repeated in each file):
+  results = await asyncio.gather(
+      service.get_task_subtasks(task_uid),
+      service.get_task_knowledge(task_uid),
+      # ... 7 more calls
+  )
+  return cls(
+      subtask_uids=results[0].value if results[0].is_ok else [],
+      applies_knowledge_uids=results[1].value if results[1].is_ok else [],
+      # ... 7 more fields
+  )
+
+  After (declarative query specs + generic fetcher):
+  TASK_QUERY_SPECS = [
+      ("subtask_uids", "get_task_subtasks"),
+      ("applies_knowledge_uids", "get_task_knowledge"),
+      # ... 7 more specs
+  ]
+
+  return await fetch_relationships_parallel(
+      uid=task_uid,
+      service=service,
+      query_specs=TASK_QUERY_SPECS,
+      dataclass_type=cls,
+  )
+
+  Test Results
+
+  - ✅ All 7 files compile successfully
+  - ✅ All imports work without circular dependencies
+  - ✅ 125/125 integration relationship tests pass
+  - ✅ 32 queries consolidated across 6 domains
+
+  What Was NOT Changed
+
+  - KuRelationships - Intentionally left as-is (different architecture with semantic context)
+  - LsRelationships / LpRelationships - Could be refactored in the future using the same pattern

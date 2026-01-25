@@ -1,0 +1,39 @@
+
+
+  Solution
+
+  1. HTMX Form Submission - The form now uses HTMX instead of traditional POST:
+  **{
+      "hx-post": "/askesis/submit-message",
+      "hx-target": "#conversation-messages",
+      "hx-swap": "beforeend",
+      "hx-on::after-request": "document.getElementById('conversation-input').value = ''",
+  }
+
+  2. New UI Endpoint - Created /askesis/submit-message that:
+    - Accepts form data (not JSON)
+    - Returns HTML (not JSON)
+    - Appends both user message and AI response to the conversation
+    - Uses a mock response for now (ready to integrate with actual AI service)
+
+  3. Conversation Container - Added id="conversation-messages" so HTMX knows where to append new messages
+
+  How It Works Now
+
+  When you click "Send Message":
+  1. ✅ HTMX intercepts the form submission (no page redirect)
+  2. ✅ POSTs to /askesis/submit-message
+  3. ✅ Gets back HTML with your message + AI response
+  4. ✅ Appends it to the conversation area
+  5. ✅ Clears the input field
+  6. ✅ Stays on the same page!
+
+  This is exactly how Claude.ai works - messages appear in the conversation without page reloads.
+
+  Test It
+
+  Navigate to http://localhost:8000/askesis and try sending a message. You should see:
+  - Your message appears in the conversation
+  - AI responds immediately
+  - Input field clears automatically
+  - No page redirect!

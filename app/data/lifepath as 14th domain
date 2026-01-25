@@ -1,0 +1,59 @@
+
+● Summary: LifePath as Domain #14 - The Destination
+
+  Architectural Change
+
+  LifePath is now recognized as the 14th domain - The Destination - not just a meta-service. Reports has been demoted to a cross-cutting system (meta-service for read-only aggregation).
+
+  Changes Made
+
+  1. /core/utils/services_bootstrap.py
+  # The Destination - LifePath (Domain #14)
+  # "Everything flows toward the life path"
+  lifepath: Any = None  # ReportLifePathService - Life goal alignment tracking
+
+  2. /core/models/search/search_router.py
+  # The Destination - LifePath (Domain #14)
+  # "Everything flows toward the life path"
+  EntityType.LIFEPATH: "lifepath",
+  EntityType.LIFE_PATH: "lifepath",  # Alias → same service
+  # Cross-cutting Systems (not domains)
+  EntityType.REPORT: "reports",  # Meta-service: statistical aggregation
+
+  3. /CLAUDE.md - Complete rewrite of architecture section
+
+  The 14-Domain Architecture
+
+  | Group                | Domains                                           | Count |
+  |----------------------|---------------------------------------------------|-------|
+  | Activity             | Tasks, Goals, Habits, Events, Choices, Principles | 6     |
+  | Finance              | Finance                                           | 1     |
+  | Curriculum           | KU, LS, LP                                        | 3     |
+  | Content/Organization | Journals, Assignments, MOC                        | 3     |
+  | The Destination      | LifePath                                          | 1     |
+  | Total                |                                                   | 14    |
+
+  Cross-Cutting Systems (5)
+
+  | System      | Purpose                                          |
+  |-------------|--------------------------------------------------|
+  | UserContext | Identity + ~240 fields of state                  |
+  | Search      | Unified search across 14 domains                 |
+  | Calendar    | Aggregates Tasks, Events, Habits, Goals          |
+  | Askesis     | Life context synthesis + recommendations         |
+  | Reports     | READ-ONLY statistical aggregation (meta-service) |
+
+  The Flow
+
+  All 13 domains flow toward LifePath:
+  - Goals → SERVES_LIFE_PATH
+  - Principles → Guide alignment
+  - Habits → Daily behaviors supporting life direction
+  - KU/LS/LP → Learning that enables life goals
+  - Choices → Decisions evaluated against life path
+  - Tasks/Events → Tactical execution
+  - Finance → Resource allocation aligned with priorities
+  - Journals/Assignments/MOC → Reflection, processing, organization
+
+  LifePath answers the ultimate question: "Am I living my life path?"
+

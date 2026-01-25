@@ -1,0 +1,75 @@
+version: 1.0
+type: Principle
+
+uid: principle:small-steps
+name: Small Steps Beat Big Bursts
+statement: I commit to consistent tiny actions over heroic sprints
+description: |
+  Sustainable change comes from small, repeated actions rather than
+  occasional intense efforts. Two minutes daily beats one hour weekly.
+
+# Classification
+category: personal
+source: personal
+strength: strong
+
+# Philosophical Context
+tradition: Behavioral Psychology / Habit Formation
+original_source: BJ Fogg - Tiny Habits, James Clear - Atomic Habits
+personal_interpretation: |
+  In mindfulness practice, the principle of small steps is fundamental.
+  A daily 2-minute practice builds the neural pathways and habit consistency
+  that a weekly 30-minute session cannot achieve.
+
+# Learning Integration
+supported_knowledge_domains:
+  - ku:breath-awareness-basics
+  - ku:mind-wandering-happens
+
+guided_goal_uids:
+  - goal:mindfulness-beginner
+
+inspired_habit_uids:
+  - habit:daily-2min-breath
+  - habit:label-wander-daily
+
+related_principle_uids:
+  - principle:attention-over-intensity
+
+# Expressions & Applications
+key_behaviors:
+  - Start with 2-minute sessions instead of 20-minute goals
+  - Practice daily rather than seeking perfect conditions
+  - Celebrate showing up, not duration
+
+decision_criteria:
+  - When choosing practice duration, choose the smaller sustainable option
+  - When facing resistance, reduce scope rather than skip entirely
+  - When planning, prioritize frequency over intensity
+
+# Alignment Tracking
+current_alignment: mostly_aligned
+last_review_date: 2025-10-04
+
+# Personal Reflection
+why_important: |
+  This principle keeps me from the all-or-nothing trap.
+  It's the difference between building a practice and burning out.
+
+origin_story: |
+  Adopted after repeatedly failing to maintain "proper" 20-minute meditation sessions.
+  Realized that 2 minutes daily for 30 days built more skill than sporadic longer sessions.
+
+# Status
+is_active: true
+priority: high
+
+# Metadata
+adopted_date: 2025-01-15
+tags:
+  - habits
+  - momentum
+  - sustainability
+  - mindfulness
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z

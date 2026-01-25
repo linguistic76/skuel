@@ -1,0 +1,155 @@
+#!/bin/bash
+# SKUEL Development Command Runner
+# =================================
+# Quick access to common development commands
+#
+# Usage: ./dev <command>
+
+set -e  # Exit on error
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+case "$1" in
+  format)
+    echo -e "${GREEN}Formatting code...${NC}"
+    poetry run ruff format
+    echo -e "${GREEN}✓ Formatting complete${NC}"
+    ;;
+
+  format-check)
+    echo -e "${YELLOW}Checking formatting...${NC}"
+    poetry run ruff format --check
+    ;;
+
+  lint)
+    echo -e "${YELLOW}Running linters...${NC}"
+    poetry run ruff check
+    poetry run python scripts/lint_skuel_patterns.py
+    ;;
+
+  lint-fix)
+    echo -e "${GREEN}Auto-fixing lint issues...${NC}"
+    poetry run ruff check --fix
+    ;;
+
+  quality)
+    echo -e "${YELLOW}Running all quality checks...${NC}"
+    poetry run python scripts/run_quality_checks.py
+    ;;
+
+  quality-fix)
+    echo -e "${GREEN}Running quality checks with auto-fix...${NC}"
+    poetry run python scripts/run_quality_checks.py --fix
+    ;;
+
+  bloat)
+    echo -e "${YELLOW}Detecting bloat (unused code)...${NC}"
+    poetry run python scripts/detect_bloat.py
+    ;;
+
+  bloat-events)
+    echo -e "${YELLOW}Detecting unused events...${NC}"
+    poetry run python scripts/detect_bloat.py --events-only
+    ;;
+
+  bloat-methods)
+    echo -e "${YELLOW}Detecting unused service methods...${NC}"
+    poetry run python scripts/detect_bloat.py --methods-only
+    ;;
+
+  test)
+    echo -e "${GREEN}Running COMPREHENSIVE test suite (recommended)${NC}"
+    poetry run python scripts/run_tests.py comprehensive
+    ;;
+
+  test-all)
+    echo -e "${YELLOW}Running COMPLETE test suite (all 1,349 tests)${NC}"
+    poetry run python scripts/run_tests.py all
+    ;;
+
+  test-integration)
+    echo -e "${GREEN}Running integration tests (fast)${NC}"
+    poetry run python scripts/run_tests.py integration
+    ;;
+
+  test-service)
+    echo -e "${YELLOW}Running service tests only${NC}"
+    poetry run python scripts/run_tests.py service
+    ;;
+
+  test-unit)
+    echo -e "${YELLOW}Running unit tests (many need Phase 2 migration updates)${NC}"
+    poetry run python scripts/run_tests.py unit
+    ;;
+
+  test-quick)
+    echo -e "${GREEN}Running quick smoke test${NC}"
+    poetry run python scripts/run_tests.py quick
+    ;;
+
+  serve)
+    echo -e "${GREEN}Starting SKUEL server...${NC}"
+    poetry run python main.py
+    ;;
+
+  css)
+    echo -e "${GREEN}Watching CSS changes...${NC}"
+    npm run css:watch
+    ;;
+
+  css-build)
+    echo -e "${GREEN}Building CSS...${NC}"
+    npm run css:build
+    ;;
+
+  css-prod)
+    echo -e "${GREEN}Building minified CSS for production...${NC}"
+    npm run css:prod
+    ;;
+
+  help|*)
+    echo "SKUEL Development Commands"
+    echo "=========================="
+    echo ""
+    echo "Code Quality:"
+    echo "  ./dev format         - Auto-format all Python files with Ruff"
+    echo "  ./dev format-check   - Check formatting without changes"
+    echo "  ./dev lint           - Run all linters (Ruff + SKUEL patterns)"
+    echo "  ./dev lint-fix       - Auto-fix linting issues"
+    echo "  ./dev quality        - Run ALL quality checks (format + lint + patterns + Cypher)"
+    echo "  ./dev quality-fix    - Run quality checks with auto-fix"
+    echo ""
+    echo "Bloat Detection:"
+    echo "  ./dev bloat          - Detect all unused code (events + methods)"
+    echo "  ./dev bloat-events   - Detect unused events only"
+    echo "  ./dev bloat-methods  - Detect unused service methods only"
+    echo ""
+    echo "Testing:"
+    echo "  ./dev test              - Run comprehensive tests (~1,150 tests, ~95% pass) [RECOMMENDED]"
+    echo "  ./dev test-all          - Run complete suite (1,349 tests, ~83% pass)"
+    echo "  ./dev test-integration  - Run integration tests (434 tests, 100% pass) [FAST & RELIABLE]"
+    echo "  ./dev test-service      - Run service tests (~600 tests, ~92% pass)"
+    echo "  ./dev test-unit         - Run unit tests (only - many need Phase 2 migration updates)"
+    echo "  ./dev test-quick        - Run quick smoke test (~350 tests, ~99% pass) [FASTEST]"
+    echo ""
+    echo "Development:"
+    echo "  ./dev serve          - Start development server"
+    echo "  ./dev css            - Watch and rebuild CSS on changes"
+    echo "  ./dev css-build      - Build CSS once"
+    echo "  ./dev css-prod       - Build minified CSS for production"
+    echo ""
+    echo "Examples:"
+    echo "  ./dev format            # Before committing changes"
+    echo "  ./dev quality-fix       # Fix all auto-fixable issues"
+    echo "  ./dev test              # Comprehensive tests (recommended)"
+    echo "  ./dev test-quick        # Fast smoke test (30s)"
+    echo "  ./dev bloat-events      # Find unused events"
+    echo ""
+    echo "Advanced Test Options:"
+    echo "  poetry run python scripts/run_tests.py --help  # See all test runner options"
+    ;;
+esac

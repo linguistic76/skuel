@@ -1,0 +1,47 @@
+
+  Summary: Type-Safe Search Protocol Upgrade
+
+  Changes Made
+
+  1. Search Protocol (search_protocols.py)
+  - Added imports for RelationshipName and Direction
+  - Updated get_by_relationship() signature:
+    - relationship_type: str → relationship_type: RelationshipName
+    - direction: str → direction: Direction
+  - Added example in docstring showing type-safe usage
+
+  2. All 6 Activity Domain Search Services Updated:
+
+  | Service                | File                        | Changes                                                                       |
+  |------------------------|-----------------------------|-------------------------------------------------------------------------------|
+  | TasksSearchService     | tasks_search_service.py     | Added get_by_relationship() method (was missing), moved inline imports to top |
+  | GoalSearchService      | goal_search_service.py      | Updated signature + internal calls (FULFILLS_GOAL, SUPPORTS_GOAL, SUBGOAL_OF) |
+  | HabitSearchService     | habit_search_service.py     | Updated signature + internal calls (SUPPORTS_GOAL, REINFORCES_KNOWLEDGE)      |
+  | EventSearchService     | event_search_service.py     | Updated signature + internal calls (SUPPORTS_GOAL, REINFORCES_HABIT)          |
+  | ChoiceSearchService    | choice_search_service.py    | Updated signature + internal call (AFFECTS_GOAL)                              |
+  | PrincipleSearchService | principle_search_service.py | Updated signature, cleaned up redundant inline imports                        |
+
+  3. RelationshipName Enum (relationship_names.py)
+  - Added AFFECTS_GOAL = "AFFECTS_GOAL" to CHOICE RELATIONSHIPS section (was missing)
+
+  Type Safety Benefits
+
+  Before (error-prone):
+  await goal_search.get_by_relationship(
+      task_uid,
+      "FULFILS_GOAL",  # Typo! Runtime error
+      direction="outgoing"
+  )
+
+  After (compile-time verified):
+  await goal_search.get_by_relationship(
+      task_uid,
+      RelationshipName.FULFILLS_GOAL,  # IDE autocomplete, MyPy verified
+      direction="outgoing"
+  )
+
+  Verification
+
+  - ✅ All 8 files pass Python syntax check
+  - ✅ All imports work correctly
+  - ✅ RelationshipName now has 75 members (including new AFFECTS_GOAL)

@@ -1,0 +1,61 @@
+# Small Wins Compound Principle
+# ==============================
+# The foundational principle that consistent small actions build into significant results
+
+version: 1.0
+type: Principle
+
+uid: principle:small-wins-compound
+name: Small Wins Compound
+
+statement: Consistent small actions compound into significant results over time
+
+category: personal
+source: scientific
+strength: core
+alignment_level: critical
+
+description: |
+  This principle recognizes that substantial achievements are built through
+  consistent, incremental progress rather than sporadic large efforts.
+
+  Scientific research demonstrates that habits and skills develop through
+  repetition and consistency. Each small win creates:
+  - Psychological momentum
+  - Skill reinforcement
+  - Confidence building
+  - Pattern establishment
+
+  The compounding effect means that early efforts may seem insignificant,
+  but their cumulative impact grows exponentially over time.
+
+  This principle applies across all domains: learning, fitness, relationships,
+  and professional development.
+
+supported_knowledge_domains:
+  - personal
+  - professional
+  - technical
+  - health
+
+example_applications:
+  - Complete one 25-minute study block daily instead of cramming
+  - Write 200 words daily rather than waiting for "inspiration"
+  - Do 10 push-ups daily instead of occasional intense workouts
+  - Review flashcards for 5 minutes daily vs. weekly marathon sessions
+  - Practice coding for 30 minutes daily rather than weekend binges
+
+measurement_criteria: |
+  You're applying this principle when:
+  - You prioritize consistency over intensity
+  - You track small daily actions rather than just big milestones
+  - You feel progress accumulating even when individual sessions seem minor
+  - You maintain momentum through regular practice
+  - You resist the urge to "make up" for missed days with marathon sessions
+
+tags:
+  - consistency
+  - habits
+  - compound-effect
+  - incremental-progress
+  - foundational

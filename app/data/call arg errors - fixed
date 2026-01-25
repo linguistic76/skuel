@@ -1,0 +1,14 @@
+
+
+  Summary: 9 Call-Arg Errors Fixed
+
+  | #   | Error                                     | Fix                                 | Architectural Decision                                                       |
+  |-----|-------------------------------------------|-------------------------------------|------------------------------------------------------------------------------|
+  | 1   | ContextualPrinciple.inspired_habits       | Removed non-existent field          | Principles guide Goals, not Habits directly (Principle → Goal → Habit chain) |
+  | 2   | ContextualChoice.informing_knowledge      | Fixed typo to informed_by_knowledge | Field naming consistency                                                     |
+  | 3   | RelationshipCreationHelper._depth         | Changed _depth → depth              | API parameters should use public names even if not yet implemented           |
+  | 4-5 | CalendarEventCreated.event_type           | Changed to calendar_event_type      | Distinguish event domain type from event metadata type                       |
+  | 6   | build_user_context missing user           | Fetch User first, then pass both    | UserContextBuilder requires User entity, not just user_uid                   |
+  | 7   | get_entity_context relationship_types     | Post-query filtering instead        | Fetch full context, filter in Python for cleaner architecture                |
+  | 8   | get_relationships_by_type predicate       | String→Enum conversion at facade    | Facade handles string→SemanticRelationshipType conversion                    |
+  | 9   | get_learning_recommendations starting_uid | Use find_next_steps for uid-based   | Service method is user-global; uid-specific uses different method            |

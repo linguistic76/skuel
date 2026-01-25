@@ -1,0 +1,188 @@
+# Example: Python Programming Mastery Path
+# =========================================
+# A complete example showing all features
+
+learning_path:
+  title: "Python Programming Mastery"
+  domain: tech
+  description: "Complete path from Python basics to advanced development"
+
+  # Core learning principles
+  principles:
+    - name: "Code Every Day"
+      statement: "I write code daily, no matter how small"
+      strength: core
+      category: intellectual
+      why_important: "Consistent practice builds muscle memory and deep understanding"
+      behaviors:
+        - "Write at least 10 lines of Python daily"
+        - "Review and refactor previous code"
+        - "Experiment with new concepts immediately"
+
+    - name: "Learn by Building"
+      statement: "I learn concepts by building real projects"
+      strength: strong
+      category: intellectual
+      behaviors:
+        - "Apply each concept in a mini-project"
+        - "Build increasingly complex applications"
+        - "Share projects for feedback"
+
+  # Specific measurable goals
+  goals:
+    - title: "Complete Python Fundamentals"
+      type: learning
+      measurement: milestone
+      target_date: "2024-04-30"
+      why_important: "Foundation for all Python development"
+      success_criteria: "Can write clean, idiomatic Python code"
+      milestones:
+        - "Master basic syntax and data types"
+        - "Understand control flow and functions"
+        - "Work confidently with OOP"
+
+    - title: "Build Portfolio Project"
+      type: project
+      measurement: binary
+      target_date: "2024-06-30"
+      why_important: "Demonstrate skills to potential employers"
+      success_criteria: "Deploy a full-stack Python application"
+
+    - title: "Contribute to Open Source"
+      type: outcome
+      measurement: numeric
+      target_value: 5  # number of PRs
+      target_date: "2024-08-31"
+      why_important: "Learn from real codebases and give back"
+
+  # Supporting habits for success
+  habits:
+    - name: "Morning Code Review"
+      duration: 15
+      difficulty: easy
+      category: learning
+      cue: "With morning coffee"
+      routine: "Review yesterday's code, plan today's learning"
+      reward: "Check off in habit tracker"
+      linked_knowledge:
+        - python_basics
+        - python_functions
+        - python_oop
+
+    - name: "Evening Project Time"
+      duration: 45
+      difficulty: moderate
+      category: learning
+      cue: "After dinner"
+      routine: "Work on current project, apply new concepts"
+      reward: "Git commit with progress"
+      prerequisite_habits: ["Morning Code Review"]
+
+    - name: "Weekly Code Kata"
+      duration: 60
+      difficulty: challenging
+      category: learning
+      recurrence: weekly
+      cue: "Saturday morning"
+      routine: "Solve algorithmic challenges on LeetCode/HackerRank"
+      reward: "Share solution and learnings"
+
+  # Knowledge progression
+  knowledge_sequence:
+    # Foundation
+    - uid: python_basics
+      title: "Python Basics: Variables, Data Types, Operators"
+      prerequisites: []
+      estimated_hours: 10
+      complexity: basic
+      content: |
+        - Variables and naming conventions
+        - Data types: int, float, str, bool
+        - Basic operators and expressions
+        - Type conversion and checking
+
+    - uid: python_data_structures
+      title: "Python Data Structures"
+      prerequisites: [python_basics]
+      estimated_hours: 15
+      complexity: basic
+      content: |
+        - Lists and list comprehensions
+        - Tuples and their immutability
+        - Dictionaries and sets
+        - When to use each structure
+
+    # Intermediate
+    - uid: python_functions
+      title: "Functions and Functional Programming"
+      prerequisites: [python_data_structures]
+      estimated_hours: 20
+      complexity: medium
+      content: |
+        - Function definition and calls
+        - Arguments: positional, keyword, default, *args, **kwargs
+        - Lambda functions and map/filter/reduce
+        - Decorators and closures
+
+    - uid: python_oop
+      title: "Object-Oriented Programming"
+      prerequisites: [python_functions]
+      estimated_hours: 25
+      complexity: medium
+      content: |
+        - Classes and objects
+        - Inheritance and polymorphism
+        - Encapsulation and abstraction
+        - Magic methods and properties
+
+    # Advanced
+    - uid: python_advanced
+      title: "Advanced Python Concepts"
+      prerequisites: [python_oop]
+      estimated_hours: 30
+      complexity: advanced
+      content: |
+        - Generators and iterators
+        - Context managers
+        - Metaclasses
+        - Async/await and concurrency
+
+    - uid: python_web_dev
+      title: "Web Development with Python"
+      prerequisites: [python_advanced]
+      estimated_hours: 40
+      complexity: advanced
+      content: |
+        - Flask/Django frameworks
+        - RESTful API design
+        - Database integration
+        - Testing and deployment
+
+    - uid: python_data_science
+      title: "Python for Data Science"
+      prerequisites: [python_advanced]
+      estimated_hours: 35
+      complexity: advanced
+      content: |
+        - NumPy and Pandas
+        - Data visualization with Matplotlib/Seaborn
+        - Machine learning basics with scikit-learn
+        - Jupyter notebooks
+
+  # Relationships (automatically established)
+  relationships:
+    # Goals require knowledge
+    goal_knowledge_mapping:
+      "Complete Python Fundamentals": [python_basics, python_functions, python_oop]
+      "Build Portfolio Project": [python_web_dev]
+
+    # Habits reinforce knowledge
+    habit_knowledge_mapping:
+      "Morning Code Review": [python_basics, python_functions]
+      "Evening Project Time": [python_web_dev]
+      "Weekly Code Kata": [python_advanced]
+
+    # Principles guide goals
+    principle_goal_mapping:
+      "Code Every Day": ["Complete Python Fundamentals"]
+      "Learn by Building": ["Build Portfolio Project", "Contribute to Open Source"]

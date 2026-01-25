@@ -1,0 +1,9 @@
+-
+  Back to the core of this thread that began via examining Areas for Improvement in /core/models/search/ Module
+
+  5. Missing Tests for New Modules
+  - test_tasks_search_service.py exists but no test_search_filters.py, test_scoring.py, or test_search_router.py
+  - Core infrastructure lacking test coverage
+
+  6. Protocol Compliance
+  DomainSearchOperations[T] protocol in search_protocols.py requires search_filtered() and intelligent_search(), but it's unclear which services actually implement these methods.

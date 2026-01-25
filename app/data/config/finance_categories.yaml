@@ -1,0 +1,101 @@
+# Finance Categories Configuration
+# =================================
+# This file defines the category hierarchy for expense tracking
+# Edit this file to customize your expense categories
+
+# Main budget categories (top-level)
+main_categories:
+  - name: "Personal"
+    code: "PERSONAL"
+    description: "Personal expenses"
+
+  - name: "House (2222)"
+    code: "HOUSE"
+    description: "House-related expenses for 2222 Brandywine"
+
+  - name: "SKUEL"
+    code: "SKUEL"
+    description: "SKUEL business expenses"
+
+# Subcategories mapped to main categories
+subcategories:
+  PERSONAL:
+    - name: "Food & Dining"
+      code: "food"
+      tags: ["groceries", "restaurants", "coffee"]
+
+    - name: "Vehicle"
+      code: "vehicle"
+      tags: ["gas", "maintenance", "insurance", "registration"]
+
+    - name: "Phone & Internet"
+      code: "phone"
+      tags: ["mobile", "internet", "streaming"]
+
+    - name: "Health & Fitness"
+      code: "health"
+      tags: ["medical", "gym", "supplements"]
+
+    - name: "Personal Care"
+      code: "personal_care"
+      tags: ["haircut", "clothing", "supplies"]
+
+    - name: "Entertainment"
+      code: "entertainment"
+      tags: ["movies", "games", "hobbies"]
+
+  HOUSE:
+    - name: "Mortgage/Rent"
+      code: "mortgage"
+      tags: ["mortgage", "rent", "property_tax"]
+
+    - name: "Utilities"
+      code: "utilities"
+      tags: ["electricity", "water", "gas", "trash"]
+
+    - name: "Maintenance"
+      code: "maintenance"
+      tags: ["repairs", "landscaping", "cleaning"]
+
+    - name: "Home Improvement"
+      code: "improvement"
+      tags: ["renovation", "furniture", "appliances"]
+
+    - name: "Insurance"
+      code: "home_insurance"
+      tags: ["homeowners", "flood", "umbrella"]
+
+  SKUEL:
+    - name: "Software & Tools"
+      code: "software"
+      tags: ["licenses", "subscriptions", "apis"]
+
+    - name: "Infrastructure"
+      code: "infrastructure"
+      tags: ["hosting", "domains", "servers"]
+
+    - name: "Professional Services"
+      code: "professional"
+      tags: ["consulting", "legal", "accounting"]
+
+    - name: "Marketing"
+      code: "marketing"
+      tags: ["advertising", "content", "design"]
+
+    - name: "Education & Training"
+      code: "education"
+      tags: ["courses", "books", "conferences"]
+  "professional": "SKUEL.professional"
+  "personal": "PERSONAL.personal_care"
+  "other": "PERSONAL.personal_care"
+
+# Expense statuses (simplified)
+expense_statuses:
+  - "pending"
+  - "paid"
+
+# Budget periods
+budget_periods:
+  - "monthly"
+  - "quarterly"
+  - "yearly"

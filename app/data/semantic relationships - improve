@@ -1,0 +1,85 @@
+
+
+  ---
+  🚀 Immediate High-Impact Improvements
+
+  ---
+  2. Activate Your 50+ Unused Semantic Relationships
+
+  Problem: 80+ semantic relationship types but only use ~30%
+
+  Example - Unused but valuable relationships:
+  # From semantic_relationships.py - DEFINED but never created:
+  DEEPENS_UNDERSTANDING = "learn:deepens_understanding"
+  TRIGGERS_AFTER = "habit:triggers_after"
+  BUILDS_CAPACITY_FOR = "habit:builds_capacity_for"
+  SIMPLIFIES = "learn:simplifies"
+  DISCOVERED_THROUGH = "cross:discovered_through"
+
+  Quick win - Add these when relationships naturally occur:
+
+  # In HabitsService.complete():
+  async def complete_habit(self, uid: str) -> Result[Habit]:
+      # ... existing completion logic ...
+
+      # NEW: Detect habit chains
+      if self._habit_reliably_follows_another(uid, previous_habit_uid):
+          # Create TRIGGERS_AFTER semantic edge
+          await self.semantic_service.create_relationship(
+              from_uid=previous_habit_uid,
+              to_uid=uid,
+              relationship_type=SemanticRelationshipType.TRIGGERS_AFTER,
+              confidence=0.85,  # High confidence from user behavior
+              metadata={"detected_from": "completion_pattern"}
+          )
+
+  # In KuService.create():
+  async def create_knowledge_unit(self, ku: KuDTO) -> Result[KuDTO]:
+      # ... existing creation logic ...
+
+      # NEW: Detect knowledge relationships from content
+      if self._is_simplification_of(ku, existing_ku):
+          await self.semantic_service.create_relationship(
+              from_uid=ku.uid,
+              to_uid=existing_ku.uid,
+              relationship_type=SemanticRelationshipType.SIMPLIFIES,
+              confidence=0.75
+          )
+
+  Impact:
+  - +20-30% semantic expressiveness
+  - Enables advanced graph queries (find habit chains, learning progressions)
+  - Better recommendations (suggest habits that naturally follow others)
+
+  -
+
+
+
+### 1.1 Activate Your Unused Semantic Relationships
+
+**Problem:** 80+ semantic relationship types defined, only ~30% used in practice
+
+**Defined but unused:**
+```python
+# From semantic_relationships.py - currently unused
+EXTENDS_PATTERN = "learn:extends_pattern"
+DEEPENS_UNDERSTANDING = "learn:deepens_understanding"
+BUILDS_CAPACITY_FOR = "habit:builds_capacity_for"
+DISCOVERED_THROUGH = "cross:discovered_through"
+TRIGGERS_AFTER = "habit:triggers_after"
+SIMPLIFIES = "learn:simplifies"
+ELABORATES_ON = "learn:elaborates_on"
+# ... 40+ more
+```
+
+**Action:**
+1. Start creating these edges in domain services when relationships exist
+2. Example: When user masters "Python basics" → "Async programming", create `DEEPENS_UNDERSTANDING` edge
+3. Example: When habit "Morning meditation" reliably leads to "Focused work", create `TRIGGERS_AFTER` edge
+
+**Implementation locations:**
+- `/core/services/ku_service.py` - Add semantic edges on knowledge creation
+- `/core/services/habits_service.py` - Add habit chain edges on completion patterns
+- `/core/services/tasks_service.py` - Add APPLIES_KNOWLEDGE edges more granularly
+
+**Estimated impact:** +20-30% semantic expressiveness

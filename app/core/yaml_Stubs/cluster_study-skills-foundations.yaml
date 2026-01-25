@@ -1,0 +1,11 @@
+version: 0.1
+type: KnowledgeCluster
+uid: kc:study-skills-foundations
+title: Study Skills Foundations
+summary: A starter bundle: notes, review, and focused blocks.
+tags: [study, starter]
+members:
+  knowledge_uids:
+    - ku:note-taking-basics
+    - ku:spaced-repetition-basics
+    - ku:distraction-handling

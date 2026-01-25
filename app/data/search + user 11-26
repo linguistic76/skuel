@@ -1,0 +1,40 @@
+
+  Summary: Search + UserContext Integration
+
+  All 5 priorities completed with 1737 tests passing.
+
+  P1: Wire UserContext to rank_results() ✅
+
+  Files modified:
+  - adapters/persistence/neo4j/search_backend.py - Added user_service parameter, _build_user_context_for_ranking() method
+  - core/utils/services_bootstrap.py - Pass user_service to SimpleSearchBackend
+  - core/services/intelligence/base_intelligence_service.py - Enhanced _score_personalization() with rich context (domain affinity, skill level, prerequisites, goal alignment, mastery penalty)
+
+  P2: Extend graph-aware search to all domains ✅
+
+  Files modified:
+  - adapters/persistence/neo4j/search_backend.py - Added 7 domain-specific handlers:
+    - _graph_aware_search_knowledge() - Prerequisites, enables, supporting goals
+    - _graph_aware_search_tasks() - Applied knowledge, fulfills goals, blocked by
+    - _graph_aware_search_goals() - Contributing tasks, habits, aligned principles
+    - _graph_aware_search_habits() - Applied knowledge, supports goals
+    - _graph_aware_search_events() - Related goals, practices habits
+    - _graph_aware_search_choices() - Informed by knowledge, aligned principles
+    - _graph_aware_search_principles() - Guided goals, inspired habits
+
+  P3: Add user-aware facet suggestions ✅
+
+  Files modified:
+  - core/services/search/search_intelligence_service.py - Added user_context parameter to suggest_facets(), new _enhance_facets_with_user_context() method
+  - adapters/persistence/neo4j/search_backend.py - Updated suggest_facets_for_query() to pass user_context
+
+  P4: Fix hardcoded demo_user ✅
+
+  Files modified:
+  - adapters/inbound/simple_search_routes.py - Extract user_uid from get_current_user_or_default(request) instead of hardcoded value
+
+  P5: Add capacity warnings to search results ✅
+
+  Files modified:
+  - core/models/search_request.py - Added capacity_warnings field to SearchResponse
+  - adapters/persistence/neo4j/search_backend.py - Added _build_capacity_warnings() method analyzing workload, energy, time, at-risk habits, goals, mastery context

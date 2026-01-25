@@ -1,0 +1,490 @@
+Love it. Let’s get Stage 1 fully alive.
+
+Below are **three fastHTML components**:
+
+* `step1_attention()`
+* `step3_emotional_literacy()`
+* `step4_clear_perception()`
+
+Plus a tiny routing sketch so everything hangs together.
+
+I’m following the same design language + TOK system we already used.
+
+---
+
+##### 1. Step 1 – Attention · noticing what your mind is doing
+
+```python
+# ui/objectivity_step1.py
+
+from fasthtml.common import *
+from ui.objectivity_tokens import TOK
+
+
+def step1_attention():
+    """
+    Stage 1 · Step 1 — Attention · noticing what your mind is doing
+    """
+    return Section(
+        # Header
+        Div(
+            P("Stage 1 · Step 1", class_=TOK["stage_header_label"]),
+            H1("Attention · noticing what your mind is doing", class_=TOK["stage_title"]),
+            P(
+                "The first move is simple: notice where your mind actually is right now — "
+                "past, future, or present — instead of running on auto-pilot.",
+                class_=TOK["stage_subtitle"],
+            ),
+            class_="space-y-2",
+        ),
+
+        # Quick self-check
+        Section(
+            Div(
+                H2("Where did your mind go today?", class_="text-sm font-semibold text-slate-100"),
+                P(
+                    "Pick a recent moment and scan honestly: were you in the past, the future, "
+                    "or with what was actually happening?",
+                    class_="text-xs text-slate-400",
+                ),
+                Form(
+                    Label(
+                        "Describe the moment",
+                        class_="block text-[11px] uppercase tracking-[0.2em] text-slate-500 mt-3",
+                    ),
+                    Textarea(
+                        "",
+                        rows=3,
+                        placeholder="Example: Walking to class, sitting at lunch, scrolling on my phone...",
+                        class_="w-full rounded-xl bg-slate-950 border border-slate-800 "
+                               "text-sm text-slate-100 px-3 py-2 focus:outline-none "
+                               "focus:ring-2 focus:ring-emerald-500/60",
+                    ),
+                    Div(
+                        P("Where was your mind mostly?", class_="text-[11px] text-slate-400 mt-2"),
+                        Div(
+                            Label(
+                                Input(
+                                    type="radio",
+                                    name="mind_where",
+                                    value="past",
+                                    class_="h-3 w-3 rounded-full border-slate-600 bg-slate-950",
+                                ),
+                                Span("Past (replaying)", class_="text-xs text-slate-200"),
+                                class_="inline-flex items-center gap-2",
+                            ),
+                            Label(
+                                Input(
+                                    type="radio",
+                                    name="mind_where",
+                                    value="future",
+                                    class_="h-3 w-3 rounded-full border-slate-600 bg-slate-950",
+                                ),
+                                Span("Future (worrying/planning)", class_="text-xs text-slate-200"),
+                                class_="inline-flex items-center gap-2",
+                            ),
+                            Label(
+                                Input(
+                                    type="radio",
+                                    name="mind_where",
+                                    value="present",
+                                    class_="h-3 w-3 rounded-full border-slate-600 bg-slate-950",
+                                ),
+                                Span("Present (with the moment)", class_="text-xs text-slate-200"),
+                                class_="inline-flex items-center gap-2",
+                            ),
+                            class_="flex flex-wrap gap-4 mt-2",
+                        ),
+                        class_="space-y-1",
+                    ),
+                    Div(
+                        Button(
+                            "Mark check-in",
+                            type="button",
+                            class_="inline-flex items-center justify-center px-4 py-2 "
+                                   "rounded-xl bg-emerald-500 text-slate-900 text-xs "
+                                   "font-semibold hover:bg-emerald-400 transition mt-3",
+                            # later hx-post can log this
+                        ),
+                        class_="flex justify-end",
+                    ),
+                    class_="space-y-3",
+                ),
+                class_="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-3",
+            ),
+            class_="space-y-4",
+        ),
+
+        # Micro-practice
+        Section(
+            Div(
+                H2("A 10-second attention reset", class_="text-sm font-semibold text-slate-100"),
+                P(
+                    "Right now, without changing anything, notice three things you can see, "
+                    "two things you can hear, and one thing you can feel in your body.",
+                    class_="text-xs text-slate-400",
+                ),
+                Ol(
+                    Li("Look around and silently name three things you can see.",
+                       class_="text-xs text-slate-300"),
+                    Li("Notice two different sounds, even faint ones.",
+                       class_="text-xs text-slate-300"),
+                    Li("Notice one sensation in your body (warmth, pressure, tension, etc.).",
+                       class_="text-xs text-slate-300"),
+                    class_="mt-2 space-y-1 list-decimal list-inside",
+                ),
+                P(
+                    "That’s attention: bringing your mind back to what is actually here.",
+                    class_="text-xs text-slate-400 mt-3",
+                ),
+                class_="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-2",
+            ),
+            class_="space-y-4",
+        ),
+
+        class_=f"{TOK['container']} space-y-6 mt-6",
+    )
+```
+
+---
+
+##### 2. Step 3 – Emotional literacy
+
+```python
+# ui/objectivity_step3.py
+
+from fasthtml.common import *
+from ui.objectivity_tokens import TOK
+
+
+def step3_emotional_literacy():
+    """
+    Stage 1 · Step 3 — Emotional literacy
+    """
+    return Section(
+        # Header
+        Div(
+            P("Stage 1 · Step 3", class_=TOK["stage_header_label"]),
+            H1("Emotional literacy", class_=TOK["stage_title"]),
+            P(
+                "Feelings are signals, not instructions. Here you practice naming what you feel "
+                "and where you feel it, without letting it drive the whole story.",
+                class_=TOK["stage_subtitle"],
+            ),
+            class_="space-y-2",
+        ),
+
+        # Emotion + body mapping
+        Section(
+            Div(
+                H2("Name it and locate it", class_="text-sm font-semibold text-slate-100"),
+                P(
+                    "Pick a recent moment where you felt something strongly. Instead of pushing "
+                    "it away or letting it take over, we just label it.",
+                    class_="text-xs text-slate-400",
+                ),
+                Form(
+                    Label(
+                        "What happened?",
+                        class_="block text-[11px] uppercase tracking-[0.2em] text-slate-500 mt-3",
+                    ),
+                    Textarea(
+                        "",
+                        rows=3,
+                        placeholder="Example: My parent raised their voice at me about homework...",
+                        class_="w-full rounded-xl bg-slate-950 border border-slate-800 "
+                               "text-sm text-slate-100 px-3 py-2 focus:outline-none "
+                               "focus:ring-2 focus:ring-emerald-500/60",
+                    ),
+                    Div(
+                        Label(
+                            "What emotion fits best?",
+                            class_="block text-[11px] uppercase tracking-[0.2em] "
+                                   "text-slate-500 mt-3",
+                        ),
+                        Div(
+                            Select(
+                                Option("Choose one...", value=""),
+                                Option("Anger / annoyed", value="anger"),
+                                Option("Sad / disappointed", value="sad"),
+                                Option("Anxious / worried", value="anxious"),
+                                Option("Embarrassed / ashamed", value="embarrassed"),
+                                Option("Confused", value="confused"),
+                                Option("Other", value="other"),
+                                class_="w-full rounded-xl bg-slate-950 border border-slate-800 "
+                                       "text-xs text-slate-100 px-3 py-2 focus:outline-none "
+                                       "focus:ring-2 focus:ring-emerald-500/60",
+                            ),
+                            class_="mt-1",
+                        ),
+                    ),
+                    Div(
+                        Label(
+                            "Where do you feel it in your body?",
+                            class_="block text-[11px] uppercase tracking-[0.2em] "
+                                   "text-slate-500 mt-3",
+                        ),
+                        Input(
+                            type="text",
+                            placeholder="Example: Tight chest, heavy stomach, tense jaw...",
+                            class_="w-full rounded-xl bg-slate-950 border border-slate-800 "
+                                   "text-sm text-slate-100 px-3 py-2 focus:outline-none "
+                                   "focus:ring-2 focus:ring-emerald-500/60",
+                        ),
+                    ),
+                    Div(
+                        Button(
+                            "Save this snapshot",
+                            type="button",
+                            class_="inline-flex items-center justify-center px-4 py-2 "
+                                   "rounded-xl bg-emerald-500 text-slate-900 text-xs "
+                                   "font-semibold hover:bg-emerald-400 transition mt-3",
+                            # hx-post hook later if you want to log emotion snapshots
+                        ),
+                        class_="flex justify-end",
+                    ),
+                    class_="space-y-3",
+                ),
+                class_="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-3",
+            ),
+            class_="space-y-4",
+        ),
+
+        # Signal vs instruction
+        Section(
+            Div(
+                H2("Signal vs instruction", class_="text-sm font-semibold text-slate-100"),
+                P(
+                    "Emotion is like a notification: it tells you something is important to you. "
+                    "It does not automatically tell you what to do.",
+                    class_="text-xs text-slate-400",
+                ),
+                Div(
+                    Div(
+                        P("Signal", class_="text-[11px] font-semibold text-emerald-300"),
+                        P(
+                            "“This matters to me. Something feels off or at risk.”",
+                            class_="text-xs text-slate-200",
+                        ),
+                        class_="flex-1 rounded-xl bg-slate-950 border border-slate-800 p-3",
+                    ),
+                    Div(
+                        P("Instruction", class_="text-[11px] font-semibold text-slate-400"),
+                        P(
+                            "“Yell, shut down, run away, doom scroll, say something you’ll regret.”",
+                            class_="text-xs text-slate-400",
+                        ),
+                        class_="flex-1 rounded-xl bg-slate-950 border border-slate-900 p-3",
+                    ),
+                    class_="mt-3 flex flex-col md:flex-row gap-3",
+                ),
+                P(
+                    "On this path, you learn to listen to the signal without blindly following "
+                    "the instruction.",
+                    class_="text-xs text-slate-400 mt-3",
+                ),
+                class_="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-2",
+            ),
+            class_="space-y-4",
+        ),
+
+        class_=f"{TOK['container']} space-y-6 mt-6",
+    )
+```
+
+---
+
+##### 3. Step 4 – Clear perception
+
+```python
+# ui/objectivity_step4.py
+
+from fasthtml.common import *
+from ui.objectivity_tokens import TOK
+
+
+def step4_clear_perception():
+    """
+    Stage 1 · Step 4 — Clear perception
+    """
+    return Section(
+        # Header
+        Div(
+            P("Stage 1 · Step 4", class_=TOK["stage_header_label"]),
+            H1("Clear perception", class_=TOK["stage_title"]),
+            P(
+                "Here you put it together: situation, thought, and emotion — and see the moment "
+                "with a little less distortion.",
+                class_=TOK["stage_subtitle"],
+            ),
+            class_="space-y-2",
+        ),
+
+        # Integration grid
+        Section(
+            Div(
+                Article(
+                    H2("1 · Situation", class_="text-sm font-semibold text-slate-100"),
+                    P(
+                        "What actually happened?",
+                        class_="text-xs text-slate-400",
+                    ),
+                    Textarea(
+                        "",
+                        rows=3,
+                        placeholder="Facts only. No guesses, no predictions.",
+                        class_="w-full mt-2 rounded-xl bg-slate-950 border border-slate-800 "
+                               "text-xs text-slate-100 px-3 py-2 focus:outline-none "
+                               "focus:ring-2 focus:ring-emerald-500/60",
+                    ),
+                    class_="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-1",
+                ),
+                Article(
+                    H2("2 · Story", class_="text-sm font-semibold text-slate-100"),
+                    P(
+                        "What did your mind say this meant?",
+                        class_="text-xs text-slate-400",
+                    ),
+                    Textarea(
+                        "",
+                        rows=3,
+                        placeholder="The interpretation, worry, or meaning you added.",
+                        class_="w-full mt-2 rounded-xl bg-slate-950 border border-slate-800 "
+                               "text-xs text-slate-100 px-3 py-2 focus:outline-none "
+                               "focus:ring-2 focus:ring-emerald-500/60",
+                    ),
+                    class_="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-1",
+                ),
+                Article(
+                    H2("3 · Emotion", class_="text-sm font-semibold text-slate-100"),
+                    P(
+                        "What did you feel, and where?",
+                        class_="text-xs text-slate-400",
+                    ),
+                    Textarea(
+                        "",
+                        rows=3,
+                        placeholder="Name the emotion and where you felt it in your body.",
+                        class_="w-full mt-2 rounded-xl bg-slate-950 border border-slate-800 "
+                               "text-xs text-slate-100 px-3 py-2 focus:outline-none "
+                               "focus:ring-2 focus:ring-emerald-500/60",
+                    ),
+                    class_="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-1",
+                ),
+                class_="grid gap-4 md:grid-cols-3",
+            ),
+            class_="space-y-4",
+        ),
+
+        # Perception question
+        Section(
+            Div(
+                H2("What changes when you see all three?", class_="text-sm font-semibold text-slate-100"),
+                P(
+                    "When you lay out situation, story, and emotion side by side, the moment "
+                    "often feels different — usually a bit clearer, lighter, and more workable.",
+                    class_="text-xs text-slate-400",
+                ),
+                Form(
+                    Label(
+                        "How does the moment look now?",
+                        class_="block text-[11px] uppercase tracking-[0.2em] "
+                               "text-slate-500 mt-3",
+                    ),
+                    Textarea(
+                        "",
+                        rows=3,
+                        placeholder="Example: The situation is still hard, but it’s not as huge. "
+                                    "My story was making it feel permanent and hopeless.",
+                        class_="w-full rounded-xl bg-slate-950 border border-slate-800 "
+                               "text-sm text-slate-100 px-3 py-2 focus:outline-none "
+                               "focus:ring-2 focus:ring-emerald-500/60",
+                    ),
+                    Div(
+                        Button(
+                            "Save this reflection",
+                            type="button",
+                            class_="inline-flex items-center justify-center px-4 py-2 "
+                                   "rounded-xl bg-emerald-500 text-slate-900 text-xs "
+                                   "font-semibold hover:bg-emerald-400 transition mt-3",
+                            # hx-post later for logging clarity reps
+                        ),
+                        class_="flex justify-end",
+                    ),
+                    class_="space-y-3",
+                ),
+                class_="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-2",
+            ),
+            class_="space-y-4",
+        ),
+
+        class_=f"{TOK['container']} space-y-6 mt-6",
+    )
+```
+
+---
+
+##### 4. Routing and HTMX wiring
+
+Example of how to plug everything in:
+
+```python
+# routes/objectivity_stage1_routes.py
+
+from fasthtml.common import *
+from ui.objectivity_stage1 import stage1_see_what_is
+from ui.objectivity_step1 import step1_attention
+from ui.objectivity_step2 import step2_thought_not_reality
+from ui.objectivity_step3 import step3_emotional_literacy
+from ui.objectivity_step4 import step4_clear_perception
+
+app = FastHTML()
+
+
+@app.get("/objectivity/stage1")
+def stage1():
+    return stage1_see_what_is()
+
+
+@app.get("/objectivity/stage1/step/1")
+def stage1_step1():
+    return step1_attention()
+
+
+@app.get("/objectivity/stage1/step/2")
+def stage1_step2():
+    return step2_thought_not_reality()
+
+
+@app.get("/objectivity/stage1/step/3")
+def stage1_step3():
+    return step3_emotional_literacy()
+
+
+@app.get("/objectivity/stage1/step/4")
+def stage1_step4():
+    return step4_clear_perception()
+```
+
+Make sure your `stage1_see_what_is()` has the HTMX hooks matching these URLs, e.g.:
+
+```python
+# in _step_card for step 1
+hx_get="/objectivity/stage1/step/1"
+
+# for step 2
+hx_get="/objectivity/stage1/step/2"
+
+# for step 3 (once unlocked)
+hx_get="/objectivity/stage1/step/3"
+
+# for step 4 (once unlocked)
+hx_get="/objectivity/stage1/step/4"
+```
+
+Right now Steps 3 and 4 can still be visually shown as “locked” at the Stage page level, but the components exist and are ready to be revealed once your progression logic is wired (could be simple “has_practiced_step2” flag from Neo4j or a session).
+
+If you want, next we can:
+
+* wire a tiny **progress backend model** (per user, per step)
+* or convert the **Askesis live flow** (SEE / ACCEPT / ACT) into a fastHTML modal with HTMX.

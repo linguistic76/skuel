@@ -1,0 +1,33 @@
+● Summary: CypherGenerator.build_batch_* Methods Delegation Complete
+
+  Task: Update CypherGenerator.build_batch_* methods to delegate to BatchOperationHelper
+
+  Files Modified:
+
+  1. /core/infrastructure/batch/batch_operation_helper.py
+    - Added _FILTER_OP_MAP constant for operator mapping
+    - Added _parse_property_filters() helper function
+    - Added build_relationship_exists_with_filters_query() method
+    - Added build_get_related_with_filters_query() method
+  2. /core/models/query/_cypher_generator.py
+    - Refactored build_batch_relationship_exists_with_filters() to delegate to BatchOperationHelper (~50 lines → ~15 lines)
+    - Refactored build_batch_get_related_with_filters() to delegate to BatchOperationHelper (~60 lines → ~18 lines)
+
+  Consistency Achieved:
+
+  All 4 CypherGenerator batch methods now delegate to BatchOperationHelper:
+  - ✅ build_batch_relationship_exists → BatchOperationHelper.build_relationship_exists_query()
+  - ✅ build_batch_relationship_count → BatchOperationHelper.build_relationship_count_query()
+  - ✅ build_batch_relationship_exists_with_filters → BatchOperationHelper.build_relationship_exists_with_filters_query()
+  - ✅ build_batch_get_related_with_filters → BatchOperationHelper.build_get_related_with_filters_query()
+
+  Test Results:
+  - 19 BatchOperationHelper unit tests: ✅ PASSED
+  - 21 batch query method integration tests: ✅ PASSED
+  - 147 unit tests: ✅ PASSED
+
+  DRY Benefit:
+  - Eliminated ~90 lines of duplicated filter parsing and query building logic
+  - Single source of truth for property filter operators (_FILTER_OP_MAP)
+  - Consistent pattern across all batch query methods
+

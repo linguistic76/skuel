@@ -1,0 +1,307 @@
+# Production Docker Compose Configuration
+# ==========================================
+# Phase 5: Production Integration & Real-World Deployment
+# Enhanced production setup with infrastructure services
+#
+# ⚠️ SERVICE STATUS MATRIX ⚠️
+# ===========================================================================
+# This file contains BOTH currently active AND future services.
+# See FUTURE_SERVICES.md for detailed explanation of why some are disabled.
+#
+# CURRENTLY RUNNING (when using this file):
+#   - skuel-app      ✅ SKUEL application
+#   - neo4j          ⚠️ SHOULD USE /infra instead (see note below)
+#
+# FUTURE SERVICES (Pre-wired, ready to enable):
+#   - redis          🟡 Ready - In-memory cache currently sufficient
+#   - ollama         🟡 Ready - OpenAI API currently used
+#   - nginx          🟡 Ready - Direct access sufficient for now
+#   - prometheus     🟡 Ready - Manual monitoring sufficient
+#   - grafana        🟡 Ready - Manual monitoring sufficient
+#   - node-exporter  🟡 Ready - Part of monitoring stack
+#
+# IMPORTANT: Neo4j Infrastructure Separation
+# ------------------------------------------
+# Neo4j is defined here for completeness, BUT should actually run from:
+#   /home/mike/infra/docker-compose.yml
+#
+# The /infra setup provides:
+#   - Clean separation of infrastructure from application
+#   - Independent lifecycle management
+#   - Easier backup and data management
+#
+# When deploying:
+#   1. Start infrastructure: cd /home/mike/infra && docker compose up -d
+#   2. Start application: docker compose -f docker-compose.production.yml up skuel-app
+#
+# Or use /infra for all infrastructure and this file only for skuel-app.
+# ===========================================================================
+
+version: "3.8"
+
+services:
+  # ==========================================================================
+  # ACTIVE SERVICE - SKUEL Application
+  # ==========================================================================
+
+  # SKUEL Application
+  skuel-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: skuel-app
+    environment:
+      # Database connections
+      NEO4J_URI: ${NEO4J_URI:-bolt://localhost:7687}  # Can connect to /infra neo4j
+      NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      REDIS_URL: ${REDIS_URL:-redis://:password@localhost:6379}  # If Redis enabled
+
+      # Application settings
+      APP_HOST: 0.0.0.0
+      APP_PORT: ${APP_PORT:-5001}
+      APP_DEBUG: "false"
+      APP_ENV: production
+
+      # Security
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+
+      # AI Services
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OLLAMA_URL: ${OLLAMA_URL:-http://localhost:11434}  # If Ollama enabled
+
+      # Production features
+      ENABLE_ORCHESTRATION: "true"
+      ENABLE_CACHING: "true"
+      ENABLE_METRICS: "true"
+      CACHE_PROVIDER: ${CACHE_PROVIDER:-memory}  # "redis" when enabled
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: json
+
+    ports:
+      - "${APP_PORT:-5001}:5001"
+    volumes:
+      - ${OBSIDIAN_VAULT_PATH:-./vault}:/app/vault:ro
+      - ./logs:/app/logs
+    networks:
+      - skuel-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ==========================================================================
+  # FUTURE SERVICES - Pre-wired but DISABLED (See FUTURE_SERVICES.md)
+  # ==========================================================================
+  # These services are ready to enable when needed. They are currently
+  # commented out or configured but not started.
+  #
+  # To enable a service:
+  #   1. Read FUTURE_SERVICES.md for requirements and configuration
+  #   2. Uncomment the service definition or start it with docker compose
+  #   3. Update application .env to use the service
+  #
+  # DO NOT DELETE - These represent planned expansion capabilities
+  # ==========================================================================
+
+  # --------------------------------------------------------------------------
+  # FUTURE: Redis - Distributed Caching
+  # Status: Ready to enable (see FUTURE_SERVICES.md#redis)
+  # Enable when: Production deployment, multi-instance scaling
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: skuel-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD:-skuel-redis-pass}
+    volumes:
+      - redis_data:/data
+    networks:
+      - skuel-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # --------------------------------------------------------------------------
+  # FUTURE: Neo4j - Graph Database
+  # Status: Use /infra instead (see header comments)
+  # NOTE: Neo4j SHOULD run from /infra/docker-compose.yml for clean separation
+  # This definition kept for reference/fallback only
+  # --------------------------------------------------------------------------
+  # neo4j:
+  #   image: neo4j:5.26
+  #   container_name: skuel-neo4j
+  #   environment:
+  #     NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+  #     NEO4J_server_memory_heap_initial__size: 1G
+  #     NEO4J_server_memory_heap_max__size: 2G
+  #     NEO4J_server_memory_pagecache_size: 1G
+  #     # APOC NOT USED - SKUEL uses pure Cypher (see FUTURE_SERVICES.md)
+  #     # NEO4J_dbms_security_procedures_unrestricted: n10s.*,apoc.*
+  #     # NEO4J_dbms_security_procedures_allowlist: apoc.*,n10s.*
+  #     NEO4J_metrics_enabled: "true"
+  #     NEO4J_metrics_prometheus_enabled: "true"
+  #     NEO4J_metrics_prometheus_endpoint: "0.0.0.0:2004"
+  #   ports:
+  #     - "${NEO4J_HTTP_PORT:-7474}:7474"
+  #     - "${NEO4J_BOLT_PORT:-7687}:7687"
+  #     - "2004:2004"
+  #   volumes:
+  #     - neo4j_data:/data
+  #     - neo4j_logs:/logs
+  #     - ./neo4j-plugins:/plugins
+  #   networks:
+  #     - skuel-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "neo4j", "status"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 60s
+
+  # --------------------------------------------------------------------------
+  # FUTURE: Ollama - Local LLM Inference
+  # Status: Ready to enable (see FUTURE_SERVICES.md#ollama)
+  # Enable when: Want to reduce OpenAI costs or need offline LLM
+  # --------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: skuel-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - skuel-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # --------------------------------------------------------------------------
+  # FUTURE: Nginx - Reverse Proxy
+  # Status: Ready to enable (see FUTURE_SERVICES.md#nginx)
+  # Enable when: Production deployment with SSL, load balancing needed
+  # NOTE: Requires creating /nginx/nginx.conf configuration file
+  # --------------------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: skuel-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - skuel-app
+    networks:
+      - skuel-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # --------------------------------------------------------------------------
+  # FUTURE: Prometheus - Metrics Collection
+  # Status: Ready to enable (see FUTURE_SERVICES.md#monitoring-stack)
+  # Enable when: Production deployment, need metrics and alerting
+  # NOTE: Requires creating /monitoring/prometheus.yml configuration
+  # --------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: skuel-prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - skuel-network
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # FUTURE: Grafana - Metrics Visualization
+  # Status: Ready to enable (see FUTURE_SERVICES.md#monitoring-stack)
+  # Enable when: Production deployment, need operational dashboards
+  # NOTE: Requires creating /monitoring/grafana/provisioning configuration
+  # --------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: skuel-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - skuel-network
+    restart: unless-stopped
+
+  # Node Exporter for system metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: skuel-node-exporter
+    command:
+      - '--path.rootfs=/host'
+    ports:
+      - "9100:9100"
+    volumes:
+      - /:/host:ro
+    networks:
+      - skuel-network
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+    driver: local
+  redis_data:
+    driver: local
+  ollama_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  skuel-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

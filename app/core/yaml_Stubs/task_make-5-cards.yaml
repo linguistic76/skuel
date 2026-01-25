@@ -1,0 +1,9 @@
+version: 0.1
+type: Task
+uid: tk:make-5-cards
+title: Make five flashcards
+summary: Create 5 Q→A cards from today’s notes.
+tags: [memory, cards]
+properties:
+  estimated_minutes: 10
+  priority: normal

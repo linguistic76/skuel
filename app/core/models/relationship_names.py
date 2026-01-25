@@ -1,0 +1,395 @@
+"""
+Relationship Names - Single Source of Truth for Neo4j Relationship Types
+========================================================================
+
+This enum defines ALL valid relationship type names used in Neo4j.
+It is THE canonical source - RelationshipRegistry and protocols derive from this.
+
+Design Philosophy:
+- One enum to rule them all
+- MyPy gets full compile-time verification
+- IDE gets autocomplete
+- Neo4j gets consistent relationship names
+
+Usage:
+    # In protocol methods - type-safe
+    async def count_related(
+        self, uid: str,
+        relationship_type: RelationshipName,
+        ...
+    ) -> Result[int]:
+
+    # When calling - IDE autocomplete
+    await backend.count_related(uid, RelationshipName.REQUIRES_KNOWLEDGE)
+
+    # In Cypher queries - use .value
+    query = f"MATCH (a)-[:{rel.value}]->(b)"
+
+Maintenance:
+    When adding a new relationship:
+    1. Add it to this enum (appropriate section)
+    2. Add RelationshipSpec to RelationshipRegistry (if domain-specific validation needed)
+    3. MyPy will guide you to update any affected code
+
+See Also:
+    - RelationshipRegistry: Domain-specific validation and metadata
+    - SemanticRelationshipType: RDF-inspired precision (maps from this enum)
+"""
+
+from enum import Enum
+
+
+class RelationshipName(str, Enum):
+    """
+    All valid Neo4j relationship type names.
+
+    Organized by domain for discoverability. The string value matches
+    the Neo4j relationship type exactly (UPPER_SNAKE_CASE).
+
+    Being a str subclass means:
+    - str(RelationshipName.X) works
+    - Can be used directly in f-strings
+    - .value gives the raw string for Cypher
+    """
+
+    # =========================================================================
+    # KNOWLEDGE RELATIONSHIPS (ku:)
+    # Relationships involving KnowledgeUnits
+    # =========================================================================
+    PREREQUISITE = "PREREQUISITE"
+    REQUIRES = "REQUIRES"  # KU-to-KU prerequisite (used in ingestion/queries)
+    REQUIRES_PREREQUISITE = "REQUIRES_PREREQUISITE"
+    ENABLES = "ENABLES"
+    RELATED_TO = "RELATED_TO"
+    HAS_NARROWER = "HAS_NARROWER"
+    HAS_BROADER = "HAS_BROADER"
+    REQUIRES_KNOWLEDGE = "REQUIRES_KNOWLEDGE"
+    APPLIES_KNOWLEDGE = "APPLIES_KNOWLEDGE"
+    REINFORCES_KNOWLEDGE = "REINFORCES_KNOWLEDGE"
+    PRACTICES_KNOWLEDGE = "PRACTICES_KNOWLEDGE"
+    GROUNDED_IN_KNOWLEDGE = "GROUNDED_IN_KNOWLEDGE"
+    GROUNDS_PRINCIPLE = "GROUNDS_PRINCIPLE"
+    ENABLES_KNOWLEDGE = "ENABLES_KNOWLEDGE"
+    ENABLES_GOAL = "ENABLES_GOAL"
+    ENABLES_TASK = "ENABLES_TASK"
+    INFORMS_CHOICE = "INFORMS_CHOICE"
+    SUPPORTS_HABIT = "SUPPORTS_HABIT"
+    COMPLETES_KNOWLEDGE = "COMPLETES_KNOWLEDGE"
+    INFERRED_KNOWLEDGE = "INFERRED_KNOWLEDGE"
+    GUIDED_BY_KNOWLEDGE = "GUIDED_BY_KNOWLEDGE"  # Goals guided by knowledge
+    REINFORCED_BY_KNOWLEDGE = "REINFORCED_BY_KNOWLEDGE"  # Habits reinforced by knowledge
+    BLOCKED_BY_KNOWLEDGE = "BLOCKED_BY_KNOWLEDGE"  # Tasks blocked by lack of knowledge
+
+    # =========================================================================
+    # TASK RELATIONSHIPS
+    # Task dependencies, contributions, and cross-domain links
+    # =========================================================================
+    DEPENDS_ON = "DEPENDS_ON"
+    BLOCKS = "BLOCKS"
+    BLOCKED_BY = "BLOCKED_BY"
+    CONTRIBUTES_TO_GOAL = "CONTRIBUTES_TO_GOAL"
+    FULFILLS_GOAL = "FULFILLS_GOAL"
+    GENERATES_TASK = "GENERATES_TASK"
+    EXECUTES_TASK = "EXECUTES_TASK"
+    REQUIRES_TASK = "REQUIRES_TASK"
+    FUNDS_TASK = "FUNDS_TASK"
+    TRIGGERS_ON_COMPLETION = "TRIGGERS_ON_COMPLETION"
+    UNLOCKS_KNOWLEDGE = "UNLOCKS_KNOWLEDGE"
+    COMPLETED_TASK = "COMPLETED_TASK"  # User completed a task
+    ASSIGNED_TO = "ASSIGNED_TO"  # Task assigned to user
+
+    # =========================================================================
+    # GOAL RELATIONSHIPS
+    # Goal hierarchy, dependencies, and guidance
+    # =========================================================================
+    SUBGOAL_OF = "SUBGOAL_OF"
+    HAS_SUBGOAL = "HAS_SUBGOAL"
+    HAS_CHILD = "HAS_CHILD"
+    DEPENDS_ON_GOAL = "DEPENDS_ON_GOAL"
+    GUIDED_BY_PRINCIPLE = "GUIDED_BY_PRINCIPLE"
+    SUPPORTS_GOAL = "SUPPORTS_GOAL"
+    CONFLICTS_WITH_GOAL = "CONFLICTS_WITH_GOAL"
+    INSPIRES_GOAL = "INSPIRES_GOAL"
+    CELEBRATED_BY_EVENT = "CELEBRATED_BY_EVENT"
+    HAS_MILESTONE = "HAS_MILESTONE"
+    MILESTONE_OF = "MILESTONE_OF"
+    ALIGNED_WITH_PATH = "ALIGNED_WITH_PATH"
+    MOTIVATED_BY_GOAL = "MOTIVATED_BY_GOAL"
+
+    # =========================================================================
+    # HABIT RELATIONSHIPS
+    # Habit chains, prerequisites, and reinforcement
+    # =========================================================================
+    REQUIRES_PREREQUISITE_HABIT = "REQUIRES_PREREQUISITE_HABIT"
+    ENABLES_HABIT = "ENABLES_HABIT"
+    REQUIRES_HABIT = "REQUIRES_HABIT"
+    REINFORCES_HABIT = "REINFORCES_HABIT"
+    INSPIRES_HABIT = "INSPIRES_HABIT"
+    IMPACTS_HABIT = "IMPACTS_HABIT"  # (choice)-[:IMPACTS_HABIT]->(habit)
+    REINFORCES_STEP = "REINFORCES_STEP"
+    EMBODIES_PRINCIPLE = "EMBODIES_PRINCIPLE"
+    PRACTICED_AT_EVENT = "PRACTICED_AT_EVENT"
+
+    # =========================================================================
+    # EVENT RELATIONSHIPS
+    # Event conflicts, execution, and practice
+    # =========================================================================
+    CONFLICTS_WITH = "CONFLICTS_WITH"
+    FUNDS_EVENT = "FUNDS_EVENT"
+    ATTENDS = "ATTENDS"
+
+    # =========================================================================
+    # PRINCIPLE RELATIONSHIPS
+    # Principle support, conflicts, and guidance
+    # =========================================================================
+    SUPPORTS_PRINCIPLE = "SUPPORTS_PRINCIPLE"
+    CONFLICTS_WITH_PRINCIPLE = "CONFLICTS_WITH_PRINCIPLE"
+    GUIDES_GOAL = "GUIDES_GOAL"
+    GUIDES_CHOICE = "GUIDES_CHOICE"  # (principle)-[:GUIDES_CHOICE]->(choice)
+    ALIGNED_WITH_PRINCIPLE = "ALIGNED_WITH_PRINCIPLE"
+    DEMONSTRATES_PRINCIPLE = (
+        "DEMONSTRATES_PRINCIPLE"  # (event)-[:DEMONSTRATES_PRINCIPLE]->(principle)
+    )
+
+    # =========================================================================
+    # PRINCIPLE REFLECTION RELATIONSHIPS
+    # Reflection tracking and conflict detection
+    # =========================================================================
+    REFLECTS_ON = "REFLECTS_ON"  # (reflection)-[:REFLECTS_ON]->(principle)
+    TRIGGERED_BY = "TRIGGERED_BY"  # (reflection)-[:TRIGGERED_BY]->(goal|habit|event|choice)
+    REVEALS_CONFLICT = "REVEALS_CONFLICT"  # (reflection)-[:REVEALS_CONFLICT]->(principle)
+    MADE_REFLECTION = "MADE_REFLECTION"  # (user)-[:MADE_REFLECTION]->(reflection)
+    HAS_REFLECTION = "HAS_REFLECTION"  # (principle)-[:HAS_REFLECTION]->(reflection)
+
+    # =========================================================================
+    # CHOICE RELATIONSHIPS
+    # Choice influences and outcomes
+    # =========================================================================
+    INFORMED_BY_PRINCIPLE = "INFORMED_BY_PRINCIPLE"
+    INFORMED_BY_KNOWLEDGE = "INFORMED_BY_KNOWLEDGE"
+    INSPIRED_BY_CHOICE = "INSPIRED_BY_CHOICE"
+    IMPLEMENTS_CHOICE = "IMPLEMENTS_CHOICE"
+    REQUIRES_KNOWLEDGE_FOR_DECISION = "REQUIRES_KNOWLEDGE_FOR_DECISION"
+    OPENS_LEARNING_PATH = "OPENS_LEARNING_PATH"
+    AFFECTS_GOAL = "AFFECTS_GOAL"
+    TRIGGERS_CHOICE = "TRIGGERS_CHOICE"  # (event)-[:TRIGGERS_CHOICE]->(choice)
+
+    # =========================================================================
+    # USER/OWNERSHIP RELATIONSHIPS
+    # User-to-entity ownership and progress
+    # =========================================================================
+    HAS_TASK = "HAS_TASK"
+    HAS_EVENT = "HAS_EVENT"
+    HAS_HABIT = "HAS_HABIT"
+    HAS_GOAL = "HAS_GOAL"
+    HAS_PRINCIPLE = "HAS_PRINCIPLE"
+    HAS_CHOICE = "HAS_CHOICE"
+
+    # =========================================================================
+    # USER LEARNING PROGRESS RELATIONSHIPS
+    # Track user interaction with knowledge units (pedagogical tracking)
+    # State progression: NONE -> VIEWED -> IN_PROGRESS -> MASTERED
+    # =========================================================================
+    VIEWED = "VIEWED"  # (user)-[:VIEWED]->(ku) - User has seen/read this content
+    IN_PROGRESS = "IN_PROGRESS"  # (user)-[:IN_PROGRESS]->(ku) - Actively learning
+    MASTERED = "MASTERED"  # (user)-[:MASTERED]->(ku) - Knowledge acquired
+    LEARNING = "LEARNING"  # Legacy - use IN_PROGRESS for new code
+
+    # =========================================================================
+    # USER SOCIAL/PREFERENCE RELATIONSHIPS
+    # User-specific relationships for social features and preferences
+    # =========================================================================
+    PINNED = "PINNED"  # (user)-[:PINNED {order: int}]->(entity) - User's pinned items
+    FOLLOWS = "FOLLOWS"  # (user)-[:FOLLOWS]->(user) - Social following
+    PURSUING_GOAL = "PURSUING_GOAL"  # (user)-[:PURSUING_GOAL]->(goal) - Active goals
+    MEMBER_OF = "MEMBER_OF"  # (user)-[:MEMBER_OF]->(team) - Team membership
+
+    # =========================================================================
+    # FINANCE RELATIONSHIPS
+    # Expense and budget connections
+    # =========================================================================
+    PART_OF_PROJECT = "PART_OF_PROJECT"
+
+    # =========================================================================
+    # LEARNING PATH RELATIONSHIPS
+    # Learning path dependencies and completion requirements
+    # =========================================================================
+    REQUIRES_PATH_COMPLETION = "REQUIRES_PATH_COMPLETION"
+    HAS_STEP = "HAS_STEP"  # (lp)-[:HAS_STEP]->(ls) - Learning path contains step
+
+    # =========================================================================
+    # CURRICULUM RELATIONSHIPS (January 2026 - Phase 2 Consolidation)
+    # Learning Step, Learning Path, and Map of Content relationships
+    # =========================================================================
+    # Learning Step (LS) relationships
+    CONTAINS_KNOWLEDGE = "CONTAINS_KNOWLEDGE"  # (ls)-[:CONTAINS_KNOWLEDGE]->(ku)
+    REQUIRES_STEP = "REQUIRES_STEP"  # (ls)-[:REQUIRES_STEP]->(ls) - Step prerequisites
+    BUILDS_HABIT = "BUILDS_HABIT"  # (ls)-[:BUILDS_HABIT]->(habit) - Practice pattern
+    ASSIGNS_TASK = "ASSIGNS_TASK"  # (ls)-[:ASSIGNS_TASK]->(task) - Practice pattern
+    SCHEDULES_EVENT = "SCHEDULES_EVENT"  # (ls)-[:SCHEDULES_EVENT]->(event) - Practice pattern
+
+    # Learning Path (LP) relationships
+    ALIGNED_WITH_GOAL = "ALIGNED_WITH_GOAL"  # (lp)-[:ALIGNED_WITH_GOAL]->(goal)
+    HAS_MILESTONE_EVENT = "HAS_MILESTONE_EVENT"  # (lp)-[:HAS_MILESTONE_EVENT]->(event)
+
+    # Map of Content (MOC) relationships - MapOfContent entity
+    CONTAINS_PATH = "CONTAINS_PATH"  # (moc/section)-[:CONTAINS_PATH]->(lp)
+    CONTAINS_PRINCIPLE = "CONTAINS_PRINCIPLE"  # (moc/section)-[:CONTAINS_PRINCIPLE]->(principle)
+    BRIDGES_TO = "BRIDGES_TO"  # (moc)-[:BRIDGES_TO {domain}]->(content) - Cross-domain bridge
+    RELATED_TO_MOC = "RELATED_TO_MOC"  # (moc)-[:RELATED_TO_MOC]->(moc) - Bidirectional
+    HAS_TOP_LEVEL_KNOWLEDGE = "HAS_TOP_LEVEL_KNOWLEDGE"  # (moc)-[:HAS_TOP_LEVEL_KNOWLEDGE]->(ku)
+    HAS_TOP_LEVEL_PATH = "HAS_TOP_LEVEL_PATH"  # (moc)-[:HAS_TOP_LEVEL_PATH]->(lp)
+    HAS_TOP_LEVEL_PRINCIPLE = (
+        "HAS_TOP_LEVEL_PRINCIPLE"  # (moc)-[:HAS_TOP_LEVEL_PRINCIPLE]->(principle)
+    )
+    HAS_SECTION = "HAS_SECTION"  # (moc)-[:HAS_SECTION]->(section) - Top-level sections
+
+    # Map of Content (MOC) relationships - MOCSection entity (DEPRECATED)
+    # These relationships are being replaced by ORGANIZES as MOC becomes KU-based
+    HAS_SUBSECTION = "HAS_SUBSECTION"  # (section)-[:HAS_SUBSECTION {order}]->(section)
+    RECOMMENDS_HABIT = "RECOMMENDS_HABIT"  # (section)-[:RECOMMENDS_HABIT]->(habit)
+    RECOMMENDS_TASK = "RECOMMENDS_TASK"  # (section)-[:RECOMMENDS_TASK]->(task)
+    RECOMMENDS_EVENT = "RECOMMENDS_EVENT"  # (section)-[:RECOMMENDS_EVENT]->(event)
+
+    # =========================================================================
+    # MOC ORGANIZATIONAL RELATIONSHIPS (MOC = KU organizing KUs)
+    # MOC is not a separate entity - it's a KU with ORGANIZES relationships.
+    # A KU "is" a MOC when it has outgoing ORGANIZES relationships.
+    # =========================================================================
+    ORGANIZES = "ORGANIZES"  # (ku)-[:ORGANIZES {order: int}]->(ku) - KU organizing other KUs
+
+    # =========================================================================
+    # LIFE PATH RELATIONSHIPS (The Destination)
+    # "Everything flows toward the life path"
+    # =========================================================================
+    ULTIMATE_PATH = "ULTIMATE_PATH"  # (user)-[:ULTIMATE_PATH]->(lp) - User's designated life path
+    SERVES_LIFE_PATH = (
+        "SERVES_LIFE_PATH"  # (entity)-[:SERVES_LIFE_PATH]->(lp) - Entity contributes to life path
+    )
+
+    # =========================================================================
+    # CONTENT/PROCESSING RELATIONSHIPS
+    # Transcription, journal processing, and content linking
+    # =========================================================================
+    TRANSCRIBED_FOR = "TRANSCRIBED_FOR"  # Transcription created for journal
+
+    # =========================================================================
+    # AUTHENTICATION RELATIONSHIPS
+    # Graph-native session and auth event tracking
+    # =========================================================================
+    HAS_SESSION = "HAS_SESSION"  # (user)-[:HAS_SESSION]->(session)
+    HAD_AUTH_EVENT = "HAD_AUTH_EVENT"  # (user)-[:HAD_AUTH_EVENT]->(auth_event)
+    HAS_RESET_TOKEN = "HAS_RESET_TOKEN"  # (user)-[:HAS_RESET_TOKEN]->(reset_token)
+
+    # =========================================================================
+    # HELPER METHODS
+    # =========================================================================
+
+    @classmethod
+    def from_string(cls, value: str) -> "RelationshipName | None":
+        """
+        Convert a string to RelationshipName, returning None if invalid.
+
+        Handles both the enum name and value (they're the same in this enum).
+
+        Args:
+            value: String to convert (e.g., "REQUIRES_KNOWLEDGE")
+
+        Returns:
+            RelationshipName or None if not found
+
+        Example:
+            >>> RelationshipName.from_string("REQUIRES_KNOWLEDGE")
+            RelationshipName.REQUIRES_KNOWLEDGE
+            >>> RelationshipName.from_string("invalid")
+            None
+        """
+        try:
+            return cls(value)
+        except ValueError:
+            return None
+
+    @classmethod
+    def is_valid(cls, value: str) -> bool:
+        """
+        Check if a string is a valid relationship name.
+
+        Args:
+            value: String to check
+
+        Returns:
+            True if valid, False otherwise
+
+        Example:
+            >>> RelationshipName.is_valid("REQUIRES_KNOWLEDGE")
+            True
+            >>> RelationshipName.is_valid("INVALID_TYPE")
+            False
+        """
+        return cls.from_string(value) is not None
+
+    def is_knowledge_relationship(self) -> bool:
+        """Check if this relationship involves knowledge units."""
+        knowledge_types = {
+            self.PREREQUISITE,
+            self.ENABLES,
+            self.RELATED_TO,
+            self.HAS_NARROWER,
+            self.HAS_BROADER,
+            self.REQUIRES_KNOWLEDGE,
+            self.APPLIES_KNOWLEDGE,
+            self.REINFORCES_KNOWLEDGE,
+            self.PRACTICES_KNOWLEDGE,
+            self.GROUNDED_IN_KNOWLEDGE,
+            self.GROUNDS_PRINCIPLE,
+            self.ENABLES_KNOWLEDGE,
+        }
+        return self in knowledge_types
+
+    def is_blocking_relationship(self) -> bool:
+        """Check if this relationship represents a blocking dependency."""
+        blocking_types = {
+            self.DEPENDS_ON,
+            self.BLOCKS,
+            self.DEPENDS_ON_GOAL,
+            self.REQUIRES_PREREQUISITE_HABIT,
+            self.PREREQUISITE,
+        }
+        return self in blocking_types
+
+    def is_ownership_relationship(self) -> bool:
+        """Check if this is a user ownership relationship."""
+        ownership_types = {
+            self.HAS_TASK,
+            self.HAS_EVENT,
+            self.HAS_HABIT,
+            self.HAS_GOAL,
+            self.HAS_PRINCIPLE,
+            self.HAS_CHOICE,
+        }
+        return self in ownership_types
+
+    def is_learning_progress_relationship(self) -> bool:
+        """Check if this is a user learning progress relationship.
+
+        These relationships track the user's pedagogical journey through
+        knowledge content: VIEWED -> IN_PROGRESS -> MASTERED.
+        """
+        progress_types = {
+            self.VIEWED,
+            self.IN_PROGRESS,
+            self.MASTERED,
+        }
+        return self in progress_types
+
+    def is_life_path_relationship(self) -> bool:
+        """Check if this is a life path relationship.
+
+        These relationships connect the user and their activities to
+        their designated life path - "Everything flows toward the life path."
+        """
+        life_path_types = {
+            self.ULTIMATE_PATH,
+            self.SERVES_LIFE_PATH,
+        }
+        return self in life_path_types

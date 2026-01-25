@@ -1,0 +1,122 @@
+Domain,File Type,File Path,Class Name,Field Name,Field Type,Relationship Type,Line Number,Should Remove
+choice,dto,core/models/choice/choice_dto.py,ChoiceDTO,informed_by_knowledge_uids,list[str],GUIDANCE,88,YES
+event,dto,core/models/event/event_dto.py,EventDTO,practices_knowledge_uids,list[str],APPLICATION,70,YES
+event,request,core/models/event/event_request.py,EventCreateRequest,practices_knowledge_uids,list[str],APPLICATION,85,REVIEW
+event,request,core/models/event/event_request.py,EventUpdateRequest,practices_knowledge_uids,list[str] | None,APPLICATION,140,REVIEW
+event,request,core/models/event/event_request.py,EventResponse,practices_knowledge_uids,list[str],APPLICATION,199,REVIEW
+goal,dto,core/models/goal/goal_dto.py,GoalDTO,required_knowledge_uids,list[str],OTHER,59,YES
+goal,dto,core/models/goal/goal_dto.py,GoalDTO,supporting_habit_uids,list[str],SUPPORT,60,YES
+goal,dto,core/models/goal/goal_dto.py,GoalDTO,guiding_principle_uids,list[str],OTHER,61,YES
+goal,dto,core/models/goal/goal_dto.py,GoalDTO,sub_goal_uids,list[str],OTHER,63,YES
+goal,dto,core/models/goal/goal_dto.py,GoalDTO,essential_habit_uids,list[str],OTHER,67,YES
+goal,dto,core/models/goal/goal_dto.py,GoalDTO,critical_habit_uids,list[str],OTHER,68,YES
+goal,dto,core/models/goal/goal_dto.py,GoalDTO,optional_habit_uids,list[str],OTHER,69,YES
+goal,dto,core/models/goal/goal_dto.py,GoalDTO,aligned_learning_path_uids,list[str],SUPPORT,75,YES
+goal,request,core/models/goal/goal_request.py,GoalCreateRequest,required_knowledge_uids,list[str],OTHER,47,REVIEW
+goal,request,core/models/goal/goal_request.py,GoalCreateRequest,supporting_habit_uids,list[str],SUPPORT,48,REVIEW
+goal,request,core/models/goal/goal_request.py,GoalCreateRequest,guiding_principle_uids,list[str],OTHER,49,REVIEW
+goal,request,core/models/goal/goal_request.py,GoalUpdateRequest,required_knowledge_uids,list[str] | None,OTHER,191,REVIEW
+goal,request,core/models/goal/goal_request.py,GoalUpdateRequest,supporting_habit_uids,list[str] | None,SUPPORT,192,REVIEW
+goal,request,core/models/goal/goal_request.py,GoalUpdateRequest,guiding_principle_uids,list[str] | None,OTHER,193,REVIEW
+goal,request,core/models/goal/goal_request.py,MilestoneCreateRequest,required_knowledge_uids,list[str],OTHER,246,REVIEW
+goal,request,core/models/goal/goal_request.py,HabitSystemUpdateRequest,essential_habit_uids,list[str] | None,OTHER,367,REVIEW
+goal,request,core/models/goal/goal_request.py,HabitSystemUpdateRequest,critical_habit_uids,list[str] | None,OTHER,371,REVIEW
+goal,request,core/models/goal/goal_request.py,HabitSystemUpdateRequest,supporting_habit_uids,list[str] | None,SUPPORT,375,REVIEW
+goal,request,core/models/goal/goal_request.py,HabitSystemUpdateRequest,optional_habit_uids,list[str] | None,OTHER,379,REVIEW
+habit,dto,core/models/habit/habit_dto.py,HabitDTO,linked_knowledge_uids,list[str],ASSOCIATION,48,YES
+habit,dto,core/models/habit/habit_dto.py,HabitDTO,linked_goal_uids,list[str],ASSOCIATION,49,YES
+habit,dto,core/models/habit/habit_dto.py,HabitDTO,linked_principle_uids,list[str],ASSOCIATION,50,YES
+habit,dto,core/models/habit/habit_dto.py,HabitDTO,prerequisite_habit_uids,list[str],PREREQUISITE,51,YES
+habit,request,core/models/habit/habit_request.py,HabitCreateRequest,linked_knowledge_uids,list[str],ASSOCIATION,56,REVIEW
+habit,request,core/models/habit/habit_request.py,HabitCreateRequest,linked_goal_uids,list[str],ASSOCIATION,60,REVIEW
+habit,request,core/models/habit/habit_request.py,HabitCreateRequest,linked_principle_uids,list[str],ASSOCIATION,64,REVIEW
+habit,request,core/models/habit/habit_request.py,HabitCreateRequest,prerequisite_habit_uids,list[str],PREREQUISITE,68,REVIEW
+habit,request,core/models/habit/habit_request.py,HabitUpdateRequest,linked_knowledge_uids,list[str] | None,ASSOCIATION,159,REVIEW
+habit,request,core/models/habit/habit_request.py,HabitUpdateRequest,linked_goal_uids,list[str] | None,ASSOCIATION,160,REVIEW
+habit,request,core/models/habit/habit_request.py,HabitUpdateRequest,linked_principle_uids,list[str] | None,ASSOCIATION,161,REVIEW
+habit,request,core/models/habit/habit_request.py,HabitUpdateRequest,prerequisite_habit_uids,list[str] | None,PREREQUISITE,162,REVIEW
+journal,dto,core/models/journal/journal_dto.py,JournalDTO,related_journal_uids,list[str],ASSOCIATION,135,YES
+journal,dto,core/models/journal/journal_dto.py,JournalDTO,goal_uids,list[str],OTHER,138,YES
+journal,request,core/models/journal/journal_request.py,JournalCreateRequest,goal_uids,list[str],OTHER,54,REVIEW
+journal,request,core/models/journal/journal_request.py,JournalCreateRequest,related_journal_uids,list[str],ASSOCIATION,55,REVIEW
+journal,request,core/models/journal/journal_request.py,JournalUpdateRequest,goal_uids,list[str] | None,OTHER,107,REVIEW
+journal,request,core/models/journal/journal_request.py,JournalUpdateRequest,related_journal_uids,list[str] | None,ASSOCIATION,108,REVIEW
+journal,request,core/models/journal/journal_request.py,JournalBulkUpdateRequest,journal_uids,list[str],OTHER,278,REVIEW
+ls,dto,core/models/ls/ls_dto.py,LearningStepDTO,primary_knowledge_uids,list[str],OTHER,33,YES
+ls,dto,core/models/ls/ls_dto.py,LearningStepDTO,supporting_knowledge_uids,list[str],SUPPORT,34,YES
+ls,dto,core/models/ls/ls_dto.py,LearningStepDTO,prerequisite_step_uids,list[str],PREREQUISITE,41,YES
+ls,dto,core/models/ls/ls_dto.py,LearningStepDTO,prerequisite_knowledge_uids,list[str],PREREQUISITE,42,YES
+ls,dto,core/models/ls/ls_dto.py,LearningStepDTO,principle_uids,list[str],OTHER,45,YES
+ls,dto,core/models/ls/ls_dto.py,LearningStepDTO,choice_uids,list[str],OTHER,46,YES
+ls,dto,core/models/ls/ls_dto.py,LearningStepDTO,habit_uids,list[str],OTHER,49,YES
+ls,dto,core/models/ls/ls_dto.py,LearningStepDTO,task_uids,list[str],OTHER,50,YES
+ls,dto,core/models/ls/ls_dto.py,LearningStepDTO,event_template_uids,list[str],OTHER,51,YES
+ls,request,core/models/ls/ls_request.py,LearningStepCreateRequest,primary_knowledge_uids,list[str],OTHER,33,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepCreateRequest,supporting_knowledge_uids,list[str],SUPPORT,34,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepCreateRequest,prerequisite_step_uids,list[str],PREREQUISITE,41,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepCreateRequest,prerequisite_knowledge_uids,list[str],PREREQUISITE,42,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepCreateRequest,principle_uids,list[str],OTHER,45,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepCreateRequest,choice_uids,list[str],OTHER,46,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepCreateRequest,habit_uids,list[str],OTHER,49,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepCreateRequest,task_uids,list[str],OTHER,50,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepCreateRequest,event_template_uids,list[str],OTHER,51,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepUpdateRequest,primary_knowledge_uids,list[str] | None,OTHER,83,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepUpdateRequest,supporting_knowledge_uids,list[str] | None,SUPPORT,84,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepUpdateRequest,prerequisite_step_uids,list[str] | None,PREREQUISITE,91,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepUpdateRequest,prerequisite_knowledge_uids,list[str] | None,PREREQUISITE,92,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepUpdateRequest,principle_uids,list[str] | None,OTHER,95,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepUpdateRequest,choice_uids,list[str] | None,OTHER,96,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepUpdateRequest,habit_uids,list[str] | None,OTHER,99,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepUpdateRequest,task_uids,list[str] | None,OTHER,100,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepUpdateRequest,event_template_uids,list[str] | None,OTHER,101,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepResponse,primary_knowledge_uids,list[str],OTHER,140,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepResponse,supporting_knowledge_uids,list[str],SUPPORT,141,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepResponse,prerequisite_step_uids,list[str],PREREQUISITE,148,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepResponse,prerequisite_knowledge_uids,list[str],PREREQUISITE,149,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepResponse,principle_uids,list[str],OTHER,152,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepResponse,choice_uids,list[str],OTHER,153,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepResponse,habit_uids,list[str],OTHER,156,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepResponse,task_uids,list[str],OTHER,157,REVIEW
+ls,request,core/models/ls/ls_request.py,LearningStepResponse,event_template_uids,list[str],OTHER,158,REVIEW
+principle,dto,core/models/principle/principle_dto.py,PrincipleDTO,guided_goal_uids,list[str],GUIDANCE,46,YES
+principle,dto,core/models/principle/principle_dto.py,PrincipleDTO,inspired_habit_uids,list[str],OTHER,47,YES
+principle,dto,core/models/principle/principle_dto.py,PrincipleDTO,related_principle_uids,list[str],ASSOCIATION,48,YES
+task,dto,core/models/task/task_dto.py,TaskDTO,subtask_uids,list[str],HIERARCHICAL,52,YES
+task,dto,core/models/task/task_dto.py,TaskDTO,applies_knowledge_uids,list[str],APPLICATION,62,YES
+task,dto,core/models/task/task_dto.py,TaskDTO,aligned_principle_uids,list[str],SUPPORT,63,YES
+task,dto,core/models/task/task_dto.py,TaskDTO,prerequisite_knowledge_uids,list[str],PREREQUISITE,72,YES
+task,dto,core/models/task/task_dto.py,TaskDTO,prerequisite_task_uids,list[str],PREREQUISITE,73,YES
+task,dto,core/models/task/task_dto.py,TaskDTO,enables_task_uids,list[str],DEPENDENCY,74,YES
+task,dto,core/models/task/task_dto.py,TaskDTO,inferred_knowledge_uids,list[str],OTHER,85,YES
+task,request,core/models/task/task_request.py,TaskCreateRequest,applies_knowledge_uids,list[str],APPLICATION,56,REVIEW
+task,request,core/models/task/task_request.py,TaskCreateRequest,aligned_principle_uids,list[str],SUPPORT,57,REVIEW
+task,request,core/models/task/task_request.py,TaskCreateRequest,prerequisite_knowledge_uids,list[str],PREREQUISITE,61,REVIEW
+task,request,core/models/task/task_request.py,TaskCreateRequest,prerequisite_task_uids,list[str],PREREQUISITE,62,REVIEW
+task,request,core/models/task/task_request.py,TaskCreateRequest,suggested_knowledge_uids,list[str],OTHER,65,REVIEW
+task,request,core/models/task/task_request.py,TaskUpdateRequest,applies_knowledge_uids,list[str] | None,APPLICATION,106,REVIEW
+task,request,core/models/task/task_request.py,TaskUpdateRequest,aligned_principle_uids,list[str] | None,SUPPORT,107,REVIEW
+task,request,core/models/task/task_request.py,TaskUpdateRequest,prerequisite_knowledge_uids,list[str] | None,PREREQUISITE,111,REVIEW
+task,request,core/models/task/task_request.py,TaskUpdateRequest,prerequisite_task_uids,list[str] | None,PREREQUISITE,112,REVIEW
+task,request,core/models/task/task_request.py,TaskResponse,subtask_uids,list[str],HIERARCHICAL,145,REVIEW
+task,request,core/models/task/task_request.py,TaskResponse,applies_knowledge_uids,list[str],APPLICATION,155,REVIEW
+task,request,core/models/task/task_request.py,TaskResponse,aligned_principle_uids,list[str],SUPPORT,156,REVIEW
+task,request,core/models/task/task_request.py,TaskResponse,prerequisite_knowledge_uids,list[str],PREREQUISITE,160,REVIEW
+task,request,core/models/task/task_request.py,TaskResponse,prerequisite_task_uids,list[str],PREREQUISITE,161,REVIEW
+task,request,core/models/task/task_request.py,TaskResponse,enables_task_uids,list[str],DEPENDENCY,162,REVIEW
+transcription,request,core/models/transcription/transcription_request.py,TranscriptionBulkUpdateRequest,transcription_uids,list[str],OTHER,263,REVIEW
+transcription,request,core/models/transcription/transcription_request.py,TranscriptionExportRequest,transcription_uids,list[str] | None,OTHER,300,REVIEW
+user,context,core/models/user/user_context.py,UnifiedUserContext,active_task_uids,list[str],OTHER,68,NO
+user,context,core/models/user/user_context.py,UnifiedUserContext,overdue_task_uids,list[str],OTHER,80,NO
+user,context,core/models/user/user_context.py,UnifiedUserContext,today_task_uids,list[str],OTHER,81,NO
+user,context,core/models/user/user_context.py,UnifiedUserContext,this_week_task_uids,list[str],OTHER,82,NO
+user,context,core/models/user/user_context.py,UnifiedUserContext,upcoming_event_uids,list[str],OTHER,87,NO
+user,context,core/models/user/user_context.py,UnifiedUserContext,recurring_event_uids,list[str],OTHER,88,NO
+user,context,core/models/user/user_context.py,UnifiedUserContext,today_event_uids,list[str],OTHER,89,NO
+user,context,core/models/user/user_context.py,UnifiedUserContext,active_goal_uids,list[str],OTHER,102,NO
+user,context,core/models/user/user_context.py,UnifiedUserContext,active_habit_uids,list[str],OTHER,117,NO
+user,context,core/models/user/user_context.py,UnifiedUserContext,enrolled_path_uids,list[str],OTHER,134,NO
+user,context,core/models/user/user_context.py,UnifiedUserContext,core_principle_uids,list[str],OTHER,159,NO
+user,dto,core/models/user/user_dto.py,UserDTO,pinned_entity_uids,list[str],OTHER,80,YES
+user,request,core/models/user/user_request.py,UserUpdateSchema,pinned_entity_uids,list[str] | None,OTHER,149,REVIEW
+user,request,core/models/user/user_request.py,UserView,pinned_entity_uids,list[str],OTHER,174,REVIEW
+user,request,core/models/user/user_request.py,UserServiceContextSchema,current_goal_uids,list[str],OTHER,232,REVIEW

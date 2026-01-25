@@ -1,0 +1,151 @@
+"""
+Ingestion Preparer - Entity Data Preparation
+=============================================
+
+Handles UID generation, content extraction, default injection,
+and relationship data flattening.
+
+Extracted from unified_ingestion_service.py for separation of concerns.
+"""
+
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from core.models.shared_enums import EntityType
+
+from .config import ENTITY_CONFIGS
+
+
+def normalize_uid(uid: str) -> str:
+    """
+    Normalize UID to dot notation.
+
+    Converts colon notation to dot notation:
+        "ku:machine-learning" → "ku.machine-learning"
+
+    Args:
+        uid: Raw UID from file
+
+    Returns:
+        Normalized UID with dot notation
+    """
+    return uid.replace(":", ".")
+
+
+def generate_uid(entity_type: EntityType, file_path: Path) -> str:
+    """
+    Generate UID from entity type and file path.
+
+    Pattern: {entity_type.value}.{file_stem}
+
+    Args:
+        entity_type: EntityType enum value
+        file_path: Path to the file
+
+    Returns:
+        Generated UID (e.g., "ku.machine-learning")
+    """
+    return f"{entity_type.value}.{file_path.stem}"
+
+
+def prepare_entity_data(
+    entity_type: EntityType,
+    data: dict[str, Any],
+    body: str | None,
+    file_path: Path,
+    default_user_uid: str = "user:system",
+) -> dict[str, Any]:
+    """
+    Prepare entity data for ingestion.
+
+    Handles:
+    - UID generation/normalization
+    - Content extraction (body for MD)
+    - Default value injection
+    - Relationship data flattening
+    - Timestamp injection
+
+    Args:
+        entity_type: EntityType enum value
+        data: Parsed frontmatter/YAML data
+        body: Body content (for markdown) or None
+        file_path: Source file path
+        default_user_uid: Default user UID for multi-tenant entities
+
+    Returns:
+        Prepared entity data dict
+
+    Raises:
+        ValueError: If entity type is unknown
+    """
+    config = ENTITY_CONFIGS.get(entity_type)
+    if not config:
+        raise ValueError(f"Unknown entity type: {entity_type.value}")
+
+    # Start with data copy
+    entity_data = dict(data)
+
+    # Remove YAML-only metadata fields
+    for field in ("version", "type", "created_at", "updated_at"):
+        entity_data.pop(field, None)
+
+    # Handle UID
+    if "uid" in entity_data:
+        entity_data["uid"] = normalize_uid(entity_data["uid"])
+    else:
+        entity_data["uid"] = generate_uid(entity_type, file_path)
+
+    # Handle content for markdown files (type-safe check)
+    if body is not None and entity_type in (EntityType.KU, EntityType.JOURNAL):
+        entity_data["content"] = body
+
+    # Handle title fallback from filename
+    if "title" not in entity_data and "name" not in entity_data:
+        entity_data["title"] = file_path.stem.replace("-", " ").title()
+
+    # Apply default values
+    if config.default_values:
+        for key, value in config.default_values.items():
+            if key not in entity_data:
+                entity_data[key] = value
+
+    # Inject user_uid for multi-tenant entity types
+    # Uses explicit user_uid from data if present, otherwise falls back to default
+    if config.requires_user_uid and "user_uid" not in entity_data:
+        entity_data["user_uid"] = default_user_uid
+
+    # Flatten relationship data for BulkIngestionEngine
+    # Format: "connections.requires" → flat key in metadata
+    connections = entity_data.pop("connections", {})
+    if connections:
+        for key, value in connections.items():
+            if value:
+                entity_data[f"connections.{key}"] = value
+
+    # Flatten contains/recommends for MOC
+    contains = entity_data.pop("contains", {})
+    if contains:
+        for key, value in contains.items():
+            if value:
+                entity_data[f"contains.{key}"] = value
+
+    recommends = entity_data.pop("recommends", {})
+    if recommends:
+        for key, value in recommends.items():
+            if value:
+                entity_data[f"recommends.{key}"] = value
+
+    # Add timestamps
+    now = datetime.now().isoformat()
+    entity_data.setdefault("created_at", now)
+    entity_data["updated_at"] = now
+
+    return entity_data
+
+
+__all__ = [
+    "generate_uid",
+    "normalize_uid",
+    "prepare_entity_data",
+]

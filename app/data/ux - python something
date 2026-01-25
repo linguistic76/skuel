@@ -1,0 +1,343 @@
+Nice, this is where it starts to feel like a real app. Let’s wire up the **Stage 1 – See What Is** page in three layers **together**:
+
+1. fastHTML-compatible Python
+2. HTMX hooks for flows
+3. A tiny CSS “token” system so the look is reusable
+
+I’ll show it as one coherent Python file you can drop into your project and tweak.
+
+---
+
+##### 1. Tiny design token system (Tailwind-flavoured, but semantic)
+
+You can put this near the top of your `ui/objectivity.py` or similar.
+
+```python
+# ui/objectivity_tokens.py
+
+TOK = {
+    "page_bg": "min-h-screen bg-slate-950 text-slate-100 antialiased",
+
+    "container": "max-w-4xl mx-auto px-4",
+    "section_outer": "py-8",
+
+    "stage_header_label": "text-[11px] uppercase tracking-[0.2em] text-slate-500",
+    "stage_title": "text-2xl md:text-3xl font-semibold tracking-tight text-slate-50",
+    "stage_subtitle": "text-sm md:text-base text-slate-400 max-w-2xl",
+
+    "step_card": "rounded-2xl border border-slate-800 bg-slate-900/70 p-4 flex items-start justify-between gap-3",
+    "step_card_locked": "rounded-2xl border border-slate-900 bg-slate-950/70 p-4 flex items-start justify-between gap-3 opacity-70",
+
+    "step_title": "text-sm font-semibold text-slate-50",
+    "step_title_muted": "text-sm font-semibold text-slate-400",
+    "step_body": "text-xs text-slate-400 max-w-md",
+    "step_body_muted": "text-xs text-slate-500 max-w-md",
+
+    "progress_bar_outer": "w-40 h-1.5 rounded-full bg-slate-800 overflow-hidden",
+    "progress_bar_inner": "h-full",
+
+    "primary_btn": "shrink-0 inline-flex items-center justify-center px-3 py-1.5 "
+                   "text-xs font-medium rounded-xl bg-emerald-500 text-slate-900 "
+                   "hover:bg-emerald-400 transition",
+    "secondary_btn": "shrink-0 inline-flex items-center justify-center px-3 py-1.5 "
+                     "text-xs font-medium rounded-xl bg-slate-800 text-slate-100 "
+                     "hover:bg-slate-700 transition",
+    "locked_btn": "shrink-0 inline-flex items-center justify-center px-3 py-1.5 "
+                  "text-xs font-medium rounded-xl bg-slate-900 text-slate-500 "
+                  "border border-slate-800 cursor-not-allowed",
+
+    "cta_card": "rounded-2xl border border-emerald-500/40 bg-emerald-500/5 "
+                "p-4 flex flex-col md:flex-row items-start md:items-center "
+                "justify-between gap-4",
+    "cta_title": "text-sm font-semibold text-emerald-300",
+    "cta_body": "text-xs text-emerald-100/80 max-w-lg",
+    "cta_btn": "inline-flex items-center justify-center px-4 py-2 rounded-xl "
+               "bg-emerald-500 text-slate-900 text-xs font-semibold "
+               "hover:bg-emerald-400 transition",
+}
+```
+
+You can expand this gradually as SKUEL’s visual language settles.
+
+---
+
+##### 2. Stage 1 fastHTML page (with HTMX hooks)
+
+This assumes something like:
+
+```python
+from fasthtml.common import *
+from ui.objectivity_tokens import TOK
+```
+
+Then:
+
+```python
+# ui/objectivity_stage1.py
+
+from fasthtml.common import *
+from ui.objectivity_tokens import TOK
+
+
+def stage1_see_what_is():
+    """
+    Stage 1 page: 'See What Is'.
+
+    HTMX endpoints (examples):
+      - /objectivity/stage1/step/1   → load Attention step
+      - /objectivity/stage1/step/2   → load Thought ≠ Reality step
+      - /objectivity/stage1/live     → start a live example flow with Askesis
+    """
+    return Main(
+        Section(
+            # Header
+            Div(
+                P("Stage 1", class_=TOK["stage_header_label"]),
+                H1("See What Is", class_=TOK["stage_title"]),
+                P(
+                    "The skill of clear perception. You learn to tell the difference "
+                    "between what is actually happening and what your mind says is happening.",
+                    class_=TOK["stage_subtitle"],
+                ),
+                Div(
+                    Span(
+                        Span(class_="h-1.5 w-8 rounded-full bg-emerald-500"),
+                        " attention",
+                        class_="inline-flex items-center gap-1",
+                    ),
+                    Span(
+                        Span(class_="h-1.5 w-8 rounded-full bg-sky-500"),
+                        " thought vs reality",
+                        class_="inline-flex items-center gap-1",
+                    ),
+                    class_="flex items-center gap-3 text-[11px] text-slate-500 mt-2",
+                ),
+                class_="space-y-3",
+            ),
+
+            # Steps list
+            Section(
+                _step_card(
+                    step_number=1,
+                    title="Attention · noticing what your mind is doing",
+                    body="Catch when you are lost in thoughts instead of being with "
+                         "what is actually happening.",
+                    progress_fraction=0.75,
+                    bar_color="bg-emerald-500",
+                    button_label="Continue",
+                    button_class=TOK["primary_btn"],
+                    # HTMX hook: load step content into #stage1-detail
+                    hx_get="/objectivity/stage1/step/1",
+                    hx_target="#stage1-detail",
+                    hx_swap="innerHTML",
+                ),
+                _step_card(
+                    step_number=2,
+                    title="Thought ≠ reality",
+                    body="Learn to see thoughts as mental events, not facts. "
+                         "Separate situation from story.",
+                    progress_fraction=0.20,
+                    bar_color="bg-sky-500",
+                    button_label="Start",
+                    button_class=TOK["secondary_btn"],
+                    hx_get="/objectivity/stage1/step/2",
+                    hx_target="#stage1-detail",
+                    hx_swap="innerHTML",
+                ),
+                _locked_step_card(
+                    step_number=3,
+                    title="Emotional literacy",
+                    body="Feelings are signals, not instructions. Notice how your "
+                         "body responds without letting it run the whole story.",
+                ),
+                _coming_soon_step_card(
+                    step_number=4,
+                    title="Clear perception",
+                    body="Remove filters like fear and habit, without removing emotion "
+                         "itself. See the moment with less distortion.",
+                ),
+                class_="space-y-3 mt-6",
+            ),
+
+            # Askesis live example CTA
+            Section(
+                Div(
+                    Div(
+                        H2("Try it on something real", class_=TOK["cta_title"]),
+                        P(
+                            "Askesis can take a real situation from today and walk you "
+                            "through seeing it clearly, step by step.",
+                            class_=TOK["cta_body"],
+                        ),
+                        class_="space-y-1",
+                    ),
+                    A(
+                        "Start a live example",
+                        href="#",
+                        class_=TOK["cta_btn"],
+                        # HTMX: start a live SEE/ACCEPT/ACT session in a modal or panel
+                        **{
+                            "hx-get": "/objectivity/stage1/live",
+                            "hx-target": "#askesis-modal",
+                            "hx-swap": "innerHTML",
+                        }
+                    ),
+                    class_=TOK["cta_card"],
+                ),
+                class_="mt-6",
+            ),
+
+            class_=f"{TOK['container']} space-y-6",
+        ),
+        # Detail area for HTMX-loaded step content (e.g., the Thought ≠ Reality exercise)
+        Section(
+            Div(
+                # initially blank / placeholder; HTMX will inject content here
+                P(
+                    "Pick a step above to dive into a focused practice.",
+                    class_="text-xs text-slate-500",
+                ),
+                id="stage1-detail",
+                class_="mt-6",
+            ),
+            class_=f"{TOK['container']}",
+        ),
+        class_=TOK["section_outer"],
+    )
+```
+
+Helper functions for step cards:
+
+```python
+def _step_card(
+    step_number: int,
+    title: str,
+    body: str,
+    progress_fraction: float,
+    bar_color: str,
+    button_label: str,
+    button_class: str,
+    hx_get: str,
+    hx_target: str,
+    hx_swap: str,
+):
+    # clamp fraction between 0 and 1
+    frac = max(0.0, min(1.0, progress_fraction))
+    width = int(frac * 100)
+
+    return Article(
+        Div(
+            H2(
+                f"{step_number}. {title}",
+                class_=TOK["step_title"],
+            ),
+            P(
+                body,
+                class_=TOK["step_body"],
+            ),
+            Div(
+                Div(
+                    class_=f"{TOK['progress_bar_inner']} {bar_color}",
+                    style=f"width: {width}%;",
+                ),
+                class_=TOK["progress_bar_outer"],
+            ),
+            class_="space-y-1",
+        ),
+        A(
+            button_label,
+            href="#",
+            class_=button_class,
+            **{
+                "hx-get": hx_get,
+                "hx-target": hx_target,
+                "hx-swap": hx_swap,
+            }
+        ),
+        class_=TOK["step_card"],
+    )
+
+
+def _locked_step_card(step_number: int, title: str, body: str):
+    return Article(
+        Div(
+            H2(
+                f"{step_number}. {title}",
+                class_=TOK["step_title"],
+            ),
+            P(
+                body,
+                class_=TOK["step_body"],
+            ),
+            Div(
+                Div(class_=TOK["progress_bar_inner"] + " bg-slate-600", style="width: 0%;"),
+                class_=TOK["progress_bar_outer"],
+            ),
+            class_="space-y-1",
+        ),
+        Button(
+            "Unlock after Step 2",
+            type="button",
+            class_=TOK["locked_btn"],
+        ),
+        class_=TOK["step_card"],
+    )
+
+
+def _coming_soon_step_card(step_number: int, title: str, body: str):
+    return Article(
+        Div(
+            H2(
+                f"{step_number}. {title}",
+                class_=TOK["step_title_muted"],
+            ),
+            P(
+                body,
+                class_=TOK["step_body_muted"],
+            ),
+            class_="space-y-1",
+        ),
+        Span(
+            "Coming after Step 3",
+            class_="shrink-0 text-[10px] px-2 py-1 rounded-full bg-slate-900 "
+                   "text-slate-500 border border-slate-800",
+        ),
+        class_=TOK["step_card_locked"],
+    )
+```
+
+---
+
+##### 3. How this plugs into your app
+
+Very small routing example (you’ll adapt to your actual structure):
+
+```python
+# app.py (or routes/objectivity.py)
+
+from fasthtml.common import *
+from ui.objectivity_stage1 import stage1_see_what_is
+from ui.objectivity_thought_not_reality import step2_thought_not_reality  # you’ll define this
+
+
+app = FastHTML()
+
+@app.get("/objectivity/stage1")
+def stage1():
+    return stage1_see_what_is()
+
+
+@app.get("/objectivity/stage1/step/2")
+def stage1_step2():
+    # return just the inner content for #stage1-detail
+    return step2_thought_not_reality()
+```
+
+You already have the HTML for the **Thought ≠ Reality** exercise from before; we can turn that into another fastHTML function that returns an `Article` or `Section` ready to be dropped into `#stage1-detail`.
+
+---
+
+If you’d like, next step I can:
+
+* , or
+* sketch the `askesis-modal` fastHTML (for the live SEE/ACCEPT/ACT flow).

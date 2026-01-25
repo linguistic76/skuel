@@ -1,0 +1,43 @@
+version: 1.0
+type: LearningPath
+
+uid: lp:mindfulness-101
+name: Mindfulness 101 — Light & Conversational
+goal: Build a gentle daily starter practice with breath awareness and meta-cognition
+description: |
+  A choose-your-own-adventure starter path with tiny practices.
+
+  This path introduces mindfulness through bite-sized, practical steps.
+  No spiritual baggage, no perfection required—just consistent tiny actions.
+
+path_type: structured
+difficulty: beginner
+domain: personal
+
+# Steps (reference ls UIDs in sequence)
+steps:
+  - ls:mindfulness-101:step-1
+  - ls:mindfulness-101:step-2
+
+# Requirements
+prerequisites: []  # No prerequisites - true beginner path
+
+outcomes:
+  - Establish a daily 2-minute breath awareness practice
+  - Develop the skill of noticing when attention wanders
+  - Build meta-awareness through gentle labeling
+  - Create a foundation for deeper mindfulness practices
+
+# Time Estimates
+estimated_hours: 1.0  # Total for both steps
+
+# Metadata
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z
+created_by: system
+tags:
+  - mindfulness
+  - beginner
+  - conversational
+  - breath
+  - starter-path

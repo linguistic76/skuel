@@ -1,0 +1,33 @@
+● Summary: GraphContextNode Implementation
+
+  Implemented GraphContextNode TypedDict to provide ~90% type safety for get_domain_context_raw() return values.
+
+  The Tension Resolved:
+  Cross-domain graph queries return heterogeneous data from 15+ domains. Full typing would require a union of all domain models (unwieldy). GraphContextNode captures the common graph traversal fields that ALL entities share, with an
+   escape hatch for domain-specific data.
+
+  Files Modified:
+
+  1. core/services/protocols/base_protocols.py (lines 81-132)
+    - Added GraphContextNode TypedDict with typed fields:
+        - uid: str - Entity UID
+      - labels: list[str] - Neo4j labels
+      - distance: int - Hops from source
+      - path_strength: float - Confidence cascade
+      - via_relationships: list[str] - Relationship path
+      - title: str - Common optional field
+      - entity_type: str - EntityType value when available
+      - raw_properties: dict[str, Any] - Escape hatch for domain-specific data
+    - Updated get_domain_context_raw() return type from list[dict[str, Any]] to list[GraphContextNode]
+  2. adapters/persistence/neo4j/universal_backend.py
+    - Added import for GraphContextNode
+    - Updated method signature and docstring
+  3. core/services/protocols/__init__.py
+    - Added GraphContextNode to imports and __all__
+
+  Usage Pattern (unchanged for consumers):
+  result = await backend.get_domain_context_raw(...)
+  for node in result.value:
+      uid = node["uid"]  # Now type-safe: str
+      labels = node["labels"]  # Now type-safe: list[str]
+      # Domain-specific via raw_properties escape hatch

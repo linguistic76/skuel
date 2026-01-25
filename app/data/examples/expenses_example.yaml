@@ -1,0 +1,191 @@
+# Example Expense Tracking YAML
+# ==============================
+# This shows how to define expenses and budgets in YAML format
+
+# Monthly Budgets
+budgets:
+  - uid: budget_2024_01_total
+    name: "January 2024 Total Budget"
+    period: monthly
+    amount_limit: 5000.00
+    start_date: 2024-01-01
+    end_date: 2024-01-31
+    categories: ["PERSONAL", "HOUSE", "SKUEL"]  # All categories
+    alert_threshold: 0.8
+    tags: ["monthly", "2024"]
+
+  - uid: budget_2024_01_personal
+    name: "January 2024 Personal Budget"
+    period: monthly
+    amount_limit: 2000.00
+    start_date: 2024-01-01
+    end_date: 2024-01-31
+    categories: ["PERSONAL.food", "PERSONAL.vehicle", "PERSONAL.entertainment"]
+    alert_threshold: 0.75
+
+  - uid: budget_2024_01_house
+    name: "January 2024 House Budget"
+    period: monthly
+    amount_limit: 2500.00
+    start_date: 2024-01-01
+    end_date: 2024-01-31
+    categories: ["HOUSE.mortgage", "HOUSE.utilities", "HOUSE.maintenance"]
+    alert_threshold: 0.9
+
+  - uid: budget_2024_01_skuel
+    name: "January 2024 SKUEL Budget"
+    period: monthly
+    amount_limit: 500.00
+    start_date: 2024-01-01
+    end_date: 2024-01-31
+    categories: ["SKUEL"]
+    alert_threshold: 0.8
+
+# Individual Expenses
+expenses:
+  # PERSONAL Expenses
+  - uid: exp_2024_01_groceries_01
+    amount: 125.50
+    description: "Weekly grocery shopping"
+    expense_date: 2024-01-07
+    category: "PERSONAL.food"
+    vendor: "Whole Foods"
+    status: paid
+    receipt_link: "[[2024-01-07-whole-foods]]"
+    tags: ["groceries", "weekly"]
+
+  - uid: exp_2024_01_gas_01
+    amount: 45.00
+    description: "Gas fillup"
+    expense_date: 2024-01-08
+    category: "PERSONAL.vehicle"
+    vendor: "Shell Station"
+    status: paid
+    tags: ["gas", "vehicle"]
+
+  - uid: exp_2024_01_phone
+    amount: 85.00
+    description: "Monthly phone bill"
+    expense_date: 2024-01-10
+    category: "PERSONAL.phone"
+    vendor: "Verizon"
+    status: paid
+    is_recurring: true
+    recurrence_pattern: monthly
+    tags: ["recurring", "utilities"]
+
+  # HOUSE Expenses
+  - uid: exp_2024_01_mortgage
+    amount: 2200.00
+    description: "Monthly mortgage payment"
+    expense_date: 2024-01-01
+    category: "HOUSE.mortgage"
+    vendor: "Wells Fargo"
+    status: paid
+    is_recurring: true
+    recurrence_pattern: monthly
+    receipt_link: "[[2024-01-mortgage]]"
+    tags: ["mortgage", "recurring"]
+
+  - uid: exp_2024_01_electricity
+    amount: 156.78
+    description: "Electricity bill"
+    expense_date: 2024-01-15
+    category: "HOUSE.utilities"
+    vendor: "PG&E"
+    status: paid
+    tags: ["utilities", "electricity"]
+
+  - uid: exp_2024_01_plumber
+    amount: 250.00
+    description: "Fix kitchen sink leak"
+    expense_date: 2024-01-12
+    category: "HOUSE.maintenance"
+    vendor: "Joe's Plumbing"
+    status: pending
+    receipt_link: "[[2024-01-12-plumber-invoice]]"
+    notes: "Emergency repair - kitchen sink was leaking"
+    tags: ["maintenance", "repair", "emergency"]
+
+  # SKUEL Business Expenses (Tax Deductible)
+  - uid: exp_2024_01_aws
+    amount: 127.45
+    description: "AWS hosting services"
+    expense_date: 2024-01-01
+    category: "SKUEL.infrastructure"
+    vendor: "Amazon Web Services"
+    status: paid
+    tax_deductible: true
+    is_recurring: true
+    recurrence_pattern: monthly
+    tags: ["hosting", "recurring", "business"]
+
+  - uid: exp_2024_01_github
+    amount: 21.00
+    description: "GitHub Team subscription"
+    expense_date: 2024-01-01
+    category: "SKUEL.software"
+    vendor: "GitHub"
+    status: paid
+    tax_deductible: true
+    is_recurring: true
+    recurrence_pattern: monthly
+    tags: ["software", "recurring", "business"]
+
+  - uid: exp_2024_01_consultant
+    amount: 1500.00
+    description: "Security audit consulting"
+    expense_date: 2024-01-20
+    category: "SKUEL.professional"
+    vendor: "SecureCode Consulting"
+    status: pending
+    tax_deductible: true
+    tax_amount: 135.00  # Sales tax
+    receipt_link: "[[2024-01-20-security-audit]]"
+    notes: "Q1 2024 security audit for SKUEL platform"
+    tags: ["consulting", "security", "business", "q1-2024"]
+
+  - uid: exp_2024_01_course
+    amount: 299.00
+    description: "Advanced Neo4j course"
+    expense_date: 2024-01-15
+    category: "SKUEL.education"
+    vendor: "Neo4j Academy"
+    status: paid
+    tax_deductible: true
+    receipt_link: "[[2024-01-15-neo4j-course]]"
+    tags: ["education", "training", "business"]
+
+# Recurring Expense Templates
+recurring_templates:
+  - uid: template_mortgage
+    amount: 2200.00
+    description: "Monthly mortgage payment"
+    category: "HOUSE.mortgage"
+    vendor: "Wells Fargo"
+    recurrence_pattern: monthly
+    day_of_month: 1
+    tags: ["mortgage", "recurring"]
+
+  - uid: template_phone
+    amount: 85.00
+    description: "Monthly phone bill"
+    category: "PERSONAL.phone"
+    vendor: "Verizon"
+    recurrence_pattern: monthly
+    day_of_month: 10
+    tags: ["phone", "recurring"]
+
+  - uid: template_aws
+    amount: 127.45
+    description: "AWS hosting services"
+    category: "SKUEL.infrastructure"
+    vendor: "Amazon Web Services"
+    tax_deductible: true
+    recurrence_pattern: monthly
+    day_of_month: 1
+    tags: ["hosting", "recurring", "business"]
+
+# Example of how vendor tracking works simply in YAML
+# Each expense just has a "vendor" field with the vendor name
+# No complex payment method or account tracking needed

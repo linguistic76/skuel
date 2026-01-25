@@ -1,0 +1,57 @@
+
+
+  Solution: Add Dedicated Methods to GoalsRelationshipService
+
+  Just like TasksRelationshipService has:
+  - get_task_subtasks()
+  - get_task_knowledge()
+  - get_task_principles()
+
+  GoalsRelationshipService should have:
+  - get_goal_essential_habits()
+  - get_goal_critical_habits()
+  - get_goal_optional_habits()
+  - get_goal_supporting_habits() (or get_goal_all_habits())
+
+  Each is a simple wrapper:
+
+  async def get_goal_essential_habits(self, goal_uid: str) -> Result[list[str]]:
+      """Get essential habit UIDs for this goal."""
+      return await self.backend.get_related_uids(
+          uid=goal_uid,
+          relationship_type="REQUIRES_HABIT",
+          direction="outgoing",
+          properties={"essentiality": "essential"},
+      )
+
+  async def get_goal_critical_habits(self, goal_uid: str) -> Result[list[str]]:
+      """Get critical habit UIDs for this goal."""
+      return await self.backend.get_related_uids(
+          uid=goal_uid,
+          relationship_type="REQUIRES_HABIT",
+          direction="outgoing",
+          properties={"essentiality": "critical"},
+      )
+
+  # ... same pattern for optional and supporting/all
+
+  Then GoalRelationships.fetch() Becomes Consistent
+
+  results = await asyncio.gather(
+      service.get_goal_aligned_paths(goal_uid),
+      service.get_goal_required_paths(goal_uid),
+      service.get_goal_knowledge(goal_uid),
+      service.get_goal_subgoals(goal_uid),
+      service.get_goal_supporting_habits(goal_uid),   # All habits
+      service.get_goal_essential_habits(goal_uid),    # No parameters!
+      service.get_goal_critical_habits(goal_uid),     # No parameters!
+      service.get_goal_optional_habits(goal_uid),     # No parameters!
+      service.get_goal_principles(goal_uid),
+  )
+
+  Benefits
+
+  1. Consistency - Same pattern as Task, Event, Habit, Choice, Principle
+  2. No capability loss - Same data, cleaner interface
+  3. Better API - get_goal_essential_habits() is more readable than get_goal_habits(uid, essentiality="essential")
+  4. DRY-ready - Now fits the generic pattern perfectly

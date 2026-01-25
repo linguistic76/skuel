@@ -1,0 +1,18 @@
+
+  Summary: CypherGenerator Entity With Context Helpers
+
+  Created new helpers in /core/models/query/_cypher_generator.py:
+
+  1. build_entity_with_context() - Generic helper that generates Cypher for fetching an entity + all its related entities in ONE database round-trip
+    - Configurable relationship specifications (direction, confidence filtering, single vs list)
+    - Eliminates N+1 query patterns
+    - ~160 lines of reusable query generation logic
+  2. build_task_with_context() - Task-specific convenience wrapper
+    - Includes: subtasks, dependencies, dependents, applied/required knowledge, goal context, habit context
+  3. build_goal_with_context() - Goal-specific convenience wrapper
+    - Includes: contributing tasks/habits, sub-goals, required knowledge, aligned principles, milestones
+  4. build_ku_with_context() - Knowledge Unit-specific convenience wrapper
+    - Includes: prerequisites, dependents, related KUs
+
+  Refactored:
+  - tasks_core_service.py:get_with_context() - Now uses CypherGenerator.build_task_with_context() instead of 80 lines of inline Cypher

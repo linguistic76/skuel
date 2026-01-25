@@ -1,0 +1,175 @@
+# Event Template with Relationships
+# ==================================
+# Template for events with contextual relationships
+
+---
+# Required Fields
+uid: event.example_meeting
+title: Architecture Review Meeting
+type: Event
+
+# Event Details
+event_type: MEETING  # MEETING, DEADLINE, MILESTONE, REVIEW, LAUNCH
+status: SCHEDULED  # SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+priority: HIGH  # LOW, MEDIUM, HIGH, CRITICAL
+
+# Timing
+start_time: 2025-02-01T14:00:00Z
+end_time: 2025-02-01T15:30:00Z
+duration_minutes: 90
+timezone: UTC
+
+# Location
+location: Conference Room A / Zoom
+is_virtual: false
+meeting_link: https://zoom.us/j/123456789
+
+# Participants
+organizer: user.team_lead
+required_attendees:
+  - user.architect
+  - user.senior_dev_1
+  - user.senior_dev_2
+optional_attendees:
+  - user.junior_dev_1
+  - user.product_manager
+
+# Description
+description: |
+  Review proposed architecture changes for the authentication system.
+  Discuss implementation approach and identify potential risks.
+
+# Agenda
+agenda:
+  - item: Current architecture overview
+    duration: 15
+    presenter: user.architect
+  - item: Proposed changes
+    duration: 30
+    presenter: user.senior_dev_1
+  - item: Risk assessment
+    duration: 20
+    presenter: user.team_lead
+  - item: Implementation timeline
+    duration: 15
+    presenter: user.project_manager
+  - item: Q&A and decisions
+    duration: 10
+    presenter: all
+
+# NEW: Rich Relationships Block
+Relationships:
+  # Dependencies
+  Prerequisites:  # What must be done before this event
+    - Architecture Documentation Complete
+    - Proof of Concept Tested
+    - Risk Assessment Prepared
+
+  Enables:  # What this event enables/unlocks
+    - Implementation Start
+    - Resource Allocation
+    - Sprint Planning
+
+  # Knowledge Context
+  RelatedConcepts:  # Related knowledge areas
+    - System Architecture
+    - Authentication Patterns
+    - Security Best Practices
+    - Scalability Considerations
+
+  # Project Context
+  AppliesTo:  # Which projects/areas this affects
+    - Authentication Module
+    - User Management System
+    - API Gateway
+
+  UsedBy:  # Who/what depends on this event's outcomes
+    - Development Team
+    - QA Team
+    - DevOps Team
+
+# Event Context
+related_to:
+  - task.architecture_design
+  - task.implementation_planning
+  - event.previous_review
+
+follows:
+  - event.initial_planning
+  - event.poc_demo
+
+precedes:
+  - event.implementation_kickoff
+  - event.sprint_planning
+
+# Deliverables
+expected_outcomes:
+  - Approved architecture design
+  - Implementation timeline
+  - Resource allocation plan
+  - Risk mitigation strategy
+
+# Preparation
+preparation_required:
+  - Review architecture document
+  - Prepare questions
+  - Review POC results
+  - Gather performance metrics
+
+# Follow-up Actions
+follow_up:
+  - Send meeting minutes
+  - Update architecture docs
+  - Create implementation tasks
+  - Schedule follow-up reviews
+
+# Tags
+tags:
+  - architecture
+  - planning
+  - decision-making
+  - technical-review
+
+# Recurrence (if applicable)
+recurrence:
+  frequency: null  # DAILY, WEEKLY, MONTHLY, null
+  interval: null
+  end_date: null
+
+# Timestamps
+created: 2025-01-21T12:00:00Z
+updated: 2025-01-21T12:00:00Z
+confirmed: null
+completed: null
+
+---
+
+# Meeting Notes
+
+## Pre-Meeting Preparation
+
+### Required Reading
+- Architecture proposal document
+- Current system documentation
+- Performance benchmarks
+
+### Key Questions to Address
+1. How does this affect existing systems?
+2. What are the migration requirements?
+3. What is the rollback plan?
+
+## During Meeting
+
+### Decisions Made
+(To be filled during/after meeting)
+
+### Action Items
+(To be filled during/after meeting)
+
+### Risks Identified
+(To be filled during/after meeting)
+
+## Post-Meeting
+
+### Follow-up Tasks
+(To be created after meeting)

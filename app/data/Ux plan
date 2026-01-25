@@ -1,0 +1,1014 @@
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ SKUEL Documentation-Centric UX Redesign
+
+ Complete replacement with typography-first design
+
+ Vision
+
+ Transform SKUEL into a documentation-centric application with beautiful typography and readability, inspired by Tailwind's Syntax template. Knowledge Units (KUs) become the primary interface with full-page documentation views, knowledge graph navigation, and professional prose styling.
+
+ User Requirements (Validated)
+
+ 1. Typography & Readability - Professional font hierarchy, generous whitespace, reading-optimized layout
+
+ 2. Documentation-Centric - KUs as primary content, structured like documentation pages
+
+ 3. Full Replacement - Complete UX redesign, not incremental (replace all routes)
+
+ 4. Server-Side Rendering - Python markdown conversion for SEO and consistency
+
+ 5. All-at-Once Delivery - Single implementation (not phased)
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ SKUEL Documentation-Centric UX Redesign
+
+ Complete replacement with typography-first design
+
+ Vision
+
+ Transform SKUEL into a documentation-centric application with beautiful typography and readability, inspired by Tailwind's Syntax template. Knowledge Units (KUs) become the primary interface with full-page documentation views, knowledge graph navigation, and professional prose styling.
+
+ User Requirements (Validated)
+
+ 1. Typography & Readability - Professional font hierarchy, generous whitespace, reading-optimized layout
+ 2. Documentation-Centric - KUs as primary content, structured like documentation pages
+ 3. Full Replacement - Complete UX redesign, not incremental (replace all routes)
+ 4. Server-Side Rendering - Python markdown conversion for SEO and consistency
+ 5. All-at-Once Delivery - Single implementation (not phased)
+
+ Architecture Decisions
+
+ 1. Markdown Rendering (Server-Side)
+
+ Approach: Python markdown package with extensions
+ Rationale: Better SEO, consistent styling, server-side caching, no JavaScript dependency
+
+ # /core/utils/markdown_renderer.py
+ import markdown
+ from markdown.extensions import fenced_code, tables, toc, codehilite
+
+ class MarkdownRenderer:
+     """Server-side markdown to HTML converter with caching"""
+
+     def __init__(self):
+         self.md = markdown.Markdown(extensions=[
+             'fenced_code',      # Code blocks with syntax
+             'tables',           # Table support
+             'toc',              # Table of contents generation
+             'codehilite',       # Syntax highlighting (Pygments)
+             'nl2br',            # Newline to <br>
+             'sane_lists',       # Improved list handling
+         ])
+
+     def render(self, content: str) -> tuple[str, str]:
+         """Returns (html_content, toc_html)"""
+         html = self.md.convert(content)
+         toc = self.md.toc
+         self.md.reset()  # Reset for next conversion
+         return html, toc
+
+ Dependencies: Already in pyproject.toml (markdown>=3.4)
+
+ 2. Typography System (Tailwind Typography)
+
+ Approach: Use @tailwindcss/typography plugin with custom prose styling
+
+ Typography Scale:
+ /* /static/css/documentation.css */
+
+ /* Headings */
+ .prose h1 { @apply text-4xl font-bold tracking-tight text-gray-900 mt-8 mb-4; }
+ .prose h2 { @apply text-3xl font-semibold tracking-tight text-gray-900 mt-6 mb-3 border-b border-gray-200 pb-2; }
+ .prose h3 { @apply text-2xl font-semibold text-gray-900 mt-4 mb-2; }
+ .prose h4 { @apply text-xl font-semibold text-gray-900 mt-3 mb-2; }
+
+ /* Body Text */
+ .prose p { @apply text-lg leading-relaxed text-gray-700 mb-4; }
+ .prose { @apply max-w-none text-lg leading-relaxed; }
+
+ /* Code */
+ .prose code { @apply text-sm bg-gray-100 text-pink-600 px-1.5 py-0.5 rounded font-mono; }
+ .prose pre { @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto; }
+
+ /* Lists */
+ .prose ul { @apply list-disc pl-6 mb-4 space-y-2; }
+ .prose ol { @apply list-decimal pl-6 mb-4 space-y-2; }
+
+ /* Links */
+ .prose a { @apply text-blue-600 hover:text-blue-800 underline decoration-blue-400/50 hover:decoration-blue-600; }
+
+ /* Blockquotes */
+ .prose blockquote { @apply border-l-4 border-blue-500 pl-4 italic text-gray-700 my-4; }
+
+ 3. Three-Column Documentation Layout
+
+ Structure:
+ ┌─────────────────────────────────────────────────────────────┐
+ │                         Navbar                               │
+ ├──────────┬──────────────────────────────────┬───────────────┤
+ │  Left    │        Main Content              │     Right     │
+ │  Nav     │      (65ch max-width)            │     TOC       │
+ │ (280px)  │                                  │   (256px)     │
+ │  Fixed   │   • Breadcrumbs                  │   Sticky      │
+ │          │   • Title + Metadata             │              │
+ │          │   • Prose Content                │   • Headings  │
+ │          │   • Knowledge Graph Nav          │   • Jump      │
+ │          │                                  │     links     │
+ └──────────┴──────────────────────────────────┴───────────────┘
+
+ Responsive Behavior:
+ - Desktop (≥1024px): Three columns visible
+ - Tablet (768-1023px): Left nav drawer, main content, no right TOC
+ - Mobile (<768px): Drawer nav, full-width content, no TOC
+
+ Component: /components/documentation_layout.py
+
+ @dataclass
+ class DocumentationLayout:
+     """Three-column documentation layout with drawer navigation"""
+
+     title: str
+     breadcrumbs: list[tuple[str, str]]  # (label, href)
+     nav_items: list[MenuItem]
+     toc_items: list[tuple[str, str]]  # (heading, anchor)
+     active_section: str
+
+     def render(self, content: Any) -> NotStr:
+         """Render complete documentation page"""
+         # Left navigation (DaisyUI drawer on mobile)
+         # Main content (65ch prose container)
+         # Right TOC (hidden on mobile/tablet)
+
+ 4. Content Page Structures
+
+ KU Detail Page (/knowledge/{uid})
+
+ Route: /adapters/inbound/knowledge_routes.py
+ Component: /components/documentation_ku_components.py
+
+ Page Structure:
+ Breadcrumbs: Home > [Domain] > [MOC] > [KU Title]
+
+ ┌─────────────────────────────────────────────────────┐
+ │  KU Title (H1)                                      │
+ │  Metadata: Domain | Complexity | Est. Time          │
+ ├─────────────────────────────────────────────────────┤
+ │                                                     │
+ │  [Rendered Markdown Content]                        │
+ │  (prose styling, 65ch max-width)                   │
+ │                                                     │
+ ├─────────────────────────────────────────────────────┤
+ │  Knowledge Graph Navigation                         │
+ │  ┌─────────────────┐  ┌──────────────────┐       │
+ │  │ 📚 Prerequisites │  │ 🔗 Related       │       │
+ │  │ - KU 1          │  │ - KU 5           │       │
+ │  │ - KU 2          │  │ - KU 6           │       │
+ │  └─────────────────┘  └──────────────────┘       │
+ │  ┌─────────────────┐  ┌──────────────────┐       │
+ │  │ ➡ Next Steps   │  │ 📍 Found In      │       │
+ │  │ - KU 3          │  │ - LP: Path 1     │       │
+ │  │ - KU 4          │  │ - MOC: Map 1     │       │
+ │  └─────────────────┘  └──────────────────┘       │
+ └─────────────────────────────────────────────────────┘
+
+ Implementation:
+ class DocumentationKUComponents:
+     @staticmethod
+     async def render_ku_detail(ku: Ku, nav_data: KUNavigationData) -> Any:
+         """Render full KU documentation page"""
+
+         # Render markdown content
+         renderer = MarkdownRenderer()
+         html_content, toc_html = renderer.render(ku.content)
+
+         # Build breadcrumbs from graph relationships
+         breadcrumbs = await build_ku_breadcrumbs(ku.uid)
+
+         # Build knowledge graph navigation
+         graph_nav = DocumentationNavigation.render_knowledge_graph(
+             prerequisites=nav_data.prerequisites,
+             related=nav_data.related,
+             next_steps=nav_data.next_steps,
+             found_in=nav_data.found_in
+         )
+
+         # Compose page
+         return DocumentationLayout(
+             title=ku.title,
+             breadcrumbs=breadcrumbs,
+             nav_items=build_knowledge_nav_items(),
+             toc_items=parse_toc(toc_html),
+             active_section="knowledge"
+         ).render(
+             content=Div(
+                 render_ku_metadata(ku),
+                 Div(NotStr(html_content), cls="prose prose-lg"),
+                 graph_nav,
+                 cls="space-y-8"
+             )
+         )
+
+ LP Detail Page (/learning-paths/{uid})
+
+ Page Structure:
+ Breadcrumbs: Home > Learning Paths > [LP Title]
+
+ ┌─────────────────────────────────────────────────────┐
+ │  LP Title (H1)                                      │
+ │  Progress: [=====>    ] 45% (3 of 7 steps)         │
+ ├─────────────────────────────────────────────────────┤
+ │  [LP Description - rendered markdown]               │
+ ├─────────────────────────────────────────────────────┤
+ │  Learning Steps                                     │
+ │  ┌─────────────────────────────────────┐          │
+ │  │ ✅ 1. Python Basics                 │          │
+ │  │    3 KUs • Completed                │          │
+ │  └─────────────────────────────────────┘          │
+ │  ┌─────────────────────────────────────┐          │
+ │  │ ⏳ 2. Data Structures              │          │
+ │  │    5 KUs • In Progress (2/5)        │          │
+ │  └─────────────────────────────────────┘          │
+ │  ┌─────────────────────────────────────┐          │
+ │  │ 🔒 3. Algorithms                    │          │
+ │  │    4 KUs • Locked                   │          │
+ │  └─────────────────────────────────────┘          │
+ └─────────────────────────────────────────────────────┘
+
+ MOC Detail Page (/maps/{uid})
+
+ Page Structure:
+ Breadcrumbs: Home > Maps of Content > [MOC Title]
+
+ ┌─────────────────────────────────────────────────────┐
+ │  MOC Title (H1)                                     │
+ │  [MOC Description]                                  │
+ ├─────────────────────────────────────────────────────┤
+ │  Contents                                           │
+ │  ├── 📂 Section 1: Fundamentals                   │
+ │  │   ├── 📄 KU: Python Basics                     │
+ │  │   ├── 📄 KU: Variables & Types                 │
+ │  │   └── 🎯 LP: Getting Started                   │
+ │  ├── 📂 Section 2: Advanced                       │
+ │  │   ├── 📄 KU: Async Programming                 │
+ │  │   └── 📄 KU: Metaprogramming                   │
+ │  └── 🎯 Recommended Practice                       │
+ │      ├── 🔁 Habit: Daily coding                   │
+ │      └── ✅ Task: Build a CLI tool                │
+ └─────────────────────────────────────────────────────┘
+
+ 5. Knowledge Graph Navigation
+
+ Component: /components/documentation_navigation.py
+
+ Data Structure:
+ @dataclass
+ class KUNavigationData:
+     """Knowledge graph navigation data for a KU"""
+     prerequisites: list[Ku]      # REQUIRES relationships
+     related: list[Ku]            # RELATED_TO relationships
+     next_steps: list[Ku]         # ENABLES relationships
+     found_in_lps: list[tuple[str, str]]    # LPs containing this KU
+     found_in_mocs: list[tuple[str, str]]   # MOCs containing this KU
+
+ Neo4j Queries:
+ // Prerequisites (incoming REQUIRES)
+ MATCH (ku:Ku {uid: $uid})<-[:REQUIRES]-(prereq:Ku)
+ RETURN prereq
+
+ // Related content (bidirectional RELATED_TO)
+ MATCH (ku:Ku {uid: $uid})-[:RELATED_TO]-(related:Ku)
+ RETURN related
+
+ // Next steps (outgoing ENABLES)
+ MATCH (ku:Ku {uid: $uid})-[:ENABLES]->(next:Ku)
+ RETURN next
+
+ // Found in LPs
+ MATCH (lp:Lp)-[:CONTAINS_STEP]->(ls:Ls)-[:CONTAINS_KNOWLEDGE]->(ku:Ku {uid: $uid})
+ RETURN lp.uid, lp.title
+
+ // Found in MOCs
+ MATCH (moc:Moc)-[:CONTAINS_KNOWLEDGE]->(ku:Ku {uid: $uid})
+ RETURN moc.uid, moc.title
+
+ 6. Navigation Structure
+
+ Left Sidebar Menu:
+ 📚 Knowledge
+    - Browse All
+    - By Domain
+    - By SEL Category
+    - By Complexity
+
+ 🎯 Learning Paths
+    - Active Paths
+    - Browse All
+    - Recommended
+
+ 🗺 Maps of Conten
+    - Browse All
+    - Recent
+
+ 📊 Progress
+    - My Journey
+    - Achievements
+
+ 7. Component Architecture
+
+ New Components (Create):
+
+ 1. /components/documentation_layout.py
+   - DocumentationLayout - Three-column layout wrapper
+   - Uses existing DrawerLayout for mobile navigation
+ 2. /components/documentation_ku_components.py
+   - DocumentationKUComponents - Full KU page rendering
+   - Replaces card-based views in knowledge_ui_components.py
+ 3. /components/documentation_lp_components.py
+   - DocumentationLPComponents - LP detail pages
+   - Sequential step display with progress tracking
+ 4. /components/documentation_ls_components.py
+   - DocumentationLSComponents - LS detail pages
+   - Bundled KU display
+ 5. /components/documentation_moc_components.py
+   - DocumentationMOCComponents - MOC navigation pages
+   - Hierarchical section rendering
+ 6. /components/documentation_navigation.py
+   - DocumentationNavigation - Breadcrumbs, TOC, graph nav
+   - build_breadcrumbs() - Generate breadcrumb trail
+   - render_knowledge_graph() - Prerequisites/related/next sections
+ 7. /core/utils/markdown_renderer.py
+   - MarkdownRenderer - Server-side markdown converter
+   - Caching layer for performance
+
+ Modified Components:
+
+ 1. /components/franken_design_system.py
+   - Update create_navbar() to include new documentation links
+   - Add documentation-specific helpers
+ 2. /components/drawer_layout.py
+   - No changes needed - reuse as-is for mobile navigation
+
+ Deprecated Components:
+ - /components/knowledge_ui_components.py - Replace entirely
+ - /adapters/inbound/knowledge_ui.py - Replace with documentation routes
+
+ 8. Route Structure (Replace All)
+
+ Before (Card-Based):
+ /knowledge           - Dashboard with KU cards
+ /learning            - LP cards
+
+ After (Documentation-Centric):
+ /                              - Home (documentation hub)
+ /knowledge                     - KU browser (list view)
+ /knowledge/{uid}               - Full KU detail page
+ /knowledge/domain/{domain}     - Browse by domain
+ /knowledge/sel/{category}      - Browse by SEL category
+
+ /learning-paths                - LP browser
+ /learning-paths/{uid}          - Full LP detail page
+
+ /learning-steps/{uid}          - Full LS detail page
+
+ /maps                          - MOC browser
+ /maps/{uid}                    - Full MOC detail page
+
+ /search                        - Unified search (preserve)
+
+ Replace Routes:
+ - /adapters/inbound/knowledge_routes.py - Complete rewrite
+ - /adapters/inbound/learning_routes.py - Complete rewrite
+ - /adapters/inbound/moc_routes.py - New file
+
+ Preserve Routes:
+ - /adapters/inbound/auth_routes.py - Keep as-is
+ - /adapters/inbound/dashboard_routes.py - Update links only
+ - /adapters/inbound/search_routes.py - Keep as-is
+
+ 9. CSS Architecture
+
+ New File: /static/css/documentation.css
+
+ Contents:
+ - Typography system (prose classes)
+ - Three-column layout utilities
+ - Knowledge graph navigation styling
+ - Responsive breakpoints
+ - Code syntax highlighting (Pygments theme)
+
+ Update: /static/css/main.css (if exists)
+ - Import documentation.css
+ - Remove conflicting styles
+
+ 10. Implementation Order
+
+ All-at-once delivery - complete in single session:
+
+ 1. Foundation (30%)
+   - Create /core/utils/markdown_renderer.py
+   - Create /static/css/documentation.css
+   - Create /components/documentation_layout.py
+   - Create /components/documentation_navigation.py
+ 2. KU Pages (40%)
+   - Create /components/documentation_ku_components.py
+   - Rewrite /adapters/inbound/knowledge_routes.py
+   - Implement knowledge graph queries
+   - Add breadcrumb generation
+ 3. LP/LS/MOC Pages (30%)
+   - Create /components/documentation_lp_components.py
+   - Create /components/documentation_ls_components.py
+   - Create /components/documentation_moc_components.py
+   - Rewrite /adapters/inbound/learning_routes.py
+   - Create /adapters/inbound/moc_routes.py
+
+ Critical Files
+
+ Files to Create (Priority Order)
+
+ 1. /core/utils/markdown_renderer.py - Server-side markdown converter (foundation)
+ 2. /static/css/documentation.css - Typography and layout styles
+ 3. /components/documentation_layout.py - Three-column layout component
+ 4. /components/documentation_navigation.py - Breadcrumbs, TOC, graph nav
+ 5. /components/documentation_ku_components.py - KU detail page rendering
+ 6. /adapters/inbound/knowledge_routes.py - KU routes (complete rewrite)
+ 7. /components/documentation_lp_components.py - LP detail page rendering
+ 8. /components/documentation_ls_components.py - LS detail page rendering
+ 9. /components/documentation_moc_components.py - MOC detail page rendering
+ 10. /adapters/inbound/learning_routes.py - LP/LS routes (complete rewrite)
+ 11. /adapters/inbound/moc_routes.py - MOC routes (new)
+
+ Files to Modify
+
+ 1. /components/franken_design_system.py - Update navbar with documentation links
+ 2. /adapters/inbound/dashboard_routes.py - Update dashboard links to new routes
+ 3. /adapters/inbound/system_routes.py - Update home page to documentation hub
+ 4. /main.py - Register new route modules
+
+ Files to Deprecate (Remove)
+
+ 1. /components/knowledge_ui_components.py - Replaced by documentation_ku_components
+ 2. /adapters/inbound/knowledge_ui.py - Replaced by knowledge_routes
+
+ Key Design Principles
+
+ 1. Reading-Optimized Width: 65ch max-width for prose content
+ 2. Generous Whitespace: 2-4rem spacing between sections
+ 3. Clear Hierarchy: Consistent heading scale (4xl → xl)
+ 4. Graph-Native Navigation: Leverage Neo4j relationships for context
+ 5. Server-Side Rendering: Markdown converted to HTML on server
+ 6. Mobile-First Responsive: Drawer on mobile, three-column on desktop
+ 7. Preserve What Works: Keep DaisyUI drawer, component architecture
+ 8. CSS-Only When Possible: Minimal JavaScript dependencies
+
+ Performance Optimizations
+
+ 1. Markdown Caching: Cache rendered HTML by content hash
+ 2. TOC Generation: Generate once, cache with content
+ 3. Lazy Load Images: Native loading="lazy" on images
+ 4. Syntax Highlighting: Server-side with Pygments (fast)
+ 5. Neo4j Query Optimization: Single query for all graph nav data
+
+ Testing Strategy
+
+ 1. Visual Regression: Compare typography rendering across pages
+ 2. Responsive Testing: Mobile (375px), Tablet (768px), Desktop (1440px)
+ 3. Content Testing: Test markdown rendering with code, tables, lists
+ 4. Navigation Testing: Verify breadcrumbs and graph nav links
+ 5. Performance Testing: Measure markdown render time (<50ms)
+
+ Success Criteria
+
+ - All KU content rendered with professional typography
+ - Three-column layout working on desktop (responsive on mobile)
+ - Knowledge graph navigation functional (prerequisites/related/next)
+ - Breadcrumbs showing correct hierarchy
+ - Table of contents generated from headings
+ - Code blocks with syntax highlighting
+ - LP/LS/MOC pages displaying correctly
+ - All old card-based views replaced
+ - Mobile navigation working (drawer pattern)
+ - Page load time <1s for typical KU
+
+ Next Steps
+
+ 1. Create markdown renderer with caching
+ 2. Build documentation.css with typography system
+ 3. Implement DocumentationLayout component
+ 4. Build KU detail pages with graph navigation
+ 5. Extend to LP/LS/MOC pages
+ 6. Update navbar and home page
+ 7. Test across devices and content types
+ 8. Deploy complete redesign
+
+ Risks & Mitigations
+
+ Risk: Markdown rendering performance on large content
+ Mitigation: Implement caching by content hash, measure render time
+
+ Risk: Breaking existing functionality (card dashboards)
+ Mitigation: Complete replacement means clean break, no partial states
+
+ Risk: Mobile layout complexity
+ Mitigation: Preserve proven DaisyUI drawer pattern, test early
+
+ Risk: Knowledge graph queries slow
+ Mitigation: Single Cypher query for all nav data, add indexes
+
+ Conclusion
+
+ This plan delivers a complete UX transformation to a documentation-centric interface with professional typography, knowledge graph navigation, and reading-optimized layouts. By replacing everything at once and using server-side
+ rendering, we achieve a clean architecture without migration complexity.
+
+ The foundation is strong (DaisyUI drawer, component architecture) and will be preserved. New components extend the existing patterns with documentation-specific features (markdown rendering, TOC generation, graph navigation).
+
+ Ready to execute in single implementation session.
+
+ Architecture Decisions
+
+ 1. Markdown Rendering (Server-Side)
+
+ Approach: Python markdown package with extensions
+ Rationale: Better SEO, consistent styling, server-side caching, no JavaScript dependency
+
+ # /core/utils/markdown_renderer.py
+ import markdown
+ from markdown.extensions import fenced_code, tables, toc, codehilite
+
+ class MarkdownRenderer:
+     """Server-side markdown to HTML converter with caching"""
+
+     def __init__(self):
+         self.md = markdown.Markdown(extensions=[
+             'fenced_code',      # Code blocks with syntax
+             'tables',           # Table support
+             'toc',              # Table of contents generation
+             'codehilite',       # Syntax highlighting (Pygments)
+             'nl2br',            # Newline to <br>
+             'sane_lists',       # Improved list handling
+         ])
+
+     def render(self, content: str) -> tuple[str, str]:
+         """Returns (html_content, toc_html)"""
+         html = self.md.convert(content)
+         toc = self.md.toc
+         self.md.reset()  # Reset for next conversion
+         return html, toc
+
+ Dependencies: Already in pyproject.toml (markdown>=3.4)
+
+ 2. Typography System (Tailwind Typography)
+
+ Approach: Use @tailwindcss/typography plugin with custom prose styling
+
+ Typography Scale:
+ /* /static/css/documentation.css */
+
+ /* Headings */
+ .prose h1 { @apply text-4xl font-bold tracking-tight text-gray-900 mt-8 mb-4; }
+ .prose h2 { @apply text-3xl font-semibold tracking-tight text-gray-900 mt-6 mb-3 border-b border-gray-200 pb-2; }
+ .prose h3 { @apply text-2xl font-semibold text-gray-900 mt-4 mb-2; }
+ .prose h4 { @apply text-xl font-semibold text-gray-900 mt-3 mb-2; }
+
+ /* Body Text */
+ .prose p { @apply text-lg leading-relaxed text-gray-700 mb-4; }
+ .prose { @apply max-w-none text-lg leading-relaxed; }
+
+ /* Code */
+ .prose code { @apply text-sm bg-gray-100 text-pink-600 px-1.5 py-0.5 rounded font-mono; }
+ .prose pre { @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto; }
+
+ /* Lists */
+ .prose ul { @apply list-disc pl-6 mb-4 space-y-2; }
+ .prose ol { @apply list-decimal pl-6 mb-4 space-y-2; }
+
+ /* Links */
+ .prose a { @apply text-blue-600 hover:text-blue-800 underline decoration-blue-400/50 hover:decoration-blue-600; }
+
+ /* Blockquotes */
+ .prose blockquote { @apply border-l-4 border-blue-500 pl-4 italic text-gray-700 my-4; }
+
+ 3. Three-Column Documentation Layout
+
+ Structure:
+ ┌─────────────────────────────────────────────────────────────┐
+ │                         Navbar                               │
+ ├──────────┬──────────────────────────────────┬───────────────┤
+ │  Left    │        Main Content              │     Right     │
+ │  Nav     │      (65ch max-width)            │     TOC       │
+ │ (280px)  │                                  │   (256px)     │
+ │  Fixed   │   • Breadcrumbs                  │   Sticky      │
+ │          │   • Title + Metadata             │              │
+ │          │   • Prose Content                │   • Headings  │
+ │          │   • Knowledge Graph Nav          │   • Jump      │
+ │          │                                  │     links     │
+ └──────────┴──────────────────────────────────┴───────────────┘
+
+ Responsive Behavior:
+ - Desktop (≥1024px): Three columns visible
+ - Tablet (768-1023px): Left nav drawer, main content, no right TOC
+ - Mobile (<768px): Drawer nav, full-width content, no TOC
+
+ Component: /components/documentation_layout.py
+
+ @dataclass
+ class DocumentationLayout:
+     """Three-column documentation layout with drawer navigation"""
+
+     title: str
+     breadcrumbs: list[tuple[str, str]]  # (label, href)
+     nav_items: list[MenuItem]
+     toc_items: list[tuple[str, str]]  # (heading, anchor)
+     active_section: str
+
+     def render(self, content: Any) -> NotStr:
+         """Render complete documentation page"""
+         # Left navigation (DaisyUI drawer on mobile)
+         # Main content (65ch prose container)
+         # Right TOC (hidden on mobile/tablet)
+
+ 4. Content Page Structures
+
+ KU Detail Page (/knowledge/{uid})
+
+ Route: /adapters/inbound/knowledge_routes.py
+ Component: /components/documentation_ku_components.py
+
+ Page Structure:
+ Breadcrumbs: Home > [Domain] > [MOC] > [KU Title]
+
+ ┌─────────────────────────────────────────────────────┐
+ │  KU Title (H1)                                      │
+ │  Metadata: Domain | Complexity | Est. Time          │
+ ├─────────────────────────────────────────────────────┤
+ │                                                     │
+ │  [Rendered Markdown Content]                        │
+ │  (prose styling, 65ch max-width)                   │
+ │                                                     │
+ ├─────────────────────────────────────────────────────┤
+ │  Knowledge Graph Navigation                         │
+ │  ┌─────────────────┐  ┌──────────────────┐       │
+ │  │ 📚 Prerequisites │  │ 🔗 Related       │       │
+ │  │ - KU 1          │  │ - KU 5           │       │
+ │  │ - KU 2          │  │ - KU 6           │       │
+ │  └─────────────────┘  └──────────────────┘       │
+ │  ┌─────────────────┐  ┌──────────────────┐       │
+ │  │ ➡ Next Steps   │  │ 📍 Found In      │       │
+ │  │ - KU 3          │  │ - LP: Path 1     │       │
+ │  │ - KU 4          │  │ - MOC: Map 1     │       │
+ │  └─────────────────┘  └──────────────────┘       │
+ └─────────────────────────────────────────────────────┘
+
+ Implementation:
+ class DocumentationKUComponents:
+     @staticmethod
+     async def render_ku_detail(ku: Ku, nav_data: KUNavigationData) -> Any:
+         """Render full KU documentation page"""
+
+         # Render markdown content
+         renderer = MarkdownRenderer()
+         html_content, toc_html = renderer.render(ku.content)
+
+         # Build breadcrumbs from graph relationships
+         breadcrumbs = await build_ku_breadcrumbs(ku.uid)
+
+         # Build knowledge graph navigation
+         graph_nav = DocumentationNavigation.render_knowledge_graph(
+             prerequisites=nav_data.prerequisites,
+             related=nav_data.related,
+             next_steps=nav_data.next_steps,
+             found_in=nav_data.found_in
+         )
+
+         # Compose page
+         return DocumentationLayout(
+             title=ku.title,
+             breadcrumbs=breadcrumbs,
+             nav_items=build_knowledge_nav_items(),
+             toc_items=parse_toc(toc_html),
+             active_section="knowledge"
+         ).render(
+             content=Div(
+                 render_ku_metadata(ku),
+                 Div(NotStr(html_content), cls="prose prose-lg"),
+                 graph_nav,
+                 cls="space-y-8"
+             )
+         )
+
+ LP Detail Page (/learning-paths/{uid})
+
+ Page Structure:
+ Breadcrumbs: Home > Learning Paths > [LP Title]
+
+ ┌─────────────────────────────────────────────────────┐
+ │  LP Title (H1)                                      │
+ │  Progress: [=====>    ] 45% (3 of 7 steps)         │
+ ├─────────────────────────────────────────────────────┤
+ │  [LP Description - rendered markdown]               │
+ ├─────────────────────────────────────────────────────┤
+ │  Learning Steps                                     │
+ │  ┌─────────────────────────────────────┐          │
+ │  │ ✅ 1. Python Basics                 │          │
+ │  │    3 KUs • Completed                │          │
+ │  └─────────────────────────────────────┘          │
+ │  ┌─────────────────────────────────────┐          │
+ │  │ ⏳ 2. Data Structures              │          │
+ │  │    5 KUs • In Progress (2/5)        │          │
+ │  └─────────────────────────────────────┘          │
+ │  ┌─────────────────────────────────────┐          │
+ │  │ 🔒 3. Algorithms                    │          │
+ │  │    4 KUs • Locked                   │          │
+ │  └─────────────────────────────────────┘          │
+ └─────────────────────────────────────────────────────┘
+
+ MOC Detail Page (/maps/{uid})
+
+ Page Structure:
+ Breadcrumbs: Home > Maps of Content > [MOC Title]
+
+ ┌─────────────────────────────────────────────────────┐
+ │  MOC Title (H1)                                     │
+ │  [MOC Description]                                  │
+ ├─────────────────────────────────────────────────────┤
+ │  Contents                                           │
+ │  ├── 📂 Section 1: Fundamentals                   │
+ │  │   ├── 📄 KU: Python Basics                     │
+ │  │   ├── 📄 KU: Variables & Types                 │
+ │  │   └── 🎯 LP: Getting Started                   │
+ │  ├── 📂 Section 2: Advanced                       │
+ │  │   ├── 📄 KU: Async Programming                 │
+ │  │   └── 📄 KU: Metaprogramming                   │
+ │  └── 🎯 Recommended Practice                       │
+ │      ├── 🔁 Habit: Daily coding                   │
+ │      └── ✅ Task: Build a CLI tool                │
+ └─────────────────────────────────────────────────────┘
+
+ 5. Knowledge Graph Navigation
+
+ Component: /components/documentation_navigation.py
+
+ Data Structure:
+ @dataclass
+ class KUNavigationData:
+     """Knowledge graph navigation data for a KU"""
+     prerequisites: list[Ku]      # REQUIRES relationships
+     related: list[Ku]            # RELATED_TO relationships
+     next_steps: list[Ku]         # ENABLES relationships
+     found_in_lps: list[tuple[str, str]]    # LPs containing this KU
+     found_in_mocs: list[tuple[str, str]]   # MOCs containing this KU
+
+ Neo4j Queries:
+ // Prerequisites (incoming REQUIRES)
+ MATCH (ku:Ku {uid: $uid})<-[:REQUIRES]-(prereq:Ku)
+ RETURN prereq
+
+ // Related content (bidirectional RELATED_TO)
+ MATCH (ku:Ku {uid: $uid})-[:RELATED_TO]-(related:Ku)
+ RETURN related
+
+ // Next steps (outgoing ENABLES)
+ MATCH (ku:Ku {uid: $uid})-[:ENABLES]->(next:Ku)
+ RETURN next
+
+ // Found in LPs
+ MATCH (lp:Lp)-[:CONTAINS_STEP]->(ls:Ls)-[:CONTAINS_KNOWLEDGE]->(ku:Ku {uid: $uid})
+ RETURN lp.uid, lp.title
+
+ // Found in MOCs
+ MATCH (moc:Moc)-[:CONTAINS_KNOWLEDGE]->(ku:Ku {uid: $uid})
+ RETURN moc.uid, moc.title
+
+ 6. Navigation Structure
+
+ Left Sidebar Menu:
+ 📚 Knowledge
+    - Browse All
+    - By Domain
+    - By SEL Category
+    - By Complexity
+
+ 🎯 Learning Paths
+    - Active Paths
+    - Browse All
+    - Recommended
+
+ 🗺 Maps of Conten
+    - Browse All
+    - Recent
+
+ 📊 Progress
+    - My Journey
+    - Achievements
+
+ 7. Component Architecture
+
+ New Components (Create):
+
+ 1. /components/documentation_layout.py
+   - DocumentationLayout - Three-column layout wrapper
+   - Uses existing DrawerLayout for mobile navigation
+ 2. /components/documentation_ku_components.py
+   - DocumentationKUComponents - Full KU page rendering
+   - Replaces card-based views in knowledge_ui_components.py
+ 3. /components/documentation_lp_components.py
+   - DocumentationLPComponents - LP detail pages
+   - Sequential step display with progress tracking
+ 4. /components/documentation_ls_components.py
+   - DocumentationLSComponents - LS detail pages
+   - Bundled KU display
+ 5. /components/documentation_moc_components.py
+   - DocumentationMOCComponents - MOC navigation pages
+   - Hierarchical section rendering
+ 6. /components/documentation_navigation.py
+   - DocumentationNavigation - Breadcrumbs, TOC, graph nav
+   - build_breadcrumbs() - Generate breadcrumb trail
+   - render_knowledge_graph() - Prerequisites/related/next sections
+ 7. /core/utils/markdown_renderer.py
+   - MarkdownRenderer - Server-side markdown converter
+   - Caching layer for performance
+
+ Modified Components:
+
+ 1. /components/franken_design_system.py
+   - Update create_navbar() to include new documentation links
+   - Add documentation-specific helpers
+ 2. /components/drawer_layout.py
+   - No changes needed - reuse as-is for mobile navigation
+
+ Deprecated Components:
+ - /components/knowledge_ui_components.py - Replace entirely
+ - /adapters/inbound/knowledge_ui.py - Replace with documentation routes
+
+ 8. Route Structure (Replace All)
+
+ Before (Card-Based):
+ /knowledge           - Dashboard with KU cards
+ /learning            - LP cards
+
+ After (Documentation-Centric):
+ /                              - Home (documentation hub)
+ /knowledge                     - KU browser (list view)
+ /knowledge/{uid}               - Full KU detail page
+ /knowledge/domain/{domain}     - Browse by domain
+ /knowledge/sel/{category}      - Browse by SEL category
+
+ /learning-paths                - LP browser
+ /learning-paths/{uid}          - Full LP detail page
+
+ /learning-steps/{uid}          - Full LS detail page
+
+ /maps                          - MOC browser
+ /maps/{uid}                    - Full MOC detail page
+
+ /search                        - Unified search (preserve)
+
+ Replace Routes:
+ - /adapters/inbound/knowledge_routes.py - Complete rewrite
+ - /adapters/inbound/learning_routes.py - Complete rewrite
+ - /adapters/inbound/moc_routes.py - New file
+
+ Preserve Routes:
+ - /adapters/inbound/auth_routes.py - Keep as-is
+ - /adapters/inbound/dashboard_routes.py - Update links only
+ - /adapters/inbound/search_routes.py - Keep as-is
+
+ 9. CSS Architecture
+
+ New File: /static/css/documentation.css
+
+ Contents:
+ - Typography system (prose classes)
+ - Three-column layout utilities
+ - Knowledge graph navigation styling
+ - Responsive breakpoints
+ - Code syntax highlighting (Pygments theme)
+
+ Update: /static/css/main.css (if exists)
+ - Import documentation.css
+ - Remove conflicting styles
+
+ 10. Implementation Order
+
+ All-at-once delivery - complete in single session:
+
+ 1. Foundation (30%)
+   - Create /core/utils/markdown_renderer.py
+   - Create /static/css/documentation.css
+   - Create /components/documentation_layout.py
+   - Create /components/documentation_navigation.py
+ 2. KU Pages (40%)
+   - Create /components/documentation_ku_components.py
+   - Rewrite /adapters/inbound/knowledge_routes.py
+   - Implement knowledge graph queries
+   - Add breadcrumb generation
+ 3. LP/LS/MOC Pages (30%)
+   - Create /components/documentation_lp_components.py
+   - Create /components/documentation_ls_components.py
+   - Create /components/documentation_moc_components.py
+   - Rewrite /adapters/inbound/learning_routes.py
+   - Create /adapters/inbound/moc_routes.py
+
+ Critical Files
+
+ Files to Create (Priority Order)
+
+ 1. /core/utils/markdown_renderer.py - Server-side markdown converter (foundation)
+ 2. /static/css/documentation.css - Typography and layout styles
+ 3. /components/documentation_layout.py - Three-column layout component
+ 4. /components/documentation_navigation.py - Breadcrumbs, TOC, graph nav
+ 5. /components/documentation_ku_components.py - KU detail page rendering
+ 6. /adapters/inbound/knowledge_routes.py - KU routes (complete rewrite)
+ 7. /components/documentation_lp_components.py - LP detail page rendering
+ 8. /components/documentation_ls_components.py - LS detail page rendering
+ 9. /components/documentation_moc_components.py - MOC detail page rendering
+ 10. /adapters/inbound/learning_routes.py - LP/LS routes (complete rewrite)
+ 11. /adapters/inbound/moc_routes.py - MOC routes (new)
+
+ Files to Modify
+
+ 1. /components/franken_design_system.py - Update navbar with documentation links
+ 2. /adapters/inbound/dashboard_routes.py - Update dashboard links to new routes
+ 3. /adapters/inbound/system_routes.py - Update home page to documentation hub
+ 4. /main.py - Register new route modules
+
+ Files to Deprecate (Remove)
+
+ 1. /components/knowledge_ui_components.py - Replaced by documentation_ku_components
+ 2. /adapters/inbound/knowledge_ui.py - Replaced by knowledge_routes
+
+ Key Design Principles
+
+ 1. Reading-Optimized Width: 65ch max-width for prose content
+ 2. Generous Whitespace: 2-4rem spacing between sections
+ 3. Clear Hierarchy: Consistent heading scale (4xl → xl)
+ 4. Graph-Native Navigation: Leverage Neo4j relationships for context
+ 5. Server-Side Rendering: Markdown converted to HTML on server
+ 6. Mobile-First Responsive: Drawer on mobile, three-column on desktop
+ 7. Preserve What Works: Keep DaisyUI drawer, component architecture
+ 8. CSS-Only When Possible: Minimal JavaScript dependencies
+
+ Performance Optimizations
+
+ 1. Markdown Caching: Cache rendered HTML by content hash
+ 2. TOC Generation: Generate once, cache with content
+ 3. Lazy Load Images: Native loading="lazy" on images
+ 4. Syntax Highlighting: Server-side with Pygments (fast)
+ 5. Neo4j Query Optimization: Single query for all graph nav data
+
+ Testing Strategy
+
+ 1. Visual Regression: Compare typography rendering across pages
+ 2. Responsive Testing: Mobile (375px), Tablet (768px), Desktop (1440px)
+ 3. Content Testing: Test markdown rendering with code, tables, lists
+ 4. Navigation Testing: Verify breadcrumbs and graph nav links
+ 5. Performance Testing: Measure markdown render time (<50ms)
+
+ Success Criteria
+
+ - All KU content rendered with professional typography
+ - Three-column layout working on desktop (responsive on mobile)
+ - Knowledge graph navigation functional (prerequisites/related/next)
+ - Breadcrumbs showing correct hierarchy
+ - Table of contents generated from headings
+ - Code blocks with syntax highlighting
+ - LP/LS/MOC pages displaying correctly
+ - All old card-based views replaced
+ - Mobile navigation working (drawer pattern)
+ - Page load time <1s for typical KU
+
+ Next Steps
+
+ 1. Create markdown renderer with caching
+ 2. Build documentation.css with typography system
+ 3. Implement DocumentationLayout component
+ 4. Build KU detail pages with graph navigation
+ 5. Extend to LP/LS/MOC pages
+ 6. Update navbar and home page
+ 7. Test across devices and content types
+ 8. Deploy complete redesign
+
+ Risks & Mitigations
+
+ Risk: Markdown rendering performance on large content
+ Mitigation: Implement caching by content hash, measure render time
+
+ Risk: Breaking existing functionality (card dashboards)
+ Mitigation: Complete replacement means clean break, no partial states
+
+ Risk: Mobile layout complexity
+ Mitigation: Preserve proven DaisyUI drawer pattern, test early
+
+ Risk: Knowledge graph queries slow
+ Mitigation: Single Cypher query for all nav data, add indexes
+
+ Conclusion
+
+ This plan delivers a complete UX transformation to a documentation-centric interface with professional typography, knowledge graph navigation, and reading-optimized layouts. By replacing everything at once and using server-side
+ rendering, we achieve a clean architecture without migration complexity.
+
+ The foundation is strong (DaisyUI drawer, component architecture) and will be preserved. New components extend the existing patterns with documentation-specific features (markdown rendering, TOC generation, graph navigation).
+
+ Ready to execute in single implementation session.

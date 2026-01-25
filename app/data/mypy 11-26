@@ -1,0 +1,30 @@
+● MyPy Analysis Summary - Codebase Improvement Insights
+
+
+
+
+  5. Undefined Variables in UI Files (14 errors)
+
+  Variables like user_uid, is_auth used without definition:
+  - sync_routes.py:173
+  - reports_ui.py:62
+  - journal_projects_ui.py:59
+
+  Root Cause: Copy-paste errors or templates not properly completed.
+
+  Solution: Fix undefined variables in UI files - likely bugs
+
+  -
+
+  Can you do anything about #6?
+
+  6. Generic Type Inference Issues (~20 errors)
+
+  MyPy struggles with advanced patterns:
+  - Protocol-constrained generics (type[C].from_dict())
+  - Sum/generator type inference in analytics
+
+  Rationale: These are documented in CLAUDE.md as MyPy limitations with the dynamic backend pattern.
+
+
+

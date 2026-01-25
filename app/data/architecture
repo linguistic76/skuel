@@ -1,0 +1,28 @@
+
+Nov 27
+
+
+  Architecture now cleaner:
+  - user_context_builder.py - ALL context building (MEGA-QUERY + graph-sourced)
+  - user_context_intelligence.py - ALL intelligence operations (9 methods)
+  - user_context_service.py - API orchestration layer
+
+-
+Older
+
+
+  Architecture:
+
+  Bootstrap (services_bootstrap.py)
+      ↓ Creates factory with all 13 domain services
+  UserContextIntelligenceFactory
+      ↓ Post-construction wiring
+  UserContextService.intelligence_factory = factory
+      ↓ At runtime
+  context_service.get_context_summary(user_uid, include_insights=True)
+      ↓ Uses factory.create(context)
+  UserContextIntelligence instance (with all 13 services)
+
+  The factory pattern properly separates:
+  - Service wiring (at bootstrap, when all 13 services exist)
+  - Context binding (at runtime, when user context is built)

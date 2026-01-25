@@ -1,0 +1,46 @@
+n
+
+  I've implemented Option A - Complete Protocol Extension by:
+
+  1. Created Domain-Specific Search Protocols
+
+  Added 6 new protocols in /core/services/protocols/search_protocols.py:
+
+  | Protocol                  | Methods Declared                 |
+  |---------------------------|----------------------------------|
+  | EventSearchOperations     | 7 universal + 9 domain-specific  |
+  | HabitSearchOperations     | 7 universal + 9 domain-specific  |
+  | TaskSearchOperations      | 7 universal + 10 domain-specific |
+  | GoalSearchOperations      | 7 universal + 9 domain-specific  |
+  | ChoiceSearchOperations    | 7 universal + 8 domain-specific  |
+  | PrincipleSearchOperations | 7 universal + 10 domain-specific |
+
+  2. Updated Facade Services
+
+  Added type annotations to self.search in all 6 facade services:
+
+  - EventsService.search: EventSearchOperations
+  - HabitsService.search: HabitSearchOperations
+  - GoalsService.search: GoalSearchOperations
+  - ChoicesService.search: ChoiceSearchOperations
+  - PrinciplesService.search: PrincipleSearchOperations
+  - TasksService.search_service: TaskSearchOperations
+
+  3. Results
+
+  | Metric                | Before | After | Change     |
+  |-----------------------|--------|-------|------------|
+  | [attr-defined] errors | 122    | 75    | -47 (39%)  |
+  | Total error lines     | 992    | 862   | -130 (13%) |
+
+  Design Principle Applied
+
+  "Every public method belongs in a protocol."
+
+  When EventsService delegates 9 event-specific search methods through self.search, those 9 methods are now declared in EventSearchOperations. This means:
+
+  1. Contract clarity - Anyone reading the protocol knows the full interface
+  2. IDE support - Autocomplete works correctly for all methods
+  3. Substitutability - Can create mock implementations for testing
+  4. Refactoring safety - Changing method signatures fails at compile time
+

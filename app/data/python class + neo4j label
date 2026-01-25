@@ -1,0 +1,25 @@
+
+
+  Current Pattern in Production (services_bootstrap.py):
+
+  | Python Class | Neo4j Label    | Consistent?           |
+  |--------------|----------------|-----------------------|
+  | Task         | "Task"         | ✅                     |
+  | Event        | "Event"        | ✅                     |
+  | Habit        | "Habit"        | ✅                     |
+  | Goal         | "Goal"         | ✅                     |
+  | ExpensePure  | "Expense"      | ⚠ Different          |
+  | JournalPure  | "Journal"      | ⚠ Different          |
+  | Ku           | "Knowledge"    |       |
+  | LearningPath | "LearningPath" |  |
+  | Principle    | "Principle"    | ✅                     |
+  | Choice       | "Choice"       | ✅                     |
+
+Are we missing
+
+
+  | Python Class       | Neo4j Label            |
+  |--------------------|------------------------|
+  | LearningStep or Lp | "LearningStep" or "Lp" |
+  | Assignment         | "Assignment"           |
+  | Report             | "Report"               |

@@ -1,0 +1,43 @@
+s
+
+● Excellent! The decision is very clear - all these unused arguments are intentionally reserved for future implementation. Each has detailed documentation explaining:
+
+  Review Summary
+
+  1. adaptive_lp_recommendations_service.py:255 - tasks and knowledge_state
+
+  async def _infer_gaps_from_task_patterns(self, tasks: list[TaskDTO], knowledge_state: dict[str, Any])
+  - Status: Deferred Implementation (Phase 3B)
+  - Reason: Parameters reserved for TasksRelationshipService wiring
+  - Documentation: Lines 259-274 explain exactly what will be implemented
+  - Decision: ✅ Add # type: ignore[ARG002] - intentional
+
+  2. ku_generation_service.py:449 - tasks
+
+  async def _analyze_knowledge_application_patterns(self, tasks: list[Task])
+  - Status: Deferred Implementation (Phase 3B)
+  - Reason: Parameter reserved for TasksRelationshipService wiring
+  - Documentation: Lines 453-474 explain future high-value implementation
+  - Decision: ✅ Add # type: ignore[ARG002] - intentional
+
+  3. tasks_scheduling_service.py:448 - knowledge_uids
+
+  async def create_task_from_learning_step(
+      self,
+      step_uid: str,
+      task_title: str,
+      knowledge_uids: list[str],  # Unused
+      _user_uid: str
+  )
+  - Status: Deferred Implementation (Phase 3B)
+  - Reason: Phase 3B removed applies_knowledge_uids from TaskDTO, needs graph relationships
+  - Documentation: Lines 454-468 explain future relationship creation
+  - Decision: ✅ Add # type: ignore[ARG002] - intentional
+
+  Clear Pattern
+
+  All three cases follow the exact same pattern:
+  - Explicitly documented as "DEFERRED IMPLEMENTATION (Phase 3B)"
+  - Clear explanation of WHY deferred
+  - Detailed plan for FUTURE implementation
+  - Not critical path (other features working)

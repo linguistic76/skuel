@@ -1,0 +1,69 @@
+
+  Context-First Relationship Pattern - Design Complete
+
+  I've created a comprehensive design document at /home/mike/0bsidian/skuel/docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md.
+
+  Key Design Decisions
+
+  1. New Return Types - ContextualEntity Family
+
+  @dataclass(frozen=True)
+  class ContextualTask:
+      uid: str
+      title: str
+      readiness_score: float    # 0.0-1.0: Prerequisites met?
+      relevance_score: float    # 0.0-1.0: Goal alignment?
+      priority_score: float     # Combined priority
+      can_start: bool           # Ready to work on?
+      blocking_reasons: list[str]
+      unlocks: list[str]        # What completing this enables
+
+  2. Naming Convention - *_for_user() Suffix
+
+  | Standard Method            | Context-First Method                         |
+  |----------------------------|----------------------------------------------|
+  | get_task_dependencies(uid) | get_task_dependencies_for_user(uid, context) |
+  | get_related_knowledge(uid) | get_related_knowledge_for_user(uid, context) |
+
+  3. Three-Stage Processing
+
+  1. Filter by readiness (prerequisites met, knowledge mastery)
+  2. Rank by relevance (goal alignment, urgency)
+  3. Enrich with insights (blocking reasons, recommendations)
+
+  4. Integration with UserContextIntelligence
+
+  The pattern enables Core Methods:
+
+  # THE FLAGSHIP METHOD
+
+  async def get_ready_to_work_on_today(
+      self,
+      context: UnifiedUserContext,
+  ) -> Result[DailyWorkPlan]:
+      """
+      Combines context-first queries from ALL relationship services
+      to generate a capacity-aware daily work plan.
+      """
+  The Transformation
+
+  Before (Context-Blind):
+  # Returns ALL dependencies - user must filter
+  deps = await tasks_rels.get_task_dependencies("task:123")
+
+  After (Context-First):
+  # Returns PERSONALIZED, RANKED dependencies with insights
+  deps = await tasks_rels.get_task_dependencies_for_user("task:123", context)
+
+  # Ready to start (prerequisites met)
+  ready = deps.ready_dependencies
+
+  # Blocked (with reasons why)
+  blocked = deps.blocked_dependencies
+
+  # Actionable recommendation
+  print(deps.recommended_next_action)
+  # "Learn 'Python Async' to unblock 'Build API Client'"
+
+
+

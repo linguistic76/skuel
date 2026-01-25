@@ -1,0 +1,42 @@
+
+
+● Done - ProfileHubData UI Route Created
+
+  The pipeline is now complete:
+
+  What Was Added
+
+  New Route: GET /profile/hub (user_profile_ui.py:387-435)
+  - Calls UserService.get_profile_hub_data(user_uid)
+  - Converts DomainStatsAggregate → dict format via _convert_domain_stats_to_dict()
+  - Renders UserProfileHub component with all domain statistics
+
+  Navigation Update:
+  - Added "View Profile Hub" button on /profile page
+
+  Data Flow
+
+  /profile/hub request
+      ↓
+  UserService.get_profile_hub_data(user_uid)
+      ↓
+  ProfileHubData (frozen dataclass)
+      ↓
+  _convert_domain_stats_to_dict()
+      ↓
+  UserProfileHub component
+      ├── ProfileHeader (user identity)
+      ├── ActivitySummary (totals across domains)
+      ├── DomainCardsGrid (6 domain cards + learning)
+      └── RecentActivityFeed (last 10 actions)
+
+  Route Summary
+
+  | Route             | Purpose                                     |
+  |-------------------|---------------------------------------------|
+  | /profile          | Account info (username, email, status)      |
+  | /profile/hub      | NEW - Full ProfileHubData with domain stats |
+  | /profile/settings | User preferences editor                     |
+
+  The orphaned UserProfileHub component and get_profile_hub_data() service method are now wired together.
+

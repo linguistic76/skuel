@@ -1,0 +1,475 @@
+# Kubernetes Production Manifests
+# ===============================
+# Phase 5: Production Kubernetes deployment
+# Complete production-ready deployment for SKUEL
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: skuel-production
+  labels:
+    name: skuel-production
+
+---
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skuel-config
+  namespace: skuel-production
+data:
+  APP_HOST: "0.0.0.0"
+  APP_PORT: "5001"
+  APP_DEBUG: "false"
+  APP_ENV: "production"
+  ENABLE_ORCHESTRATION: "true"
+  ENABLE_CACHING: "true"
+  ENABLE_METRICS: "true"
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
+  NEO4J_URI: "bolt://neo4j-service:7687"
+  NEO4J_USERNAME: "neo4j"
+  REDIS_URL: "redis://redis-service:6379"
+
+---
+# Secret for sensitive configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: skuel-secrets
+  namespace: skuel-production
+type: Opaque
+stringData:
+  NEO4J_PASSWORD: "your-neo4j-password"
+  REDIS_PASSWORD: "your-redis-password"
+  JWT_SECRET: "your-jwt-secret"
+  ENCRYPTION_KEY: "your-encryption-key"
+  OPENAI_API_KEY: "your-openai-key"
+  ANTHROPIC_API_KEY: "your-anthropic-key"
+
+---
+# Neo4j StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: neo4j
+  namespace: skuel-production
+spec:
+  serviceName: neo4j-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: neo4j
+  template:
+    metadata:
+      labels:
+        app: neo4j
+    spec:
+      containers:
+      - name: neo4j
+        image: neo4j:5.26
+        ports:
+        - containerPort: 7474
+          name: http
+        - containerPort: 7687
+          name: bolt
+        - containerPort: 2004
+          name: metrics
+        env:
+        - name: NEO4J_AUTH
+          value: "neo4j/$(NEO4J_PASSWORD)"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: skuel-secrets
+              key: NEO4J_PASSWORD
+        - name: NEO4J_server_memory_heap_initial__size
+          value: "1G"
+        - name: NEO4J_server_memory_heap_max__size
+          value: "2G"
+        - name: NEO4J_server_memory_pagecache_size
+          value: "1G"
+        - name: NEO4J_dbms_security_procedures_unrestricted
+          value: "n10s.*,apoc.*"
+        - name: NEO4J_dbms_security_procedures_allowlist
+          value: "apoc.*,n10s.*"
+        - name: NEO4J_metrics_enabled
+          value: "true"
+        - name: NEO4J_metrics_prometheus_enabled
+          value: "true"
+        - name: NEO4J_metrics_prometheus_endpoint
+          value: "0.0.0.0:2004"
+        volumeMounts:
+        - name: neo4j-data
+          mountPath: /data
+        - name: neo4j-logs
+          mountPath: /logs
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          exec:
+            command: ["neo4j", "status"]
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command: ["neo4j", "status"]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: neo4j-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 20Gi
+  - metadata:
+      name: neo4j-logs
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 5Gi
+
+---
+# Neo4j Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: neo4j-service
+  namespace: skuel-production
+spec:
+  ports:
+  - port: 7474
+    name: http
+    targetPort: 7474
+  - port: 7687
+    name: bolt
+    targetPort: 7687
+  - port: 2004
+    name: metrics
+    targetPort: 2004
+  selector:
+    app: neo4j
+
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: skuel-production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        command: ["redis-server"]
+        args: ["--requirepass", "$(REDIS_PASSWORD)"]
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: skuel-secrets
+              key: REDIS_PASSWORD
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command: ["redis-cli", "ping"]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command: ["redis-cli", "ping"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: skuel-production
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: redis
+
+---
+# SKUEL Application Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skuel-app
+  namespace: skuel-production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: skuel-app
+  template:
+    metadata:
+      labels:
+        app: skuel-app
+    spec:
+      containers:
+      - name: skuel-app
+        image: skuel:production
+        ports:
+        - containerPort: 5001
+        envFrom:
+        - configMapRef:
+            name: skuel-config
+        env:
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: skuel-secrets
+              key: NEO4J_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: skuel-secrets
+              key: JWT_SECRET
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skuel-secrets
+              key: ENCRYPTION_KEY
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skuel-secrets
+              key: OPENAI_API_KEY
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skuel-secrets
+              key: ANTHROPIC_API_KEY
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}
+
+---
+# SKUEL Application Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: skuel-app-service
+  namespace: skuel-production
+spec:
+  ports:
+  - port: 5001
+    targetPort: 5001
+  selector:
+    app: skuel-app
+
+---
+# Nginx Load Balancer
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: skuel-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-config
+
+---
+# Nginx ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: skuel-production
+data:
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+    
+    http {
+        upstream skuel_app {
+            server skuel-app-service:5001;
+        }
+        
+        server {
+            listen 80;
+            
+            location /health {
+                return 200 "healthy\n";
+            }
+            
+            location / {
+                proxy_pass http://skuel_app;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+        }
+    }
+
+---
+# Nginx Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  namespace: skuel-production
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http
+  - port: 443
+    targetPort: 443
+    name: https
+  selector:
+    app: nginx
+
+---
+# Horizontal Pod Autoscaler for SKUEL app
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: skuel-app-hpa
+  namespace: skuel-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: skuel-app
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# NetworkPolicy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: skuel-network-policy
+  namespace: skuel-production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: skuel-production
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: skuel-production
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443

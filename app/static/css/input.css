@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap');
+
+@layer base {
+  :root {
+    /* Spacing tokens (consistent across pages) */
+    --space-page: 1.5rem;        /* Page padding (24px = p-6) */
+    --space-page-lg: 2rem;       /* Desktop page padding (32px = p-8) */
+    --space-section: 2rem;       /* Between major sections (32px) */
+    --space-content: 1rem;       /* Between content items (16px = gap-4) */
+    --space-card: 1.5rem;        /* Card internal padding (24px = p-6) */
+    --space-card-compact: 1rem;  /* Compact card padding (16px = p-4) */
+  }
+
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-base-100 text-base-content;
+  }
+}
+
+@layer utilities {
+  /* Text truncation utilities */
+  .truncate-1 { @apply line-clamp-1; }
+  .truncate-2 { @apply line-clamp-2; }
+  .truncate-3 { @apply line-clamp-3; }
+
+  /* Flex overflow fix */
+  .flex-safe { @apply min-w-0 overflow-hidden; }
+}

@@ -1,0 +1,28 @@
+version: 1.0
+type: Choice
+
+uid: choice:2-minutes-right-now
+title: Do Two Minutes Right Now
+description: Set a two-minute timer and follow your breath. No preparation needed.
+user_uid: system  # System-provided choice
+
+# Choice Configuration
+choice_type: binary
+status: pending
+priority: high
+domain: personal
+
+# Decision factors
+decision_criteria:
+  - Do I have 2 minutes available right now?
+  - Am I in a reasonably quiet space?
+  - Can I sit comfortably for 2 minutes?
+
+constraints:
+  - Requires 2 minutes of time
+  - Requires minimal quiet space
+  - No special equipment needed
+
+# Context
+stakeholders:
+  - self

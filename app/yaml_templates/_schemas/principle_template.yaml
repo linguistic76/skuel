@@ -1,0 +1,147 @@
+# Principle Template
+# ==================
+# This is a TEMPLATE EXAMPLE, not a validation schema.
+# It shows ALL valid fields for Principle YAML files.
+#
+# Purpose: Use this as a reference when creating principles.
+# Location: Use this structure in /home/mike/0bsidian/skuel/domains/{domain_name}/
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: Principle
+
+# uid: Unique identifier
+# Pattern: principle:principle-name
+# Example: principle:small-wins, principle:plan-then-execute
+uid: principle:example-principle
+
+# name: Display name for this principle
+# Type: String
+# Example: "Small Wins Compound", "Plan Then Execute"
+name: Example Principle Name
+
+# statement: Core statement of the principle
+# Type: String
+# Purpose: Concise articulation of the principle
+# Example: "Consistent small actions compound into significant results over time"
+statement: Core statement articulating this principle
+
+# category: Category of principle
+# Valid values: personal, social, professional, ethical, philosophical
+# Example: personal for self-development principles
+category: personal
+
+# source: Origin of this principle
+# Valid values: philosophical, religious, cultural, personal, scientific, mentor, literature
+# Example: scientific for evidence-based principles
+source: scientific
+
+# strength: How foundational this principle is
+# Valid values: core, supporting, contextual
+# Default: supporting
+# Note: 'core' for fundamental principles, 'supporting' for helpful guidelines
+strength: core
+
+# alignment_level: How important alignment with this principle is
+# Valid values: critical, high, medium, low
+# Example: high for principles that strongly guide behavior
+alignment_level: high
+
+# OPTIONAL FIELDS
+# ---------------
+
+# description: Detailed explanation of the principle
+# Type: String (multi-line supported)
+# Purpose: Expand on the statement with context and examples
+description: |
+  Detailed explanation of this principle.
+
+  This section can include:
+  - Why this principle matters
+  - Historical context
+  - Practical implications
+  - Examples of application
+
+  Use multiple paragraphs to thoroughly explain the principle.
+
+# supported_knowledge_domains: Which knowledge domains this applies to
+# Type: List of domain values
+# Valid values: personal, professional, technical, health, financial, social
+# Example: [personal, professional] for widely applicable principles
+supported_knowledge_domains:
+  - personal
+  - professional
+
+# example_applications: Concrete examples of applying this principle
+# Type: List of strings
+# Purpose: Show how to use this principle in practice
+example_applications:
+  - Plan study session before starting timer
+  - List 3 priorities before work day
+  - Outline essay before writing
+
+# measurement_criteria: How to know you're applying this principle
+# Type: String (multi-line supported)
+# Purpose: Observable indicators of principle alignment
+measurement_criteria: |
+  You know you're applying this principle when you can answer
+  "What am I doing and why?" before starting work.
+
+  Other indicators:
+  - You feel clarity before action
+  - You avoid mid-task confusion
+  - You complete tasks more efficiently
+
+# tags: Descriptive tags for categorization
+# Type: List of strings
+# Example: [productivity, planning, focus]
+tags:
+  - example
+  - template
+
+# METADATA FIELDS (Auto-populated, DO NOT SET)
+# --------------------------------------------
+# These fields are automatically set by the system:
+# - created_at: Timestamp when created
+# - updated_at: Timestamp when last modified
+
+# ENUM VALUE REFERENCE
+# --------------------
+
+# category options:
+#   - personal: Self-development and personal growth
+#   - social: Interpersonal relationships and community
+#   - professional: Work and career
+#   - ethical: Moral and ethical guidelines
+#   - philosophical: Fundamental life philosophies
+
+# source options:
+#   - philosophical: From philosophy traditions
+#   - religious: From religious teachings
+#   - cultural: From cultural heritage
+#   - personal: From personal experience
+#   - scientific: Evidence-based, research-backed
+#   - mentor: Learned from teachers/mentors
+#   - literature: From books and texts
+
+# strength options:
+#   - core: Fundamental, always applicable
+#   - supporting: Helpful in many situations
+#   - contextual: Valuable in specific contexts
+
+# alignment_level options:
+#   - critical: Must align for success
+#   - high: Strong alignment recommended
+#   - medium: Moderate alignment beneficial
+#   - low: Nice to have, not essential
+
+# NOTES
+# -----
+# 1. Principles guide behavior across habits, goals, and learning
+# 2. Use clear, actionable statements
+# 3. example_applications should be concrete and specific
+# 4. measurement_criteria helps learners self-assess alignment
+# 5. Choose 'source' based on where the principle originates
+# 6. Tags help with discoverability and filtering

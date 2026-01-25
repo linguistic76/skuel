@@ -1,0 +1,280 @@
+
+  ---
+  SKUEL Architecture Review: UserContext, MEGA-Query & Context Awareness
+
+  Executive Summary
+
+  The architecture has strong theoretical foundations but reveals significant complexity accumulation and DRY violations. The efforts are generally pointed in one direction (user-centric intelligence), but there are opportunities
+  for increased focus and cleaner separation of concerns.
+
+  ---
+  1. How the Components Work Together
+
+  The Triad Architecture
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │                          UserContext                                 │
+  │                     (~240 fields, THE source of truth)               │
+  │   ┌─────────────────────────────────────────────────────────────┐   │
+  │   │  Standard Fields (UIDs)     │    Rich Fields (full entities) │   │
+  │   │  - active_task_uids         │    - active_tasks_rich          │   │
+  │   │  - active_goal_uids         │    - active_goals_rich          │   │
+  │   │  - knowledge_mastery        │    - knowledge_units_rich       │   │
+  │   └─────────────────────────────────────────────────────────────┘   │
+  └───────────────────────────────┬─────────────────────────────────────┘
+                                  │
+                                  ▼
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │                      UserContextBuilder                              │
+  │   ┌───────────────────────┬───────────────────────────────────────┐ │
+  │   │  build_user_context() │  build_rich_user_context()            │ │
+  │   │  (1-2 queries, UIDs)  │  (1 MEGA-QUERY, UIDs + entities)      │ │
+  │   └───────────────────────┴───────────────────────────────────────┘ │
+  └───────────────────────────────┬─────────────────────────────────────┘
+                                  │
+                                  ▼
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │                  Context Awareness Protocols                         │
+  │   ┌─────────────┬─────────────┬─────────────┬─────────────────────┐ │
+  │   │TaskAwareness│KnowledgeAware│HabitAware  │ CrossDomainAwareness│ │
+  │   │  (7 fields) │   (6 fields) │ (6 fields) │    (composite)      │ │
+  │   └─────────────┴─────────────┴─────────────┴─────────────────────┘ │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  Data Flow
+
+  1. UserContextBuilder queries Neo4j with MEGA-QUERY (382 lines of Cypher!)
+  2. Populates UserContext (~240 fields) with UIDs + optional rich entities
+  3. Services declare dependency on Context Awareness Protocols (slices of UserContext)
+  4. UserContextIntelligence orchestrates 13 domain services to answer "what should I work on?"
+
+  ---
+  2. DRY Violations Identified
+
+  2.1 get_user_items_in_range() Duplication
+
+  Severity: HIGH
+
+  Found 22 implementations of nearly identical code:
+
+  | File                       | Lines           | Status               |
+  |----------------------------|-----------------|----------------------|
+  | base_service.py            | Template method | ✅ Base               |
+  | tasks_core_service.py      | 539+            | ⚠ Duplicates base   |
+  | habits_core_service.py     | 229+            | ⚠ Duplicates base   |
+  | goals_core_service.py      | 436+            | ⚠ Duplicates base   |
+  | events_core_service.py     | 328+            | ⚠ Duplicates base   |
+  | finance_core_service.py    | 478+            | ⚠ Duplicates base   |
+  | choices_core_service.py    | 634+            | ⚠ Duplicates base   |
+  | principles_core_service.py | 481+            | ⚠ Duplicates base   |
+  | + 7 protocol definitions   |                 | Necessary for typing |
+  | + facade services          |                 | Delegation           |
+
+  Problem: Each domain implements its own get_user_items_in_range() with slight variations (date field name, status filters). The base class provides get_user_items_in_range_base() but it's not consistently used.
+
+  Recommendation: Extract to a single parameterized implementation in BaseService:
+
+  # BaseService
+  async def get_user_items_in_range(
+      self,
+      user_uid: str,
+      start_date: date,
+      end_date: date,
+      include_completed: bool = False,
+      date_field: str = "created_at",  # Domain-configurable
+      exclude_statuses: list[str] = None,  # Domain-configurable
+  ) -> Result[list[T]]:
+
+  2.2 Relationship Service Two-Pattern Design
+
+  Severity: MEDIUM - Intentional but creates cognitive overhead
+
+  SKUEL maintains two distinct patterns for relationship services:
+
+  | Pattern                                   | Services                                                   | Lines  |
+  |-------------------------------------------|------------------------------------------------------------|--------|
+  | GenericRelationshipService (Helper-Based) | Tasks, Goals, Habits, Events, Choices, Principles, Finance | ~4,758 |
+  | Direct Driver (Standalone)                | Journal, User, LP, LS, MOC                                 | ~3,918 |
+
+  Problem: Developers must understand TWO patterns. The split is architecturally justified but adds learning curve.
+
+  2.3 UserContext Field Explosion
+
+  Severity: MEDIUM
+
+  UserContext has ~240 fields across 15 categories:
+  - Core Identity (10 fields)
+  - Task Awareness (14 fields)
+  - Event Awareness (10 fields)
+  - Goal Awareness (14 fields)
+  - Habit Awareness (11 fields)
+  - Knowledge/Learning (20 fields)
+  - Graph-Sourced Metadata (15 fields) - Added Nov 15
+  - Rich Context Fields (9 fields) - Added Nov 22
+  - ... and more
+
+  Problem: The context is doing too much. 240 fields is difficult to:
+  - Document
+  - Test
+  - Maintain
+  - Cache efficiently
+
+  2.4 Query Method Proliferation
+
+  Severity: MEDIUM
+
+  Multiple ways to query user context:
+  1. build_user_context() - Standard, UIDs
+  2. build_rich_user_context() - MEGA-QUERY, rich
+  3. build() - Simplified API (Nov 26)
+  4. build_rich() - Simplified API (Nov 26)
+  5. _query_all_user_context_data() - Internal
+  6. _query_user_context() - Internal MEGA-QUERY
+  7. GraphSourcedContextBuilder methods
+
+  Problem: Too many entry points. The Nov 26 simplification helped but old APIs remain.
+
+  ---
+  3. Focus Analysis: Is SKUEL Pointed in One Direction?
+
+  ✅ STRENGTHS - Unified Direction
+
+  1. Clear North Star: "What should I work on today?" is the flagship method
+  2. 13-Domain Architecture: Well-defined symmetric structure
+  3. Life Path Convergence: Everything flows toward user's ultimate goal
+  4. Single Source of Truth: UserContext is authoritative
+  5. Protocol-Based Contracts: Clear service boundaries
+
+  ⚠ CONCERNS - Fragmented Focus
+
+  1. User Services Fragmentation:
+    - user_context_builder.py - 1,474 lines
+    - user_context_intelligence.py - 2,389 lines
+    - user_context_service.py - 662 lines
+    - user_graph_intelligence.py - 675 lines
+    - graph_sourced_context_builder.py - 613 lines
+    - Total: 8,380 lines just for user context
+  2. Multiple Intelligence Layers:
+    - UserContextIntelligence - 5 core methods, 13 services
+    - BaseIntelligenceService - Abstract intelligence
+    - CrossDomainContextService - Cross-domain analysis
+    - ContextAwareIntelligenceService - Context-first
+    - Domain-specific intelligence services (7+)
+  3. Context Building Complexity:
+    - Standard path vs Rich path vs Graph-sourced path
+    - Three separate builders for related concerns
+
+  ---
+  4. Separation of Concerns Analysis
+
+  Good Separations
+
+  | Concern         | Location                  | Clean? |
+  |-----------------|---------------------------|--------|
+  | Domain entities | /core/models/             | ✅      |
+  | Protocols       | /core/services/protocols/ | ✅      |
+  | Backends        | /adapters/persistence/    | ✅      |
+  | Domain services | /core/services/{domain}/  | ✅      |
+
+  Problematic Separations
+
+  | Concern                  | Issue                                                |
+  |--------------------------|------------------------------------------------------|
+  | Context Building         | Split across 4+ files                                |
+  | Intelligence             | Multiple overlapping services                        |
+  | Query Generation         | CypherGenerator + UnifiedQueryBuilder + QueryBuilder |
+  | Rich vs Standard Context | Two paths with different data shapes                 |
+
+  ---
+  5. Documentation Gap
+
+  Critical Finding: The docs at /home/mike/0bsidian/skuel/docs/ are 1 month behind the actual code:
+
+  | Feature                    | CLAUDE.md | Docs | Gap              |
+  |----------------------------|-----------|------|------------------|
+  | MEGA-QUERY (Nov 22-24)     | ✅         | ❌    | Missing entirely |
+  | build_rich_user_context()  | ✅         | ❌    | Not documented   |
+  | Rich context fields        | ✅         | ❌    | Not documented   |
+  | get_rich_unified_context() | ✅         | ❌    | Not documented   |
+  | Context-First Pattern      | ✅         | ✅    | Current          |
+
+  Result: CLAUDE.md has become the de facto documentation, while the Obsidian vault is stale.
+
+  ---
+  6. Recommendations
+
+  HIGH PRIORITY
+
+  6.1 Consolidate Context Builders
+
+  Merge the context building responsibilities:
+
+  BEFORE (4 files, 3,200+ lines):
+  - user_context_builder.py (1,474 lines)
+  - graph_sourced_context_builder.py (613 lines)
+  - user_context_service.py (662 lines)
+  - user_graph_intelligence.py (675 lines)
+
+  AFTER (2 files):
+  - user_context_builder.py (unified building)
+  - user_context_intelligence.py (intelligence only)
+
+  6.2 Eliminate get_user_items_in_range() Duplication
+
+  Move to parameterized base implementation. Domains configure via class attributes:
+
+  class TasksCoreService(BaseService[...]):
+      _date_field = "due_date"
+      _completed_statuses = [ActivityStatus.COMPLETED]
+
+  6.3 Update Documentation
+
+  Sync /home/mike/0bsidian/skuel/docs/architecture/UNIFIED_USER_ARCHITECTURE.md with:
+  - MEGA-QUERY pattern
+  - Rich context fields
+  - build_rich_user_context() API
+  - November 2025 changes
+
+  MEDIUM PRIORITY
+
+  6.4 Simplify UserContext
+
+  Consider splitting into composable pieces:
+  - TaskContext (14 fields)
+  - GoalContext (14 fields)
+  - KnowledgeContext (20 fields)
+  - UserContext composes these
+
+  6.5 Deprecate Legacy Query APIs
+
+  Mark old methods with deprecation warnings:
+  - _query_all_user_context_data() → use _query_user_context()
+  - Old build() signatures
+
+  LOW PRIORITY
+
+  6.6 Unify Relationship Service Patterns
+
+  Document clear decision tree for when to use Helper-Based vs Direct Driver pattern.
+
+  6.7 Archive Stale Docs
+
+  Move ~50 completed migration docs from docs root to /archive/migrations_2025/
+
+  ---
+  7. Summary
+
+  | Aspect                  | Assessment                                                     | Score   |
+  |-------------------------|----------------------------------------------------------------|---------|
+  | DRY Principle           | Significant violations in get_user_items_in_range()            | ⚠ 6/10 |
+  | Unified Direction       | Strong - Life Path is clear North Star                         | ✅ 8/10  |
+  | Separation of Concerns  | Mixed - Good at domain level, fragmented at user context level | ⚠ 6/10 |
+  | Documentation Currency  | 1 month behind, CLAUDE.md is source of truth                   | ❌ 4/10  |
+  | Architectural Coherence | Good foundations, complexity accumulation                      | ⚠ 7/10 |
+
+  Overall: The architecture is fundamentally sound but has accumulated complexity over rapid development. The MEGA-QUERY optimization is impressive (10-20x performance), but the code organization hasn't kept pace. The biggest
+  concerns are:
+
+  1. 8,380 lines in /core/services/user/ - too much for "context"
+  2. 22 implementations of get_user_items_in_range() - clear DRY violation
+  3. Documentation drift - CLAUDE.md is accurate, Obsidian vault is stale

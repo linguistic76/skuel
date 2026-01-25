@@ -1,0 +1,6 @@
+version: 0.1
+type: Goal
+uid: gl:study-sprint-beginner
+title: Finish a beginner study sprint
+summary: 5 focused blocks and 1 weekly review in the first week.
+tags: [study, starter]

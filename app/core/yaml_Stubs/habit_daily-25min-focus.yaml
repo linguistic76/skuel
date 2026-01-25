@@ -1,0 +1,10 @@
+version: 0.1
+type: Habit
+uid: hb:daily-25min-focus
+title: Daily 25-Minute Focus Block
+summary: One focused study block per day.
+tags: [focus, study, habit]
+schedule_hint: daily
+metrics:
+  unit: blocks
+  target_per_week: 5

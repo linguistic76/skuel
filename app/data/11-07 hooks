@@ -1,0 +1,36 @@
+
+
+  Here's why:
+
+  1. The hooks are NEW business logic
+
+  The validation hooks we added are enforcing business rules that weren't previously validated. For example:
+
+  - Habits: No previous code was preventing archiving of 7+ day streaks
+  - Events: No previous code was preventing modification of past events
+  - Choices: No previous code was preventing modification of DECIDED/EVALUATED choices
+  - Principles: No previous code was enforcing content quality minimums
+
+  2. Pydantic validations serve a different purpose
+
+  I checked the request models and found that Pydantic validations are complementary, not duplicate:
+
+  Example - Habits:
+  - Pydantic (habit_request.py:102-113): "Daily habits should target at least 5 days per week" (UX suggestion)
+  - Service Hook (habits_core_service.py:116): "Daily habits can't have target > 7 days per week" (logical impossibility)
+
+  Example - Events:
+  - Pydantic (event_request.py:104-110): "End time must be after start time" (basic validation)
+  - Service Hook (events_core_service.py:127-145): "Duration must be 5-720 minutes" (domain rule)
+
+  This is the correct separation of concerns:
+  - Pydantic (Tier 1): Type/format validation at API boundary
+  - Service Hooks (Tier 3): Domain business logic
+
+  3. BaseService calls the hooks automatically
+
+  The hooks are invoked by BaseService.create() and BaseService.update() via the Template Method Pattern. There's no old manual validation code in the service methods themselves that's now redundant.
+
+  Summary
+
+  The hooks add protection that wasn't there before - they don't replace existing code. This is the value of the rollout: new data integrity guarantees across all six activity domains.

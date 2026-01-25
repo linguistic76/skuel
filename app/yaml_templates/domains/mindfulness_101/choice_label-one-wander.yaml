@@ -1,0 +1,31 @@
+version: 1.0
+type: Choice
+
+uid: choice:label-one-wander
+title: Label One Wander
+description: When you notice drifting, softly say "wandering" once. That's the practice.
+user_uid: system
+
+# Choice Configuration
+choice_type: binary
+status: pending
+priority: medium
+domain: personal
+
+# Decision Context
+decision_criteria:
+  - Have I noticed my mind wandering?
+  - Can I label it without judgment?
+  - Is this building meta-awareness?
+
+constraints:
+  - Requires existing breath awareness practice
+  - Requires ability to notice mental drift
+  - No additional time needed (part of existing practice)
+
+# Context
+stakeholders:
+  - self
+
+# Timing
+decision_deadline: null

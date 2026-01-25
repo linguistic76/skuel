@@ -1,0 +1,6 @@
+version: 0.1
+type: Principle
+uid: pr:plan-then-execute
+title: Plan, Then Execute
+summary: Decide the next block before you start it.
+tags: [planning, execution]

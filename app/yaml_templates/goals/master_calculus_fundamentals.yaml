@@ -1,0 +1,134 @@
+# Master Calculus Fundamentals Goal
+# ==================================
+# A learning goal for mastering core calculus concepts within 90 days
+
+version: 1.0
+type: Goal
+
+uid: goal:master-calculus-fundamentals
+title: Master Calculus Fundamentals
+
+description: |
+  Achieve mastery of fundamental calculus concepts including limits,
+  derivatives, and integrals. Mastery is defined as the ability to:
+  - Explain concepts clearly to others
+  - Solve standard problems without reference materials
+  - Apply concepts to real-world scenarios
+  - Connect calculus to other mathematical domains
+
+goal_type: learning
+domain: mathematics
+timeframe: 90_days
+
+# Measurement configuration
+measurement_type: percentage
+target_value: 85.0
+current_value: 0.0
+unit: percent_mastery
+
+# Timeline
+created_at: "2025-10-04T00:00:00Z"
+updated_at: "2025-10-04T00:00:00Z"
+target_date: "2026-01-02"  # 90 days from Oct 4, 2025
+
+# Goal status
+status: active
+priority: high
+
+# Learning path integration
+learning_path_uid: lp:calculus-fundamentals
+required_knowledge_units:
+  - ku:limits-introduction
+  - ku:derivative-definition
+  - ku:derivative-rules
+  - ku:chain-rule
+  - ku:integration-fundamentals
+  - ku:fundamental-theorem-calculus
+
+# Habit support
+supporting_habits:
+  - habit:daily-25min-focus-block
+  - habit:weekly-calculus-review
+  - habit:daily-problem-solving
+
+# Prerequisites
+prerequisite_goals:
+  - goal:algebra-proficiency
+  - goal:trigonometry-basics
+
+# Success milestones (checkpoints)
+milestones:
+  - name: "Limits mastery"
+    target_date: "2025-10-25"
+    completion_percentage: 25
+    status: pending
+
+  - name: "Derivatives mastery"
+    target_date: "2025-11-15"
+    completion_percentage: 50
+    status: pending
+
+  - name: "Integration mastery"
+    target_date: "2025-12-06"
+    completion_percentage: 75
+    status: pending
+
+  - name: "Applied problems mastery"
+    target_date: "2026-01-02"
+    completion_percentage: 100
+    status: pending
+
+# Measurement approach
+measurement_criteria: |
+  Mastery percentage is measured through:
+  - Concept explanations (20%) - Can explain to others clearly
+  - Problem solving (40%) - Solve standard problems without help
+  - Application (20%) - Apply to real-world scenarios
+  - Connections (20%) - Link concepts across domains
+
+  Weekly assessment evaluates:
+  - Practice problem accuracy rate
+  - Time to solve standard problems
+  - Quality of concept explanations
+  - Ability to identify when to use each technique
+
+# Practice recommendations
+practice_recommendations: |
+  Daily practice pattern:
+  1. Review previous concepts (5 minutes)
+  2. Learn new concept (10 minutes)
+  3. Solve practice problems (10 minutes)
+  4. Reflect and connect (5 minutes)
+
+  Weekly deep dive (1-2 hours):
+  - Review all concepts learned that week
+  - Solve challenging mixed problems
+  - Create summary notes in your own words
+  - Teach concepts to study partner or rubber duck
+
+# Obstacles and solutions
+anticipated_obstacles:
+  - challenge: "Concepts feel abstract"
+    solution: "Find real-world applications and visual representations"
+
+  - challenge: "Problem-solving plateau"
+    solution: "Mix problem difficulty - some easy wins + some challenges"
+
+  - challenge: "Forgetting earlier concepts"
+    solution: "Spaced repetition review of previous topics"
+
+# Resources
+recommended_resources:
+  - "Khan Academy Calculus Course"
+  - "3Blue1Brown Essence of Calculus series"
+  - "Practice problem sets from MIT OpenCourseWare"
+  - "Symbolab calculator for verification"
+
+tags:
+  - mathematics
+  - calculus
+  - learning
+  - mastery-based
+  - 90-day-goal
+  - stem
+  - foundational

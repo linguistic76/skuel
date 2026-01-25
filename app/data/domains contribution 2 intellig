@@ -1,0 +1,47 @@
+
+
+  Each domain contributes to the intelligence:
+
+  | Domain     | Intelligence Contribution                                   |
+  |------------|-------------------------------------------------------------|
+  | Tasks      | get_actionable_tasks_for_user() - What can I do now?        |
+  | Goals      | get_advancing_goals_for_user() - What goals need attention? |
+  | Habits     | get_at_risk_habits_for_user() - What streaks are at risk?   |
+  | Events     | get_upcoming_events_for_user() - What's scheduled?          |
+  | Choices    | get_pending_decisions_for_user() - What decisions await?    |
+  | Principles | get_aligned_principles_for_user() - What values guide this? |
+  | KU         | get_ready_to_learn_for_user() - What knowledge is ready?    |
+  | LS         | Learning step sequencing and prerequisites                  |
+  | LP         | Critical path to life path alignment                        |
+
+  The Pattern Emerges
+
+  get_ready_to_work_on_today() synthesizes:
+  ├── tasks.get_actionable_tasks_for_user(context)
+  ├── habits.get_at_risk_habits_for_user(context)
+  ├── goals.get_advancing_goals_for_user(context)
+  ├── events.get_upcoming_events_for_user(context)
+  ├── ku.get_ready_to_learn_for_user(context)
+  └── lp.get_critical_path_for_user(context)
+
+  My Recommendation
+
+  Required dependencies, aligning with SKUEL's fail-fast philosophy.
+
+  The 9 relationship services ARE the intelligence. Without them, you just have context (user state) without graph intelligence (relationship awareness).
+
+  class UserContextIntelligence:
+      """
+      Learning journey intelligence = Context + 9 Domain Relationship Services.
+
+      Activity Domains: Tasks, Goals, Habits, Events, Choices, Principles
+      Curriculum Domains: KU, LS, LP
+
+      Each domain provides context-first methods that filter by readiness,
+      rank by relevance, and enrich with insights.
+      """
+
+### next
+
+    - ReportService - Generate contextual reports
+    - CalendarService - Schedule-aware recommendations

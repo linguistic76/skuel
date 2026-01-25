@@ -1,0 +1,21 @@
+  Pure Cypher Pattern
+
+  The solution for dynamic relationship types in pure Cypher:
+
+  # Group relationships by type (pure Cypher requires literal relationship types)
+  by_type: dict[str, list[tuple[str, str, dict[str, Any]]]] = {}
+  for from_uid, to_uid, rel_type, props in relationships:
+      if rel_type not in by_type:
+          by_type[rel_type] = []
+      by_type[rel_type].append((from_uid, to_uid, props or {}))
+
+  # Execute per relationship type with literal type in query
+  for rel_type, rels in by_type.items():
+      query = f"""
+      UNWIND $rels AS rel
+      MATCH (from_node {{uid: rel.from_uid}})
+      MATCH (to_node {{uid: rel.to_uid}})
+      MERGE (from_node)-[r:{rel_type}]->(to_node)
+      SET r += rel.props
+      RETURN count(r) as created
+      """

@@ -1,0 +1,11 @@
+version: 0.1
+type: KnowledgeUnit
+uid: ku:note-taking-basics
+title: Note-Taking Basics
+summary: Simple, readable notes: headers, bullets, and keywords.
+tags: [study, notes, beginner]
+knowledge:
+  kind: article
+  body_path: content/study/note-taking-basics.md
+relations:
+  belongs_to_clusters: [kc:study-skills-foundations]

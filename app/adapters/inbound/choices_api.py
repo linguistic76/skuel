@@ -1,0 +1,262 @@
+"""
+Choice API Routes - Migrated to CRUDRouteFactory
+================================================
+
+Migrated to factory pattern for CRUD operations.
+
+Before: 440 lines with manual route definitions
+After: ~280 lines (36% reduction)
+
+This file uses:
+- CRUDRouteFactory for standard CRUD routes (create, get, update, delete, list)
+- Manual routes for domain-specific operations (decide, options, evaluate, analytics)
+"""
+
+__version__ = "2.0"
+
+from typing import TYPE_CHECKING, Any
+
+from fasthtml.common import Request
+
+from core.auth import require_ownership_query
+from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
+from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
+from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
+from core.models.enums import ContentScope
+from core.utils.error_boundary import boundary_handler
+from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.services.choices_service import ChoicesService
+
+logger = get_logger("skuel.routes.choice.api")
+
+
+def create_choices_api_routes(
+    app: Any,
+    rt: Any,
+    choice_service: "ChoicesService",
+    user_service: Any = None,
+    goals_service: Any = None,
+) -> list[Any]:
+    """
+    Create choice API routes using factory pattern.
+
+    Args:
+        app: FastHTML application instance
+        rt: Route decorator
+        choice_service: ChoicesService instance
+        user_service: UserService for admin role verification
+        goals_service: GoalsService for goal ownership verification
+    """
+
+    # Service getter for ownership decorator (SKUEL012: named function, not lambda)
+    def get_choice_service():
+        return choice_service
+
+    # ========================================================================
+    # STANDARD CRUD ROUTES (Factory-Generated)
+    # ========================================================================
+
+    # Create factory for standard CRUD operations
+    crud_factory = CRUDRouteFactory(
+        service=choice_service,
+        domain_name="choices",
+        create_schema=ChoiceCreateRequest,
+        update_schema=ChoiceUpdateRequest,
+        uid_prefix="choice",
+        scope=ContentScope.USER_OWNED,
+    )
+
+    # Register all standard CRUD routes:
+    # - POST   /api/choices            (create)
+    # - GET    /api/choices/{uid}      (get)
+    # - PUT    /api/choices/{uid}      (update)
+    # - DELETE /api/choices/{uid}      (delete)
+    # - GET    /api/choices            (list with pagination)
+    crud_factory.register_routes(app, rt)
+
+    # ========================================================================
+    # COMMON QUERY ROUTES (Factory-Generated)
+    # ========================================================================
+
+    # Create factory for common query patterns
+    query_factory = CommonQueryRouteFactory(
+        service=choice_service,
+        domain_name="choices",
+        user_service=user_service,  # For admin /user route
+        goals_service=goals_service,  # For goal ownership verification
+        supports_goal_filter=True,  # Graph query: (goal)-[:MOTIVATED_BY_GOAL]->(choice)
+        supports_habit_filter=False,  # Choices don't filter by habits
+        scope=ContentScope.USER_OWNED,
+    )
+
+    # Register common query routes:
+    # - GET /api/choices/mine               (get authenticated user's choices)
+    # - GET /api/choices/user?user_uid=...  (admin only - get any user's choices)
+    # - GET /api/choices/goal?goal_uid=...  (get choices for goal, ownership verified)
+    # - GET /api/choices/by-status?status=...  (filter by status, auth required)
+    query_factory.register_routes(app, rt)
+
+    # ========================================================================
+    # INTELLIGENCE ROUTES (Factory-Generated)
+    # ========================================================================
+
+    intelligence_factory = IntelligenceRouteFactory(
+        intelligence_service=choice_service.intelligence,
+        domain_name="choices",
+        ownership_service=choice_service,
+        scope=ContentScope.USER_OWNED,
+    )
+
+    # Register intelligence routes:
+    # - GET /api/choices/context?uid=...&depth=2     (entity with graph context)
+    # - GET /api/choices/analytics?period_days=30   (user performance analytics)
+    # - GET /api/choices/insights?uid=...           (domain-specific insights)
+    intelligence_factory.register_routes(app, rt)
+
+    logger.info("✅ Choice API routes registered (factory pattern)")
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC ROUTES (Manual)
+    # ========================================================================
+    # SECURITY: All UID-based routes verify user owns the choice before operating
+
+    # NOTE: GET /api/choices/user/{user_uid} now generated by CommonQueryRouteFactory
+
+    @rt("/api/choices/decide", methods=["POST"])
+    @require_ownership_query(get_choice_service, uid_param="choice_uid")
+    @boundary_handler(success_status=200)
+    async def make_decision_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
+        """Make a decision on a choice (requires ownership)."""
+        body = await request.json()
+        selected_option_uid = body.get("selected_option_uid")
+        decision_rationale = body.get("decision_rationale")
+        confidence_level = body.get("confidence_level", 0.8)
+
+        # Validate request
+        from core.models.choice.choice_request import ChoiceDecisionRequest
+
+        ChoiceDecisionRequest.model_validate(
+            {"selected_option_uid": selected_option_uid, "decision_rationale": decision_rationale}
+        )
+
+        # Use domain-specific make_decision method
+        return await choice_service.make_decision(
+            choice_uid=entity.uid,
+            selected_option_uid=selected_option_uid,
+            decision_rationale=decision_rationale,
+            confidence=confidence_level,
+        )
+
+    @rt("/api/choices/options", methods=["POST"])
+    @require_ownership_query(get_choice_service, uid_param="choice_uid")
+    @boundary_handler(success_status=201)
+    async def create_choice_option_route(
+        request: Request, user_uid: str, entity: Any
+    ) -> Result[Any]:
+        """Create a new option for a choice (requires ownership)."""
+        body = await request.json()
+        from core.models.choice.choice_request import ChoiceOptionCreateRequest
+
+        option_request = ChoiceOptionCreateRequest.model_validate(body)
+
+        # Use add_option method
+        return await choice_service.add_option(
+            choice_uid=entity.uid,
+            title=option_request.title,
+            description=option_request.description,
+            feasibility_score=option_request.feasibility_score,
+            risk_level=option_request.risk_level,
+            potential_impact=option_request.potential_impact,
+            resource_requirement=option_request.resource_requirement,
+            estimated_duration=option_request.estimated_duration,
+            dependencies=option_request.dependencies,
+            tags=option_request.tags,
+        )
+
+    @rt("/api/choices/options/update", methods=["PUT"])
+    @require_ownership_query(get_choice_service, uid_param="choice_uid")
+    @boundary_handler()
+    async def update_choice_option_route(
+        request: Request, user_uid: str, entity: Any, option_uid: str
+    ) -> Result[Any]:
+        """Update a choice option (requires ownership)."""
+        body = await request.json()
+
+        from core.models.choice.choice_request import ChoiceOptionUpdateRequest
+
+        option_update = ChoiceOptionUpdateRequest.model_validate(body)
+
+        # Use update_option method
+        return await choice_service.update_option(
+            choice_uid=entity.uid,
+            option_uid=option_uid,
+            title=option_update.title,
+            description=option_update.description,
+            feasibility_score=option_update.feasibility_score,
+            risk_level=option_update.risk_level,
+            potential_impact=option_update.potential_impact,
+            resource_requirement=option_update.resource_requirement,
+            estimated_duration=option_update.estimated_duration,
+            dependencies=option_update.dependencies,
+            tags=option_update.tags,
+        )
+
+    @rt("/api/choices/evaluate", methods=["POST"])
+    @require_ownership_query(get_choice_service, uid_param="choice_uid")
+    @boundary_handler(success_status=200)
+    async def evaluate_choice_outcome_route(
+        request: Request, user_uid: str, entity: Any
+    ) -> Result[Any]:
+        """Evaluate the outcome of a decided choice (requires ownership)."""
+        body = await request.json()
+        from core.models.choice.choice_request import ChoiceEvaluationRequest
+
+        evaluation_request = ChoiceEvaluationRequest.model_validate(body)
+
+        # Use evaluate_choice_outcome method from core service
+        result: Result[Any] = await choice_service.core.evaluate_choice_outcome(
+            choice_uid=entity.uid,
+            evaluation=evaluation_request,
+        )
+        return result
+
+    @rt("/api/choices/analytics")
+    @boundary_handler()
+    async def get_choice_analytics_route(request: Request, user_uid: str) -> Result[Any]:
+        """Get choice analytics and decision patterns."""
+        params = dict(request.query_params)
+
+        timeframe = params.get("timeframe", "90d")
+
+        # Parse timeframe to days
+        lookback_days = 90
+        if timeframe.endswith("d"):
+            lookback_days = int(timeframe[:-1])
+
+        # Use intelligence service (analytics methods consolidated here)
+        return await choice_service.intelligence.get_decision_patterns(user_uid, days=lookback_days)
+
+    return []  # Routes registered via @rt() decorators (no objects returned)
+
+
+# Export the route creation function
+__all__ = ["create_choices_api_routes"]
+
+
+# Migration Statistics:
+# =====================
+# Before (choice_api.py):      440 lines
+# After (choice_api_migrated): ~200 lines
+# Reduction:                   240 lines (55% reduction)
+#
+# The 4 standard CRUD routes are now handled by the factory, while
+# 5 domain-specific routes remain as manual implementations.
+#
+# Benefits:
+# 1. CRUD consistency across all domains
+# 2. Single source of truth for standard operations
+# 3. Automatic 201 status for POST creates
+# 4. Eliminates ~200 lines of boilerplate

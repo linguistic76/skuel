@@ -1,0 +1,64 @@
+s
+
+  New Class Added to /core/models/search/filters.py
+
+  @dataclass(frozen=True)
+  class FinanceSearchFilters(BaseSearchFilters):
+      """Finance-specific search filters."""
+
+      # Expense status (Finance-specific, not ActivityStatus)
+      expense_status: str | None = None
+      payment_method: str | None = None
+
+      # Category filtering
+      expense_category: str | None = None  # "personal", "2222", "skuel"
+      subcategory: str | None = None
+
+      # Amount range filtering
+      min_amount: float | None = None
+      max_amount: float | None = None
+      currency: str | None = None
+
+      # Tax and reimbursement
+      tax_deductible_only: bool = False
+      reimbursable_only: bool = False
+
+      # Recurring expenses
+      recurring_only: bool = False
+      recurrence_pattern: str | None = None
+
+      # Budget filtering
+      budget_uid: str | None = None
+      over_budget_only: bool = False
+
+      # Vendor filtering
+      vendor: str | None = None
+
+      # Date range
+      expense_date: DateRangeFilters | None = None
+
+      # Cross-domain relationships
+      supports_goal_uid: str | None = None
+      learning_investment_only: bool = False
+
+      # Exclusions
+      exclude_cancelled: bool = True
+
+  Key Design Decisions
+
+  1. Separate from ActivityStatus: Finance uses ExpenseStatus, not ActivityStatus. The expense_status field overrides the inherited status field behavior.
+  2. Finance-unique concepts:
+    - Amount range filtering (min_amount, max_amount)
+    - Tax/reimbursement flags
+    - Budget association
+    - Vendor filtering
+    - Payment method filtering
+  3. Cross-domain support: Includes supports_goal_uid and learning_investment_only to support Finance's integration with Goals and Learning paths.
+  4. Consistent pattern: Follows the same frozen dataclass + to_query_params() pattern as other filter classes.
+
+  Export Count
+
+  The module now exports 45 types (was 44):
+  - 8 filter types (was 7, now includes FinanceSearchFilters)
+  - Same 37 other exports (enums, parsing, scoring, routing)
+

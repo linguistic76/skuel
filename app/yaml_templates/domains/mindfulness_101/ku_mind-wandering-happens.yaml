@@ -1,0 +1,63 @@
+version: 1.0
+type: KnowledgeUnit
+
+uid: ku:mind-wandering-happens
+title: Mind Wandering Happens
+content: |
+  ## Mind Wandering is Normal
+
+  Your mind will wander during meditation. That's not a problem—it's the practice.
+
+  ### The Pattern
+
+  1. **You're focused** on the breath
+  2. **Mind drifts** to thoughts, plans, memories
+  3. **You notice** the drift (this is the key moment!)
+  4. **You return** to the breath, gently
+
+  This cycle repeats. Each time you notice and return, you're training attention.
+
+  ### The Gentle Return
+
+  Don't judge yourself for wandering. Don't force attention back harshly.
+
+  Just **label it softly**: "Thinking" or "Wandering"
+  Then **guide attention back**: Return to the breath
+
+  ### Why This Matters
+
+  - **Noticing** builds awareness
+  - **Returning** strengthens focus
+  - **Not judging** cultivates kindness
+
+  Wandering isn't failure. Noticing wandering IS the practice.
+
+domain: personal
+complexity: medium
+quality_score: 0.90
+
+semantic_links:
+  - attention
+  - mindfulness
+  - meta-awareness
+  - self-compassion
+
+prerequisites:
+  - ku:breath-awareness-basics
+
+enables:
+  - ku:labeling-thoughts
+  - ku:noting-practice
+  - ku:meta-awareness
+
+related_to:
+  - ku:self-compassion-basics
+  - ku:acceptance-practice
+
+tags:
+  - attention
+  - mindfulness
+  - beginner
+  - meta-cognitive
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z

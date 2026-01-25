@@ -1,0 +1,65 @@
+version: 1.0
+type: LearningStep
+
+uid: ls:mindfulness-101:step-1
+title: Two Minutes Today
+intent: Try one two-minute breath session, note what you notice
+description: |
+  Your first step: Just two minutes of breath awareness.
+  That's enough to begin building the foundation.
+
+# Knowledge Content
+primary_knowledge_uids:
+  - ku:breath-awareness-basics
+
+supporting_knowledge_uids:
+  - ku:posture-basics
+
+# Path Integration
+learning_path_uid: lp:mindfulness-101
+sequence: 1
+
+# Prerequisites
+prerequisite_step_uids: []
+prerequisite_knowledge_uids: []
+
+# Learning Guidance
+principle_uids:
+  - principle:small-steps
+
+choice_uids:
+  - choice:2-minutes-right-now
+  - choice:2-minutes-before-bed
+
+# Practice Integration
+habit_uids:
+  - habit:daily-2min-breath
+
+task_uids:
+  - task:log-first-5-sessions
+
+event_template_uids:
+  - event:practice-block-2min
+
+# Mastery & Progress
+mastery_threshold: 0.7
+current_mastery: 0.0
+estimated_hours: 0.5
+difficulty: easy
+
+# Status
+status: not_started
+completed: false
+
+# Domain & Priority
+domain: personal
+priority: high
+
+# Metadata
+notes: Start here - no prerequisites needed
+tags:
+  - starter
+  - breath
+  - foundational
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z

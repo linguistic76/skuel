@@ -1,0 +1,9 @@
+version: 0.1
+type: EventTemplate
+uid: ev:study-block-25min
+title: Study Block — 25 min
+summary: Calendar projection of a focused work block.
+duration_minutes: 25
+render:
+  color_hint: indigo
+  icon_hint: book

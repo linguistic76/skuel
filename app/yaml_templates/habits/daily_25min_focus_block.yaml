@@ -1,0 +1,87 @@
+# Daily 25-Minute Focus Block Habit
+# ===================================
+# A foundational habit for building consistent focus and study practice
+
+version: 1.0
+type: Habit
+
+uid: habit:daily-25min-focus-block
+name: Daily 25-Minute Focus Block
+
+description: |
+  Complete one focused 25-minute study or work session daily, using the
+  Pomodoro technique. This habit builds the foundation for sustained focus
+  and consistent learning progress.
+
+  The 25-minute duration is deliberately chosen to be:
+  - Short enough to start without resistance
+  - Long enough to achieve meaningful progress
+  - Aligned with attention span research
+
+  This habit reinforces the "Small Wins Compound" principle through daily
+  consistency rather than sporadic intense sessions.
+
+polarity: positive
+category: productivity
+difficulty: easy
+
+# Recurrence pattern using iCalendar RRULE format
+recurrence_pattern: "FREQ=DAILY;INTERVAL=1"
+
+# Default time of day (24-hour format)
+default_time_of_day: "09:00"
+
+# Habit tracking configuration
+tracking_type: boolean  # Simple yes/no completion
+streak_target_days: 30
+current_streak: 0
+longest_streak: 0
+
+# Optional enhancement fields
+estimated_duration_minutes: 25
+energy_level_required: medium
+environment_requirements:
+  - Quiet space
+  - No phone distractions
+  - Timer ready
+
+# Knowledge connections
+reinforces_principles:
+  - principle:small-wins-compound
+
+supports_goals:
+  - goal:build-consistent-study-practice
+  - goal:develop-deep-focus-capability
+
+# Success indicators
+success_criteria: |
+  You're successfully building this habit when:
+  - You complete 25 minutes without checking phone/email
+  - You feel resistance decreasing over time
+  - You start anticipating and looking forward to the session
+  - You maintain the habit even on "unmotivated" days
+  - You notice improved focus in other areas
+
+# Implementation tips
+implementation_notes: |
+  Start with the easiest possible version:
+  1. Pick a consistent time (same time daily works best)
+  2. Prepare your space the night before
+  3. Use a simple timer (phone in another room)
+  4. Start with content you enjoy
+  5. Track completion immediately after
+
+  Common obstacles and solutions:
+  - "Too busy" → Schedule it like a meeting
+  - "Not motivated" → Do it anyway, even if quality is low
+  - "Interrupted" → Restart the 25 minutes, don't continue
+  - "Missed a day" → Resume immediately, don't wait for Monday
+
+tags:
+  - focus
+  - pomodoro
+  - daily-practice
+  - consistency
+  - foundational
+  - productivity
+  - study-habits

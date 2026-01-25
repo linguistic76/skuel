@@ -1,0 +1,15 @@
+
+
+
+  Reports are "report cards" that aggregate data from other domains. Looking at the Report model, I see:
+  - report_type: ReportType enum (TASKS, HABITS, GOALS, EVENTS, FINANCE, CHOICES)
+  - user_uid: User the report belongs to
+  - Reports aggregate metrics from domains
+
+  For Reports, the relationships would be:
+  1. (report)-[:AGGREGATES]->(domain_entity) - What entities this report aggregates
+  2. (report)-[:REPORTS_ON]->(goal) - Goals this report covers
+  3. (report)-[:GENERATED_FOR]->(user) - User this report belongs to (if not using user_uid field)
+
+  the ReportRelationshipService:
+

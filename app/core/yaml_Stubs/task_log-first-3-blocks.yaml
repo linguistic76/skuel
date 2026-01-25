@@ -1,0 +1,9 @@
+version: 0.1
+type: Task
+uid: tk:log-first-3-blocks
+title: Log your first three blocks
+summary: Record topic, start time, and one sentence of result.
+tags: [logging, beginner]
+properties:
+  estimated_minutes: 3
+  priority: normal

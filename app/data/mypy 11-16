@@ -1,0 +1,18 @@
+
+
+
+  2. return-value (82 errors) - Incompatible return types
+  - Example: Got "tuple[dict, int]", expected "JSONResponse"
+  - Root cause: Route functions returning tuples instead of proper response types
+  - Impact: API contract violations
+
+  3. call-arg (38 errors) - Function argument mismatches
+  - Example: Function called with wrong number/type of arguments
+  - Root cause: Function signatures changed without updating all call sites
+  - Impact: Runtime TypeErrors possible
+
+
+
+  The remaining 75 attr-defined errors are all medium/low priority:
+  - 62 unknown attributes (need investigation: obsolete vs. missing features)
+  - 2 type narrowing (MyPy inference limitations)

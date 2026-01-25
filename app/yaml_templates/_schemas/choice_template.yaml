@@ -1,0 +1,156 @@
+# Choice Template
+# ===============
+# This is a TEMPLATE EXAMPLE, not a validation schema.
+# It shows ALL valid fields for Choice YAML files.
+#
+# Purpose: Use this as a reference when creating choice entities.
+# Location: Use this structure in /home/mike/0bsidian/skuel/domains/{domain_name}/
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: Choice
+
+# uid: Unique identifier
+# Pattern: choice:choice-name
+# Example: choice:start-25min-now, choice:create-5-flashcards
+uid: choice:example-choice
+
+# title: Display title for this choice
+# Type: String
+# Example: "Start a 25-minute block right now", "Create 5 flashcards"
+title: Example Choice Title
+
+# description: Detailed description of what this choice entails
+# Type: String
+# Purpose: Explain what happens if this choice is selected
+description: Detailed description of this choice and its implications
+
+# user_uid: User this choice belongs to
+# Type: String
+# Pattern: User UID or "system" for shared choices
+# Example: "system" for curriculum choices, "user:mike" for personal choices
+# Note: This field is REQUIRED for Choice model
+user_uid: system
+
+# OPTIONAL FIELDS
+# ---------------
+
+# choice_type: Type of choice decision structure
+# Valid values: binary, multiple, priority_ranking, constraint_based, conditional
+# Default: binary
+# Note: 'binary' for yes/no decisions, 'multiple' for pick one of many
+choice_type: binary
+
+# status: Current status of this choice
+# Valid values: pending, selected, deferred, rejected
+# Default: pending
+# Note: Tracks whether the choice has been made
+status: pending
+
+# priority: Urgency/importance of making this choice
+# Valid values: low, medium, high, critical
+# Default: medium
+priority: high
+
+# domain: Knowledge domain this choice relates to
+# Valid values: personal, professional, technical, health, financial, social
+# Default: personal
+domain: personal
+
+# decision_criteria: Factors to consider when making this choice
+# Type: List of strings
+# Purpose: Help the user evaluate whether to make this choice
+decision_criteria:
+  - Do I have time available right now?
+  - Is there a clear objective?
+  - Can I minimize distractions quickly?
+
+# constraints: Limitations or requirements for this choice
+# Type: List of strings
+# Purpose: What must be true for this choice to be viable
+constraints:
+  - Requires 25 minutes of uninterrupted time
+  - Requires a clear study topic
+  - Requires quiet environment
+
+# stakeholders: Who is affected by this choice
+# Type: List of strings
+# Purpose: Identify whose interests are at stake
+stakeholders:
+  - self
+  - team
+
+# outcomes: Potential outcomes of selecting this choice
+# Type: List of strings
+# Purpose: What will happen if this choice is made
+outcomes:
+  - Complete one focused study block
+  - Build momentum for future sessions
+  - Log tangible progress
+
+# alternatives: Other choices to consider instead
+# Type: List of Choice UIDs
+# Purpose: Present related or competing choices
+alternatives:
+  - choice:alternative-option-1
+  - choice:alternative-option-2
+
+# deadline: When this choice must be made by
+# Type: Date or datetime string
+# Format: YYYY-MM-DD or ISO datetime
+# Example: "2025-10-15" or "2025-10-15T14:30:00"
+deadline: null
+
+# tags: Descriptive tags for categorization
+# Type: List of strings
+tags:
+  - example
+  - template
+
+# METADATA FIELDS (Auto-populated, DO NOT SET)
+# --------------------------------------------
+# These fields are automatically set by the system:
+# - created_at: Timestamp when created
+# Note: Choice model has created_at but NOT updated_at
+
+# ENUM VALUE REFERENCE
+# --------------------
+
+# choice_type options:
+#   - binary: Yes/no, do it or don't
+#   - multiple: Pick one from several options
+#   - priority_ranking: Rank options in order of preference
+#   - constraint_based: Options with specific constraints
+#   - conditional: Choice depends on other factors
+
+# status options:
+#   - pending: Not yet decided
+#   - selected: This choice was made
+#   - deferred: Postponed for later
+#   - rejected: Explicitly not chosen
+
+# priority options:
+#   - low: Can wait
+#   - medium: Should decide soon
+#   - high: Needs decision soon
+#   - critical: Urgent decision required
+
+# domain options:
+#   - personal: Personal life decisions
+#   - professional: Career/work decisions
+#   - technical: Technical/tool choices
+#   - health: Health and wellness
+#   - financial: Money and resources
+#   - social: Relationships and community
+
+# NOTES
+# -----
+# 1. Choice model requires 'user_uid' field (unlike Task, Event, Goal which don't)
+# 2. Choice model has 'created_at' but NO 'updated_at' field
+# 3. Use decision_criteria to help users evaluate the choice
+# 4. Use constraints to clarify when the choice is viable
+# 5. stakeholders identifies who is impacted (can be ["self"] for personal choices)
+# 6. binary choice_type is most common for simple yes/no decisions
+# 7. alternatives can link to related choices for comparison

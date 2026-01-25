@@ -1,0 +1,7 @@
+version: 0.1
+type: Choice
+uid: ch:plan-two-blocks-tomorrow
+title: Plan two blocks for tomorrow
+summary: Name topics and times before you sleep.
+tags: [planning]
+applies_to_steps: [ps:lp:study-skills-101:step-1]

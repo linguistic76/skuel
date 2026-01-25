@@ -1,0 +1,83 @@
+version: 1.0
+type: Principle
+
+uid: principle:attention-over-intensity
+name: Attention Over Intensity
+statement: I value gentle attention more than forceful concentration
+description: |
+  Quality of attention matters more than intensity of effort.
+  Mindfulness is about noticing, not forcing.
+
+# Classification
+category: personal
+source: philosophical
+strength: strong
+
+# Philosophical Context
+tradition: Buddhism / Mindfulness Meditation
+original_source: Jon Kabat-Zinn - Wherever You Go, There You Are
+personal_interpretation: |
+  Forcing attention creates tension. Gentle noticing creates awareness.
+  The practice isn't about "conquering" the wandering mind—it's about
+  befriending it with soft, persistent attention.
+
+# Learning Integration
+supported_knowledge_domains:
+  - ku:mind-wandering-happens
+  - ku:breath-awareness-basics
+
+guided_goal_uids:
+  - goal:mindfulness-beginner
+
+inspired_habit_uids:
+  - habit:label-wander-daily
+
+related_principle_uids:
+  - principle:small-steps
+
+# Expressions & Applications
+key_behaviors:
+  - Return to breath gently when mind wanders
+  - Label thoughts softly without judgment
+  - Notice tension and soften rather than push through
+
+decision_criteria:
+  - When attention wavers, guide it back gently vs. forcing it back
+  - When frustrated, soften approach vs. trying harder
+  - When practicing, prioritize ease over duration
+
+# Alignment Tracking
+current_alignment: aligned
+last_review_date: 2025-10-04
+
+# Conflicts & Tensions
+potential_conflicts:
+  - Achievement-oriented mindset that values "harder" over "gentler"
+  - Cultural emphasis on "no pain, no gain"
+
+resolution_strategies:
+  - Remember that neural pathways form through repetition, not force
+  - Trust that gentle persistence builds deeper skill than intense effort
+
+# Personal Reflection
+why_important: |
+  This principle prevents the toxic pattern of treating meditation
+  as another performance metric. It allows practice to be practice.
+
+origin_story: |
+  Learned through failure—trying to "force" focus created more agitation
+  than wandering. Gentle noticing created actual progress.
+
+# Status
+is_active: true
+priority: high
+
+# Metadata
+adopted_date: 2025-02-01
+tags:
+  - attention
+  - mindfulness
+  - gentleness
+  - non-striving
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z

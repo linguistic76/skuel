@@ -1,0 +1,136 @@
+
+● Domain-Specific Hooks - Complete Answer
+
+  Domain-specific hooks in BaseService implement the Template Method Pattern to allow each domain service to add custom business rule validation without modifying the base CRUD logic.
+
+  Core Role
+
+  Location: core/services/base_service.py (lines 268-322)
+
+  Two Hook Methods:
+  1. _validate_create(entity: T) - Validates entity before creation
+  2. _validate_update(current: T, updates: dict) - Validates updates before applying
+
+  How It Works
+
+  class BaseService:
+      # Template method (defines algorithm structure)
+      async def create(self, entity: T) -> Result[T]:
+          # Step 1: Call domain-specific validation hook
+          validation = self._validate_create(entity)
+          if validation:
+              return Result.fail(validation.expect_error())
+
+          # Step 2: Proceed with creation
+          return await self.backend.create(entity)
+
+      # Hook method (default: no validation)
+      def _validate_create(self, entity: T) -> Result[None] | None:
+          """Override in subclasses to add domain-specific validation."""
+          return None  # None = valid
+
+  The Pattern
+
+  Template Method Pattern:
+  - BaseService defines the structure (validation → operation)
+  - Subclasses customize specific steps (validation logic)
+  - Generic code stays in base class (DRY principle)
+
+  Key Responsibilities
+
+  1. Business Rule Enforcement
+
+  Domain services override hooks to enforce their specific business rules:
+
+  class FinanceCoreService(BaseService):
+      def _validate_create(self, expense: ExpensePure) -> Result[None] | None:
+          # Business rule: Amount must be positive
+          if expense.amount <= 0:
+              return Result.fail(Errors.validation("Amount must be positive"))
+          return None
+
+  2. Pre-Operation Validation
+
+  Hooks run before database operations, preventing invalid data from being persisted.
+
+  Flow:
+  User → service.create(entity)
+           ↓
+        _validate_create(entity)  ← HOOK executes here
+           ↓ (if fails)
+        Return error immediately
+           ↓ (if passes)
+        backend.create(entity)
+
+  3. State Transition Validation
+
+  _validate_update() can enforce valid state machines:
+
+  def _validate_update(self, expense: ExpensePure, updates: dict):
+      # Business rule: Can't transition REFUNDED → PENDING
+      if expense.status == ExpenseStatus.REFUNDED:
+          if "status" in updates:
+              return Result.fail(Errors.validation("Cannot modify refunded expenses"))
+      return None
+
+  Current Usage
+
+  Active: FinanceCoreService (only service currently using hooks)
+  - Validates expense amounts > 0
+  - Enforces payment status state machine
+
+  Most Services: Use default implementation (no custom validation)
+
+  Why: Most validation handled by:
+  - Pydantic models (API layer - type/format validation)
+  - Database constraints (Neo4j - uniqueness, required fields)
+  - Domain model design (frozen dataclasses - immutability)
+
+  When to Override: When domain-specific business rules need enforcement that can't be expressed elsewhere.
+
+  Validation Layers Comparison
+
+  | Layer           | Purpose                | Example                        |
+  |-----------------|------------------------|--------------------------------|
+  | Pydantic (API)  | Type/format validation | amount: float (must be float)  |
+  | Hooks (Service) | Business rules         | amount > 0 (domain constraint) |
+  | Database        | Data integrity         | NOT NULL constraint            |
+
+  Design Principles
+
+  1. Optional, Not Required
+  - Default implementation does nothing (returns None)
+  - Only override when business rules require it
+
+  2. Fail-Fast
+  - Validation happens before database operations
+  - Invalid state never reaches persistence layer
+
+  3. Single Responsibility
+  - Hook method only validates (no side effects)
+  - Returns None if valid, Result.fail() if invalid
+
+  4. Type-Safe Error Propagation
+  - Uses .expect_error() pattern (Fix #3)
+  - Converts Result[None] → Result[T] correctly
+
+  Benefits
+
+  ✅ Centralized Business Logic - Domain rules in domain services
+  ✅ DRY - Generic CRUD written once in BaseService
+  ✅ Easy Testing - Focused validation functions
+  ✅ Clear Errors - Structured validation errors with field names
+  ✅ No Breaking Changes - Add validation without touching routes
+
+  Documentation Created
+
+  /home/mike/skuel0/docs/patterns/DOMAIN_SPECIFIC_HOOKS.md (400+ lines)
+  - Complete pattern explanation
+  - Usage examples
+  - Comparison with other validation layers
+  - Implementation guide
+  - Design principles
+
+  ---
+  TL;DR: Domain-specific hooks let each service add custom validation by overriding _validate_create() and _validate_update(). They enforce business rules before database operations using the Template Method Pattern, keeping generic
+   CRUD in BaseService while allowing domain-specific behavior in subclasses.

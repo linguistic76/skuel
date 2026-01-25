@@ -1,0 +1,106 @@
+:
+
+  ---
+  UX Legacy Code Assessment
+
+  Current Architecture (Keep)
+
+  1. New UI System (/ui/) - The modern replacement
+  - ui/primitives/ - Raw TailwindCSS primitives (text, card, badge, button, input, layout)
+  - ui/layouts/ - Page and dashboard layouts
+  - ui/patterns/ - Entity cards, stats grids, empty states
+  - ui/docs/ - Documentation layout (fully working reference implementation)
+
+  2. Drawer Layout (components/drawer_layout.py) - Keep
+  - 286 lines, clean DaisyUI drawer pattern
+  - Used appropriately for sidebar navigation
+
+  Legacy Code for Removal
+
+  High Priority - Direct FrankenUI Dependencies (Remove)
+
+  | File                                  | Lines | Used By                  | Status |
+  |---------------------------------------|-------|--------------------------|--------|
+  | components/franken_design_system.py   | ~250  | 12 route files           | REMOVE |
+  | components/shared_ui_components.py    | ~660  | 8 routes                 | REMOVE |
+  | components/form_generator.py          | ~492  | 8 routes                 | REMOVE |
+  | components/auth_components.py         | ~720  | 1 route (auth_routes.py) | REMOVE |
+  | components/card_generator.py          | ~522  | 5 routes                 | REMOVE |
+  | components/calendar_components.py     | ~584  | calendar_routes.py       | REMOVE |
+  | components/timeline_components.py     | ~625  | timeline_routes.py       | REMOVE |
+  | components/search_components.py       | ~625  | search_routes.py         | REMOVE |
+  | components/dashboard_components.py    | ~200  | dashboard_routes.py      | REMOVE |
+  | components/knowledge_ui_components.py | ~622  | knowledge_ui.py          | REMOVE |
+
+  Medium Priority - Intermediate _daisy.py Files (Remove)
+
+  These were created as a migration step but now superseded by the new /ui/ system:
+
+  | File                                     | Purpose      | Status |
+  |------------------------------------------|--------------|--------|
+  | components/daisyui_design_system.py      | Intermediate | REMOVE |
+  | components/shared_ui_components_daisy.py | Intermediate | REMOVE |
+  | components/form_generator_daisy.py       | Intermediate | REMOVE |
+  | components/auth_components_daisy.py      | Intermediate | REMOVE |
+  | components/calendar_components_daisy.py  | Intermediate | REMOVE |
+
+  Low Priority - Atomic Habits Cluster (6 files, ~3,500 lines)
+
+  | File                                     | Lines | Status |
+  |------------------------------------------|-------|--------|
+  | components/atomic_habits_components.py   | ~600  | Review |
+  | components/atomic_habits_analytics.py    | ~600  | Review |
+  | components/atomic_habits_achievements.py | ~500  | Review |
+  | components/atomic_habits_intelligence.py | ~600  | Review |
+  | components/atomic_habits_mobile.py       | ~600  | Review |
+  | components/atomic_habits_animations.py   | ~600  | Review |
+
+  Used only by habits_ui.py and goals_ui.py. Heavy FrankenUI usage.
+
+
+  Likely Dead Code (Verify & Remove)
+
+  | File                                      | Lines | Notes                           |
+  |-------------------------------------------|-------|---------------------------------|
+  | components/chat_ui_adapter.py             | ~710  | No active imports found         |
+  | components/knowledge_facets.py            | ~300  | Unknown usage                   |
+  | components/ui_foundation.py               | ~200  | Base class, may be unused       |
+  | components/user_preferences_components.py | ~300  | Check usage                     |
+  | components/docs_components.py             | ~200  | May be superseded by ui/docs/   |
+  | components/docs_layout.py                 | ~200  | Superseded by ui/docs/layout.py |
+
+  Route Files with _daisy.py Duplicates (7 pairs)
+
+  These exist as FrankenUI original + DaisyUI duplicate:
+
+  adapters/inbound/tasks_ui.py        + tasks_ui_daisy.py
+  adapters/inbound/goals_ui.py        + goals_ui_daisy.py
+  adapters/inbound/habits_ui.py       + habits_ui_daisy.py
+  adapters/inbound/principles_ui.py   + principles_ui_daisy.py
+  adapters/inbound/choice_ui.py       + choice_ui_daisy.py
+  adapters/inbound/finance_ui.py      + finance_ui_daisy.py
+  adapters/inbound/calendar_routes.py + calendar_routes_daisy.py
+
+  Decision needed: Keep DaisyUI set, remove duplicates.
+
+  Summary Statistics
+
+  | Category                    | Files | Est. Lines |
+  |-----------------------------|-------|------------|
+  | Legacy components to remove | 16    | ~7,000     |
+  | Atomic habits cluster       | 6     | ~3,500     |
+  | Dead code candidates        | 6     | ~2,000     |
+  | Duplicate _daisy.py routes  | 7     | ~2,500     |
+  | Total removable             | 35    | ~15,000    |
+
+  Recommended Approach
+
+  1. Immediate: Remove clearly dead/superseded files
+  2. Phase 2: Migrate route files to use /ui/ primitives
+  3. Phase 3: Remove old components as routes are migrated
+  4. Final: Remove monsterui from pyproject.toml
+
+  Would you like me to:
+  1. Start removing specific files?
+  2. Check actual import usage for the "dead code candidates"?
+  3. Create a migration plan for the route files?

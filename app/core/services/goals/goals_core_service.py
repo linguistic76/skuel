@@ -1,0 +1,792 @@
+"""
+Goals Core Service
+==================
+
+Handles basic CRUD operations for goals.
+
+Responsibilities:
+- Basic goal retrieval (get_user_goals)
+- Delegates create/update/DETACH DELETE to backend via BaseService
+- Publishes domain events (GoalCreated, GoalAchieved, GoalProgressUpdated, GoalAbandoned)
+
+Version: 2.3.0
+Date: 2026-01-10
+
+Changelog:
+- v2.3.0 (2026-01-10): Phase 3 - Registry-driven get_with_context().
+  Removed custom override, now uses BaseService.get_with_context() with
+  UnifiedRelationshipRegistry (GOALS_UNIFIED). Shared-neighbor pattern for
+  related_goals is now defined in the registry.
+  See: /core/models/unified_relationship_registry.py
+- v2.2.0 (2025-11-28): Phase 2 - Milestones as graph nodes.
+  Milestones are now stored as separate Milestone nodes connected via HAS_MILESTONE edge.
+- v2.1.0 (2025-11-28): Phase 1 - Eliminated APOC dependency.
+- v2.0.0 (2025-11-05): Initial facade pattern implementation
+"""
+
+from datetime import date, datetime
+from typing import Any, ClassVar
+
+from core.events import publish_event
+from core.events.goal_events import (
+    GoalAbandoned,
+    GoalAchieved,
+    GoalCreated,
+    GoalProgressUpdated,
+)
+from core.models.goal.goal import Goal
+from core.models.goal.goal_dto import GoalDTO
+from core.models.goal.goal_request import GoalCreateRequest
+from core.models.relationship_names import RelationshipName
+from core.models.shared_enums import ActivityStatus, GoalStatus
+from core.services.base_service import BaseService
+from core.services.protocols import get_enum_value
+from core.services.protocols.domain_protocols import GoalsOperations
+from core.services.protocols.query_types import GoalUpdatePayload
+from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
+from core.utils.uid_generator import UIDGenerator
+
+
+class GoalsCoreService(BaseService[GoalsOperations, Goal]):
+    """
+    Core CRUD operations for goals.
+
+    This service provides basic goal operations:
+    - get_user_goals: Retrieve all goals for a user
+    - Inherits: create, get, update, DETACH DELETE from BaseService
+    - Publishes domain events for all state changes
+
+    Event-Driven Architecture:
+    - Publishes GoalCreated on creation
+    - Publishes GoalAchieved when goal completed
+    - Publishes GoalProgressUpdated on progress changes
+    - Publishes GoalAbandoned when goal cancelled
+
+
+    Source Tag: "goals_core_service_explicit"
+    - Format: "goals_core_service_explicit" for user-created relationships
+    - Format: "goals_core_service_inferred" for system-generated relationships
+
+    Confidence Scoring:
+    - 0.9+: User explicitly defined relationship
+    - 0.7-0.9: Inferred from goals_core metadata
+    - 0.5-0.7: Suggested based on patterns
+    - <0.5: Low confidence, needs verification
+
+    SKUEL Architecture:
+    - Uses CypherGenerator for ALL graph queries
+    - No APOC calls (Phase 5 eliminated those)
+    - Returns Result[T] for error handling
+    - Logs operations with structured logging
+
+    """
+
+    def __init__(self, backend: GoalsOperations, event_bus=None) -> None:
+        """
+        Initialize goals core service.
+
+        Args:
+            backend: Protocol-based backend for goal operations
+            event_bus: Event bus for publishing domain events (optional)
+        """
+        super().__init__(backend, "goals")
+        self.logger = get_logger("skuel.services.goals.core")
+        self.event_bus = event_bus
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONTRACT
+    # ========================================================================
+
+    @property
+    def entity_label(self) -> str:
+        """Return the graph label for Goal entities."""
+        return "Goal"
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (Class Attributes)
+    # ========================================================================
+    # CONSOLIDATED (November 27, 2025): These class attributes configure
+    # the unified get_user_items_in_range() method in BaseService.
+
+    _date_field: str = "target_date"  # Goals filter by target date
+    _completed_statuses: ClassVar[list[str]] = [
+        GoalStatus.ACHIEVED.value,
+        GoalStatus.CANCELLED.value,
+    ]
+    _dto_class = GoalDTO
+    _model_class = Goal
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC VALIDATION HOOKS
+    # ========================================================================
+
+    def _validate_create(self, goal: Goal) -> Result[None] | None:
+        """
+        Validate goal creation with business rules.
+
+        Business Rules:
+        1. Target date must be after start date (timeline consistency)
+
+        Args:
+            goal: Goal domain model being created
+
+        Returns:
+            None if valid, Result.fail() with validation error if invalid
+        """
+
+        # Business Rule: Target date must be after start date
+        if goal.target_date and goal.start_date and goal.target_date <= goal.start_date:
+            return Result.fail(
+                Errors.validation(
+                    message="Target date must be after start date",
+                    field="target_date",
+                    value=goal.target_date.isoformat(),
+                )
+            )
+
+        return None  # All validations passed
+
+    def _validate_update(self, current: Goal, updates: dict[str, Any]) -> Result[None] | None:
+        """
+        Validate goal updates with business rules.
+
+        Business Rules:
+        1. Achievement state immutability: Cannot modify achieved goals
+        2. Target date validation: If updating dates, target must be after start
+
+        Note: Goal abandonment protection (checking for active tasks) is handled
+        in the update() method since it requires async relationship queries.
+
+        Args:
+            current: Current goal state
+            updates: Dictionary of proposed changes
+
+        Returns:
+            None if valid, Result.fail() with validation error if invalid
+        """
+
+        # Business Rule 1: Achievement state immutability
+        # Achieved goals are historical records - modifying them corrupts progress tracking
+        if current.status == GoalStatus.ACHIEVED:
+            return Result.fail(
+                Errors.validation(
+                    message="Cannot modify achieved goals - they are historical records",
+                    field="status",
+                    value=current.status.value,
+                )
+            )
+
+        # Business Rule 2: Target date validation (if both dates present)
+        # Check if we're updating either date field
+        if "target_date" in updates or "start_date" in updates:
+            # Determine new values (use updated value if present, else current)
+            new_target = updates.get("target_date", current.target_date)
+            new_start = updates.get("start_date", current.start_date)
+
+            # Both must be present and target must be after start
+            if new_target and new_start:
+                # Handle both date objects and ISO strings
+                if isinstance(new_target, str):
+                    from datetime import date as date_type
+
+                    new_target = date_type.fromisoformat(new_target)
+                if isinstance(new_start, str):
+                    from datetime import date as date_type
+
+                    new_start = date_type.fromisoformat(new_start)
+
+                if new_target <= new_start:
+                    return Result.fail(
+                        Errors.validation(
+                            message="Target date must be after start date",
+                            field="target_date",
+                            value=str(new_target),
+                        )
+                    )
+
+        return None  # All validations passed
+
+    # ========================================================================
+    # READ OPERATIONS WITH GRAPH CONTEXT
+    # ========================================================================
+    # NOTE: get_with_context() is inherited from BaseService (January 2026)
+    #
+    # Uses registry-driven query generation from UnifiedRelationshipRegistry.
+    # The GOALS_UNIFIED config includes:
+    # - contributing_tasks, contributing_habits (supporting activities)
+    # - sub_goals, parent_goal (hierarchy)
+    # - required_knowledge, aligned_principles (prerequisites and guidance)
+    # - inspired_by_choice (motivation)
+    # - milestones (progress tracking)
+    # - related_goals (shared-neighbor pattern via FULFILLS_GOAL|SUPPORTS_GOAL)
+    # - milestone_progress (calculated in BaseService._parse_context_result)
+    #
+    # See: /core/models/unified_relationship_registry.py - GOALS_UNIFIED
+    # See: /core/services/base_service.py - get_with_context()
+    # ========================================================================
+
+    async def get_goal(self, goal_uid: str) -> Result[Goal]:
+        """
+        Get a specific goal by UID.
+
+        Uses BaseService.get() which delegates to BackendOperations.get().
+        Not found is returned as Result.fail(Errors.not_found(...)).
+
+        Args:
+            goal_uid: Goal UID
+
+        Returns:
+            Result[Goal] - success contains Goal, not found is an error
+        """
+        return await self.get(goal_uid)
+
+    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
+        """
+        Get all goals for a user, including learning relationships.
+
+        Args:
+            user_uid: User identifier
+
+        Returns:
+            Result containing list of Goal domain models
+        """
+        result = await self.backend.find_by(user_uid=user_uid)
+        if result.is_error:
+            return result
+
+        # Convert to enriched Goal models using helper
+        goals = self._to_domain_models(result.value, GoalDTO, Goal)
+
+        self.logger.info(f"Retrieved {len(goals)} goals for user {user_uid}")
+        return Result.ok(goals)
+
+    # get_user_items_in_range() is now inherited from BaseService
+    # Configured via class attributes: _date_field, _completed_statuses, _dto_class, _model_class
+    # CONSOLIDATED (November 27, 2025) - Removed 45 lines of duplicate code
+
+    # ========================================================================
+    # EVENT-DRIVEN CRUD OPERATIONS
+    # ========================================================================
+
+    async def create(self, entity: Goal) -> Result[Goal]:
+        """
+        Create a goal and publish GoalCreated event.
+
+        Args:
+            entity: Goal to create
+
+        Returns:
+            Result containing created Goal
+
+        Events Published:
+            - GoalCreated: When goal is successfully created
+        """
+        # Call parent create
+        result: Result[Goal] = await super().create(entity)
+
+        # Publish GoalCreated event
+        if result.is_ok:
+            goal: Goal = result.value  # Type hint to help MyPy
+            event = GoalCreated(
+                goal_uid=goal.uid,
+                user_uid=goal.user_uid,
+                title=goal.title,
+                domain=get_enum_value(goal.domain) if goal.domain else None,
+                target_date=goal.target_date,
+                occurred_at=datetime.now(),
+            )
+            await publish_event(self.event_bus, event, self.logger)
+
+        return result
+
+    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: str) -> Result[Goal]:
+        """
+        Create a goal from a request with user_uid.
+
+        Args:
+            goal_request: Goal creation request
+            user_uid: User UID (REQUIRED - fail-fast on None)
+
+        Returns:
+            Result containing created Goal
+        """
+        # Validate user_uid (uses BaseService helper)
+        validation = self._validate_required_user_uid(user_uid, "goal creation")
+        if validation:
+            return validation
+
+        # Create DTO from request with all fields
+        # Set status to ACTIVE so goal appears in default list view
+        dto = GoalDTO(
+            uid=UIDGenerator.generate_random_uid("goal"),
+            user_uid=user_uid,
+            title=goal_request.title,
+            description=goal_request.description,
+            vision_statement=goal_request.vision_statement,
+            goal_type=goal_request.goal_type,
+            domain=goal_request.domain,
+            timeframe=goal_request.timeframe,
+            measurement_type=goal_request.measurement_type,
+            target_value=goal_request.target_value,
+            start_date=goal_request.start_date,
+            target_date=goal_request.target_date,
+            parent_goal_uid=goal_request.parent_goal_uid,
+            priority=goal_request.priority,
+            status=GoalStatus.ACTIVE,
+        )
+
+        # Create goal via backend and convert to domain model (uses BaseService helper)
+        result = await self._create_and_convert(dto.to_dict(), GoalDTO, Goal)
+        if result.is_error:
+            return result
+        goal = result.value
+
+        # Publish GoalCreated event
+        event = GoalCreated(
+            goal_uid=goal.uid,
+            user_uid=goal.user_uid,
+            title=goal.title,
+            domain=get_enum_value(goal.domain) if goal.domain else None,
+            target_date=goal.target_date,
+            occurred_at=datetime.now(),
+        )
+        await publish_event(self.event_bus, event, self.logger)
+
+        return Result.ok(goal)
+
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Goal]:
+        """
+        Update a goal and publish appropriate events.
+
+        Business Rule Enforcement (async validation):
+        - Goal abandonment protection: Cannot cancel goal with active tasks
+
+        Publishes GoalProgressUpdated if progress field changed.
+        Publishes GoalAchieved if status changed to COMPLETED.
+
+        Args:
+            uid: Goal UID
+            updates: Dictionary of field updates
+
+        Returns:
+            Result containing updated Goal
+
+        Events Published:
+            - GoalProgressUpdated: If progress field updated
+            - GoalAchieved: If status changed to COMPLETED
+        """
+        # Business Rule: Goal abandonment protection (requires async relationship query)
+        # Cannot abandon goal with active tasks - forces user to handle dependencies first
+        if "status" in updates and updates["status"] == GoalStatus.CANCELLED.value:
+            # Query for active tasks linked to this goal
+            from core.models.query import build_relationship_count
+
+            # Check for tasks that are not in terminal states (i.e., still active/pending)
+            # We can't filter by non-terminal in a simple property match, so we check for
+            # the most common active states: IN_PROGRESS, SCHEDULED, BLOCKED, PAUSED
+            query, params = build_relationship_count(
+                uid=uid,
+                relationship_type=RelationshipName.FULFILLS_GOAL.value,
+                direction="incoming",  # (task)-[:FULFILLS_GOAL]->(goal)
+                properties={
+                    "status__in": [
+                        ActivityStatus.IN_PROGRESS.value,
+                        ActivityStatus.SCHEDULED.value,
+                        ActivityStatus.BLOCKED.value,
+                        ActivityStatus.PAUSED.value,
+                    ]
+                },
+            )
+
+            query_result = await self.backend.execute_query(query, params)
+            if query_result.is_error:
+                # Log warning but continue - don't block on relationship query failure
+                self.logger.warning(
+                    f"Failed to check active tasks for goal {uid}: {query_result.expect_error()}"
+                )
+            else:
+                active_task_count = query_result.value[0]["count"] if query_result.value else 0
+
+                if active_task_count > 0:
+                    from core.utils.result_simplified import Errors
+
+                    return Result.fail(
+                        Errors.validation(
+                            message=f"Cannot abandon goal with {active_task_count} active task(s). Complete or reassign tasks first.",
+                            field="status",
+                            value=updates["status"],
+                        )
+                    )
+
+        # Get current goal to track changes (always fetch if updating progress or status)
+        old_goal = None
+        old_progress = None
+        if "progress" in updates or "status" in updates:
+            current_result = await self.get(uid)
+            if current_result.is_ok and current_result.value:
+                old_goal = current_result.value
+                old_progress = getattr(old_goal, "progress", 0.0) or 0.0
+
+        # Call parent update
+        result: Result[Goal] = await super().update(uid, updates)
+
+        if result.is_ok:
+            goal: Goal = result.value  # Type hint to help MyPy
+
+            # Publish GoalProgressUpdated event if progress changed
+            if "progress" in updates and old_progress is not None:
+                new_progress = updates.get("progress", 0.0)
+
+                event = GoalProgressUpdated(
+                    goal_uid=goal.uid,
+                    user_uid=goal.user_uid,
+                    old_progress=old_progress,
+                    new_progress=new_progress,
+                    occurred_at=datetime.now(),
+                    triggered_by_manual_update=True,
+                )
+                await publish_event(self.event_bus, event, self.logger)
+
+            # Publish GoalAchieved event if status changed to ACHIEVED
+            if "status" in updates and old_goal:
+                new_status = updates.get("status")
+                old_status = get_enum_value(old_goal.status)  # Handle both enum and string
+
+                if (
+                    new_status == GoalStatus.ACHIEVED.value
+                    and old_status != GoalStatus.ACHIEVED.value
+                ):
+                    # Calculate duration if created_at exists
+                    actual_duration_days = None
+                    if goal.created_at:
+                        actual_duration_days = (datetime.now() - goal.created_at).days
+
+                    achieved_event = GoalAchieved(
+                        goal_uid=goal.uid,
+                        user_uid=goal.user_uid,
+                        actual_duration_days=actual_duration_days,
+                        occurred_at=datetime.now(),
+                    )
+                    await publish_event(self.event_bus, achieved_event, self.logger)
+
+        return result
+
+    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
+        """
+        DETACH DELETE (abandon) a goal and publish GoalAbandoned event.
+
+        Args:
+            uid: Goal UID
+            cascade: Whether to cascade DETACH DELETE (default False)
+
+        Returns:
+            Result indicating success
+
+        Events Published:
+            - GoalAbandoned: When goal is successfully deleted
+        """
+        # Get goal details before deletion for event publishing
+        goal_result = await self.get(uid)
+        if goal_result.is_error:
+            return Result.fail(goal_result.expect_error())
+
+        goal = goal_result.value
+
+        # Call parent delete
+        result = await super().delete(uid, cascade=cascade)
+
+        # Publish GoalAbandoned event
+        if result.is_ok:
+            progress_at_abandonment = getattr(goal, "progress", 0.0) or 0.0
+
+            # Calculate days active
+            days_active = 0
+            if goal.created_at:
+                days_active = (datetime.now() - goal.created_at).days
+
+            event = GoalAbandoned(
+                goal_uid=uid,
+                user_uid=goal.user_uid,
+                occurred_at=datetime.now(),
+                progress_at_abandonment=progress_at_abandonment,
+                days_active=days_active,
+            )
+            await publish_event(self.event_bus, event, self.logger)
+
+        return result
+
+    # ========================================================================
+    # STATUS OPERATIONS (Phase 5: P5 Missing Methods)
+    # ========================================================================
+
+    async def activate_goal(self, uid: str) -> Result[bool]:
+        """
+        Activate a goal (set status to ACTIVE).
+
+        Args:
+            uid: Goal UID
+
+        Returns:
+            Result containing True if goal was activated
+        """
+        updates: GoalUpdatePayload = {"status": GoalStatus.ACTIVE.value}
+        result = await self.update(uid, updates)
+        return Result.ok(True) if result.is_ok else Result.fail(result.expect_error())
+
+    async def pause_goal(
+        self, uid: str, reason: str = "Paused", until_date: str | None = None
+    ) -> Result[bool]:
+        """
+        Pause a goal temporarily.
+
+        Args:
+            uid: Goal UID
+            reason: Reason for pausing
+            until_date: Optional resume date (ISO format)
+
+        Returns:
+            Result containing True if goal was paused
+        """
+        updates: GoalUpdatePayload = {"status": GoalStatus.PAUSED.value}
+
+        # Store pause metadata
+        metadata_updates = {"pause_reason": reason}
+        if until_date:
+            metadata_updates["paused_until"] = until_date
+
+        result = await self.update(uid, updates)
+        if result.is_ok and metadata_updates:
+            # Update metadata separately
+            goal = result.value
+            goal.metadata.update(metadata_updates)
+            await self.update(uid, {"metadata": goal.metadata})
+
+        return Result.ok(True) if result.is_ok else Result.fail(result.expect_error())
+
+    async def complete_goal(
+        self, uid: str, completion_notes: str = "", completion_date: str | None = None
+    ) -> Result[bool]:
+        """
+        Mark a goal as completed.
+
+        Args:
+            uid: Goal UID
+            completion_notes: Optional completion notes
+            completion_date: Optional completion date (ISO format), defaults to today
+
+        Returns:
+            Result containing True if goal was completed
+        """
+        updates: GoalUpdatePayload = {
+            "status": GoalStatus.ACHIEVED.value,
+            "progress_percentage": 100.0,
+            "completion_date": (
+                date.fromisoformat(completion_date) if completion_date else date.today()
+            ),
+        }
+
+        if completion_notes:
+            # Get current goal to update metadata
+            goal_result = await self.get(uid)
+            if goal_result.is_ok and goal_result.value:
+                goal = goal_result.value
+                goal.metadata["completion_notes"] = completion_notes
+                updates["metadata"] = goal.metadata
+
+        result = await self.update(uid, updates)
+        return Result.ok(True) if result.is_ok else Result.fail(result.expect_error())
+
+    async def archive_goal(self, uid: str, reason: str = "Archived") -> Result[bool]:
+        """
+        Archive a goal (set status to ARCHIVED).
+
+        Args:
+            uid: Goal UID
+            reason: Reason for archiving
+
+        Returns:
+            Result containing True if goal was archived
+        """
+        updates: GoalUpdatePayload = {"status": GoalStatus.ARCHIVED.value}
+
+        # Get current goal to update metadata
+        goal_result = await self.get(uid)
+        if goal_result.is_ok and goal_result.value:
+            goal = goal_result.value
+            goal.metadata["archive_reason"] = reason
+            goal.metadata["archived_at"] = datetime.now().isoformat()
+            updates["metadata"] = goal.metadata
+
+        result = await self.update(uid, updates)
+        return Result.ok(True) if result.is_ok else Result.fail(result.expect_error())
+
+    # ========================================================================
+    # QUERY OPERATIONS (Phase 5: P5 Missing Methods)
+    # ========================================================================
+
+    async def list_goal_categories(self) -> Result[list[str]]:
+        """
+        List all unique goal categories.
+
+        Returns:
+            Result containing list of category strings
+        """
+        # Query Neo4j for distinct domain values
+        query = """
+        MATCH (g:Goal)
+        RETURN DISTINCT g.domain as category
+        ORDER BY category
+        """
+
+        result = await self.backend.execute_query(query, {})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        categories = [record["category"] for record in result.value if record.get("category")]
+        return Result.ok(categories)
+
+    async def get_goals_by_category(self, category: str, limit: int = 100) -> Result[list[Goal]]:
+        """
+        Get goals in a specific category.
+
+        Args:
+            category: Category/domain name
+            limit: Maximum number of goals to return
+
+        Returns:
+            Result containing list of Goals
+        """
+        result = await self.backend.find_by(domain=category, limit=limit)
+        if result.is_error:
+            return result
+
+        goals = self._to_domain_models(result.value, GoalDTO, Goal)
+        return Result.ok(goals)
+
+    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[Goal]]:
+        """
+        Get goals by status.
+
+        Args:
+            status: Goal status (active, completed, paused, etc.)
+            limit: Maximum number of goals to return
+
+        Returns:
+            Result containing list of Goals
+        """
+        result = await self.backend.find_by(status=status, limit=limit)
+        if result.is_error:
+            return result
+
+        goals = self._to_domain_models(result.value, GoalDTO, Goal)
+        return Result.ok(goals)
+
+    async def search_goals(self, query: str, limit: int = 50) -> Result[list[Goal]]:
+        """
+        Search goals by title or description.
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results
+
+        Returns:
+            Result containing list of matching Goals
+        """
+        # Use Neo4j text search on title and description
+        cypher_query = """
+        MATCH (g:Goal)
+        WHERE toLower(g.title) CONTAINS toLower($query)
+           OR toLower(g.description) CONTAINS toLower($query)
+        RETURN g
+        ORDER BY g.created_at DESC
+        LIMIT $limit
+        """
+
+        result = await self.backend.execute_query(cypher_query, {"query": query, "limit": limit})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        # Convert to Goals
+        goals = []
+        for record in result.value:
+            goal_node = record["g"]
+            dto = GoalDTO.from_dict(dict(goal_node))
+            goals.append(Goal.from_dto(dto))
+
+        return Result.ok(goals)
+
+    # ========================================================================
+    # TIME-BASED QUERIES - REMOVED (January 2026)
+    # ========================================================================
+    # The following methods were removed as duplicates of GoalsSearchService:
+    #   - get_goals_due_soon() -> Use search.get_due_soon() instead
+    #   - get_overdue_goals() -> Use search.get_overdue() instead
+    #
+    # The facade (GoalsService) delegates to search service via:
+    #   "get_goals_due_soon": ("search", "get_due_soon")
+    #   "get_overdue_goals": ("search", "get_overdue")
+    #
+    # GoalsSearchService has custom implementations with Goals-specific
+    # status filtering (IN ['active', 'in_progress', 'on_track']).
+    # ========================================================================
+
+    # ========================================================================
+    # SPECIALIZED OPERATIONS
+    # ========================================================================
+
+    async def mark_achieved(self, uid: str) -> Result[Goal]:
+        """
+        Mark a goal as achieved and publish GoalAchieved event.
+
+        This is a specialized operation that sets status to COMPLETED
+        and publishes a GoalAchieved event (high-priority event).
+
+        Args:
+            uid: Goal UID
+
+        Returns:
+            Result containing updated Goal
+
+        Events Published:
+            - GoalAchieved: When goal is successfully marked as achieved
+        """
+        # Get current goal to calculate metrics
+        goal_result = await self.get(uid)
+        if goal_result.is_error:
+            return Result.fail(goal_result.expect_error())
+
+        current_goal = goal_result.value
+
+        # Update status to completed
+        updates = {"status": ActivityStatus.COMPLETED.value}
+        result = await super().update(uid, updates)
+
+        # Publish GoalAchieved event
+        if result.is_ok:
+            goal = result.value
+
+            # Calculate duration metrics
+            actual_days = None
+            planned_days = None
+            ahead_of_schedule = False
+
+            if current_goal.created_at:
+                actual_days = (datetime.now() - current_goal.created_at).days
+
+            if current_goal.target_date and current_goal.created_at:
+                planned_days = (current_goal.target_date - current_goal.created_at).days
+                if actual_days and planned_days:
+                    ahead_of_schedule = actual_days < planned_days
+
+            event = GoalAchieved(
+                goal_uid=goal.uid,
+                user_uid=goal.user_uid,
+                occurred_at=datetime.now(),
+                actual_duration_days=actual_days,
+                planned_duration_days=planned_days,
+                completed_ahead_of_schedule=ahead_of_schedule,
+            )
+            await publish_event(self.event_bus, event, self.logger)
+
+        return result

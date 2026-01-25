@@ -1,0 +1,80 @@
+# Learning Step (ls) Template
+# ============================
+# Core curriculum entity for learning journey steps
+# Merges PathStep and KnowledgeCluster concepts
+#
+# UID Format: ls:{path-name}:{step-id} or ls:{standalone-id}
+# Examples:
+#   - ls:mindfulness-101:step-1 (sequenced)
+#   - ls:breath-basics (standalone)
+
+version: 1.0
+type: LearningStep
+
+# Identity
+uid: ls:template:example
+title: Template Learning Step
+intent: What the learner will achieve by completing this step
+description: Detailed description of the step (optional)
+
+# Knowledge Content (use ku: prefix)
+primary_knowledge_uids:
+  - ku:main-concept-1
+  - ku:main-concept-2
+
+supporting_knowledge_uids:
+  - ku:optional-concept-1
+  - ku:optional-concept-2
+
+# Path Integration (optional - for sequenced steps)
+learning_path_uid: lp:example-path  # Parent path (null for standalone)
+sequence: 1  # Order in path (null for standalone)
+
+# Prerequisites & Dependencies
+prerequisite_step_uids:
+  - ls:other-path:required-step
+
+prerequisite_knowledge_uids:
+  - ku:assumed-knowledge
+
+# Learning Guidance
+principle_uids:
+  - principle:guiding-value-1
+  - principle:guiding-value-2
+
+choice_uids:
+  - choice:option-1
+  - choice:option-2
+
+# Practice Integration
+habit_uids:
+  - habit:practice-habit-1
+
+task_uids:
+  - task:practice-task-1
+  - task:practice-task-2
+
+event_template_uids:
+  - event:calendar-block-template
+
+# Mastery & Progress
+mastery_threshold: 0.7  # 0.0-1.0
+current_mastery: 0.0  # State field (for display)
+estimated_hours: 1.0
+difficulty: moderate  # trivial | easy | moderate | challenging | advanced
+
+# Status
+status: not_started  # not_started | in_progress | completed | mastered | archived
+completed: false
+
+# Domain & Priority
+domain: personal  # personal | tech | health | finance | creative | other
+priority: medium  # low | medium | high | urgent
+
+# Metadata
+notes: Additional notes about this step
+tags:
+  - beginner
+  - foundational
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z

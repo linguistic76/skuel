@@ -1,0 +1,31 @@
+version: 1.0
+type: Choice
+
+uid: choice:2-minutes-before-bed
+title: Two Minutes Before Bed
+description: Close the day with a soft two-minute sit. Transition from doing to being.
+user_uid: system
+
+# Choice Configuration
+choice_type: binary
+status: pending
+priority: medium
+domain: personal
+
+# Decision Context
+decision_criteria:
+  - Part of evening wind-down routine?
+  - Helps transition to sleep mode?
+  - Fits into bedtime preparation?
+
+constraints:
+  - Requires evening availability
+  - May conflict with elaborate bedtime routines
+  - Should be done before getting into bed for sleep hygiene
+
+# Context
+stakeholders:
+  - self
+
+# Timing
+decision_deadline: null

@@ -1,0 +1,27 @@
+Strengths
+
+  1. Type Safety Throughout
+  - All filters use frozen dataclasses with proper enum types (Priority, ActivityStatus, Domain)
+  - Relationship filters use RelationshipName enum (not strings)
+  - Direction type alias for relationship directions
+  - to_query_params() provides type-safe translation to backend queries
+
+  2. Clean Architecture
+  - Clear separation: Filters → Parsing → Scoring → Routing
+  - Protocol-based design (DomainScoringStrategy, SearchableService)
+  - Immutable dataclasses for thread safety
+
+  3. Domain-Specific Customization
+  - 6 domain-specific filter classes with appropriate fields (e.g., TaskSearchFilters.fulfills_goal_uid, HabitSearchFilters.min_current_streak)
+  - Domain-specific scoring functions with weighted components
+  - DateRangeFilters composition for temporal queries
+
+  4. Natural Language Bridge
+  - SearchQueryParser extracts semantic filters from natural language
+  - Uses enum from_search_text() methods for consistency
+  - Returns both filtered results and ParsedSearchQuery for transparency
+
+  5. Unified Scoring Framework
+  - ScoringComponent enum provides vocabulary for scoring factors
+  - PriorityScore.explain() generates human-readable breakdowns
+  - Weights are explicit and domain-specific

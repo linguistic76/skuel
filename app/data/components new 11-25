@@ -1,0 +1,13 @@
+ 1. Typed Context Dataclasses (cross_domain_contexts.py)
+    - TaskCrossContext, GoalCrossContext, HabitCrossContext, etc.
+    - Type-safe extraction via from_dict() classmethod
+    - Helper methods like total_knowledge_count(), support_coverage()
+
+  2. CrossDomainContextService (cross_domain_context_service.py)
+    - fetch_typed_context() - Fetch and convert to typed dataclass
+    - analyze_with_context() - Complete analysis pattern (replaces 23 methods)
+    - batch_analyze_with_context() - For Finance/Events batch operations
+
+  3. Metrics Calculators (metrics_calculators.py)
+    - calculate_task_metrics(), calculate_goal_metrics(), etc.
+    - Centralized calculation logic

@@ -1,0 +1,69 @@
+6
+
+● Summary: Typed Request/Response Objects Pattern
+
+  What Was Fixed
+
+  1. API Boundary Errors (events_api.py)
+
+  Fixed 5 route-to-service mismatches where routes were calling services with incorrect arguments:
+
+  | Route Call (Before)                            | Service Signature | Fix                    |
+  |------------------------------------------------|-------------------|------------------------|
+  | update_event_status(uid, status, notes)        | (uid, status)     | Removed notes          |
+  | check_conflicts(start, end, exclude)           | (event_uid)       | Changed to event-based |
+  | create_recurring_instances(uid, end_date, max) | (uid, count)      | Fixed params           |
+  | get_recurring_events()                         | (user_uid, limit) | Added required args    |
+  | add_attendee(uid, attendee, role)              | (uid, user_uid)   | Removed role           |
+
+  2. Model Instantiation Errors
+
+  Fixed _dict_to_* methods in progress services that were passing non-existent fields:
+
+  | Service                       | Model              | Wrong Fields → Correct Fields                                                                                  |
+  |-------------------------------|--------------------|----------------------------------------------------------------------------------------------------------------|
+  | TasksProgressService          | Task               | domain, estimated_minutes, energy_level, focus_time_block, is_recurring, parent_task_uid → Removed or mapped   |
+  | HabitsProgressService         | HabitDTO           | frequency, target_count, consistency_30d, is_keystone → recurrence_pattern, target_days_per_week, success_rate |
+  | HabitsProgressService         | HabitRelationships | prerequisite_habit_uids → Removed (not in model)                                                               |
+  | GoalsProgressService          | Goal               | completion_date → achieved_date                                                                                |
+  | EventsHabitIntegrationService | Event              | duration_minutes, fulfills_goal_uid, quality_score, energy_level, notes, completed_at → Mapped or removed      |
+
+  Results
+
+  | Metric            | Before Protocol Fix | After Protocol Fix | After Boundary Fix | Change     |
+  |-------------------|---------------------|--------------------|--------------------|------------|
+  | [call-arg] errors | 67                  | 67                 | 44                 | -23 (34%)  |
+  | Total error lines | 992                 | 862                | 816                | -176 (18%) |
+
+  Design Lesson
+
+  The pattern of errors reveals a fundamental design issue: Model fields drift from code that uses them.
+
+  When you add or rename fields in a domain model:
+  1. All _dict_to_* conversion methods need updating
+  2. All API route calls need updating
+  3. All DTO mappings need updating
+
+Solution: Typed Request/Response Objects
+
+  Instead of positional arguments at boundaries:
+
+  # Before: Easy to get wrong
+
+  await service.update_status(uid, status, notes)
+
+  Use typed objects:
+
+  # After: Compile-time verified
+
+  @dataclass
+
+  class UpdateStatusRequest:
+      uid: str
+      status: str
+      notes: str | None = None
+
+  await service.update_status(UpdateStatusRequest(uid=uid, status=status))
+
+  This makes the contract explicit and refactoring safe - change the dataclass, and MyPy tells you every place that needs updating.
+

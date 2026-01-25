@@ -1,0 +1,208 @@
+# Habit Template
+# ==============
+# This is a TEMPLATE EXAMPLE, not a validation schema.
+# It shows ALL valid fields for Habit YAML files.
+#
+# Purpose: Use this as a reference when creating habit entities.
+# Location: Use this structure in /home/mike/0bsidian/skuel/domains/{domain_name}/
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: Habit
+
+# uid: Unique identifier
+# Pattern: habit:habit-name
+# Example: habit:daily-25min-focus, habit:weekly-review-30min
+uid: habit:example-habit
+
+# name: Display name for this habit
+# Type: String
+# Note: Use 'name' not 'title' for Habit model!
+# Example: "Daily 25-Minute Focus Block", "Weekly 30-Minute Review"
+name: Example Habit Name
+
+# OPTIONAL FIELDS
+# ---------------
+
+# description: Detailed description of the habit
+# Type: String
+# Purpose: Explain what the habit entails
+description: Detailed description of what this habit involves and why it matters
+
+# polarity: Whether this is a habit to build or break
+# Valid values: build, break
+# Default: build
+# Note: 'build' for positive habits, 'break' for habits to eliminate
+polarity: build
+
+# category: Type of habit
+# Valid values: health, learning, productivity, social, creative, mindfulness, financial, other
+# Default: other
+# Example: learning for study habits, health for exercise habits
+category: learning
+
+# difficulty: How challenging this habit is
+# Valid values: trivial, easy, moderate, challenging, heroic
+# Default: moderate
+# Example: easy for simple daily habits, challenging for complex routines
+difficulty: easy
+
+# recurrence_pattern: How often this habit occurs
+# Valid values: daily, weekly, monthly, custom
+# Default: daily
+# Note: This replaces the old 'habit_type' and 'frequency' fields
+recurrence_pattern: daily
+
+# target_days_per_week: How many days per week to perform this habit
+# Type: Integer 1-7
+# Default: 7 (daily)
+# Example: 5 for weekday habits, 1 for weekly habits
+target_days_per_week: 5
+
+# preferred_time: When to perform this habit
+# Valid values: morning, afternoon, evening, or null
+# Default: null
+# Example: "morning" for habits best done early
+preferred_time: morning
+
+# duration_minutes: Expected time per occurrence
+# Type: Integer
+# Default: 15
+# Unit: Minutes
+# Example: 25 for pomodoro sessions, 30 for review sessions
+duration_minutes: 25
+
+# linked_knowledge_uids: Knowledge units this habit reinforces
+# Type: List of KnowledgeUnit UIDs
+# Purpose: Connect habit practice to learning
+linked_knowledge_uids:
+  - ku:related-knowledge-1
+  - ku:related-knowledge-2
+
+# linked_goal_uids: Goals this habit supports
+# Type: List of Goal UIDs
+# Purpose: Show how habit contributes to larger goals
+linked_goal_uids:
+  - goal:related-goal-1
+
+# linked_principle_uids: Principles this habit embodies
+# Type: List of Principle UIDs
+# Purpose: Connect habit to guiding principles
+linked_principle_uids:
+  - principle:related-principle-1
+
+# prerequisite_habit_uids: Habits that should be established first
+# Type: List of Habit UIDs
+# Purpose: Build habit progression (master simple before complex)
+prerequisite_habit_uids:
+  - habit:prerequisite-habit
+
+# current_streak: Current consecutive completions (DO NOT SET MANUALLY)
+# Type: Integer
+# Default: 0
+# Note: Auto-updated by the system
+current_streak: 0
+
+# best_streak: Longest consecutive completions (DO NOT SET MANUALLY)
+# Type: Integer
+# Default: 0
+# Note: Auto-updated by the system
+best_streak: 0
+
+# total_completions: Total times completed (DO NOT SET MANUALLY)
+# Type: Integer
+# Default: 0
+# Note: Auto-updated by the system
+
+# total_attempts: Total times attempted (DO NOT SET MANUALLY)
+# Type: Integer
+# Default: 0
+# Note: Auto-updated by the system
+
+# success_rate: Completion rate (DO NOT SET MANUALLY)
+# Type: Float 0.0-1.0
+# Default: 0.0
+# Note: Auto-calculated by system
+
+# last_completed: Last completion timestamp (DO NOT SET MANUALLY)
+# Type: Datetime
+# Note: Auto-set by system
+
+# cue: Environmental or time trigger
+# Type: String
+# Purpose: What reminds you to do this habit
+# Example: "After breakfast, before checking phone"
+cue: After breakfast, before checking phone
+
+# routine: What you actually do
+# Type: String
+# Purpose: The habit action itself
+# Example: "Set timer for 25 minutes, study one topic, log completion"
+routine: Set timer for 25 minutes, study one topic, log completion
+
+# reward: What you get from completing the habit
+# Type: String
+# Purpose: The benefit or satisfaction
+# Example: "Check off day, see streak grow"
+reward: Check off day, see streak grow
+
+# tags: Descriptive tags for categorization
+# Type: List of strings
+tags:
+  - example
+  - template
+  - focus
+
+# METADATA FIELDS (Auto-populated, DO NOT SET)
+# --------------------------------------------
+# These fields are automatically set by the system:
+# - created_at: Timestamp when created
+# - updated_at: Timestamp when last modified
+
+# ENUM VALUE REFERENCE
+# --------------------
+
+# polarity options:
+#   - build: Positive habit to establish
+#   - break: Negative habit to eliminate
+
+# category options:
+#   - health: Physical/mental health habits
+#   - learning: Study and education habits
+#   - productivity: Work efficiency habits
+#   - social: Relationship and communication habits
+#   - creative: Creative practice habits
+#   - mindfulness: Meditation and awareness habits
+#   - financial: Money management habits
+#   - other: Miscellaneous habits
+
+# difficulty options:
+#   - trivial: Takes almost no effort
+#   - easy: Simple to maintain
+#   - moderate: Requires some discipline
+#   - challenging: Requires significant effort
+#   - heroic: Extremely demanding
+
+# recurrence_pattern options:
+#   - daily: Every day
+#   - weekly: Once per week
+#   - monthly: Once per month
+#   - custom: Custom schedule (define separately)
+
+# preferred_time options:
+#   - morning: Best done in the morning
+#   - afternoon: Best done in the afternoon
+#   - evening: Best done in the evening
+#   - null: No time preference
+
+# IMPORTANT NOTES
+# ---------------
+# 1. Habit model uses 'name' NOT 'title' (different from Task/Event/Goal)
+# 2. Habit model does NOT have 'user_uid' field (different from Choice)
+# 3. Use 'recurrence_pattern' not 'habit_type' or 'frequency'
+# 4. Progress fields (streaks, completions) are auto-managed by system
+# 5. Cue-Routine-Reward pattern helps establish strong habits
+# 6. linked_* fields connect habits to broader learning ecosystem
+# 7. prerequisite_habit_uids creates a progression path (simple → complex)

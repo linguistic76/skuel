@@ -1,0 +1,20 @@
+
+● Summary of HabitsService Updates:
+
+  Added 7 new methods to HabitsService facade that were expected by API routes:
+
+  | Method               | Delegates To                                     | Purpose                   |
+  |----------------------|--------------------------------------------------|---------------------------|
+  | track_habit()        | completions.record_completion()                  | Record habit completion   |
+  | untrack_habit()      | completions.get_completions_for_habit() + delete | Remove completion entry   |
+  | get_habit_streak()   | core.get_habit()                                 | Get streak information    |
+  | get_habit_progress() | completions.get_completion_stats()               | Get progress statistics   |
+  | pause_habit()        | core.update()                                    | Pause a habit temporarily |
+  | resume_habit()       | core.update()                                    | Resume a paused habit     |
+  | archive_habit()      | core.update()                                    | Archive a habit           |
+
+  Error Count Progress:
+  - Total MyPy errors: 289 → 275 (14 fewer)
+  - no-any-return errors: 88 → 81 (7 fewer)
+
+

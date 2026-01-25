@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+"""
+GitHub Management CLI
+======================
+
+Simple CLI for managing GitHub repository operations.
+Version: 1.0
+"""
+
+__version__ = "1.0"
+
+import sys
+from pathlib import Path
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from core.utils.github_manager import main
+
+if __name__ == "__main__":
+    main()

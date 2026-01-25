@@ -1,0 +1,78 @@
+# GraphQL Code Generator Configuration
+# =====================================
+#
+# Generates TypeScript types from SKUEL GraphQL schema.
+#
+# Usage:
+#   1. Export schema: poetry run python scripts/export_graphql_schema.py
+#   2. Install dependencies: npm install --save-dev @graphql-codegen/cli @graphql-codegen/typescript @graphql-codegen/typescript-operations
+#   3. Generate types: npm run codegen
+#
+# Generated files will be in frontend/src/generated/
+
+schema: ./schema.graphql
+
+# Optional: If you have .graphql query files, add them here
+# documents: 'frontend/src/**/*.graphql'
+
+generates:
+  # Generate TypeScript types from schema
+  frontend/src/generated/graphql.ts:
+    plugins:
+      # Core TypeScript type generation
+      - typescript
+
+      # TypeScript types for GraphQL operations (queries, mutations, subscriptions)
+      - typescript-operations
+
+    config:
+      # Include __typename in generated types (useful for Apollo Client cache)
+      skipTypename: false
+
+      # Make all types immutable (readonly)
+      immutableTypes: true
+
+      # Use exact types (no extra properties allowed)
+      strictScalars: true
+
+      # Scalar type mappings
+      scalars:
+        # Map GraphQL scalars to TypeScript types
+        DateTime: string
+        JSON: Record<string, any>
+
+      # Enum generation
+      enumsAsTypes: false  # Generate enums as TypeScript enums (not union types)
+
+      # Optional fields
+      maybeValue: T | null  # How to represent optional fields
+
+      # Array types
+      arrayInputCoercion: false  # Don't auto-wrap single values in arrays
+
+      # Naming conventions
+      namingConvention:
+        typeNames: pascal-case
+        enumValues: keep
+        transformUnderscore: true
+
+      # Add generated timestamp
+      addGeneratedTag: true
+
+      # Comments in generated code
+      withComments: true
+
+  # Generate GraphQL introspection JSON (useful for tooling)
+  frontend/src/generated/introspection.json:
+    plugins:
+      - introspection
+    config:
+      minify: false
+
+# Hooks (optional - runs after generation)
+hooks:
+  afterAllFileWrite:
+    - echo "✅ TypeScript types generated successfully!"
+    - echo "📦 Generated files:"
+    - echo "   - frontend/src/generated/graphql.ts"
+    - echo "   - frontend/src/generated/introspection.json"

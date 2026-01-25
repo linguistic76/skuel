@@ -1,0 +1,87 @@
+# ============================================================================
+# SKUEL Infrastructure - Neo4j Graph Database
+# ============================================================================
+# Production-ready Neo4j 5.26 configuration without APOC
+# Consolidated from infrastructure/docker-compose.neo4j.yml (Phase 6.3 tuning)
+# Last Updated: 2026-01-02 - Modernized Neo4j 5.26 configuration syntax
+# ============================================================================
+
+services:
+  neo4j:
+    image: neo4j:5.26
+    container_name: skuel-neo4j
+    restart: unless-stopped
+
+    ports:
+      # Localhost-only binding for security
+      - "127.0.0.1:7474:7474"  # HTTP (Neo4j Browser)
+      - "127.0.0.1:7687:7687"  # Bolt (Application connection)
+
+    environment:
+      # ============================================
+      # AUTHENTICATION
+      # ============================================
+      NEO4J_AUTH: "${NEO4J_AUTH}"
+
+      # ============================================
+      # MEMORY CONFIGURATION (Phase 6.3 tuned)
+      # ============================================
+      # Heap memory settings
+      NEO4J_server_memory_heap_initial__size: "${NEO4J_HEAP_INIT}"
+      NEO4J_server_memory_heap_max__size: "${NEO4J_HEAP_MAX}"
+
+      # Page cache (graph traversal performance)
+      NEO4J_server_memory_pagecache_size: "${NEO4J_PAGECACHE}"
+
+      # ============================================
+      # TRANSACTION CONFIGURATION (Neo4j 5.26+)
+      # ============================================
+      # Database transaction timeout (for large queries)
+      NEO4J_db_transaction_timeout: 600s
+
+      # ============================================
+      # QUERY OPTIMIZATION (Phase 5 Pure Cypher)
+      # ============================================
+      # Query cache size (parameterized queries) - Neo4j 5.26+ syntax
+      # server.memory.query_cache.per_db_cache_num_entries → NEO4J_server_memory_query__cache_per__db__cache__num__entries
+      NEO4J_server_memory_query__cache_per__db__cache__num__entries: "2000"
+
+      # Cypher planner (cost-based optimization) - Neo4j 5.26+ syntax
+      NEO4J_dbms_cypher_planner: COST
+
+      # Note: Query plan caching is enabled by default in Neo4j 5.x
+
+      # ============================================
+      # LOGGING CONFIGURATION (Neo4j 5.26+)
+      # ============================================
+      # Note: Neo4j 5.x uses 'db.logs.*' prefix instead of 'dbms.logs.*'
+      # Query log rotation is now managed automatically by Neo4j
+
+      # Log slow queries (> 1 second)
+      NEO4J_db_logs_query_enabled: INFO
+      NEO4J_db_logs_query_threshold: 1s
+      NEO4J_db_logs_query_parameter__logging__enabled: "true"
+
+      # ============================================
+      # NETWORK CONFIGURATION
+      # ============================================
+      NEO4J_server_bolt_enabled: "true"
+      NEO4J_server_bolt_listen__address: 0.0.0.0:7687
+      NEO4J_server_http_enabled: "true"
+      NEO4J_server_http_listen__address: 0.0.0.0:7474
+
+    volumes:
+      # Persistent data storage
+      - ./neo4j/data:/data
+      - ./neo4j/logs:/logs
+      - ./neo4j/conf:/conf
+      - ./neo4j/plugins:/plugins
+      - ./neo4j/import:/import
+      - ./neo4j/backups:/backups
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7474"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s

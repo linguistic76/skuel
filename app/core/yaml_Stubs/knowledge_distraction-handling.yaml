@@ -1,0 +1,11 @@
+version: 0.1
+type: KnowledgeUnit
+uid: ku:distraction-handling
+title: Handling Distractions
+summary: A quick checklist to keep your focus clean.
+tags: [focus, environment]
+knowledge:
+  kind: article
+  body_path: content/study/distraction-handling.md
+relations:
+  belongs_to_clusters: [kc:study-skills-foundations]

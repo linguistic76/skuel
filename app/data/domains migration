@@ -1,0 +1,158 @@
+
+● Excellent! All 6 standard-pattern domains migrated ✅. Let me update the todo and summarize:
+
+● Phase 2B Migration Summary ✅
+
+  Successfully migrated 6 out of 7 domains to Phase 2B architecture!
+
+  ✅ Completed Migrations (6/7)
+
+  | Domain     | Service Lines       | Backend Lines Removed | Tests          | Status   |
+  |------------|---------------------|-----------------------|----------------|----------|
+  | Tasks      | 544-733 (190 lines) | ~210 lines            | 15/15 ✅        | Complete |
+  | Events     | 206-356 (151 lines) | ~165 lines            | 15/15 ✅        | Complete |
+  | Habits     | 188-368 (181 lines) | ~185 lines            | 15/15 ✅        | Complete |
+  | Goals      | 204-433 (230 lines) | ~224 lines            | 15/15 ✅        | Verified |
+  | Principles | 158-336 (179 lines) | ~175 lines            | Not tested yet | Complete |
+  | Choices    | 168-338 (171 lines) | ~173 lines            | Not tested yet | Complete |
+
+  Total backend code removed: ~1,132 lines of deprecated methods ✅
+
+  Architecture Pattern Implemented
+
+  Before (Mixed Concerns):
+  Backend.get_X_cross_domain_context()
+  ├─ Graph query ← Primitive
+  ├─ Categorization ← Domain Logic (WRONG LAYER!)
+  └─ Format output ← Domain Logic (WRONG LAYER!)
+
+  After (Clean Separation):
+  RelationshipService.get_X_cross_domain_context()
+  ├─ Backend.get_domain_context_raw() ← Primitive (correct layer)
+  ├─ Categorize inline ← Domain Logic (correct layer)
+  └─ Format output ← Domain Logic (correct layer)
+
+  🔧 Finance Domain - Special Case
+
+  Status: Requires different approach (not migrated)
+
+  Why: Finance uses a custom query pattern instead of build_domain_context_with_paths:
+  - Custom relationship properties (contribution_type, learning_investment, allocation_percentage)
+  - Variable-length path patterns specific to finance domain
+  - Doesn't fit the standard get_domain_context_raw() primitive
+
+  Location: /adapters/persistence/neo4j/universal_backend.py:3025-3100
+
+  Recommendation: Finance should either:
+  1. can it be refactored to use standard pattern (if possible), OR
+  2. Keep its custom backend method (documented as exception to Phase 2B pattern)
+
+  Next Steps
+
+
+  2. Decide on Finance - can it be refactored to use standard pattern ?
+
+  3. Update documentation - Mark Phase 2B as "6/7 complete, Finance pending decision"
+  4. Optional: Add Finance categorization to FinanceIntelligenceService (following Tasks pattern)
+
+  Code Metrics
+
+  - Services updated: 6 relationship services
+  - Backend methods removed: 6 deprecated methods (~1,132 lines)
+  - New service code: ~1,102 lines (domain categorization logic)
+  - Net change: ~30 lines (better separation + maintainability)
+  - Backend primitive: Single get_domain_context_raw() serves ALL 6 domains ✅
+
+  Benefits achieved:
+  - ✅ True separation of concerns (Backend = primitives, Services = domain logic)
+  - ✅ Single backend primitive for ALL standard-pattern domains
+  - ✅ Easier to test (mock primitive once, not per domain)
+  - ✅ Easier to modify per domain (no backend coupling)
+  - ✅ Clean codebase (no deprecated code lingering per your request)
+
+  e
+     … +266 lines (ctrl+o to expand)
+
+● Excellent! All 87 tests passing (100% success rate). Let me update the todo list to reflect the complete Phase 2B migration:
+
+● Phase 2B Domain Intelligence Migration - COMPLETE ✅
+
+  Final Status: 87/87 tests passing (100%)
+
+  What Was Accomplished
+
+  1. Migrated 6 Domains to Phase 2B Architecture
+  - ✅ Events (15/15 tests)
+  - ✅ Habits (15/15 tests)
+  - ✅ Goals (15/15 tests)
+  - ✅ Principles (15/15 tests)
+  - ✅ Choices (12/12 tests)
+  - ⏸ Finance (deferred - uses different pattern)
+
+  2. Code Changes
+  - Updated 6 RelationshipService files to use new Phase 2B architecture
+  - Services now call backend.get_domain_context_raw() and perform inline categorization
+  - Removed 6 deprecated backend methods (~1,132 lines of dead code)
+
+  3. Architecture Benefits
+  - Clean Separation: Backend provides raw primitives, services handle domain logic
+  - No Duplication: Single backend method (get_domain_context_raw()) serves ALL domains
+  - Maintainability: Domain-specific categorization logic lives in RelationshipServices
+  - Type Safety: PathAware types (PathAwareGoal, PathAwareTask, etc.) with graph metadata
+
+  4. Test Results
+  - Tasks: 15/15 ✅
+  - Events: 15/15 ✅
+  - Habits: 15/15 ✅
+  - Goals: 15/15 ✅
+  - Principles: 15/15 ✅
+  - Choices: 12/12 ✅ (fixed 5 tests with missing options parameter)
+  - Total: 87/87 passing (100%)
+
+  5. Files Modified
+  - /core/services/events/events_relationship_service.py (lines 206-356)
+  - /core/services/habits/habits_relationship_service.py (lines 188-368)
+  - /core/services/goals/goals_relationship_service.py (lines 204-433)
+  - /core/services/principles/principles_relationship_service.py (lines 158-336)
+  - /core/services/choices/choices_relationship_service.py (lines 168-338)
+  - /adapters/persistence/neo4j/universal_backend.py (~1,132 lines removed)
+  - /tests/integration/test_choices_core_operations.py (5 tests fixed)
+
+  6. Finance Domain Note
+  - Finance uses a custom query pattern with specific properties (contribution_type, learning_investment)
+  - Does NOT use standard build_domain_context_with_paths() pattern
+  - Deferred for future work with specialized handling
+
+  Architecture Pattern
+
+  # Service layer - Clean separation of concerns
+  async def get_domain_cross_domain_context(
+      self, entity_uid: str, depth: int = 2, min_confidence: float = 0.7
+  ) -> Result[dict[str, Any]]:
+      """**PHASE 2B ARCHITECTURE (November 2025):**"""
+
+      # Step 1: Get raw graph context from backend (pure primitive)
+      raw_result = await self.backend.get_domain_context_raw(
+          entity_uid=entity_uid,
+          entity_label="Domain",
+          relationship_types=[...],  # Domain-specific
+          depth=depth,
+          min_confidence=min_confidence,
+          bidirectional=True/False,  # Domain-specific
+      )
+
+      # Step 2: Categorize into domain-specific groups (service layer)
+      for entity in raw_context:
+          labels = entity["labels"]
+          via_rels = entity["via_relationships"]
+          # Domain-specific categorization logic
+          if "Goal" in labels and "SUPPORTS_GOAL" in via_rels:
+              goals.append(PathAwareGoal(...))
+          # ... more categorization
+
+      # Step 3: Return structured context
+      return Result.ok({...})
+
+  Next Step: Update Phase 2B documentation with final migration status.
+
+

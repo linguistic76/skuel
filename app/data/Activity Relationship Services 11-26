@@ -1,0 +1,84 @@
+All 19 tests pass. Let me update the todo list:
+
+● All done. Here's a summary of what was accomplished:
+
+  Context-First Pattern Applied to Activity Relationship Services ✅
+
+  Applied the context-first optimization pattern to the three remaining activity relationship services:
+
+  1. TasksRelationshipService (get_actionable_tasks_for_user)
+
+  - Now checks context.active_tasks_rich before Neo4j queries
+  - Extracts title, knowledge_uids, prereq_task_uids from rich context
+  - Falls back to Neo4j only when entity not in rich context
+  - Logs context_hits vs neo4j_queries for monitoring
+
+  2. HabitsRelationshipService (get_at_risk_habits_for_user)
+
+  - Now checks context.active_habits_rich before Neo4j queries
+  - Extracts title, goal_uids, keystone status from rich context
+  - Falls back to Neo4j only when entity not in rich context
+  - Logs performance metricsI imagine you aim to keep a schedule of runs for pickups, yet the time ofII imagine you aim to keep a schedule of runs for pickups, yet the time of pick ups vary. imagine you aim to keep a schedule of runs for pickups, yet the time of pick ups vary. pick ups vary.
+
+  3. GoalsRelationshipService (get_advancing_goals_for_user)
+
+  - Now checks context.active_goals_rich before Neo4j queries
+  - Extracts title, knowledge_uids, principle_uids from rich context
+  - Falls back to Neo4j only when entity not in rich context
+  - Logs performance metrics
+
+  Pattern Summary
+
+  # CONTEXT-FIRST: Build lookup from rich context for O(1) access
+  rich_entities_by_uid: dict[str, dict] = {}
+  for entity_data in getattr(context, "active_*_rich", []) or []:
+      entity_dict = entity_data.get("entity", {})
+      uid = entity_dict.get("uid")
+      if uid:
+          rich_entities_by_uid[uid] = entity_data
+
+  # Try rich context before Neo4j
+  if entity_uid in rich_entities_by_uid:
+      context_hits += 1
+      # Extract from rich context
+  else:
+      neo4j_queries += 1
+      # Fallback to Neo4j queries
+
+  Benefits
+
+  - Performance: When MEGA-QUERY populates *_rich fields, no additional Neo4j queries needed
+  - Observability: Logging shows context_hits vs neo4j_queries for monitoring
+
+   All six activity domains now have the fail-fast pattern implemented with zero graceful degradation fallbacks.
+
+  Summary: All Six Activity Domains Now Have Fail-Fast Context-First Pattern
+
+  | Domain     | Service                       | Key Method                        | Status      |
+  |------------|-------------------------------|-----------------------------------|-------------|
+  | Tasks      | TasksRelationshipService      | get_actionable_tasks_for_user()   | ✅ FAIL-FAST |
+  | Habits     | HabitsRelationshipService     | get_at_risk_habits_for_user()     | ✅ FAIL-FAST |
+  | Goals      | GoalsRelationshipService      | get_advancing_goals_for_user()    | ✅ FAIL-FAST |
+  | Events     | EventsRelationshipService     | get_upcoming_events_for_user()    | ✅ FAIL-FAST |
+  | Choices    | ChoicesRelationshipService    | get_pending_decisions_for_user()  | ✅ FAIL-FAST |
+  | Principles | PrinciplesRelationshipService | get_aligned_principles_for_user() | ✅ FAIL-FAST |
+
+  Pattern Implemented
+
+  Each _for_user() method now:
+
+  1. Validates rich context is populated - Returns clear error if *_rich fields are empty when *_uids fields have entries
+  2. Validates consistency - Returns error if a UID exists in standard context but not in rich context
+  3. Returns empty list (not error) when user has no entities of that type
+  4. Uses only rich context - No fallback to Neo4j queries
+
+  Error Messages
+
+  Clear, actionable error messages explain:
+  - What's missing: "Rich context not populated for X active tasks"
+  - Why it failed: "MEGA-QUERY may not have been executed"
+  - How to fix: "Use user_service.get_rich_unified_context() to build complete context"
+
+
+
+

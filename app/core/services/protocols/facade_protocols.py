@@ -1,0 +1,1277 @@
+"""
+Facade Protocols - Type declarations for dynamically delegated methods.
+======================================================================
+
+These protocols provide type declarations for methods that FacadeDelegationMixin
+generates dynamically at class definition time. Since MyPy can't see dynamically
+created methods, these protocols enable type-safe usage at CALL SITES.
+
+**IMPORTANT: Do NOT inherit from these protocols in the facade classes.**
+The protocols are for structural subtyping (duck typing) - use them as TYPE HINTS
+for parameters that accept facade instances, not as base classes.
+
+Usage Pattern - Type hints at call sites:
+    from typing import TYPE_CHECKING
+    if TYPE_CHECKING:
+        from core.services.protocols.facade_protocols import GoalsFacadeProtocol
+
+    async def analyze_goals(goals_service: GoalsFacadeProtocol) -> dict:
+        # MyPy sees the protocol's method declarations
+        milestones = await goals_service.get_goal_milestones(uid)
+        progress = await goals_service.update_goal_progress(uid, 0.5)
+        return {"milestones": milestones, "progress": progress}
+
+Why Protocols work for dynamic methods:
+    - Structural subtyping: GoalsService satisfies GoalsFacadeProtocol structurally
+    - No inheritance required: Protocol matching is duck-typed at runtime
+    - MyPy sees declarations: Even though methods are created dynamically
+
+Why NOT to inherit from protocols:
+    - MyPy expects explicit implementations when Protocol is a base class
+    - Dynamic methods from FacadeDelegationMixin aren't visible to static analysis
+    - Results in "Cannot instantiate abstract class" errors
+
+See Also:
+    - /core/services/mixins/facade_delegation_mixin.py - Runtime delegation
+    - /docs/decisions/ADR-025-service-consolidation-patterns.md - Pattern context
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+from core.services.protocols.query_types import (
+    IntelligenceResult,
+    ProgressResult,
+)
+
+if TYPE_CHECKING:
+    from datetime import date
+
+    from core.models.choice.choice import Choice
+    from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
+    from core.models.event.event import Event
+    from core.models.goal.goal import Goal
+    from core.models.goal.goal_request import GoalCreateRequest
+    from core.models.habit.habit import Habit
+    from core.models.habit.habit_request import HabitCreateRequest
+    from core.models.lp import Lp
+    from core.models.ls import Ls
+    from core.models.principle.principle import Principle, PrincipleCategory
+    from core.models.shared_enums import Domain
+    from core.models.task.task import Task
+    from core.models.task.task_request import TaskCreateRequest
+    from core.services.user import UserContext
+    from core.utils.result_simplified import Result
+
+
+# ============================================================================
+# CORE SUB-SERVICE PROTOCOLS
+# ============================================================================
+# These protocols provide type-safe access to core sub-service methods.
+# They enable proper typing when accessing facade.core.method()
+# ============================================================================
+
+
+@runtime_checkable
+class TasksCoreOperations(Protocol):
+    """Protocol for TasksCoreService methods accessed via TasksService.core"""
+
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Task]:
+        """Verify user owns the task, return task if owned."""
+        ...
+
+    async def create_task(self, task_request: TaskCreateRequest, user_uid: str) -> Result[Task]:
+        """Create a new task."""
+        ...
+
+    async def get_task(self, task_uid: str) -> Result[Task]:
+        """Get a task by UID."""
+        ...
+
+    async def get_user_tasks(self, user_uid: str) -> Result[list[Task]]:
+        """Get all tasks for a user."""
+        ...
+
+    async def update_task(self, task_uid: str, updates: dict[str, Any]) -> Result[Task]:
+        """Update a task."""
+        ...
+
+    async def delete_task(self, task_uid: str) -> Result[bool]:
+        """Delete a task."""
+        ...
+
+
+@runtime_checkable
+class GoalsCoreOperations(Protocol):
+    """Protocol for GoalsCoreService methods accessed via GoalsService.core"""
+
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Goal]:
+        """Verify user owns the goal, return goal if owned."""
+        ...
+
+    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: str) -> Result[Goal]:
+        """Create a new goal."""
+        ...
+
+    async def get_goal(self, goal_uid: str) -> Result[Goal]:
+        """Get a goal by UID."""
+        ...
+
+    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
+        """Get all goals for a user."""
+        ...
+
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Goal]:
+        """Update a goal."""
+        ...
+
+    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
+        """Delete a goal."""
+        ...
+
+
+@runtime_checkable
+class HabitsCoreOperations(Protocol):
+    """Protocol for HabitsCoreService methods accessed via HabitsService.core"""
+
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Habit]:
+        """Verify user owns the habit, return habit if owned."""
+        ...
+
+    async def create(self, entity: Habit) -> Result[Habit]:
+        """Create a new habit."""
+        ...
+
+    async def create_habit(self, habit_request: HabitCreateRequest, user_uid: str) -> Result[Habit]:
+        """Create a habit from a request with user_uid."""
+        ...
+
+    async def get_habit(self, uid: str) -> Result[Habit]:
+        """Get a habit by UID."""
+        ...
+
+    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
+        """Get all habits for a user."""
+        ...
+
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Habit]:
+        """Update a habit."""
+        ...
+
+    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
+        """Delete a habit."""
+        ...
+
+
+@runtime_checkable
+class EventsCoreOperations(Protocol):
+    """Protocol for EventsCoreService methods accessed via EventsService.core"""
+
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Event]:
+        """Verify user owns the event, return event if owned."""
+        ...
+
+    async def create(self, entity: Event) -> Result[Event]:
+        """Create a new event."""
+        ...
+
+    async def get_event(self, event_uid: str) -> Result[Event]:
+        """Get an event by UID."""
+        ...
+
+    async def get_user_events(self, user_uid: str) -> Result[list[Event]]:
+        """Get all events for a user."""
+        ...
+
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Event]:
+        """Update an event."""
+        ...
+
+    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
+        """Delete an event."""
+        ...
+
+
+@runtime_checkable
+class PrinciplesCoreOperations(Protocol):
+    """Protocol for PrinciplesCoreService methods accessed via PrinciplesService.core"""
+
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Principle]:
+        """Verify user owns the principle, return principle if owned."""
+        ...
+
+    async def create_principle(
+        self,
+        label: str,
+        description: str,
+        category: PrincipleCategory,
+        why_matters: str,
+        user_uid: str,
+        **kwargs: Any,
+    ) -> Result[Principle]:
+        """Create a new principle."""
+        ...
+
+    async def get_principle(self, principle_uid: str) -> Result[Principle]:
+        """Get a principle by UID."""
+        ...
+
+    async def get_user_principles(self, user_uid: str) -> Result[list[Principle]]:
+        """Get all principles for a user."""
+        ...
+
+    async def update_principle(
+        self, principle_uid: str, updates: dict[str, Any]
+    ) -> Result[Principle]:
+        """Update a principle."""
+        ...
+
+    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
+        """Delete a principle."""
+        ...
+
+
+@runtime_checkable
+class ChoicesCoreOperations(Protocol):
+    """Protocol for ChoicesCoreService methods accessed via ChoicesService.core"""
+
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Choice]:
+        """Verify user owns the choice, return choice if owned."""
+        ...
+
+    async def create_choice(
+        self, choice_request: ChoiceCreateRequest, user_uid: str
+    ) -> Result[Choice]:
+        """Create a new choice."""
+        ...
+
+    async def get_choice(self, choice_uid: str) -> Result[Choice]:
+        """Get a choice by UID."""
+        ...
+
+    async def get_user_choices(self, user_uid: str) -> Result[list[Choice]]:
+        """Get all choices for a user."""
+        ...
+
+    async def update_choice(
+        self, choice_uid: str, choice_update: ChoiceUpdateRequest
+    ) -> Result[Choice]:
+        """Update a choice."""
+        ...
+
+    async def make_decision(
+        self,
+        choice_uid: str,
+        selected_option_uid: str,
+        decision_rationale: str | None = None,
+        confidence: float = 0.5,
+    ) -> Result[Choice]:
+        """Make a decision on a choice."""
+        ...
+
+    async def delete_choice(self, choice_uid: str) -> Result[bool]:
+        """Delete a choice."""
+        ...
+
+
+# ============================================================================
+# BACKEND OPERATIONS PROTOCOL
+# ============================================================================
+
+
+@runtime_checkable
+class BackendCrudOperations(Protocol):
+    """Protocol for backend CRUD operations accessed via service.backend"""
+
+    async def create(self, entity: Any) -> Result[Any]:
+        """Create an entity."""
+        ...
+
+    async def get(self, uid: str) -> Result[Any]:
+        """Get an entity by UID."""
+        ...
+
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Any]:
+        """Update an entity."""
+        ...
+
+    async def delete(self, uid: str) -> Result[bool]:
+        """Delete an entity."""
+        ...
+
+
+# ============================================================================
+# FACADE PROTOCOLS
+# ============================================================================
+
+
+@runtime_checkable
+class GoalsFacadeProtocol(Protocol):
+    """
+    Type declarations for GoalsService delegated methods.
+
+    These methods are auto-generated by FacadeDelegationMixin from _delegations.
+    This protocol makes them visible to MyPy for static type checking.
+    """
+
+    # ========================================================================
+    # Sub-service access (for direct sub-service method calls)
+    # ========================================================================
+
+    @property
+    def core(self) -> GoalsCoreOperations:
+        """Access to core sub-service for methods like verify_ownership."""
+        ...
+
+    # ========================================================================
+    # Explicit facade methods (not delegated)
+    # ========================================================================
+
+    async def create_goal(self, request: Any, user_uid: str) -> Result[Goal]:
+        """Create a new goal."""
+        ...
+
+    async def get(self, uid: str) -> Result[Goal | None]:
+        """Get a goal by UID (direct access)."""
+        ...
+
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[Goal | None]:
+        """Get a goal with ownership verification."""
+        ...
+
+    # ========================================================================
+    # Progress delegations (→ GoalsProgressService)
+    # ========================================================================
+
+    async def update_goal_progress(
+        self, uid: str, progress_value: float, notes: str = "", update_date: str | None = None
+    ) -> Result[ProgressResult]:
+        """Update goal progress manually."""
+        ...
+
+    async def get_goal_milestones(self, uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all milestones for a goal."""
+        ...
+
+    async def get_goal_progress(self, uid: str, period: str = "month") -> Result[ProgressResult]:
+        """Get goal progress history for a period."""
+        ...
+
+    async def complete_milestone(
+        self, uid: str, milestone_id: str, completion_date: str | None = None
+    ) -> Result[ProgressResult]:
+        """Mark a milestone as complete."""
+        ...
+
+    async def create_goal_milestone(
+        self,
+        uid: str,
+        title: str,
+        description: str | None = None,
+        due_date: str | None = None,
+        progress_contribution: float = 0.0,
+    ) -> Result[dict[str, Any]]:
+        """Create a new milestone for a goal."""
+        ...
+
+    async def calculate_goal_progress_with_context(
+        self, uid: str, user_context: UserContext | None = None
+    ) -> Result[ProgressResult]:
+        """Calculate goal progress with full context awareness."""
+        ...
+
+    # ========================================================================
+    # Search delegations (→ GoalsSearchService)
+    # ========================================================================
+
+    async def search_goals(self, query: str, limit: int = 50) -> Result[list[Goal]]:
+        """Text search on goal title/description."""
+        ...
+
+    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[Goal]]:
+        """Filter goals by status."""
+        ...
+
+    async def get_goals_by_category(
+        self, category: str, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Goal]]:
+        """Filter goals by category."""
+        ...
+
+    async def get_goals_due_soon(self, days_ahead: int = 7) -> Result[list[Goal]]:
+        """Get goals with target dates within specified days."""
+        ...
+
+    async def get_overdue_goals(self, limit: int = 100) -> Result[list[Goal]]:
+        """Get goals past their target date."""
+        ...
+
+    async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Goal]]:
+        """Filter goals by domain."""
+        ...
+
+    async def get_prioritized_goals(
+        self, user_context: UserContext | None, limit: int = 10
+    ) -> Result[list[Goal]]:
+        """Get goals prioritized for user's context."""
+        ...
+
+    async def list_goal_categories(self, user_uid: str | None = None) -> Result[list[str]]:
+        """List unique goal categories."""
+        ...
+
+    async def list_all_goal_categories(self) -> Result[list[str]]:
+        """List all goal categories system-wide."""
+        ...
+
+    # ========================================================================
+    # Core delegations (→ GoalsCoreService)
+    # ========================================================================
+
+    async def get_goal(self, uid: str) -> Result[Goal | None]:
+        """Get a goal by UID."""
+        ...
+
+    async def get_user_goals(self, user_uid: str, limit: int = 100) -> Result[list[Goal]]:
+        """Get goals for a specific user."""
+        ...
+
+    async def get_user_items_in_range(
+        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+    ) -> Result[list[Goal]]:
+        """Get user goals within date range."""
+        ...
+
+    async def activate_goal(self, uid: str) -> Result[Goal]:
+        """Activate a goal."""
+        ...
+
+    async def pause_goal(self, uid: str) -> Result[Goal]:
+        """Pause a goal."""
+        ...
+
+    async def complete_goal(self, uid: str) -> Result[Goal]:
+        """Mark goal as completed."""
+        ...
+
+    async def archive_goal(self, uid: str) -> Result[Goal]:
+        """Archive a goal."""
+        ...
+
+    # ========================================================================
+    # Intelligence delegations (→ GoalsIntelligenceService)
+    # ========================================================================
+
+    async def get_goal_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Goal, Any]]:
+        """Get goal with full graph context."""
+        ...
+
+    async def get_goal_progress_dashboard(
+        self, uid: str, min_confidence: float = 0.7
+    ) -> Result[IntelligenceResult]:
+        """Get comprehensive goal progress dashboard."""
+        ...
+
+    async def get_goal_completion_forecast(self, uid: str) -> Result[IntelligenceResult]:
+        """Forecast goal completion date based on velocity."""
+        ...
+
+    async def get_goal_learning_requirements(self, uid: str) -> Result[IntelligenceResult]:
+        """Get knowledge requirements for goal achievement."""
+        ...
+
+
+@runtime_checkable
+class PrinciplesFacadeProtocol(Protocol):
+    """
+    Type declarations for PrinciplesService delegated methods.
+
+    These methods are auto-generated by FacadeDelegationMixin from _delegations.
+    This protocol makes them visible to MyPy for static type checking.
+    """
+
+    # ========================================================================
+    # Sub-service access (for direct sub-service method calls)
+    # ========================================================================
+
+    @property
+    def core(self) -> PrinciplesCoreOperations:
+        """Access to core sub-service for methods like verify_ownership, create_principle, update_principle."""
+        ...
+
+    @property
+    def reflection(self) -> Any:
+        """Access to reflection sub-service for reflection-related operations."""
+        ...
+
+    # ========================================================================
+    # Intelligence delegations (→ PrinciplesIntelligenceService)
+    # ========================================================================
+
+    async def assess_principle_alignment(
+        self, principle_uid: str, min_confidence: float = 0.7
+    ) -> Result[IntelligenceResult]:
+        """Assess how well user is living by a principle."""
+        ...
+
+    async def get_principle_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Principle, Any]]:
+        """Get principle with full graph context."""
+        ...
+
+    async def get_principle_adherence_trends(
+        self, principle_uid: str, days: int = 90
+    ) -> Result[IntelligenceResult]:
+        """Analyze principle adherence trends over time."""
+        ...
+
+    async def get_principle_conflict_analysis(self, user_uid: str) -> Result[IntelligenceResult]:
+        """Analyze conflicts between user's principles."""
+        ...
+
+    # ========================================================================
+    # Search delegations (→ PrinciplesSearchService)
+    # ========================================================================
+
+    async def get_related_principles(
+        self, principle_uid: str, depth: int = 2, limit: int = 10
+    ) -> Result[list[Principle]]:
+        """Get principles related via RELATED_TO or category."""
+        ...
+
+    async def get_principles_by_status(
+        self, status: str, limit: int = 100
+    ) -> Result[list[Principle]]:
+        """Filter principles by active/inactive status."""
+        ...
+
+    async def get_principles_by_strength(
+        self, strength: Any, limit: int = 100
+    ) -> Result[list[Principle]]:
+        """Filter principles by strength level."""
+        ...
+
+    async def get_principles_by_category(
+        self, category: Any, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Principle]]:
+        """Filter principles by category."""
+        ...
+
+    async def get_principles_needing_review(
+        self, days_threshold: int = 90, limit: int = 20
+    ) -> Result[list[Principle]]:
+        """Get principles past review threshold."""
+        ...
+
+    async def get_principles_for_goal(
+        self, goal_uid: str, limit: int = 10
+    ) -> Result[list[Principle]]:
+        """Get principles guiding a specific goal."""
+        ...
+
+    async def get_principles_for_choice(
+        self, choice_uid: str, limit: int = 10
+    ) -> Result[list[Principle]]:
+        """Get principles relevant to a choice/decision."""
+        ...
+
+    async def get_principle_categories(self, user_uid: str | None = None) -> Result[list[str]]:
+        """List user's principle categories."""
+        ...
+
+    async def list_all_principle_categories(self) -> Result[list[str]]:
+        """List all principle categories."""
+        ...
+
+    # ========================================================================
+    # Core delegations (→ PrinciplesCoreService)
+    # ========================================================================
+
+    async def get_principle(self, uid: str) -> Result[Principle | None]:
+        """Get a principle by UID."""
+        ...
+
+    async def get_user_principles(self, user_uid: str, limit: int = 100) -> Result[list[Principle]]:
+        """Get principles for a specific user."""
+        ...
+
+    async def get_user_items_in_range(
+        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+    ) -> Result[list[Principle]]:
+        """Get user principles within date range."""
+        ...
+
+    # ========================================================================
+    # Alignment delegations (→ PrinciplesAlignmentService)
+    # ========================================================================
+
+    async def assess_goal_alignment(
+        self, principle_uid: str, goal_uid: str
+    ) -> Result[IntelligenceResult]:
+        """Assess alignment between principle and goal."""
+        ...
+
+    async def assess_habit_alignment(
+        self, principle_uid: str, habit_uid: str
+    ) -> Result[IntelligenceResult]:
+        """Assess alignment between principle and habit."""
+        ...
+
+    async def get_motivational_profile(self, user_uid: str) -> Result[IntelligenceResult]:
+        """Get user's motivational profile based on principles."""
+        ...
+
+    async def make_principle_based_decision(
+        self, choice_uid: str, user_uid: str
+    ) -> Result[IntelligenceResult]:
+        """Recommend decision based on user's principles."""
+        ...
+
+
+@runtime_checkable
+class LpFacadeProtocol(Protocol):
+    """
+    Type declarations for LpService delegated methods.
+
+    These methods are auto-generated by FacadeDelegationMixin from _delegations.
+    This protocol makes them visible to MyPy for static type checking.
+    """
+
+    # ========================================================================
+    # Core delegations (→ LpCoreService)
+    # ========================================================================
+
+    async def create_path(
+        self,
+        user_uid: str,
+        name: str,
+        goal: str,
+        steps: list[Ls],
+        domain: Domain = ...,
+    ) -> Result[Lp]:
+        """Create and persist a learning path."""
+        ...
+
+    async def create_path_from_knowledge_units(
+        self,
+        user_uid: str,
+        knowledge_units: list[Any],
+        name: str | None = None,
+        goal: str | None = None,
+    ) -> Result[Lp]:
+        """Create path from knowledge units."""
+        ...
+
+    async def get_learning_path(self, path_uid: str) -> Result[Lp | None]:
+        """Get a single learning path by UID."""
+        ...
+
+    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[Lp | None]]:
+        """Get multiple learning paths in one batched query."""
+        ...
+
+    async def list_user_paths(self, user_uid: str, limit: int | None = None) -> Result[list[Lp]]:
+        """List all learning paths for a specific user."""
+        ...
+
+    async def list_all_paths(
+        self,
+        limit: int | None = None,
+        offset: int = 0,
+        order_by: str | None = None,
+        order_desc: bool = False,
+    ) -> Result[list[Lp]]:
+        """List all learning paths with pagination."""
+        ...
+
+    async def get_path_steps(self, path_uid: str) -> Result[list[Ls]]:
+        """Get all steps for a learning path."""
+        ...
+
+    async def get_current_step(self, path_uid: str) -> Result[Ls | None]:
+        """Get the current (first incomplete) step."""
+        ...
+
+    async def update_path(self, path_uid: str, updates: dict[str, Any]) -> Result[Lp]:
+        """Update learning path properties."""
+        ...
+
+    async def delete_path(self, path_uid: str) -> Result[bool]:
+        """Delete a learning path."""
+        ...
+
+    # ========================================================================
+    # Intelligence delegations (→ LpIntelligenceService)
+    # ========================================================================
+
+    async def validate_path_prerequisites(self, path_uid: str) -> Result[dict[str, Any]]:
+        """Validate prerequisite ordering and detect issues."""
+        ...
+
+    async def identify_path_blockers(
+        self, path_uid: str, user_uid: str | None = None
+    ) -> Result[dict[str, Any]]:
+        """Find steps blocked by unmet prerequisites."""
+        ...
+
+    async def get_optimal_path_recommendation(
+        self, user_uid: str, goal: str | None = None
+    ) -> Result[dict[str, Any]]:
+        """Recommend best path for user by readiness score."""
+        ...
+
+    async def get_path_with_context(self, path_uid: str, depth: int = 2) -> Result[tuple[Lp, Any]]:
+        """Get path with full graph context."""
+        ...
+
+    async def analyze_path_knowledge_scope(self, path_uid: str) -> Result[dict[str, Any]]:
+        """Analyze KU coverage, complexity, practice in path."""
+        ...
+
+    async def identify_practice_gaps(self, path_uid: str) -> Result[dict[str, Any]]:
+        """Find steps lacking complete practice opportunities."""
+        ...
+
+    async def find_learning_sequence(
+        self, user_uid: str, target_knowledge_uids: list[str]
+    ) -> Result[list[Ls]]:
+        """Generate optimal learning sequence for knowledge targets."""
+        ...
+
+    async def get_next_adaptive_step(self, path_uid: str, user_uid: str) -> Result[dict[str, Any]]:
+        """Get next recommended step with adaptation."""
+        ...
+
+    async def get_recommended_learning_steps(
+        self, user_uid: str, limit: int = 5
+    ) -> Result[list[dict[str, Any]]]:
+        """Get full set of learning step recommendations."""
+        ...
+
+
+@runtime_checkable
+class TasksFacadeProtocol(Protocol):
+    """
+    Type declarations for TasksService delegated methods.
+
+    These methods are auto-generated by FacadeDelegationMixin from _delegations.
+    This protocol makes them visible to MyPy for static type checking.
+    """
+
+    # ========================================================================
+    # Sub-service access (for direct sub-service method calls)
+    # ========================================================================
+
+    @property
+    def core(self) -> TasksCoreOperations:
+        """Access to core sub-service for methods like verify_ownership."""
+        ...
+
+    # ========================================================================
+    # Explicit facade methods (not delegated)
+    # ========================================================================
+
+    async def create_task(self, request: Any, user_uid: str) -> Result[Task]:
+        """Create a new task."""
+        ...
+
+    async def update_task(self, uid: str, updates: dict[str, Any]) -> Result[Any]:
+        """Update a task."""
+        ...
+
+    # ========================================================================
+    # Core delegations (→ TasksCoreService)
+    # ========================================================================
+
+    async def get_task(self, uid: str) -> Result[Any]:
+        """Get a task by UID."""
+        ...
+
+    async def get_user_tasks(self, user_uid: str, limit: int = 100) -> Result[list[Any]]:
+        """Get tasks for a specific user."""
+        ...
+
+    async def get_user_items_in_range(
+        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+    ) -> Result[list[Any]]:
+        """Get user tasks within date range."""
+        ...
+
+    # ========================================================================
+    # Search delegations (→ TasksSearchService)
+    # ========================================================================
+
+    async def get_tasks_for_goal(self, goal_uid: str, limit: int = 100) -> Result[list[Any]]:
+        """Get tasks linked to a specific goal."""
+        ...
+
+    async def get_tasks_for_habit(self, habit_uid: str, limit: int = 100) -> Result[list[Any]]:
+        """Get tasks linked to a specific habit."""
+        ...
+
+    async def get_tasks_applying_knowledge(
+        self, knowledge_uid: str, limit: int = 100
+    ) -> Result[list[Any]]:
+        """Get tasks applying specific knowledge."""
+        ...
+
+    async def get_prioritized_tasks(
+        self, user_context: UserContext | None, limit: int = 10
+    ) -> Result[list[Any]]:
+        """Get tasks prioritized for user's context."""
+        ...
+
+    # ========================================================================
+    # Progress delegations (→ TasksProgressService)
+    # ========================================================================
+
+    async def assign_task_to_user(
+        self,
+        task_uid: str,
+        target_user_uid: str,
+        assigned_by: str | None = None,
+        priority_override: str | None = None,
+    ) -> Result[Any]:
+        """Assign a task to a user."""
+        ...
+
+    async def check_prerequisites(self, task_uid: str) -> Result[dict[str, Any]]:
+        """Check if task prerequisites are met."""
+        ...
+
+    async def record_task_completion(
+        self, task_uid: str, completion_data: dict[str, Any] | None = None
+    ) -> Result[Any]:
+        """Record task completion."""
+        ...
+
+    # ========================================================================
+    # Relationship delegations (→ UnifiedRelationshipService)
+    # ========================================================================
+
+    async def get_task_completion_impact(self, entity_uid: str) -> Result[dict[str, Any]]:
+        """Get impact of completing this task."""
+        ...
+
+    async def get_task_with_semantic_context(
+        self, entity_uid: str, min_confidence: float = 0.7
+    ) -> Result[dict[str, Any]]:
+        """Get task with semantic relationship context."""
+        ...
+
+    # ========================================================================
+    # Analytics delegations (→ TasksService direct / TasksIntelligenceService)
+    # ========================================================================
+
+    async def get_learning_opportunities(
+        self, _filters: dict[str, Any] | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        """Get learning opportunities from tasks."""
+        ...
+
+    async def generate_task_insights(self, task_uid: str) -> Result[dict[str, Any]]:
+        """Generate insights for a specific task."""
+        ...
+
+
+@runtime_checkable
+class EventsFacadeProtocol(Protocol):
+    """
+    Type declarations for EventsService delegated methods.
+
+    These methods are auto-generated by FacadeDelegationMixin from _delegations.
+    This protocol makes them visible to MyPy for static type checking.
+    """
+
+    # ========================================================================
+    # Sub-service access (for direct sub-service method calls)
+    # ========================================================================
+
+    @property
+    def core(self) -> EventsCoreOperations:
+        """Access to core sub-service for methods like verify_ownership, create."""
+        ...
+
+    @property
+    def backend(self) -> BackendCrudOperations:
+        """Access to backend for direct operations like update."""
+        ...
+
+    # ========================================================================
+    # Core delegations (→ EventsCoreService)
+    # ========================================================================
+
+    async def get_event(self, uid: str) -> Result[Any]:
+        """Get an event by UID."""
+        ...
+
+    async def get_user_events(self, user_uid: str, limit: int = 100) -> Result[list[Any]]:
+        """Get events for a specific user."""
+        ...
+
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Event]:
+        """Update an event."""
+        ...
+
+    async def get_user_items_in_range(
+        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+    ) -> Result[list[Any]]:
+        """Get user events within date range."""
+        ...
+
+    # ========================================================================
+    # Search delegations (→ EventsSearchService)
+    # ========================================================================
+
+    async def search_events(self, query: str, limit: int = 50) -> Result[list[Any]]:
+        """Text search on event title/description."""
+        ...
+
+    async def get_calendar_events(
+        self, start_date: str | None = None, end_date: str | None = None, view: str = "month"
+    ) -> Result[list[Any]]:
+        """Get events for calendar view."""
+        ...
+
+    async def get_events_in_range(
+        self, start_date: Any, end_date: Any, user_uid: str | None = None
+    ) -> Result[list[Any]]:
+        """Get events within date range."""
+        ...
+
+    async def get_prioritized_events(
+        self, user_context: UserContext | None, limit: int = 10
+    ) -> Result[list[Any]]:
+        """Get events prioritized for user's context."""
+        ...
+
+    # ========================================================================
+    # Intelligence delegations (→ EventsIntelligenceService)
+    # ========================================================================
+
+    async def get_event_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Any, Any]]:
+        """Get event with full graph context."""
+        ...
+
+    async def analyze_event_performance(self, event_uid: str) -> Result[dict[str, Any]]:
+        """Analyze event performance and outcomes."""
+        ...
+
+
+@runtime_checkable
+class HabitsFacadeProtocol(Protocol):
+    """
+    Type declarations for HabitsService delegated methods.
+
+    These methods are auto-generated by FacadeDelegationMixin from _delegations.
+    This protocol makes them visible to MyPy for static type checking.
+    """
+
+    # ========================================================================
+    # Sub-service access (for direct sub-service method calls)
+    # ========================================================================
+
+    @property
+    def core(self) -> HabitsCoreOperations:
+        """Access to core sub-service for methods like verify_ownership, create_habit."""
+        ...
+
+    @property
+    def backend(self) -> BackendCrudOperations:
+        """Access to backend for direct operations like create, get, update."""
+        ...
+
+    @property
+    def completions(self) -> Any:
+        """Access to completions sub-service for habit completion tracking."""
+        ...
+
+    # ========================================================================
+    # Explicit facade methods (not delegated)
+    # ========================================================================
+
+    async def create_habit(self, habit_request: HabitCreateRequest, user_uid: str) -> Result[Habit]:
+        """Create a habit from a request with user_uid."""
+        ...
+
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Any]:
+        """Update a habit."""
+        ...
+
+    # ========================================================================
+    # Core delegations (→ HabitsCoreService)
+    # ========================================================================
+
+    async def get_habit(self, uid: str) -> Result[Any]:
+        """Get a habit by UID."""
+        ...
+
+    async def get_user_habits(self, user_uid: str, limit: int = 100) -> Result[list[Any]]:
+        """Get habits for a specific user."""
+        ...
+
+    async def get_user_items_in_range(
+        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+    ) -> Result[list[Any]]:
+        """Get user habits within date range."""
+        ...
+
+    # ========================================================================
+    # Search delegations (→ HabitSearchService)
+    # ========================================================================
+
+    async def search_habits(self, query: str, limit: int = 50) -> Result[list[Any]]:
+        """Text search on habit name/description."""
+        ...
+
+    async def list_habit_categories(self, user_uid: str | None = None) -> Result[list[str]]:
+        """List user's habit categories."""
+        ...
+
+    async def list_all_habit_categories(self) -> Result[list[str]]:
+        """List all habit categories."""
+        ...
+
+    async def get_habits_by_category(
+        self, category: str, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Any]]:
+        """Filter habits by category."""
+        ...
+
+    async def get_habits_due_today(self, user_uid: str) -> Result[list[Any]]:
+        """Get habits due today for user."""
+        ...
+
+    async def get_overdue_habits(self, limit: int = 100) -> Result[list[Any]]:
+        """Get overdue habits."""
+        ...
+
+    async def get_prioritized_habits(
+        self, user_context: UserContext | None, limit: int = 10
+    ) -> Result[list[Any]]:
+        """Get habits prioritized for user's context."""
+        ...
+
+    # ========================================================================
+    # Intelligence delegations (→ HabitsIntelligenceService)
+    # ========================================================================
+
+    async def get_habit_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Any, Any]]:
+        """Get habit with full graph context."""
+        ...
+
+    async def analyze_habit_performance(self, habit_uid: str) -> Result[dict[str, Any]]:
+        """Analyze habit performance and consistency."""
+        ...
+
+
+# =============================================================================
+# MocFacadeProtocol - REMOVED JANUARY 2026
+# =============================================================================
+#
+# MocFacadeProtocol removed January 2026 - MOC is now KU-based.
+# A KU "is" a MOC when it has outgoing ORGANIZES relationships to other KUs.
+# See: /docs/domains/moc.md for architecture documentation
+
+
+@runtime_checkable
+class LsFacadeProtocol(Protocol):
+    """
+    Type declarations for LsService delegated methods.
+
+    These methods are auto-generated by FacadeDelegationMixin from _delegations.
+    This protocol makes them visible to MyPy for static type checking.
+    """
+
+    # ========================================================================
+    # Core delegations (→ LsCoreService)
+    # ========================================================================
+
+    async def create_step(self, entity: Ls, path_uid: str | None = None) -> Result[Ls]:
+        """Create a new learning step."""
+        ...
+
+    async def get_step(self, uid: str) -> Result[Ls | None]:
+        """Get a learning step by UID."""
+        ...
+
+    async def update_step(self, uid: str, updates: dict[str, Any]) -> Result[Ls]:
+        """Update a learning step."""
+        ...
+
+    async def delete_step(self, uid: str) -> Result[bool]:
+        """Delete a learning step."""
+        ...
+
+    async def list_steps(
+        self,
+        path_uid: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        order_by: str | None = None,
+        order_desc: bool = False,
+        user_uid: str | None = None,
+    ) -> Result[list[Ls]]:
+        """List learning steps with pagination."""
+        ...
+
+
+@runtime_checkable
+class ChoicesFacadeProtocol(Protocol):
+    """
+    Type declarations for ChoicesService delegated methods.
+
+    These methods are auto-generated by FacadeDelegationMixin from _delegations.
+    This protocol makes them visible to MyPy for static type checking.
+    """
+
+    # ========================================================================
+    # Sub-service access (for direct sub-service method calls)
+    # ========================================================================
+
+    @property
+    def core(self) -> ChoicesCoreOperations:
+        """Access to core sub-service for methods like verify_ownership, create_choice, make_decision."""
+        ...
+
+    # ========================================================================
+    # Explicit facade methods (not delegated)
+    # ========================================================================
+
+    async def update_choice(self, uid: str, request: Any) -> Result[Any]:
+        """Update a choice."""
+        ...
+
+    async def add_option(self, choice_uid: str, title: str, description: str) -> Result[Any]:
+        """Add an option to a choice."""
+        ...
+
+    # ========================================================================
+    # Core delegations (→ ChoicesCoreService)
+    # ========================================================================
+
+    async def get_choice(self, uid: str) -> Result[Any]:
+        """Get a choice by UID."""
+        ...
+
+    async def get_user_choices(self, user_uid: str, limit: int = 100) -> Result[list[Any]]:
+        """Get choices for a specific user."""
+        ...
+
+    async def get_user_items_in_range(
+        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+    ) -> Result[list[Any]]:
+        """Get user choices within date range."""
+        ...
+
+    # ========================================================================
+    # Learning delegations (→ ChoicesLearningService)
+    # ========================================================================
+
+    async def create_choice_with_learning_guidance(
+        self, request: Any, user_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Create choice with learning path guidance."""
+        ...
+
+    async def get_learning_informed_guidance(
+        self, choice_uid: str, user_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Get learning-informed guidance for a choice."""
+        ...
+
+    async def track_choice_learning_outcomes(
+        self, choice_uid: str, outcome_data: dict[str, Any]
+    ) -> Result[dict[str, Any]]:
+        """Track learning outcomes from a choice."""
+        ...
+
+    async def suggest_learning_aligned_choices(
+        self, user_uid: str, limit: int = 5
+    ) -> Result[list[dict[str, Any]]]:
+        """Suggest choices aligned with learning goals."""
+        ...
+
+    # ========================================================================
+    # Intelligence delegations (→ ChoicesIntelligenceService)
+    # ========================================================================
+
+    async def get_choice_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Any, Any]]:
+        """Get choice with full graph context."""
+        ...
+
+    async def get_decision_intelligence(
+        self, choice_uid: str, user_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Get decision intelligence for a choice."""
+        ...
+
+    async def analyze_choice_impact(self, choice_uid: str) -> Result[dict[str, Any]]:
+        """Analyze potential impact of a choice."""
+        ...
+
+    async def get_decision_patterns(self, user_uid: str, days: int = 90) -> Result[dict[str, Any]]:
+        """Get user's decision patterns over time."""
+        ...
+
+    async def get_choice_quality_correlations(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Get correlations between choice factors and outcomes."""
+        ...
+
+    async def get_domain_decision_patterns(
+        self, user_uid: str, domain: str
+    ) -> Result[dict[str, Any]]:
+        """Get decision patterns for a specific domain."""
+        ...
+
+    # ========================================================================
+    # Search delegations (→ ChoicesSearchService)
+    # ========================================================================
+
+    async def search_choices(self, query: str, limit: int = 50) -> Result[list[Any]]:
+        """Text search on choice title/description."""
+        ...
+
+    async def get_choices_by_status(self, status: str, limit: int = 100) -> Result[list[Any]]:
+        """Filter choices by status."""
+        ...
+
+    async def get_choices_by_domain(self, domain: Any, limit: int = 100) -> Result[list[Any]]:
+        """Filter choices by domain."""
+        ...
+
+    async def get_pending_choices(self, limit: int = 100) -> Result[list[Any]]:
+        """Get pending choices."""
+        ...
+
+    async def get_choices_due_soon(self, days_ahead: int = 7) -> Result[list[Any]]:
+        """Get choices with deadlines within specified days."""
+        ...
+
+    async def get_overdue_choices(self, limit: int = 100) -> Result[list[Any]]:
+        """Get choices past their deadline."""
+        ...
+
+    async def get_choices_by_urgency(self, urgency: str, limit: int = 100) -> Result[list[Any]]:
+        """Filter choices by urgency level."""
+        ...
+
+    async def get_choices_needing_decision(self, limit: int = 100) -> Result[list[Any]]:
+        """Get choices that need a decision."""
+        ...
+
+    async def get_prioritized_choices(
+        self, user_context: UserContext | None, limit: int = 10
+    ) -> Result[list[Any]]:
+        """Get choices prioritized for user's context."""
+        ...
+
+    async def list_choice_categories(self, user_uid: str | None = None) -> Result[list[str]]:
+        """List user's choice categories."""
+        ...
+
+    async def list_all_choice_categories(self) -> Result[list[str]]:
+        """List all choice categories."""
+        ...

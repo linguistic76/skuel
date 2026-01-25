@@ -1,0 +1,183 @@
+  Journals foundation:
+
+  1. User speaks/writes into a Journal (the input)
+  2. DSL parses activity lines (the structure)
+  3. Tasks emerge (the actionable output)
+  4. Neo4j tracks relationships (the intelligence layer)
+
+  This is SKUEL as a To Do list manager that learns — rooted in the act of journaling.
+
+  Why This Is Powerful
+
+  The DSL being designed (@context(task), @when(), @priority(), @ku(), @link()) transforms freeform journaling into structured action.
+
+  The user doesn't feel like they're "using a productivity app" — they're just reflecting,
+  talking, writing.
+
+  Yet underneath, SKUEL is:
+
+  - Extracting tasks
+  - Linking them to goals
+  - Connecting knowledge being applied
+  - Tracking energy patterns
+  - Building a life graph
+
+  The simplicity of "To Do list" is the entry point.
+
+  The graph is the depth.
+
+  Current Codebase Alignment
+
+  Looking at what exists:
+  - Assignments/Journals architecture is ready (ProcessingPipelineService)
+  - Tasks service with full CRUD
+  - Graph relationships between tasks, goals, knowledge
+  - UserContext aggregating everything
+
+  What's missing is the DSL parser — the bridge from Journal text to structured entities.
+
+  Where to Start
+
+  The natural starting point in the codebase would be:
+
+  Journal Entry (raw text)
+      ↓
+  DSL Parser (extract @context, @when, etc.)
+      ↓
+  Create entities (Task, Habit, Goal via existing services)
+      ↓
+  Build relationships (via existing relationship services)
+
+  This fits in as a new JournalDSLParser that sits between transcript processing and entity creation.
+
+  -
+  Summary: Minimal DSL Parser Implementation
+
+ Created a working DSL parser for SKUEL that implements your v0.3 Activity Syntax spec. Here's what was built:
+
+  Files Created
+
+  | File                                           | Purpose                    | Lines |
+  |------------------------------------------------|----------------------------|-------|
+  | core/services/dsl/__init__.py                  | Module exports             | 40    |
+  | core/services/dsl/activity_dsl_parser.py       | Core parser                | ~450  |
+  | core/services/dsl/activity_entity_converter.py | Converts to SKUEL entities | ~300  |
+  | tests/test_dsl_parser.py                       | 31 passing tests           | ~350  |
+
+  Architecture
+
+  Journal Text
+      ↓
+  ActivityDSLParser.parse_journal()
+      ↓
+  ParsedJournal (list of ParsedActivityLine)
+      ↓
+  ActivityEntityConverter.convert_journal()
+      ↓
+  {
+    "tasks": [TaskCreateRequest, ...],
+    "habits": [dict, ...],
+    "goals": [dict, ...],
+    "events": [dict, ...]
+  }
+      ↓
+  Existing SKUEL Services (TasksCoreService.create_task(), etc.)
+      ↓
+  Neo4j Graph
+
+  DSL Syntax Supported
+
+  - [ ] Description @context(task) @when(2025-11-27T09:30) @priority(1)
+        @duration(90m) @energy(focus) @ku(ku:sel/mindfulness) @link(goal:health)
+
+  | Tag         | Purpose                | Example                                  |
+  |-------------|------------------------|------------------------------------------|
+  | @context()  | Entity type (required) | @context(task), @context(habit,learning) |
+  | @when()     | Scheduled time         | @when(2025-11-27T09:30)                  |
+  | @priority() | Importance 1-5         | @priority(1)                             |
+  | @duration() | Time estimate          | @duration(90m), @duration(1h30m)         |
+  | @repeat()   | Habit recurrence       | @repeat(daily), @repeat(weekly:Mon,Wed)  |
+  | @energy()   | Energy states          | @energy(focus,creative)                  |
+  | @ku()       | Knowledge unit         | @ku(ku:sel/mindfulness)                  |
+  | @link()     | Graph connections      | @link(goal:health, principle:balance)    |
+
+  Usage Example
+
+  from core.services.dsl import parse_journal_text
+
+  journal_text = """
+  ### Today's Focus
+
+  - [ ] Morning meditation @context(habit) @duration(20m) @energy(spiritual)
+  - [ ] Write proposal @context(task) @priority(1) @when(2025-11-27T09:00)
+  - [ ] Learn Python async @context(learning) @ku(ku:tech/python-async)
+  """
+
+  result = parse_journal_text(journal_text)
+  if result.is_ok:
+      parsed = result.value
+      print(f"Found {len(parsed.get_tasks())} tasks")
+      print(f"Found {len(parsed.get_habits())} habits")
+
+
+      The foundation is now in place. The DSL parser transforms the simple act of journaling into structured action — exactly the SKUEL philosophy of "actions over theory."
+
+
+ #### Integration with AssignmentProcessorService: Add DSL parsing step after transcript formatting
+
+
+● The DSL integration is complete. Here's a summary of what was accomplished:
+
+  DSL Integration Complete ✓
+
+  46 tests passing (31 unit tests + 15 integration tests)
+
+  Files Created/Modified:
+
+  New DSL Module (core/services/dsl/):
+  - __init__.py - Module exports
+  - activity_dsl_parser.py (~450 lines) - Core parser with ParsedActivityLine, ParsedJournal dataclasses
+  - activity_entity_converter.py (~300 lines) - Converts parsed activities to SKUEL entities (TaskCreateRequest, etc.)
+  - journal_activity_extractor.py (~200 lines) - JournalActivityExtractorService for extraction + entity creation
+
+  Tests:
+  - tests/test_dsl_parser.py - 31 unit tests for parser
+  - tests/test_dsl_integration.py - 15 integration tests for full pipeline
+
+  Integration Point:
+  - assignment_processor_service.py - Added activity_extractor parameter and _extract_activities() method
+
+  DSL v0.3 Tags Supported:
+
+  - @context(task), @context(habit,learning) - Activity type classification
+  - @when(2025-12-25T10:00) - Scheduling
+  - @priority(1) - Priority (1=critical, 5=low)
+  - @duration(45m), @duration(1h30m) - Duration
+  - @energy(spiritual,rest) - Energy states
+  - @repeat(daily), @repeat(weekly:Mon,Wed) - Recurrence
+  - @ku(ku:tech/python) - Knowledge unit links
+  - @link(goal:health/fitness) - Entity relationships
+
+  Pipeline Flow:
+
+  Journal Content (markdown)
+      ↓
+  ActivityDSLParser.parse_journal()
+      ↓
+  ParsedJournal with ParsedActivityLine[]
+      ↓
+  ActivityEntityConverter.convert_journal()
+      ↓
+  TaskCreateRequest, habit dicts, goal dicts, event dicts
+      ↓
+  JournalActivityExtractorService.extract_and_create()
+      ↓
+  Created entities in Neo4j via domain services
+
+
+  Possibilities:
+
+ # 3. Entity creation service: Batch create entities from parsed journal
+
+ # 4. v0.4 extensions: @window(), @after(), @result(), @feeling()
+

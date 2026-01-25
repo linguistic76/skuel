@@ -1,0 +1,105 @@
+# Weekly Calculus Study Group Event
+# ===================================
+# A recurring event for collaborative calculus learning
+
+version: 1.0
+type: Event
+
+uid: event:weekly-calculus-study-group
+title: Calculus Study Group
+
+description: |
+  Weekly collaborative study session focused on calculus concepts.
+  Group reviews concepts, works through challenging problems together,
+  and practices teaching concepts to each other.
+
+  Format:
+  - 15 min: Review week's topics
+  - 30 min: Work through hard problems together
+  - 15 min: Teach-back session (each person explains one concept)
+
+event_type: study_session
+status: scheduled
+
+# Time and recurrence
+event_date: "2025-10-06"  # First occurrence: Sunday Oct 6
+start_time: "14:00"
+end_time: "15:00"
+duration_minutes: 60
+
+# Recurrence configuration (every Sunday)
+is_recurring: true
+recurrence_rule: "FREQ=WEEKLY;BYDAY=SU;INTERVAL=1"
+recurrence_count: 12  # 12 weeks = ~90 days matching the goal timeframe
+
+# Location and format
+location: "Campus Library Study Room B"
+event_format: in_person
+participation_mode: collaborative
+
+# Event relationships
+supports_goals:
+  - goal:master-calculus-fundamentals
+
+reinforces_habits:
+  - habit:weekly-calculus-review
+
+related_knowledge_units:
+  - ku:calculus-fundamentals
+  - ku:derivative-rules
+  - ku:integration-fundamentals
+
+# Participants
+participant_count: 4
+participant_roles:
+  - Rotating facilitator (tracks time, manages agenda)
+  - Problem presenter (brings challenging problems)
+  - Concept explainer (teaches one topic)
+  - Note taker (captures insights in shared doc)
+
+# Preparation required
+preparation_needed: |
+  Before each session:
+  - Review the week's calculus topics
+  - Bring 1-2 challenging problems you're stuck on
+  - Prepare to explain one concept you learned well
+  - Review previous session's shared notes
+
+# Success indicators
+success_criteria: |
+  Session is successful when:
+  - All participants contribute and ask questions
+  - At least 2 challenging problems solved collaboratively
+  - Each person teaches one concept clearly
+  - Everyone leaves with better understanding than they arrived
+  - Group identifies common confusion points to address
+
+# Post-event activities
+follow_up_actions:
+  - Share notes in group chat
+  - Add challenging problems to personal practice queue
+  - Schedule next week's rotating roles
+  - Update personal learning progress based on session insights
+
+# Logistics
+required_resources:
+  - Whiteboard and markers
+  - Individual notebooks
+  - Shared online doc for notes
+  - Practice problem sets
+
+reminders:
+  - time: "24_hours_before"
+    message: "Study group tomorrow - review this week's calculus topics"
+  - time: "1_hour_before"
+    message: "Study group in 1 hour - bring problems and be ready to teach"
+
+tags:
+  - calculus
+  - study-group
+  - collaborative-learning
+  - mathematics
+  - recurring
+  - weekly
+  - peer-learning
+  - teaching-to-learn

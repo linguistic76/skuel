@@ -1,0 +1,7 @@
+
+  1. Incomplete Implementations (ARG002 - Unused Arguments)
+  # Line 255: adaptive_lp_recommendations_service.py
+  async def _infer_gaps_from_task_patterns(self, tasks: list[TaskDTO], knowledge_state: dict[str, Any])
+  - Both tasks and knowledge_state are unused → this method is a stub/placeholder
+  - Suggests the adaptive learning path feature is partially implemented
+  - Design insight: Parameters defined but logic not yet written

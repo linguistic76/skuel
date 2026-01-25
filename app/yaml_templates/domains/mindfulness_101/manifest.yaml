@@ -1,0 +1,142 @@
+# Mindfulness 101 Domain Bundle Manifest
+# ========================================
+# Complete list of all entities in this learning domain
+
+version: 1.0
+bundle_name: mindfulness_101
+bundle_title: Mindfulness 101 — Light & Conversational
+description: |
+  A beginner-friendly introduction to mindfulness practice.
+  Focuses on breath awareness and attention training through tiny, sustainable actions.
+
+created_at: 2025-10-04T00:00:00Z
+author: SKUEL Team
+
+# Core Curriculum Entities
+# =========================
+
+# Knowledge Units (ku)
+knowledge_units:
+  - uid: ku:breath-awareness-basics
+    file: ku_breath-awareness-basics.yaml
+    title: Breath Awareness — Basics
+
+  - uid: ku:posture-basics
+    file: ku_posture-basics.yaml
+    title: Posture — Basics
+
+  - uid: ku:mind-wandering-happens
+    file: ku_mind-wandering-happens.yaml
+    title: Mind Wandering Happens
+
+# Learning Steps (ls)
+learning_steps:
+  - uid: ls:mindfulness-101:step-1
+    file: ls_mindfulness-101_step-1.yaml
+    title: Two Minutes Today
+    sequence: 1
+
+  - uid: ls:mindfulness-101:step-2
+    file: ls_mindfulness-101_step-2.yaml
+    title: Name The Wanders
+    sequence: 2
+
+# Learning Path (lp)
+learning_paths:
+  - uid: lp:mindfulness-101
+    file: lp_mindfulness-101.yaml
+    title: Mindfulness 101 — Light & Conversational
+
+# Supporting Entities
+# ====================
+
+principles:
+  - uid: principle:small-steps
+    file: principle_small-steps.yaml
+    title: Small Steps Beat Big Bursts
+
+  - uid: principle:attention-over-intensity
+    file: principle_attention-over-intensity.yaml
+    title: Attention Over Intensity
+
+choices:
+  - uid: choice:2-minutes-right-now
+    file: choice_2-minutes-right-now.yaml
+    title: Do Two Minutes Right Now
+
+  - uid: choice:2-minutes-before-bed
+    file: choice_2-minutes-before-bed.yaml
+    title: Two Minutes Before Bed
+
+  - uid: choice:label-one-wander
+    file: choice_label-one-wander.yaml
+    title: Label One Wander
+
+habits:
+  - uid: habit:daily-2min-breath
+    file: habit_daily-2min-breath.yaml
+    title: Daily Two-Minute Breath
+
+  - uid: habit:label-wander-daily
+    file: habit_label-wander-daily.yaml
+    title: Label a Wander Daily
+
+tasks:
+  - uid: task:log-first-5-sessions
+    file: task_log-first-5-sessions.yaml
+    title: Log your first five sessions
+
+  - uid: task:reflect-on-first-week
+    file: task_reflect-on-first-week.yaml
+    title: Reflect on your first week
+
+events:
+  - uid: event:practice-block-2min
+    file: event_practice-block-2min.yaml
+    title: Breath Practice — 2 min
+
+goals:
+  - uid: goal:mindfulness-beginner
+    file: goal_mindfulness-beginner.yaml
+    title: Build a gentle daily starter practice
+
+# Conversations (To Be Created)
+conversations:
+  - conversation:2025-10-04:breath-starter
+
+# Import Order (for dependencies)
+# ================================
+import_order:
+  1_knowledge:
+    - ku:breath-awareness-basics
+    - ku:posture-basics
+    - ku:mind-wandering-happens
+
+  2_supporting_entities:
+    - principle:small-steps
+    - principle:attention-over-intensity
+    - choice:2-minutes-right-now
+    - choice:2-minutes-before-bed
+    - choice:label-one-wander
+    - habit:daily-2min-breath
+    - habit:label-wander-daily
+    - task:log-first-5-sessions
+    - task:reflect-on-first-week
+    - event:practice-block-2min
+    - goal:mindfulness-beginner
+
+  3_learning_steps:
+    - ls:mindfulness-101:step-1
+    - ls:mindfulness-101:step-2
+
+  4_learning_paths:
+    - lp:mindfulness-101
+
+  5_conversations:
+    - conversation:2025-10-04:breath-starter
+
+# Validation
+# ==========
+total_entities: 19  # Not including conversation (to be created)
+core_curriculum_count: 6  # 3 ku + 2 ls + 1 lp
+supporting_count: 13  # 2 principles + 3 choices + 2 habits + 2 tasks + 1 event + 1 goal + 2 conversations

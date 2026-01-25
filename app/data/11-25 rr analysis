@@ -1,0 +1,170 @@
+
+
+  Relationship Registry Analysis & Refinement Recommendations
+
+  Current State Assessment
+
+  Strengths (Excellent Foundation):
+  1. Centralized Validation - RelationshipRegistry provides hard validation at backend level
+  2. Rich RelationshipSpec - Direction, target labels, properties all defined
+  3. Semantic Layer - RDF-inspired SemanticRelationshipType adds precision
+  4. 33 Cross-Domain Relationships - Comprehensive coverage across 8 domains
+  5. Type Safety - Frozen dataclasses, protocol-based architecture
+
+  Current Cross-Domain Matrix (Your Summary):
+             Task  Event  Habit  Goal  Principle  Choice  Knowledge  Finance
+  Task        ✓      -      ✓     ✓       ✓         ✓        ✓          -
+  Event       ✓      ✓      ✓     ✓       ✓         ✓        ✓          -
+  Habit       ✓      ✓      ✓     ✓       ✓         ✓        ✓          -
+  Goal        ✓      ✓      ✓     ✓       ✓         ✓        ✓          -
+  Principle   -      -      ✓     ✓       ✓         ✓        ✓          -
+  Choice      ✓      -      ✓     ✓       ✓         -        ✓          -
+  Knowledge   ✓      -      ✓     ✓       ✓         ✓        ✓          -
+  Finance     ✓      ✓      ✓     ✓       ✓         ✓        ✓          -
+
+  ---
+  Identified Gaps & Refinement Opportunities
+
+  1. Missing CypherGenerator Integration with RelationshipRegistry
+
+  Current State: CypherGenerator doesn't use RelationshipRegistry for validation
+
+  # CypherGenerator builds queries without registry awareness
+  def build_cross_domain_bridges(...):
+      rel_pattern = "|".join([st.to_neo4j_name() for st in semantic_types])
+      # No validation against RelationshipRegistry
+
+  Opportunity: Add registry-aware query building
+  @staticmethod
+  def build_validated_cross_domain_query(
+      source_label: str,
+      target_label: str,
+      relationship_type: str,
+  ) -> tuple[str, dict[str, Any]]:
+      """Build query with RelationshipRegistry validation."""
+      from core.models.relationships.relationship_registry import RelationshipRegistry
+
+      # Validate before building query
+      if not RelationshipRegistry.validate(source_label, relationship_type):
+          raise ValueError(f"Invalid relationship {relationship_type} for {source_label}")
+
+      spec = RelationshipRegistry.get_metadata(source_label, relationship_type)
+      direction_pattern = "<-" if spec.direction == "incoming" else "->"
+      # ... build validated query
+
+  2. Missing Inverse Relationship Definitions
+
+  Current State: Registry defines outgoing relationships but inverses aren't consistently defined
+  # Task → CONTRIBUTES_TO_GOAL → Goal  ✓
+  # Goal → ??? → Task (no inverse defined)
+
+  Opportunity: Add systematic inverse relationship registration
+  # In RelationshipRegistry
+  INVERSE_MAPPINGS: ClassVar[dict[str, str]] = {
+      "CONTRIBUTES_TO_GOAL": "HAS_CONTRIBUTING_TASK",
+      "REINFORCES_HABIT": "REINFORCED_BY_TASK",
+      "APPLIES_KNOWLEDGE": "APPLIED_BY_TASK",
+      "SUPPORTS_GOAL": "SUPPORTED_BY_HABIT",
+      # ...
+  }
+
+  @classmethod
+  def get_inverse(cls, label: str, relationship_type: str) -> tuple[str, str] | None:
+      """Get inverse relationship and target label."""
+
+  3. Missing Relationship Property Schemas
+
+  Current State: Properties defined but not enforced
+  "APPLIES_KNOWLEDGE": RelationshipSpec(
+      properties={"application_confidence": float},  # Just documentation
+  )
+
+  Opportunity: Add runtime property validation
+  @dataclass(frozen=True)
+  class RelationshipSpec:
+      # ... existing fields
+      required_properties: list[str] = field(default_factory=list)
+
+      def validate_properties(self, properties: dict[str, Any]) -> list[str]:
+          """Return list of validation errors."""
+          errors = []
+          for prop_name, prop_type in (self.properties or {}).items():
+              if prop_name in self.required_properties and prop_name not in properties:
+                  errors.append(f"Missing required property: {prop_name}")
+              elif prop_name in properties and not isinstance(properties[prop_name], prop_type):
+                  errors.append(f"Invalid type for {prop_name}")
+          return errors
+
+  4. Missing Cross-Domain Constraint Validation
+
+  Current State: Can create relationship to invalid target type
+  # Goal.REQUIRES_TASK should only target Task, but validation is loose
+
+  Opportunity: Strict target label validation is in place (good!) but could add cardinality constraints
+  @dataclass(frozen=True)
+  class RelationshipSpec:
+      # ... existing
+      cardinality: Literal["one", "many"] = "many"  # NEW
+      max_relationships: int | None = None  # NEW - e.g., max 1 parent goal
+
+  5. Missing Semantic ↔ Registry Bridge
+
+  Current State: Two parallel systems (RelationshipRegistry + SemanticRelationshipType) not fully integrated
+  # RelationshipRegistry: "APPLIES_KNOWLEDGE"
+  # SemanticRelationshipType: "cross:applies_knowledge_to"
+  # No automatic mapping between them
+
+  Opportunity: Bridge the two systems
+  class RelationshipRegistry:
+      # Map registry relationships to semantic equivalents
+      SEMANTIC_MAPPINGS: ClassVar[dict[str, SemanticRelationshipType]] = {
+          ("Task", "APPLIES_KNOWLEDGE"): SemanticRelationshipType.APPLIES_KNOWLEDGE_TO,
+          ("Task", "CONTRIBUTES_TO_GOAL"): SemanticRelationshipType.CONTRIBUTES_TO_GOAL,
+          # ...
+      }
+
+      @classmethod
+      def to_semantic(cls, label: str, rel_type: str) -> SemanticRelationshipType | None:
+          """Get semantic equivalent for registry relationship."""
+          return cls.SEMANTIC_MAPPINGS.get((label, rel_type))
+
+  6. Missing Relationship Strength/Weight System
+
+  Current State: Properties mention confidence/strength but no standard weighting
+  "alignment_score": float,
+  "contribution_percentage": float,
+  # Different names, no normalization
+
+  Opportunity: Standardized weight system for graph algorithms
+  @dataclass(frozen=True)
+  class RelationshipSpec:
+      # ... existing
+      weight_property: str | None = None  # Which property represents edge weight
+      default_weight: float = 1.0  # Default if property not set
+
+  7. Missing Cross-Domain Query Templates
+
+  Current State: CypherGenerator has build_cross_domain_bridges but limited cross-domain patterns
+  Opportunity: Registry-driven query template generation
+
+  class RelationshipRegistry:
+      @classmethod
+      def build_impact_chain_query(
+          cls,
+          start_domain: str,
+          end_domain: str,
+          max_depth: int = 4
+      ) -> tuple[str, dict]:
+          """
+          Build query to trace impact chain between domains.
+
+          Example: How does completing a Task impact a Goal?
+          Task -[CONTRIBUTES_TO_GOAL]-> Goal
+          Task -[REINFORCES_HABIT]-> Habit -[SUPPORTS_GOAL]-> Goal
+          """
+          # Use registry to find all valid paths between domains
+          valid_rels = cls._find_connecting_relationships(start_domain, end_domain)
+          # Build UNION of path patterns
+
+
+

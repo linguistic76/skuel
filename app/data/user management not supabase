@@ -1,0 +1,156 @@
+
+  ---
+  Current Supabase Integration Analysis
+
+  What Supabase Does for SKUEL
+
+  | Feature            | Status                 | Description                            |
+  |--------------------|------------------------|----------------------------------------|
+  | Password hashing   | ✅ Used                 | Supabase stores/verifies passwords     |
+  | Email verification | ✅ Used                 | Sends confirmation emails              |
+  | Password reset     | ✅ Used                 | Sends reset link emails                |
+  | JWT tokens         | ⚠ Returned but unused | Sessions use Starlette cookies instead |
+  | Database           | ❌ Not used             | Neo4j is the sole database             |
+  | Storage            | ❌ Not used             | No file storage                        |
+  | OAuth/Social       | ❌ Not used             | Only email/password                    |
+
+  What SKUEL Already Has (Supabase-Independent)
+
+  1. Bcrypt password hashing - /core/auth/password.py (fully functional)
+  2. Session management - /core/auth/session.py (cookie-based, secure)
+  3. User model - stores password_hash field (currently empty for Supabase users)
+  4. User backend - full Neo4j CRUD for users
+
+  Key insight: SKUEL is ~80% of the way to independent auth. The only missing pieces are:
+  - Email sending (for verification/password reset)
+  - Storing password hashes in Neo4j instead of Supabase
+
+  ---
+  Options for SKUEL-Owned Authentication
+
+  Option 1: Native SKUEL Auth (Minimal Dependencies)
+
+  Philosophy: Build directly on SKUEL's existing infrastructure
+
+  What to add:
+  - Email service (use resend, postmark, or SMTP)
+  - Email verification tokens (stored in Neo4j)
+  - Password reset tokens (stored in Neo4j)
+  - Rate limiting for login attempts
+
+  Existing infrastructure to leverage:
+  # Already exists in SKUEL
+  from core.auth.password import hash_password, verify_password  # bcrypt
+  from core.auth.session import set_current_user, get_current_user  # cookies
+
+  Pros:
+  - 100% owned, zero external auth dependencies
+  - Simple, fits SKUEL's "analog-to-digital" philosophy
+  - Uses existing bcrypt and session infrastructure
+  - Full control over UX and security
+
+  Cons:
+  - Must implement email verification flow
+  - Must handle password reset emails
+  - No social login (unless added later)
+
+  ---
+  Option 2: Add py_webauthn for Passkeys
+
+  Philosophy: Modern, passwordless authentication
+
+  Components:
+  - https://github.com/duo-labs/py_webauthn - Pythonic WebAuthn library by Duo Labs
+  - Keep password auth as fallback
+  - Store passkey credentials in Neo4j
+
+  Flow:
+  Registration: User creates passkey → Store credential in Neo4j
+  Login: User presents passkey → Verify with py_webauthn → Create session
+
+  Pros:
+  - Most secure (phishing-resistant)
+  - Modern UX (Touch ID, Face ID, Windows Hello)
+  - No passwords to store/hash
+  - Standards-compliant (FIDO2/WebAuthn)
+
+  Cons:
+  - Requires device with biometrics
+  - Need password fallback for recovery
+  - More complex frontend integration
+
+  ---
+  Option 3: Self-Hosted Identity Server
+
+  Options:
+
+  | Server                       | Language | Notes                                  |
+  |------------------------------|----------|----------------------------------------|
+  | https://www.keycloak.org/    | Java     | Full-featured, enterprise-ready, heavy |
+  | https://goauthentik.io/      | Python   | Modern UI, lighter than Keycloak       |
+  | https://github.com/ory/hydra | Go       | Headless, OAuth2/OIDC certified        |
+  | https://www.authelia.com/    | Go       | Simple SSO, works with Docker          |
+
+  Pros:
+  - Full OAuth2/OIDC compliance
+  - Social login support out of the box
+  - Enterprise features (LDAP, SAML)
+
+  Cons:
+  - Separate service to run/maintain
+  - More infrastructure complexity
+  - Overkill for single-application auth
+
+  ---
+  Recommendation: Option 1 (Native SKUEL Auth)
+
+  Based on SKUEL's philosophy of "analog-to-digital" development and wanting code that "flows," I recommend Native SKUEL Auth:
+
+  Migration Path
+
+  Phase 1: Add email service
+  ├── Add email dependency (resend, postmark, or SMTP)
+  ├── Create EmailService protocol and implementation
+  └── Test email sending
+
+  Phase 2: Implement verification flow
+  ├── Add verification_token to User model
+  ├── Create /verify-email endpoint
+  ├── Send verification email on registration
+  └── Store password_hash in Neo4j (not Supabase)
+
+  Phase 3: Implement password reset
+  ├── Add reset_token to User model
+  ├── Create /forgot-password and /reset-password endpoints
+  └── Send reset email
+
+  Phase 4: Remove Supabase
+  ├── Migrate existing users (prompt password reset)
+  ├── Remove SupabaseAuthService
+  ├── Remove supabase_id from User model
+  └── Remove supabase dependency from pyproject.toml
+
+  Key Files to Modify
+
+  | File                                       | Change                                |
+  |--------------------------------------------|---------------------------------------|
+  | core/auth/supabase_auth.py                 | Replace with core/auth/native_auth.py |
+  | adapters/inbound/auth_routes.py            | Use native auth service               |
+  | core/models/user/user.py                   | Use password_hash (already exists)    |
+  | adapters/persistence/neo4j/user_backend.py | Already supports password storage     |
+
+  ---
+  Sources
+
+  - https://github.com/ory/hydra
+  - https://www.keycloak.org/
+  - https://github.com/duo-labs/py_webauthn
+  - https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/
+  - https://betterstack.com/community/guides/scaling-python/authentication-fastapi/
+  - https://passkeys.dev/docs/tools-libraries/libraries/
+
+  Would you like me to:
+  1. Draft a detailed implementation plan for Native SKUEL Auth?
+  2. Explore the passkey/WebAuthn option in more detail?
+  3. Analyze what's needed for a specific self-hosted identity server?
+

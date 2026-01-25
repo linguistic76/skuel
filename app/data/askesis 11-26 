@@ -1,0 +1,30 @@
+
+
+  ---
+  Impact of the Gap
+
+  | Aspect                | Current (Askesis alone)   | With UserContextIntelligence                 |
+  |-----------------------|---------------------------|----------------------------------------------|
+  | Domains synthesized   | 1 (UserContext fields)    | 13 (all services)                            |
+  | Recommendation scope  | Single "next best action" | Full daily plan                              |
+  | Cross-domain analysis | None                      | Habit→goal, knowledge→task correlations      |
+  | Capacity awareness    | None                      | Respects user's available time               |
+  | Life path alignment   | None                      | Scores recommendations against ultimate goal |
+  | Schedule awareness    | None                      | Considers calendar conflicts                 |
+
+  ---
+  Quick Wins (5-10 minutes each)
+
+  # 1. Use get_ready_to_learn() in ActionRecommendationEngine
+  ready = user_context.get_ready_to_learn()  # Prerequisites met
+
+  # 2. Use concepts_needing_review for practice recommendations
+  review = user_context.concepts_needing_review  # Mastery 0.4-0.8
+
+  # 3. Add life path alignment to rationale
+  alignment = user_context.calculate_life_alignment(life_path_uids)
+  rationale = f"Moves you toward life goal ({alignment:.0%} aligned)"
+
+  # 4. Use get_high_impact_tasks() for priority
+  high_impact = user_context.get_high_impact_tasks(threshold=0.7)
+

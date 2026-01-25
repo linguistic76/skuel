@@ -1,0 +1,97 @@
+type CrossDomainOpportunity {
+  source: KnowledgeNode!
+  target: KnowledgeNode!
+  bridgeType: String!
+  transferability: Float!
+  effortRequired: String!
+  reasoning: String!
+  practicalProjects: [String!]
+  successPatterns: [String!]
+  supportingExamples: [String!]
+}
+
+type DashboardData {
+  tasksCount: Int!
+  pathsCount: Int!
+  habitsCount: Int!
+}
+
+type KnowledgeNode {
+  uid: String!
+  title: String!
+  summary: String!
+  domain: String!
+  tags: [String!]!
+  qualityScore: Float!
+  prerequisites: [KnowledgeNode!]!
+  enables: [KnowledgeNode!]!
+}
+
+type LearningPath {
+  uid: String!
+  name: String!
+  goal: String!
+  totalSteps: Int!
+  estimatedHours: Float!
+  steps: [LearningStep!]!
+}
+
+type LearningStep {
+  stepNumber: Int!
+  knowledgeUid: String!
+  masteryThreshold: Float!
+  estimatedTime: Float!
+  knowledge: KnowledgeNode
+}
+
+type Mutation {
+  createTask(input: TaskInput!): Task
+  updateTask(uid: String!, title: String = null, description: String = null, status: String = null, priority: String = null): Task
+  deleteTask(uid: String!): Boolean!
+}
+
+type Query {
+  knowledgeUnit(uid: String!): KnowledgeNode
+  knowledgeUnits(domain: String = null, limit: Int = null, offset: Int! = 0): [KnowledgeNode!]!
+  searchKnowledge(input: SearchInput!): [SearchResult!]!
+  task(uid: String!): Task
+  tasks(includeCompleted: Boolean! = false, limit: Int = null, userUid: String = null): [Task!]!
+  learningPath(uid: String!): LearningPath
+  discoverCrossDomain(userKnowledge: [String!]!, targetDomains: [String!] = null, maxOpportunities: Int! = 10): [CrossDomainOpportunity!]!
+  learningPaths(userUid: String = null, limit: Int = null): [LearningPath!]!
+  userDashboard(userUid: String = null): DashboardData!
+}
+
+input SearchInput {
+  query: String!
+  limit: Int = 20
+  domains: [String!] = null
+  minQuality: Float! = 0
+}
+
+type SearchResult {
+  knowledge: KnowledgeNode!
+  relevance: Float!
+  explanation: String!
+}
+
+type Subscription {
+  learningProgress(UserUid: String!, PathUid: String!): Float!
+}
+
+type Task {
+  uid: String!
+  title: String!
+  description: String!
+  status: String!
+  priority: String!
+  knowledgeUid: String
+  knowledge: KnowledgeNode
+}
+
+input TaskInput {
+  title: String!
+  description: String = null
+  priority: String! = "medium"
+  knowledgeUid: String = null
+}

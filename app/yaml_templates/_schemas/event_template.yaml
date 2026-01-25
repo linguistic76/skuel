@@ -1,0 +1,175 @@
+# Event Template
+# ==============
+# This is a TEMPLATE EXAMPLE, not a validation schema.
+# It shows ALL valid fields for Event YAML files.
+#
+# Purpose: Use this as a reference when creating event entities.
+# Location: Use this structure in /home/mike/0bsidian/skuel/domains/{domain_name}/
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: Event
+
+# uid: Unique identifier
+# Pattern: event:event-name
+# Example: event:study-block-25min, event:practice-block-2min
+uid: event:example-event
+
+# title: Display title for this event
+# Type: String
+# Example: "Study Block — 25 min", "Team Meeting"
+title: Example Event Title
+
+# OPTIONAL FIELDS
+# ---------------
+
+# description: Detailed description of the event
+# Type: String
+# Purpose: Explain what happens during this event
+description: Detailed description of what this event entails
+
+# event_type: Type of event
+# Valid values: ONE_TIME, RECURRING, DEADLINE, MILESTONE
+# Default: ONE_TIME
+# Note: Use RECURRING for repeated events like daily study blocks
+event_type: RECURRING
+
+# status: Current event status
+# Valid values: scheduled, in_progress, completed, cancelled
+# Default: scheduled
+status: scheduled
+
+# priority: Event priority level
+# Valid values: low, medium, high, critical
+# Default: medium
+priority: medium
+
+# event_date: Date of the event
+# Type: Date string
+# Format: YYYY-MM-DD
+# Example: "2025-10-15"
+# Note: Use null for recurring events without specific dates
+event_date: null
+
+# start_time: Start time of the event
+# Type: Time string
+# Format: HH:MM:SS or HH:MM
+# Example: "09:00:00" or "09:00"
+# Note: Use null for flexible timing
+start_time: null
+
+# end_time: End time of the event
+# Type: Time string
+# Format: HH:MM:SS or HH:MM
+# Example: "10:30:00" or "10:30"
+# Note: Use null for flexible timing
+end_time: null
+
+# location: Where the event takes place
+# Type: String
+# Example: "Quiet study space", "Conference Room A", "Online"
+location: Quiet study space
+
+# is_online: Whether the event is online/virtual
+# Type: Boolean
+# Default: false
+# Note: true for virtual meetings, false for in-person events
+is_online: false
+
+# meeting_url: URL for online events
+# Type: String (URL)
+# Example: "https://zoom.us/j/123456789"
+# Note: Only relevant if is_online is true
+meeting_url: null
+
+# attendees: List of attendees
+# Type: List of strings (user UIDs or names)
+# Example: ["user:mike", "user:sarah"]
+attendees: []
+
+# recurrence_rule: Recurrence pattern for recurring events
+# Type: String (RRULE format)
+# Example: "FREQ=DAILY;INTERVAL=1" for daily events
+# Note: Used when event_type is RECURRING
+recurrence_rule: null
+
+# tags: Descriptive tags for categorization
+# Type: List of strings
+# Example: [study, focus, pomodoro]
+tags:
+  - example
+  - template
+
+# linked_knowledge_uids: Knowledge related to this event
+# Type: List of KnowledgeUnit UIDs
+# Purpose: Connect event to learning content
+linked_knowledge_uids:
+  - ku:related-knowledge
+
+# linked_goal_uids: Goals this event contributes to
+# Type: List of Goal UIDs
+# Purpose: Show how event advances goals
+linked_goal_uids:
+  - goal:related-goal
+
+# linked_task_uids: Tasks related to this event
+# Type: List of Task UIDs
+# Purpose: Connect event to specific tasks
+linked_task_uids:
+  - task:related-task
+
+# METADATA FIELDS (Auto-populated, DO NOT SET)
+# --------------------------------------------
+# These fields are automatically set by the system:
+# - created_at: Timestamp when created
+# - updated_at: Timestamp when last modified
+
+# ENUM VALUE REFERENCE
+# --------------------
+
+# event_type options:
+#   - ONE_TIME: Single occurrence event
+#   - RECURRING: Repeats on a schedule
+#   - DEADLINE: Time-bound deadline
+#   - MILESTONE: Significant checkpoint
+
+# status options:
+#   - scheduled: Planned, not yet started
+#   - in_progress: Currently happening
+#   - completed: Finished
+#   - cancelled: No longer happening
+
+# priority options:
+#   - low: Nice to attend
+#   - medium: Should attend
+#   - high: Important to attend
+#   - critical: Must attend
+
+# RECURRENCE RULE EXAMPLES
+# ------------------------
+# Use RRULE format for recurrence_rule field:
+
+# Daily event:
+#   recurrence_rule: "FREQ=DAILY;INTERVAL=1"
+
+# Weekly event (every Monday):
+#   recurrence_rule: "FREQ=WEEKLY;BYDAY=MO"
+
+# Monthly event (1st of each month):
+#   recurrence_rule: "FREQ=MONTHLY;BYMONTHDAY=1"
+
+# Workday event (Monday-Friday):
+#   recurrence_rule: "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR"
+
+# IMPORTANT NOTES
+# ---------------
+# 1. Event model does NOT have 'user_uid' field (different from Choice)
+# 2. Event model HAS both 'created_at' and 'updated_at'
+# 3. For recurring events, use event_type: RECURRING and set recurrence_rule
+# 4. Use null for event_date, start_time, end_time when timing is flexible
+# 5. linked_* fields connect events to the broader learning ecosystem
+# 6. is_online + meeting_url are used together for virtual events
+# 7. attendees is a list (can have multiple participants)
+# 8. Use tags for categorization and filtering

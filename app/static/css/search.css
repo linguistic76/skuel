@@ -1,0 +1,202 @@
+/**
+ * Search Page Styles
+ * ==================
+ *
+ * Horizontal filter layout CSS for the search page.
+ * Version 3.0 - Horizontal filters above search bar
+ */
+
+/* Navbar positioning */
+nav.uk-navbar-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    height: 64px;
+}
+
+/* Main container - full width, centered content */
+.search-container {
+    min-height: calc(100vh - 64px);
+    margin-top: 64px;
+    background: oklch(var(--b2));
+}
+
+/* Main content area */
+.search-main {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+/* Filter bar - primary filters always visible */
+.filter-bar {
+    background: oklch(var(--b1));
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Context filters - shown based on entity type */
+.context-filters {
+    background: oklch(var(--b1));
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Advanced filters panel */
+.advanced-filters {
+    background: oklch(var(--b1));
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-left: 3px solid oklch(var(--p));
+}
+
+/* Active filter badges */
+.active-filters {
+    padding: 0.5rem 0;
+}
+
+.active-filters .badge {
+    font-weight: 500;
+}
+
+.active-filters .badge button {
+    margin-left: 0.25rem;
+    font-size: 1rem;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.active-filters .badge button:hover {
+    opacity: 1;
+}
+
+/* Search input container */
+.search-input-container {
+    background: oklch(var(--b1));
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.search-input-container input {
+    font-size: 1rem;
+}
+
+/* Filter dropdowns */
+.filter-bar select,
+.context-filters select,
+.advanced-filters select {
+    font-size: 0.875rem;
+}
+
+/* Checkbox styling in advanced filters */
+.advanced-filters .checkbox {
+    border-radius: 0.25rem;
+}
+
+/* Results area */
+#search-results {
+    margin-top: 1.5rem;
+}
+
+/* Result cards */
+#search-results .card {
+    transition: box-shadow 0.2s ease;
+}
+
+#search-results .card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Graph context badges */
+.badge {
+    font-weight: 500;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .search-main {
+        padding: 1rem;
+    }
+
+    .filter-bar .flex {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .filter-bar .form-control {
+        width: 100%;
+        min-width: 100% !important;
+    }
+
+    .context-filters .flex {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .context-filters .form-control {
+        width: 100%;
+        min-width: 100% !important;
+    }
+
+    .advanced-filters .grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Make dropdowns full width on mobile */
+    .filter-bar select,
+    .context-filters select,
+    .advanced-filters select {
+        width: 100%;
+    }
+
+    /* Stack active filter badges */
+    .active-filters .flex {
+        flex-wrap: wrap;
+    }
+}
+
+/* Tablet responsiveness */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .filter-bar .form-control {
+        min-width: 120px;
+    }
+
+    .context-filters .form-control {
+        min-width: 120px;
+    }
+}
+
+/* Smooth transitions for filter visibility */
+[x-show] {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* More Filters button active state */
+.filter-bar button.btn-primary {
+    background: oklch(var(--p));
+    color: oklch(var(--pc));
+    border-color: oklch(var(--p));
+}
+
+/* Section headers in advanced filters */
+.advanced-filters .text-xs.uppercase {
+    color: oklch(var(--bc) / 0.6);
+    letter-spacing: 0.05em;
+}
+
+/* Filter labels */
+.label-text {
+    color: oklch(var(--bc) / 0.7);
+}
+
+/* Checkbox rows in advanced filters */
+.advanced-filters label.label {
+    padding: 0.25rem 0;
+}
+
+.advanced-filters label.label:hover {
+    background: oklch(var(--b2));
+    border-radius: 0.25rem;
+}

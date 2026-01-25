@@ -1,0 +1,175 @@
+
+  The MEGA-QUERY Architecture
+
+  Here's how the rich context query would work (ONE query to fetch EVERYTHING):
+
+  // Fetch user + ALL active entities with graph context in SINGLE query
+
+  MATCH (user:User {uid: $user_uid})
+
+  // ==================================================================
+  // TASKS: Get all active tasks with graph context
+  // ==================================================================
+  OPTIONAL MATCH (user)-[:OWNS]->(task:Task)
+  WHERE task.status IN ['active', 'in_progress']
+
+  // For each task, fetch its graph context
+  OPTIONAL MATCH (task)-[r1:DEPENDS_ON]->(dep:Task)
+  OPTIONAL MATCH (task)-[r2:APPLIES_KNOWLEDGE]->(ku:Knowledge)
+  OPTIONAL MATCH (task)-[:FULFILLS_GOAL]->(goal:Goal)
+
+  WITH user, task,
+       collect(DISTINCT {uid: dep.uid, title: dep.title, status: dep.status}) as task_deps,
+       collect(DISTINCT {uid: ku.uid, title: ku.title, confidence: r2.confidence}) as task_knowledge,
+       {uid: goal.uid, title: goal.title, progress: goal.progress_percentage} as task_goal
+
+  WITH user,
+       collect(DISTINCT {
+           uid: task.uid,
+           title: task.title,
+           status: task.status,
+           priority: task.priority,
+           due_date: task.due_date,
+           graph_context: {
+               dependencies: task_deps,
+               applied_knowledge: task_knowledge,
+               goal_context: task_goal
+           }
+       }) as tasks_rich
+
+  // ==================================================================
+  // HABITS: Get all active habits with graph context
+  // ==================================================================
+  OPTIONAL MATCH (user)-[:PRACTICES]->(habit:Habit)
+  WHERE habit.status = 'active'
+
+  // For each habit, fetch its graph context
+  OPTIONAL MATCH (habit)-[:SUPPORTS_GOAL]->(h_goal:Goal)
+  OPTIONAL MATCH (habit)-[:APPLIES_KNOWLEDGE]->(h_ku:Knowledge)
+  OPTIONAL MATCH (habit)-[r3:TRIGGERS_AFTER]->(next_habit:Habit)
+
+  WITH user, tasks_rich, habit,
+       collect(DISTINCT {uid: h_goal.uid, title: h_goal.title}) as habit_goals,
+       collect(DISTINCT {uid: h_ku.uid, title: h_ku.title}) as habit_knowledge,
+       collect(DISTINCT {uid: next_habit.uid, title: next_habit.title}) as habit_chains
+
+  WITH user, tasks_rich,
+       collect(DISTINCT {
+           uid: habit.uid,
+           title: habit.title,
+           current_streak: habit.current_streak,
+           consistency_score: habit.consistency_score,
+           graph_context: {
+               supported_goals: habit_goals,
+               applied_knowledge: habit_knowledge,
+               habit_chains: habit_chains
+           }
+       }) as habits_rich
+
+  // ==================================================================
+  // GOALS: Get all active goals with graph context
+  // ==================================================================
+  OPTIONAL MATCH (user)-[:HAS_GOAL]->(goal:Goal)
+  WHERE goal.status IN ['active', 'in_progress']
+
+  // For each goal, fetch its graph context
+  OPTIONAL MATCH (contributing_task:Task)-[:FULFILLS_GOAL]->(goal)
+  OPTIONAL MATCH (contributing_habit:Habit)-[:SUPPORTS_GOAL]->(goal)
+  OPTIONAL MATCH (goal)-[:REQUIRES_KNOWLEDGE]->(g_ku:Knowledge)
+
+  WITH user, tasks_rich, habits_rich, goal,
+       collect(DISTINCT {uid: contributing_task.uid, title: contributing_task.title}) as goal_tasks,
+       collect(DISTINCT {uid: contributing_habit.uid, title: contributing_habit.title}) as goal_habits,
+       collect(DISTINCT {uid: g_ku.uid, title: g_ku.title}) as goal_knowledge
+
+  WITH user, tasks_rich, habits_rich,
+       collect(DISTINCT {
+           uid: goal.uid,
+           title: goal.title,
+           progress_percentage: goal.progress_percentage,
+           target_date: goal.target_date,
+           graph_context: {
+               contributing_tasks: goal_tasks,
+               contributing_habits: goal_habits,
+               required_knowledge: goal_knowledge,
+               milestone_progress: {
+                   total: size(goal.milestones),
+                   completed: size([m IN goal.milestones WHERE m.is_completed = true]),
+                   percentage: toFloat(size([m IN goal.milestones WHERE m.is_completed = true])) / size(goal.milestones) * 100
+               }
+           }
+       }) as goals_rich
+
+  // ==================================================================
+  // KNOWLEDGE: Get user's knowledge state with graph context
+  // ==================================================================
+  OPTIONAL MATCH (user)-[mastery:MASTERED]->(ku:Knowledge)
+
+  // For each knowledge unit, fetch its graph context
+  OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Knowledge)
+  OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(enables:Knowledge)
+  OPTIONAL MATCH (ku_task:Task)-[:APPLIES_KNOWLEDGE]->(ku)
+  WHERE (user)-[:OWNS]->(ku_task)
+
+  WITH user, tasks_rich, habits_rich, goals_rich, ku, mastery,
+       collect(DISTINCT {uid: prereq.uid, title: prereq.title}) as ku_prereqs,
+       collect(DISTINCT {uid: enables.uid, title: enables.title}) as ku_enables,
+       collect(DISTINCT {uid: ku_task.uid, title: ku_task.title}) as ku_tasks
+
+  WITH user, tasks_rich, habits_rich, goals_rich,
+       collect(DISTINCT {
+           uid: ku.uid,
+           title: ku.title,
+           mastery: mastery.proficiency_level,
+           last_practiced: mastery.last_practiced_at,
+           graph_context: {
+               prerequisites: ku_prereqs,
+               enables: ku_enables,
+               applied_in_tasks: ku_tasks
+           }
+       }) as knowledge_rich
+
+  // ==================================================================
+  // RETURN EVERYTHING
+  // ==================================================================
+  RETURN
+      user,
+      tasks_rich,
+      habits_rich,
+      goals_rich,
+      knowledge_rich
+
+  ---
+  Usage Example: Dashboard
+
+  With rich context, a dashboard becomes TRIVIAL:
+
+  # ONE query gets everything
+  rich_context = await user_service.get_rich_unified_context(user_uid)
+
+  # Render task section with full context
+  for task in rich_context.active_tasks_rich:
+      print(f"Task: {task['title']}")
+      print(f"  Blocked by: {len(task['graph_context']['dependencies'])} tasks")
+      print(f"  Uses: {len(task['graph_context']['applied_knowledge'])} KUs")
+      print(f"  Goal: {task['graph_context']['goal_context']['title']}")
+
+  # Render goal section with full context
+  for goal in rich_context.active_goals_rich:
+      print(f"Goal: {goal['title']} ({goal['progress_percentage']}%)")
+      print(f"  Tasks: {len(goal['graph_context']['contributing_tasks'])}")
+      print(f"  Habits: {len(goal['graph_context']['contributing_habits'])}")
+      print(f"  Milestones: {goal['graph_context']['milestone_progress']['completed']}/{goal['graph_context']['milestone_progress']['total']}")
+
+  # Cross-domain intelligence (tasks → knowledge → goals)
+  for task in rich_context.active_tasks_rich:
+      for ku in task['graph_context']['applied_knowledge']:
+          # Which goals does this knowledge support?
+          related_goals = [
+              goal for goal in rich_context.active_goals_rich
+              if ku['uid'] in [k['uid'] for k in goal['graph_context']['required_knowledge']]
+          ]
+
+          print(f"Task '{task['title']}' applies '{ku['title']}' → supports {len(related_goals)} goals")
+
+  ---

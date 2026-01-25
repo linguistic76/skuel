@@ -1,0 +1,60 @@
+version: 1.0
+type: Habit
+
+uid: habit:label-wander-daily
+name: Label a Wander Daily
+description: Name one mind-wander each day without judgment.
+
+# Behavior Definition
+polarity: build
+category: mindfulness
+difficulty: moderate
+
+# Schedule & Recurrence
+recurrence_pattern: daily
+target_days_per_week: 5
+preferred_time: null  # During any meditation session
+duration_minutes: 0  # Integrated into existing practice
+
+# Learning Integration
+linked_knowledge_uids:
+  - ku:mind-wandering-happens
+
+linked_goal_uids:
+  - goal:mindfulness-beginner
+
+linked_principle_uids:
+  - principle:attention-over-intensity
+
+prerequisite_habit_uids:
+  - habit:daily-2min-breath
+
+# Progress Tracking
+current_streak: 0
+best_streak: 0
+total_completions: 0
+total_attempts: 0
+success_rate: 0.0
+last_completed: null
+
+# Behavioral Science
+cue: Notice attention has drifted from breath
+routine: |
+  1. Notice mind has wandered
+  2. Softly say "wandering" (silently or aloud)
+  3. Return to breath without judgment
+reward: Building meta-awareness / Skill development
+
+# Status
+status: active
+priority: medium
+
+# Metadata
+started_at: null
+tags:
+  - attention
+  - mindfulness
+  - meta-awareness
+  - labeling
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z

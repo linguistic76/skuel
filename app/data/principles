@@ -1,0 +1,32 @@
+
+  1. /core/services/principles/principle_search_service.py (created)
+    - Implements DomainSearchOperations[Principle] protocol
+    - Universal methods: search(), get_by_status(), get_by_domain(), get_prioritized(), get_by_relationship(), get_due_soon(), get_overdue()
+    - Principle-specific methods:
+        - get_by_strength() - Filter by PrincipleStrength (core, strong, moderate, etc.)
+      - get_by_category() - Filter by PrincipleCategory
+      - get_guiding_goals() - Get goal UIDs a principle guides
+      - get_inspiring_habits() - Get habit UIDs a principle inspires
+      - get_for_choice() - Principles relevant to a decision
+      - get_for_goal() - Principles guiding a specific goal
+      - get_active_principles() - All active principles for a user
+      - list_categories() - All PrincipleCategory enum values
+      - get_needing_review() - Principles past review threshold
+      - get_related_principles() - Related principles via graph or category
+  2. /core/services/principles/__init__.py (updated to v1.2.0)
+    - Added PrincipleSearchService export
+  3. /core/services/principles_service.py (updated to v5.0.0)
+    - Added PrincipleSearchService import and self.search initialization
+    - Removed custom backend property (code smell)
+    - Delegated search methods to self.search:
+        - search_principles() → self.search.search()
+      - get_principle_categories() → self.search.list_categories()
+      - get_related_principles() → self.search.get_related_principles()
+    - Added new facade methods:
+        - get_principles_by_status()
+      - get_principles_by_strength()
+      - get_principles_by_category()
+      - get_prioritized_principles()
+      - get_principles_needing_review()
+      - get_principles_for_goal()
+      - get_principles_for_choice()

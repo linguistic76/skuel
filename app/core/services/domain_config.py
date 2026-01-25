@@ -1,0 +1,321 @@
+"""
+Domain Configuration Dataclass
+==============================
+
+Centralized configuration for BaseService behavior.
+
+This module consolidates the 18 class attributes previously scattered
+across individual service classes into a single, type-safe dataclass.
+
+**January 2026 Phase 2 Consolidation:**
+Instead of each service defining its own class attributes:
+```python
+class TasksSearchService(BaseService):
+    _dto_class = TaskDTO
+    _model_class = Task
+    _search_fields = ["title", "description"]
+    # ... 15 more attributes
+```
+
+Services now use a single configuration object:
+```python
+TASKS_CONFIG = DomainConfig(
+    dto_class=TaskDTO,
+    model_class=Task,
+    search_fields=("title", "description"),
+)
+
+
+class TasksSearchService(BaseService):
+    _config = TASKS_CONFIG
+```
+
+**Benefits:**
+- Single source of truth for domain behavior
+- Type-safe with IDE completion
+- Easy to compare configurations across domains
+- Enables DomainConfig-aware factories
+
+See Also:
+    - /core/services/base_service.py - Uses DomainConfig
+    - /core/models/relationship_registry.py - Relationship configurations
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+
+@dataclass(frozen=True)
+class DomainConfig:
+    """
+    Configuration for BaseService behavior.
+
+    Consolidates 18 class attributes into a single, immutable configuration.
+
+    Internal Consistency (enforced via __post_init__):
+        - If supports_user_progress=False, mastery_threshold is ignored (warning)
+        - prerequisite_relationships and enables_relationships should be tuples
+        - search_fields should not be empty
+
+    Required Fields:
+        dto_class: The DTO class for this domain (e.g., TaskDTO)
+        model_class: The domain model class (e.g., Task)
+
+    Optional Fields (with sensible defaults):
+        entity_label: Neo4j label (auto-inferred from model_class if None)
+        service_name: Logger name prefix (e.g., "tasks.search")
+        date_field: Field for date range queries (default: "created_at")
+        completed_statuses: Status values indicating completion
+        search_fields: Fields for text search (default: ["title", "description"])
+        search_order_by: Default sort field (default: "created_at")
+        category_field: Field for category filtering (default: "category")
+        graph_enrichment_patterns: Relationship patterns for graph context
+        user_ownership_relationship: Relationship type for ownership (None for shared)
+        prerequisite_relationships: Relationship types for prerequisites
+        enables_relationships: Relationship types for enables chain
+        supports_user_progress: Whether domain supports mastery tracking
+
+    Example:
+        ```python
+        from core.services.domain_config import DomainConfig
+        from core.models.task.task import Task
+        from core.models.task.task_dto import TaskDTO
+        from core.models.relationship_registry import (
+            GRAPH_ENRICHMENT_REGISTRY,
+            PREREQUISITE_REGISTRY,
+            ENABLES_REGISTRY,
+        )
+
+        TASKS_CONFIG = DomainConfig(
+            dto_class=TaskDTO,
+            model_class=Task,
+            service_name="tasks.search",
+            date_field="due_date",
+            completed_statuses=("completed",),
+            graph_enrichment_patterns=tuple(GRAPH_ENRICHMENT_REGISTRY["Task"]),
+            prerequisite_relationships=tuple(PREREQUISITE_REGISTRY["Task"]),
+            enables_relationships=tuple(ENABLES_REGISTRY["Task"]),
+            supports_user_progress=True,
+        )
+        ```
+    """
+
+    # Required: DTO and Model classes
+    dto_class: type[Any]  # type[DTOProtocol] - relaxed for compatibility
+    model_class: type[Any]  # type[DomainModelProtocol] - relaxed for compatibility
+
+    # Entity Identity
+    entity_label: str | None = None  # Auto-inferred from model_class.__name__ if None
+    service_name: str | None = None  # Logger name prefix
+
+    # Date Range Queries
+    date_field: str = "created_at"
+    completed_statuses: tuple[str, ...] = ()
+
+    # Text Search
+    search_fields: tuple[str, ...] = ("title", "description")
+    search_order_by: str = "created_at"
+    category_field: str = "category"
+
+    # Graph-Aware Search
+    graph_enrichment_patterns: tuple[tuple[str, str, str, str], ...] = ()
+    user_ownership_relationship: str | None = "OWNS"  # None for shared content (KU)
+
+    # Prerequisites & Curriculum
+    prerequisite_relationships: tuple[str, ...] = ()
+    enables_relationships: tuple[str, ...] = ()
+    content_field: str = "content"
+    mastery_threshold: float = 0.7
+    supports_user_progress: bool = False
+
+    def __post_init__(self) -> None:
+        """
+        Validate internal consistency of configuration.
+
+        Makes DomainConfig a truth enforcer, not just a container.
+        Catches logical contradictions at configuration time.
+        """
+        # Validate: search_fields should not be empty
+        if not self.search_fields or len(self.search_fields) == 0:
+            raise ValueError(
+                f"DomainConfig for {self.get_entity_label()}: search_fields cannot be empty. "
+                f"Provide at least one field for text search."
+            )
+
+        # Validate: mastery_threshold is meaningless without progress tracking
+        if not self.supports_user_progress and self.mastery_threshold != 0.7:
+            # Use object.__setattr__ because dataclass is frozen
+            import warnings
+
+            warnings.warn(
+                f"DomainConfig for {self.get_entity_label()}: mastery_threshold={self.mastery_threshold} "
+                f"is set but supports_user_progress=False. The threshold will be ignored.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        # Validate: relationship fields should be tuples (enforce immutability)
+        if self.prerequisite_relationships and not isinstance(
+            self.prerequisite_relationships, tuple
+        ):
+            raise TypeError(
+                f"DomainConfig for {self.get_entity_label()}: prerequisite_relationships must be a tuple, "
+                f"got {type(self.prerequisite_relationships).__name__}"
+            )
+
+        if self.enables_relationships and not isinstance(self.enables_relationships, tuple):
+            raise TypeError(
+                f"DomainConfig for {self.get_entity_label()}: enables_relationships must be a tuple, "
+                f"got {type(self.enables_relationships).__name__}"
+            )
+
+        if self.graph_enrichment_patterns and not isinstance(self.graph_enrichment_patterns, tuple):
+            raise TypeError(
+                f"DomainConfig for {self.get_entity_label()}: graph_enrichment_patterns must be a tuple, "
+                f"got {type(self.graph_enrichment_patterns).__name__}"
+            )
+
+        # NOTE: We do NOT validate user_ownership_relationship=None + supports_user_progress=True
+        # This is VALID for curriculum domains (KU, LS, LP) where progress is tracked via
+        # relationships: (User)-[HAS_MASTERY {score}]->(KU), not entity properties.
+
+    def get_entity_label(self) -> str:
+        """
+        Get entity label, inferring from model_class if not set.
+
+        Returns:
+            Entity label string (e.g., "Task", "Goal")
+        """
+        if self.entity_label:
+            return self.entity_label
+        if self.model_class:
+            return self.model_class.__name__
+        return "Entity"
+
+    def get_service_name(self) -> str:
+        """
+        Get service name for logging.
+
+        Returns:
+            Service name string (e.g., "tasks.search")
+        """
+        if self.service_name:
+            return self.service_name
+        # Infer from model class
+        label = self.get_entity_label().lower()
+        return f"{label}.service"
+
+
+# ============================================================================
+# PRE-DEFINED CONFIGURATIONS
+# ============================================================================
+# These can be imported by services instead of defining inline.
+# Import relationship registries when defining these.
+
+
+def create_activity_domain_config(
+    dto_class: type[Any],
+    model_class: type[Any],
+    domain_name: str,
+    date_field: str = "created_at",
+    completed_statuses: tuple[str, ...] = (),
+    category_field: str = "category",
+    search_fields: tuple[str, ...] | None = None,
+    search_order_by: str | None = None,
+) -> DomainConfig:
+    """
+    Factory for creating Activity Domain configurations.
+
+    Uses centralized relationship registry for graph patterns.
+
+    Args:
+        dto_class: The DTO class
+        model_class: The domain model class
+        domain_name: Domain name (e.g., "tasks", "goals")
+        date_field: Field for date queries
+        completed_statuses: Status values indicating completion
+        category_field: Field for category filtering
+        search_fields: Fields for text search (default: ["title", "description"])
+        search_order_by: Default sort field (default: "created_at")
+
+    Returns:
+        Configured DomainConfig for the activity domain
+    """
+    # Import here to avoid circular imports
+    from core.models.relationship_registry import (
+        ENABLES_REGISTRY,
+        GRAPH_ENRICHMENT_REGISTRY,
+        PREREQUISITE_REGISTRY,
+    )
+
+    entity_label = model_class.__name__
+
+    return DomainConfig(
+        dto_class=dto_class,
+        model_class=model_class,
+        entity_label=entity_label,
+        service_name=f"{domain_name}.search",
+        date_field=date_field,
+        completed_statuses=completed_statuses,
+        category_field=category_field,
+        search_fields=search_fields or ("title", "description"),
+        search_order_by=search_order_by or "created_at",
+        graph_enrichment_patterns=tuple(GRAPH_ENRICHMENT_REGISTRY.get(entity_label, [])),
+        prerequisite_relationships=tuple(PREREQUISITE_REGISTRY.get(entity_label, [])),
+        enables_relationships=tuple(ENABLES_REGISTRY.get(entity_label, [])),
+        user_ownership_relationship="OWNS",
+        supports_user_progress=True,
+    )
+
+
+def create_curriculum_domain_config(
+    dto_class: type[Any],
+    model_class: type[Any],
+    domain_name: str,
+    search_fields: tuple[str, ...] | None = None,
+    search_order_by: str = "updated_at",
+    category_field: str = "domain",
+    content_field: str = "content",
+) -> DomainConfig:
+    """
+    Factory for creating Curriculum Domain configurations.
+
+    Curriculum domains (KU, LS, LP, MOC) are shared content without user ownership.
+
+    Args:
+        dto_class: The DTO class
+        model_class: The domain model class
+        domain_name: Domain name (e.g., "ku", "ls", "lp", "moc")
+        search_fields: Fields for text search (default: ["title", "description"])
+        search_order_by: Default sort field (default: "updated_at" for curriculum)
+        category_field: Field for category filtering (default: "domain")
+        content_field: Field containing main content (default: "content")
+
+    Returns:
+        Configured DomainConfig for the curriculum domain
+    """
+    from core.models.relationship_registry import (
+        ENABLES_REGISTRY,
+        GRAPH_ENRICHMENT_REGISTRY,
+        PREREQUISITE_REGISTRY,
+    )
+
+    entity_label = model_class.__name__
+
+    return DomainConfig(
+        dto_class=dto_class,
+        model_class=model_class,
+        entity_label=entity_label,
+        service_name=f"{domain_name}.search",
+        search_fields=search_fields or ("title", "description"),
+        search_order_by=search_order_by,
+        category_field=category_field,
+        content_field=content_field,
+        graph_enrichment_patterns=tuple(GRAPH_ENRICHMENT_REGISTRY.get(entity_label, [])),
+        prerequisite_relationships=tuple(PREREQUISITE_REGISTRY.get(entity_label, [])),
+        enables_relationships=tuple(ENABLES_REGISTRY.get(entity_label, [])),
+        user_ownership_relationship=None,  # Shared content
+        supports_user_progress=True,  # Curriculum supports mastery tracking
+    )

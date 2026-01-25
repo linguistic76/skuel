@@ -1,0 +1,107 @@
+# Use Pomodoro Technique Choice
+# ==============================
+# A deliberate choice to structure focus work using the Pomodoro technique
+
+version: 1.0
+type: Choice
+
+uid: choice:use-pomodoro-technique
+title: Use Pomodoro Technique for Focus Work
+
+description: |
+  I choose to structure my focus work using the Pomodoro technique:
+  25-minute focused work blocks followed by 5-minute breaks.
+
+  This choice reflects my commitment to:
+  - Sustainable focus without burnout
+  - Regular breaks for mental recovery
+  - Measurable progress tracking
+  - Consistent daily practice
+
+  The Pomodoro structure helps me overcome procrastination by making
+  large tasks feel more approachable through time-boxed sessions.
+
+user_uid: "user:mike"
+
+# Choice metadata
+created_at: "2025-10-04T09:00:00Z"
+
+choice_type: behavior
+domain: productivity
+commitment_level: strong
+
+# Rationale for this choice
+rationale: |
+  I've observed that my focus quality deteriorates after 25-30 minutes
+  of continuous work. The Pomodoro technique:
+
+  1. Matches my natural attention span
+  2. Provides clear stopping points to prevent exhaustion
+  3. Creates measurable units of progress
+  4. Reduces decision fatigue about "when to take a break"
+  5. Aligns with the "Small Wins Compound" principle
+
+  Research on attention span and the Pomodoro creator's work supports
+  this duration as optimal for most cognitive tasks.
+
+# What this choice enables
+enables_habits:
+  - habit:daily-25min-focus-block
+  - habit:morning-deep-work-session
+
+supports_goals:
+  - goal:master-calculus-fundamentals
+  - goal:build-consistent-study-practice
+  - goal:write-daily-500-words
+
+reinforces_principles:
+  - principle:small-wins-compound
+
+# Alternative choices considered
+alternatives_considered:
+  - choice: "90-minute deep work blocks"
+    rejected_because: "Too exhausting to sustain daily; leads to burnout"
+
+  - choice: "Flow state work without time limits"
+    rejected_because: "Inconsistent; hard to start; can lead to overwork"
+
+  - choice: "Random break intervals based on feeling"
+    rejected_because: "Leads to break avoidance and decision fatigue"
+
+# Implementation commitments
+implementation_commitments: |
+  To honor this choice, I commit to:
+
+  1. Setting a physical timer for each Pomodoro
+  2. Taking the full 5-minute break (no "just one more minute")
+  3. Tracking completed Pomodoros in my habit tracker
+  4. Protecting Pomodoro time from interruptions
+  5. Reviewing effectiveness weekly
+
+  I will NOT:
+  - Skip breaks to "finish just this one thing"
+  - Check email/phone during the 25-minute block
+  - Count interrupted sessions as complete Pomodoros
+  - Extend sessions to 30+ minutes
+
+# Success indicators
+success_indicators: |
+  This choice is working when I observe:
+  - Consistent daily completion of 4+ Pomodoros
+  - Improved focus quality during the 25-minute blocks
+  - Less resistance to starting focus work
+  - Feeling refreshed after breaks, not guilty
+  - Increased daily output without feeling exhausted
+
+# Review schedule
+review_schedule: weekly
+next_review_date: "2025-10-11"
+
+tags:
+  - pomodoro
+  - focus
+  - time-management
+  - productivity
+  - deliberate-choice
+  - sustainable-practice
+  - behavior-design

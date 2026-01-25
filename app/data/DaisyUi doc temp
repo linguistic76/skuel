@@ -1,0 +1,196 @@
+Alright, let’s build a **clean, minimal, reading-first DaisyUI template** — inspired by the *DaisyUI Documentation Template*, but rewritten entirely in plain HTML so it fits perfectly with:
+
+* **FastHTML**
+* **Pure Tailwind + DaisyUI**
+* **The SKUEL.app reading environment**
+  (for long-form content: Game of Life lessons, Yoga → EQ → SEL modules, KnowledgeUnits, etc.)
+
+This is not a clone of the premium template — it’s a fresh, original layout that captures the **spirit**: quiet, spacious, readable.
+
+---
+
+# **DaisyUI Reading Template (“Docs Shell”)**
+
+This is a universal HTML template you can convert into a `docs_layout()` function the same way we did for the dashboard.
+
+**Focus:**
+
+* calming whitespace
+* ideal for reading and contemplation
+* clean typography
+* scalable to tablets + desktop
+* DaisyUI components only (no JS / no Next.js)
+
+---
+
+## **Minimal DaisyUI Docs Template (HTML)**
+
+```html
+<!doctype html>
+<html lang="en" data-theme="corporate">
+  <head>
+    <meta charset="utf-8" />
+    <title>SKUEL.app · Docs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Tailwind + DaisyUI CSS goes here -->
+  </head>
+
+  <body class="bg-base-200 min-h-screen flex flex-col">
+    <!-- Top navbar -->
+    <header class="navbar bg-base-100 border-b border-base-300">
+      <div class="flex-none lg:hidden">
+        <label for="docs-drawer" class="btn btn-ghost btn-square">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5"
+               fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </label>
+      </div>
+
+      <div class="flex-1">
+        <a class="text-xl font-bold tracking-tight">SKUEL.app</a>
+        <span class="ml-2 text-xs opacity-60 hidden sm:inline">Documentation</span>
+      </div>
+
+      <div class="flex-none">
+        <a href="/" class="btn btn-sm btn-ghost">Dashboard</a>
+      </div>
+    </header>
+
+    <!-- Main drawer layout -->
+    <div class="drawer lg:drawer-open flex-1">
+      <input id="docs-drawer" type="checkbox" class="drawer-toggle"/>
+
+      <!-- Main reading content -->
+      <main class="drawer-content flex flex-col">
+        <div class="px-6 py-8 max-w-3xl mx-auto w-full">
+
+          <!-- Breadcrumbs (optional) -->
+          <div class="text-sm breadcrumbs mb-4">
+            <ul>
+              <li><a>Docs</a></li>
+              <li><a>Section</a></li>
+              <li class="font-medium">Current Page</li>
+            </ul>
+          </div>
+
+          <!-- Content Title -->
+          <h1 class="text-3xl font-bold mb-4">
+            Page Title Goes Here
+          </h1>
+
+          <!-- Main content block -->
+          <article class="prose prose-sm sm:prose-base max-w-none">
+            <p>
+              This is where the long-form text goes. The typography is tuned for
+              reading. DaisyUI inherits Tailwind’s prose class, but you can extend it.
+            </p>
+
+            <h2>Subheading Example</h2>
+            <p>
+              More text… calm spacing, readable line length, soft contrast.
+            </p>
+
+            <h3>Another Section</h3>
+            <p>More SKUEL philosophy, Yoga → EQ → SEL content, PathSteps, etc.</p>
+
+            <blockquote>
+              “A short quote or insight looks wonderful here.”
+            </blockquote>
+
+            <p>And so on. This is the ideal reading canvas.</p>
+          </article>
+
+        </div>
+      </main>
+
+      <!-- Sidebar: the docs navigation -->
+      <aside class="drawer-side z-10">
+        <label for="docs-drawer" class="drawer-overlay"></label>
+
+        <nav class="w-72 bg-base-100 border-r border-base-300 min-h-full flex flex-col">
+          <div class="px-4 py-4 border-b border-base-300">
+            <div class="text-lg font-bold">Documentation</div>
+            <div class="text-xs opacity-70">SKUEL.app · Reference</div>
+          </div>
+
+          <ul class="menu px-2 py-3 text-sm flex-1 overflow-y-auto">
+            <li class="menu-title"><span>Introduction</span></li>
+            <li><a>What is SKUEL?</a></li>
+            <li><a>Game of Life</a></li>
+            <li><a>Askesis</a></li>
+
+            <li class="menu-title mt-4"><span>Core Concepts</span></li>
+            <li><a>Yoga → EQ → SEL</a></li>
+            <li><a>Knowledge Units</a></li>
+            <li><a>Ontology</a></li>
+            <li><a>Semantic Graph</a></li>
+
+            <li class="menu-title mt-4"><span>Learning</span></li>
+            <li><a>Learning Paths</a></li>
+            <li><a>PathSteps</a></li>
+            <li><a>Habits & Identity</a></li>
+
+            <li class="menu-title mt-4"><span>System</span></li>
+            <li><a>Metrics</a></li>
+            <li><a>Reflections</a></li>
+            <li><a>Settings</a></li>
+          </ul>
+
+          <div class="px-4 py-3 border-t text-xs opacity-70">
+            SKUEL Docs · v0.1
+          </div>
+        </nav>
+      </aside>
+    </div>
+  </body>
+</html>
+```
+
+---
+
+# **Why this template works beautifully for reading**
+
+### **1. The content column is centered and narrow**
+
+Max width = 3xl
+Perfect for contemplative reading + educational content.
+
+### **2. Typography via `prose`**
+
+Tailwind’s typography plugin gives you:
+
+* nice line spacing
+* good font sizes
+* clean h1/h2/h3 hierarchy
+* readable lists and quotes
+
+This is exactly the energy of Teens.yoga as an OER reading space *and* of SKUEL.app’s deeper study mode.
+
+### **3. Sidebar is quiet and out of the way**
+
+No distractions.
+Navigation stays visible on desktop; collapses into a drawer on mobile.
+
+### **4. Color theme can be swapped in seconds**
+
+Just change `data-theme="corporate"` at the `<html>` tag.
+
+If you want SKUEL’s own theme (e.g. “philosopher-stone”), you can register one in `tailwind.config.js`.
+
+---
+
+# **If you want next steps, I can
+
+### **A minimal SKUEL typography theme**
+
+(e.g., softer text, slightly larger reading font, airy spacing)
+
+### **A DaisyUI theme preset specifically for SKUEL**
+
+(defining your brand colors + tone)
+
+### **A unified header between Dashboard + Docs shells**
+
+Just tell me which one to do next.

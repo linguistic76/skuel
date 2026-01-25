@@ -1,0 +1,56 @@
+TEST CLEANUP - DELETED FILES LIST
+==================================
+Date: October 13, 2025
+Reason: Import errors due to architecture migration
+
+CATEGORY 1: OBSOLETE ADAPTER TESTS (4 files)
+---------------------------------------------
+test_adapter_system.py
+test_relationships_adapter.py
+test_neo4j_repository.py
+test_database_operations.py
+
+CATEGORY 2: OBSOLETE BACKEND TESTS (7 files)
+---------------------------------------------
+test_askesis_enhanced_backend.py
+test_knowledge_intelligence.py
+test_knowledge_intelligence_simple.py
+test_performance_benchmark.py
+test_phase2_integration.py
+test_enhanced_search.py
+test_enhanced_templates.py
+
+CATEGORY 3: OBSOLETE INTEGRATION/SERVICE TESTS (18 files)
+----------------------------------------------------------
+test_askesis.py
+test_askesis_service.py
+test_enum_search_improvements.py
+test_learning_models.py
+test_learning_progress_integration.py
+test_model_integration.py
+test_service_integration.py
+test_sync_service.py
+test_unified_calendar.py
+test_unified_progress_system.py
+test_unified_system.py
+test_semantic_phase1.py
+test_semantic_utilities.py
+test_protocols.py
+test_finance_endpoints.py
+test_task_endpoints.py
+test_knowledge_three_tier.py
+infrastructure/test_crud_route_factory.py
+
+CATEGORY 4: OUTDATED MODEL IMPORTS (3 files)
+---------------------------------------------
+test_task_creation.py
+test_conflict_detection.py
+test_schema_alignment.py
+
+CATEGORY 5: UNIMPLEMENTED DOMAIN (2 files)
+-------------------------------------------
+test_principles_simple.py
+test_principles_intelligence.py
+
+TOTAL DELETED: 34 files
+RESULT: 0 import errors, 360 tests collecting successfully

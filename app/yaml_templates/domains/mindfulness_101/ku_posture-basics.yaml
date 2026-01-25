@@ -1,0 +1,56 @@
+version: 1.0
+type: KnowledgeUnit
+
+uid: ku:posture-basics
+title: Posture — Basics
+content: |
+  ## Simple Posture Guidelines
+
+  Good posture supports your practice without getting in the way.
+
+  ### The Essentials
+
+  - **Spine**: Naturally upright, not rigid
+  - **Shoulders**: Relaxed, not hunched
+  - **Head**: Balanced on neck, chin slightly tucked
+  - **Hands**: Resting comfortably (lap or knees)
+
+  ### It's Not About Perfection
+
+  Don't force an uncomfortable position. Adjust as needed.
+  The goal is **alert but relaxed**.
+
+  ### Common Positions
+
+  1. **Chair**: Feet flat, back away from backrest
+  2. **Cushion**: Cross-legged, hips higher than knees
+  3. **Bench**: Kneeling, cushion between legs
+  4. **Lying**: On back, arms at sides (risk of drowsiness)
+
+  Start where you're comfortable. Refine over time.
+
+domain: personal
+complexity: basic
+quality_score: 0.80
+
+semantic_links:
+  - posture
+  - meditation
+  - body-awareness
+
+prerequisites:
+  - ku:breath-awareness-basics
+
+enables:
+  - ku:sitting-meditation
+  - ku:walking-meditation
+
+related_to:
+  - ku:body-scan-basics
+
+tags:
+  - posture
+  - beginner
+  - body-awareness
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z

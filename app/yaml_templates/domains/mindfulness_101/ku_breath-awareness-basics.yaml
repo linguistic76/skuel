@@ -1,0 +1,61 @@
+version: 1.0
+type: KnowledgeUnit
+
+uid: ku:breath-awareness-basics
+title: Breath Awareness — Basics
+content: |
+  ## Introduction to Breath Awareness
+
+  Breath awareness is the foundational practice of mindfulness meditation.
+  It involves gently directing your attention to the natural rhythm of your breathing.
+
+  ### Why Breath?
+
+  - **Always Available**: Your breath is with you every moment
+  - **Anchors Attention**: Provides a consistent focus point
+  - **Non-Judgmental**: No right or wrong way to breathe
+  - **Calming**: Natural rhythms soothe the nervous system
+
+  ### The Basic Practice
+
+  1. **Find a comfortable position** - Sitting, lying, or standing
+  2. **Close your eyes** (or soft gaze downward)
+  3. **Notice your breath** - Don't change it, just observe
+  4. **Follow the sensation** - Chest rising, air flowing, belly expanding
+  5. **When mind wanders** - Gently return to the breath
+
+  ### Two Minutes is Enough
+
+  You don't need long sessions to benefit. Even 2 minutes of breath awareness
+  can shift your state and build the habit.
+
+  Start small, be consistent.
+
+domain: personal
+complexity: basic
+quality_score: 0.85
+
+semantic_links:
+  - mindfulness
+  - meditation
+  - attention-training
+  - breath
+
+prerequisites: []
+
+enables:
+  - ku:posture-basics
+  - ku:mind-wandering-happens
+  - ku:walking-meditation
+
+related_to:
+  - ku:body-scan-basics
+  - ku:mindful-breathing-variations
+
+tags:
+  - breath
+  - meditation
+  - beginner
+  - foundational
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z

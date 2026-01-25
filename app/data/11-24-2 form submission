@@ -1,0 +1,10 @@
+fixed the form with two key changes:
+
+  1. Added hx-trigger="submit" - Explicitly tells HTMX to handle the form submission event
+  2. Changed to this.reset() - Simpler and more reliable way to clear the form after submission
+
+  The form will now:
+  - Intercept the submit event with HTMX
+  - POST to /askesis/submit-message
+  - Append the response to #conversation-messages
+  - Reset the form fields automatically

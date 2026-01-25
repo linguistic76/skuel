@@ -1,0 +1,8 @@
+  Added from_dict() classmethod to ChoiceDTO following the established pattern from other DTOs (TaskDTO, GoalDTO, UserDTO).
+
+  The implementation:
+  - Parses datetime fields (decision_deadline, created_at, updated_at, decided_at)
+  - Ensures list fields are lists (not None)
+  - Handles nested options list by converting dicts to ChoiceOptionDTO
+  - Filters to only known fields to avoid unexpected kwargs
+  - Returns properly typed ChoiceDTO instance

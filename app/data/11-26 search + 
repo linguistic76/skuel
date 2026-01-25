@@ -1,0 +1,26 @@
+
+  ---
+  What UserContext Fields Could Enhance Search
+
+  | Field                       | Search Use                     | Priority |
+  |-----------------------------|--------------------------------|----------|
+  | mastered_knowledge_uids     | Rank by prerequisite readiness | HIGH     |
+  | active_goal_uids            | Boost results supporting goals | HIGH     |
+  | at_risk_habits              | Prioritize reinforcing content | HIGH     |
+  | learning_velocity_by_domain | Suggest beginner if struggling | HIGH     |
+  | current_workload_score      | Warn if overloading            | MEDIUM   |
+  | available_minutes_daily     | Suggest fitting content        | MEDIUM   |
+
+  ---
+  The Good News
+
+  This is completion, not redesign:
+  1. ✅ UserContext exists (~240 fields)
+  2. ✅ UserContextIntelligence exists (5 core methods)
+  3. ✅ SearchIntelligenceService.rank_results() already accepts user_context
+  4. ✅ Graph patterns exist in UserContext (task_goal_associations, etc.)
+
+  The hooks are there - they just need to be connected.
+
+  ---
+

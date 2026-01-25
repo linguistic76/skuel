@@ -1,0 +1,5 @@
+| GoalDTO    | ⏳ Not migrated            | ❌ Not needed   | Tests passing |
+  | HabitDTO   | ⏳ Not migrated            | ❌ Not needed   | Tests passing |
+  | EventDTO   | ⏳ Not migrated            | ❌ Not needed   | Not audited   |
+  | FinanceDTO | ⏳ Not migrated            | ❌ Not needed   | Not audited   |
+  | ChoiceDTO  | ⏳ Not migrated            | ❌ Not needed   | Not audited   |

@@ -1,0 +1,16 @@
+
+  What's functional:
+  - /docs - Section grid with 7 Worldview MOC sections
+  - /docs/{section} - Topic lists within each section
+  - /docs/{section}/{topic} - Topic detail pages with stub content
+  - DaisyUI drawer navigation (responsive)
+  - Breadcrumbs and typography
+
+  Next steps when you're ready:
+  1. Add real content to topics (replace stubs with actual markdown)
+  2. Query Worldview MOC from Neo4j instead of hardcoded WORLDVIEW_TOPICS
+  3. Connect KUs to topics for rendered content
+  4. Add knowledge graph navigation (prerequisites, related topics)
+  5. Migrate other pages away from FrankenUI (Phase 2)
+
+  Let me know what you'd like to work on next or if you want to refine any aspect of the current implementation.

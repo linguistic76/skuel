@@ -1,0 +1,26 @@
+version: 1.0
+type: Event
+
+uid: event:practice-block-2min
+title: Breath Practice — 2 min
+description: Daily 2-minute breath awareness practice
+
+# Event Configuration
+event_type: RECURRING
+status: scheduled
+priority: medium
+
+# Timing (using simple defaults for template)
+event_date: null
+start_time: null
+end_time: null
+
+# Event Details
+location: Anywhere comfortable
+is_online: false
+
+# Metadata
+tags:
+  - meditation
+  - breath
+  - daily-practice

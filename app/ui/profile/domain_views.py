@@ -1,0 +1,1348 @@
+"""Domain-specific view components for profile page.
+
+Each view shows a combined layout:
+- Summary stats at top
+- List of items below
+"""
+
+from typing import TYPE_CHECKING, Any
+
+from fasthtml.common import H2, H3, A, Div, P, Span
+
+from core.models.enums.entity_enums import Domain
+from core.services.user.unified_user_context import UserContext
+
+if TYPE_CHECKING:
+    from core.services.user.intelligence.types import (
+        CrossDomainSynergy,
+        DailyWorkPlan,
+        LearningStep,
+        LifePathAlignment,
+    )
+
+
+def DomainSummaryCard(
+    title: str,
+    icon: str,
+    stats: list[tuple[str, int | str]],
+    status: str,
+) -> Div:
+    """Summary card with key stats for a domain.
+
+    Args:
+        title: Domain name
+        icon: Emoji icon
+        stats: List of (label, value) tuples
+        status: "healthy", "warning", "critical"
+        color: Accent color name
+
+    Returns:
+        Card div with stats
+    """
+    status_colors = {
+        "healthy": "bg-success/10 border-success",
+        "warning": "bg-warning/10 border-warning",
+        "critical": "bg-error/10 border-error",
+    }
+    status_bg = status_colors.get(status, "bg-base-100 border-base-300 shadow-sm")
+
+    stats_html = []
+    for label, value in stats:
+        stats_html.append(
+            Div(
+                Div(str(value), cls="text-2xl font-bold text-base-content"),
+                Div(label, cls="text-sm text-base-content/50"),
+                cls="text-center",
+            )
+        )
+
+    return Div(
+        Div(
+            Span(icon, cls="text-3xl"),
+            H3(title, cls="text-xl font-semibold text-base-content"),
+            cls="flex items-center gap-3 mb-4",
+        ),
+        Div(*stats_html, cls="grid grid-cols-3 gap-4"),
+        cls=f"p-6 rounded-xl border-2 {status_bg}",
+    )
+
+
+def _empty_state(message: str) -> Div:
+    """Empty state placeholder."""
+    return Div(
+        P(message, cls="text-base-content/50 italic text-center py-8"),
+        cls="bg-base-200 rounded-lg",
+    )
+
+
+def _item_list(
+    items: list[dict[str, Any]],
+    empty_message: str,
+    item_href_prefix: str = "",
+) -> Div:
+    """Generic item list component."""
+    if not items:
+        return _empty_state(empty_message)
+
+    list_items = []
+    for item in items[:10]:  # Limit to 10 items
+        title = item.get("title", "Untitled")
+        uid = item.get("uid", "")
+        status = item.get("status", "")
+        href = f"{item_href_prefix}/{uid}" if item_href_prefix and uid else None
+
+        status_badge = ""
+        if status:
+            status_colors = {
+                "completed": "text-success",
+                "in_progress": "text-warning",
+                "pending": "text-base-content/50",
+                "overdue": "text-error",
+            }
+            status_color = status_colors.get(status, "text-base-content/50")
+            status_badge = Span(
+                status.replace("_", " ").title(),
+                cls=f"text-xs font-medium {status_color}",
+            )
+
+        item_content = Div(
+            Span(title, cls="font-medium text-base-content"),
+            status_badge,
+            cls="flex items-center justify-between",
+        )
+
+        if href:
+            list_items.append(
+                A(
+                    item_content,
+                    href=href,
+                    cls="block p-3 hover:bg-base-200 rounded-lg transition-colors",
+                )
+            )
+        else:
+            list_items.append(
+                Div(
+                    item_content,
+                    cls="p-3 rounded-lg",
+                )
+            )
+
+    return Div(*list_items, cls="space-y-1")
+
+
+def TasksDomainView(context: UserContext) -> Div:
+    """Tasks domain: stats + task list from context."""
+    # Calculate stats
+    total = len(context.active_task_uids) + len(context.completed_task_uids)
+    active = len(context.active_task_uids)
+    overdue = len(context.overdue_task_uids)
+
+    # Determine status
+    if overdue > 3:
+        status = "critical"
+    elif overdue > 0:
+        status = "warning"
+    else:
+        status = "healthy"
+
+    stats = [
+        ("Total", total),
+        ("Active", active),
+        ("Overdue", overdue),
+    ]
+
+    # Build items list from rich data if available
+    items = []
+    for task_data in context.active_tasks_rich[:10]:
+        task = task_data.get("task", {})
+        items.append(
+            {
+                "title": task.get("title", "Untitled Task"),
+                "uid": task.get("uid", ""),
+                "status": "overdue"
+                if task.get("uid") in context.overdue_task_uids
+                else "in_progress",
+            }
+        )
+
+    # Fallback if no rich data
+    if not items and context.active_task_uids:
+        items = [
+            {"title": f"Task {uid[:8]}...", "uid": uid, "status": "in_progress"}
+            for uid in context.active_task_uids[:10]
+        ]
+
+    return Div(
+        DomainSummaryCard("Tasks", "✅", stats, status),
+        H3("Active Tasks", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
+        _item_list(items, "No active tasks", "/tasks"),
+        A(
+            "View All Tasks →",
+            href="/tasks",
+            cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
+        ),
+    )
+
+
+def HabitsDomainView(context: UserContext) -> Div:
+    """Habits domain: stats + habit list with streaks."""
+    total = len(context.active_habit_uids)
+    at_risk = len(context.at_risk_habits)
+    keystone = len(context.keystone_habits)
+
+    if at_risk > 2:
+        status = "critical"
+    elif at_risk > 0:
+        status = "warning"
+    else:
+        status = "healthy"
+
+    stats = [
+        ("Active", total),
+        ("At Risk", at_risk),
+        ("Keystone", keystone),
+    ]
+
+    items = []
+    for habit_data in context.active_habits_rich[:10]:
+        habit = habit_data.get("habit", {})
+        uid = habit.get("uid", "")
+        streak = context.habit_streaks.get(uid, 0)
+        items.append(
+            {
+                "title": f"{habit.get('title', 'Habit')} ({streak} day streak)",
+                "uid": uid,
+                "status": "warning" if uid in context.at_risk_habits else "in_progress",
+            }
+        )
+
+    if not items and context.active_habit_uids:
+        items = [
+            {
+                "title": f"Habit ({context.habit_streaks.get(uid, 0)} days)",
+                "uid": uid,
+                "status": "warning" if uid in context.at_risk_habits else "in_progress",
+            }
+            for uid in context.active_habit_uids[:10]
+        ]
+
+    return Div(
+        DomainSummaryCard("Habits", "🔄", stats, status),
+        H3("Active Habits", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
+        _item_list(items, "No active habits", "/habits"),
+        A(
+            "View All Habits →",
+            href="/habits",
+            cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
+        ),
+    )
+
+
+def GoalsDomainView(context: UserContext) -> Div:
+    """Goals domain: stats + goal progress list."""
+    total = len(context.active_goal_uids)
+    at_risk = len(context.at_risk_goals)
+    completed = len(context.completed_goal_uids)
+
+    if at_risk > 0:
+        status = "critical"
+    elif len(context.get_stalled_goals()) > 0:
+        status = "warning"
+    else:
+        status = "healthy"
+
+    stats = [
+        ("Active", total),
+        ("Completed", completed),
+        ("At Risk", at_risk),
+    ]
+
+    items = []
+    for goal_data in context.active_goals_rich[:10]:
+        goal = goal_data.get("goal", {})
+        uid = goal.get("uid", "")
+        progress = context.goal_progress.get(uid, 0)
+        items.append(
+            {
+                "title": f"{goal.get('title', 'Goal')} ({int(progress * 100)}%)",
+                "uid": uid,
+                "status": "warning" if uid in context.at_risk_goals else "in_progress",
+            }
+        )
+
+    if not items and context.active_goal_uids:
+        items = [
+            {
+                "title": f"Goal ({int(context.goal_progress.get(uid, 0) * 100)}%)",
+                "uid": uid,
+                "status": "warning" if uid in context.at_risk_goals else "in_progress",
+            }
+            for uid in context.active_goal_uids[:10]
+        ]
+
+    return Div(
+        DomainSummaryCard("Goals", "🎯", stats, status),
+        H3("Active Goals", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
+        _item_list(items, "No active goals", "/goals"),
+        A(
+            "View All Goals →",
+            href="/goals",
+            cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
+        ),
+    )
+
+
+def EventsDomainView(context: UserContext) -> Div:
+    """Events domain: stats + upcoming events."""
+    total_today = len(context.today_event_uids)
+    upcoming = len(context.upcoming_event_uids)
+    missed = len(context.missed_event_uids)
+
+    if missed > 0:
+        status = "critical"
+    elif total_today > 3:
+        status = "warning"
+    else:
+        status = "healthy"
+
+    stats = [
+        ("Today", total_today),
+        ("Upcoming", upcoming),
+        ("Missed", missed),
+    ]
+
+    items = []
+    for event_data in context.active_events_rich[:10]:
+        event = event_data.get("event", {})
+        uid = event.get("uid", "")
+        items.append(
+            {
+                "title": event.get("title", "Event"),
+                "uid": uid,
+                "status": "pending" if uid in context.today_event_uids else "in_progress",
+            }
+        )
+
+    if not items and context.today_event_uids:
+        items = [
+            {"title": f"Event {uid[:8]}...", "uid": uid, "status": "pending"}
+            for uid in context.today_event_uids[:10]
+        ]
+
+    return Div(
+        DomainSummaryCard("Events", "📅", stats, status),
+        H3("Upcoming Events", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
+        _item_list(items, "No upcoming events", "/calendar"),
+        A(
+            "View Calendar →",
+            href="/calendar",
+            cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
+        ),
+    )
+
+
+def PrinciplesDomainView(context: UserContext) -> Div:
+    """Principles domain: stats + alignment view."""
+    total = len(context.core_principle_uids)
+    aligned = context.decisions_aligned_with_principles
+    against = context.decisions_against_principles
+
+    if against > aligned:
+        status = "critical"
+    elif aligned < against * 2 and (aligned + against) > 0:
+        status = "warning"
+    else:
+        status = "healthy"
+
+    stats = [
+        ("Total", total),
+        ("Aligned", aligned),
+        ("Against", against),
+    ]
+
+    items = []
+    for principle_data in context.core_principles_rich[:10]:
+        principle = principle_data.get("principle", {})
+        uid = principle.get("uid", "")
+        priority = context.principle_priorities.get(uid, 0.5)
+        items.append(
+            {
+                "title": f"{principle.get('title', 'Principle')} (priority: {priority:.1f})",
+                "uid": uid,
+                "status": "in_progress",
+            }
+        )
+
+    if not items and context.core_principle_uids:
+        items = [
+            {
+                "title": f"Principle (priority: {context.principle_priorities.get(uid, 0.5):.1f})",
+                "uid": uid,
+                "status": "in_progress",
+            }
+            for uid in context.core_principle_uids[:10]
+        ]
+
+    return Div(
+        DomainSummaryCard("Principles", "⚖️", stats, status),
+        H3("Core Principles", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
+        _item_list(items, "No principles defined", "/principles"),
+        A(
+            "View All Principles →",
+            href="/principles",
+            cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
+        ),
+    )
+
+
+def ChoicesDomainView(context: UserContext) -> Div:
+    """Choices domain: stats + pending/resolved."""
+    pending = len(context.pending_choice_uids)
+    resolved = len(context.resolved_choice_uids)
+    total = pending + resolved
+
+    if pending > 5:
+        status = "critical"
+    elif pending > 0:
+        status = "warning"
+    else:
+        status = "healthy"
+
+    stats = [
+        ("Total", total),
+        ("Pending", pending),
+        ("Resolved", resolved),
+    ]
+
+    items = []
+    for choice_data in context.recent_choices_rich[:10]:
+        choice = choice_data.get("choice", {})
+        uid = choice.get("uid", "")
+        items.append(
+            {
+                "title": choice.get("title", "Choice"),
+                "uid": uid,
+                "status": "pending" if uid in context.pending_choice_uids else "completed",
+            }
+        )
+
+    if not items and context.pending_choice_uids:
+        items = [
+            {"title": f"Choice {uid[:8]}...", "uid": uid, "status": "pending"}
+            for uid in context.pending_choice_uids[:10]
+        ]
+
+    return Div(
+        DomainSummaryCard("Choices", "🔀", stats, status),
+        H3("Pending Choices", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
+        _item_list(items, "No pending choices", "/choices"),
+        A(
+            "View All Choices →",
+            href="/choices",
+            cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
+        ),
+    )
+
+
+def LearningDomainView(context: UserContext) -> Div:
+    """Learning/Curriculum domain: unified view of knowledge, paths, and progress.
+
+    Shows:
+    - Summary stats (mastered, in progress, ready to learn)
+    - Active learning paths with progress
+    - Knowledge ready to learn (prerequisites met)
+    """
+    # Calculate stats from curriculum fields
+    mastered = len(context.mastered_knowledge_uids)
+    in_progress = len(context.in_progress_knowledge_uids)
+    ready = len(context.ready_to_learn_uids)
+    enrolled_paths = len(context.enrolled_path_uids)
+
+    # Determine status based on learning health
+    blocked_count = len(context.prerequisites_needed)
+    if blocked_count > enrolled_paths * 0.5 and enrolled_paths > 0:
+        status = "critical"  # Too many blockers
+    elif blocked_count > 0:
+        status = "warning"  # Some blockers
+    else:
+        status = "healthy"  # Active learning
+
+    stats = [
+        ("Mastered", mastered),
+        ("Learning", in_progress),
+        ("Ready", ready),
+    ]
+
+    return Div(
+        DomainSummaryCard("Learning", "📚", stats, status),
+        # Learning Paths section
+        H3("Learning Paths", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
+        _learning_paths_list(context),
+        # Ready to Learn section
+        H3("Ready to Learn", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
+        _ready_to_learn_list(context),
+        # Link to learning page
+        A(
+            "Explore Knowledge →",
+            href="/learning",
+            cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
+        ),
+    )
+
+
+def _learning_paths_list(context: UserContext) -> Div:
+    """List of enrolled learning paths with progress."""
+    if not context.enrolled_paths_rich:
+        if not context.enrolled_path_uids:
+            return _empty_state("No learning paths enrolled")
+        # Fallback if no rich data
+        items = [
+            Div(
+                Span("🗺️", cls="mr-2"),
+                Span(f"Path {uid[:12]}...", cls="font-medium text-base-content"),
+                cls="flex items-center p-3 bg-base-100 rounded-lg",
+            )
+            for uid in context.enrolled_path_uids[:5]
+        ]
+        return Div(*items, cls="space-y-2")
+
+    # Build items from rich data
+    items = []
+    for path_data in context.enrolled_paths_rich[:5]:
+        path = path_data.get("path", {})
+        graph_context = path_data.get("graph_context", {})
+
+        title = path.get("title", "Learning Path")
+        uid = path.get("uid", "")
+        progress = graph_context.get("progress", 0.0)
+        progress_percent = int(progress * 100)
+
+        # Determine if this is the current focus path
+        is_current = uid == context.current_learning_path_uid
+
+        items.append(
+            A(
+                Div(
+                    Div(
+                        Span("🗺️", cls="mr-2"),
+                        Span(title, cls="font-medium text-base-content flex-1"),
+                        Span(
+                            "Active" if is_current else "",
+                            cls="text-xs text-primary font-medium",
+                        )
+                        if is_current
+                        else None,
+                        cls="flex items-center mb-2",
+                    ),
+                    # Progress bar
+                    Div(
+                        Div(
+                            cls="h-2 bg-primary rounded-full transition-all",
+                            style=f"width: {progress_percent}%",
+                        ),
+                        cls="h-2 bg-base-200 rounded-full w-full",
+                    ),
+                    Div(
+                        Span(f"{progress_percent}% complete", cls="text-xs text-base-content/50"),
+                        cls="mt-1",
+                    ),
+                    cls="w-full",
+                ),
+                href=f"/learning/paths/{uid}" if uid else "#",
+                cls="block p-3 bg-base-100 rounded-lg hover:bg-base-200 transition-colors",
+            )
+        )
+
+    return Div(*items, cls="space-y-2") if items else _empty_state("No learning paths enrolled")
+
+
+def _ready_to_learn_list(context: UserContext) -> Div:
+    """List of knowledge units ready to learn (prerequisites met)."""
+    ready_uids = list(context.ready_to_learn_uids)[:5]
+
+    if not ready_uids:
+        # Check if there are blocked items
+        if context.prerequisites_needed:
+            blocked_count = len(context.prerequisites_needed)
+            return Div(
+                P(
+                    f"{blocked_count} knowledge units blocked by prerequisites",
+                    cls="text-base-content/50 text-sm",
+                ),
+                P(
+                    "Complete prerequisite knowledge to unlock more",
+                    cls="text-base-content/50 text-xs mt-1",
+                ),
+                cls="bg-base-200 rounded-lg p-4",
+            )
+        return _empty_state("No knowledge ready to learn")
+
+    # Try to get titles from knowledge_units_rich if available
+    items = []
+    for uid in ready_uids:
+        ku_data = context.knowledge_units_rich.get(uid, {})
+        ku = ku_data.get("ku", {})
+        title = ku.get("title", uid) if ku else uid
+
+        items.append(
+            A(
+                Span("💡", cls="mr-2"),
+                Span(title, cls="font-medium text-base-content"),
+                href=f"/learning/ku/{uid}",
+                cls="flex items-center p-3 bg-base-100 rounded-lg hover:bg-base-200 transition-colors",
+            )
+        )
+
+    return Div(*items, cls="space-y-2")
+
+
+def OverviewView(
+    context: UserContext,
+    daily_plan: "DailyWorkPlan | None" = None,
+    alignment: "LifePathAlignment | None" = None,
+    synergies: "list[CrossDomainSynergy] | None" = None,
+    learning_steps: "list[LearningStep] | None" = None,
+) -> Div:
+    """Overview: Life path alignment + intelligence recommendations + progress metrics.
+
+    Operates in two modes:
+    - Basic mode (all intelligence params None): Core profile data only
+    - Full mode (all intelligence params provided): Full intelligence features
+
+    Displays (Full mode):
+    - Life path alignment breakdown (5 dimensions) - from intelligence
+    - Daily work plan (today's optimal focus) - from intelligence
+    - High-leverage actions (cross-domain synergies) - from intelligence
+    - Next learning steps - from intelligence
+
+    Displays (Both modes):
+    - Current task focus (if set)
+    - Overall velocity/momentum summary
+    - Per-domain progress grid with velocity indicators
+    - Cross-domain insights (warnings, notifications)
+
+    Args:
+        context: UserContext with ~240 fields of user state
+        daily_plan: DailyWorkPlan from intelligence service (optional)
+        alignment: LifePathAlignment from intelligence service (optional)
+        synergies: list of CrossDomainSynergy from intelligence service (optional)
+        learning_steps: list of LearningStep from intelligence service (optional)
+    """
+    # Check if intelligence is available (all params provided = full mode)
+    has_intelligence = daily_plan is not None and alignment is not None
+
+    # Build intelligence section based on mode
+    if has_intelligence:
+        # Full mode - show intelligence components
+        assert alignment is not None  # Guaranteed by has_intelligence check
+        alignment_score = alignment.overall_score
+        alignment_percent = int(alignment_score * 100)
+        header = Div(
+            H2("Activity Overview", cls="text-2xl font-bold text-base-content"),
+            P(
+                f"Life Path Alignment: {alignment_percent}%",
+                cls="text-lg text-base-content/70 mt-1",
+            ),
+            cls="mb-6",
+        )
+        intelligence_section = Div(
+            _alignment_breakdown(alignment),
+            _daily_work_plan_card(daily_plan),
+            _synergies_card(synergies or []),
+            _learning_steps_card(learning_steps or []),
+        )
+    else:
+        # Basic mode - show profile without intelligence
+        header = Div(
+            H2("Activity Overview", cls="text-2xl font-bold text-base-content"),
+            P(
+                "Profile Hub - Basic Mode",
+                cls="text-lg text-base-content/70 mt-1",
+            ),
+            cls="mb-6",
+        )
+        intelligence_section = _intelligence_unavailable_card()
+
+    return Div(
+        header,
+        intelligence_section,
+        # Core profile components (always shown)
+        _current_focus_card(context),
+        _velocity_summary(context),
+        _domain_progress_grid(context),
+        _overview_insights(context),
+    )
+
+
+def _intelligence_unavailable_card() -> Div:
+    """Card shown when intelligence services are not configured.
+
+    Informs users that intelligence features require additional setup,
+    while core profile functionality remains available.
+    """
+    features = [
+        ("📋", "Daily Work Plan", "Prioritized tasks and habits for today"),
+        ("🎯", "Life Path Alignment", "5-dimension alignment scoring"),
+        ("🔗", "Cross-Domain Synergies", "High-leverage action identification"),
+        ("📚", "Learning Recommendations", "Optimal next learning steps"),
+    ]
+
+    feature_items = [
+        Div(
+            Span(icon, cls="mr-2"),
+            Div(
+                Span(name, cls="font-medium text-sm"),
+                P(desc, cls="text-xs text-base-content/50"),
+                cls="flex flex-col",
+            ),
+            cls="flex items-start py-2",
+        )
+        for icon, name, desc in features
+    ]
+
+    return Div(
+        Div(
+            H3("Intelligence Features", cls="text-lg font-semibold text-base-content"),
+            cls="mb-4",
+        ),
+        Div(
+            P(
+                "Intelligence features are not currently configured.",
+                cls="text-base-content/70 mb-3",
+            ),
+            P(
+                "Core profile features are available. Intelligence features include:",
+                cls="text-sm text-base-content/50 mb-4",
+            ),
+            Div(*feature_items, cls="space-y-1"),
+            cls="p-4 bg-base-200 rounded-lg border border-base-300",
+        ),
+        cls="mb-6",
+    )
+
+
+def _overview_insights(context: UserContext) -> Div:
+    """Cross-domain insights section."""
+    insights = []
+
+    # Check for overdue tasks
+    if context.overdue_task_uids:
+        insights.append(
+            _insight_item(
+                "warning",
+                f"{len(context.overdue_task_uids)} overdue tasks need attention",
+                "/profile/tasks",
+            )
+        )
+
+    # Check for at-risk habits
+    if context.at_risk_habits:
+        insights.append(
+            _insight_item(
+                "warning",
+                f"{len(context.at_risk_habits)} habits at risk of breaking streak",
+                "/profile/habits",
+            )
+        )
+
+    # Check for pending choices
+    if len(context.pending_choice_uids) > 3:
+        insights.append(
+            _insight_item(
+                "info",
+                f"{len(context.pending_choice_uids)} choices awaiting your decision",
+                "/profile/choices",
+            )
+        )
+
+    # Check for today's events
+    if context.today_event_uids:
+        insights.append(
+            _insight_item(
+                "info",
+                f"{len(context.today_event_uids)} events scheduled for today",
+                "/calendar",
+            )
+        )
+
+    if not insights:
+        insights.append(
+            Div(
+                "Everything looks good! You're on track. 🎉",
+                cls="text-center text-base-content/50 py-4",
+            )
+        )
+
+    return Div(
+        H3("Insights", cls="text-lg font-semibold text-base-content mb-4"),
+        Div(*insights, cls="space-y-2"),
+        cls="bg-base-200 rounded-xl p-6",
+    )
+
+
+def _insight_item(level: str, message: str, href: str) -> A:
+    """Single insight item."""
+    icons = {
+        "warning": "⚠️",
+        "info": "ℹ️",
+        "success": "✓",
+    }
+    icon = icons.get(level, "•")
+
+    return A(
+        Span(icon, cls="mr-2"),
+        Span(message),
+        href=href,
+        cls="flex items-center p-3 bg-base-100 rounded-lg hover:bg-base-200 transition-colors text-base-content/70 hover:text-base-content",
+    )
+
+
+def _current_focus_card(context: UserContext) -> Div:
+    """Current task focus highlight card.
+
+    Shows what the user is currently focusing on, with a link to the task.
+    """
+    if not context.current_task_focus:
+        return Div(
+            P("No current focus set", cls="text-base-content/50 text-sm"),
+            P(
+                "Set a focus to see it highlighted here",
+                cls="text-base-content/50 text-xs mt-1",
+            ),
+            cls="bg-base-200 rounded-lg p-4 mb-6",
+        )
+
+    # Get task title from rich data if available
+    task_title = "Current Task"
+    for task_data in context.active_tasks_rich:
+        task = task_data.get("task", {})
+        if task.get("uid") == context.current_task_focus:
+            task_title = task.get("title", "Current Task")
+            break
+
+    return Div(
+        H3("Current Focus", cls="text-sm font-semibold text-base-content/50 mb-2"),
+        Div(
+            Span("🎯", cls="text-2xl mr-3"),
+            Span(task_title, cls="text-lg font-medium text-base-content"),
+            cls="flex items-center",
+        ),
+        A(
+            "View Task →",
+            href=f"/tasks/get?uid={context.current_task_focus}",
+            cls="text-sm text-primary hover:text-primary-hover mt-2 inline-block",
+        ),
+        cls="bg-primary/10 border border-accent/30 rounded-xl p-4 mb-6",
+    )
+
+
+def _velocity_summary(context: UserContext) -> Div:
+    """Overall velocity and momentum indicators.
+
+    Shows whether the user is gaining or losing momentum across domains.
+    """
+    total_velocity = sum(context.velocity_by_domain.values())
+    total_time = sum(context.time_invested_hours_by_domain.values())
+
+    # Determine momentum status
+    if total_velocity > 0.5:
+        momentum = ("🚀", "Strong Momentum", "text-success")
+    elif total_velocity > 0:
+        momentum = ("📈", "Building Momentum", "text-primary")
+    elif total_velocity > -0.3:
+        momentum = ("➡️", "Steady", "text-base-content/50")
+    else:
+        momentum = ("📉", "Losing Momentum", "text-warning")
+
+    icon, label, color = momentum
+
+    return Div(
+        Div(
+            Span(icon, cls="text-2xl mr-2"),
+            Span(label, cls=f"font-semibold {color}"),
+            cls="flex items-center",
+        ),
+        P(
+            f"Total time invested: {total_time:.1f} hours",
+            cls="text-sm text-base-content/50 mt-1",
+        ),
+        cls="bg-base-200 rounded-lg p-4 mb-6",
+    )
+
+
+def _domain_progress_grid(context: UserContext) -> Div:
+    """Per-domain progress visualization.
+
+    Shows progress bars, velocity indicators, and time invested for each
+    of the 6 Activity Domains.
+    """
+    domain_items = []
+
+    # Map UserContext domains to Activity Domain metadata
+    domain_mapping = [
+        (Domain.TASKS, "✅", "Tasks"),
+        (Domain.HABITS, "🔄", "Habits"),
+        (Domain.GOALS, "🎯", "Goals"),
+        (Domain.EVENTS, "📅", "Events"),
+        (Domain.PRINCIPLES, "⚖️", "Principles"),
+        (Domain.CHOICES, "🔀", "Choices"),
+    ]
+
+    for domain, icon, name in domain_mapping:
+        progress = context.domain_progress.get(domain, 0.0)
+        velocity = context.velocity_by_domain.get(domain, 0.0)
+        time_invested = context.time_invested_hours_by_domain.get(domain, 0.0)
+
+        # Velocity indicator
+        velocity_indicator = None
+        if velocity > 0.1:
+            velocity_indicator = Span("↑", cls="text-xs text-success ml-1")
+        elif velocity < -0.1:
+            velocity_indicator = Span("↓", cls="text-xs text-warning ml-1")
+
+        # Progress bar width (ensure minimum visibility)
+        progress_width = max(int(progress * 100), 2) if progress > 0 else 0
+
+        domain_items.append(
+            Div(
+                # Domain header
+                Div(
+                    Span(icon, cls="text-lg"),
+                    Span(name, cls="text-sm font-medium text-base-content"),
+                    cls="flex items-center gap-2 mb-2",
+                ),
+                # Progress bar
+                Div(
+                    Div(
+                        cls="h-2 bg-primary rounded-full transition-all",
+                        style=f"width: {progress_width}%",
+                    ),
+                    cls="h-2 bg-base-200 rounded-full w-full",
+                ),
+                # Stats row
+                Div(
+                    Span(f"{int(progress * 100)}%", cls="text-xs text-base-content/50"),
+                    velocity_indicator,
+                    Span(
+                        f"{time_invested:.1f}h",
+                        cls="text-xs text-base-content/50 ml-auto",
+                    ),
+                    cls="flex items-center mt-1",
+                ),
+                cls="bg-base-100 rounded-lg p-3 border border-base-300 shadow-sm",
+            )
+        )
+
+    return Div(
+        H3("Domain Progress", cls="text-lg font-semibold text-base-content mb-4"),
+        Div(*domain_items, cls="grid grid-cols-2 md:grid-cols-3 gap-3"),
+        cls="mb-6",
+    )
+
+
+# =============================================================================
+# Intelligence Components (Phase 3)
+# =============================================================================
+
+
+def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
+    """Daily work plan card showing today's optimal focus.
+
+    Displays prioritized items across domains with capacity utilization.
+
+    Args:
+        plan: DailyWorkPlan from intelligence service (REQUIRED)
+    """
+    # Capacity bar
+    capacity_percent = int(plan.workload_utilization * 100)
+    capacity_color = "bg-success" if plan.fits_capacity else "bg-warning"
+
+    # Build priority sections
+    priority_sections = []
+
+    # Priority 1: At-risk habits (streak protection)
+    at_risk_habits = [h for h in plan.contextual_habits if getattr(h, "streak_at_risk", False)]
+    if at_risk_habits:
+        habit_items = [
+            Div(
+                Span("🔄", cls="mr-2"),
+                Span(getattr(h, "title", "Habit"), cls="text-sm"),
+                Span(
+                    f"({getattr(h, 'current_streak', 0)}-day streak)",
+                    cls="text-xs text-base-content/50 ml-2",
+                ),
+                cls="flex items-center py-1",
+            )
+            for h in at_risk_habits[:3]
+        ]
+        priority_sections.append(
+            Div(
+                P("PRIORITY 1: At-risk habits", cls="text-xs font-bold text-warning mb-1"),
+                *habit_items,
+                cls="mb-3",
+            )
+        )
+
+    # Priority 2: Overdue/urgent tasks
+    urgent_tasks = [t for t in plan.contextual_tasks if getattr(t, "is_overdue", False)]
+    if urgent_tasks:
+        task_items = [
+            Div(
+                Span("⚠️", cls="mr-2"),
+                Span(getattr(t, "title", "Task"), cls="text-sm text-error"),
+                cls="flex items-center py-1",
+            )
+            for t in urgent_tasks[:3]
+        ]
+        priority_sections.append(
+            Div(
+                P("PRIORITY 2: Overdue tasks", cls="text-xs font-bold text-error mb-1"),
+                *task_items,
+                cls="mb-3",
+            )
+        )
+    elif plan.tasks:
+        # Show regular tasks if no urgent ones
+        task_items = [
+            Div(
+                Span("✅", cls="mr-2"),
+                Span(getattr(t, "title", "Task"), cls="text-sm"),
+                cls="flex items-center py-1",
+            )
+            for t in plan.contextual_tasks[:3]
+        ]
+        if task_items:
+            priority_sections.append(
+                Div(
+                    P("PRIORITY 2: Tasks", cls="text-xs font-bold text-base-content/50 mb-1"),
+                    *task_items,
+                    cls="mb-3",
+                )
+            )
+
+    # Priority 3: Learning
+    if plan.learning and plan.contextual_knowledge:
+        learning_items = [
+            Div(
+                Span("📚", cls="mr-2"),
+                Span(getattr(k, "title", "Knowledge"), cls="text-sm"),
+                Span(
+                    f"({getattr(k, 'estimated_time_minutes', 30)} min)",
+                    cls="text-xs text-base-content/50 ml-2",
+                ),
+                cls="flex items-center py-1",
+            )
+            for k in plan.contextual_knowledge[:2]
+        ]
+        priority_sections.append(
+            Div(
+                P("PRIORITY 3: Learning", cls="text-xs font-bold text-base-content/50 mb-1"),
+                *learning_items,
+                cls="mb-3",
+            )
+        )
+
+    # Fallback if no priorities
+    if not priority_sections:
+        if plan.rationale:
+            priority_sections.append(
+                Div(P(plan.rationale, cls="text-sm text-base-content/50 italic"))
+            )
+        else:
+            priority_sections.append(
+                Div(P("No specific priorities for today", cls="text-sm text-base-content/50"))
+            )
+
+    # Warnings
+    warnings_section = None
+    if plan.warnings:
+        warnings_section = Div(
+            *[
+                Div(
+                    Span("⚠️", cls="mr-1 text-xs"),
+                    Span(w, cls="text-xs text-warning"),
+                    cls="flex items-center",
+                )
+                for w in plan.warnings[:2]
+            ],
+            cls="mt-3 pt-3 border-t border-base-300",
+        )
+
+    return Div(
+        # Header
+        Div(
+            Span("📅", cls="text-2xl mr-3"),
+            Span("TODAY'S FOCUS", cls="font-bold text-base-content"),
+            cls="flex items-center mb-3",
+        ),
+        # Capacity bar
+        Div(
+            P(f"Capacity: {capacity_percent}% utilized", cls="text-xs text-base-content/50 mb-1"),
+            Div(
+                Div(
+                    cls=f"h-2 {capacity_color} rounded-full transition-all",
+                    style=f"width: {min(capacity_percent, 100)}%",
+                ),
+                cls="h-2 bg-base-200 rounded-full w-full",
+            ),
+            cls="mb-4",
+        ),
+        # Priority sections
+        *priority_sections,
+        # Warnings
+        warnings_section,
+        cls="bg-primary/5 border border-accent/20 rounded-xl p-4 mb-6",
+    )
+
+
+def _alignment_breakdown(alignment: "LifePathAlignment") -> Div:
+    """Life path alignment breakdown showing 5 dimensions.
+
+    Displays the overall alignment score with dimension-by-dimension breakdown.
+
+    Args:
+        alignment: LifePathAlignment from intelligence service (REQUIRED)
+    """
+    # Overall score and status
+    overall_percent = int(alignment.overall_score * 100)
+    level_colors = {
+        "flourishing": "text-success",
+        "aligned": "text-primary",
+        "exploring": "text-base-content/50",
+        "drifting": "text-warning",
+    }
+    level_color = level_colors.get(alignment.alignment_level, "text-base-content/50")
+    level_icon = {"flourishing": "✓", "aligned": "✓", "exploring": "~", "drifting": "!"}.get(
+        alignment.alignment_level, "~"
+    )
+
+    # Dimension bars
+    dimensions = [
+        ("Knowledge", alignment.knowledge_score, "📚"),
+        ("Activity", alignment.activity_score, "✅"),
+        ("Goals", alignment.goal_score, "🎯"),
+        ("Principles", alignment.principle_score, "⚖️"),
+        ("Momentum", alignment.momentum_score, "🚀"),
+    ]
+
+    dimension_bars = []
+    for name, score, icon in dimensions:
+        score_percent = int(score * 100)
+        dimension_bars.append(
+            Div(
+                Div(
+                    Span(icon, cls="text-sm w-6"),
+                    Span(name, cls="text-xs text-base-content/50 w-20"),
+                    Div(
+                        Div(
+                            cls="h-2 bg-primary rounded-full",
+                            style=f"width: {score_percent}%",
+                        ),
+                        cls="h-2 bg-base-200 rounded-full flex-1",
+                    ),
+                    Span(f"{score_percent}%", cls="text-xs text-base-content/50 w-10 text-right"),
+                    cls="flex items-center gap-2",
+                ),
+                cls="py-1",
+            )
+        )
+
+    # Strengths and gaps
+    insights_section = []
+    if alignment.strengths:
+        insights_section.append(
+            Div(
+                P("Strengths:", cls="text-xs font-semibold text-success mb-1"),
+                P(alignment.strengths[0], cls="text-xs text-base-content/50"),
+                cls="flex-1",
+            )
+        )
+    if alignment.gaps:
+        insights_section.append(
+            Div(
+                P("Gaps:", cls="text-xs font-semibold text-warning mb-1"),
+                P(alignment.gaps[0], cls="text-xs text-base-content/50"),
+                cls="flex-1",
+            )
+        )
+
+    return Div(
+        # Header with overall score
+        Div(
+            Span("🎯", cls="text-2xl mr-3"),
+            Div(
+                Span(f"LIFE PATH ALIGNMENT: {overall_percent}%", cls="font-bold text-base-content"),
+                Span(
+                    f" {level_icon} {alignment.alignment_level.upper()}",
+                    cls=f"text-sm ml-2 {level_color}",
+                ),
+                cls="flex items-center",
+            ),
+            cls="flex items-center mb-4",
+        ),
+        # Dimension breakdown
+        Div(*dimension_bars, cls="mb-4"),
+        # Insights row
+        Div(*insights_section, cls="flex gap-4") if insights_section else None,
+        cls="bg-base-200 rounded-xl p-4 mb-6",
+    )
+
+
+def _synergies_card(synergies: "list[CrossDomainSynergy]") -> Div:
+    """High-leverage actions card showing cross-domain synergies.
+
+    Displays detected synergies between entities across domains.
+
+    Args:
+        synergies: List of CrossDomainSynergy from intelligence service (REQUIRED, may be empty)
+    """
+    # Empty list is valid data - user genuinely has no synergies
+    if len(synergies) == 0:
+        return Div(
+            Div(
+                Span("🚀", cls="text-xl mr-2"),
+                Span("HIGH-LEVERAGE ACTIONS", cls="font-bold text-base-content/50"),
+                cls="flex items-center mb-2",
+            ),
+            P("No synergies detected yet", cls="text-sm text-base-content/50"),
+            cls="bg-base-200 rounded-lg p-4 mb-6",
+        )
+
+    synergy_items = []
+    for synergy in synergies[:3]:
+        score_percent = int(synergy.synergy_score * 100)
+
+        # Format synergy type arrow
+        domain_arrow = f"{synergy.source_domain.title()}→{synergy.target_domain.title()}"
+
+        synergy_items.append(
+            Div(
+                # Header with score
+                Div(
+                    Span(domain_arrow, cls="font-medium text-sm text-base-content"),
+                    Span(f"(score: {score_percent}%)", cls="text-xs text-base-content/50 ml-2"),
+                    cls="flex items-center mb-1",
+                ),
+                # Rationale
+                P(
+                    synergy.rationale[:80] + "..."
+                    if len(synergy.rationale) > 80
+                    else synergy.rationale,
+                    cls="text-xs text-base-content/50",
+                ),
+                # Targets count
+                P(
+                    f"Affects {len(synergy.target_uids)} {synergy.target_domain}(s)",
+                    cls="text-xs text-primary mt-1",
+                ),
+                cls="py-2 border-b border-base-300 last:border-0",
+            )
+        )
+
+    return Div(
+        # Header
+        Div(
+            Span("🚀", cls="text-xl mr-2"),
+            Span("HIGH-LEVERAGE ACTIONS", cls="font-bold text-base-content"),
+            cls="flex items-center mb-3",
+        ),
+        # Synergy items
+        *synergy_items,
+        cls="bg-base-200 rounded-xl p-4 mb-6",
+    )
+
+
+def _learning_steps_card(steps: "list[LearningStep]") -> Div:
+    """Next learning steps card showing prioritized learning recommendations.
+
+    Displays recommended knowledge units to learn with context.
+
+    Args:
+        steps: List of LearningStep from intelligence service (REQUIRED, may be empty)
+    """
+    # Empty list is valid data - no recommendations available
+    if len(steps) == 0:
+        return Div(
+            Div(
+                Span("📚", cls="text-xl mr-2"),
+                Span("NEXT LEARNING STEPS", cls="font-bold text-base-content/50"),
+                cls="flex items-center mb-2",
+            ),
+            P("No learning recommendations available", cls="text-sm text-base-content/50"),
+            cls="bg-base-200 rounded-lg p-4 mb-6",
+        )
+
+    step_items = []
+    for i, step in enumerate(steps[:3], 1):
+        priority_percent = int(step.priority_score * 100)
+
+        step_items.append(
+            A(
+                Div(
+                    # Number and title
+                    Div(
+                        Span(f"{i}.", cls="font-bold text-primary mr-2"),
+                        Span(step.title, cls="font-medium text-base-content"),
+                        cls="flex items-center mb-1",
+                    ),
+                    # Stats row
+                    Div(
+                        Span(f"Priority: {priority_percent}%", cls="text-xs text-base-content/50"),
+                        Span("|", cls="mx-2 text-base-content/50"),
+                        Span(
+                            f"{step.estimated_time_minutes} min", cls="text-xs text-base-content/50"
+                        ),
+                        cls="flex items-center mb-1",
+                    ),
+                    # Context
+                    Div(
+                        Span(
+                            f"Aligns: {len(step.aligns_with_goals)} goals",
+                            cls="text-xs text-primary",
+                        )
+                        if step.aligns_with_goals
+                        else None,
+                        Span("|", cls="mx-2 text-base-content/50")
+                        if step.aligns_with_goals and step.unlocks_count
+                        else None,
+                        Span(
+                            f"Unlocks: {step.unlocks_count}",
+                            cls="text-xs text-primary",
+                        )
+                        if step.unlocks_count
+                        else None,
+                        cls="flex items-center",
+                    )
+                    if step.aligns_with_goals or step.unlocks_count
+                    else None,
+                    cls="py-2 border-b border-base-300 last:border-0",
+                ),
+                href=f"/learning/ku/{step.ku_uid}",
+                cls="block hover:bg-base-200/50 -mx-2 px-2 rounded transition-colors",
+            )
+        )
+
+    return Div(
+        # Header
+        Div(
+            Span("📚", cls="text-xl mr-2"),
+            Span("NEXT LEARNING STEPS", cls="font-bold text-base-content"),
+            cls="flex items-center mb-3",
+        ),
+        # Step items
+        *step_items,
+        cls="bg-base-200 rounded-xl p-4 mb-6",
+    )
+
+
+__all__ = [
+    "ChoicesDomainView",
+    "DomainSummaryCard",
+    "EventsDomainView",
+    "GoalsDomainView",
+    "HabitsDomainView",
+    "LearningDomainView",
+    "OverviewView",
+    "PrinciplesDomainView",
+    "TasksDomainView",
+]

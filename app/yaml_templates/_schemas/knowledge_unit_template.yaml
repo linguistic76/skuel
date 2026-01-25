@@ -1,0 +1,126 @@
+# Knowledge Unit Template
+# ======================
+# This is a TEMPLATE EXAMPLE, not a validation schema.
+# It shows ALL valid fields for KnowledgeUnit YAML files.
+#
+# Purpose: Use this as a reference when creating new knowledge units.
+# Location: Use this structure in /home/mike/0bsidian/skuel/domains/{domain_name}/
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: KnowledgeUnit
+
+# uid: Unique identifier
+# Pattern: ku:topic-name (lowercase, kebab-case)
+# Example: ku:note-taking-basics, ku:spaced-repetition
+uid: ku:example-topic
+
+# title: Display title for this knowledge unit
+# Length: 1-200 characters
+# Example: "Note-Taking Basics", "Spaced Repetition — Advanced"
+title: Example Topic Title
+
+# content: Full markdown content
+# Format: Markdown with headers, bullets, code blocks, etc.
+# Minimum: 1 character
+content: |
+  # Example Topic
+
+  ## Introduction
+
+  Your main content goes here. Use markdown formatting:
+
+  - Bullet points for lists
+  - **Bold** for emphasis
+  - `code` for inline code
+
+  ## Key Concepts
+
+  1. First concept
+  2. Second concept
+  3. Third concept
+
+  ## Examples
+
+  ```python
+  # Code examples if relevant
+  def example():
+      return "Hello, World!"
+  ```
+
+  ## Summary
+
+  Wrap up the key takeaways here.
+
+# OPTIONAL FIELDS
+# ---------------
+
+# domain: Knowledge domain classification
+# Valid values: personal, professional, technical, health, financial, social
+# Default: personal
+domain: personal
+
+# complexity: Difficulty level
+# Valid values: basic, medium, advanced
+# Default: medium
+# Note: Use 'basic' not 'beginner'!
+complexity: basic
+
+# quality_score: Quality rating of this content
+# Type: Float between 0.0 and 1.0
+# Default: 0.0
+# Example: 0.85 = high quality, 0.5 = needs improvement
+quality_score: 0.85
+
+# tags: List of descriptive tags
+# Type: List of strings
+# Example: [study, notes, beginner]
+tags:
+  - example
+  - template
+  - documentation
+
+# prerequisites: Knowledge units that should be learned first
+# Type: List of knowledge unit UIDs
+# Format: Each UID should exist as a separate KnowledgeUnit
+# Example: [ku:basic-concepts, ku:fundamentals]
+prerequisites:
+  - ku:prerequisite-topic-1
+  - ku:prerequisite-topic-2
+
+# enables: Knowledge units that this unlocks
+# Type: List of knowledge unit UIDs
+# Purpose: Shows what the learner can tackle after mastering this
+# Example: [ku:advanced-techniques, ku:practical-applications]
+enables:
+  - ku:next-topic-1
+  - ku:next-topic-2
+
+# related_to: Related knowledge units (not prerequisites)
+# Type: List of knowledge unit UIDs
+# Purpose: Shows topics that complement or relate to this knowledge
+# Example: [ku:similar-concept, ku:alternative-approach]
+related_to:
+  - ku:related-topic-1
+  - ku:related-topic-2
+
+# semantic_links: Auto-generated semantic connections (DO NOT MANUALLY SET)
+# Type: Tuple of strings
+# Note: This field is automatically populated by the knowledge intelligence system
+# Leave empty or omit this field in YAML files
+
+# METADATA FIELDS (Auto-populated, DO NOT SET)
+# --------------------------------------------
+# These fields are automatically set by the system:
+# - created_at: Timestamp when created
+# - updated_at: Timestamp when last modified
+
+# NOTES
+# -----
+# 1. Fields marked REQUIRED must be present
+# 2. Fields marked OPTIONAL can be omitted (defaults will be used)
+# 3. Enum fields (domain, complexity) must use exact values listed
+# 4. UID references (prerequisites, enables, related_to) should point to existing entities
+# 5. Content supports full markdown including headers, code blocks, tables, etc.

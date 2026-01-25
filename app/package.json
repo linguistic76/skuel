@@ -1,0 +1,38 @@
+{
+  "name": "skuel-graphql-codegen",
+  "version": "1.0.0",
+  "description": "TypeScript code generation for SKUEL GraphQL API",
+  "private": true,
+  "scripts": {
+    "codegen": "graphql-codegen --config codegen.yml",
+    "codegen:watch": "graphql-codegen --config codegen.yml --watch",
+    "export-schema": "poetry run python scripts/export_graphql_schema.py",
+    "generate": "npm run export-schema && npm run codegen",
+    "css:build": "npx tailwindcss -i ./static/css/input.css -o ./static/css/output.css",
+    "css:watch": "npx tailwindcss -i ./static/css/input.css -o ./static/css/output.css --watch",
+    "css:prod": "npx tailwindcss -i ./static/css/input.css -o ./static/css/output.css --minify",
+    "vendor:copy": "node scripts/copy-vendor-libs.js"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.7",
+    "vis-timeline": "^7.7.3",
+    "frappe-gantt": "^0.6.1"
+  },
+  "devDependencies": {
+    "@graphql-codegen/cli": "^5.0.0",
+    "@graphql-codegen/typescript": "^4.0.0",
+    "@graphql-codegen/typescript-operations": "^4.0.0",
+    "@graphql-codegen/introspection": "^4.0.0",
+    "tailwindcss": "^3.4.0",
+    "@tailwindcss/typography": "^0.5.0",
+    "daisyui": "^4.12.0"
+  },
+  "keywords": [
+    "graphql",
+    "typescript",
+    "codegen",
+    "skuel"
+  ],
+  "author": "SKUEL",
+  "license": "UNLICENSED"
+}

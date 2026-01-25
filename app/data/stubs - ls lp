@@ -1,0 +1,51 @@
+
+● Assessment: Learning Progress Route Stubs
+
+  What's Clear
+
+  Route 1: POST /api/learning/progress
+  # Request schema already defined:
+  class LpProgressRequest(BaseModel):
+      step_uid: str       # Step to update progress for
+      mastery_level: float  # 0.0-1.0
+      completed: bool | None
+      notes: str | None
+  Intent: User explicitly updates their mastery on a learning step.
+
+  Route 2: GET /api/learning/progress/summary
+  Intent: Get comprehensive progress across all learning paths for a user.
+
+  What Already Exists
+
+  | Component         | Status         | File                                                                   |
+  |-------------------|----------------|------------------------------------------------------------------------|
+  | LpProgressRequest | ✅ Defined      | core/models/lp/lp_request.py:125-131                                   |
+  | LpProgressService | ✅ Event-driven | core/services/lp/lp_progress_service.py                                |
+  | Event handlers    | ✅ Working      | Subscribes to KnowledgeMastered, publishes LearningPathProgressUpdated |
+
+  The Gap
+
+  From lp_progress_service.py:191:
+  # Note: We need to get the user's current LP progress from storage
+  # For now, we'll calculate it fresh each time
+  # In a real implementation, we'd query a UserLpProgress entity
+
+  Missing: A UserLpProgress storage pattern in Neo4j.
+
+  Two approaches:
+  1. Relationship properties: (User)-[:HAS_PROGRESS {mastery: 0.7, completed: true}]->(LearningStep)
+  2. Progress node: (User)-[:TRACKS]->(UserProgress)-[:FOR_STEP]->(LearningStep)
+
+  Verdict: Leave as Stubs
+
+  Reason: The implementation requires a Neo4j storage pattern design decision that should emerge from:
+  - How much KU/LS/LP content actually exists in the system
+  - Whether progress comes primarily from:
+    - Event-driven: User masters KUs → progress auto-updates (already working)
+    - API-driven: User explicitly calls progress endpoints (stub routes)
+  - Performance characteristics of the chosen pattern
+
+  The current event-driven architecture in LpProgressService handles the common case (KU mastery flows up to LP progress). The API routes are for explicit override/correction.
+
+  Your instinct is correct - let these stubs develop naturally as KU/LS/LP content grows and usage patterns become clearer.
+

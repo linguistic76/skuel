@@ -1,0 +1,10 @@
+version: 0.1
+type: Conversation
+uid: cv:2025-10-04:study-starter
+title: Start with one clean block
+summary: Pick a topic, set 25 minutes, and log one sentence.
+tags: [conversation, onboarding, study]
+links:
+  references_knowledge: [ku:note-taking-basics]
+  invites_choices: [ch:start-25min-now, ch:create-5-flashcards]
+  anchors_path_step: ps:lp:study-skills-101:step-1

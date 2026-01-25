@@ -1,0 +1,35 @@
+version: 1.0
+type: Goal
+
+uid: goal:mindfulness-beginner
+title: Build a gentle daily starter practice
+description: Five short sessions per week for four weeks.
+
+# Goal Configuration
+goal_type: process
+domain: personal
+timeframe: monthly
+
+# Measurement
+measurement_type: percentage
+target_value: 100.0
+current_value: 0.0
+unit_of_measurement: sessions
+
+# Timeline
+start_date: null
+target_date: null
+
+# Learning Integration
+required_knowledge_uids:
+  - ku:breath-awareness-basics
+  - ku:posture-basics
+  - ku:mind-wandering-happens
+
+supporting_habit_uids:
+  - habit:daily-2min-breath
+  - habit:label-wander-daily
+
+guiding_principle_uids:
+  - principle:small-steps
+  - principle:attention-over-intensity

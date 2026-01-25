@@ -1,0 +1,7 @@
+version: 0.1
+type: Choice
+uid: ch:create-5-flashcards
+title: Create 5 flashcards
+summary: One concept per card. Keep them short.
+tags: [memory, review]
+applies_to_steps: [ps:lp:study-skills-101:step-2]

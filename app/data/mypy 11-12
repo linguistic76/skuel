@@ -1,0 +1,35 @@
+
+Next - 1st its 2do 11-12
+-
+
+  3. TC001/TC002/TC003 - Type Checking Imports - Performance Pattern (11 errors)
+
+  # tasks_analytics_service.py:27-30
+  from core.services.ku_analytics_engine import (
+      KuAwarePriority,  # Only used in type hints
+      KuMasteryProgression,
+      LearningPattern,
+      TaskInsight,
+  )
+
+  Teaching: These imports are only used in type annotations, not at runtime. Moving them to TYPE_CHECKING blocks prevents circular imports and improves startup performance:
+
+  Pattern:
+  from typing import TYPE_CHECKING
+
+  if TYPE_CHECKING:
+      from core.services.ku_analytics_engine import (
+          KuAwarePriority,
+          KuMasteryProgression,
+          LearningPattern,
+          TaskInsight,
+      )
+
+  # Use string annotations in method signatures
+  async def analyze(self) -> "TaskInsight":
+      ...
+
+  Impact: This is a mass pattern across 5 files. Consider:
+  1. Automated migration script to move TYPE_CHECKING imports
+  2. Or suppress TC001/TC002/TC003 if the circular import risk is low
+

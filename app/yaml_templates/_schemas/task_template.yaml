@@ -1,0 +1,144 @@
+# Task Template
+# =============
+# This is a TEMPLATE EXAMPLE, not a validation schema.
+# It shows ALL valid fields for Task YAML files.
+#
+# Purpose: Use this as a reference when creating task entities.
+# Location: Use this structure in /home/mike/0bsidian/skuel/domains/{domain_name}/
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: Task
+
+# uid: Unique identifier
+# Pattern: task:task-name
+# Example: task:log-first-3-blocks, task:make-5-cards
+uid: task:example-task
+
+# title: Display title for this task
+# Type: String
+# Example: "Log your first three 25-minute study blocks"
+title: Example Task Title
+
+# OPTIONAL FIELDS
+# ---------------
+
+# description: Detailed description of the task
+# Type: String (multi-line supported)
+# Purpose: Explain what needs to be done and why
+description: |
+  Detailed description of what this task involves.
+
+  You can include:
+  - Step-by-step instructions
+  - Context and background
+  - Expected outcomes
+  - Tips for success
+
+# duration_minutes: Expected time to complete
+# Type: Integer
+# Unit: Minutes
+# Example: 30 for a half-hour task, 75 for combined activities
+duration_minutes: 30
+
+# priority: Task priority level
+# Valid values: low, medium, high, critical
+# Default: medium
+# Example: high for important tasks
+priority: medium
+
+# status: Current task status
+# Valid values: draft, ready, in_progress, blocked, completed, cancelled
+# Default: draft
+# Note: 'draft' for planning, 'ready' when actionable, 'in_progress' when started
+status: draft
+
+# applies_knowledge_uids: Knowledge this task applies or practices
+# Type: List of KnowledgeUnit UIDs
+# Purpose: Link task to learning
+applies_knowledge_uids:
+  - ku:related-knowledge-1
+  - ku:related-knowledge-2
+
+# fulfills_goal_uid: Goal this task contributes to
+# Type: Goal UID (single goal, not a list)
+# Purpose: Show how task advances a goal
+fulfills_goal_uid: goal:related-goal
+
+# reinforces_habit_uid: Habit this task reinforces
+# Type: Habit UID (single habit, not a list)
+# Purpose: Connect task to habit building
+reinforces_habit_uid: habit:related-habit
+
+# tags: Descriptive tags for categorization
+# Type: List of strings
+# Example: [logging, beginner, habit-building]
+tags:
+  - example
+  - template
+
+# due_date: When the task should be completed
+# Type: Date string
+# Format: YYYY-MM-DD
+# Example: "2025-10-15"
+due_date: null
+
+# dependencies: Other tasks that must complete first
+# Type: List of Task UIDs
+# Purpose: Define task ordering
+dependencies:
+  - task:prerequisite-task
+
+# estimated_effort: Subjective effort level
+# Valid values: trivial, low, medium, high, very_high
+# Default: medium
+# Example: low for simple tasks, high for complex work
+estimated_effort: medium
+
+# actual_effort: Actual effort experienced (set after completion)
+# Valid values: trivial, low, medium, high, very_high
+# Note: Set this when marking task complete
+actual_effort: null
+
+# METADATA FIELDS (Auto-populated, DO NOT SET)
+# --------------------------------------------
+# These fields are automatically set by the system:
+# - created_at: Timestamp when created
+# - updated_at: Timestamp when last modified
+
+# ENUM VALUE REFERENCE
+# --------------------
+
+# priority options:
+#   - low: Nice to have
+#   - medium: Should do
+#   - high: Important
+#   - critical: Urgent and important
+
+# status options:
+#   - draft: Planning stage
+#   - ready: Ready to start
+#   - in_progress: Currently working on
+#   - blocked: Waiting on something
+#   - completed: Finished
+#   - cancelled: No longer needed
+
+# estimated_effort / actual_effort options:
+#   - trivial: Almost no effort
+#   - low: Minimal effort
+#   - medium: Moderate effort
+#   - high: Significant effort
+#   - very_high: Extreme effort
+
+# IMPORTANT NOTES
+# ---------------
+# 1. Task model does NOT have 'user_uid' field (different from Choice)
+# 2. Task model HAS both 'created_at' and 'updated_at' (different from Choice)
+# 3. fulfills_goal_uid is a SINGLE UID, not a list
+# 4. reinforces_habit_uid is a SINGLE UID, not a list
+# 5. Use status to track task lifecycle: draft → ready → in_progress → completed
+# 6. dependencies creates a task graph (prerequisite tasks must finish first)
+# 7. tags help with filtering and organization
+# 8. applies_knowledge_uids connects tasks to learning (can be multiple)

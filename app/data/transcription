@@ -1,0 +1,13 @@
+ Category 3: Liskov Substitution Violations in BaseService (6 errors)
+
+  Problem: TranscriptionService and TranscriptProcessorService inherit from BaseService but override methods with incompatible signatures:
+
+  | BaseService                | TranscriptionService                                       |
+  |----------------------------|------------------------------------------------------------|
+  | create(entity: T)          | create(request: TranscriptionCreateRequest, user_uid: str) |
+  | update(uid, updates: dict) | update(uid, request: TranscriptionUpdateRequest)           |
+  | delete(uid, cascade=False) | delete(uid)                                                |
+
+  Design Lesson: These services are NOT Activity Domains (per CLAUDE.md). They're Content/Processing domains that shouldn't inherit from BaseService.
+
+  Recommendation: Make TranscriptionService and TranscriptProcessorService standalone facades like JournalsService. They don't fit the Activity Domain contract.

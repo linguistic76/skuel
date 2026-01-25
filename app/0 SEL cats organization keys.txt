@@ -1,0 +1,191 @@
+
+  Knowledge units now use three orthogonal dimensions:
+
+  @dataclass(frozen=True)
+  class Knowledge:
+      domain: Domain           # Subject: TECH, BUSINESS, HEALTH
+      sel_category: SELCategory  # Competency: SELF_AWARENESS, etc.
+      # (content_type available if needed)
+
+  This three-dimensional model supports the adaptive learning architecture you'll be building on going forward.
+
+
+  The Orthogonal Axes Concept
+
+  Think of knowledge organization as a multi-dimensional space, not a flat list. Each dimension captures a different aspect of the knowledge:
+
+  Visualization
+
+           SEL Competency (Developmental Axis)
+                ↑
+                |  Self-Awareness
+                |  Self-Management
+                |  Social Awareness
+                |  Relationship Skills
+                |  Responsible Decision-Making
+                |
+                |____________→ Subject Domain (Content Axis)
+               /             TECH, BUSINESS, HEALTH, PERSONAL
+              /
+             /
+      Content Type
+      (Structure Axis)
+      CONCEPT, PRACTICE, PRINCIPLE
+
+  Concrete Examples to Illustrate Orthogonality
+
+  Let me show you how the same SEL competency can appear across different subject domains:
+
+  Example 1: Self-Awareness Across Domains
+
+  | KU Title                                | Subject Domain | SEL Category   | Why?                                       |
+  |-----------------------------------------|----------------|----------------|--------------------------------------------|
+  | "Recognizing Your Emotional Triggers"   | PERSONAL       | SELF_AWARENESS | Understanding internal emotional states    |
+  | "Identifying Your Learning Style"       | EDUCATION      | SELF_AWARENESS | Understanding how you learn best           |
+  | "Assessing Your Technical Skill Gaps"   | TECH           | SELF_AWARENESS | Understanding your current capabilities    |
+  | "Knowing Your Financial Risk Tolerance" | FINANCE        | SELF_AWARENESS | Understanding your relationship with money |
+  | "Understanding Your Leadership Style"   | BUSINESS       | SELF_AWARENESS | Understanding how you influence others     |
+
+  Notice: The subject matter is completely different, but they all develop the same competency - knowing yourself better.
+
+  Example 2: Same Subject, Different SEL Competencies
+
+  Now let's look at how one subject domain can develop different SEL competencies:
+
+  | KU Title                              | Subject Domain | SEL Category                | Why?                                               |
+  |---------------------------------------|----------------|-----------------------------|----------------------------------------------------|
+  | "Understanding JavaScript Closures"   | TECH           | SELF_AWARENESS              | Recognizing when you're confused vs. understanding |
+  | "Building a Coding Habit"             | TECH           | SELF_MANAGEMENT             | Regulating behavior to achieve goals               |
+  | "Code Review Best Practices"          | TECH           | SOCIAL_AWARENESS            | Understanding others' perspectives on code quality |
+  | "Pair Programming Communication"      | TECH           | RELATIONSHIP_SKILLS         | Collaborating effectively with teammates           |
+  | "Choosing the Right Technology Stack" | TECH           | RESPONSIBLE_DECISION_MAKING | Making ethical, informed technical choices         |
+
+  Notice: All are about technology, but each develops a different aspect of social-emotional competency.
+
+  Why This Organization is Powerful
+
+  1. Adaptive Learning Paths
+
+  A user can strengthen a specific SEL competency across multiple domains:
+
+  User struggling with Self-Management?
+  → Recommend KUs tagged with SELF_MANAGEMENT across their interests:
+    - "Time Blocking for Developers" (TECH + SELF_MANAGEMENT)
+    - "Budgeting Basics" (FINANCE + SELF_MANAGEMENT)
+    - "Building Exercise Habits" (HEALTH + SELF_MANAGEMENT)
+
+  This transfers the skill across contexts, making it more robust.
+
+  2. Holistic Development
+
+  Traditional learning systems organize only by subject:
+  - "Take a Python course" (subject-only)
+
+  SKUEL with SEL framework:
+  - "Learn Python while developing self-management through consistent practice, self-awareness through debugging reflection, and responsible decision-making through architecture choices"
+
+  3. Personalized Recommendations
+
+  The system can identify developmental gaps:
+
+  User Profile Analysis:
+  - Strong in: TECH domain, SELF_AWARENESS competency
+  - Weak in: RELATIONSHIP_SKILLS competency
+
+  Recommendation:
+  → "Team Communication in Tech Projects"
+    (TECH domain + RELATIONSHIP_SKILLS competency)
+
+  This bridges the gap by staying in their comfort zone (TECH)
+  while developing the weak competency (RELATIONSHIP_SKILLS)
+
+  The Plain English Explanation
+
+  Let me explain this in the simplest terms:
+
+  Subject Domains answer: "What is this content about?"
+  - Is it about computers? → TECH
+  - Is it about money? → FINANCE
+  - Is it about people skills? → BUSINESS
+
+  SEL Categories answer: "What part of me does this grow?"
+  - Does this help me know myself? → SELF_AWARENESS
+  - Does this help me control my behavior? → SELF_MANAGEMENT
+  - Does this help me understand others? → SOCIAL_AWARENESS
+  - Does this help me connect with people? → RELATIONSHIP_SKILLS
+  - Does this help me make good choices? → RESPONSIBLE_DECISION_MAKING
+
+  They're independent dimensions - every KU has both:
+  - A subject (what it's about)
+  - A competency (what it develops)
+
+  Real-World Analogy
+
+  Think of it like nutrition:
+
+  - Subject Domain = Type of food (vegetables, grains, protein, fruit)
+  - SEL Category = Nutrient provided (vitamin C, fiber, protein, calcium)
+
+  A carrot is:
+  - Food Type: Vegetable (subject domain)
+  - Nutrient: Vitamin A (SEL category)
+
+  An orange is:
+  - Food Type: Fruit (subject domain)
+  - Nutrient: Vitamin C (SEL category)
+
+  If you need vitamin C, you can get it from different food types (oranges, bell peppers, broccoli).
+
+  Similarly, if you need to develop SELF_MANAGEMENT, you can learn it through different subject domains (tech, health, finance).
+
+  How This Appears in the Data Model
+
+  @dataclass(frozen=True)
+  class Knowledge:
+      uid: str = "ku.python.debugging.beginner"
+      title: str = "Systematic Debugging Techniques"
+
+      # Axis 1: What is this about?
+      domain: Domain = Domain.TECH
+
+      # Axis 2: What does this develop?
+      sel_category: SELCategory = SELCategory.SELF_MANAGEMENT
+      # Because systematic debugging requires:
+      # - Emotional regulation when frustrated (self-management)
+      # - Methodical approach (self-management)
+      # - Persistence (self-management)
+
+      # Axis 3: How is this structured?
+      content_type: ContentType = ContentType.PROCEDURAL  # "How to debug"
+
+  The SKUEL Intelligence Layer
+
+  With this orthogonal organization, SKUEL can make intelligent connections:
+
+  User: "I'm working on a Python project but I keep getting frustrated and giving up"
+
+  SKUEL Analysis:
+  - Primary need: TECH domain knowledge (Python)
+  - Secondary need: SELF_MANAGEMENT competency (frustration regulation)
+
+  Recommendation:
+  → "ku.python.debugging.beginner"
+    (TECH + SELF_MANAGEMENT + PROCEDURAL)
+  → "ku.emotional_regulation.coding_frustration"
+    (PERSONAL + SELF_MANAGEMENT + PRACTICE)
+
+  This addresses BOTH the technical gap AND the emotional gap
+
+  Does This Clarify It?
+
+  The key insight is: SEL is not another category of content, it's a dimension of human development that exists across all content.
+
+  Every piece of knowledge you learn:
+  1. Is about something (subject domain)
+  2. Develops something in you (SEL competency)
+  3. Is structured somehow (content type)
+
+  This three-dimensional model creates a rich, interconnected knowledge space where learning paths can be personalized not just by "what you want to learn" but by "how you want to grow as a person".
+
+  Does this help you see why SEL should remain separate from subject domains? They measure fundamentally different things.
+

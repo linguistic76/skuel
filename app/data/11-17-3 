@@ -1,0 +1,62 @@
+)
+
+● Analysis Complete
+
+  Yes, I've identified 3 significant efficiency opportunities in relationship queries, with the potential for 3-10x performance improvement.
+
+  🔴 Priority 1: UserContextBuilder - Multiple Sequential Queries (BIGGEST IMPACT)
+
+  Location: /core/services/user/user_context_builder.py
+
+  Problem: Makes 5-9 separate sequential queries to build user context:
+  await self._enrich_context_with_tasks(context, user_uid)      # Query 1
+  await self._enrich_context_with_habits(context, user_uid)     # Query 2
+  await self._enrich_context_with_goals(context, user_uid)      # Query 3
+  await self._enrich_context_with_learning(context, user_uid)   # Query 4
+  await self._enrich_context_with_events(context, user_uid)     # Query 5
+  await self._enrich_context_with_graph_sourced_data(...)       # Queries 6-9
+
+  Impact: This runs on every ProfileHub request. Consolidating into 1-2 queries would give 3-5x speedup (50-250ms → 10-50ms).
+
+  ---
+  🟡 Priority 2: Sequential Boolean Checks
+
+  Location: Relationship services (tasks, goals, habits)
+
+  Problem: Methods like has_prerequisites() make 2 sequential queries when checking multiple relationship types:
+  # Check knowledge prerequisites - Query 1
+  knowledge_count = await self.backend.count_related(uid, "REQUIRES_KNOWLEDGE")
+  if knowledge_count > 0:
+      return True
+
+  # Check task prerequisites - Query 2
+  task_count = await self.backend.count_related(uid, "REQUIRES_PREREQUISITE")
+
+  Solution: Add count_related_any() method to check multiple relationship types in 1 query → 2x faster.
+
+  ---
+  🟡 Priority 3: Missing Batch Query APIs
+
+  Pattern: When checking relationships for multiple entities, services make N separate queries.
+
+  Solution: Add batch methods like batch_has_prerequisites(task_uids) → 10-100x faster for bulk operations (reports, analytics).
+
+  ---
+  What's Already Good ✅
+
+  1. Batch relationship creation - Already uses create_relationships_batch()
+  2. GraphSourcedContextBuilder - Intentionally uses raw Cypher for complex multi-operation queries (correctly optimized)
+  3. Protocol-based methods - Consistent use of get_related_uids(), count_related()
+
+  ---
+  Recommendation
+
+  Start with Priority 1 - the UserContextBuilder consolidation:
+  - Highest impact (ProfileHub is likely frequently called)
+  - Simplest to implement (4-6 hours)
+  - Immediate 3-5x performance gain
+
+  Full analysis document: /home/mike/skuel0/docs/analysis/RELATIONSHIP_QUERY_EFFICIENCY_ANALYSIS.md
+
+  Would you like me to implement the UserContextBuilder consolidation? I can create a single comprehensive query that replaces those 5-9 sequential queries.
+

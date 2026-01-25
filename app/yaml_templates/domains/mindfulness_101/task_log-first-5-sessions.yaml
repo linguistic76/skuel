@@ -1,0 +1,35 @@
+version: 1.0
+type: Task
+
+uid: task:log-first-5-sessions
+title: Log your first five sessions
+description: |
+  After each of your first five meditation sessions, take 30 seconds to note:
+  - Date
+  - Duration (probably 2 minutes)
+  - One sentence: "I noticed..."
+
+  This builds awareness and creates data for pattern recognition.
+
+# Task Properties
+duration_minutes: 3
+priority: medium
+status: draft
+
+# Timing
+due_date: null
+scheduled_date: null
+
+# Learning Integration
+applies_knowledge_uids:
+  - ku:breath-awareness-basics
+
+fulfills_goal_uid: goal:mindfulness-beginner
+reinforces_habit_uid: habit:daily-2min-breath
+
+# Metadata
+tags:
+  - logging
+  - beginner
+  - self-tracking
+  - awareness

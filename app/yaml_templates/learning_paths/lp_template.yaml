@@ -1,0 +1,46 @@
+# Learning Path (lp) Template
+# ============================
+# Core curriculum entity for complete learning sequences
+#
+# UID Format: lp:{path-name}
+# Example: lp:mindfulness-101
+
+version: 1.0
+type: LearningPath
+
+# Identity
+uid: lp:template-path
+name: Template Learning Path
+goal: What the learner will achieve by completing this path
+description: Detailed description (optional)
+
+# Configuration
+path_type: structured  # structured | adaptive | exploratory | remedial | accelerated
+difficulty: intermediate  # beginner | intermediate | advanced
+domain: personal  # personal | tech | health | finance | creative | other
+
+# Steps (reference standalone ls UIDs)
+# Note: Steps are now standalone entities linked by UID
+steps:
+  - ls:template-path:step-1
+  - ls:template-path:step-2
+  - ls:template-path:step-3
+
+# Requirements
+prerequisites:
+  - ku:prerequisite-knowledge-1
+
+outcomes:
+  - Outcome 1: Description
+  - Outcome 2: Description
+
+# Time Estimates
+estimated_hours: 10.0  # Total time (can be auto-calculated from steps)
+
+# Metadata
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z
+created_by: user:creator-uid
+tags:
+  - beginner-friendly
+  - practical

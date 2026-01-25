@@ -1,0 +1,63 @@
+
+  PRIORITY 2: HIGH - Service Implementation (Not Yet Built) (38 TODOs)
+
+  Askesis Service (10 TODOs) - adapters/inbound/askesis_api.py
+
+  Complete service scaffold exists, needs implementation
+
+  - L119: get_askesis_instance
+  - L137: create_askesis_instance
+  - L156: update_askesis_settings
+  - L179: create_conversation
+  - L202: send_message
+  - L215: get_conversation
+  - L237: generate_guidance
+  - L256: get_ai_insights
+  - L276: trigger_domain_integration
+  - L300: get_analytics
+  - L319: get_domain_suggestions
+  - L337: update_intelligence
+
+  Effort: Large (AI conversation system)
+
+  Context-Aware Intelligence Service (10 TODOs) - adapters/inbound/context_aware_api.py
+
+  Routes exist, service methods missing
+
+  - L52: get_context_dashboard
+  - L71: get_context_analysis
+  - L90: get_next_action
+  - L114: complete_task_with_context
+  - L134: create_tasks_from_goal_context
+  - L165: complete_habit_with_context
+  - L199: get_at_risk_habits
+  - L230: get_adaptive_learning_path
+  - L260: predict_future_state
+  - L276: get_context_health
+
+  Effort: Large (AI-powered context analysis)
+
+  Choice API (4 TODOs) - adapters/inbound/choice_api.py
+
+  - L92: make_decision
+  - L115: add_option
+  - L136: update_option
+  - L158: evaluate_outcome
+
+  Effort: Medium
+
+  Learning Path Service (4 TODOs) - adapters/inbound/learning_api.py
+
+  - L81: get_current_step
+  - L108: update_progress
+  - L122: get_progress_summary
+  - L139: get_recommendations
+
+  Effort: Medium
+
+  Learning Steps API (2 TODOs) - adapters/inbound/learning_steps_api.py
+
+  - L84: attach_step_to_path
+  - L106: detach_step_from_path
+
+  Effort: Small

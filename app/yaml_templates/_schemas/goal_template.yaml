@@ -1,0 +1,238 @@
+# Goal Template
+# =============
+# This is a TEMPLATE EXAMPLE, not a validation schema.
+# It shows ALL valid fields for Goal YAML files.
+#
+# Purpose: Use this as a reference when creating goal entities.
+# Location: Use this structure in /home/mike/0bsidian/skuel/domains/{domain_name}/
+
+# REQUIRED FIELDS
+# ---------------
+
+version: 1.0
+type: Goal
+
+# uid: Unique identifier
+# Pattern: goal:goal-name
+# Example: goal:study-sprint-beginner, goal:mindfulness-beginner
+uid: goal:example-goal
+
+# title: Display title for this goal
+# Type: String
+# Example: "Complete beginner study sprint", "Build a gentle daily starter practice"
+title: Example Goal Title
+
+# OPTIONAL FIELDS
+# ---------------
+
+# description: Detailed description of the goal
+# Type: String
+# Purpose: Explain what success looks like
+description: Detailed description of what achieving this goal means
+
+# goal_type: Type of goal
+# Valid values: outcome, process, learning, project, milestone, mastery
+# Default: outcome
+# Note: Use 'process' for activity-focused goals, 'outcome' for result-focused
+goal_type: process
+
+# domain: Knowledge domain classification
+# Valid values: personal, professional, technical, health, financial, social
+# Default: personal
+domain: personal
+
+# timeframe: Time horizon for this goal
+# Valid values: daily, weekly, monthly, quarterly, yearly, multi_year
+# Default: quarterly
+# Example: weekly for short-term goals, yearly for long-term
+timeframe: weekly
+
+# measurement_type: How progress is measured
+# Valid values: binary, percentage, numeric, milestone, habit_based, knowledge_based
+# Default: percentage
+# Note: 'binary' for done/not-done, 'numeric' for countable progress
+measurement_type: numeric
+
+# target_value: Target metric value
+# Type: Float
+# Example: 5.0 for "complete 5 study blocks"
+# Note: Required for numeric measurement_type
+target_value: 5.0
+
+# current_value: Current progress value
+# Type: Float
+# Default: 0.0
+# Note: Auto-updated as progress is made
+current_value: 0.0
+
+# unit_of_measurement: Unit for the metric
+# Type: String
+# Example: "study blocks", "pages", "hours", "sessions"
+# Note: Clarifies what the numbers mean
+unit_of_measurement: study blocks
+
+# start_date: When work on this goal begins
+# Type: Date string
+# Format: YYYY-MM-DD
+# Example: "2025-10-04"
+start_date: null
+
+# target_date: When this goal should be achieved
+# Type: Date string
+# Format: YYYY-MM-DD
+# Example: "2025-10-11"
+target_date: null
+
+# required_knowledge_uids: Knowledge needed to achieve this goal
+# Type: List of KnowledgeUnit UIDs
+# Purpose: Prerequisites for goal success
+required_knowledge_uids:
+  - ku:required-knowledge-1
+  - ku:required-knowledge-2
+
+# supporting_habit_uids: Habits that support this goal
+# Type: List of Habit UIDs
+# Purpose: Daily practices that enable goal achievement
+supporting_habit_uids:
+  - habit:supporting-habit-1
+  - habit:supporting-habit-2
+
+# guiding_principle_uids: Principles that guide pursuit of this goal
+# Type: List of Principle UIDs
+# Purpose: Values and guidelines for approaching this goal
+guiding_principle_uids:
+  - principle:guiding-principle-1
+  - principle:guiding-principle-2
+
+# status: Current goal status
+# Valid values: planned, active, paused, achieved, revised, abandoned
+# Default: planned
+# Note: 'active' when pursuing, 'achieved' when complete
+status: planned
+
+# priority: Goal priority level
+# Valid values: low, medium, high, critical
+# Default: medium
+priority: medium
+
+# tags: Descriptive tags for categorization
+# Type: List of strings
+# Example: [study, beginner, sprint]
+tags:
+  - example
+  - template
+
+# vision_statement: Long-term vision this goal supports
+# Type: String
+# Purpose: Connect to bigger picture aspirations
+vision_statement: null
+
+# parent_goal_uid: Parent goal if this is a sub-goal
+# Type: Goal UID
+# Purpose: Create goal hierarchy
+parent_goal_uid: null
+
+# sub_goal_uids: Child goals that contribute to this goal
+# Type: List of Goal UIDs
+# Purpose: Break large goals into smaller pieces
+sub_goal_uids: []
+
+# progress_percentage: Overall progress (0-100)
+# Type: Float
+# Default: 0.0
+# Note: Can be auto-calculated based on measurement_type
+progress_percentage: 0.0
+
+# why_important: Personal importance statement
+# Type: String
+# Purpose: Motivation and meaning
+why_important: null
+
+# success_criteria: Clear definition of success
+# Type: String
+# Purpose: Know when goal is truly achieved
+success_criteria: null
+
+# potential_obstacles: Anticipated challenges
+# Type: List of strings
+# Purpose: Plan for difficulties
+potential_obstacles:
+  - Obstacle 1
+  - Obstacle 2
+
+# strategies: Strategies to achieve the goal
+# Type: List of strings
+# Purpose: Approach and tactics
+strategies:
+  - Strategy 1
+  - Strategy 2
+
+# METADATA FIELDS (Auto-populated, DO NOT SET)
+# --------------------------------------------
+# These fields are automatically set by the system:
+# - created_at: Timestamp when created
+# - updated_at: Timestamp when last modified
+# - achieved_date: Timestamp when achieved (set when status becomes 'achieved')
+# - last_progress_update: Last time progress was updated
+
+# ENUM VALUE REFERENCE
+# --------------------
+
+# goal_type options:
+#   - outcome: Result-focused (achieve X)
+#   - process: Activity-focused (do Y consistently)
+#   - learning: Knowledge/skill acquisition
+#   - project: Complete a specific project
+#   - milestone: Reach a specific milestone
+#   - mastery: Master a domain/skill
+
+# domain options:
+#   - personal: Personal development
+#   - professional: Career/work
+#   - technical: Technical skills
+#   - health: Health and wellness
+#   - financial: Financial goals
+#   - social: Relationships and community
+
+# timeframe options:
+#   - daily: Micro-goals (today)
+#   - weekly: Short-term (this week)
+#   - monthly: Near-term (this month)
+#   - quarterly: Medium-term (3 months)
+#   - yearly: Long-term (this year)
+#   - multi_year: Strategic (multiple years)
+
+# measurement_type options:
+#   - binary: Done/Not Done
+#   - percentage: 0-100% complete
+#   - numeric: Specific number (e.g., 5 sessions)
+#   - milestone: Checkpoints achieved
+#   - habit_based: Based on habit consistency
+#   - knowledge_based: Based on knowledge mastery
+
+# status options:
+#   - planned: Not yet started
+#   - active: Currently pursuing
+#   - paused: Temporarily on hold
+#   - achieved: Successfully completed
+#   - revised: Modified/updated
+#   - abandoned: No longer pursuing
+
+# priority options:
+#   - low: Nice to achieve
+#   - medium: Should achieve
+#   - high: Important to achieve
+#   - critical: Must achieve
+
+# IMPORTANT NOTES
+# ---------------
+# 1. Goal model does NOT have 'user_uid' field (different from Choice)
+# 2. Goal model HAS both 'created_at' and 'updated_at'
+# 3. Use 'process' not 'habit' for goal_type (common mistake!)
+# 4. measurement_type determines how progress is tracked
+# 5. For numeric goals, set target_value and unit_of_measurement
+# 6. required_knowledge_uids links to learning prerequisites
+# 7. supporting_habit_uids connects daily practices to goal achievement
+# 8. guiding_principle_uids grounds goal in values
+# 9. parent_goal_uid and sub_goal_uids create goal hierarchies
+# 10. status 'active' means currently working on, 'achieved' means complete

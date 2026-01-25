@@ -1,0 +1,61 @@
+# Basic Learning Path Template
+# =============================
+# This template shows how to define a simple learning path
+
+learning_path:
+  title: "Your Learning Path Title"
+  domain: knowledge  # Options: knowledge, tech, habits, finance, events
+
+  # Define guiding principles (optional but recommended)
+  principles:
+    - name: "Continuous Growth"
+      statement: "I commit to learning something new every day"
+      strength: core  # Options: core, strong, moderate, developing, exploring
+      why_important: "Learning is the foundation of adaptation and success"
+      behaviors:
+        - "Read for 30 minutes daily"
+        - "Take notes on key concepts"
+        - "Practice what I learn"
+
+  # Define learning goals
+  goals:
+    - title: "Master [Subject]"
+      type: learning  # Options: outcome, process, learning, project, milestone, mastery
+      measurement: percentage  # Options: binary, percentage, numeric, milestone, habit_based, knowledge_based
+      target_value: 100
+      target_date: "2024-12-31"
+      why_important: "This knowledge will help me..."
+      success_criteria: "I can explain and apply all concepts"
+
+  # Define supporting habits
+  habits:
+    - name: "Daily Study Session"
+      duration: 30  # minutes
+      difficulty: moderate  # Options: trivial, easy, moderate, challenging, hard
+      category: learning
+      cue: "After morning coffee"
+      routine: "Review notes, practice problems, read new content"
+      reward: "Track progress in journal"
+      linked_knowledge:
+        - knowledge_1
+        - knowledge_2
+
+  # Define knowledge sequence (in learning order)
+  knowledge_sequence:
+    - uid: knowledge_1
+      title: "Foundation Concepts"
+      prerequisites: []
+      estimated_hours: 10
+      complexity: basic  # Options: basic, medium, advanced
+
+    - uid: knowledge_2
+      title: "Intermediate Topics"
+      prerequisites: [knowledge_1]
+      estimated_hours: 20
+      complexity: medium
+
+    - uid: knowledge_3
+      title: "Advanced Applications"
+      prerequisites: [knowledge_1, knowledge_2]
+      estimated_hours: 30
+      complexity: advanced

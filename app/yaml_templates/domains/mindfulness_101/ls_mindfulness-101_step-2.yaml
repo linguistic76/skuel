@@ -1,0 +1,67 @@
+version: 1.0
+type: LearningStep
+
+uid: ls:mindfulness-101:step-2
+title: Name The Wanders
+intent: Label mind-wanders without judgment once per session
+description: |
+  Now that you've established breath awareness, add the practice
+  of gently labeling when your mind drifts.
+
+# Knowledge Content
+primary_knowledge_uids:
+  - ku:mind-wandering-happens
+
+supporting_knowledge_uids:
+  - ku:breath-awareness-basics
+
+# Path Integration
+learning_path_uid: lp:mindfulness-101
+sequence: 2
+
+# Prerequisites
+prerequisite_step_uids:
+  - ls:mindfulness-101:step-1
+
+prerequisite_knowledge_uids:
+  - ku:breath-awareness-basics
+
+# Learning Guidance
+principle_uids:
+  - principle:attention-over-intensity
+
+choice_uids:
+  - choice:label-one-wander
+
+# Practice Integration
+habit_uids:
+  - habit:label-wander-daily
+
+task_uids:
+  - task:reflect-on-first-week
+
+event_template_uids:
+  - event:practice-block-2min
+
+# Mastery & Progress
+mastery_threshold: 0.7
+current_mastery: 0.0
+estimated_hours: 0.5
+difficulty: moderate
+
+# Status
+status: not_started
+completed: false
+
+# Domain & Priority
+domain: personal
+priority: medium
+
+# Metadata
+notes: Build on Step 1 - requires breath awareness foundation
+tags:
+  - attention
+  - meta-awareness
+  - labeling
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z

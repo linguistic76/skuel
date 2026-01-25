@@ -1,0 +1,103 @@
+  The Flow You're Describing
+
+  Yes, type safety helps code "work automatically" and "flow."
+
+  The DSL is the linguistic expression of the domains.
+  When we write @context(task) or @context(habit,learning), we're using language to express intent.
+  That language has structure - 15 domains, specific relationships, clear boundaries.
+
+  #### Type safety makes that structure enforceable.
+
+  The EntityType enum is the DSL's vocabulary encoded in a form the compiler understands.
+
+  When you add a new domain to your mental model, you add it to the enum:
+
+  - The parser knows it's valid
+  - The converter must handle it (or MyPy complains)
+  - IDE autocomplete shows it as an option
+  - Typos are caught at compile time, not runtime
+
+  #### The code "flows" because types create channels.
+
+  Like water finding its path:
+
+  User writes: "@context(task)"
+             ↓
+  Parser: EntityType.TASK (type-safe)
+             ↓
+  Converter: match EntityType.TASK → TaskCreateRequest
+             ↓
+  Service: create_task(request: TaskCreateRequest)
+             ↓
+  Neo4j: Task node created
+
+  Each step knows exactly what it receives and what it produces.
+  There's no guessing, no runtime validation that might fail, no "is this a string or an enum?" confusion.
+
+  The Yoga Connection
+
+  This connects to your philosophy in CLAUDE.md:
+
+  "Type errors as teachers, showing us where components don't flow together properly. By listening to them, we strengthen the core."
+
+  When types don't align, it's not a nuisance - it's feedback. The system is telling you: "These two pieces don't connect properly." Fix the connection, and flow is restored.
+
+  The Potential
+
+  What you've built now:
+
+  1. Clear domain language → 15 domains + 1 destination, precise terminology
+  2. EntityType enum → That language encoded as types
+  3. Type-safe DSL parser → list[EntityType] not list[str]
+  4. Protocol-verified converter → Pattern matching ensures exhaustive handling
+
+  #### The potential is that as the DSL grows, the types grow with it.
+
+  Add a new tag like @energy() or @link()? Define its type.
+  The compiler then tells you everywhere that needs to handle it.
+
+  The code becomes self-correcting.
+  Through compile-time verification that catches misalignment before the code ever runs.
+
+  Type safety isn't bureaucracy - it's the mechanism by which the analog domain ideas become digital code that flows.
+
+  -
+
+    This thread evolved from a conceptual insight ("clear domain language → clear types → enforceable contracts") into concrete implementation:
+
+  1. EntityType enum - The 15-domain architecture encoded as compile-time verified types
+  2. Type-safe DSL parser - list[EntityType] replacing list[str]
+  3. Protocol-verified converter - Pattern matching with exhaustiveness checking
+
+  What We Chose Not to Build
+
+  Equally important: we recognized when a pattern doesn't fit.
+
+  The discriminated union exploration (Option D) demonstrated that the current ParsedActivityLine design is already optimal - all fields are shared, multi-context  activities are valid.
+
+  Adding 14 nearly-identical dataclasses would have added complexity without proportional benefit.
+
+  This is the "deal with fundamentals" philosophy in action - not every type safety pattern is appropriate for every situation.
+
+  The Path Forward
+
+  ***** The ConversionResult union type is deliberately designed for expansion:
+
+  # Today
+  ConversionResult = TaskCreateRequest | dict[str, Any]
+
+  # Tomorrow (as domains mature)
+  ConversionResult = TaskCreateRequest | HabitCreateRequest | GoalCreateRequest | ...
+
+  Each typed request class you add narrows the dict[str, Any] escape hatch until eventually it's fully typed.
+
+  A Note on the Process
+
+  The analog-to-digital model you described at the start proved useful. You brought domain clarity (what is a Task vs a Habit vs a Goal), and the code translated that clarity into enforceable structure. The types aren't imposed from outside - they emerge from the domain language itself.
+
+  That's the essence: the code reflects the thinking, and the types ensure the reflection stays true.
+
+   outside - they emerge from the domain language itself.
+
+  That's the essence: the code reflects the thinking, and the types ensure the reflection stays true.
+

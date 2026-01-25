@@ -1,0 +1,48 @@
+# Knowledge Unit (ku) Template
+# =============================
+# Core curriculum entity for atomic knowledge content
+#
+# UID Format: ku:{descriptive-slug}
+# Example: ku:breath-awareness-basics
+
+version: 1.0
+type: KnowledgeUnit
+
+# Identity
+uid: ku:template-example
+title: Template Knowledge Unit
+content: |
+  ## Main Content
+
+  Detailed markdown content goes here.
+
+  - Bullet points
+  - Examples
+  - Explanations
+
+# Classification
+domain: personal  # personal | tech | health | finance | creative | other
+complexity: medium  # basic | medium | advanced
+
+# Quality & Analysis
+quality_score: 0.0  # 0.0-1.0 (auto-calculated from content analysis)
+semantic_links: []  # Auto-generated from semantic analysis
+
+# Relationships (use full UID format)
+prerequisites:
+  - ku:prerequisite-concept-1
+  - ku:prerequisite-concept-2
+
+enables:
+  - ku:next-concept-1
+  - ku:next-concept-2
+
+related_to:
+  - ku:related-concept-1
+
+# Metadata
+tags:
+  - tag1
+  - tag2
+created_at: 2025-10-04T00:00:00Z
+updated_at: 2025-10-04T00:00:00Z

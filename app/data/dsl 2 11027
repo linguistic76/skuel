@@ -1,0 +1,861 @@
+
+  DSL v0.3 Tags Supported:
+
+  - @context(task), @context(habit,learning) - Activity type classification
+
+  types include: task, events, habit, goal, principle, choice, can also be a combination of activities.
+
+  - @when(2025-12-25T10:00) - Scheduling
+  - @priority(1) - Priority (1=critical, 5=low)
+  - @duration(45m), @duration(1h30m) - Duration
+  - @energy(spiritual,rest) - Energy states
+  - @repeat(daily), @repeat(weekly:Mon,Wed) - Recurrence
+  - @ku(ku:tech/python) - Knowledge unit links
+  - @link(goal:health/fitness) - Entity relationships
+
+  Pipeline Flow:
+
+  Journal Content (markdown)
+      ↓
+  ActivityDSLParser.parse_journal()
+      ↓
+  ParsedJournal with ParsedActivityLine[]
+      ↓
+  ActivityEntityConverter.convert_journal()
+      ↓
+  TaskCreateRequest, habit dicts, goal dicts, event dicts
+      ↓
+  JournalActivityExtractorService.extract_and_create()
+      ↓
+  Created entities in Neo4j via domain services
+
+> Is there anything else you want to do to help establish the concept of DSEL in the codebase primarily via Journals, yet with thoughts of developing a semantic knowledge graph?
+
+● Let me think about what would strengthen the DSL foundation and its connection to the semantic knowledge graph. Let me explore the current state and identify opportunities.
+
+● Explore(Explore DSL and knowledge graph integration)
+  ⎿  Read 150 lines
+     Waiting… > /tmp/dsl_knowledge_graph_research.md << 'EOF'
+     +25 more tool uses (ctrl+o to expand)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command
+
+   cat > /tmp/dsl_knowledge_graph_research.md << 'EOF'
+   # DSL Knowledge Graph Integration Research Report
+
+   ## Executive Summary
+
+   SKUEL has a mature, sophisticated knowledge graph architecture built on Neo4j with semantic relationship support. The DSL's @ku() and @link() tags can integrate deeply with this existing infrastructure. This report maps the
+   current system and identifies integration opportunities.
+
+   ---
+
+   ## 1. Current Knowledge Unit (KU) Structure
+
+   ### Core Model Fields
+
+   **Location:** `/core/models/ku/ku.py` (frozen dataclass)
+
+   ```python
+   @dataclass(frozen=True)
+   class Ku:
+       # Identity
+       uid: str                    # e.g., "ku:sel/thought-not-reality"
+       title: str
+       content: str
+       domain: Domain              # TECH, BUSINESS, PERSONAL, HEALTH, etc.
+
+       # Learning Framework
+       sel_category: SELCategory   # Social Emotional Learning category
+       learning_level: LearningLevel  # BEGINNER, INTERMEDIATE, ADVANCED
+
+       # Metadata
+       quality_score: float        # 0.0-1.0
+       complexity: str             # "basic", "medium", "advanced"
+       semantic_links: tuple[str, ...]  # Content-based connections
+       created_at: datetime
+       updated_at: datetime
+       tags: tuple[str, ...]       # Topic categorization
+       metadata: dict[str, Any]
+
+       # Substance Tracking (Applied Knowledge)
+       times_applied_in_tasks: int
+       times_practiced_in_events: int
+       times_built_into_habits: int
+       journal_reflections_count: int
+       choices_informed_count: int
+       last_applied_date: datetime | None
+       estimated_time_minutes: int  # For learning
+       difficulty_rating: float     # 0.0-1.0
+   ```
+
+   ### Key Design Principles
+
+   1. **Graph-Native**: All relationships stored as Neo4j edges, NOT model properties
+   2. **Immutable**: Frozen dataclass for data integrity
+   3. **SEL Integration**: Maps to Social Emotional Learning categories
+   4. **Substance Tracking**: Measures application across domains (not just theory)
+   5. **No Serialized Relationships**: Query via KuRelationships.fetch() pattern
+
+   ### UID Naming Convention
+
+   ```
+   Prefix format: ku:namespace/slug
+   Examples:
+     - ku:sel/thought-not-reality
+     - ku:teens-yoga/focus-lesson
+     - ku:python-basics
+     - ku:emotional-regulation.advanced
+   ```
+
+   ---
+
+   ## 2. Semantic Relationship Types
+
+   ### Complete Taxonomy
+
+   **Location:** `/core/infrastructure/relationships/semantic_relationships.py`
+
+   SKUEL uses RDF-inspired semantic relationships with 8 namespaces:
+
+   #### Learning Domain (learn:)
+   ```
+   REQUIRES_THEORETICAL_UNDERSTANDING
+   REQUIRES_PRACTICAL_APPLICATION
+   REQUIRES_CONCEPTUAL_FOUNDATION
+   REQUIRES_TOOL_PROFICIENCY
+   BUILDS_MENTAL_MODEL
+   EXTENDS_PATTERN
+   DEEPENS_UNDERSTANDING
+   PROVIDES_FOUNDATION_FOR
+   REINFORCES_KNOWLEDGE
+   INFORMED_BY_KNOWLEDGE
+   CONTRASTS_WITH
+   COMPLEMENTS
+   ALTERNATIVE_APPROACH_TO
+   SIMPLIFIES
+   ELABORATES_ON
+   ANALOGOUS_TO
+   ```
+
+   #### Task Domain (task:)
+   ```
+   BLOCKS_UNTIL_COMPLETE
+   ENABLES_START_OF
+   MUST_COMPLETE_BEFORE
+   CAN_PARALLEL_WITH
+   CONTRIBUTES_TO_GOAL
+   SUPPORTS_GOAL_ACHIEVEMENT
+   ENABLES_ACHIEVEMENT
+   APPLIES_KNOWLEDGE_TO
+   ```
+
+   #### Habit Domain (habit:)
+   ```
+   TRIGGERS_AFTER
+   REINFORCES
+   CHAINS_WITH
+   SUBSTITUTES_FOR
+   REINFORCES_THROUGH_REPETITION
+   STRENGTHENS_PRACTICE
+   MAINTAINS_SKILL
+   BUILDS_CAPACITY_FOR
+   ALIGNS_WITH_PRINCIPLE
+   ```
+
+   #### Cross-Domain (cross:)
+   ```
+   IMPLEMENTS_VIA_TASK
+   PRACTICES_VIA_HABIT
+   PRACTICES_VIA_EVENT
+   DEMONSTRATES_IN_PROJECT
+   APPLIES_KNOWLEDGE_TO
+   DISCOVERED_THROUGH
+   REVEALS_PATTERN_IN
+   SHARES_PRINCIPLE_WITH
+   CONNECTS_DOMAINS
+   RELATED_TO
+   ```
+
+   #### Skill Domain (skill:)
+   ```
+   DEVELOPS_SKILL
+   PRACTICES_TECHNIQUE
+   PRACTICES_SKILL
+   MASTERS_THROUGH
+   REQUIRES_SKILL_LEVEL
+   ```
+
+   #### Conceptual Domain (concept:)
+   ```
+   DERIVES_FROM
+   GENERALIZES
+   SPECIALIZES
+   INSTANTIATES
+   ABSTRACTS
+   HAS_BROADER_CONCEPT
+   HAS_NARROWER_CONCEPT
+   CHILD_OF
+   PART_OF_SYSTEM
+   ```
+
+   #### Temporal Domain (time:)
+   ```
+   OCCURS_BEFORE
+   OCCURS_AFTER
+   OCCURS_DURING
+   DEADLINE_FOR
+   SCHEDULED_WITH
+   ```
+
+   #### Map of Content (moc:)
+   ```
+   ORGANIZED_IN
+   FEATURED_IN
+   INTRODUCES_TOPIC
+   PROVIDES_OVERVIEW_OF
+   AGGREGATES_KNOWLEDGE
+   BRIDGES_DOMAINS
+   MAPS_LEARNING_PATH
+   CONNECTS_PRINCIPLES
+   ```
+
+   ### Relationship Metadata
+
+   All relationships carry:
+   ```python
+   @dataclass
+   class RelationshipMetadata:
+       confidence: float = 1.0      # 0-1 confidence score
+       source: str | None = None    # "explicit", "inferred", "system"
+       created_at: datetime
+       valid_from: datetime | None
+   ```
+
+   ### Inverse Relationships
+
+   Key inverses defined:
+   - REQUIRES_THEORETICAL_UNDERSTANDING ↔ PROVIDES_FOUNDATION_FOR
+   - BLOCKS_UNTIL_COMPLETE ↔ ENABLES_START_OF
+   - OCCURS_BEFORE ↔ OCCURS_AFTER
+   - GENERALIZES ↔ SPECIALIZES
+   - SIMPLIFIES ↔ ELABORATES_ON
+
+   ---
+
+   ## 3. How Tasks/Habits/Goals Currently Connect to Knowledge
+
+   ### Pattern: KuRelationships Helper
+
+   **Location:** `/core/models/ku/ku_relationships.py`
+
+   All domains use a consistent pattern:
+
+   ```python
+   @dataclass(frozen=True)
+   class KuRelationships:
+       """Container for knowledge unit relationships (fetched from graph)"""
+
+       # Curriculum relationships (KU → KU)
+       prerequisite_uids: list[str]      # REQUIRES relationship
+       enables_uids: list[str]           # ENABLES relationship
+       related_uids: list[str]           # RELATED_TO relationship
+       broader_uids: list[str]           # HAS_BROADER concept
+       narrower_uids: list[str]          # HAS_NARROWER concept
+
+       # Cross-domain relationships (KU → Other domains)
+       part_of_path_uids: list[str]      # In learning paths
+       applied_in_task_uids: list[str]   # Tasks applying this KU
+       practiced_in_event_uids: list[str] # Events practicing this KU
+       reinforced_by_habit_uids: list[str] # Habits reinforcing this KU
+
+       # Optional rich semantic context
+       semantic_context: dict[str, Any] | None
+   ```
+
+   ### Task Relationships
+
+   **Location:** `/core/models/task/task_relationships.py`
+
+   Tasks connect to knowledge via:
+
+   ```python
+   @dataclass(frozen=True)
+   class TaskRelationships:
+       # Knowledge connections
+       applies_knowledge_uids: list[str]              # KUs this task applies
+       prerequisite_knowledge_uids: list[str]         # Required KU knowledge
+       completion_unlocks_knowledge: list[str]        # KUs unlocked when done
+       inferred_knowledge_uids: list[str]             # System-inferred KU links
+
+       # Goal/Habit/Principle connections
+       aligned_principle_uids: list[str]              # Related principles
+
+       # Task hierarchy
+       subtask_uids: list[str]
+       prerequisite_task_uids: list[str]
+       enables_task_uids: list[str]
+       completion_triggers_tasks: list[str]
+   ```
+
+   ### Usage Pattern
+
+   ```python
+   # Fetch relationships via service
+   rels = await TaskRelationships.fetch(task.uid, tasks_service.relationships)
+
+   # Access simple UID lists
+   if rels.applies_knowledge_uids:
+       learning_task = True
+
+   # For rich semantic data
+   rels = await TaskRelationships.fetch(
+       task.uid,
+       tasks_service.relationships,
+       semantic_service=semantic_service,
+       include_semantic_context=True
+   )
+   strong_prereqs = rels.get_high_confidence_prerequisites(min_confidence=0.8)
+   ```
+
+   ### Similar Patterns for Other Domains
+
+   - **Goals**: GoalRelationships (9 relationship types)
+   - **Habits**: HabitRelationships (6 relationship types)
+   - **Events**: EventRelationships (3 relationship types)
+   - **Choices**: ChoiceRelationships (4 relationship types)
+   - **Principles**: PrincipleRelationships (4 relationship types)
+
+   ---
+
+   ## 4. DSL Integration Opportunities
+
+   ### 4.1 @ku() Tag Integration
+
+   **Current DSL Syntax:**
+   ```markdown
+   @ku(ku:namespace/slug)
+   ```
+
+   **Integration Path:**
+
+   1. **Parser Stage**: Extract KU UID from DSL line
+      ```python
+      # Regex: @ku\(([^)]*)\)
+      ku_uid = "ku:teens-yoga/focus-lesson"
+      ```
+
+   2. **Task Creation**: Link task to KU during creation
+      ```python
+      # In TasksService.create()
+      if ku_uid:
+          # Create APPLIES_KNOWLEDGE relationship
+          await backend.create_relationship(
+              task_uid,
+              ku_uid,
+              SemanticRelationshipType.APPLIES_KNOWLEDGE,
+              metadata=RelationshipMetadata(
+                  confidence=1.0,  # User-explicit
+                  source="dsl_ku_tag"
+              )
+          )
+      ```
+
+   3. **Query Integration**: Query tasks by knowledge
+      ```python
+      # Find all tasks applying a specific KU
+      query = """
+      MATCH (t:Task)-[r:APPLIES_KNOWLEDGE]->(ku:Ku {uid: $ku_uid})
+      WHERE r.source = 'dsl_ku_tag'
+      RETURN t
+      """
+      ```
+
+   ### 4.2 @link() Tag Integration
+
+   **Current DSL Syntax:**
+   ```markdown
+   @link(goal:teens-yoga/10-members, principle:discernment-first)
+   @link(ku:sel/thought-not-reality)  # Alternative knowledge link
+   ```
+
+   **Integration Path:**
+
+   1. **Parser Stage**: Extract link targets with types
+      ```python
+      # Regex: @link\(([^)]*)\)
+      links = [
+          ("goal", "teens-yoga/10-members"),
+          ("principle", "discernment-first"),
+          ("ku", "sel/thought-not-reality")
+      ]
+      ```
+
+   2. **Relationship Creation**: Create semantic edges
+      ```python
+      # Map DSL link type to semantic relationship
+      semantic_map = {
+          "goal": SemanticRelationshipType.CONTRIBUTES_TO_GOAL,
+          "principle": SemanticRelationshipType.ALIGNS_WITH_PRINCIPLE,
+          "ku": SemanticRelationshipType.APPLIES_KNOWLEDGE_TO,
+          "project": SemanticRelationshipType.DEMONSTRATES_IN_PROJECT,
+          "person": SemanticRelationshipType.SHARES_PRINCIPLE_WITH,
+      }
+
+      for link_type, link_id in links:
+          await backend.create_relationship(
+              task_uid,
+              link_id,
+              semantic_map.get(link_type, SemanticRelationshipType.RELATED_TO),
+              metadata=RelationshipMetadata(
+                  confidence=1.0,
+                  source=f"dsl_link_{link_type}"
+              )
+          )
+      ```
+
+   ### 4.3 @energy() Tag Integration
+
+   **Current DSL Syntax:**
+   ```markdown
+   @energy(focus,creative)
+   ```
+
+   **Integration Path:**
+
+   1. **KU Enrichment**: Link activities to energy-state knowledge
+      ```python
+      # Meta-knowledge units for energy states
+      energy_ku_map = {
+          "focus": "ku:system/energy-focus-state",
+          "creative": "ku:system/energy-creative-state",
+          "physical": "ku:system/energy-physical-state",
+          "spiritual": "ku:system/energy-spiritual-state",
+          "rest": "ku:system/energy-rest-state",
+          "emotion": "ku:system/energy-emotional-state",
+          "light": "ku:system/energy-light-state",
+          "social": "ku:system/energy-social-state",
+      }
+
+      # Create INFORMS relationship to energy KU
+      for energy_state in energy_states:
+          if energy_state in energy_ku_map:
+              ku_uid = energy_ku_map[energy_state]
+              await backend.create_relationship(
+                  task_uid,
+                  ku_uid,
+                  SemanticRelationshipType.INFORMED_BY_KNOWLEDGE,
+                  metadata={"energy_state": energy_state}
+              )
+      ```
+
+   2. **Query Energy Patterns**:
+      ```python
+      # Find tasks matching current energy state
+      query = """
+      MATCH (t:Task)-[r:INFORMED_BY_KNOWLEDGE]->(ku:Ku)
+      WHERE r.energy_state = $energy AND t.user_uid = $user_uid
+      RETURN t
+      """
+      ```
+
+   ### 4.4 @duration() Tag Integration
+
+   **Current DSL Syntax:**
+   ```markdown
+   @duration(90m)
+   @duration(1h30m)
+   ```
+
+   **Integration Path:**
+
+   1. **Task Metadata**: Store as standard task field
+      ```python
+      # Already in Task model
+      estimated_time_minutes: int
+
+      # Parse and store
+      task.estimated_time_minutes = parse_duration("90m")  # → 90
+      task.estimated_time_minutes = parse_duration("1h30m")  # → 90
+      ```
+
+   2. **Knowledge Link**: Time-based KU filtering
+      ```python
+      # Find knowledge units suitable for available time
+      query = """
+      MATCH (t:Task {uid: $task_uid})-[r:APPLIES_KNOWLEDGE]->(ku:Ku)
+      WHERE ku.estimated_time_minutes <= $available_minutes
+      RETURN ku
+      """
+      ```
+
+   ### 4.5 @repeat() Tag Integration
+
+   **Current DSL Syntax:**
+   ```markdown
+   @repeat(daily)
+   @repeat(weekly:Mon,Wed,Fri)
+   @repeat(every:3d)
+   ```
+
+   **Integration Path:**
+
+   1. **Habit Creation**: Convert to Habit entity
+      ```python
+      # When @repeat() is present, create Habit instead of Task
+      # Store recurrence pattern via existing Habit model fields
+      ```
+
+   2. **Knowledge Reinforcement**: Track repeated practice
+      ```python
+      # When habit completes, increment knowledge substance metrics
+      # Event: HabitKnowledgeBuilt
+      event = HabitKnowledgeBuilt(
+          habit_uid=habit_uid,
+          ku_uid=applied_knowledge_uid,
+          reinforcement_count=streak_length
+      )
+      ```
+
+   ---
+
+   ## 5. Query Architecture Integration
+
+   ### How CypherGenerator Would Support DSL
+
+   **Location:** `/core/models/query/_cypher_generator.py`
+
+   New helper methods:
+
+   ```python
+   class CypherGenerator:
+       @staticmethod
+       def build_dsl_knowledge_graph(
+           entity_uid: str,
+           include_semantic_types: list[SemanticRelationshipType] | None = None,
+           depth: int = 2
+       ) -> tuple[str, dict[str, Any]]:
+           """
+           Build query for entity created via DSL with full knowledge context.
+
+           Queries:
+           1. Primary entity (Task/Habit/Goal)
+           2. All @ku() links (APPLIES_KNOWLEDGE relationships)
+           3. All @link() relationships with semantic types
+           4. Transitive knowledge prerequisites
+           5. Energy state influences
+           """
+
+       @staticmethod
+       def build_dsl_energy_profile(
+           user_uid: str,
+           date_range: tuple[date, date]
+       ) -> tuple[str, dict[str, Any]]:
+           """
+           Analyze energy patterns from @energy() tags across user's activities.
+           Returns energy distribution by activity type and time.
+           """
+
+       @staticmethod
+       def build_dsl_knowledge_mastery_path(
+           ku_uid: str,
+           user_uid: str,
+           include_dsl_tasks: bool = True
+       ) -> tuple[str, dict[str, Any]]:
+           """
+           Build learning path from DSL-tagged tasks/habits that practice this KU.
+           Shows how user applies knowledge across contexts.
+           """
+   ```
+
+   ---
+
+   ## 6. Backend Integration Points
+
+   ### RelationshipCreationHelper
+
+   **Location:** `/core/services/infrastructure/relationship_creation_helper.py`
+
+   Already supports semantic relationships with metadata:
+
+   ```python
+   async def create_relationship(
+       self,
+       from_uid: str,
+       to_uid: str,
+       relationship_type: SemanticRelationshipType,
+       confidence: float = 1.0,
+       source: str | None = None,
+       metadata: dict[str, Any] | None = None
+   ) -> Result[bool]:
+       """Create semantic relationship with metadata"""
+   ```
+
+   ### DSL Usage:
+
+   ```python
+   # In ProcessingPipelineService or similar
+   dsl_parser = DSLParser()
+   parsed = dsl_parser.parse_activity_line(markdown_line)
+
+   if parsed.ku_uid:
+       await relationship_helper.create_relationship(
+           from_uid=parsed.entity_uid,
+           to_uid=parsed.ku_uid,
+           relationship_type=SemanticRelationshipType.APPLIES_KNOWLEDGE_TO,
+           source=f"dsl_ku_tag_v{dsl_parser.version}"
+       )
+
+   for link in parsed.links:
+       await relationship_helper.create_relationship(
+           from_uid=parsed.entity_uid,
+           to_uid=link.target_uid,
+           relationship_type=semantic_map.get(link.type),
+           source=f"dsl_link_{link.type}"
+       )
+   ```
+
+   ---
+
+   ## 7. Service Architecture Integration
+
+   ### Where DSL Processing Would Fit
+
+   ```
+   ProcessingPipelineService
+   ├── File Upload
+   ├── Type Detection
+   ├── DSL Parsing ← NEW
+   │   ├── Extract @ku() tags
+   │   ├── Extract @link() tags
+   │   ├── Extract @energy() tags
+   │   ├── Extract @duration(), @repeat(), @when(), @priority()
+   │   └── Build intermediate representation
+   ├── Entity Creation
+   │   ├── Create Task/Habit/Goal
+   │   ├── Create relationships via RelationshipCreationHelper
+   │   ├── Store metadata (energy, duration, etc.)
+   │   └── Trigger domain events
+   └── Knowledge Graph Integration
+       ├── Update KU substance metrics
+       ├── Create cross-domain relationships
+       └── Generate insights
+   ```
+
+   ### Example Integration
+
+   ```python
+   class ProcessingPipelineService:
+       async def process_dsl_activity_line(
+           self,
+           user_uid: str,
+           markdown_line: str
+       ) -> Result[dict]:
+           """Process DSL-tagged markdown activity line"""
+
+           # Parse DSL tags
+           dsl_parser = DSLParser()
+           parsed = dsl_parser.parse(markdown_line)
+
+           # Create primary entity
+           entity = await self._create_entity(user_uid, parsed)
+
+           # Create knowledge relationships
+           if parsed.ku_uid:
+               await self.relationships.create_relationship(
+                   entity.uid,
+                   parsed.ku_uid,
+                   SemanticRelationshipType.APPLIES_KNOWLEDGE_TO,
+                   source="dsl_ku"
+               )
+
+           # Create secondary links
+           for link in parsed.links:
+               await self.relationships.create_relationship(
+                   entity.uid,
+                   link.target_uid,
+                   self._map_link_type_to_semantic(link.type),
+                   source=f"dsl_link_{link.type}"
+               )
+
+           # Store metadata
+           entity.metadata["dsl_parsed"] = {
+               "energy_states": parsed.energy_states,
+               "duration_minutes": parsed.duration_minutes,
+               "repeat_pattern": parsed.repeat_pattern,
+               "source": "dsl_v0.3"
+           }
+
+           return Result.ok({"entity": entity, "relationships_created": count})
+   ```
+
+   ---
+
+   ## 8. Existing Infrastructure Benefits
+
+   ### Already in Place
+
+   1. **RelationshipMetadata**: Confidence, source, creation date
+   2. **SemanticRelationshipType**: 60+ precise relationship types
+   3. **CypherGenerator**: Advanced query generation
+   4. **RelationshipCreationHelper**: Handles semantic edges
+   5. **Graph Intelligence Service**: Phase 1-4 deep traversal
+   6. **KuRelationships Pattern**: Proven for batch fetching
+
+   ### Ready to Leverage
+
+   - Domain enum (Domain.TASKS, Domain.GOALS, etc.)
+   - Substance tracking (times_applied_in_tasks, etc.)
+   - Rich context pattern (get_with_context for entities)
+   - Event-driven architecture (HabitKnowledgeBuilt events)
+
+   ---
+
+   ## 9. Integration Checklist
+
+   ### Phase 1: Parser Implementation
+   - [ ] Implement DSLParser.parse_activity_line()
+   - [ ] Extract @ku() → single UID
+   - [ ] Extract @link() → list of (type, id) tuples
+   - [ ] Extract @energy() → list of energy states
+   - [ ] Extract @duration() → minutes (integer)
+   - [ ] Extract @repeat() → recurrence pattern object
+   - [ ] Validate UID formats (ku:, goal:, principle:, etc.)
+
+   ### Phase 2: Entity Creation
+   - [ ] Determine entity type from @context() tag
+   - [ ] Create Task/Habit/Goal with parsed metadata
+   - [ ] Store DSL metadata in entity.metadata["dsl"]
+   - [ ] Support backward compatibility (non-DSL entries)
+
+   ### Phase 3: Relationship Creation
+   - [ ] Create APPLIES_KNOWLEDGE for @ku()
+   - [ ] Create semantic edges for @link()
+   - [ ] Set source = "dsl_v0.3" for audit trail
+   - [ ] Support confidence scoring (1.0 for explicit DSL)
+
+   ### Phase 4: Knowledge Integration
+   - [ ] Link to energy state KUs
+   - [ ] Track knowledge application via substance metrics
+   - [ ] Generate cross-domain insights
+   - [ ] Enable energy profile queries
+
+   ### Phase 5: Query Extensions
+   - [ ] Add CypherGenerator helpers for DSL queries
+   - [ ] Implement energy profile analysis
+   - [ ] Build knowledge mastery path from DSL activities
+   - [ ] Create DSL-aware recommendations
+
+   ---
+
+   ## 10. Key Data Structures Needed
+
+   ### For DSL Parser
+
+   ```python
+   @dataclass
+   class ParsedDSLActivity:
+       title: str
+       context: list[str]              # ["task", "learning"]
+       when: datetime | None           # @when()
+       priority: int | None            # 1-5
+       duration_minutes: int | None    # @duration()
+       repeat_pattern: dict | None     # @repeat()
+       energy_states: list[str]        # @energy()
+       ku_uid: str | None              # @ku()
+       links: list[ParsedLink]         # @link()
+       metadata: dict[str, Any]        # Raw metadata
+
+   @dataclass
+   class ParsedLink:
+       type: str                        # "goal", "principle", "ku", "project"
+       target_id: str                  # Full ID
+   ```
+
+   ### For Knowledge-Energy Mapping
+
+   ```python
+   ENERGY_KU_MAPPING = {
+       "focus": "ku:system/energy-focus-state",
+       "creative": "ku:system/energy-creative-state",
+       "physical": "ku:system/energy-physical-state",
+       "spiritual": "ku:system/energy-spiritual-state",
+       "rest": "ku:system/energy-rest-state",
+       "emotion": "ku:system/energy-emotional-state",
+       "light": "ku:system/energy-light-state",
+       "social": "ku:system/energy-social-state",
+   }
+
+   LINK_TYPE_SEMANTIC_MAP = {
+       "goal": SemanticRelationshipType.CONTRIBUTES_TO_GOAL,
+       "principle": SemanticRelationshipType.ALIGNS_WITH_PRINCIPLE,
+       "ku": SemanticRelationshipType.APPLIES_KNOWLEDGE_TO,
+       "project": SemanticRelationshipType.DEMONSTRATES_IN_PROJECT,
+       "person": SemanticRelationshipType.SHARES_PRINCIPLE_WITH,
+   }
+   ```
+
+   ---
+
+   ## 11. Recommendations for Implementation
+
+   ### Priority 1: @ku() Integration
+   - Simplest to implement
+   - Maximum immediate value
+   - Enables knowledge tracking
+   - Foundation for other tags
+
+   ### Priority 2: @link() Integration
+   - Extends semantic graph
+   - Enables cross-domain queries
+   - Supports life path alignment
+   - Powers intelligence features
+
+   ### Priority 3: @energy() Integration
+   - Requires KU creation for energy states
+   - Enables behavioral intelligence
+   - Powers energy-aware scheduling
+   - Supports teen user intelligence
+
+   ### Priority 4: @duration() + @repeat()
+   - Already model fields
+   - Enables time-aware planning
+   - @repeat() triggers Habit creation
+   - Supports temporal intelligence
+
+   ---
+
+   ## 12. Technical Debt to Address
+
+   ### Before Implementation
+   1. Create energy state KUs (meta-knowledge)
+   2. Decide on KU naming for system-generated entities
+   3. Define DSL version tracking (source field)
+   4. Implement DSL parser error handling
+   5. Create comprehensive test fixtures
+
+   ---
+
+   ## Summary
+
+   SKUEL's knowledge graph architecture is **architecturally ready** for DSL integration:
+
+   ✅ Semantic relationship types cover all DSL link types
+   ✅ RelationshipMetadata supports source tracking ("dsl_v0.3")
+   ✅ KuRelationships pattern proven for batch operations
+   ✅ CypherGenerator provides query infrastructure
+   ✅ Service layer ready for DSL processing
+   ✅ Graph-native design (no serialized fields to worry about)
+
+   The main work is:
+   1. **DSL Parser**: Extract tags from markdown (200-300 lines)
+   2. **Integration Layer**: Wire DSL to entity creation (300-400 lines)
+   3. **Query Builders**: Extend CypherGenerator with DSL-aware queries (400-500 lines)
+   4. **Tests & Documentation**: Comprehensive coverage
+
+   **Estimated effort**: 2-3 weeks for full integration
+   **Complexity**: Medium (builds on existing patterns)
+   **Value**: High (enables life-pattern intelligence tier)
+   EOF
+   cat /tmp/dsl_knowledge_graph_research.md

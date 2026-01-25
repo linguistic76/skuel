@@ -1,0 +1,66 @@
+# Production Dockerfile
+# ====================
+# Phase 5: Production Integration & Real-World Deployment
+# Multi-stage build for optimized production image
+
+FROM python:3.11-slim as builder
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
+ENV POETRY_HOME="/opt/poetry"
+ENV POETRY_VENV_IN_PROJECT=1
+ENV POETRY_NO_INTERACTION=1
+ENV POETRY_CACHE_DIR=/opt/poetry/.cache
+RUN pip install poetry==1.7.1
+
+# Copy dependency files
+WORKDIR /app
+COPY pyproject.toml poetry.lock ./
+
+# Install dependencies
+RUN poetry install --only=main --no-root && \
+    poetry cache clear --all pypi
+
+# Production stage
+FROM python:3.11-slim as production
+
+# Create non-root user for security
+RUN groupadd -r skuel && useradd -r -g skuel skuel
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy virtual environment from builder
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Copy application code
+COPY --chown=skuel:skuel . .
+
+# Create required directories
+RUN mkdir -p /app/logs /app/vault && \
+    chown -R skuel:skuel /app
+
+# Switch to non-root user
+USER skuel
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:5001/health || exit 1
+
+# Expose port
+EXPOSE 5001
+
+# Production command
+CMD ["python", "skuel.py"]

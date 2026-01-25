@@ -1,0 +1,129 @@
+
+● Now I have a complete picture. Here's how the existing sync infrastructure works:
+
+  ---
+  How KU Markdown Sync Works
+
+  The Flow:
+
+  1. MARKDOWN FILE (your vault)
+     ---
+     uid: ku.python.functions
+     title: Python Functions
+     domain: tech
+     connections:
+       requires: ["ku.python.basics"]
+       enables: ["ku.python.decorators"]
+     ---
+     # Content here...
+
+  2. PARSE (MarkdownSyncService._parse_knowledge_unit)
+     - Extracts YAML frontmatter
+     - Creates KnowledgeUnit dataclass
+     - Stores connections in metadata._connections
+
+  3. RELATIONSHIP CONFIG (defines how YAML → Neo4j edges)
+     rel_config = {
+         "connections.requires": {
+             "rel_type": "PREREQUISITE",
+             "target_label": "Ku",
+             "direction": "incoming"  # (n)<-[:PREREQUISITE]-(target)
+         },
+         "connections.enables": {
+             "rel_type": "ENABLES",
+             "target_label": "Ku",
+             "direction": "outgoing"  # (n)-[:ENABLES]->(target)
+         }
+     }
+
+  4. BULK INGESTION (BulkIngestionEngine.upsert_with_relationships)
+     - Creates (ku:Ku {uid: "ku.python.functions", ...})
+     - Creates edges: (ku)<-[:PREREQUISITE]-(ku.python.basics)
+     - Creates edges: (ku)-[:ENABLES]->(ku.python.decorators)
+
+  ---
+  What MOC Markdown Sync Would Need
+
+  Following the same pattern, a MOC markdown file would look like:
+
+  ---
+  moc: true
+  uid: moc.python.fundamentals
+  title: Python Fundamentals
+  domain: tech
+  visibility: private
+
+  # Direct content references (top-level, no section)
+  contains:
+    knowledge: ["ku.python.basics", "ku.python.functions"]
+    paths: ["lp.python.beginner"]
+    principles: ["principle.practice-daily"]
+
+  # Practice recommendations
+  recommends:
+    habits: ["habit.coding.daily-practice"]
+    tasks: ["task.setup.python-env"]
+    events: ["event.weekly.code-review"]
+
+  # Cross-domain bridges
+  bridges:
+    - uid: ku.math.logic
+      domain: math
+    - uid: goal.career.developer
+      domain: personal
+
+  # Related MOCs
+  related_mocs: ["moc.programming.basics", "moc.python.advanced"]
+  ---
+
+  # Python Fundamentals
+
+  This MOC organizes everything about Python basics...
+
+  The Relationship Config for MOC:
+
+  moc_rel_config = {
+      # Contains relationships
+      "contains.knowledge": {
+          "rel_type": "CONTAINS_KNOWLEDGE",
+          "target_label": "Ku",
+          "direction": "outgoing"
+      },
+      "contains.paths": {
+          "rel_type": "CONTAINS_PATH",
+          "target_label": "Lp",
+          "direction": "outgoing"
+      },
+      "contains.principles": {
+          "rel_type": "CONTAINS_PRINCIPLE",
+          "target_label": "Principle",
+          "direction": "outgoing"
+      },
+
+      # Recommends relationships
+      "recommends.habits": {
+          "rel_type": "RECOMMENDS_HABIT",
+          "target_label": "Habit",
+          "direction": "outgoing"
+      },
+      "recommends.tasks": {
+          "rel_type": "RECOMMENDS_TASK",
+          "target_label": "Task",
+          "direction": "outgoing"
+      },
+      "recommends.events": {
+          "rel_type": "RECOMMENDS_EVENT",
+          "target_label": "Event",
+          "direction": "outgoing"
+      },
+
+      # Related MOCs
+      "related_mocs": {
+          "rel_type": "RELATED_TO_MOC",
+          "target_label": "Moc",
+          "direction": "outgoing"
+      }
+  }
+
+  ---
+

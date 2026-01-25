@@ -1,0 +1,32 @@
+
+**Better pattern** (graph-native, single query):
+```cypher
+MATCH (ku:Knowledge {uid: $uid})
+
+// Fetch prerequisites
+OPTIONAL MATCH (ku)-[r1:REQUIRES_THEORETICAL_UNDERSTANDING|REQUIRES_PRACTICAL_APPLICATION]->(prereq)
+WHERE coalesce(r1.confidence, 1.0) >= 0.7
+
+// Fetch dependents
+OPTIONAL MATCH (ku)<-[r2:REQUIRES_THEORETICAL_UNDERSTANDING|REQUIRES_PRACTICAL_APPLICATION]-(dependent)
+WHERE coalesce(r2.confidence, 1.0) >= 0.7
+
+// Fetch extensions
+OPTIONAL MATCH (ku)-[r3:EXTENDS_PATTERN|DEEPENS_UNDERSTANDING]->(extension)
+
+// Fetch simplifications
+OPTIONAL MATCH (ku)<-[r4:SIMPLIFIES]-(simpler)
+
+RETURN
+    ku,
+    collect(DISTINCT {uid: prereq.uid, title: prereq.title, confidence: r1.confidence}) as prerequisites,
+    collect(DISTINCT {uid: dependent.uid, title: dependent.title, confidence: r2.confidence}) as dependents,
+    collect(DISTINCT {uid: extension.uid, title: extension.title}) as extensions,
+    collect(DISTINCT {uid: simpler.uid, title: simpler.title}) as simplifications
+```
+
+**Where to apply:**
+- `KuService.get()` - Add neighborhood context
+- `TasksService.get()` - Add related tasks/knowledge/goals
+- `GoalsService.get()` - Add contributing tasks/habits
+- All `*_service.py` get/detail methods

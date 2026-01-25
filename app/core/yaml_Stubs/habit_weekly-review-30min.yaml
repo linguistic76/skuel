@@ -1,0 +1,10 @@
+version: 0.1
+type: Habit
+uid: hb:weekly-review-30min
+title: Weekly 30-Minute Review
+summary: Sweep your notes; refresh key ideas.
+tags: [review, habit]
+schedule_hint: weekly
+metrics:
+  unit: minutes
+  target_per_week: 30

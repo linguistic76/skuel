@@ -1,0 +1,4 @@
+
+  3. journal_activity_extractor.py - Service API discovery
+  - Uses hasattr(service, "create_habit") / hasattr(service, "create")
+  - Should define a CreatableService protocol

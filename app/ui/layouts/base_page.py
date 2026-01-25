@@ -1,0 +1,187 @@
+"""Unified base page wrapper for SKUEL.
+
+Provides consistent HTML structure, head includes, and layout for all pages.
+
+Usage:
+    from ui.layouts.base_page import BasePage
+    from ui.layouts.page_types import PageType
+
+    # Standard page (centered content)
+    return BasePage(
+        content,
+        title="Tasks",
+        request=request,
+    )
+
+    # Hub page (with sidebar)
+    return BasePage(
+        content,
+        page_type=PageType.HUB,
+        title="Profile Hub",
+        request=request,
+        sidebar=sidebar_content,
+    )
+"""
+
+from typing import TYPE_CHECKING, Any
+
+from fasthtml.common import Body, Div, Head, Html, Link, Main, Meta, Script, Title
+
+from ui.layouts.navbar import create_navbar, create_navbar_for_request
+from ui.layouts.page_types import PAGE_CONFIG, PageType
+
+if TYPE_CHECKING:
+    from fasthtml.common import FT
+    from starlette.requests import Request
+
+
+def _build_head(
+    title: str,
+    extra_css: list[str] | None = None,
+) -> "FT":
+    """Build consistent HTML head with all required includes.
+
+    Args:
+        title: Page title (appended with " - SKUEL")
+        extra_css: Additional CSS file paths to include
+
+    Returns:
+        Head element with all standard includes
+    """
+    css_links = []
+    if extra_css:
+        css_links = [Link(rel="stylesheet", href=path) for path in extra_css]
+
+    return Head(
+        Meta(charset="UTF-8"),
+        Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
+        Title(f"{title} - SKUEL"),
+        # DaisyUI CSS
+        Link(
+            href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css",
+            rel="stylesheet",
+            type="text/css",
+        ),
+        # Tailwind CSS CDN
+        Script(src="https://cdn.tailwindcss.com"),
+        # HTMX 1.9.10 (critical: matches other pages)
+        Script(src="https://unpkg.com/htmx.org@1.9.10"),
+        # Alpine.js (self-hosted, version-pinned)
+        Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
+        # SKUEL CSS
+        Link(rel="stylesheet", href="/static/css/output.css"),
+        Link(rel="stylesheet", href="/static/css/main.css"),
+        # Extra CSS for specific pages
+        *css_links,
+        # SKUEL JavaScript (Alpine components)
+        Script(src="/static/js/skuel.js"),
+    )
+
+
+def _build_navbar(
+    request: "Request | None",
+    active_page: str,
+    user_display_name: str,
+    is_authenticated: bool,
+    is_admin: bool,
+) -> "FT":
+    """Build navbar, preferring request-based for auto-detection."""
+    if request is not None:
+        return create_navbar_for_request(request, active_page=active_page)
+    return create_navbar(
+        current_user=user_display_name,
+        is_authenticated=is_authenticated,
+        active_page=active_page,
+        is_admin=is_admin,
+    )
+
+
+def BasePage(
+    content: Any,
+    title: str = "SKUEL",
+    page_type: PageType = PageType.STANDARD,
+    request: "Request | None" = None,
+    active_page: str = "",
+    sidebar: Any = None,
+    extra_css: list[str] | None = None,
+    user_display_name: str = "",
+    is_authenticated: bool = True,
+    is_admin: bool = False,
+) -> "FT":
+    """Unified page wrapper for consistent UX across SKUEL.
+
+    Provides:
+    - Consistent HTML head (HTMX 1.9.10, Alpine.js, DaisyUI, Tailwind)
+    - Navbar with active page highlighting
+    - Page layout based on type (HUB with sidebar, STANDARD centered)
+    - Modal container for overlays
+    - Consistent data-theme
+
+    Args:
+        content: Main page content
+        title: Page title (shown in browser tab as "Title - SKUEL")
+        page_type: Layout type (HUB for sidebar, STANDARD for centered)
+        request: Starlette request (preferred - auto-detects auth/admin)
+        active_page: Current page key for navbar highlighting
+        sidebar: Sidebar content (only used with PageType.HUB)
+        extra_css: Additional CSS file paths to include
+        user_display_name: Fallback user name if no request
+        is_authenticated: Fallback auth state if no request
+        is_admin: Fallback admin state if no request
+
+    Returns:
+        Complete Html document with consistent structure
+    """
+    config = PAGE_CONFIG[page_type]
+
+    navbar = _build_navbar(
+        request=request,
+        active_page=active_page,
+        user_display_name=user_display_name,
+        is_authenticated=is_authenticated,
+        is_admin=is_admin,
+    )
+
+    # Build main content area based on page type
+    if page_type == PageType.HUB and sidebar is not None:
+        # Hub layout: sidebar + content
+        main_area = Div(
+            # Sidebar (always visible on lg+)
+            Div(
+                sidebar,
+                cls=f"hidden lg:block {config['sidebar_width']} shrink-0 bg-base-200 min-h-[calc(100vh-64px)] sticky top-16",
+            ),
+            # Content area
+            Div(
+                Main(
+                    content,
+                    cls=config["content_padding"],
+                ),
+                cls=config["container"],
+            ),
+            cls="flex",
+        )
+    else:
+        # Standard layout: centered content
+        main_area = Main(
+            Div(
+                content,
+                cls=f"{config['container']} {config['content_padding']}",
+            ),
+            cls="min-h-screen",
+        )
+
+    return Html(
+        _build_head(title, extra_css),
+        Body(
+            navbar,
+            main_area,
+            # Modal container for overlays
+            Div(id="modal"),
+            cls="bg-base-100",
+        ),
+        **{"data-theme": "light"},
+    )
+
+
+__all__ = ["BasePage"]

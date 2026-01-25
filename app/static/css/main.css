@@ -1,0 +1,245 @@
+/**
+ * SKUEL Main Stylesheet
+ * =====================
+ *
+ * Core styles for SKUEL application.
+ * Typography is configured in tailwind.config.js via @tailwindcss/typography.
+ *
+ * Structure:
+ * 1. Layout utilities
+ * 2. Component enhancements
+ * 3. Animations
+ * 4. HTMX loading states
+ * 5. Print styles
+ */
+
+/* ============================================
+   1. LAYOUT UTILITIES
+   ============================================ */
+
+/* Smooth scroll behavior */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Full-height page layout */
+.min-h-page {
+    min-height: calc(100vh - 4rem);
+}
+
+/* Container width variants */
+.container-narrow {
+    max-width: 48rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.container-wide {
+    max-width: 90rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ============================================
+   2. COMPONENT ENHANCEMENTS
+   ============================================ */
+
+/* Ensure drawer content scrolls properly */
+.drawer-content {
+    scroll-behavior: smooth;
+}
+
+/* Card hover effects */
+.card.cursor-pointer:hover,
+.card.hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px oklch(0 0 0 / 0.1);
+}
+
+/* Smooth transitions for interactive elements */
+.card,
+.btn,
+a {
+    transition: all 0.15s ease;
+}
+
+/* Navigation menu active state enhancement */
+.menu li > a.active {
+    background-color: oklch(0.95 0.05 250);
+    color: oklch(0.45 0.2 250);
+}
+
+/* Entity card priority borders */
+.border-priority-high {
+    border-left-color: oklch(0.65 0.2 25);
+}
+
+.border-priority-medium {
+    border-left-color: oklch(0.75 0.15 85);
+}
+
+.border-priority-low {
+    border-left-color: oklch(0.7 0.15 145);
+}
+
+/* Status indicator dots */
+.status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    display: inline-block;
+}
+
+.status-dot-active {
+    background-color: oklch(0.7 0.15 145);
+}
+
+.status-dot-pending {
+    background-color: oklch(0.75 0.15 85);
+}
+
+.status-dot-completed {
+    background-color: oklch(0.6 0.15 250);
+}
+
+/* Form enhancements */
+.form-control + .form-control {
+    margin-top: 1rem;
+}
+
+/* Modal backdrop opacity */
+.modal-backdrop {
+    background-color: oklch(0 0 0 / 0.5);
+}
+
+/* ============================================
+   3. ANIMATIONS
+   ============================================ */
+
+/* Fade in animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* Slide in from right (for sidebars) */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+.animate-slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+}
+
+/* Pulse animation for loading states */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Skeleton loading placeholder */
+.skeleton-line {
+    background: linear-gradient(
+        90deg,
+        oklch(0.9 0 0) 25%,
+        oklch(0.95 0 0) 50%,
+        oklch(0.9 0 0) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 0.25rem;
+    height: 1rem;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* ============================================
+   4. HTMX LOADING STATES
+   ============================================ */
+
+/* Loading indicator */
+.htmx-indicator {
+    opacity: 0;
+    transition: opacity 200ms ease-in;
+}
+
+.htmx-request .htmx-indicator {
+    opacity: 1;
+}
+
+.htmx-request.htmx-indicator {
+    opacity: 1;
+}
+
+/* Dim content while loading */
+.htmx-request:not(.htmx-indicator) {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* ============================================
+   5. PRINT STYLES
+   ============================================ */
+
+@media print {
+    /* Hide navigation and interactive elements */
+    .drawer-side,
+    .navbar,
+    .breadcrumbs,
+    .btn,
+    .modal {
+        display: none !important;
+    }
+
+    /* Reset drawer layout for print */
+    .drawer-content {
+        margin-left: 0 !important;
+    }
+
+    /* Maximize content width */
+    .prose {
+        max-width: 100%;
+    }
+
+    /* Ensure links show URL */
+    a[href]::after {
+        content: " (" attr(href) ")";
+        font-size: 0.8em;
+        color: oklch(0.5 0 0);
+    }
+
+    /* Avoid page breaks in cards */
+    .card {
+        page-break-inside: avoid;
+    }
+}

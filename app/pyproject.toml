@@ -1,0 +1,737 @@
+# Enhanced pyproject.toml for SKUEL with Type Safety
+# Builds on existing configuration while adding enhanced type checking
+
+[tool.poetry]
+name = "skuel"
+version = "1.0"
+description = "Knowledge Graph w/ Search + Sync"
+authors = ["MCF <mcf@example.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+# Core Python version - Updated to 3.12+ for PEP 695 type parameter syntax
+python = ">=3.12,<4.0"
+
+# Web Framework - Updated to use available version
+python-fasthtml = "^0.12.21"
+uvicorn = "^0.35.0"
+
+# Database - PHASE 6: Pinned versions for operational stability
+# Neo4j driver version must be compatible with server version
+# For production: Neo4j 5.26.0 server requires APOC 5.26.0
+# See docs/PHASE_6_OPERATIONAL_INFRASTRUCTURE.md for version matrix
+neo4j = "5.26.0"
+
+# AI/LLM Integration - Updated to more recent versions
+openai = "^1.3.0"
+langchain-community = "^0.3.0"
+langchain-core = "^0.3.0"
+langchain-neo4j = "*"
+langchain-openai = "*"
+
+# Configuration & Environment
+python-dotenv = "^1.0.0"
+pydantic = "^2.5.0"
+pydantic-settings = "^2.1.0"
+
+# Content Processing
+pyyaml = "^6.0"
+python-frontmatter = "^1.0.0"
+markdown = "^3.5.0"
+
+# Logging
+structlog = "^23.2.0"
+
+# File operations for FastHTML
+aiofiles = "^24.1.0"
+
+# Enhanced Type Safety Dependencies
+typing-extensions = "^4.8.0"  # For TypedDict and Protocol support
+anthropic = "^0.57.1"
+rdflib = "^7.1.4"
+psutil = "^7.0.0"
+deepgram-sdk = "^4.8.1"
+
+# Security Dependencies
+cryptography = "^44.0.0"  # For secure credential encryption
+python-slugify = "^8.0.4"
+bcrypt = "^5.0.0"
+
+# GraphQL API - For complex nested queries and real-time subscriptions
+strawberry-graphql = "^0.284.1"  # GraphQL server with type safety (Pydantic 2.12+ compatible)
+supabase = "^2.23.0"
+weasyprint = "^67.0"
+
+[tool.poetry.group.dev.dependencies]
+# Testing
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.0"
+pytest-cov = "^4.1.0"
+pytest-mypy = "^0.10.3"  # Enhanced mypy integration
+
+# Code Quality with Enhanced Type Checking
+black = "^23.0.0"
+isort = "^5.12.0"
+flake8 = "^6.0.0"
+mypy = "^1.5.0"
+pyright = "^1.1.320"  # Additional type checker for VS Code
+
+# Development Tools
+jupyter = "^1.0.0"
+ipython = "^8.0.0"
+
+# Documentation
+mkdocs = "^1.5.0"
+mkdocs-material = "^9.0.0"
+pytest-mock = "^3.14.1"
+ruff = "^0.12.12"
+testcontainers = "^4.13.1"
+types-requests = "^2.32.4.20250913"
+types-markdown = "^3.10.0.20251106"
+
+[tool.poetry.scripts]
+skuel = "skuel:app"
+skuel-dev = "start_dev:run"
+sync-vault = "services.sync_service:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+
+# ============================================================================
+# ENHANCED MYPY CONFIGURATION - Catches double-wrap bugs automatically
+# ============================================================================
+
+[tool.mypy]
+# Core Python version and strictness
+python_version = "3.12"
+# PRAGMATIC STRICTNESS: Strict where it matters, lenient for models
+strict = false  # Use per-module overrides instead
+explicit_package_bases = true
+
+# Pydantic plugin - teaches MyPy how to handle Field(default=...) properly
+# This eliminates ~400 false-positive "missing argument" errors for Pydantic models
+plugins = ["pydantic.mypy"]
+
+# Core checks enabled globally
+warn_unused_configs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+strict_equality = true
+
+# Lenient global defaults (overridden per-module)
+# PRAGMATIC APPROACH: Warn don't fail on type issues
+# Technical debt: ~2200 known type errors as of 2025-10-20
+# Strategy: Fix new code, gradually improve old code
+disallow_untyped_defs = false  # Only enforce in critical modules
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false  # FastHTML routes
+warn_unused_ignores = false  # Don't fail build
+warn_no_return = false  # Too noisy
+warn_return_any = false  # Only enforce in critical modules
+warn_unreachable = false  # Too noisy during development
+
+# SILENCE THE NOISE: Disable specific error codes that don't matter
+# These are type inference issues that work fine at runtime
+disable_error_code = [
+    "assignment",        # Incompatible types in assignment (dataclass field() inference)
+    "arg-type",          # Argument type mismatches (often false positives)
+    "var-annotated",     # Variable annotation issues
+    "type-arg",          # Type argument issues (generics inference)
+    "type-var",          # Type variable bound issues (MyPy limitation with frozen dataclass + Protocol pattern)
+]
+
+# Allow Any for flexibility
+disallow_any_unimported = false
+disallow_any_expr = false
+disallow_any_decorated = false
+disallow_any_explicit = false
+disallow_any_generics = false  # Only enforce in critical modules
+disallow_subclassing_any = false
+
+# Protocol and typing enhancements
+show_error_codes = true
+error_summary = true
+pretty = true
+show_column_numbers = true
+show_error_context = true
+
+# Files to check (gradual migration strategy)
+files = ["core", "adapters", "api", "components", "main.py"]
+exclude = [
+    "build/",
+    "dist/",
+    ".venv/",
+    "__pycache__/",
+    ".*\\.egg-info/",
+    "tests/fixtures/",
+    ".*/archive/.*",
+    "z_archives/.*",
+    "legacy/.*",
+    ".*_old\\.py$",  # Archived service files (deprecated code)
+]
+
+# Per-module configuration for SKUEL-specific patterns
+[[tool.mypy.overrides]]
+# Core services - GRADUAL MIGRATION: Strict for new code, lenient for existing
+module = ["core.services.*"]
+disallow_any_generics = false  # Too many existing violations
+disallow_untyped_defs = false  # Gradual migration
+warn_return_any = false  # Too noisy
+check_untyped_defs = true  # Basic checking
+# Catch Result[Result[T]] patterns - keep this enabled
+disallow_any_decorated = false  # Too strict for FastHTML
+
+[[tool.mypy.overrides]]
+# Result pattern infrastructure - CRITICAL for type safety
+module = ["core.utils.result", "core.utils.result_simplified", "core.utils.error_boundary"]
+disallow_any_generics = true
+disallow_untyped_defs = true
+warn_return_any = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+# Core models and infrastructure - medium strictness
+module = ["core.models.*", "core.infrastructure.*", "core.patterns.*"]
+disallow_untyped_defs = false  # Allow gradual typing
+disallow_incomplete_defs = false
+warn_return_any = false
+check_untyped_defs = true
+disallow_any_generics = false  # Allow untyped generics in models
+
+[[tool.mypy.overrides]]
+# Utility modules - lenient for generic helper functions
+module = ["core.utils.*", "core.ui.*"]
+disallow_untyped_defs = false
+warn_return_any = false
+disallow_any_generics = false
+
+[[tool.mypy.overrides]]
+# Events and protocols - lenient (auto-generated patterns)
+module = ["core.events.*", "core.protocols"]
+disallow_untyped_defs = false
+warn_return_any = false
+# Allow common event patterns
+disable_error_code = ["call-arg", "no-untyped-def"]
+
+[[tool.mypy.overrides]]
+# FastHTML modules - allow some flexibility for framework usage
+module = ["adapters.*", "components.*"]
+disallow_any_generics = false
+disallow_untyped_decorators = false
+# Still catch Result issues
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+# Test modules - more lenient for testing utilities
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+# But still check Result patterns
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+# External dependencies that may not have full typing
+module = [
+    "neo4j.*",
+    "fasthtml.*",
+    "langchain.*",
+    "openai.*",
+    "deepgram.*",
+    "anthropic.*",
+    "rdflib.*",
+    "psutil.*",
+    "strawberry.*",
+    "graphql.*"
+]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+# Configuration module - ensure config typing is strict
+module = ["config"]
+disallow_any_generics = true
+disallow_untyped_defs = true
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+# GraphQL schema files - Strawberry generates __init__ methods dynamically
+# MyPy doesn't understand Strawberry's @strawberry.type decorator
+module = ["routes.graphql.*"]
+disable_error_code = ["call-arg", "misc"]  # Disable constructor argument checking for Strawberry types
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+# Unused legacy error handler - mixed old/new error patterns (not imported anywhere)
+module = ["core.utils.error_handler"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+# Schema change detection - references removed ApocQueryBuilder (Pure Cypher Migration Oct 2025)
+module = ["core.infrastructure.database.schema_change"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+# Principles alignment - 109 type errors, needs significant refactoring
+module = ["core.services.principles.principles_alignment_service"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+# Tests, examples, and scripts - verified by pytest (151/151 passing)
+# Focus MyPy on production code quality, not test boilerplate
+# Rationale: Tests prove runtime correctness; no need for static analysis duplication
+module = ["tests.*", "examples.*", "scripts.*"]
+ignore_errors = true
+
+# ============================================================================
+# PYRIGHT CONFIGURATION - Additional type checking for VS Code
+# ============================================================================
+
+[tool.pyright]
+include = ["skuel", "services", "core", "routes", "components"]
+exclude = ["**/__pycache__", ".venv", "build", "dist", "tests/fixtures"]
+defineConstant = { DEBUG = true }
+
+pythonVersion = "3.12"
+pythonPlatform = "Linux"
+
+# Strictness levels that catch Result pattern issues
+typeCheckingMode = "strict"
+reportMissingImports = true
+reportMissingTypeStubs = false  # Many dependencies lack stubs
+
+# Function and class decorator handling (FastHTML compatibility)
+reportUntypedFunctionDecorator = "warning"  # FastHTML routes
+reportUntypedClassDecorator = "warning"
+reportUntypedBaseClass = "error"
+reportUntypedNamedTuple = "error"
+
+# Type checking strictness for catching double-wrap bugs
+reportPrivateUsage = "warning"
+reportConstantRedefinition = "error"
+reportDuplicateImport = "error"
+reportFunctionMemberAccess = "error"
+reportIncompatibleMethodOverride = "error"
+reportIncompatibleVariableOverride = "error"
+reportInconsistentConstructor = "error"
+reportOverlappingOverloads = "error"
+reportMissingSuperCall = false
+reportUninitializedInstanceVariable = "error"
+reportInvalidStringEscapeSequence = "error"
+
+# Critical for Result pattern validation
+reportUnknownParameterType = "error"
+reportUnknownArgumentType = "warning"  # Some FastHTML flexibility
+reportUnknownLambdaType = "warning"
+reportUnknownVariableType = "warning"
+reportUnknownMemberType = "warning"
+reportMissingParameterType = "error"
+reportMissingTypeArgument = "error"
+reportInvalidTypeVarUse = "error"
+reportCallInDefaultInitializer = "error"
+
+# Result-specific validation
+reportUnnecessaryIsInstance = "warning"
+reportUnnecessaryCast = "warning"
+reportUnnecessaryComparison = "warning"
+reportAssertAlwaysTrue = "warning"
+reportSelfClsParameterName = "error"
+reportImplicitStringConcatenation = "warning"
+reportUndefinedVariable = "error"
+reportUnboundVariable = "error"
+
+# Optional handling (critical for Result pattern)
+reportOptionalSubscript = "error"
+reportOptionalMemberAccess = "error"
+reportOptionalCall = "error"
+reportOptionalIterable = "error"
+reportOptionalContextManager = "error"
+reportOptionalOperand = "error"
+
+# General type issues that catch Result problems
+reportGeneralTypeIssues = "error"
+reportPropertyTypeMismatch = "error"
+reportReturnType = "error"
+reportAssignmentType = "error"
+
+# Unused code detection
+reportUnusedImport = "warning"
+reportUnusedClass = "warning" 
+reportUnusedFunction = "warning"
+reportUnusedVariable = "warning"
+
+# ============================================================================
+# PYTEST CONFIGURATION - Enhanced for type safety testing
+# ============================================================================
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Add project root to Python path (for package-mode = false projects)
+pythonpath = ["."]
+
+# Coverage configuration
+# Note: --cov-fail-under removed because different test types have different coverage expectations
+# - Integration tests: Focus on core/services (high coverage expected)
+# - Service tests: Include core + adapters (medium coverage expected)
+# - Full suite: Includes UI/routes (lower coverage is normal - UI not tested)
+addopts = [
+    "--cov=core",
+    "--cov=adapters",
+    "--cov=components",
+    "--cov=routes",
+    "--cov-report=html:htmlcov",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+    # Coverage thresholds enforced per test type in run_tests.py, not globally
+    "--strict-markers",
+    "--strict-config",
+    "-v",
+    # Uncomment to enforce formatting before tests run:
+    # "--ruff-format-check"
+]
+
+# Test markers for type safety testing
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests", 
+    "type_safety: Type safety validation tests",
+    "slow: Slow running tests",
+    "asyncio: Async tests"
+]
+
+# Async test configuration
+asyncio_mode = "auto"
+
+# Warning filters - suppress third-party deprecation warnings
+filterwarnings = [
+    # Testcontainers library uses deprecated internal patterns (as of v4.13.2)
+    # These warnings come from the library itself, not SKUEL code
+    # Will be fixed when testcontainers migrates to structured wait strategies
+    "ignore:The @wait_container_is_ready decorator is deprecated:DeprecationWarning:testcontainers",
+    "ignore:The wait_for_logs function with string or callable predicates is deprecated:DeprecationWarning:testcontainers",
+    # Suppress AsyncMock internal cleanup warnings (false positives from unittest.mock)
+    "ignore::RuntimeWarning:unittest.mock",
+]
+
+# ============================================================================
+# COVERAGE CONFIGURATION - Track type safety coverage
+# ============================================================================
+
+[tool.coverage.run]
+
+
+source = ["."]
+omit = [
+    "*/back_ups/*",
+    "*/backup/*",
+    "*/.backup/*",
+    "*/backups/*",
+    "*/__pycache__/*",
+    "*/.venv/*",
+    "*/venv/*",
+    "*/env/*",
+    "*/site-packages/*",
+    "*/.pytest_cache/*",
+    "*/tests/*",
+    "*/test_*",
+    "*/.git/*",
+    "*/.tox/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod"
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+
+# ============================================================================
+# RUFF CONFIGURATION - Fast linter with type checking support
+# ============================================================================
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+include = ["*.py", "*.pyi"]
+exclude = [
+    ".venv",
+    "backup_archive",
+    "neo4j-import",  # Neo4j Docker container data directory (permission denied)
+    "docs/archive",  # Archived/deprecated code - not actively maintained
+    "zarchives",     # Archived code - not actively maintained
+    "__pycache__",
+    "migrations",
+    "*.egg-info",
+    ".claude/skills",  # Claude Code skills templates (documentation, not production code)
+    "scripts/migrate_dsl_error_handling.py",  # Contains regex patterns that confuse ruff's parser
+]
+
+[tool.ruff.lint]
+select = [
+    # Core Python quality
+    "F",     # Pyflakes - syntax errors, undefined names
+    "E",     # pycodestyle (errors) - PEP 8 violations
+    "W",     # pycodestyle (warnings) - PEP 8 warnings
+
+    # Code organization
+    "I",     # isort - import sorting
+    "N",     # pep8-naming - naming conventions
+    "UP",    # pyupgrade - modern Python syntax
+
+    # Bug prevention
+    "B",     # flake8-bugbear - likely bugs and design problems
+    "SIM",   # flake8-simplify - unnecessary complexity
+    "RET",   # flake8-return - return statement issues (NEW!)
+
+    # Performance
+    "PERF",  # Perflint - performance anti-patterns (NEW!)
+
+    # Modernization
+    "FURB",  # refurb - modernization suggestions (NEW!)
+
+    # Type safety
+    "TCH",   # flake8-type-checking - TYPE_CHECKING imports
+    "ANN",   # flake8-annotations - type hints
+
+    # Code quality
+    "ARG",   # flake8-unused-arguments - unused function arguments
+    "PTH",   # flake8-use-pathlib - prefer pathlib over os.path
+    "ASYNC", # flake8-async - async/await issues
+    "LOG",   # flake8-logging-format - logging best practices
+
+    # Ruff-specific
+    "RUF",   # Ruff-specific rules
+]
+
+ignore = [
+    # Type annotation flexibility (strict mode via mypy instead)
+    # Note: ANN101 and ANN102 were removed from Ruff (deprecated - self/cls annotations not recommended)
+    "ANN001",  # Missing type annotation for function argument
+    "ANN201",  # Missing return type annotation for public function
+    "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed
+
+    # Complexity rules (handled by code review)
+    "PLR0913", # Too many arguments to function call
+    "PLR2004", # Magic value used in comparison
+
+    # Formatting (handled by ruff format)
+    "E501",    # Line too long - handled by formatter
+
+    # Return statement rules (selective ignoring)
+    "RET505",  # Unnecessary `elif` after `return` - sometimes clearer
+    "RET506",  # Unnecessary `elif` after `raise` - sometimes clearer
+
+    # Performance rules (selective ignoring)
+    # None currently - all PERF rules are valuable for SKUEL
+
+    # FURB rules (selective ignoring)
+    "FURB103", # `open` and `read` can be replaced by `Path.read_text()` - sometimes less clear
+    "FURB110", # `if` statement can be replaced with `any()` - sometimes less readable
+    "FURB113", # `try`-`except` can be replaced with `contextlib.suppress()` - explicit better
+
+    # SKUEL-specific ignores (January 2026)
+    "RUF022",  # __all__ sorting - we use semantic grouping with comments
+    "TC001",   # TYPE_CHECKING imports - false positives for runtime imports
+    "UP046",   # Generic[T] syntax - keep existing pattern for compatibility
+]
+
+# ============================================================================
+# SKUEL ARCHITECTURE ENFORCEMENT (January 2025)
+# ============================================================================
+# Lambda functions: E731 is ENABLED - enforces SKUEL "no lambda" policy
+# Additional SKUEL-specific rules enforced via custom scripts (see scripts/lint_skuel_patterns.py):
+#   - SKU001: Deprecated .is_err usage (use .is_error instead)
+#   - SKU002: hasattr() in production code (use explicit type checks)
+#   - SKU003: String-based Result.fail() (use Errors factory)
+
+fixable = ["ALL"]
+
+# ============================================================================
+# PHASE 8.1: SKUEL ARCHITECTURE ENFORCEMENT (October 3, 2025)
+# ============================================================================
+# Custom linting rules to enforce SKUEL architectural patterns:
+# - Phase 5: No APOC in domain services
+# - Phase 7: Semantic-first development
+# - Type safety and code quality
+
+[tool.ruff.lint.per-file-ignores]
+# Standard test/example ignores
+"tests/**/*.py" = ["ANN", "ARG001", "ARG002", "S101", "E731", "RUF012", "SIM117", "B017", "PTH110"]  # Tests: fixtures, mocking, os.path allowed
+"tests/integration/**/*.py" = ["ANN", "ARG002", "S101", "RUF012", "SIM117", "B017"]  # Integration tests: unused fixtures + broad exceptions
+"main.py" = ["T201"]                                          # Main entry point can use print
+
+# FastHTML UI files - star imports are intentional design pattern
+"adapters/inbound/*ui*.py" = ["F405", "RUF001", "ARG001", "ARG004", "ANN202"]  # UI components + request param + no return types
+"adapters/inbound/*_routes.py" = ["F405", "ARG001", "ANN202", "F811"]  # Route handlers + FastHTML + duplicate imports
+"adapters/inbound/*_api.py" = ["RUF003", "ARG001", "ARG005", "ANN202"]  # API routes + unused params (incl lambda) + no return types
+"routes/**/*.py" = ["F405"]                                # Route files use FastHTML star imports
+
+# UI component files - PascalCase function names are intentional (FastHTML convention)
+"adapters/inbound/*_components.py" = ["N802"]       # UI component functions use PascalCase
+"core/ui/*.py" = ["N802", "RUF001", "RUF002"]       # Shared UI components use PascalCase + Unicode icons
+"ui/**/*.py" = ["F405", "N802", "RUF001", "RUF002", "RUF012", "ARG001", "ARG002", "ANN", "PERF401"]  # UI: PascalCase + Unicode + class defaults
+"components/**/*.py" = ["F405", "N802", "RUF001", "RUF002", "ARG001"]  # Components: PascalCase + Unicode
+
+# Templates and examples are documentation (Phase 8.1)
+"templates/**/*.py" = ["ANN", "ARG"]
+"examples/**/*.py" = ["ANN", "T201", "ARG", "E731", "RUF001"]  # Examples can use lambdas + Unicode
+
+# Core utilities with special import patterns
+"core/utils/result_simplified.py" = ["E402"]  # Has from __future__ import before docstring (correct per PEP 8)
+
+# Standalone scripts - E402 required for proper initialization
+# Scripts run directly (not as modules) and require setup before imports:
+#   1. sys.path.insert() - Add project root so scripts can import from core.*
+#   2. load_dotenv() - Load environment variables before core.config imports
+# These patterns are standard practice for standalone scripts and cannot be "fixed"
+# without breaking functionality. See PEP 8 Section "Module-level Dunder Names".
+# Scripts also don't require strict type annotations (ANN) - they're utilities, not API contracts.
+"scripts/*.py" = ["E402", "ANN", "ARG", "PTH", "SIM", "RET504", "RUF", "PERF", "B007", "E741", "E999"]  # Scripts: setup imports, utility patterns
+
+# Infrastructure files - intentional Unicode in documentation
+"test_graphql_complexity.py" = ["RUF001", "RUF003"]  # GraphQL tests use × multiplication symbol
+"core/services/journal_core_service.py" = ["RUF001"]  # Journal service uses Unicode symbols
+"core/services/audio_transcription_service.py" = ["RUF001"]  # Emojis in log messages for readability (✅⚠️ℹ️)
+"core/auth/session.py" = ["RUF001"]             # Session management uses Unicode indicators
+"core/infrastructure/routes/intelligence_route_factory.py" = ["RUF002"]  # Math symbols (×) in docstring calculations
+
+# Mock data - unused parameters reserved for future real implementation
+"core/mock_data/**/*.py" = ["ARG001"]           # Mock functions will use user_uid/period when implemented
+
+# Files with intentional unused parameters (protocols, future implementation, or framework requirements)
+"core/models/validation_rules.py" = ["ARG001", "ARG002"]  # Pydantic field_validators require cls but may not use it
+"core/services/dsl/*.py" = ["ARG002", "SIM116"]   # DSL visitor pattern + if/elif chains for mapping
+"core/services/intelligence/*.py" = ["ARG001", "ARG002"]  # Calculator methods reserve params for future
+"core/models/query/_cypher_generator.py" = ["ARG002", "ARG004", "RUF002", "PERF401"]  # Query builder signatures + math symbols in docs
+"core/models/query/cypher/*.py" = ["ARG001", "ARG002", "RUF002", "PERF401"]  # Cypher query modules + math symbols
+"adapters/persistence/neo4j_adapter.py" = ["ARG002"]  # Adapter method signatures
+"core/services/*_service.py" = ["ARG002", "PERF401"]  # Service method signatures implement protocols
+"core/services/unified_ingestion_service.py" = ["E402", "F402"]  # Imports after constants + loop var shadowing
+"core/services/*/[!_]*.py" = ["ARG002", "ARG004", "RUF012", "PERF401", "SIM102", "SIM108", "SIM116"]  # Nested service modules + class config
+"core/services/context_first_mixin.py" = ["ARG002"]  # Mixin methods match various signatures
+"core/services/infrastructure/*.py" = ["ARG002"]  # Infrastructure helpers
+"core/infrastructure/**/*.py" = ["ARG001", "ARG002", "PERF401", "SIM116", "RUF002", "B021"]  # Route factories + batch helpers
+"core/services/relationships/*.py" = ["ARG002", "PERF401", "SIM108"]  # Relationship services + patterns
+"core/services/user/*.py" = ["ARG002", "PERF", "F822"]  # User services implement protocols + complex context ops
+"core/models/search/*.py" = ["ARG001", "ARG002", "RUF012", "E741"]  # Search scoring methods + class config + var names
+
+# UI components - static methods with consistent interfaces
+"components/*.py" = ["F405", "RUF001", "RUF002", "ARG004"]  # Static methods need consistent signatures + Unicode in docstrings
+
+# Core utilities - various patterns
+"core/utils/api_responses.py" = ["B021", "F822"]  # f-string docstrings + legacy re-exports
+"core/services/ku_retrieval.py" = ["ARG002"]      # Protocol method signatures
+"core/models/relationships/*.py" = ["F822", "ARG003", "PERF401"]  # Re-exports + class methods + performance patterns
+
+# GraphQL schema - Strawberry patterns
+"routes/graphql/*.py" = ["RUF001", "ARG", "F811", "F822", "PERF", "SIM105"]  # Framework patterns + subscriptions
+
+# Core models - query models have protocol-based interfaces
+"core/models/query/_query_models.py" = ["ARG001"]  # Query model protocols need consistent signatures
+
+# Domain services MUST NOT use APOC (Phase 5 compliance - enforced by custom script)
+"core/services/**/*.py" = []
+
+# Adapters CAN use APOC (infrastructure layer)
+"adapters/**/*.py" = []
+
+# ============================================================================
+# DEFERRED IMPLEMENTATIONS - Tracked in docs/reference/DEFERRED_IMPLEMENTATIONS.md
+# ============================================================================
+# These files have intentionally unused parameters reserved for future implementation.
+# Each violation is tagged in code (DEFERRED-ARG-*, FUTURE-IMPL-*, STUB-*, API-COMPAT-*)
+# and documented with implementation requirements in DEFERRED_IMPLEMENTATIONS.md
+#
+# Search for implementations: rg "# DEFERRED:" --type py
+# Search for all tags: rg "docs/reference/DEFERRED_IMPLEMENTATIONS.md" --type py
+
+# Deferred to Phase 3B (DEFERRED-ARG-001)
+"core/services/adaptive_lp/adaptive_lp_recommendations_service.py" = ["ARG002"]
+
+# Future personalization (FUTURE-IMPL-001 through FUTURE-IMPL-009)
+"core/services/goals/goal_recommendation_service.py" = ["ARG002"]  # 4 unused: user_uid, domain (multiple methods)
+"core/services/goals/goals_progress_service.py" = ["ARG002"]       # FUTURE-IMPL-008: current_streak
+"core/services/lp/lp_progress_service.py" = ["ARG002"]             # FUTURE-IMPL-009: newly_mastered_ku
+
+# Stub/placeholder methods (STUB-001 through STUB-006)
+"core/services/askesis/context_retriever.py" = ["ARG002"]          # STUB-001, STUB-002, STUB-003
+"core/services/askesis/query_processor.py" = ["ARG002"]            # STUB-004, STUB-005
+"core/services/user/user_context_intelligence.py" = ["ARG002"]     # STUB-006
+
+# API compatibility (API-COMPAT-001)
+"adapters/inbound/response_helpers.py" = ["ARG001"]                # FastHTML - headers param for API consistency
+
+# ============================================================================
+# SKUEL PATTERN EXCEPTIONS (January 2025)
+# ============================================================================
+# Lambda exceptions: E731 (Do not assign a lambda expression, use a def)
+"core/utils/sort_functions.py" = ["F811"]     # Named sort functions, duplicate defs for backwards compat
+"core/infrastructure/utils/factory_functions.py" = []  # Named factories, no lambdas
+"core/utils/mock_decorators.py" = ["E731"]    # Mock utilities can use lambdas
+
+# hasattr() exceptions: Checked via custom SKU002 rule
+# Allowed in: core/utils/sort_functions.py (duck typing for generic utilities)
+# Allowed in: core/utils/mock_decorators.py (testing function metadata)
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "adapters", "api", "components", "config", "database",
+    "events", "models", "monitoring", "ports", "services",
+    "tests", "utils"
+]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.lint.pep8-naming]
+ignore-names = ["rt", "ft", "Div", "H1", "P", "Button", "Form", "Input"]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "fasthtml.common.ft"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = 80

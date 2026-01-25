@@ -1,0 +1,223 @@
+Nice, this one translates really cleanly.
+
+Here’s a **fastHTML component** for the **“Thought ≠ Reality”** lesson, designed to drop straight into `#stage1-detail`.
+
+I’m assuming:
+
+```python
+from fasthtml.common import *
+from ui.objectivity_tokens import TOK
+```
+
+You can adjust imports to your structure.
+
+```python
+# ui/objectivity_step2.py
+
+from fasthtml.common import *
+from ui.objectivity_tokens import TOK
+
+
+def step2_thought_not_reality():
+    """
+    Stage 1 · Step 2 — Thought ≠ Reality
+
+    Intended to be injected into #stage1-detail via HTMX, e.g.:
+
+      @app.get("/objectivity/stage1/step/2")
+      def stage1_step2():
+          return step2_thought_not_reality()
+    """
+    return Section(
+        # Header
+        Div(
+            P("Stage 1 · Step 2", class_=TOK["stage_header_label"]),
+            H1("Thought ≠ Reality", class_=TOK["stage_title"]),
+            P(
+                "Thoughts are mental events, not facts. Here you practice separating the "
+                "situation from the story your mind tells about it.",
+                class_=TOK["stage_subtitle"],
+            ),
+            class_="space-y-2",
+        ),
+
+        # Askesis prompt block
+        Section(
+            Div(
+                Div(
+                    Div(
+                        "A",
+                        class_="h-8 w-8 rounded-xl bg-emerald-500/10 flex items-center "
+                               "justify-center text-emerald-300 text-sm font-semibold",
+                    ),
+                    P(
+                        "Let’s use something real from today. What’s a situation that’s been on your mind?",
+                        class_="text-xs md:text-sm text-slate-200",
+                    ),
+                    class_="flex items-center gap-2",
+                ),
+                Form(
+                    Label(
+                        "Situation from today",
+                        class_="block text-[11px] uppercase tracking-[0.2em] text-slate-500 mt-3",
+                    ),
+                    Textarea(
+                        "",
+                        rows=3,
+                        placeholder=(
+                            "Example: My friend didn’t text me back after I sent a message."
+                        ),
+                        class_="w-full rounded-xl bg-slate-950 border border-slate-800 "
+                               "text-sm text-slate-100 px-3 py-2 focus:outline-none "
+                               "focus:ring-2 focus:ring-emerald-500/60",
+                    ),
+                    Div(
+                        Button(
+                            "Continue",
+                            type="button",
+                            class_="inline-flex items-center justify-center px-4 py-2 "
+                                   "rounded-xl bg-emerald-500 text-slate-900 text-xs "
+                                   "font-semibold hover:bg-emerald-400 transition",
+                            # add HTMX here later if you want to process input
+                            # **{
+                            #     "hx-post": "/objectivity/stage1/step/2/example",
+                            #     "hx-target": "#stage1-detail",
+                            #     "hx-swap": "innerHTML",
+                            # }
+                        ),
+                        class_="flex justify-end mt-3",
+                    ),
+                    class_="space-y-3",
+                ),
+                class_="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-3",
+            ),
+            class_="space-y-4",
+        ),
+
+        # Situation vs Story cards
+        Section(
+            Div(
+                # Situation card
+                Article(
+                    H2("Situation", class_="text-sm font-semibold text-slate-100"),
+                    P(
+                        "Just the facts of what happened. No guesses. No predictions. "
+                        "No mind-reading.",
+                        class_="text-xs text-slate-400",
+                    ),
+                    Div(
+                        "Example: “I sent a message. They haven’t replied yet.”",
+                        class_="mt-2 rounded-xl bg-slate-950 border border-dashed "
+                               "border-slate-700 p-3 min-h-[80px] text-xs text-slate-300",
+                    ),
+                    class_="rounded-2xl border border-slate-800 bg-slate-900/80 "
+                           "p-4 space-y-2",
+                ),
+
+                # Story card
+                Article(
+                    H2("Story", class_="text-sm font-semibold text-slate-100"),
+                    P(
+                        "What your mind says this means. The interpretation, prediction, "
+                        "or fear.",
+                        class_="text-xs text-slate-400",
+                    ),
+                    Div(
+                        "Example: “They’re mad at me. I probably annoyed them. "
+                        "I’ll lose this friendship.”",
+                        class_="mt-2 rounded-xl bg-slate-950 border border-dashed "
+                               "border-slate-700 p-3 min-h-[80px] text-xs text-slate-300",
+                    ),
+                    class_="rounded-2xl border border-slate-800 bg-slate-900/80 "
+                           "p-4 space-y-2",
+                ),
+                class_="grid gap-4 md:grid-cols-2",
+            ),
+            class_="space-y-4",
+        ),
+
+        # Mini reflection
+        Section(
+            Div(
+                H2("Seeing them side by side", class_="text-sm font-semibold text-slate-100"),
+                P(
+                    "Take a second and notice how your body feels when you look only at the "
+                    "situation, and then when you look at the story.",
+                    class_="text-xs text-slate-400",
+                ),
+                Form(
+                    Label(
+                        "What do you notice?",
+                        class_="block text-[11px] uppercase tracking-[0.2em] text-slate-500 mt-2",
+                    ),
+                    Textarea(
+                        "",
+                        rows=3,
+                        placeholder=(
+                            "Example: The situation feels lighter. The story feels heavier "
+                            "and more stressful."
+                        ),
+                        class_="w-full rounded-xl bg-slate-950 border border-slate-800 "
+                               "text-sm text-slate-100 px-3 py-2 focus:outline-none "
+                               "focus:ring-2 focus:ring-emerald-500/60",
+                    ),
+                    Div(
+                        Button(
+                            "Practice again",
+                            type="button",
+                            class_="inline-flex items-center justify-center px-3 py-2 "
+                                   "rounded-xl bg-slate-900 border border-slate-700 "
+                                   "text-xs text-slate-300 hover:bg-slate-800 transition",
+                        ),
+                        Button(
+                            "Mark step as practiced",
+                            type="button",
+                            class_="inline-flex items-center justify-center px-4 py-2 "
+                                   "rounded-xl bg-emerald-500 text-slate-900 text-xs "
+                                   "font-semibold hover:bg-emerald-400 transition",
+                        ),
+                        class_="flex justify-between gap-3 mt-3",
+                    ),
+                    class_="space-y-3",
+                ),
+                class_="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-3",
+            ),
+            class_="space-y-4",
+        ),
+
+        class_=f"{TOK['container']} space-y-6 mt-6",
+    )
+```
+
+Hook it up like:
+
+```python
+# routes / app
+from ui.objectivity_step2 import step2_thought_not_reality
+
+@app.get("/objectivity/stage1/step/2")
+def stage1_step2():
+    return step2_thought_not_reality()
+```
+
+And because `stage1_see_what_is()` already has:
+
+```python
+A(
+    "Start",
+    href="#",
+    class_=TOK["secondary_btn"],
+    **{
+        "hx-get": "/objectivity/stage1/step/2",
+        "hx-target": "#stage1-detail",
+        "hx-swap": "innerHTML",
+    }
+)
+```
+
+…clicking that **Step 2** card will pull this component into `#stage1-detail`.
+
+If you want, next we can do the same for:
+
+* the **Askesis “live example” modal**, or
+.

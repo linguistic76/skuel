@@ -1,0 +1,20 @@
+
+  Patterns Established for attr mypy - features/ previous errors
+
+  1. Stub Methods for Incomplete Features
+  @classmethod
+  def incomplete_feature(cls, *args) -> Any:
+      """TODO: Feature not yet implemented."""
+      raise NotImplementedError("Feature docs at /docs/features/...")
+
+  2. Safe Field Access for Optional Fields
+  # Use getattr() with default
+  dto.optional_field = getattr(request, 'optional_field', None)
+
+  # Use hasattr() for enum value access
+  value = obj.field.value if hasattr(obj.field, 'value') else obj.field
+
+  3. Field Name Corrections
+  - Systematically checked actual model definitions
+  - Fixed field names to match domain model reality
+  - Added TODO comments for missing/incomplete features

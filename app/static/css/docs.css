@@ -1,0 +1,70 @@
+/**
+ * Documentation Styles - SKUEL Docs
+ *
+ * Minimal custom CSS for documentation pages.
+ * Typography is configured in tailwind.config.js via @tailwindcss/typography.
+ */
+
+/* ============================================
+   TOC Navigation
+   ============================================ */
+
+.toc-nav a {
+  display: block;
+  padding: 0.25rem 0;
+  color: #6b7280;
+  text-decoration: none;
+  font-size: 0.875rem;
+  border-left: 2px solid transparent;
+  padding-left: 0.75rem;
+  transition: all 0.15s ease;
+}
+
+.toc-nav a:hover {
+  color: #374151;
+  border-left-color: #d1d5db;
+}
+
+.toc-nav a.active {
+  color: #2563eb;
+  border-left-color: #2563eb;
+  font-weight: 500;
+}
+
+/* ============================================
+   Layout Utilities
+   ============================================ */
+
+/* Smooth scrolling for anchor links */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Smooth transitions for interactive elements */
+.card,
+.btn,
+a {
+  transition: all 0.15s ease;
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+
+@media print {
+  .drawer-side,
+  .navbar,
+  .breadcrumbs,
+  #sidebar {
+    display: none !important;
+  }
+
+  .drawer-content,
+  main {
+    margin-left: 0 !important;
+  }
+
+  .prose {
+    max-width: 100%;
+  }
+}

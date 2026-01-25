@@ -1,0 +1,36 @@
+
+
+
+● All 7 sections loaded correctly. Note that stories and words-meaning have images defined (matching what exists in /data/).
+
+● Done. Here's what was implemented:
+
+  Summary
+
+  New Pattern: _section.md files for section-level content management
+
+  Each section folder in /home/mike/0bsidian/skuel/docs/ now has a _section.md file that controls:
+
+  | Field       | Purpose                  | Example                  |
+  |-------------|--------------------------|--------------------------|
+  | slug        | URL path                 | stories                  |
+  | title       | Display title            | Stories                  |
+  | icon        | Emoji for cards          | 📖                       |
+  | description | Section description      | Multi-line YAML          |
+  | image       | Image filename in /data/ | stories.png              |
+  | content     | Markdown body            | Rendered on section page |
+
+  Files created:
+  - /home/mike/0bsidian/skuel/docs/_section_template.md - Template for new sections
+  - /home/mike/0bsidian/skuel/docs/{section}/_section.md - 7 section files
+
+  How to edit a section page:
+  1. Open /home/mike/0bsidian/skuel/docs/stories/_section.md in Obsidian
+  2. Edit the YAML frontmatter (title, description, icon, image)
+  3. Edit the markdown body below the frontmatter
+  4. Restart the app (or cache will refresh)
+
+  Image reference pattern:
+  - Images stay in /home/mike/skuel0/data/
+  - Reference them by filename in the image: field: image: stories.png
+  - The app serves them from /data/stories.png

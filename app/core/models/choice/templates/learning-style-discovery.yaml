@@ -1,0 +1,117 @@
+# Choice Template: Discover Your Learning Style
+# Category: Self-Discovery / Education
+# SKUEL Mission: INSPIRE learners to understand themselves better
+
+template_id: learning-style-discovery
+template_version: "1.0"
+created_by: "SKUEL"
+category: education
+
+title: "How Do You Learn Best?"
+description: |
+  Discover your optimal learning approach. Understanding how you learn best
+  helps you design more effective study strategies and choose courses that
+  match your natural strengths.
+
+inspiration_type: skill_acquisition
+expands_possibilities: true
+vision_statement: "Learn how you learn - unlock your full potential"
+
+choice_type: multiple
+domain: personal
+priority: high
+
+options:
+  - title: "Structured Learning Path"
+    description: |
+      Follow step-by-step courses with clear progression. You thrive with
+      organized curriculum, clear milestones, and guided instruction.
+      Best for: Systematic thinkers who enjoy mastering fundamentals first.
+
+    opens_learning_paths:
+      - lp:structured-learning-mastery
+      - lp:foundational-skills-first
+
+    informed_by_knowledge_uids:
+      - ku:learning-science-structured
+      - ku:curriculum-design-principles
+
+    feasibility_score: 0.9
+    risk_level: 0.1
+    potential_impact: 0.7
+    resource_requirement: 0.5
+    estimated_duration: 100
+
+    tags:
+      - structured
+      - systematic
+      - beginner-friendly
+
+  - title: "Project-Based Learning"
+    description: |
+      Learn by building real projects. You prefer hands-on experience,
+      learning concepts as needed while working toward tangible goals.
+      Best for: Builders who learn best by doing and creating.
+
+    opens_learning_paths:
+      - lp:project-driven-learning
+      - lp:build-to-learn
+
+    informed_by_knowledge_uids:
+      - ku:project-based-pedagogy
+      - ku:active-learning-principles
+
+    feasibility_score: 0.7
+    risk_level: 0.4
+    potential_impact: 0.9
+    resource_requirement: 0.7
+    estimated_duration: 150
+
+    tags:
+      - hands-on
+      - practical
+      - creative
+
+  - title: "Exploratory Learning"
+    description: |
+      Follow your curiosity and explore freely. You learn by connecting ideas,
+      following interesting tangents, and discovering patterns.
+      Best for: Curious minds who enjoy deep dives and making connections.
+
+    opens_learning_paths:
+      - lp:curiosity-driven-learning
+      - lp:knowledge-graph-exploration
+
+    informed_by_knowledge_uids:
+      - ku:exploratory-learning-methods
+      - ku:knowledge-connections
+
+    feasibility_score: 0.6
+    risk_level: 0.5
+    potential_impact: 0.8
+    resource_requirement: 0.4
+    estimated_duration: 120
+
+    tags:
+      - exploratory
+      - curious
+      - self-directed
+
+decision_criteria:
+  - "Do you prefer clear structure or freedom to explore?"
+  - "Do you learn better from theory or hands-on practice?"
+  - "Do you enjoy following a path or creating your own?"
+
+requires_knowledge_for_decision:
+  - ku:learning-styles-overview
+  - ku:metacognition-basics
+
+aligned_with_principles:
+  - principle:self-awareness
+  - principle:continuous-learning
+  - principle:growth-mindset
+
+tags:
+  - self-discovery
+  - learning
+  - meta-learning

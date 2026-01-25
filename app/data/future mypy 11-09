@@ -1,0 +1,12 @@
+
+  5. Import/Module Issues (~5% of errors)
+
+  Problem: Missing module stubs or incorrect imports.
+
+  # adapters/outbound/in_memory_conversation_repo.py:16
+  from core.models.conversation import ConversationSession
+  # ❌ Cannot find implementation or library stub for module
+
+  Root cause: Module doesn't exist (legacy code?) or missing type stubs.
+
+  Fix strategy: Remove dead imports or add # type: ignore[import-not-found]

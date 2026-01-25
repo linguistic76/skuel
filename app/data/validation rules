@@ -1,0 +1,101 @@
+Based on my investigation, here's the summary:
+
+  /core/models/validation_rules.py - Exists and is Comprehensive ✅
+
+  The file exists at /home/mike/skuel0/core/models/validation_rules.py with 786 lines of reusable validators.
+
+  Available Validators
+
+  | Category         | Validators                                                                                                            |
+  |------------------|-----------------------------------------------------------------------------------------------------------------------|
+  | Future Date      | validate_future_date(), validate_future_date_or_today(), validate_past_date()                                         |
+  | String           | validate_required_string(), validate_identity_format(), validate_email()                                              |
+  | List             | validate_list_max_length(), validate_list_no_duplicates()                                                             |
+  | Date Range       | validate_date_after(), validate_time_after(), validate_recurrence_end_after_start()                                   |
+  | Conditional      | validate_required_when(), validate_url_when_online()                                                                  |
+  | Score/Percentage | validate_percentage(), validate_score_0_to_1(), validate_weights_sum_to_one()                                         |
+  | Domain-Specific  | validate_habit_duration_by_difficulty(), validate_habit_target_days_by_pattern(), validate_timeframe_date_alignment() |
+
+  Usage Pattern (Composition via Class Variables)
+
+  from core.models.validation_rules import (
+      validate_future_date,
+      validate_required_string,
+      validate_recurrence_end_after_start,
+  )
+
+  class TaskCreateRequest(BaseModel):
+      title: str = Field(min_length=1, max_length=200)
+      due_date: date | None = None
+      recurrence_end_date: date | None = None
+
+      # Assign validators as class variables (Pydantic detects them)
+      _validate_dates = validate_future_date("due_date", "scheduled_date")
+      _validate_recurrence_end = validate_recurrence_end_after_start("recurrence_end_date", "due_date")
+
+  Current Usage Across Domains
+
+  The validators are already being used in:
+  - task_request.py - Future date, recurrence validation
+  - goal_request.py - Required string, date ordering, timeframe alignment
+  - event_request.py, habit_request.py, choice_request.py, etc.
+
+  The pattern is class variable assignment rather than composition inheritance (which Pydantic doesn't support well).
+
+  This works because Pydantic's @field_validator decorators return callables that get registered when assigned as
+  class attributes.
+
+  -
+
+● Yes, a few nuances worth highlighting:
+
+  Design Nuances
+
+  1. Varargs Pattern for Multi-Field Validation
+
+  # Can validate multiple fields with ONE validator assignment
+  _validate_dates = validate_future_date("due_date", "scheduled_date", "reminder_date")
+
+  This is more elegant than creating separate validators per field.
+
+  2. Model Validators Return Helpers, Not Decorators
+
+  For cross-field validation (like date ordering), the pattern is different:
+
+  # validate_date_after returns a HELPER function, not a decorator
+  @model_validator(mode="after")
+  def validate_target_date(self):
+      # Call the helper inside the model_validator
+      return validate_date_after("target_date", "start_date", allow_equal=False)(self)
+
+  This is because Pydantic's @model_validator needs the instance, while @field_validator works on individual values.
+
+  3. Callable Defaults in validate_required_when
+
+  _validate_completion = validate_required_when(
+      "completion_date",
+      condition_field="status",
+      condition_value=ActivityStatus.COMPLETED,
+      default_value=date.today  # Callable - evaluated at validation time, not import time
+  )
+
+  This avoids the classic Python mutable default gotcha.
+
+  4. Local Imports for Circular Dependency Avoidance
+
+  def validate_habit_duration_by_difficulty(...):
+      @field_validator(duration_field)
+      @classmethod
+      def _validate(...):
+          # Import inside to avoid circular imports
+          from core.models.habit.habit import HabitDifficulty
+
+  Domain-specific validators import their enums locally to keep validation_rules.py dependency-free.
+
+  5. Whitespace Stripping Built Into String Validators
+
+  # validate_required_string strips AND validates
+  _validate_title = validate_required_string("title")  # " hello " → "hello"
+
+  Normalization + validation in one step - prevents "  " from passing as valid input.
+

@@ -1,0 +1,9 @@
+cd ~/infra && docker compose up -d
+
+cd ~/infra && docker compose down
+
+Neo4j browser: http://localhost:7474
+
+Bolt: bolt://localhost:7687
+
+Not required — just a kindness to yourself.

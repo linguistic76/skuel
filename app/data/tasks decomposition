@@ -1,0 +1,15 @@
+
+
+## Task 2: Complete /tasks/ Directory Migration (1,517 lines)
+
+### Current State
+
+**tasks_service.py** (1,517 lines) - Main facade
+**tasks/** subdirectory (3,299 lines):
+- `tasks_core_service.py` (708 lines) - CRUD operations
+- `tasks_progress_service.py` (467 lines) - Progress tracking
+- `tasks_relationship_service.py` (1,034 lines) - Graph relationships
+- `tasks_scheduling_service.py` (520 lines) - Scheduling logic
+- `tasks_search_service.py` (460 lines) - Search operations
+
+**Total:** 4,816 lines (1,517 main + 3,299 subdirectory)

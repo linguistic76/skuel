@@ -1,0 +1,57 @@
+
+the error handling returns Result.fail() which is incompatible with the generic R return type when R isn't Result.
+
+  This is a complex issue. The decorator is designed to catch exceptions and return Result.fail(), but it's typed to preserve the return type R.
+
+  When the function returns Result[Task], the error case also returns Result.fail() which is compatible. But MyPy needs to see this clearly.
+
+  Let me take a simpler approach - since this decorator is only used with methods that return Result[T], I can type it specifically for that:
+
+
+
+-
+ Let me provide a summary of the architectural findings from investigating the no-any-return errors:
+
+  Summary of Architectural Findings
+
+  1. Method Shadowing Issue (FIXED)
+
+  - TasksService.search and KuService.search attributes shadowed inherited BaseService.search() method
+  - Fix: Renamed to self.search_service to avoid collision
+
+  2. Decorator Type Erasure (Documented - Complex to Fix)
+
+  The @with_error_handling decorator returns Any, which erases type information:
+  def with_error_handling(operation: str = "operation") -> Any:
+      def decorator(func: Any) -> Any:
+          async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+
+  Why it's hard to fix:
+  - The decorator wraps methods with different return types (Result[Task], Result[bool], Result[list[T]])
+  - Using ParamSpec + TypeVar creates cascading type incompatibilities
+  - Will require significant refactoring of all service methods
+
+  Review this situation again and seek a solution aligned with the principles of SKUEL.
+
+  3. Remaining 88 no-any-return Errors
+
+  These are mostly in API route files where nested functions call service methods that return Any (due to decorator type erasure). The errors reveal architectural patterns rather than bugs:
+
+  | File                 | Errors | Root Cause                                   |
+  |----------------------|--------|----------------------------------------------|
+  | habits_api.py        | 15     | Service methods calling non-existent methods |
+  | knowledge_api.py     | 15     | Decorator type erasure                       |
+  | events_api.py        | 14     | Decorator type erasure                       |
+  | moc_api.py           | 13     | Decorator type erasure                       |
+  | transcription_api.py | 10     | Decorator type erasure                       |
+  | principles_api.py    | 9      | Decorator type erasure                       |
+
+  Progress Made
+
+  - MyPy errors: 286 → 258 (28 fewer)
+  - no-any-return: 154 → 88 (66 fewer, 43% reduction)
+  - Shadowing issue: Fixed in 2 services
+  - Architectural understanding: Significantly improved
+
+  The remaining errors are a trade-off between type safety and the convenience of the error-handling decorator pattern. The decorator provides significant value (automatic error categorization, logging) at the cost of type information loss.
+
