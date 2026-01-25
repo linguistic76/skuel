@@ -49,17 +49,6 @@ from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.search")
 
-# Global router (injected via dependency injection)
-# One Path Forward: All search goes through SearchRouter (January 2026)
-_search_router: SearchRouter | None = None
-
-
-def set_search_router(services: "Services"):
-    """Inject search router from bootstrapped services (One Path Forward)."""
-    global _search_router
-    # Use bootstrapped SearchRouter from services (January 2026)
-    _search_router = services.search_router
-
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -81,8 +70,13 @@ def _checkbox_to_bool(value: str | None) -> bool:
 # ============================================================================
 
 
-def setup_search_routes(app):
-    """Setup search routes with FastHTML."""
+def create_search_routes(
+    app: Any,
+    rt: Any,
+    services: "Services",
+    search_router: SearchRouter,
+) -> None:
+    """Wire search routes with explicit SearchRouter dependency."""
 
     @app.get("/search")
     async def search_page(request: Request) -> Any:
@@ -132,10 +126,6 @@ def setup_search_routes(app):
     ) -> Any:
         """Execute search and return HTML results. Requires authentication."""
         user_uid = require_authenticated_user(request)
-
-        # Check SearchRouter (One Path Forward)
-        if not _search_router:
-            return render_search_error("Search router not configured")
 
         if not query.strip():
             return render_empty_search_prompt()
@@ -244,11 +234,7 @@ def setup_search_routes(app):
 
         # Execute search via SearchRouter (One Path Forward)
         # SearchRouter.faceted_search handles strategy selection internally
-        if _search_router is None:
-            logger.error("SearchRouter not initialized")
-            return render_search_error("Search service unavailable", "error")
-
-        result = await _search_router.faceted_search(search_request, user_uid)
+        result = await search_router.faceted_search(search_request, user_uid)
 
         if result.is_error:
             logger.error(f"Search failed: {result.error}")
@@ -315,13 +301,6 @@ def setup_search_routes(app):
                 "tags": "python,beginner"
             }
         """
-        if not _search_router:
-            return {
-                "error": "Search router not configured",
-                "total_count": 0,
-                "results_by_domain": {},
-            }
-
         if not query.strip():
             return {"error": "Query is required", "total_count": 0, "results_by_domain": {}}
 
@@ -361,7 +340,7 @@ def setup_search_routes(app):
         )
 
         # Execute search
-        result = await _search_router.advanced_search(search_request)
+        result = await search_router.advanced_search(search_request)
 
         if result.is_error:
             logger.error(f"Unified search failed: {result.error}")
@@ -397,4 +376,4 @@ def setup_search_routes(app):
         return response
 
 
-__all__ = ["set_search_router", "setup_search_routes"]
+__all__ = ["create_search_routes"]

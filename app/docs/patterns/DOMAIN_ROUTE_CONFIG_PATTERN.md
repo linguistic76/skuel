@@ -579,11 +579,11 @@ Files with legitimate complexity warranting custom patterns:
 - `transcription_routes.py` - Audio processing pipeline
 - `auth_routes.py` - Authentication flows
 - `ingestion_routes.py` - Multi-source content ingestion
-- `graphql_routes.py` - GraphQL schema endpoint
+- `graphql_routes.py` - GraphQL schema with explicit multi-dependency injection
 - `nous_routes.py` - AI chat interface
 - `sel_routes.py` - Social-emotional learning
 - `lifepath_routes.py` - Life path alignment
-- `search_routes.py` - Unified search orchestration
+- `search_routes.py` - Unified search orchestration (uses explicit DI pattern like GraphQL, January 2026)
 
 **Specialized UI (3):**
 - `timeline_routes.py` - Export functionality

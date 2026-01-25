@@ -308,14 +308,10 @@ async def _wire_all_routes(
     # - Activity Domains → graph_aware_faceted_search()
     # - Curriculum Domains → simple text search
     # - Cross-domain → aggregated search
-    from adapters.inbound.search_routes import (
-        set_search_router,
-        setup_search_routes,
-    )
+    from adapters.inbound.search_routes import create_search_routes
 
     # SearchRouter is THE path for all search (One Path Forward)
-    set_search_router(services)
-    setup_search_routes(app)
+    create_search_routes(app, rt, services, services.search_router)
     logger.info("✅ Search routes registered at /search (via SearchRouter)")
 
     # Authentication routes (login, logout, user switching)
@@ -384,7 +380,7 @@ async def _wire_all_routes(
     if services.journals_core:
         from adapters.inbound.journals_api import create_journals_api_routes
 
-        create_journals_api_routes(app, rt, services)
+        create_journals_api_routes(app, rt, services.transcript_processor, services)
         logger.info("✅ Journals API routes registered (/api/journals/*)")
 
     # Assignments routes (Primary interface for file submission and processing)

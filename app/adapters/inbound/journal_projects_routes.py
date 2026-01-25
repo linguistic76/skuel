@@ -19,6 +19,10 @@ JOURNAL_PROJECTS_CONFIG = DomainRouteConfig(
         "journals_service": "journals",  # For entry lookup in feedback route
         "journal_feedback_service": "journal_feedback",  # For AI feedback generation
     },
+    ui_related_services={
+        # Format: {kwarg_name: container_attr}
+        "journals_service": "journals",  # For entry lookup in view_entry_with_feedback route
+    },
 )
 
 

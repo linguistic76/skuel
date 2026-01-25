@@ -536,11 +536,49 @@ Search results display learning state badges:
 | Viewed | 👁️ Viewed (Nx) | `badge-warning` |
 | Not Started | *(no badge)* | - |
 
+## Route Wiring (Explicit Dependency Injection)
+
+**Pattern (January 2026):** Search routes use explicit parameter-based dependency injection, matching the GraphQL routes pattern.
+
+**Implementation:**
+```python
+# adapters/inbound/search_routes.py
+def create_search_routes(
+    app: Any,
+    rt: Any,
+    services: "Services",
+    search_router: SearchRouter,  # ← Explicit parameter (no globals)
+) -> None:
+    """Wire search routes with explicit SearchRouter dependency."""
+
+    @app.get("/search/results")
+    async def search_results(...):
+        # search_router available via closure
+        result = await search_router.faceted_search(search_request, user_uid)
+        ...
+```
+
+**Bootstrap wiring:**
+```python
+# scripts/dev/bootstrap.py
+from adapters.inbound.search_routes import create_search_routes
+
+create_search_routes(app, rt, services, services.search_router)
+```
+
+**Why explicit parameters vs DomainRouteConfig:**
+- Search is a meta-service (orchestrates domain search services)
+- Matches GraphQL's explicit dependency injection pattern
+- Simple single-dependency case doesn't need configuration overhead
+- Consistent with "One Path Forward" philosophy (same pattern as GraphQL)
+
+**Previous pattern (removed January 2026):** Used module-level `_search_router` global - eliminated for consistency with all other route files.
+
 ## Key Files
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| **Routes** | `/adapters/inbound/search_routes.py` | HTTP handling, SearchRouter injection |
+| **Routes** | `/adapters/inbound/search_routes.py` | HTTP handling with explicit SearchRouter dependency injection |
 | **SearchRouter** | `/core/models/search/search_router.py` | THE search orchestrator (One Path Forward) |
 | **Request Model** | `/core/models/search_request.py` | `SearchRequest`, `SearchResponse` |
 | **Domain Search Services** | `/core/services/{domain}/{domain}_search_service.py` | Domain-specific search logic |

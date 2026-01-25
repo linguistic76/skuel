@@ -194,6 +194,7 @@ related: []
 | [ADR-029: GraphNative Service Removal](decisions/ADR-029-graphnative-service-removal.md) | 2026-01-08 | 450 |
 | [ADR-030: UserContext File Consolidation](decisions/ADR-030-usercontext-file-consolidation.md) | 2026-01-20 | 95 |
 | [ADR-031: BaseService Mixin Decomposition](decisions/ADR-031-baseservice-mixin-decomposition.md) | 2026-01-21 | 295 |
+| [ADR-032: Search Routes Explicit Dependency Injection](decisions/ADR-032-search-routes-explicit-di.md) | 2026-01-26 | 346 |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Guides

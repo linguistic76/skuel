@@ -69,7 +69,8 @@ class JournalProjectUIComponents:
                     "➕ Create New Project",
                     hx_get=f"/ui/journal-projects/new?user_uid={user_uid}",
                     hx_target="#main-content",
-                    variant=ButtonT.primary, cls="mb-6",
+                    variant=ButtonT.primary,
+                    cls="mb-6",
                 ),
                 cls="mb-6",
             ),
@@ -142,13 +143,15 @@ class JournalProjectUIComponents:
                         "✏️ Edit",
                         hx_get=f"/ui/journal-projects/{project.uid}/edit",
                         hx_target="#main-content",
-                        variant=ButtonT.ghost, cls="btn-sm mr-2",
+                        variant=ButtonT.ghost,
+                        cls="btn-sm mr-2",
                     ),
                     Button(
                         "👁️ View Instructions",
                         hx_get=f"/ui/journal-projects/{project.uid}/view",
                         hx_target="#main-content",
-                        variant=ButtonT.ghost, cls="btn-sm mr-2",
+                        variant=ButtonT.ghost,
+                        cls="btn-sm mr-2",
                     ),
                     Button(
                         "🗑️ Delete",
@@ -156,7 +159,8 @@ class JournalProjectUIComponents:
                         hx_confirm="Are you sure you want to delete this project?",
                         hx_target="closest .card",
                         hx_swap="outerHTML",
-                        variant=ButtonT.error, cls="btn-sm",
+                        variant=ButtonT.error,
+                        cls="btn-sm",
                     ),
                     cls="flex gap-2",
                 ),
@@ -276,7 +280,9 @@ class JournalProjectUIComponents:
                     ),
                     # Submit buttons
                     Div(
-                        Button("💾 Save Project", type="submit", variant=ButtonT.primary, cls="mr-2"),
+                        Button(
+                            "💾 Save Project", type="submit", variant=ButtonT.primary, cls="mr-2"
+                        ),
                         Button(
                             "❌ Cancel",
                             hx_get="/ui/journal-projects",
@@ -366,7 +372,8 @@ class JournalProjectUIComponents:
                     "✏️ Edit Project",
                     hx_get=f"/ui/journal-projects/{project.uid}/edit",
                     hx_target="#main-content",
-                    variant=ButtonT.primary, cls="mr-2",
+                    variant=ButtonT.primary,
+                    cls="mr-2",
                 ),
                 Button(
                     "← Back to Projects",
@@ -426,7 +433,8 @@ class JournalProjectUIComponents:
                                     "✨ Generate Feedback",
                                     hx_post=f"/api/journal-projects/feedback?entry_uid={entry.uid}",
                                     hx_target="closest .card",
-                                    variant=ButtonT.primary, cls="mt-4",
+                                    variant=ButtonT.primary,
+                                    cls="mt-4",
                                 ),
                             )
                         ),
@@ -442,7 +450,8 @@ class JournalProjectUIComponents:
                     "← Back to Journals",
                     hx_get="/ui/journals",
                     hx_target="#main-content",
-                    variant=ButtonT.ghost, cls="mt-6",
+                    variant=ButtonT.ghost,
+                    cls="mt-6",
                 ),
                 cls="mt-6",
             ),
@@ -455,8 +464,22 @@ class JournalProjectUIComponents:
 # ============================================================================
 
 
-def create_journal_projects_ui_routes(app, services):
-    """Register journal project UI routes"""
+def create_journal_projects_ui_routes(
+    app, rt, journal_projects_service, journals_service=None, **related_services
+):
+    """
+    Create journal projects UI routes.
+
+    Args:
+        app: FastHTML application instance
+        rt: Route decorator
+        journal_projects_service: JournalProjectService instance
+        journals_service: JournalsService instance (optional)
+        **related_services: Optional related services
+
+    Returns:
+        Empty list (routes registered via decorators, not returned)
+    """
 
     @app.get("/ui/journal-projects")
     async def journal_projects_dashboard(request) -> Any:
@@ -467,7 +490,7 @@ def create_journal_projects_ui_routes(app, services):
             user_uid = params.get("user_uid", "user.default")
 
             # Get user's projects
-            result = await services.journal_projects.list_user_projects(user_uid)
+            result = await journal_projects_service.list_user_projects(user_uid)
 
             projects = [] if result.is_error else result.value
 
@@ -491,7 +514,7 @@ def create_journal_projects_ui_routes(app, services):
     async def edit_project_form(_request, uid: str) -> Any:
         """Edit project form"""
         try:
-            result = await services.journal_projects.get_project(uid)
+            result = await journal_projects_service.get_project(uid)
 
             if result.is_error or not result.value:
                 return Div(P("Project not found", cls="text-red-600"))
@@ -508,7 +531,7 @@ def create_journal_projects_ui_routes(app, services):
     async def view_project(_request, uid: str) -> Any:
         """View project with transparency"""
         try:
-            result = await services.journal_projects.get_project(uid)
+            result = await journal_projects_service.get_project(uid)
 
             if result.is_error or not result.value:
                 return Div(P("Project not found", cls="text-red-600"))
@@ -526,7 +549,10 @@ def create_journal_projects_ui_routes(app, services):
         """View journal entry with AI feedback side-by-side"""
         try:
             # Get journal entry
-            entry_result = await services.journals.get_journal(uid)
+            if journals_service is None:
+                return Div(P("Journals service not available", cls="text-red-600"))
+
+            entry_result = await journals_service.get_journal(uid)
 
             if entry_result.is_error or not entry_result.value:
                 return Div(P("Journal entry not found", cls="text-red-600"))
@@ -536,7 +562,7 @@ def create_journal_projects_ui_routes(app, services):
             # Get project if used
             project = None
             if entry.project_uid:
-                project_result = await services.journal_projects.get_project(entry.project_uid)
+                project_result = await journal_projects_service.get_project(entry.project_uid)
                 if project_result.is_ok():
                     project = project_result.value
 
@@ -549,6 +575,7 @@ def create_journal_projects_ui_routes(app, services):
             return Div(P(f"Error: {e}", cls="text-red-600"))
 
     logger.info("✅ Journal Projects UI routes registered")
+    return []
 
 
 __all__ = ["JournalProjectUIComponents", "create_journal_projects_ui_routes"]
