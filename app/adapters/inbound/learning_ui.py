@@ -3,7 +3,7 @@ Learning UI Components - Clean Architecture
 ===========================================
 
 Component-based UI for learning management following clean separation of concerns.
-Uses MonsterUI/FrankenUI components for consistent styling and HTMX for dynamic interactions.
+Uses DaisyUI components for consistent styling and HTMX for dynamic interactions.
 
 ✅ MIGRATED TO FORMGENERATOR/CARDGENERATOR PATTERN (Phase 3)
 - Previously: Inline route architecture with manual forms
@@ -41,7 +41,7 @@ from starlette.responses import HTMLResponse
 
 from components.form_generator import FormGenerator
 from core.models.lp.lp_request import LpFilterRequest
-from core.ui.daisy_components import Button, Card, Div, Label, Option, Select, Span
+from core.ui.daisy_components import Button, ButtonT, Card, Div, Label, Option, Select, Span
 from core.ui.ui_types import (
     AchievementData,
     ActivePathData,
@@ -172,7 +172,8 @@ class LearningUIComponents:
                 # Action Button
                 Button(
                     "Continue Learning",
-                    cls="btn btn-primary btn-sm w-full",
+                    variant=ButtonT.primary,
+                    cls="btn-sm w-full",
                     **{
                         "hx-get": f"/learning/path/{path['uid']}/continue",
                         "hx-target": "#main-content",
@@ -217,12 +218,14 @@ class LearningUIComponents:
                 Div(
                     Button(
                         "View Details",
-                        cls="btn btn-outline btn-sm flex-1",
+                        variant=ButtonT.outline,
+                        cls="btn-sm flex-1",
                         **{"hx-get": f"/learning/path/{path['uid']}", "hx-target": "#main-content"},
                     ),
                     Button(
                         "Enroll",
-                        cls="btn btn-primary btn-sm flex-1",
+                        variant=ButtonT.primary,
+                        cls="btn-sm flex-1",
                         **{
                             "hx-post": f"/api/learning/enroll/{path['uid']}",
                             "hx-target": "#main-content",
@@ -326,7 +329,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
     """
     Create component-based UI routes for learning management.
 
-    Uses MonsterUI/FrankenUI components for consistent styling and follows
+    Uses DaisyUI components for consistent styling and follows
     the clean architecture pattern with component-based rendering.
 
     Args:
@@ -453,7 +456,8 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                     H2("Active Learning Paths", cls="text-xl font-semibold mb-4"),
                     Button(
                         "📚 Browse Learning Paths",
-                        cls="btn btn-primary btn-sm",
+                        variant=ButtonT.primary,
+                        cls="btn-sm",
                         **{"hx-get": "/learning/browse", "hx-target": "#main-content"},
                     ),
                     cls="flex justify-between items-center mb-4",
@@ -485,22 +489,22 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                 Div(
                     Button(
                         "🎯 Continue Learning",
-                        cls="btn btn-primary",
+                        variant=ButtonT.primary,
                         **{"hx-get": "/learning/continue", "hx-target": "#main-content"},
                     ),
                     Button(
                         "📊 View Analytics",
-                        cls="btn btn-secondary",
+                        variant=ButtonT.secondary,
                         **{"hx-get": "/learning/analytics", "hx-target": "#main-content"},
                     ),
                     Button(
                         "🎲 Discover New Topics",
-                        cls="btn btn-outline",
+                        variant=ButtonT.outline,
                         **{"hx-get": "/learning/discover", "hx-target": "#main-content"},
                     ),
                     Button(
                         "👥 Join Study Groups",
-                        cls="btn btn-outline",
+                        variant=ButtonT.outline,
                         **{"hx-get": "/learning/community", "hx-target": "#main-content"},
                     ),
                     cls="flex flex-wrap gap-3",
@@ -728,7 +732,8 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                     if path_detail.is_enrolled
                     else Button(
                         "Enroll Now",
-                        cls="btn btn-primary btn-lg",
+                        variant=ButtonT.primary,
+                        cls="btn-lg",
                         **{
                             "hx-post": f"/api/learning/enroll/{path_uid}",
                             "hx-target": "#main-content",
@@ -742,7 +747,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
             Div(
                 Button(
                     "🎯 Continue Learning",
-                    cls="btn btn-primary",
+                    variant=ButtonT.primary,
                     **{
                         "hx-get": f"/learning/path/{path_uid}/continue",
                         "hx-target": "#main-content",
@@ -752,7 +757,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                 else None,
                 Button(
                     "📊 View Progress",
-                    cls="btn btn-secondary",
+                    variant=ButtonT.secondary,
                     **{
                         "hx-get": f"/learning/path/{path_uid}/progress",
                         "hx-target": "#main-content",
@@ -760,7 +765,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                 ),
                 Button(
                     "💬 Discussion Forum",
-                    cls="btn btn-outline",
+                    variant=ButtonT.outline,
                     **{"hx-get": f"/learning/path/{path_uid}/forum", "hx-target": "#main-content"},
                 ),
                 cls="flex flex-wrap gap-3 mb-8",

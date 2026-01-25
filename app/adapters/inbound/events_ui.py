@@ -19,11 +19,12 @@ __version__ = "2.0"
 import contextlib
 from dataclasses import dataclass
 from datetime import date, datetime, time
-from typing import Any, Protocol
+from typing import Any
 
 from fasthtml.common import H1, H2, Form, P
 from starlette.responses import RedirectResponse, Response
 
+from components.error_components import ErrorComponents
 from components.events_views import EventsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
@@ -34,6 +35,7 @@ from core.services.protocols.facade_protocols import EventsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
 from core.ui.daisy_components import (
     Button,
+    ButtonT,
     Card,
     Div,
     Input,
@@ -220,16 +222,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         return CalendarParams(calendar_view=calendar_view, current_date=current_date)
 
-    def render_error_banner(message: str) -> Div:
-        """Render error banner for UI failures."""
-        return Div(
-            Div(
-                P("⚠️ Error", cls="font-bold text-error"),
-                P(message, cls="text-sm"),
-                cls="alert alert-error",
-            ),
-            cls="mb-4",
-        )
+    # Error rendering moved to components.error_components.ErrorComponents
 
     # ========================================================================
     # ERROR HANDLING
@@ -291,7 +284,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to fetch events: {e}")
+            return Result.fail(Errors.system(f"Failed to fetch events: {e}"))
 
     # ========================================================================
     # PURE COMPUTATION HELPERS (Testable without mocks)
@@ -301,9 +294,9 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
         """Validate event form data early."""
         title = form_data.get("title", "").strip()
         if not title:
-            return Errors.validation("Event title is required")
+            return Result.fail(Errors.validation("Event title is required"))
         if len(title) > 200:
-            return Errors.validation("Event title must be 200 characters or less")
+            return Result.fail(Errors.validation("Event title must be 200 characters or less"))
         return Result.ok(None)
 
     def get_status_value(event: Any) -> str:
@@ -384,7 +377,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
             # I/O: Fetch all events
             events_result = await get_all_events(user_uid)
             if events_result.is_error:
-                return events_result
+                return Result.fail(events_result.expect_error())
 
             events = events_result.value
 
@@ -409,7 +402,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to filter events: {e}")
+            return Result.fail(Errors.system(f"Failed to filter events: {e}"))
 
     async def get_event_types() -> Result[list[str]]:
         """Get available event types."""
@@ -441,7 +434,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
         if filtered_result.is_error:
             error_content = Div(
                 EventsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load events"),
+                ErrorComponents.render_error_banner("Failed to load events"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
             return create_events_page(error_content, request=request)
@@ -449,7 +442,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
         if event_types_result.is_error:
             error_content = Div(
                 EventsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load event types"),
+                ErrorComponents.render_error_banner("Failed to load event types"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
             return create_events_page(error_content, request=request)
@@ -479,7 +472,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
             # Check for errors
             if all_events_result.is_error:
-                view_content = render_error_banner(
+                view_content = ErrorComponents.render_error_banner(
                     f"Failed to load calendar: {all_events_result.error}"
                 )
             else:
@@ -512,7 +505,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         # Handle errors
         if events_result.is_error:
-            return render_error_banner("Failed to load calendar")
+            return ErrorComponents.render_error_banner("Failed to load calendar")
 
         return EventsViewComponents.render_calendar_view(
             events=events_result.value,
@@ -530,7 +523,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         # Handle errors
         if filtered_result.is_error:
-            return render_error_banner("Failed to load events")
+            return ErrorComponents.render_error_banner("Failed to load events")
 
         events, stats = filtered_result.value
 
@@ -550,7 +543,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         # Handle errors
         if event_types_result.is_error:
-            return render_error_banner("Failed to load event types")
+            return ErrorComponents.render_error_banner("Failed to load event types")
 
         return EventsViewComponents.render_create_view(
             event_types=event_types_result.value,
@@ -571,7 +564,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         # Handle errors
         if filtered_result.is_error:
-            return render_error_banner("Failed to load events")
+            return ErrorComponents.render_error_banner("Failed to load events")
 
         events, _stats = filtered_result.value
 
@@ -690,7 +683,11 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
             return Response("Event not found", status_code=404)
 
         event = result.value
-        event_types = await get_event_types()
+        event_types_result = await get_event_types()
+        if event_types_result.is_error:
+            event_types = []  # Fallback to empty list
+        else:
+            event_types = event_types_result.value
 
         # Extract current values
         title = getattr(event, "title", "")
@@ -821,12 +818,12 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                         Button(
                             "Save Changes",
                             type="submit",
-                            cls="btn btn-primary",
+                            variant=ButtonT.primary,
                         ),
                         Button(
                             "Cancel",
                             type="button",
-                            cls="btn btn-ghost ml-2",
+                            variant=ButtonT.ghost, cls="ml-2",
                             **{
                                 "hx-get": "/events",
                                 "hx-target": "body",

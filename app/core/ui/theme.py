@@ -2,8 +2,8 @@
 SKUEL Theme Configuration
 =========================
 
-Centralized theme headers for SKUEL PWA.
-Replaces MonsterUI Theme.headers() with SKUEL-native configuration.
+Centralized theme headers for SKUEL PWA using DaisyUI components.
+SKUEL-native configuration for frontend dependencies.
 
 Usage:
     from core.ui.theme import daisy_headers, Theme
@@ -171,7 +171,7 @@ def daisy_headers(
 def pwa_headers(
     app_name: str = "SKUEL",
     theme_color: str = "#570df8",
-    background_color: str = "#ffffff",
+    _background_color: str = "#ffffff",
 ) -> tuple[Any, ...]:
     """
     Generate PWA-specific headers for SKUEL.
@@ -179,7 +179,7 @@ def pwa_headers(
     Args:
         app_name: Application name for manifest
         theme_color: Theme color for browser chrome
-        background_color: Background color for splash screen
+        _background_color: Background color for splash screen (reserved for future manifest.json generation)
 
     Returns:
         Tuple of PWA-related header elements

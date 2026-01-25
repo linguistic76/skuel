@@ -21,17 +21,15 @@ from typing import Any
 
 from fasthtml.common import (
     H2,
-    Button,
     Datalist,
     Div,
     Form,
-    Input,
     Label,
     Option,
     P,
-    Select,
-    Textarea,
 )
+
+from core.ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
 
 from components.activity_views_base import (
     ActivityCalendarNav,
@@ -214,14 +212,17 @@ class TasksViewComponents:
             Button(
                 "Create Task",
                 type="submit",
-                cls="btn btn-primary btn-lg",
+                variant=ButtonT.primary,
+                size=Size.lg,
             ),
             Button(
                 "Create & Add Another",
                 type="submit",
                 name="add_another",
                 value="true",
-                cls="btn btn-outline btn-lg ml-2",
+                variant=ButtonT.outline,
+                size=Size.lg,
+                cls="ml-2",
             ),
             cls="flex justify-end pt-6 border-t border-base-200",
         )

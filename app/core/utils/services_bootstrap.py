@@ -348,6 +348,7 @@ class Services:
             ("journals", self.journals),
             ("habits", self.habits),
             ("transcription", self.transcription),
+            ("performance_optimization", self.performance_optimization),
             # Note: sync was removed (January 2026) - use unified_ingestion instead
         ]
 

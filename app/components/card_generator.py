@@ -2,7 +2,7 @@
 CardGenerator - Dynamic Display Card Generation from Dataclasses
 =================================================================
 
-Generates MonsterUI/FrankenUI display cards automatically from dataclass introspection.
+Generates DaisyUI display cards automatically from dataclass introspection.
 
 Following the 100% dynamic architecture vision:
 - Models define structure → UI auto-generates
@@ -28,8 +28,9 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any, get_args, get_origin
 
-from fasthtml.common import H3, Div, Label, Li, P, Span, Ul
+from fasthtml.common import H3, Li, P, Ul
 
+from core.ui.daisy_components import Div, Label, Span
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.components.card_generator")
@@ -48,7 +49,7 @@ class FieldRendererMapper:
         """
         Determine default renderer from field type introspection.
 
-        Returns a function that renders the value as a MonsterUI component.
+        Returns a function that renders the value as a DaisyUI component.
         """
         # Handle None values
         if value is None:
@@ -226,7 +227,7 @@ class CardGenerator:
     Follows 100% dynamic architecture:
     - Introspects dataclass fields via fields()
     - Determines renderers via type annotations
-    - Generates MonsterUI/FrankenUI components
+    - Generates DaisyUI components
     """
 
     @staticmethod
@@ -256,7 +257,7 @@ class CardGenerator:
             show_empty_fields: Show fields even if value is None/empty
 
         Returns:
-            MonsterUI Card component
+            DaisyUI Card component
 
         Example:
             def render_priority(v):

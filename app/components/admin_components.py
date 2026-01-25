@@ -19,14 +19,13 @@ Usage:
 
 from typing import ClassVar
 
-from fasthtml.common import (
-    H2,
-    A,
+from fasthtml.common import A, Form, H2, P
+
+from components.shared_ui_components import SharedUIComponents
+from core.ui.daisy_components import (
     Button,
     Div,
-    Form,
     Option,
-    P,
     Select,
     Span,
     Table,
@@ -36,8 +35,6 @@ from fasthtml.common import (
     Thead,
     Tr,
 )
-
-from components.shared_ui_components import SharedUIComponents
 
 
 class AdminUIComponents:

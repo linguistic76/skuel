@@ -383,7 +383,7 @@ class AtomicHabitsBadges:
         )
 
     @staticmethod
-    def render_badge_card(badge: Badge) -> Card:
+    def render_badge_card(badge: Badge) -> Any:
         """Render individual badge card with progress."""
 
         # Opacity and styling for locked badges

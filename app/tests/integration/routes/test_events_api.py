@@ -289,7 +289,7 @@ class TestSearch:
 class TestEventModel:
     """Tests for Event model structure."""
 
-    def test_event_has_required_fields(self):
+    async def test_event_has_required_fields(self):
         """Test that Event model has required fields."""
         from core.models.event.event import Event
 

@@ -19,22 +19,19 @@ Usage:
 
 from typing import Any
 
-from fasthtml.common import (
-    H2,
-    H3,
+from fasthtml.common import Form, H2, H3, P
+
+from components.activity_views_base import ActivityViewTabs
+from core.ui.daisy_components import (
     Button,
     Div,
-    Form,
     Input,
     Label,
     Option,
-    P,
     Select,
     Span,
     Textarea,
 )
-
-from components.activity_views_base import ActivityViewTabs
 from core.models.choice.choice import Choice
 from core.utils.logging import get_logger
 

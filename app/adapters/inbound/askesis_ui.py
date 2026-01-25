@@ -21,7 +21,7 @@ from fasthtml.common import H1, Body, Form, Head, Html, Link, Meta, NotStr, P, S
 from starlette.requests import Request
 
 from core.auth import get_current_user
-from core.ui.daisy_components import Button, Card, Div, Option, Select, Span, Textarea
+from core.ui.daisy_components import Button, ButtonT, Card, Div, Option, Select, Span, Textarea
 from core.utils.logging import get_logger
 from ui.layouts.navbar import create_navbar_for_request
 
@@ -94,7 +94,7 @@ class AskesisUI:
                             Button(
                                 "Send Message",
                                 type="submit",
-                                cls="btn btn-primary px-8",
+                                variant=ButtonT.primary, cls="px-8",
                                 id="send-btn",
                             ),
                             cls="flex items-center justify-between",
@@ -132,7 +132,7 @@ class AskesisUI:
                 Div(
                     Button(
                         "Show quick shortcuts",
-                        cls="btn btn-ghost btn-sm",
+                        variant=ButtonT.ghost, cls="btn-sm",
                         **{
                             "onclick": "document.getElementById('shortcuts').classList.toggle('hidden')",
                         },
@@ -142,10 +142,10 @@ class AskesisUI:
                 # Shortcuts menu (hidden by default - progressive disclosure)
                 Div(
                     Div(
-                        Button("Write", cls="btn btn-outline btn-sm"),
-                        Button("Learn", cls="btn btn-outline btn-sm"),
-                        Button("Code", cls="btn btn-outline btn-sm"),
-                        Button("Plan", cls="btn btn-outline btn-sm"),
+                        Button("Write", variant=ButtonT.outline, cls="btn-sm"),
+                        Button("Learn", variant=ButtonT.outline, cls="btn-sm"),
+                        Button("Code", variant=ButtonT.outline, cls="btn-sm"),
+                        Button("Plan", variant=ButtonT.outline, cls="btn-sm"),
                         cls="flex gap-2 justify-center flex-wrap",
                     ),
                     id="shortcuts",

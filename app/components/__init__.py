@@ -21,14 +21,14 @@ Modules:
     - auth_components: Authentication forms (login, register, password reset)
     - calendar_components: Calendar UI (month, week, day views)
     - drawer_layout: Reusable DaisyUI drawer sidebar component
-    - franken_design_system: FrankenUI/DaisyUI design system components
+    - form_generator: Dynamic form generation from Pydantic models
     - search_components: Search page with filter sidebar
     - timeline_components: Markwhen timeline viewer
 
 Design Philosophy:
     "Users can handle complexity, but they need visual calm to process it."
 
-    We leverage pre-built DaisyUI/FrankenUI components where possible to:
+    We leverage pre-built DaisyUI components where possible to:
     - Reduce custom CSS/JS maintenance burden
     - Ensure consistent responsive behavior
     - Benefit from framework updates and accessibility improvements

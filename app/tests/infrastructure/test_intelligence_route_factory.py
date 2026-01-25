@@ -21,6 +21,7 @@ from starlette.responses import JSONResponse
 from core.infrastructure.routes.intelligence_route_factory import (
     IntelligenceRouteFactory,
 )
+from core.models.enums import ContentScope
 from core.models.shared_enums import Domain
 from core.utils.result_simplified import Result
 
@@ -493,7 +494,7 @@ def test_factory_with_ownership_verification(mock_service, mock_ownership_servic
     factory = IntelligenceRouteFactory(
         intelligence_service=mock_service,
         domain_name="goals",
-        verify_ownership=True,
+        scope=ContentScope.USER_OWNED,
         ownership_service=mock_ownership_service,
     )
     assert factory.verify_ownership is True
@@ -505,7 +506,7 @@ def test_factory_without_ownership_verification(mock_service):
     factory = IntelligenceRouteFactory(
         intelligence_service=mock_service,
         domain_name="knowledge",
-        verify_ownership=False,
+        scope=ContentScope.SHARED,
     )
     assert factory.verify_ownership is False
     assert factory.ownership_service is None
@@ -519,7 +520,7 @@ async def test_context_route_with_ownership_verification(
     factory = IntelligenceRouteFactory(
         intelligence_service=mock_service,
         domain_name="goals",
-        verify_ownership=True,
+        scope=ContentScope.USER_OWNED,
         ownership_service=mock_ownership_service,
     )
     factory.register_routes(_app=None, rt=mock_router)
@@ -543,7 +544,7 @@ async def test_context_route_ownership_denied(mock_router, mock_service, mock_ow
     factory = IntelligenceRouteFactory(
         intelligence_service=mock_service,
         domain_name="goals",
-        verify_ownership=True,
+        scope=ContentScope.USER_OWNED,
         ownership_service=mock_ownership_service,
     )
     factory.register_routes(_app=None, rt=mock_router)
@@ -573,7 +574,7 @@ async def test_context_route_skips_ownership_for_shared_content(mock_router, moc
     factory = IntelligenceRouteFactory(
         intelligence_service=mock_service,
         domain_name="knowledge",
-        verify_ownership=False,
+        scope=ContentScope.SHARED,
     )
     factory.register_routes(_app=None, rt=mock_router)
 
@@ -598,7 +599,7 @@ async def test_insights_route_with_ownership_verification(
     factory = IntelligenceRouteFactory(
         intelligence_service=mock_service,
         domain_name="goals",
-        verify_ownership=True,
+        scope=ContentScope.USER_OWNED,
         ownership_service=mock_ownership_service,
     )
     factory.register_routes(_app=None, rt=mock_router)
@@ -621,7 +622,7 @@ async def test_insights_route_ownership_denied(mock_router, mock_service, mock_o
     factory = IntelligenceRouteFactory(
         intelligence_service=mock_service,
         domain_name="goals",
-        verify_ownership=True,
+        scope=ContentScope.USER_OWNED,
         ownership_service=mock_ownership_service,
     )
     factory.register_routes(_app=None, rt=mock_router)

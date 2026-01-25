@@ -25,15 +25,9 @@ Usage:
     )
 """
 
-from fasthtml.common import (
-    H3,
-    Canvas,
-    Div,
-    Link,
-    P,
-    Script,
-    Span,
-)
+from fasthtml.common import Canvas, H3, Link, P, Script
+
+from core.ui.daisy_components import Div, Span
 
 # =============================================================================
 # Library Script Tags

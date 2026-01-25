@@ -113,7 +113,7 @@ class AtomicHabitsAnalytics:
         )
 
     @staticmethod
-    def _render_date_range_selector(date_range: tuple[date, date]) -> Card:
+    def _render_date_range_selector(date_range: tuple[date, date]) -> Any:
         """Date range selector for analytics."""
         start_date, end_date = date_range
 
@@ -209,7 +209,7 @@ class AtomicHabitsAnalytics:
         )
 
     @staticmethod
-    def _render_system_comparison_section() -> Card:
+    def _render_system_comparison_section() -> Any:
         """Compare habit systems across all active goals."""
         # Mock goal snapshots
         mock_goals = [
@@ -330,7 +330,7 @@ class AtomicHabitsAnalytics:
         )
 
     @staticmethod
-    def _render_historical_trends_section(date_range: tuple[date, date]) -> Card:
+    def _render_historical_trends_section(date_range: tuple[date, date]) -> Any:
         """Historical trend visualization for system metrics."""
         start_date, end_date = date_range
 
@@ -395,7 +395,7 @@ class AtomicHabitsAnalytics:
         )
 
     @staticmethod
-    def _render_habit_migration_section() -> Card:
+    def _render_habit_migration_section() -> Any:
         """Visualize habit essentiality changes over time."""
         # Mock migration data - using frozen dataclass for type safety
         migrations: list[HabitMigration] = [
@@ -493,7 +493,7 @@ class AtomicHabitsAnalytics:
         )
 
     @staticmethod
-    def _render_benchmarking_section() -> Card:
+    def _render_benchmarking_section() -> Any:
         """Compare user performance against anonymized community averages."""
         # Mock benchmarking data - using frozen dataclass for type safety
         benchmarks: list[BenchmarkData] = [

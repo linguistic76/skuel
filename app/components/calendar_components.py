@@ -20,21 +20,7 @@ __version__ = "1.0"
 from datetime import date, timedelta
 from typing import Any
 
-from fasthtml.common import (
-    H2,
-    H3,
-    H4,
-    A,
-    Button,
-    Div,
-    Form,
-    Input,
-    Label,
-    Option,
-    P,
-    Select,
-    Span,
-)
+from fasthtml.common import A, Form, H2, H3, H4, P
 
 from core.models.event.calendar_models import (
     CalendarData,
@@ -42,6 +28,7 @@ from core.models.event.calendar_models import (
     CalendarItemType,
     CalendarOccurrence,
 )
+from core.ui.daisy_components import Button, Div, Input, Label, Option, Select, Span
 
 
 def create_month_grid(calendar_data: CalendarData) -> Div:

@@ -176,10 +176,10 @@ def authenticated_client(skuel_app) -> "Generator[TestClient, None, None]":
 @pytest.fixture
 def authenticated_client_simple(skuel_app) -> "Generator[TestClient, None, None]":
     """
-    Simplified authenticated client that bypasses login.
+    Simplified authenticated client that uses login flow with default dev user.
 
-    Tests use the default development user (user.mike) that's already
-    configured in the application. No async database operations needed.
+    Authenticates using the default development user (user.mike / dev123)
+    which should already exist in the test database.
 
     Usage:
         def test_graphql_query(authenticated_client_simple):
@@ -191,10 +191,46 @@ def authenticated_client_simple(skuel_app) -> "Generator[TestClient, None, None]
     """
     from starlette.testclient import TestClient
 
-    # Create TestClient - uses default dev user
-    # No async database operations needed - avoids event loop issues
+    from core.auth.session import DEFAULT_DEV_USER
+
     with TestClient(skuel_app) as client:
-        yield client
+        # Log in with default dev user
+        login_response = client.post(
+            "/login",
+            data={
+                "username": DEFAULT_DEV_USER.replace("user.", ""),  # "mike"
+                "password": "dev123",  # Standard dev password
+            },
+        )
+
+        # If login succeeded, cookie should be set
+        if login_response.status_code == 200 and "skuel_session" in client.cookies:
+            yield client
+        else:
+            # Login failed - maybe user doesn't exist yet
+            # Try to register first, then login
+            client.post(
+                "/register",
+                data={
+                    "username": DEFAULT_DEV_USER.replace("user.", ""),
+                    "password": "dev123",
+                    "email": "mike@test.local",
+                },
+            )
+
+            # If registration succeeded and we got a cookie, use it
+            if "skuel_session" in client.cookies:
+                yield client
+            else:
+                # Try login again after registration
+                login_response = client.post(
+                    "/login",
+                    data={
+                        "username": DEFAULT_DEV_USER.replace("user.", ""),
+                        "password": "dev123",
+                    },
+                )
+                yield client
 
 
 @pytest.fixture

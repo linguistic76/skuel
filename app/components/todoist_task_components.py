@@ -22,22 +22,20 @@ from typing import Any
 from fasthtml.common import (
     H1,
     H3,
-    Button,
     Datalist,
     Div,
     Form,
-    Input,
     Label,
     Li,
     NotStr,
     Option,
     P,
     Script,
-    Select,
     Span,
-    Textarea,
     Ul,
 )
+
+from core.ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
 
 from core.models.shared_enums import ActivityStatus, Priority
 from core.utils.logging import get_logger
@@ -434,14 +432,14 @@ class TodoistTaskComponents:
                 Button(
                     "Cancel",
                     type="button",
-                    cls="btn btn-ghost",
+                    variant=ButtonT.ghost,
                     onclick="document.getElementById('task-edit-modal').close()",
                 ),
                 Button(
                     "Save Changes",
                     type="button",
                     id="task-save-btn",
-                    cls="btn btn-primary",
+                    variant=ButtonT.primary,
                 ),
                 cls="modal-action",
             ),
@@ -495,7 +493,9 @@ class TodoistTaskComponents:
                 # Close button
                 Button(
                     "✕",
-                    cls="btn btn-sm btn-circle btn-ghost absolute right-2 top-2",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                    cls="btn-circle absolute right-2 top-2",
                     onclick="document.getElementById('task-edit-modal').close()",
                 ),
                 H3("Edit Task", cls="font-bold text-lg mb-4"),
@@ -620,7 +620,9 @@ class TodoistTaskComponents:
         )
 
         # Add button - make it clearly visible
-        add_button = Button("Add Task", type="submit", cls="btn btn-primary btn-sm px-4")
+        add_button = Button(
+            "Add Task", type="submit", variant=ButtonT.primary, size=Size.sm, cls="px-4"
+        )
 
         # First row: Title + Project + Priority + Add
         row1 = Div(

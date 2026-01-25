@@ -41,7 +41,7 @@ from core.utils.validation_helpers import (
 # ============================================================================
 
 
-class TestStatus(str, Enum):
+class MockStatus(str, Enum):
     """Mock enum for validation tests."""
 
     ACTIVE = "active"
@@ -273,31 +273,31 @@ class TestValidationHelpers:
     # validate_enum tests
     def test_validate_enum_accepts_valid_enum(self):
         """validate_enum accepts valid enum members."""
-        result = validate_enum(TestStatus.ACTIVE, TestStatus, "status")
+        result = validate_enum(MockStatus.ACTIVE, MockStatus, "status")
         assert result.is_ok
-        assert result.value == TestStatus.ACTIVE
+        assert result.value == MockStatus.ACTIVE
 
     def test_validate_enum_converts_string_to_enum(self):
         """validate_enum converts valid string to enum."""
-        result = validate_enum("active", TestStatus, "status")
+        result = validate_enum("active", MockStatus, "status")
         assert result.is_ok
-        assert result.value == TestStatus.ACTIVE
+        assert result.value == MockStatus.ACTIVE
 
     def test_validate_enum_accepts_none_for_optional(self):
         """validate_enum accepts None (optional enum)."""
-        result = validate_enum(None, TestStatus, "status")
+        result = validate_enum(None, MockStatus, "status")
         assert result.is_ok
         assert result.value is None
 
     def test_validate_enum_rejects_invalid_string(self):
         """validate_enum rejects invalid enum values."""
-        result = validate_enum("invalid_status", TestStatus, "status")
+        result = validate_enum("invalid_status", MockStatus, "status")
         assert result.is_error
         assert "invalid" in result.error.message.lower()
 
     def test_validate_enum_includes_valid_values_in_error(self):
         """validate_enum includes valid values in error message."""
-        result = validate_enum("invalid", TestStatus, "status")
+        result = validate_enum("invalid", MockStatus, "status")
         assert result.is_error
         assert "active" in result.error.message
         assert "pending" in result.error.message

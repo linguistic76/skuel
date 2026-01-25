@@ -2,7 +2,7 @@
 Navbar Component - SKUEL Patterns
 =================================
 
-Dark themed navigation using DaisyUI/MonsterUI patterns.
+Dark themed navigation using DaisyUI patterns.
 Alpine.js handles UI state, FastHTML handles rendering.
 
 Version: 3.2 - Explicit hx-boost=false on all navigation links

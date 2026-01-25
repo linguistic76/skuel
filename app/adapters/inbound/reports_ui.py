@@ -19,7 +19,6 @@ from fasthtml.common import (
     H2,
     H3,
     H4,
-    Button,
     Div,
     Form,
     Input,
@@ -37,6 +36,7 @@ from fasthtml.common import (
 )
 
 from core.models.shared_enums import ReportType
+from core.ui.daisy_components import Button, ButtonT
 from core.ui.shared_components import MetricCard, QuickMetricCard
 from core.utils.logging import get_logger
 from ui.layouts.navbar import create_navbar_for_request
@@ -117,7 +117,7 @@ class ReportsUIComponents:
                             hx_get="/ui/reports/view",
                             hx_include="[name='report_type'],[name='period'],[name='start_date'],[name='end_date']",
                             hx_target="#report-display",
-                            cls="btn btn-primary",
+                            variant=ButtonT.primary,
                         ),
                         cls="mb-4",
                     ),
@@ -168,7 +168,8 @@ class ReportsUIComponents:
                     "📄 View as Markdown",
                     hx_get=f"/ui/reports/{report.uid}/markdown",
                     hx_target="#markdown-view",
-                    cls="btn btn-ghost mb-4",
+                    variant=ButtonT.ghost,
+                    cls="mb-4",
                 ),
                 Div(id="markdown-view"),
             ),

@@ -23,17 +23,10 @@ __version__ = "3.0"
 
 from typing import Any
 
-from fasthtml.common import (
-    H3,
-    H4,
-    A,
-    Div,
-    NotStr,
-    P,
-    Span,
-)
+from fasthtml.common import A, H3, H4, NotStr, P
 
 from core.models.search_request import SearchResponse
+from core.ui.daisy_components import Div, Span
 from core.models.shared_enums import (
     ContentType,
     EducationalLevel,

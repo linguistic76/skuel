@@ -15,6 +15,7 @@ Run with integration tests:
 
 import os
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -24,6 +25,16 @@ pytestmark = pytest.mark.skipif(
     not _has_openai_key,
     reason="Requires OPENAI_API_KEY environment variable for full app bootstrap",
 )
+
+
+@pytest.fixture(autouse=True)
+def mock_graphql_auth():
+    """Mock authentication for GraphQL tests to bypass session requirement."""
+    from core.auth.session import DEFAULT_DEV_USER
+
+    with patch("adapters.inbound.graphql_routes.require_authenticated_user") as mock:
+        mock.return_value = DEFAULT_DEV_USER
+        yield mock
 
 
 @pytest.fixture

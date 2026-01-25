@@ -3,7 +3,7 @@ SKUEL DaisyUI Component Library
 ===============================
 
 Thin Python wrappers around FastHTML FT components with DaisyUI styling.
-This replaces MonsterUI/FrankenUI while maintaining Python component ergonomics.
+Provides type-safe, Pythonic component ergonomics with DaisyUI design system.
 
 Philosophy: FT Components → SKUEL Wrappers → DaisyUI Classes
 
@@ -28,7 +28,7 @@ Design Principles:
 - Type Safety: Enums prevent class typos
 - Centralized Styling: Changes in one place affect all usages
 - FT-Native: Still using FastHTML architecture, just with thin wrappers
-- No FrankenUI: Pure DaisyUI styling (no uk-* classes)
+- Pure DaisyUI: No legacy framework classes (no uk-* classes)
 
 January 2026: Initial implementation for SKUEL PWA migration
 """
@@ -1022,14 +1022,14 @@ def Menu(*c: Any, cls: str = "", horizontal: bool = False, **kwargs: Any) -> Any
     return Ul(*c, cls=" ".join(classes), **kwargs)
 
 
-def MenuItem(*c: Any, cls: str = "", active: bool = False, **kwargs: Any) -> Any:
+def MenuItem(*c: Any, cls: str = "", _active: bool = False, **kwargs: Any) -> Any:
     """
     DaisyUI Menu item wrapper.
 
     Args:
         *c: Menu item content (typically an A tag)
         cls: Additional CSS classes
-        active: If True, marks as active item
+        _active: If True, marks as active item (currently unused - active class handled by caller)
         **kwargs: Additional HTML attributes
     """
     from fasthtml.common import Li

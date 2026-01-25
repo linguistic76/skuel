@@ -25,11 +25,12 @@ from fasthtml.common import H2, H3, A, Form, P
 from starlette.responses import Response
 
 from components.choices_views import ChoicesViewComponents
+from components.error_components import ErrorComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.services.protocols.facade_protocols import ChoicesFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
-from core.ui.daisy_components import Button, Div, Input, Label, Option, Select, Span, Textarea
+from core.ui.daisy_components import Button, ButtonT, Div, Input, Label, Option, Select, Span, Textarea
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
@@ -105,16 +106,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
             sort_by=request.query_params.get("sort_by", "deadline"),
         )
 
-    def render_error_banner(message: str) -> Div:
-        """Render error banner for UI failures."""
-        return Div(
-            Div(
-                P("⚠️ Error", cls="font-bold text-error"),
-                P(message, cls="text-sm"),
-                cls="alert alert-error",
-            ),
-            cls="mb-4",
-        )
+    # Error rendering moved to components.error_components.ErrorComponents
 
     # ========================================================================
     # ERROR HANDLING
@@ -178,7 +170,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to fetch choices: {e}")
+            return Result.fail(Errors.system(f"Failed to fetch choices: {e}"))
 
     def _get_enum_value(obj, attr: str, default: str = "") -> str:
         """Extract value from attribute (handles both enum and string)."""
@@ -226,10 +218,10 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
         # Required fields
         title = form_data.get("title", "").strip()
         if not title:
-            return Errors.validation("Choice title is required")
+            return Result.fail(Errors.validation("Choice title is required"))
 
         if len(title) > 200:
-            return Errors.validation("Choice title must be 200 characters or less")
+            return Result.fail(Errors.validation("Choice title must be 200 characters or less"))
 
         return Result.ok(None)
 
@@ -321,7 +313,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
             # I/O: Fetch all choices
             choices_result = await get_all_choices(user_uid)
             if choices_result.is_error:
-                return choices_result
+                return Result.fail(choices_result.expect_error())
 
             choices = choices_result.value
 
@@ -347,7 +339,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to filter choices: {e}")
+            return Result.fail(Errors.system(f"Failed to filter choices: {e}"))
 
     async def get_choice_types() -> Result[list[str]]:
         """Get available choice types."""
@@ -366,7 +358,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
             # Check for errors
             if choices_result.is_error:
                 logger.warning(f"Failed to fetch choices for analytics: {choices_result.error}")
-                return choices_result  # Propagate the error
+                return Result.fail(choices_result.expect_error())  # Propagate the error
 
             choices = choices_result.value
 
@@ -434,7 +426,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to get analytics: {e}")
+            return Result.fail(Errors.system(f"Failed to get analytics: {e}"))
 
     # ========================================================================
     # MAIN DASHBOARD (Standalone Three-View, List First)
@@ -460,7 +452,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
         if filtered_result.is_error:
             error_content = Div(
                 ChoicesViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load choices"),
+                ErrorComponents.render_error_banner("Failed to load choices"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
             return create_choices_page(error_content, request=request)
@@ -468,7 +460,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
         if choice_types_result.is_error:
             error_content = Div(
                 ChoicesViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load choice types"),
+                ErrorComponents.render_error_banner("Failed to load choice types"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
             return create_choices_page(error_content, request=request)
@@ -476,7 +468,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
         if domains_result.is_error:
             error_content = Div(
                 ChoicesViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load domains"),
+                ErrorComponents.render_error_banner("Failed to load domains"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
             return create_choices_page(error_content, request=request)
@@ -498,7 +490,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
 
             # Check for errors
             if analytics_result.is_error:
-                view_content = render_error_banner(
+                view_content = ErrorComponents.render_error_banner(
                     f"Failed to load analytics: {analytics_result.error}"
                 )
             else:
@@ -540,7 +532,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
 
         # Handle errors
         if filtered_result.is_error:
-            return render_error_banner("Failed to load choices")
+            return ErrorComponents.render_error_banner("Failed to load choices")
 
         choices, stats = filtered_result.value
 
@@ -561,10 +553,10 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
 
         # Handle errors
         if choice_types_result.is_error:
-            return render_error_banner("Failed to load choice types")
+            return ErrorComponents.render_error_banner("Failed to load choice types")
 
         if domains_result.is_error:
-            return render_error_banner("Failed to load domains")
+            return ErrorComponents.render_error_banner("Failed to load domains")
 
         return ChoicesViewComponents.render_create_view(
             choice_types=choice_types_result.value,
@@ -580,7 +572,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
 
         # Handle errors
         if analytics_result.is_error:
-            return render_error_banner("Failed to load analytics")
+            return ErrorComponents.render_error_banner("Failed to load analytics")
 
         return ChoicesViewComponents.render_analytics_view(
             analytics_data=analytics_result.value,
@@ -601,7 +593,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
 
         # Handle errors
         if filtered_result.is_error:
-            return render_error_banner("Failed to load choices")
+            return ErrorComponents.render_error_banner("Failed to load choices")
 
         choices, _stats = filtered_result.value
 
@@ -691,7 +683,10 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
 
     async def render_choice_success_view(user_uid: str) -> Any:
         """Render list view after successful choice creation."""
-        choices, stats = await get_filtered_choices(user_uid, "pending", "deadline")
+        result = await get_filtered_choices(user_uid, "pending", "deadline")
+        if result.is_error:
+            return ErrorComponents.render_error_banner("Failed to load choices")
+        choices, stats = result.value
         filters: ActivityFilterSpec = {"status": "pending", "sort_by": "deadline"}
         return ChoicesViewComponents.render_list_view(
             choices=choices,
@@ -839,19 +834,19 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
             Div(
                 Button(
                     "Edit",
-                    cls="btn btn-outline mr-2",
+                    variant=ButtonT.outline, cls="mr-2",
                     **{"hx-get": f"/choices/{uid}/edit", "hx-target": "#modal"},
                 ),
                 Button(
                     "Add Option",
-                    cls="btn btn-secondary mr-2",
+                    variant=ButtonT.secondary, cls="mr-2",
                     **{"hx-get": f"/choices/{uid}/add-option", "hx-target": "#modal"},
                 )
                 if status == "pending"
                 else "",
                 Button(
                     "Make Decision",
-                    cls="btn btn-success",
+                    variant=ButtonT.success,
                     **{"hx-get": f"/choices/{uid}/decide", "hx-target": "#modal"},
                 )
                 if status == "pending" and len(options) >= 2
@@ -892,12 +887,12 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                     P("You need at least 2 options to make a decision.", cls="text-gray-600 mb-4"),
                     Button(
                         "Add Options",
-                        cls="btn btn-primary",
+                        variant=ButtonT.primary,
                         **{"hx-get": f"/choices/{uid}/add-option", "hx-target": "#modal"},
                     ),
                     Button(
                         "Close",
-                        cls="btn btn-ghost ml-2",
+                        variant=ButtonT.ghost, cls="ml-2",
                         **{"onclick": "this.closest('.modal').remove()"},
                     ),
                     cls="modal-box",
@@ -953,11 +948,11 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                         cls="mb-4",
                     ),
                     Div(
-                        Button("Confirm Decision", type="submit", cls="btn btn-success"),
+                        Button("Confirm Decision", type="submit", variant=ButtonT.success),
                         Button(
                             "Cancel",
                             type="button",
-                            cls="btn btn-ghost ml-2",
+                            variant=ButtonT.ghost, cls="ml-2",
                             **{"onclick": "this.closest('.modal').remove()"},
                         ),
                     ),
@@ -1094,11 +1089,11 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                     ),
                     # Buttons
                     Div(
-                        Button("Save Changes", type="submit", cls="btn btn-primary"),
+                        Button("Save Changes", type="submit", variant=ButtonT.primary),
                         Button(
                             "Cancel",
                             type="button",
-                            cls="btn btn-ghost ml-2",
+                            variant=ButtonT.ghost, cls="ml-2",
                             **{"onclick": "this.closest('.modal').remove()"},
                         ),
                     ),
@@ -1209,11 +1204,11 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                     ),
                     # Buttons
                     Div(
-                        Button("Add Option", type="submit", cls="btn btn-primary"),
+                        Button("Add Option", type="submit", variant=ButtonT.primary),
                         Button(
                             "Cancel",
                             type="button",
-                            cls="btn btn-ghost ml-2",
+                            variant=ButtonT.ghost, cls="ml-2",
                             **{"onclick": "this.closest('.modal').remove()"},
                         ),
                     ),

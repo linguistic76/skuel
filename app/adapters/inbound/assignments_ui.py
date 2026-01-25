@@ -26,7 +26,6 @@ from fasthtml.common import (
     H3,
     H4,
     A,
-    Button,
     Container,
     Div,
     Form,
@@ -39,6 +38,8 @@ from fasthtml.common import (
     Select,
     Span,
 )
+
+from core.ui.daisy_components import Button, ButtonT
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
@@ -315,7 +316,7 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
                     Div(
                         Button(
                             "Upload & Submit",
-                            cls="btn btn-primary",
+                            variant=ButtonT.primary,
                             type="submit",
                         ),
                         cls="text-center",

@@ -19,6 +19,7 @@ All components are responsive and degrade gracefully on desktop.
 """
 
 from datetime import date
+from typing import Any
 
 from fasthtml.common import H1, H2, H3, P
 
@@ -145,7 +146,7 @@ class AtomicHabitsMobile:
         )
 
     @staticmethod
-    def _render_swipeable_habit_card(habit: dict, index: int) -> Card:
+    def _render_swipeable_habit_card(habit: dict, index: int) -> Any:
         """
         Single swipeable habit card for mobile.
 
@@ -258,7 +259,7 @@ class AtomicHabitsMobile:
                         cls="text-center",
                     ),
                     cls="btn btn-primary flex-1 h-24",
-                    hx_get="/habits/create",
+                    hx_get="/habits/wizard/step1",
                     hx_target="#modal",
                 ),
                 cls="grid grid-cols-3 gap-3 px-4",

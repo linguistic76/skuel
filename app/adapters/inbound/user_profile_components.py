@@ -84,7 +84,7 @@ def ProfileHeader(user: User) -> Div:
             Div(cls="flex-1")(
                 H1(cls="text-3xl font-bold mb-2")(user.display_name or user.title),
                 P(cls="opacity-90 mb-2")(f"@{user.title} • {user.email}"),
-                # Status badges (FrankenUI badges)
+                # Status badges
                 Div(cls="flex gap-2")(
                     user.is_verified and Badge("✓ Verified", style="success"),
                     user.is_premium and Badge("⭐ Premium", style="warning"),
@@ -187,7 +187,9 @@ def DomainCard(
         ),
         # Stats
         Div(cls="mb-3")(
-            P(cls="text-sm text-base-content/70")(f"{active_count} active • {completed_count} completed"),
+            P(cls="text-sm text-base-content/70")(
+                f"{active_count} active • {completed_count} completed"
+            ),
             total_count > 0
             and Progress(value=completed_count, max=total_count, cls="w-full h-2 mt-2"),
         ),
@@ -247,9 +249,7 @@ def LearningStatusCard(learning_stats: dict[str, Any]) -> Card:
             Div(cls="text-center")(
                 Div(cls="text-3xl mb-2")("📚"),
                 P(cls="text-sm text-base-content/70 mb-1")("Knowledge Units"),
-                P(cls="text-2xl font-bold text-primary")(
-                    str(learning_stats.get("ku_working", 0))
-                ),
+                P(cls="text-2xl font-bold text-primary")(str(learning_stats.get("ku_working", 0))),
                 P(cls="text-xs text-base-content/50")("working on"),
                 P(cls="text-sm text-success font-semibold mt-1")(
                     f"{learning_stats.get('ku_mastered', 0)} mastered"
@@ -265,9 +265,7 @@ def LearningStatusCard(learning_stats: dict[str, Any]) -> Card:
             Div(cls="text-center")(
                 Div(cls="text-3xl mb-2")("📝"),
                 P(cls="text-sm text-base-content/70 mb-1")("Learning Steps"),
-                P(cls="text-2xl font-bold text-primary")(
-                    str(learning_stats.get("ls_current", 0))
-                ),
+                P(cls="text-2xl font-bold text-primary")(str(learning_stats.get("ls_current", 0))),
                 P(cls="text-xs text-base-content/50")("current"),
                 P(cls="text-sm text-success font-semibold mt-1")(
                     f"{learning_stats.get('ls_completed', 0)} completed"
@@ -283,9 +281,7 @@ def LearningStatusCard(learning_stats: dict[str, Any]) -> Card:
             Div(cls="text-center")(
                 Div(cls="text-3xl mb-2")("🗺️"),
                 P(cls="text-sm text-base-content/70 mb-1")("Learning Paths"),
-                P(cls="text-2xl font-bold text-primary")(
-                    str(learning_stats.get("lp_active", 0))
-                ),
+                P(cls="text-2xl font-bold text-primary")(str(learning_stats.get("lp_active", 0))),
                 P(cls="text-xs text-base-content/50")("active"),
                 P(cls="text-sm text-success font-semibold mt-1")(
                     f"{learning_stats.get('lp_finished', 0)} finished"

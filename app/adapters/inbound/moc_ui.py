@@ -23,12 +23,26 @@ __version__ = "1.0"
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H1, H2, H3, A, Li, P, Ul
+from fasthtml.common import H1, H2, H3, A, Li, Option, P, Ul
 from starlette.responses import Response
 
 from components.shared_ui_components import SharedUIComponents
-from core.auth import get_current_user_or_default, require_authenticated_user
-from core.ui.daisy_components import Button, Card, Div, Span
+from core.auth import require_authenticated_user
+from core.ui.daisy_components import (
+    Badge,
+    BadgeT,
+    Button,
+    ButtonT,
+    Card,
+    Checkbox,
+    Div,
+    Input,
+    InputT,
+    Select,
+    Size,
+    Span,
+    Textarea,
+)
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -149,7 +163,9 @@ class MOCUIComponents:
 
         # Template badge
         template_badge = (
-            Span("Template", cls="badge badge-secondary text-xs ml-2") if is_template else None
+            Badge("Template", variant=BadgeT.secondary, size=Size.xs, cls="ml-2")
+            if is_template
+            else None
         )
 
         if compact:
@@ -184,7 +200,7 @@ class MOCUIComponents:
                 else None,
                 Div(
                     Span(f"{section_count} sections", cls="text-sm text-gray-500 mr-4"),
-                    Span(domain_display, cls="badge badge-outline"),
+                    Badge(domain_display, variant=BadgeT.outline),
                     cls="flex items-center mt-3",
                 ),
                 cls="p-4",
@@ -194,13 +210,16 @@ class MOCUIComponents:
                     "View",
                     hx_get=f"/moc/{uid}",
                     hx_target="#main-content",
-                    cls="btn btn-sm btn-primary",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
                 ),
                 Button(
                     "Edit",
                     hx_get=f"/moc/{uid}/edit",
                     hx_target="#modal",
-                    cls="btn btn-sm btn-outline ml-2",
+                    variant=ButtonT.outline,
+                    size=Size.sm,
+                    cls="ml-2",
                 ),
                 cls="px-4 pb-4",
             ),
@@ -266,14 +285,15 @@ class MOCUIComponents:
                         "< Back",
                         hx_get="/moc",
                         hx_target="#main-content",
-                        cls="btn btn-sm btn-ghost",
+                        variant=ButtonT.ghost,
+                        size=Size.sm,
                     ),
                     H1(title, cls="text-2xl font-bold ml-4"),
                     cls="flex items-center",
                 ),
                 P(description, cls="text-gray-600 mt-2") if description else None,
                 Div(
-                    Span(domain_display, cls="badge badge-primary"),
+                    Badge(domain_display, variant=BadgeT.primary),
                     Span(f"{len(sections)} sections", cls="text-sm text-gray-500 ml-4"),
                     cls="flex items-center mt-4",
                 ),
@@ -291,7 +311,9 @@ class MOCUIComponents:
                         "+ Add Section",
                         hx_get=f"/moc/{uid}/section/create",
                         hx_target="#modal",
-                        cls="btn btn-sm btn-outline mt-4 w-full",
+                        variant=ButtonT.outline,
+                        size=Size.sm,
+                        cls="mt-4 w-full",
                     ),
                     cls="w-1/3 pr-6 border-r",
                 ),
@@ -329,23 +351,21 @@ class MOCUIComponents:
                     Span("Title", cls="label-text"),
                     cls="label",
                 ),
-                Div(
-                    tag="input",
+                Input(
                     type="text",
                     name="title",
                     placeholder="e.g., Python Programming Guide",
-                    cls="input input-bordered w-full",
+                    variant=InputT.bordered,
                 ),
                 # Description
                 Div(
                     Span("Description", cls="label-text"),
                     cls="label mt-4",
                 ),
-                Div(
-                    tag="textarea",
+                Textarea(
                     name="description",
                     placeholder="Brief description of what this MOC covers...",
-                    cls="textarea textarea-bordered w-full",
+                    variant=InputT.bordered,
                     rows="3",
                 ),
                 # Domain
@@ -353,18 +373,17 @@ class MOCUIComponents:
                     Span("Domain", cls="label-text"),
                     cls="label mt-4",
                 ),
-                Div(
-                    tag="select",
+                Select(
+                    *[Option(label, value=value) for value, label in domain_options],
                     name="domain",
-                    cls="select select-bordered w-full",
-                )(*[Div(tag="option", value=value)(label) for value, label in domain_options]),
+                    variant=InputT.bordered,
+                ),
                 # Template toggle
                 Div(
-                    Div(
-                        tag="input",
+                    Checkbox(
                         type="checkbox",
                         name="is_template",
-                        cls="checkbox checkbox-primary",
+                        variant=ButtonT.primary,
                     ),
                     Span("Make this a template (others can copy)", cls="label-text ml-2"),
                     cls="flex items-center mt-6",
@@ -375,12 +394,13 @@ class MOCUIComponents:
                         "Cancel",
                         type="button",
                         onclick="closeModal()",
-                        cls="btn btn-ghost mr-2",
+                        variant=ButtonT.ghost,
+                        cls="mr-2",
                     ),
                     Button(
                         "Create MOC",
                         type="submit",
-                        cls="btn btn-primary",
+                        variant=ButtonT.primary,
                     ),
                     cls="flex justify-end mt-6",
                 ),
@@ -494,7 +514,7 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
     @rt("/moc/{uid}")
     async def moc_detail(request, uid: str) -> Any:
         """MOC detail view with section navigation."""
-        user_uid = get_current_user_or_default(request)
+        user_uid = require_authenticated_user(request)
 
         try:
             # Fetch MOC from service
@@ -514,7 +534,9 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
                             "< Back",
                             hx_get="/moc",
                             hx_target="#main-content",
-                            cls="btn btn-sm btn-ghost mt-4",
+                            variant=ButtonT.ghost,
+                            size=Size.sm,
+                            cls="mt-4",
                         ),
                         cls="p-6",
                     ),
@@ -525,10 +547,8 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
 
             # Transform to dict if needed (service returns domain model)
             moc_dict = {
-                "uid": moc.uid,
-                "title": moc.title,
-                "description": moc.description or "",
-                "domain": getattr(moc, "domain", "GENERAL"),
+                "uid": moc.root_uid,
+                "title": moc.root_title,
                 "sections": [],  # GRAPH-NATIVE: sections stored as ORGANIZES relationships
             }
 
@@ -547,7 +567,9 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
                         "< Back",
                         hx_get="/moc",
                         hx_target="#main-content",
-                        cls="btn btn-sm btn-ghost mt-4",
+                        variant=ButtonT.ghost,
+                        size=Size.sm,
+                        cls="mt-4",
                     ),
                     cls="p-6",
                 ),
@@ -590,7 +612,9 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
                 "+ Add Content",
                 hx_get=f"/moc/{uid}/section/{section_uid}/add-content",
                 hx_target="#modal",
-                cls="btn btn-sm btn-outline mt-4",
+                variant=ButtonT.outline,
+                size=Size.sm,
+                cls="mt-4",
             ),
         )
 
@@ -604,29 +628,31 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
                     Span("Section Title", cls="label-text"),
                     cls="label",
                 ),
-                Div(
-                    tag="input",
+                Input(
                     type="text",
                     name="title",
                     placeholder="e.g., Advanced Concepts",
-                    cls="input input-bordered w-full",
+                    variant=InputT.bordered,
                 ),
                 Div(
                     Span("Description (optional)", cls="label-text"),
                     cls="label mt-4",
                 ),
-                Div(
-                    tag="textarea",
+                Textarea(
                     name="description",
                     placeholder="What this section covers...",
-                    cls="textarea textarea-bordered w-full",
+                    variant=InputT.bordered,
                     rows="2",
                 ),
                 Div(
                     Button(
-                        "Cancel", type="button", onclick="closeModal()", cls="btn btn-ghost mr-2"
+                        "Cancel",
+                        type="button",
+                        onclick="closeModal()",
+                        variant=ButtonT.ghost,
+                        cls="mr-2",
                     ),
-                    Button("Add Section", type="submit", cls="btn btn-primary"),
+                    Button("Add Section", type="submit", variant=ButtonT.primary),
                     cls="flex justify-end mt-6",
                 ),
                 tag="form",

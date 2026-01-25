@@ -19,10 +19,10 @@ __version__ = "4.0"  # Merged dashboard sidebar into profile/hub
 
 from typing import Any
 
-from fasthtml.common import NotStr, Request
+from fasthtml.common import Request
 
 from core.auth import require_authenticated_user
-from core.models.user import create_user
+from core.ui.daisy_components import Div
 from core.services.protocols import get_enum_value
 from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
@@ -118,6 +118,45 @@ def safe_bool(value: Any, default: bool = False) -> bool:
 
 
 # ============================================================================
+# ERROR HANDLING HELPERS
+# ============================================================================
+
+
+def error_page(message: str, status_code: int, user_display_name: str = "User") -> Any:
+    """
+    Unified error page for profile routes.
+
+    One path forward: Clear errors with no silent fallbacks.
+
+    Args:
+        message: Error message to display
+        status_code: HTTP status code (404, 500, etc.)
+        user_display_name: User's display name for page header
+
+    Returns:
+        Error page with consistent styling
+    """
+    from fasthtml.common import H1, P
+    from ui.profile.layout import create_profile_page
+
+    content = Div(
+        H1(f"Error {status_code}", cls="text-3xl font-bold text-error mb-4"),
+        P(message, cls="text-lg text-base-content/70"),
+        cls="flex flex-col items-center justify-center min-h-[400px] p-8"
+    )
+
+    return create_profile_page(
+        content=content,
+        domains=[],
+        active_domain="",
+        user_display_name=user_display_name,
+        title=f"Error {status_code}",
+        is_admin=False,
+        curriculum_domains=[],
+    )
+
+
+# ============================================================================
 # ROUTE SETUP
 # ============================================================================
 
@@ -132,37 +171,6 @@ def setup_user_profile_routes(rt, services):
     """
 
     # ========================================================================
-    # HELPER FUNCTIONS
-    # ========================================================================
-
-    async def _get_user(user_uid: str) -> Any:
-        """Get user entity."""
-        user = None
-
-        if services.user_service:
-            try:
-                user_result = await services.user_service.get_user(user_uid)
-                if user_result.is_ok and user_result.value:
-                    user = user_result.value
-            except (AttributeError, TypeError) as e:
-                logger.warning(
-                    "User service error - falling back to demo user",
-                    extra={
-                        "user_uid": user_uid,
-                        "error_type": type(e).__name__,
-                        "error_message": str(e),
-                    },
-                )
-
-        # Fallback to demo user
-        if not user:
-            user = create_user(
-                username="demo_user", email="demo@skuel.app", display_name="Demo User"
-            )
-
-        return user
-
-    # ========================================================================
     # SETTINGS ROUTES
     # ========================================================================
 
@@ -171,29 +179,25 @@ def setup_user_profile_routes(rt, services):
         """
         User settings and preferences page.
         Requires authentication.
+
+        One path forward: Get user from service or fail with clear error.
         """
         user_uid = require_authenticated_user(request)
 
-        # Get user to access preferences
-        user = None
-        if services.user_service:
-            try:
-                user_result = await services.user_service.get_user(user_uid)
-                if user_result.is_ok:
-                    user = user_result.value
-            except Exception as e:
-                logger.warning(
-                    "Failed to load user for settings",
-                    extra={
-                        "user_uid": user_uid,
-                        "error_type": type(e).__name__,
-                        "error_message": str(e),
-                    },
-                )
+        # Get user - ONE PATH (no fallback)
+        user_result = await services.user_service.get_user(user_uid)
+        if user_result.is_error:
+            logger.error(
+                "Failed to load user for settings",
+                extra={"user_uid": user_uid, "error": str(user_result.error)},
+            )
+            return error_page("User not found", 404)
+
+        user = user_result.value
 
         # Extract preferences as dict
         prefs_dict = {}
-        if user and user.preferences is not None:
+        if user.preferences is not None:
             prefs = user.preferences
             prefs_dict = {
                 "learning_level": get_enum_value(prefs.learning_level),
@@ -255,45 +259,35 @@ def setup_user_profile_routes(rt, services):
             "monthly_learning_hours": safe_int(form_data.get("monthly_learning_hours"), 20),
         }
 
-        # Update user preferences via user service
-        if services.user_service:
-            update_result = await services.user_service.update_preferences(
-                user_uid, preferences_update
+        # Update user preferences - ONE PATH (no fallback)
+        update_result = await services.user_service.update_preferences(
+            user_uid, preferences_update
+        )
+
+        if update_result.is_error:
+            # Log detailed error for debugging (don't leak to user)
+            logger.error(
+                "Failed to save user preferences",
+                extra={
+                    "user_uid": user_uid,
+                    "error": str(update_result.error),
+                },
+            )
+            from fasthtml.common import P
+
+            # Return user-safe error message
+            return Div(
+                P("Failed to save preferences. Please try again.", cls="text-error"),
+                P(
+                    "If this problem persists, contact support.",
+                    cls="text-sm text-base-content/50 mt-2",
+                ),
+                cls="p-4",
             )
 
-            if update_result.is_error:
-                # Log detailed error for debugging (don't leak to user)
-                logger.error(
-                    "Failed to save user preferences",
-                    extra={
-                        "user_uid": user_uid,
-                        "error": str(update_result.error),
-                    },
-                )
-                from fasthtml.common import Div, P
+        from components.user_preferences_components import UserPreferencesComponents
 
-                # Return user-safe error message
-                return Div(
-                    P("Failed to save preferences. Please try again.", cls="text-error"),
-                    P(
-                        "If this problem persists, contact support.",
-                        cls="text-sm text-base-content/50 mt-2",
-                    ),
-                    cls="p-4",
-                )
-
-            from components.user_preferences_components import UserPreferencesComponents
-
-            return UserPreferencesComponents.render_preferences_saved_message()
-
-        # Fallback if user service not available
-        logger.warning("User service not available, cannot save preferences")
-        from fasthtml.common import Div, P
-
-        return Div(
-            P("User service not available", cls="text-error"),
-            cls="p-4",
-        )
+        return UserPreferencesComponents.render_preferences_saved_message()
 
     # ========================================================================
     # PROFILE HUB ROUTES - Sidebar Navigation with Domain Views
@@ -305,185 +299,30 @@ def setup_user_profile_routes(rt, services):
         """
         Get user entity and UserContext.
 
+        One path forward: Get user and context from service or raise error.
+
         Args:
             user_uid: Authenticated user's UID
 
         Returns:
             Tuple of (User, UserContext)
+
+        Raises:
+            ValueError: If user or context cannot be loaded
         """
-        user = None
-        context = UserContext(user_uid=user_uid)
+        # Get user - ONE PATH (no fallback)
+        user_result = await services.user_service.get_user(user_uid)
+        if user_result.is_error:
+            raise ValueError(f"User not found: {user_uid}")
+        user = user_result.value
 
-        # Try to load user
-        if services.user_service:
-            try:
-                user_result = await services.user_service.get_user(user_uid)
-                if user_result.is_ok and user_result.value:
-                    user = user_result.value
-            except (AttributeError, TypeError) as e:
-                logger.warning(
-                    "User service error in get_user_and_context - falling back to demo user",
-                    extra={
-                        "user_uid": user_uid,
-                        "error_type": type(e).__name__,
-                        "error_message": str(e),
-                    },
-                )
-
-        # Fallback to demo user
-        if not user:
-            user = create_user(
-                username="demo_user", email="demo@skuel.app", display_name="Demo User"
-            )
-
-        # Try to load UserContext
-        if services.user_service:
-            try:
-                # Try get_unified_context if available
-                get_unified_context = getattr(services.user_service, "get_unified_context", None)
-                if get_unified_context is not None:
-                    context_result = await get_unified_context(user_uid)
-                    if context_result.is_ok and context_result.value:
-                        context = context_result.value
-                # Fallback: build minimal context from domain backends
-                else:
-                    context = await _build_context_from_backends(user_uid)
-            except (AttributeError, TypeError) as e:
-                logger.warning(
-                    "Failed to load UserContext - building from backends",
-                    extra={
-                        "user_uid": user_uid,
-                        "error_type": type(e).__name__,
-                        "error_message": str(e),
-                    },
-                )
-                context = await _build_context_from_backends(user_uid)
-        else:
-            context = await _build_context_from_backends(user_uid)
+        # Get context - ONE PATH (no fallback)
+        context_result = await services.user_service.get_unified_context(user_uid)
+        if context_result.is_error:
+            raise ValueError(f"Failed to load context for user: {user_uid}")
+        context = context_result.value
 
         return user, context
-
-    async def _build_context_from_backends(
-        user_uid: str,
-    ) -> UserContext:
-        """
-        Build minimal UserContext from domain backends.
-
-        Fallback when user_service.get_unified_context is not available.
-
-        SECURITY: All queries MUST be scoped to user_uid to prevent multi-tenant data leaks.
-        """
-        context = UserContext(user_uid=user_uid)
-
-        # Initialize fields used by status calculations to prevent AttributeError
-        context.overdue_task_uids = []
-        context.completed_task_uids = []
-        context.blocked_task_uids = []
-        context.completed_goal_uids = []
-        context.at_risk_goals = []
-        context.at_risk_habits = []
-        context.keystone_habits = []
-        context.today_event_uids = []
-        context.missed_event_uids = []
-        context.resolved_choice_uids = []
-        context.decisions_aligned_with_principles = 0
-        context.decisions_against_principles = 0
-
-        # Tasks - SCOPED to user
-        try:
-            tasks_backend = services.tasks.backend if services.tasks else None
-            if tasks_backend:
-                # ✅ SECURITY: Query scoped to owner_uid
-                active_result = await tasks_backend.find_by(
-                    owner_uid=user_uid, status="in_progress", limit=50
-                )
-                if isinstance(active_result, list):
-                    context.active_task_uids = [t.uid for t in active_result]
-                    context.active_tasks_rich = [
-                        {"task": {"uid": t.uid, "title": t.title}} for t in active_result
-                    ]
-        except Exception as e:
-            logger.debug(f"Failed to load tasks for context: {e}")
-
-        # Habits - SCOPED to user
-        try:
-            habits_backend = services.habits.backend if services.habits else None
-            if habits_backend:
-                # ✅ SECURITY: Query scoped to owner_uid
-                active_result = await habits_backend.find_by(
-                    owner_uid=user_uid, status="in_progress", limit=50
-                )
-                if isinstance(active_result, list):
-                    context.active_habit_uids = [h.uid for h in active_result]
-                    context.active_habits_rich = [
-                        {"habit": {"uid": h.uid, "title": h.title}} for h in active_result
-                    ]
-        except Exception as e:
-            logger.debug(f"Failed to load habits for context: {e}")
-
-        # Goals - SCOPED to user
-        try:
-            goals_backend = services.goals.backend if services.goals else None
-            if goals_backend:
-                # ✅ SECURITY: Query scoped to owner_uid
-                active_result = await goals_backend.find_by(
-                    owner_uid=user_uid, status="in_progress", limit=50
-                )
-                if isinstance(active_result, list):
-                    context.active_goal_uids = [g.uid for g in active_result]
-                    context.active_goals_rich = [
-                        {"goal": {"uid": g.uid, "title": g.title}} for g in active_result
-                    ]
-        except Exception as e:
-            logger.debug(f"Failed to load goals for context: {e}")
-
-        # Events - SCOPED to user
-        try:
-            events_backend = services.events.backend if services.events else None
-            if events_backend:
-                # ✅ SECURITY: Query scoped to owner_uid
-                scheduled_result = await events_backend.find_by(
-                    owner_uid=user_uid, status="scheduled", limit=50
-                )
-                if isinstance(scheduled_result, list):
-                    context.upcoming_event_uids = [e.uid for e in scheduled_result]
-                    context.active_events_rich = [
-                        {"event": {"uid": e.uid, "title": e.title}} for e in scheduled_result
-                    ]
-        except Exception as e:
-            logger.debug(f"Failed to load events for context: {e}")
-
-        # Choices - SCOPED to user
-        try:
-            choices_backend = services.choices.backend if services.choices else None
-            if choices_backend:
-                # ✅ SECURITY: Query scoped to owner_uid
-                pending_result = await choices_backend.find_by(
-                    owner_uid=user_uid, status="pending", limit=50
-                )
-                if isinstance(pending_result, list):
-                    context.pending_choice_uids = [c.uid for c in pending_result]
-                    context.recent_choices_rich = [
-                        {"choice": {"uid": c.uid, "title": c.title}} for c in pending_result
-                    ]
-        except Exception as e:
-            logger.debug(f"Failed to load choices for context: {e}")
-
-        # Principles - SCOPED to user
-        try:
-            principles_backend = services.principles.backend if services.principles else None
-            if principles_backend:
-                # ✅ SECURITY: Query scoped to owner_uid
-                all_result = await principles_backend.find_by(owner_uid=user_uid, limit=50)
-                if isinstance(all_result, list):
-                    context.core_principle_uids = [p.uid for p in all_result]
-                    context.core_principles_rich = [
-                        {"principle": {"uid": p.uid, "title": p.title}} for p in all_result
-                    ]
-        except Exception as e:
-            logger.debug(f"Failed to load principles for context: {e}")
-
-        return context
 
     def _build_domain_items(context: UserContext) -> list[ProfileDomainItem]:
         """
@@ -732,9 +571,19 @@ def setup_user_profile_routes(rt, services):
 
         Requires authentication.
         Fail-fast: Actual errors propagate to HTTP boundary.
+        One path forward: Service succeeds or fails with clear error.
         """
         user_uid = require_authenticated_user(request)
-        user, context = await _get_user_and_context(user_uid)
+
+        # Get user and context - ONE PATH (no fallback)
+        try:
+            user, context = await _get_user_and_context(user_uid)
+        except ValueError as e:
+            logger.error(
+                "Failed to load user or context for profile page",
+                extra={"user_uid": user_uid, "error": str(e)},
+            )
+            return error_page(str(e), 500)
 
         # Get intelligence data - may return None for basic mode
         intel_result = await _get_intelligence_data(context)
@@ -787,6 +636,7 @@ def setup_user_profile_routes(rt, services):
         Valid domains: tasks, events, goals, habits, principles, choices, learning
 
         Requires authentication.
+        One path forward: Service succeeds or fails with clear error.
         """
         # Activity Domains + Curriculum Domains
         valid_domains = {
@@ -804,7 +654,16 @@ def setup_user_profile_routes(rt, services):
             return RedirectResponse("/profile", status_code=302)
 
         user_uid = require_authenticated_user(request)
-        user, context = await _get_user_and_context(user_uid)
+
+        # Get user and context - ONE PATH (no fallback)
+        try:
+            user, context = await _get_user_and_context(user_uid)
+        except ValueError as e:
+            logger.error(
+                "Failed to load user or context for domain view",
+                extra={"user_uid": user_uid, "domain": domain, "error": str(e)},
+            )
+            return error_page(str(e), 500)
 
         domain_items = _build_domain_items(context)
         curriculum_items = _build_curriculum_items(context)

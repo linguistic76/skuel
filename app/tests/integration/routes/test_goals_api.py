@@ -321,7 +321,7 @@ class TestSearchAndFiltering:
 class TestRouteFactory:
     """Tests for CRUDRouteFactory integration."""
 
-    def test_crud_factory_routes(self):
+    async def test_crud_factory_routes(self):
         """Test that CRUD factory defines expected routes."""
         expected_routes = [
             "POST /api/goals",
@@ -361,7 +361,7 @@ class TestErrorHandling:
 class TestGoalModel:
     """Tests for Goal model structure."""
 
-    def test_goal_has_required_fields(self):
+    async def test_goal_has_required_fields(self):
         """Test that Goal model has required fields."""
         from core.models.goal.goal import Goal
 

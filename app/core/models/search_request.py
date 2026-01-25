@@ -15,7 +15,7 @@ This module provides:
   - Cross-domain search (entity types)
   - Array search (tags)
 - SearchResponse: Structured response with results and facet counts
-- FacetCount: UI-ready facet counts for FrankenUI filters
+- FacetCount: UI-ready facet counts for DaisyUI filters
 
 Usage Example:
     ```python
@@ -81,7 +81,7 @@ class FacetCount(BaseModel):
     """
     Count of results per facet value - for UI filter badges.
 
-    Used by FrankenUI to show how many results exist for each filter option.
+    Used by the UI to show how many results exist for each filter option.
     """
 
     facet_type: str = Field(..., description="Type of facet (sel_category, learning_level, etc.)")
@@ -668,7 +668,7 @@ class SearchResponse(BaseModel):
 
     Provides everything needed for:
     - Displaying search results
-    - Rendering FrankenUI filter badges with counts
+    - Rendering DaisyUI filter badges with counts
     - Pagination
     """
 

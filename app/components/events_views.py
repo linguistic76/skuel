@@ -20,25 +20,22 @@ Usage:
 from datetime import date, timedelta
 from typing import Any
 
-from fasthtml.common import (
-    H2,
-    H3,
-    Button,
-    Div,
-    Form,
-    Input,
-    Label,
-    Option,
-    P,
-    Select,
-    Span,
-    Textarea,
-)
+from fasthtml.common import Form, H2, H3, P
 
 from components.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
     ActivityViewTabs,
+)
+from core.ui.daisy_components import (
+    Button,
+    Div,
+    Input,
+    Label,
+    Option,
+    Select,
+    Span,
+    Textarea,
 )
 from components.calendar_components import (
     create_day_timeline,

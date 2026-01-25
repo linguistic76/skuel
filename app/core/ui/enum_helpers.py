@@ -1049,7 +1049,7 @@ def render_entity_card(
     time_of_day: str | None = None,
     custom_metadata: list[Span | str] | None = None,
     actions: list[dict[str, Any]] | None = None,
-) -> Card:
+) -> Any:
     """
     Generic entity card component for tasks, habits, events, goals.
 
@@ -1176,7 +1176,7 @@ def render_task_card(
     duration_minutes: int | None = None,
     tags: list[str] | None = None,
     project: str | None = None,
-) -> Card:
+) -> Any:
     """
     Specialized task card component.
 
@@ -1229,7 +1229,7 @@ def render_habit_card(
     status: str | ActivityStatus = "scheduled",
     streak: int | None = None,
     completion_rate: float | None = None,
-) -> Card:
+) -> Any:
     """
     Specialized habit card component.
 
@@ -1283,7 +1283,7 @@ def render_event_card(
     calendar_type: str | None = None,
     status: str | ActivityStatus = "scheduled",
     location: str | None = None,
-) -> Card:
+) -> Any:
     """
     Specialized event card component.
 
@@ -1340,7 +1340,7 @@ def render_goal_card(
     target_date: str | None = None,
     progress_percentage: float | None = None,
     domain: str | None = None,
-) -> Card:
+) -> Any:
     """
     Specialized goal card component.
 

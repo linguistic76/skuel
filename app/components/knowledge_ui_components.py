@@ -9,20 +9,9 @@ prerequisite validation, learning opportunities, and knowledge visualization.
 
 from typing import Any
 
-from fasthtml.common import (
-    H3,
-    H4,
-    Button,
-    Details,
-    Div,
-    Input,
-    Li,
-    P,
-    Script,
-    Span,
-    Summary,
-    Ul,
-)
+from fasthtml.common import Details, H3, H4, Li, P, Script, Summary, Ul
+
+from core.ui.daisy_components import Button, Div, Input, Span
 
 
 def knowledge_suggestion_card(

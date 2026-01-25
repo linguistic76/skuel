@@ -24,7 +24,7 @@ from components.card_generator import CardGenerator
 from components.form_generator import FormGenerator
 from components.shared_ui_components import SharedUIComponents
 from core.models.ku.ku_request import KuCreateRequest
-from core.ui.daisy_components import Button, Card, Div, Span
+from core.ui.daisy_components import Button, ButtonT, Card, Div, Span
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.knowledge.ui")
@@ -162,13 +162,13 @@ class KnowledgeUIComponents:
         buttons = [
             Button(
                 "👁️ View",
-                cls="btn btn-outline btn-sm",
+                variant=ButtonT.outline, cls="btn-sm",
                 hx_get=f"/knowledge/{uid}/details",
                 hx_target="#modal" if compact else "#main-content",
             ),
             Button(
                 "✏️ Edit",
-                cls="btn btn-ghost btn-sm",
+                variant=ButtonT.ghost, cls="btn-sm",
                 hx_get=f"/knowledge/{uid}/edit",
                 hx_target="#modal",
             ),
@@ -178,7 +178,7 @@ class KnowledgeUIComponents:
             buttons.append(
                 Button(
                     "🕸️ Graph",
-                    cls="btn btn-secondary btn-sm",
+                    variant=ButtonT.secondary, cls="btn-sm",
                     hx_get=f"/knowledge/{uid}/graph",
                     hx_target="#main-content",
                 )
@@ -229,9 +229,9 @@ class KnowledgeUIComponents:
             Card(
                 H3("🎯 Discovery Tools", cls="text-lg font-semibold mb-4"),
                 Div(
-                    Button("🔗 Find Connections", cls="btn btn-primary btn-sm mr-2"),
-                    Button("📈 Trending Topics", cls="btn btn-secondary btn-sm mr-2"),
-                    Button("🕳️ Knowledge Gaps", cls="btn btn-outline btn-sm"),
+                    Button("🔗 Find Connections", variant=ButtonT.primary, cls="btn-sm mr-2"),
+                    Button("📈 Trending Topics", variant=ButtonT.secondary, cls="btn-sm mr-2"),
+                    Button("🕳️ Knowledge Gaps", variant=ButtonT.outline, cls="btn-sm"),
                 ),
                 cls="p-6 mb-6",
             ),

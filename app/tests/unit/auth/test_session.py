@@ -362,10 +362,10 @@ class TestGetSessionMiddlewareConfig:
             config = get_session_middleware_config()
             assert config["https_only"] is False
 
-    def test_same_site_is_lax(self):
-        """Test that same_site is lax for CSRF protection."""
+    def test_same_site_is_strict(self):
+        """Test that same_site is strict for CSRF protection (January 2026 hardening)."""
         config = get_session_middleware_config()
-        assert config["same_site"] == "lax"
+        assert config["same_site"] == "strict"
 
 
 class TestDefaultDevUser:

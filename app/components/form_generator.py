@@ -2,7 +2,7 @@
 FormGenerator - Dynamic Form Generation from Pydantic Models
 =============================================================
 
-Generates MonsterUI/FrankenUI forms automatically from Pydantic model introspection.
+Generates DaisyUI forms automatically from Pydantic model introspection.
 
 Following the 100% dynamic architecture vision:
 - Models define structure → UI auto-generates
@@ -20,14 +20,16 @@ Usage:
         method="POST"
     )
 
-Version: 1.0.0
+Version: 2.0.0 (January 2026) - DaisyUI Migration
 """
 
 from datetime import date, datetime
 from enum import Enum
 from typing import Any, get_args, get_origin
 
-from fasthtml.common import Button, Div, Form, Input, Label, Option, Select, Textarea
+from fasthtml.common import Div, Form, Label, Option
+
+from core.ui.daisy_components import Button, ButtonT, Input, InputT, Select, Textarea
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
@@ -47,7 +49,7 @@ logger = get_logger("skuel.components.form_generator")
 
 class FieldWidgetMapper:
     """
-    Maps Pydantic field types to MonsterUI widgets.
+    Maps Pydantic field types to DaisyUI components.
 
     Uses introspection to determine the appropriate UI component
     based on field type, constraints, and metadata.
@@ -220,7 +222,7 @@ class FormGenerator:
     - Introspects model fields via model.__fields__
     - Determines widget types via type annotations
     - Applies constraints from Pydantic validators
-    - Generates MonsterUI/FrankenUI components
+    - Generates DaisyUI components with type-safe enums
     """
 
     @staticmethod
@@ -250,7 +252,7 @@ class FormGenerator:
             form_attrs: Additional form attributes (hx_*, cls, etc.)
 
         Returns:
-            MonsterUI Form component
+            DaisyUI Form component
 
         Example:
             form = FormGenerator.from_model(
@@ -303,7 +305,7 @@ class FormGenerator:
             form_fields.append(field_component)
 
         # Add submit button
-        form_fields.append(Button(submit_label, type="submit", cls="btn btn-primary mt-4"))
+        form_fields.append(Button(submit_label, type="submit", variant=ButtonT.primary, cls="mt-4"))
 
         # Build form attributes
         attrs = {"action": action, "method": method.upper(), "cls": "space-y-4"}
@@ -465,7 +467,7 @@ class FormGeneratorExamples:
                     name="description",
                     rows=8,
                     placeholder="Detailed task description...",
-                    cls="textarea",
+                    variant=InputT.bordered,
                 )
             },
         )

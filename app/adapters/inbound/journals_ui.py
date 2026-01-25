@@ -31,7 +31,7 @@ from starlette.requests import Request
 from core.auth import require_authenticated_user
 from core.models.enums.journal_enums import JournalType
 from core.models.journal.journal_pure import create_journal
-from core.ui.daisy_components import Button, Card, CardBody, Container, Div, Input, Label, Span
+from core.ui.daisy_components import Button, ButtonT, Card, CardBody, Container, Div, Input, Label, Span
 from core.utils.logging import get_logger
 from ui.layouts.navbar import create_navbar_for_request
 
@@ -282,7 +282,7 @@ class JournalUIComponents:
                     Div(
                         Button(
                             "Upload & Process",
-                            cls="btn btn-primary",
+                            variant=ButtonT.primary,
                             type="submit",
                         ),
                         cls="text-center",
@@ -351,7 +351,7 @@ class JournalUIComponents:
                     Div(
                         Button(
                             "Save Journal",
-                            cls="btn btn-primary",
+                            variant=ButtonT.primary,
                             type="submit",
                         ),
                         cls="text-center mt-4",
@@ -642,19 +642,10 @@ def create_journals_ui_routes(_app, rt, journals_core_service, transcription_ser
                 id="recent-curated-journals",
             )
 
-    # ========================================================================
-    # LEGACY ENDPOINT (backward compatibility)
-    # ========================================================================
-
-    @rt("/journals/upload/audio")
-    async def upload_audio_journal_legacy(request: Request) -> Any:
-        """Legacy endpoint - redirects to voice journal upload."""
-        return await upload_voice_journal(request)
-
-    @rt("/journals/recent")
-    async def get_recent_journals_legacy(request: Request) -> Any:
-        """Legacy endpoint - returns voice journals for backward compatibility."""
-        return await get_recent_voice_journals(request)
+    # LEGACY ENDPOINTS REMOVED (January 2026)
+    # Previously: /journals/upload/audio -> redirected to upload_voice_journal
+    # Previously: /journals/recent -> redirected to get_recent_voice_journals
+    # Use /journals/recent/voice and /journals/upload/voice instead
 
     # ========================================================================
     # MAIN DASHBOARD

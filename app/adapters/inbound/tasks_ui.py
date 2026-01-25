@@ -21,8 +21,10 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Protocol
 
-from fasthtml.common import Div, JSONResponse, P, Response
+from fasthtml.common import JSONResponse, Response
 
+from components.error_components import ErrorComponents
+from core.ui.daisy_components import Div
 from components.tasks_views import TasksViewComponents
 from components.todoist_task_components import TodoistTaskComponents
 from core.auth import require_authenticated_user
@@ -135,23 +137,14 @@ def create_tasks_ui_routes(
 
         return CalendarParams(calendar_view=calendar_view, current_date=current_date)
 
-    def render_error_banner(message: str) -> Div:
-        """Render error banner for UI failures."""
-        return Div(
-            Div(
-                P("⚠️ Error", cls="font-bold text-error"),
-                P(message, cls="text-sm"),
-                cls="alert alert-error",
-            ),
-            cls="mb-4",
-        )
+    # Error rendering moved to components.error_components.ErrorComponents
 
     # ========================================================================
     # AUTOCOMPLETE CACHE
     # ========================================================================
 
     _autocomplete_cache: dict[str, tuple[datetime, list[str]]] = {}
-    _CACHE_TTL_SECONDS = 300  # 5 minutes
+    _cache_ttl_seconds = 300  # 5 minutes
 
     def _get_cached_autocomplete(
         cache_key: str,
@@ -174,7 +167,7 @@ def create_tasks_ui_routes(
             cached_time, cached_data = _autocomplete_cache[cache_key]
             age = (now - cached_time).total_seconds()
 
-            if age < _CACHE_TTL_SECONDS:
+            if age < _cache_ttl_seconds:
                 logger.debug(f"Autocomplete cache HIT: {cache_key} (age: {age:.1f}s)")
                 return cached_data
 
@@ -243,7 +236,7 @@ def create_tasks_ui_routes(
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to fetch tasks: {e}")
+            return Result.fail(Errors.system(f"Failed to fetch tasks: {e}"))
 
     async def get_distinct_projects(user_uid: str) -> Result[list[str]]:
         """Get distinct project names for the user's tasks (with caching)."""
@@ -255,7 +248,7 @@ def create_tasks_ui_routes(
             if cache_key in _autocomplete_cache:
                 cached_time, cached_data = _autocomplete_cache[cache_key]
                 age = (now - cached_time).total_seconds()
-                if age < _CACHE_TTL_SECONDS:
+                if age < _cache_ttl_seconds:
                     logger.debug(f"Autocomplete cache HIT: {cache_key} (age: {age:.1f}s)")
                     return Result.ok(cached_data)
 
@@ -281,7 +274,7 @@ def create_tasks_ui_routes(
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to fetch projects: {e}")
+            return Result.fail(Errors.system(f"Failed to fetch projects: {e}"))
 
     async def get_distinct_assignees(user_uid: str) -> Result[list[str]]:
         """Get distinct assignee names for the user's tasks (with caching)."""
@@ -293,7 +286,7 @@ def create_tasks_ui_routes(
             if cache_key in _autocomplete_cache:
                 cached_time, cached_data = _autocomplete_cache[cache_key]
                 age = (now - cached_time).total_seconds()
-                if age < _CACHE_TTL_SECONDS:
+                if age < _cache_ttl_seconds:
                     logger.debug(f"Autocomplete cache HIT: {cache_key} (age: {age:.1f}s)")
                     return Result.ok(cached_data)
 
@@ -321,7 +314,7 @@ def create_tasks_ui_routes(
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to fetch assignees: {e}")
+            return Result.fail(Errors.system(f"Failed to fetch assignees: {e}"))
 
     # ========================================================================
     # PURE COMPUTATION HELPERS (Testable without mocks)
@@ -342,10 +335,10 @@ def create_tasks_ui_routes(
         # Required fields
         title = form_data.get("title", "").strip()
         if not title:
-            return Errors.validation("Task title is required")
+            return Result.fail(Errors.validation("Task title is required"))
 
         if len(title) > 200:
-            return Errors.validation("Task title must be 200 characters or less")
+            return Result.fail(Errors.validation("Task title must be 200 characters or less"))
 
         # Date validation
         scheduled_date_str = form_data.get("scheduled_date", "")
@@ -356,9 +349,9 @@ def create_tasks_ui_routes(
                 scheduled = date.fromisoformat(scheduled_date_str)
                 due = date.fromisoformat(due_date_str)
                 if due < scheduled:
-                    return Errors.validation("Due date cannot be before scheduled date")
+                    return Result.fail(Errors.validation("Due date cannot be before scheduled date"))
             except ValueError:
-                return Errors.validation("Invalid date format")
+                return Result.fail(Errors.validation("Invalid date format"))
 
         return Result.ok(None)
 
@@ -514,7 +507,7 @@ def create_tasks_ui_routes(
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to filter tasks: {e}")
+            return Result.fail(Errors.system(f"Failed to filter tasks: {e}"))
 
     # ========================================================================
     # MAIN DASHBOARD (Standalone Three-View)
@@ -550,7 +543,7 @@ def create_tasks_ui_routes(
         if filtered_result.is_error:
             error_content = Div(
                 TasksViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load tasks"),
+                ErrorComponents.render_error_banner("Failed to load tasks"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return create_tasks_page(error_content, user_uid)
@@ -570,7 +563,7 @@ def create_tasks_ui_routes(
             # Get all user's tasks (not filtered by status) for calendar
             all_tasks_result = await get_all_tasks(user_uid)
             if all_tasks_result.is_error:
-                view_content = render_error_banner(
+                view_content = ErrorComponents.render_error_banner(
                     f"Unable to load calendar: {all_tasks_result.error}"
                 )
             else:
@@ -630,7 +623,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if filtered_result.is_error:
-            return render_error_banner("Failed to load tasks")
+            return ErrorComponents.render_error_banner("Failed to load tasks")
 
         tasks, stats = filtered_result.value
         projects = projects_result.value if not projects_result.is_error else []
@@ -661,7 +654,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if tasks_result.is_error:
-            return render_error_banner("Failed to load tasks")
+            return ErrorComponents.render_error_banner("Failed to load tasks")
 
         tasks = tasks_result.value
         projects = projects_result.value if not projects_result.is_error else []
@@ -685,7 +678,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if tasks_result.is_error:
-            return render_error_banner("Unable to load calendar")
+            return ErrorComponents.render_error_banner("Unable to load calendar")
 
         return TasksViewComponents.render_calendar_view(
             tasks=tasks_result.value,
@@ -717,7 +710,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if filtered_result.is_error:
-            return render_error_banner("Failed to load tasks")
+            return ErrorComponents.render_error_banner("Failed to load tasks")
 
         tasks, _stats = filtered_result.value
         return TodoistTaskComponents.render_task_list(tasks, user_uid)
@@ -802,7 +795,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if filtered_result.is_error:
-            return render_error_banner("Failed to load tasks")
+            return ErrorComponents.render_error_banner("Failed to load tasks")
 
         all_tasks, stats = filtered_result.value
         projects = projects_result.value if not projects_result.is_error else []
@@ -824,7 +817,7 @@ def create_tasks_ui_routes(
 
         # Handle errors
         if tasks_result.is_error:
-            return render_error_banner("Failed to load tasks")
+            return ErrorComponents.render_error_banner("Failed to load tasks")
 
         tasks = tasks_result.value
         projects = projects_result.value if not projects_result.is_error else []

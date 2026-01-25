@@ -253,7 +253,7 @@ class TestSearch:
 class TestHabitModel:
     """Tests for Habit model structure."""
 
-    def test_habit_has_required_fields(self):
+    async def test_habit_has_required_fields(self):
         """Test that Habit model has required fields."""
         from core.models.habit.habit import Habit
 
@@ -261,7 +261,7 @@ class TestHabitModel:
         for field in required_fields:
             assert hasattr(Habit, "__annotations__") or field in dir(Habit)
 
-    def test_habit_frequency_values(self):
+    async def test_habit_frequency_values(self):
         """Test habit frequency options."""
         frequencies = ["daily", "weekly", "monthly"]
         for freq in frequencies:

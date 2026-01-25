@@ -25,6 +25,7 @@ from fasthtml.common import H1, H2, H3, Form, P, Script
 from starlette.responses import Response
 
 from components.atomic_habits_components import AtomicHabitsComponents
+from components.error_components import ErrorComponents
 from components.form_generator import FormGenerator
 from components.goals_views import GoalsViewComponents
 from components.shared_ui_components import SharedUIComponents
@@ -36,6 +37,7 @@ from core.services.protocols.facade_protocols import GoalsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
 from core.ui.daisy_components import (
     Button,
+    ButtonT,
     Card,
     Div,
     Input,
@@ -43,6 +45,7 @@ from core.ui.daisy_components import (
     Option,
     Progress,
     Select,
+    Size,
     Span,
 )
 from core.utils.logging import get_logger
@@ -124,27 +127,9 @@ class GoalUIComponents:
         quick_actions = [
             {
                 "label": "New Goal",
-                "hx_get": "/goals/create",
+                "hx_get": "/goals/view/create",
                 "hx_target": "#modal",
                 "class": "btn-primary",
-            },
-            {
-                "label": "Analytics",
-                "hx_get": "/goals/analytics",
-                "hx_target": "#main-content",
-                "class": "btn-secondary",
-            },
-            {
-                "label": "Progress",
-                "hx_get": "/goals/progress",
-                "hx_target": "#main-content",
-                "class": "btn-outline",
-            },
-            {
-                "label": "Milestones",
-                "hx_get": "/goals/milestones",
-                "hx_target": "#main-content",
-                "class": "btn-ghost",
             },
         ]
 
@@ -269,7 +254,8 @@ class GoalUIComponents:
             buttons.append(
                 Button(
                     "📈 Update Progress",
-                    cls="btn btn-success btn-sm",
+                    variant=ButtonT.success,
+                    size=Size.sm,
                     hx_get=f"/goals/{uid}/progress-form",
                     hx_target="#modal",
                 )
@@ -279,41 +265,47 @@ class GoalUIComponents:
             [
                 Button(
                     "👁️ View",
-                    cls="btn btn-outline btn-sm",
+                    variant=ButtonT.outline,
+                    size=Size.sm,
                     hx_get=f"/goals/{uid}/details",
                     hx_target="#modal",
                 ),
                 Button(
                     "📊 Gantt",
-                    cls="btn btn-secondary btn-sm",
+                    variant=ButtonT.secondary,
+                    size=Size.sm,
                     hx_get=f"/goals/{uid}/gantt",
                     hx_target="body",
                     title="View Gantt Chart",
                 ),
                 Button(
                     "🏥 Health",
-                    cls="btn btn-info btn-sm",
+                    variant=ButtonT.info,
+                    size=Size.sm,
                     hx_get=f"/goals/{uid}/system-health",
                     hx_target="#modal",
                     title="System Health Diagnostics (Phase 2)",
                 ),
                 Button(
                     "🚀 Velocity",
-                    cls="btn btn-success btn-sm",
+                    variant=ButtonT.success,
+                    size=Size.sm,
                     hx_get=f"/goals/{uid}/velocity",
                     hx_target="#modal",
                     title="Habit Velocity Tracking (Phase 2)",
                 ),
                 Button(
                     "🎯 Impact",
-                    cls="btn btn-warning btn-sm",
+                    variant=ButtonT.warning,
+                    size=Size.sm,
                     hx_get=f"/goals/{uid}/impact",
                     hx_target="#modal",
                     title="Goal Impact Analysis (Phase 2)",
                 ),
                 Button(
                     "✏️ Edit",
-                    cls="btn btn-ghost btn-sm",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
                     hx_get=f"/goals/{uid}/edit",
                     hx_target="#modal",
                 ),
@@ -457,7 +449,7 @@ class GoalUIComponents:
                 ),
                 # Submit Button
                 Div(
-                    Button("Create Goal 🎯", type="submit", cls="btn btn-primary w-full"),
+                    Button("Create Goal 🎯", type="submit", variant=ButtonT.primary, cls="w-full"),
                     cls="mt-6",
                 ),
                 hx_post="/api/goals",
@@ -634,13 +626,14 @@ class GoalUIComponents:
                         "← Back to Goals",
                         hx_get="/goals",
                         hx_target="body",
-                        cls="btn btn-ghost mr-2",
+                        variant=ButtonT.ghost,
+                        cls="mr-2",
                     ),
                     Button(
                         "✏️ Edit Goal",
                         hx_get=f"/goals/{goal.uid}/edit",
                         hx_target="#modal",
-                        cls="btn btn-primary",
+                        variant=ButtonT.primary,
                     ),
                     cls="flex gap-2",
                 ),
@@ -773,16 +766,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
 
         return CalendarParams(calendar_view=calendar_view, current_date=current_date)
 
-    def render_error_banner(message: str) -> Div:
-        """Render error banner for UI failures."""
-        return Div(
-            Div(
-                P("⚠️ Error", cls="font-bold text-error"),
-                P(message, cls="text-sm"),
-                cls="alert alert-error",
-            ),
-            cls="mb-4",
-        )
+    # Error rendering moved to components.error_components.ErrorComponents
 
     # ========================================================================
     # ERROR HANDLING
@@ -844,7 +828,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to fetch goals: {e}")
+            return Result.fail(Errors.system(f"Failed to fetch goals: {e}"))
 
     def get_status_str(goal) -> str:
         """Extract status as lowercase string, handling both enum and string."""
@@ -892,10 +876,10 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
         # Required fields
         title = form_data.get("title", "").strip()
         if not title:
-            return Errors.validation("Goal title is required")
+            return Result.fail(Errors.validation("Goal title is required"))
 
         if len(title) > 200:
-            return Errors.validation("Goal title must be 200 characters or less")
+            return Result.fail(Errors.validation("Goal title must be 200 characters or less"))
 
         # Date validation
         target_date_str = form_data.get("target_date", "")
@@ -903,9 +887,9 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
             try:
                 target_date = date.fromisoformat(target_date_str)
                 if target_date < date.today():
-                    return Errors.validation("Target date must be in the future")
+                    return Result.fail(Errors.validation("Target date must be in the future"))
             except ValueError:
-                return Errors.validation("Invalid date format")
+                return Result.fail(Errors.validation("Invalid date format"))
 
         return Result.ok(None)
 
@@ -1018,7 +1002,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to filter goals: {e}")
+            return Result.fail(Errors.system(f"Failed to filter goals: {e}"))
 
     async def get_categories() -> Result[list[str]]:
         """Get unique goal categories (valid Domain enum values)."""
@@ -1059,7 +1043,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
         if filtered_result.is_error:
             error_content = Div(
                 GoalsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load goals"),
+                ErrorComponents.render_error_banner("Failed to load goals"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return create_goals_page(error_content, request=request)
@@ -1067,7 +1051,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
         if categories_result.is_error:
             error_content = Div(
                 GoalsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load categories"),
+                ErrorComponents.render_error_banner("Failed to load categories"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return create_goals_page(error_content, request=request)
@@ -1087,7 +1071,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
 
             # Check for errors
             if all_goals_result.is_error:
-                view_content = render_error_banner(
+                view_content = ErrorComponents.render_error_banner(
                     f"Failed to load calendar: {all_goals_result.error}"
                 )
             else:
@@ -1132,10 +1116,10 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
 
         # Handle errors (return banner directly for HTMX swap)
         if filtered_result.is_error:
-            return render_error_banner("Failed to load goals")
+            return ErrorComponents.render_error_banner("Failed to load goals")
 
         if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
+            return ErrorComponents.render_error_banner("Failed to load categories")
 
         goals, stats = filtered_result.value
         categories = categories_result.value
@@ -1157,7 +1141,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
 
         # Handle errors
         if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
+            return ErrorComponents.render_error_banner("Failed to load categories")
 
         return GoalsViewComponents.render_create_view(
             categories=categories_result.value,
@@ -1174,7 +1158,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
 
         # Handle errors
         if goals_result.is_error:
-            return render_error_banner("Failed to load calendar")
+            return ErrorComponents.render_error_banner("Failed to load calendar")
 
         return GoalsViewComponents.render_calendar_view(
             goals=goals_result.value,
@@ -1196,7 +1180,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
 
         # Handle errors
         if filtered_result.is_error:
-            return render_error_banner("Failed to load goals")
+            return ErrorComponents.render_error_banner("Failed to load goals")
 
         goals, _stats = filtered_result.value
 
@@ -1285,36 +1269,6 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
     )
     QuickAddRouteFactory.register_route(rt, goals_quick_add_config)
 
-    # ========================================================================
-    # LEGACY ROUTES (kept for backward compatibility)
-    # ========================================================================
-
-    @rt("/goals/create")
-    async def goals_create_form(request) -> Any:
-        """Create goal form - redirects to create view."""
-        user_uid = require_authenticated_user(request)
-        categories = await get_categories()
-        return GoalsViewComponents.render_create_view(categories=categories, user_uid=user_uid)
-
-    @rt("/goals/analytics")
-    async def goals_analytics_dashboard(_request) -> Any:
-        """Analytics dashboard - pure component"""
-        return GoalUIComponents.render_goal_analytics_dashboard()
-
-    @rt("/goals/progress")
-    async def goals_progress_view(_request) -> Any:
-        """Progress view - pure component"""
-        return GoalUIComponents.render_goal_progress_view()
-
-    @rt("/goals/milestones")
-    async def goals_milestones_page(_request) -> Any:
-        """Milestones page - pure component"""
-        return Card(
-            H1("Goal Milestones", cls="text-2xl font-bold mb-6"),
-            P("Milestone tracking interface will be implemented here", cls="text-gray-500"),
-            cls="p-6 container mx-auto",
-        )
-
     @rt("/goals/{uid}")
     async def goal_detail_view(_request, uid: str) -> Any:
         """
@@ -1335,7 +1289,8 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
                         "← Back to Goals",
                         hx_get="/goals",
                         hx_target="body",
-                        cls="btn btn-primary mt-4",
+                        variant=ButtonT.primary,
+                        cls="mt-4",
                     ),
                     cls="p-6",
                 ),
@@ -1436,7 +1391,8 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
                 H2(title, cls="text-xl font-bold"),
                 Button(
                     "← Back to Goal",
-                    cls="btn btn-ghost btn-sm",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
                     hx_get=f"/goals/{uid}",
                     hx_target="body",
                 ),

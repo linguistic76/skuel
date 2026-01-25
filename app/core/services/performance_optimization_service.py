@@ -7,6 +7,7 @@ Implements sub-100ms inference, advanced caching, background processing, and sca
 """
 
 import asyncio
+import contextlib
 import hashlib
 import heapq
 import time
@@ -541,6 +542,9 @@ class BackgroundProcessingEngine:
         # Track background asyncio tasks to prevent garbage collection (RUF006)
         self._background_tasks: set[asyncio.Task[None]] = set()
 
+        # Shutdown event for graceful cleanup
+        self._shutdown_event = asyncio.Event()
+
         self.logger = get_logger(__name__)
 
     async def start(self):
@@ -561,6 +565,30 @@ class BackgroundProcessingEngine:
         self.process_pool.shutdown(wait=True)
         self.logger.info("Background processing engine stopped")
 
+    async def shutdown(self):
+        """Gracefully shutdown background processing and cancel all tasks."""
+        self.logger.info("Shutting down background processing engine")
+
+        # Signal shutdown
+        self._shutdown_event.set()
+        self.is_running = False
+
+        # Cancel all background tasks
+        for task in list(self._background_tasks):
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+
+        # Clear task tracking
+        self._background_tasks.clear()
+
+        # Shutdown thread/process pools
+        self.thread_pool.shutdown(wait=True)
+        self.process_pool.shutdown(wait=True)
+
+        self.logger.info("Background processing engine shutdown complete")
+
     async def submit_task(self, task: BackgroundTask) -> bool:
         """Submit task for background processing."""
         try:
@@ -573,7 +601,7 @@ class BackgroundProcessingEngine:
 
     async def _process_queue(self) -> None:
         """Main queue processing loop."""
-        while self.is_running:
+        while self.is_running and not self._shutdown_event.is_set():
             try:
                 # Process pending tasks
                 await self._process_pending_tasks()
@@ -584,6 +612,10 @@ class BackgroundProcessingEngine:
                 # Short sleep to prevent busy waiting
                 await asyncio.sleep(0.1)
 
+            except asyncio.CancelledError:
+                # Shutdown requested
+                self.logger.info("Background processing queue cancelled")
+                break
             except Exception as e:
                 self.logger.error(f"Queue processing error: {e}")
                 await asyncio.sleep(1)
@@ -852,8 +884,12 @@ class PerformanceOptimizationService:
 
     async def shutdown(self):
         """Shutdown performance optimization service."""
-        await self.background_engine.stop()
+        await self.background_engine.shutdown()
         self.logger.info("Performance optimization service shutdown")
+
+    async def close(self):
+        """Close service - cleanup hook for ServiceContainer."""
+        await self.shutdown()
 
     async def fast_inference(self, request: InferenceRequest) -> InferenceResult:
         """Perform sub-100ms knowledge inference."""

@@ -378,12 +378,12 @@ class TestErrorHandling:
 class TestFinanceModel:
     """Tests for Finance model structure."""
 
-    def test_expense_amount_is_positive(self):
+    async def test_expense_amount_is_positive(self):
         """Test that expense amounts are positive."""
         expense = MockExpense(amount=50.00)
         assert expense.amount > 0
 
-    def test_budget_period_values(self):
+    async def test_budget_period_values(self):
         """Test valid budget period values."""
         valid_periods = ["daily", "weekly", "monthly", "yearly"]
         for period in valid_periods:

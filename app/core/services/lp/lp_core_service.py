@@ -250,77 +250,23 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         if not uids:
             return Result.ok([])
 
-        async with self.backend.driver.session() as session:
-            result = await session.run(
-                """
-                MATCH (p:Lp)
-                WHERE p.uid IN $uids
-                OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Ls)
-                WITH p, collect({step: s, sequence: r.sequence}) as steps_data
-                ORDER BY p.uid
-                RETURN p, steps_data
-                """,
-                uids=uids,
-            )
+        query_result = await self.backend.execute_query(
+            """
+            MATCH (p:Lp)
+            WHERE p.uid IN $uids
+            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Ls)
+            WITH p, collect({step: s, sequence: r.sequence}) as steps_data
+            ORDER BY p.uid
+            RETURN p, steps_data
+            """,
+            {"uids": uids},
+        )
 
-            paths_map = {}
-            async for record in result:
-                path_data = dict(record["p"])
-                steps_data = record["steps_data"]
+        if query_result.is_error:
+            return query_result
 
-                steps = []
-                if steps_data:
-                    sorted_steps = sorted(steps_data, key=get_sequence)
-                    for step_info in sorted_steps:
-                        if step_info["step"]:
-                            step_dict = dict(step_info["step"])
-                            steps.append(
-                                Ls(
-                                    uid=step_dict["uid"],
-                                    title=step_dict.get("title", "Learning Step"),
-                                    intent=step_dict.get("intent", "Complete this learning step"),
-                                    primary_knowledge_uids=tuple([step_dict["knowledge_uid"]])
-                                    if "knowledge_uid" in step_dict
-                                    else (),
-                                    sequence=step_dict.get("sequence"),
-                                    estimated_hours=step_dict.get("estimated_hours", 2.0),
-                                    mastery_threshold=step_dict.get("mastery_threshold", 0.8),
-                                    # Note: prerequisite_step_uids removed - graph relationship
-                                )
-                            )
-
-                path = Lp(
-                    uid=path_data["uid"],
-                    name=path_data["name"],
-                    goal=path_data["goal"],
-                    domain=Domain[path_data.get("domain", "LEARNING")],
-                    steps=tuple(steps),
-                    estimated_hours=path_data.get("estimated_hours", 0.0),
-                )
-                paths_map[path.uid] = path
-
-            # Return in same order as input UIDs
-            result_list = [paths_map.get(uid) for uid in uids]
-            return Result.ok(result_list)
-
-    @with_error_handling("get_learning_path", error_type="database", uid_param="path_uid")
-    async def get_learning_path(self, path_uid: str) -> Result[Lp | None]:
-        """Get a single learning path by UID (returns None if not found)."""
-        async with self.backend.driver.session() as session:
-            result = await session.run(
-                """
-                MATCH (p:Lp {uid: $uid})
-                OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Ls)
-                WITH p, collect({step: s, sequence: r.sequence}) as steps_data
-                RETURN p, steps_data
-                """,
-                uid=path_uid,
-            )
-
-            record = await result.single()
-            if not record:
-                return Result.ok(None)  # Not found - return None instead of error
-
+        paths_map = {}
+        for record in query_result.value:
             path_data = dict(record["p"])
             steps_data = record["steps_data"]
 
@@ -353,8 +299,67 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
                 steps=tuple(steps),
                 estimated_hours=path_data.get("estimated_hours", 0.0),
             )
+            paths_map[path.uid] = path
 
-            return Result.ok(path)
+        # Return in same order as input UIDs
+        result_list = [paths_map.get(uid) for uid in uids]
+        return Result.ok(result_list)
+
+    @with_error_handling("get_learning_path", error_type="database", uid_param="path_uid")
+    async def get_learning_path(self, path_uid: str) -> Result[Lp | None]:
+        """Get a single learning path by UID (returns None if not found)."""
+        query_result = await self.backend.execute_query(
+            """
+            MATCH (p:Lp {uid: $uid})
+            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Ls)
+            WITH p, collect({step: s, sequence: r.sequence}) as steps_data
+            RETURN p, steps_data
+            """,
+            {"uid": path_uid},
+        )
+
+        if query_result.is_error:
+            return query_result
+
+        records = query_result.value
+        if not records:
+            return Result.ok(None)  # Not found - return None instead of error
+
+        record = records[0]
+        path_data = dict(record["p"])
+        steps_data = record["steps_data"]
+
+        steps = []
+        if steps_data:
+            sorted_steps = sorted(steps_data, key=get_sequence)
+            for step_info in sorted_steps:
+                if step_info["step"]:
+                    step_dict = dict(step_info["step"])
+                    steps.append(
+                        Ls(
+                            uid=step_dict["uid"],
+                            title=step_dict.get("title", "Learning Step"),
+                            intent=step_dict.get("intent", "Complete this learning step"),
+                            primary_knowledge_uids=tuple([step_dict["knowledge_uid"]])
+                            if "knowledge_uid" in step_dict
+                            else (),
+                            sequence=step_dict.get("sequence"),
+                            estimated_hours=step_dict.get("estimated_hours", 2.0),
+                            mastery_threshold=step_dict.get("mastery_threshold", 0.8),
+                            # Note: prerequisite_step_uids removed - graph relationship
+                        )
+                    )
+
+        path = Lp(
+            uid=path_data["uid"],
+            name=path_data["name"],
+            goal=path_data["goal"],
+            domain=Domain[path_data.get("domain", "LEARNING")],
+            steps=tuple(steps),
+            estimated_hours=path_data.get("estimated_hours", 0.0),
+        )
+
+        return Result.ok(path)
 
     @with_error_handling("get_with_context", error_type="database", uid_param="uid")
     async def get_with_context(
@@ -394,233 +399,234 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         # Note: depth and min_confidence are accepted for API compatibility
         # but this implementation uses a fixed specialized query
         path_uid = uid  # Alias for backward compatibility in query
-        async with self.backend.driver.session() as session:
-            result = await session.run(
-                """
-                MATCH (lp:Lp {uid: $uid})
+        query_result = await self.backend.execute_query(
+            """
+            MATCH (lp:Lp {uid: $uid})
 
-                // 1. Steps (with sequence and progress)
-                OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:Ls)
-                WITH lp, collect({
-                    uid: step.uid,
-                    title: step.title,
-                    intent: step.intent,
-                    sequence: coalesce(r_step.sequence, step.sequence),
-                    completed: step.completed,
-                    current_mastery: step.current_mastery,
-                    estimated_hours: step.estimated_hours
-                }) as steps_data
+            // 1. Steps (with sequence and progress)
+            OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:Ls)
+            WITH lp, collect({
+                uid: step.uid,
+                title: step.title,
+                intent: step.intent,
+                sequence: coalesce(r_step.sequence, step.sequence),
+                completed: step.completed,
+                current_mastery: step.current_mastery,
+                estimated_hours: step.estimated_hours
+            }) as steps_data
 
-                // 2. Prerequisite knowledge
-                OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(prereq_ku:Ku)
-                WITH lp, steps_data, collect({
-                    uid: prereq_ku.uid,
-                    title: prereq_ku.title,
-                    domain: prereq_ku.domain
-                }) as prerequisite_knowledge
+            // 2. Prerequisite knowledge
+            OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(prereq_ku:Ku)
+            WITH lp, steps_data, collect({
+                uid: prereq_ku.uid,
+                title: prereq_ku.title,
+                domain: prereq_ku.domain
+            }) as prerequisite_knowledge
 
-                // 3. Aligned goals (motivational integration)
-                OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(goal:Goal)
-                WITH lp, steps_data, prerequisite_knowledge, collect({
-                    uid: goal.uid,
-                    title: goal.title,
-                    status: goal.status,
-                    progress_percentage: goal.progress_percentage
-                }) as aligned_goals
+            // 3. Aligned goals (motivational integration)
+            OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(goal:Goal)
+            WITH lp, steps_data, prerequisite_knowledge, collect({
+                uid: goal.uid,
+                title: goal.title,
+                status: goal.status,
+                progress_percentage: goal.progress_percentage
+            }) as aligned_goals
 
-                // 4. Embodied principles (value alignment)
-                OPTIONAL MATCH (lp)-[:EMBODIES_PRINCIPLE]->(principle:Principle)
-                WITH lp, steps_data, prerequisite_knowledge, aligned_goals, collect({
-                    uid: principle.uid,
-                    title: principle.title,
-                    principle_type: principle.principle_type
-                }) as embodied_principles
+            // 4. Embodied principles (value alignment)
+            OPTIONAL MATCH (lp)-[:EMBODIES_PRINCIPLE]->(principle:Principle)
+            WITH lp, steps_data, prerequisite_knowledge, aligned_goals, collect({
+                uid: principle.uid,
+                title: principle.title,
+                principle_type: principle.principle_type
+            }) as embodied_principles
 
-                // 5. Milestone events (curriculum calendar)
-                OPTIONAL MATCH (lp)-[:HAS_MILESTONE_EVENT]->(event:Event)
-                WITH lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles, collect({
-                    uid: event.uid,
-                    title: event.title,
-                    event_date: event.event_date,
-                    status: event.status
-                }) as milestone_events
+            // 5. Milestone events (curriculum calendar)
+            OPTIONAL MATCH (lp)-[:HAS_MILESTONE_EVENT]->(event:Event)
+            WITH lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles, collect({
+                uid: event.uid,
+                title: event.title,
+                event_date: event.event_date,
+                status: event.status
+            }) as milestone_events
 
-                // 6. Enrolled users (community tracking)
-                OPTIONAL MATCH (user:User)-[:ENROLLED_IN|HAS_PATH]->(lp)
-                WITH lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles,
-                     milestone_events, collect({
-                    uid: user.uid,
-                    username: user.username
-                }) as enrolled_users
+            // 6. Enrolled users (community tracking)
+            OPTIONAL MATCH (user:User)-[:ENROLLED_IN|HAS_PATH]->(lp)
+            WITH lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles,
+                 milestone_events, collect({
+                uid: user.uid,
+                username: user.username
+            }) as enrolled_users
 
-                // 7. Step statistics
-                WITH lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles,
-                     milestone_events, enrolled_users,
-                     size([s IN steps_data WHERE s.completed = true]) as completed_steps,
-                     size(steps_data) as total_steps
+            // 7. Step statistics
+            WITH lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles,
+                 milestone_events, enrolled_users,
+                 size([s IN steps_data WHERE s.completed = true]) as completed_steps,
+                 size(steps_data) as total_steps
 
-                RETURN lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles,
-                       milestone_events, enrolled_users, completed_steps, total_steps
-                """,
-                uid=path_uid,
-            )
+            RETURN lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles,
+                   milestone_events, enrolled_users, completed_steps, total_steps
+            """,
+            {"uid": path_uid},
+        )
 
-            record = await result.single()
-            if not record:
-                return Result.fail(Errors.not_found(resource="Lp", identifier=path_uid))
+        if query_result.is_error:
+            return query_result
 
-            path_data = dict(record["lp"])
-            steps_data = record["steps_data"]
+        records = query_result.value
+        if not records:
+            return Result.fail(Errors.not_found(resource="Lp", identifier=path_uid))
 
-            # Build steps
-            steps = []
-            if steps_data:
-                sorted_steps = sorted(steps_data, key=get_sequence)
-                for step_info in sorted_steps:
-                    if step_info.get("uid"):
-                        steps.append(
-                            Ls(
-                                uid=step_info["uid"],
-                                title=step_info.get("title", "Learning Step"),
-                                intent=step_info.get("intent", "Complete this learning step"),
-                                sequence=step_info.get("sequence"),
-                                completed=step_info.get("completed", False),
-                                current_mastery=step_info.get("current_mastery", 0.0),
-                                estimated_hours=step_info.get("estimated_hours", 1.0),
-                            )
+        record = records[0]
+        path_data = dict(record["lp"])
+        steps_data = record["steps_data"]
+
+        # Build steps
+        steps = []
+        if steps_data:
+            sorted_steps = sorted(steps_data, key=get_sequence)
+            for step_info in sorted_steps:
+                if step_info.get("uid"):
+                    steps.append(
+                        Ls(
+                            uid=step_info["uid"],
+                            title=step_info.get("title", "Learning Step"),
+                            intent=step_info.get("intent", "Complete this learning step"),
+                            sequence=step_info.get("sequence"),
+                            completed=step_info.get("completed", False),
+                            current_mastery=step_info.get("current_mastery", 0.0),
+                            estimated_hours=step_info.get("estimated_hours", 1.0),
                         )
+                    )
 
-            # Build Lp
-            path = Lp(
-                uid=path_data["uid"],
-                name=path_data["name"],
-                goal=path_data["goal"],
-                domain=Domain[path_data.get("domain", "LEARNING").upper()],
-                steps=tuple(steps),
-                estimated_hours=path_data.get("estimated_hours", 0.0),
-                path_type=path_data.get("path_type", "structured"),
-                difficulty=path_data.get("difficulty", "intermediate"),
-                created_by=path_data.get("created_by"),
-                checkpoint_week_intervals=tuple(path_data.get("checkpoint_week_intervals", [])),
-            )
+        # Build Lp
+        path = Lp(
+            uid=path_data["uid"],
+            name=path_data["name"],
+            goal=path_data["goal"],
+            domain=Domain[path_data.get("domain", "LEARNING").upper()],
+            steps=tuple(steps),
+            estimated_hours=path_data.get("estimated_hours", 0.0),
+            path_type=path_data.get("path_type", "structured"),
+            difficulty=path_data.get("difficulty", "intermediate"),
+            created_by=path_data.get("created_by"),
+            checkpoint_week_intervals=tuple(path_data.get("checkpoint_week_intervals", [])),
+        )
 
-            # Calculate progress percentage
-            total_steps = record["total_steps"]
-            completed_steps = record["completed_steps"]
-            progress_percentage = (
-                (completed_steps / total_steps * 100.0) if total_steps > 0 else 0.0
-            )
+        # Calculate progress percentage
+        total_steps = record["total_steps"]
+        completed_steps = record["completed_steps"]
+        progress_percentage = (completed_steps / total_steps * 100.0) if total_steps > 0 else 0.0
 
-            # Enrich with graph context in metadata
-            object.__setattr__(
-                path,
-                "metadata",
-                {
-                    "graph_context": {
-                        # Steps (detailed)
-                        "steps": [s for s in steps_data if s.get("uid")],
-                        # Prerequisites
-                        "prerequisite_knowledge": [
-                            k for k in record["prerequisite_knowledge"] if k.get("uid")
-                        ],
-                        # Motivational integration
-                        "aligned_goals": [g for g in record["aligned_goals"] if g.get("uid")],
-                        # Value alignment
-                        "embodied_principles": [
-                            p for p in record["embodied_principles"] if p.get("uid")
-                        ],
-                        # Curriculum calendar
-                        "milestone_events": [e for e in record["milestone_events"] if e.get("uid")],
-                        # Community
-                        "enrolled_users": [u for u in record["enrolled_users"] if u.get("uid")],
-                        # Progress statistics
-                        "total_steps": total_steps,
-                        "completed_steps": completed_steps,
-                        "progress_percentage": progress_percentage,
-                        "remaining_steps": total_steps - completed_steps,
-                        # Aggregates
-                        "has_prerequisites": len(
-                            [k for k in record["prerequisite_knowledge"] if k.get("uid")]
-                        )
-                        > 0,
-                        "has_goals": len([g for g in record["aligned_goals"] if g.get("uid")]) > 0,
-                        "has_milestones": len(
-                            [e for e in record["milestone_events"] if e.get("uid")]
-                        )
-                        > 0,
-                        "is_active": len([u for u in record["enrolled_users"] if u.get("uid")]) > 0,
-                    }
-                },
-            )
+        # Enrich with graph context in metadata
+        object.__setattr__(
+            path,
+            "metadata",
+            {
+                "graph_context": {
+                    # Steps (detailed)
+                    "steps": [s for s in steps_data if s.get("uid")],
+                    # Prerequisites
+                    "prerequisite_knowledge": [
+                        k for k in record["prerequisite_knowledge"] if k.get("uid")
+                    ],
+                    # Motivational integration
+                    "aligned_goals": [g for g in record["aligned_goals"] if g.get("uid")],
+                    # Value alignment
+                    "embodied_principles": [
+                        p for p in record["embodied_principles"] if p.get("uid")
+                    ],
+                    # Curriculum calendar
+                    "milestone_events": [e for e in record["milestone_events"] if e.get("uid")],
+                    # Community
+                    "enrolled_users": [u for u in record["enrolled_users"] if u.get("uid")],
+                    # Progress statistics
+                    "total_steps": total_steps,
+                    "completed_steps": completed_steps,
+                    "progress_percentage": progress_percentage,
+                    "remaining_steps": total_steps - completed_steps,
+                    # Aggregates
+                    "has_prerequisites": len(
+                        [k for k in record["prerequisite_knowledge"] if k.get("uid")]
+                    )
+                    > 0,
+                    "has_goals": len([g for g in record["aligned_goals"] if g.get("uid")]) > 0,
+                    "has_milestones": len([e for e in record["milestone_events"] if e.get("uid")])
+                    > 0,
+                    "is_active": len([u for u in record["enrolled_users"] if u.get("uid")]) > 0,
+                }
+            },
+        )
 
-            logger.info(
-                f"✅ Retrieved path with context: {path_uid} "
-                f"(steps: {total_steps}, completed: {completed_steps}, "
-                f"progress: {progress_percentage:.1f}%, "
-                f"goals: {len([g for g in record['aligned_goals'] if g.get('uid')])}, "
-                f"users: {len([u for u in record['enrolled_users'] if u.get('uid')])})"
-            )
+        logger.info(
+            f"✅ Retrieved path with context: {path_uid} "
+            f"(steps: {total_steps}, completed: {completed_steps}, "
+            f"progress: {progress_percentage:.1f}%, "
+            f"goals: {len([g for g in record['aligned_goals'] if g.get('uid')])}, "
+            f"users: {len([u for u in record['enrolled_users'] if u.get('uid')])})"
+        )
 
-            return Result.ok(path)
+        return Result.ok(path)
 
     @with_error_handling("list_user_paths", error_type="database", uid_param="user_uid")
     async def list_user_paths(self, user_uid: str, limit: int | None = None) -> Result[list[Lp]]:
         """List all learning paths for a specific user."""
-        async with self.backend.driver.session() as session:
-            query = """
-            MATCH (u:User {uid: $user_uid})-[:HAS_PATH]->(p:Lp)
-            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Ls)
-            WITH p, collect({step: s, sequence: r.sequence}) as steps_data
-            ORDER BY p.uid DESC
-            """
-            if limit:
-                query += " LIMIT $limit"
-            query += " RETURN p, steps_data"
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:HAS_PATH]->(p:Lp)
+        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Ls)
+        WITH p, collect({step: s, sequence: r.sequence}) as steps_data
+        ORDER BY p.uid DESC
+        """
+        if limit:
+            query += " LIMIT $limit"
+        query += " RETURN p, steps_data"
 
-            params = {"user_uid": user_uid}
-            if limit:
-                params["limit"] = limit
+        params = {"user_uid": user_uid}
+        if limit:
+            params["limit"] = limit
 
-            result = await session.run(query, params)
+        query_result = await self.backend.execute_query(query, params)
 
-            paths = []
-            async for record in result:
-                path_data = dict(record["p"])
-                steps_data = record["steps_data"]
+        if query_result.is_error:
+            return query_result
 
-                steps = []
-                if steps_data:
-                    sorted_steps = sorted(steps_data, key=get_sequence)
-                    for step_info in sorted_steps:
-                        if step_info["step"]:
-                            step_dict = dict(step_info["step"])
-                            steps.append(
-                                Ls(
-                                    uid=step_dict["uid"],
-                                    title=step_dict.get("title", "Learning Step"),
-                                    intent=step_dict.get("intent", "Complete this learning step"),
-                                    primary_knowledge_uids=tuple([step_dict["knowledge_uid"]])
-                                    if "knowledge_uid" in step_dict
-                                    else (),
-                                    sequence=step_dict.get("sequence"),
-                                    estimated_hours=step_dict.get("estimated_hours", 2.0),
-                                    mastery_threshold=step_dict.get("mastery_threshold", 0.8),
-                                    # Note: prerequisite_step_uids removed - graph relationship
-                                )
+        paths = []
+        for record in query_result.value:
+            path_data = dict(record["p"])
+            steps_data = record["steps_data"]
+
+            steps = []
+            if steps_data:
+                sorted_steps = sorted(steps_data, key=get_sequence)
+                for step_info in sorted_steps:
+                    if step_info["step"]:
+                        step_dict = dict(step_info["step"])
+                        steps.append(
+                            Ls(
+                                uid=step_dict["uid"],
+                                title=step_dict.get("title", "Learning Step"),
+                                intent=step_dict.get("intent", "Complete this learning step"),
+                                primary_knowledge_uids=tuple([step_dict["knowledge_uid"]])
+                                if "knowledge_uid" in step_dict
+                                else (),
+                                sequence=step_dict.get("sequence"),
+                                estimated_hours=step_dict.get("estimated_hours", 2.0),
+                                mastery_threshold=step_dict.get("mastery_threshold", 0.8),
+                                # Note: prerequisite_step_uids removed - graph relationship
                             )
+                        )
 
-                paths.append(
-                    Lp(
-                        uid=path_data["uid"],
-                        name=path_data["name"],
-                        goal=path_data["goal"],
-                        domain=Domain[path_data.get("domain", "LEARNING")],
-                        steps=tuple(steps),
-                        estimated_hours=path_data.get("estimated_hours", 0.0),
-                    )
+            paths.append(
+                Lp(
+                    uid=path_data["uid"],
+                    name=path_data["name"],
+                    goal=path_data["goal"],
+                    domain=Domain[path_data.get("domain", "LEARNING")],
+                    steps=tuple(steps),
+                    estimated_hours=path_data.get("estimated_hours", 0.0),
                 )
+            )
 
-            return Result.ok(paths)
+        return Result.ok(paths)
 
     @with_error_handling("list_all_paths", error_type="database")
     async def list_all_paths(

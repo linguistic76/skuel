@@ -21,7 +21,7 @@ import pytest
 from core.models.shared_enums import ActivityStatus, Priority
 from core.utils.result_simplified import Errors, Result
 
-# Mark all tests in this module as async
+# Mark all tests as async (all tests in this module are async)
 pytestmark = pytest.mark.asyncio
 
 
@@ -98,7 +98,7 @@ def mock_tasks_service():
 class TestCRUDOperations:
     """Tests for standard CRUD operations via CRUDRouteFactory."""
 
-    def test_create_task_request_structure(self):
+    async def test_create_task_request_structure(self):
         """Test TaskCreateRequest has required fields."""
         from core.models.task.task_request import TaskCreateRequest
 
@@ -338,7 +338,7 @@ class TestKnowledgeRelation:
 class TestRouteFactory:
     """Tests for CRUDRouteFactory and CommonQueryRouteFactory integration."""
 
-    def test_crud_factory_routes(self):
+    async def test_crud_factory_routes(self):
         """Test that CRUD factory defines expected routes."""
         expected_routes = [
             "POST /api/tasks",  # create
@@ -351,7 +351,7 @@ class TestRouteFactory:
         for route in expected_routes:
             assert "/api/tasks" in route
 
-    def test_query_factory_routes(self):
+    async def test_query_factory_routes(self):
         """Test that query factory defines expected routes."""
         expected_routes = [
             "GET /api/tasks/user/{user_uid}",
@@ -392,7 +392,7 @@ class TestErrorHandling:
 class TestTaskModel:
     """Tests for Task model structure."""
 
-    def test_task_has_required_fields(self):
+    async def test_task_has_required_fields(self):
         """Test that Task model has required fields."""
         from core.models.task.task import Task
 
@@ -400,14 +400,14 @@ class TestTaskModel:
         for field in required_fields:
             assert hasattr(Task, "__annotations__") or field in dir(Task)
 
-    def test_activity_status_enum(self):
+    async def test_activity_status_enum(self):
         """Test ActivityStatus enum values."""
         assert ActivityStatus.IN_PROGRESS.value == "in_progress"
         assert ActivityStatus.COMPLETED.value == "completed"
         assert ActivityStatus.SCHEDULED.value == "scheduled"
         assert ActivityStatus.DRAFT.value == "draft"
 
-    def test_priority_enum(self):
+    async def test_priority_enum(self):
         """Test Priority enum values."""
         assert Priority.LOW.value == "low"
         assert Priority.MEDIUM.value == "medium"
@@ -418,13 +418,13 @@ class TestTaskModel:
 class TestBoundaryHandler:
     """Tests for @boundary_handler decorator behavior."""
 
-    def test_boundary_handler_converts_result_ok(self):
+    async def test_boundary_handler_converts_result_ok(self):
         """Test that boundary_handler converts Result.ok to HTTP 200."""
         # The decorator should convert Result.ok to proper HTTP response
         result = Result.ok(MockTask())
         assert result.is_ok
 
-    def test_boundary_handler_converts_result_fail(self):
+    async def test_boundary_handler_converts_result_fail(self):
         """Test that boundary_handler converts Result.fail to HTTP error."""
         result = Result.fail(Errors.not_found("task", "task.test"))
         assert result.is_error

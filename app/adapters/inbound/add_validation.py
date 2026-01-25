@@ -8,10 +8,10 @@ Example: python add_validation.py goals goals_ui.py
 
 import re
 import sys
-from typing import Tuple
+from pathlib import Path
 
 
-def add_validation_function(content: str, domain: str) -> Tuple[str, dict]:
+def add_validation_function(content: str, domain: str) -> tuple[str, dict]:
     """
     Add validate_*_form_data function to the file.
 
@@ -208,7 +208,7 @@ def main():
     print(f"Processing {file_path} for domain '{domain}'...")
 
     # Read file
-    with open(file_path, "r") as f:
+    with Path(file_path).open() as f:
         content = f.read()
 
     # Apply transformation
@@ -219,7 +219,7 @@ def main():
         sys.exit(1)
 
     # Write back
-    with open(file_path, "w") as f:
+    with Path(file_path).open("w") as f:
         f.write(modified_content)
 
     print(f"✅ Success: Added validate_{domain}_form_data() function")

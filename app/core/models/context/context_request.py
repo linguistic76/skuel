@@ -9,7 +9,7 @@ These models validate JSON bodies for POST routes in the context-aware API.
 Created: 2026-01-24
 """
 
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
@@ -44,7 +44,7 @@ class TaskCompletionRequest(BaseModel):
     )
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "context": {
                     "knowledge_applied": ["ku.python", "ku.async-patterns"],
@@ -82,7 +82,7 @@ class GoalTaskGenerationRequest(BaseModel):
     )
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "context_preferences": {
                     "time_available_minutes": 180,
@@ -120,7 +120,7 @@ class HabitCompletionRequest(BaseModel):
     )
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "quality": "excellent",
                 "environmental_factors": {

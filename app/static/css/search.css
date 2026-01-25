@@ -6,16 +6,6 @@
  * Version 3.0 - Horizontal filters above search bar
  */
 
-/* Navbar positioning */
-nav.uk-navbar-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    height: 64px;
-}
-
 /* Main container - full width, centered content */
 .search-container {
     min-height: calc(100vh - 64px);

@@ -8,10 +8,10 @@ Example: python add_type_annotations.py goals_ui.py
 
 import re
 import sys
-from typing import Tuple
+from pathlib import Path
 
 
-def add_type_protocols(content: str) -> Tuple[str, dict]:
+def add_type_protocols(content: str) -> tuple[str, dict]:
     """
     Add Protocol type definitions to the file.
 
@@ -109,7 +109,7 @@ def main():
     print(f"Processing {file_path}...")
 
     # Read file
-    with open(file_path, "r") as f:
+    with Path(file_path).open() as f:
         content = f.read()
 
     # Apply transformation
@@ -124,13 +124,13 @@ def main():
         return
 
     # Write back
-    with open(file_path, "w") as f:
+    with Path(file_path).open("w") as f:
         f.write(modified_content)
 
     print(f"✅ Success: Added {stats['protocols_added']} Protocol definitions")
     if stats.get("signature_updated"):
-        print(f"   ✓ Updated function signature")
-    print(f"   ⚠️  TODO: Add Request type to parse_filters() and other helpers")
+        print("   ✓ Updated function signature")
+    print("   ⚠️  TODO: Add Request type to parse_filters() and other helpers")
 
 
 if __name__ == "__main__":

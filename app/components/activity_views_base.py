@@ -21,10 +21,11 @@ from typing import Any
 from fasthtml.common import (
     H3,
     A,
-    Button,
     Div,
     Span,
 )
+
+from core.ui.daisy_components import Button, ButtonT, Size
 
 
 class ActivityViewTabs:
@@ -202,7 +203,8 @@ class ActivityCalendarNav:
         return Div(
             Button(
                 "<",
-                cls="btn btn-sm btn-ghost",
+                variant=ButtonT.ghost,
+                size=Size.sm,
                 **{
                     "hx-get": f"/{domain}/view/calendar?calendar_view={view}&date={prev_date.isoformat()}",
                     "hx-target": "#view-content",
@@ -211,7 +213,8 @@ class ActivityCalendarNav:
             H3(date_label, cls="text-xl font-bold mx-4"),
             Button(
                 ">",
-                cls="btn btn-sm btn-ghost",
+                variant=ButtonT.ghost,
+                size=Size.sm,
                 **{
                     "hx-get": f"/{domain}/view/calendar?calendar_view={view}&date={next_date.isoformat()}",
                     "hx-target": "#view-content",
@@ -219,7 +222,9 @@ class ActivityCalendarNav:
             ),
             Button(
                 "Today",
-                cls="btn btn-sm btn-outline ml-2",
+                variant=ButtonT.outline,
+                size=Size.sm,
+                cls="ml-2",
                 **{
                     "hx-get": f"/{domain}/view/calendar?calendar_view={view}&date={date.today().isoformat()}",
                     "hx-target": "#view-content",
@@ -311,13 +316,12 @@ class ActivityListFilters:
         """
         buttons = []
         for value, label in statuses:
-            btn_cls = (
-                "btn btn-sm btn-primary" if value == current_status else "btn btn-sm btn-ghost"
-            )
+            variant = ButtonT.primary if value == current_status else ButtonT.ghost
             buttons.append(
                 Button(
                     label,
-                    cls=btn_cls,
+                    variant=variant,
+                    size=Size.sm,
                     **{
                         "hx-get": f"/{domain}/list-fragment?filter_status={value}",
                         "hx-target": "#entity-list",

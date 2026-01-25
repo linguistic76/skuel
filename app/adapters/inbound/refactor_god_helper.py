@@ -8,10 +8,10 @@ Example: python refactor_god_helper.py goals goals_ui.py
 
 import re
 import sys
-from typing import Tuple
+from pathlib import Path
 
 
-def extract_god_helper(content: str, domain: str) -> Tuple[str, dict]:
+def extract_god_helper(content: str, domain: str) -> tuple[str, dict]:
     """
     Extract the god helper pattern and create pure functions.
 
@@ -137,7 +137,7 @@ def main():
     print(f"Processing {file_path} for domain '{domain}'...")
 
     # Read file
-    with open(file_path, "r") as f:
+    with Path(file_path).open() as f:
         content = f.read()
 
     # Apply transformation
@@ -148,12 +148,12 @@ def main():
         sys.exit(1)
 
     # Write back
-    with open(file_path, "w") as f:
+    with Path(file_path).open("w") as f:
         f.write(modified_content)
 
     print(f"✅ Success: Added {stats['helpers_added']} helper functions")
     print(f"   Domain: {stats['domain']}")
-    print(f"   ⚠️  TODO: Manually implement the helper logic based on tasks_ui.py patterns")
+    print("   ⚠️  TODO: Manually implement the helper logic based on tasks_ui.py patterns")
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ Following 100% Dynamic Architecture:
 - Generic patterns that work for ANY entity type
 - Dynamic rendering via callable entity_renderer
 - Composition-based, not inheritance
-- FrankenUI/DaisyUI styling
+- DaisyUI component library with type-safe enums
 
 Usage:
     from components.shared_ui_components import SharedUIComponents
@@ -20,11 +20,11 @@ Usage:
         entities=habits,
         entity_renderer=HabitUIComponents.render_habit_card,
         quick_actions=[
-            {'label': '➕ New Habit', 'href': '/habits/create', 'class': 'btn-primary'}
+            {'label': '➕ New Habit', 'href': '/habits/wizard/step1', 'class': 'btn-primary'}
         ]
     )
 
-Version: 1.0.0 (October 2025)
+Version: 2.0.0 (January 2026) - DaisyUI Migration
 """
 
 from collections.abc import Callable
@@ -36,21 +36,28 @@ from fasthtml.common import (
     H3,
     A,
     Body,
-    Button,
     Div,
     Form,
     Head,
     Html,
-    Input,
     Label,
     Link,
     Meta,
     Option,
     P,
     Script,
-    Select,
     Span,
     Title,
+)
+
+from core.ui.daisy_components import (
+    Button,
+    ButtonT,
+    Card,
+    Input,
+    InputT,
+    Select,
+    Size,
 )
 
 from core.utils.logging import get_logger
@@ -128,7 +135,7 @@ class SharedUIComponents:
                 entities=habits,
                 entity_renderer=HabitUIComponents.render_habit_card,
                 quick_actions=[
-                    {'label': '➕ New Habit', 'href': '/habits/create', 'class': 'btn-primary'}
+                    {'label': '➕ New Habit', 'href': '/habits/wizard/step1', 'class': 'btn-primary'}
                 ],
                 request=request,  # Recommended: auto-detects user/admin from session
                 active_page="habits",
@@ -246,13 +253,13 @@ class SharedUIComponents:
             color_class = color_classes.get(color, "text-blue-600")
 
             cards.append(
-                Div(
+                Card(
                     Div(
                         Span(str(value), cls=f"text-3xl font-bold {color_class}"),
                         P(label, cls="text-sm text-gray-600 mt-1"),
                         cls="text-center",
                     ),
-                    cls="card bg-base-100 shadow-sm p-4",
+                    cls="p-4",
                 )
             )
 
@@ -285,7 +292,29 @@ class SharedUIComponents:
 
         buttons = []
         for action in actions:
-            btn_attrs = {"cls": action.get("class", "btn btn-secondary")}
+            # Parse variant from class string for backwards compatibility
+            class_str = action.get("class", "btn-secondary")
+            variant = ButtonT.secondary  # default
+
+            # Extract variant from common class patterns
+            if "btn-primary" in class_str:
+                variant = ButtonT.primary
+            elif "btn-secondary" in class_str:
+                variant = ButtonT.secondary
+            elif "btn-ghost" in class_str:
+                variant = ButtonT.ghost
+            elif "btn-outline" in class_str:
+                variant = ButtonT.outline
+            elif "btn-success" in class_str:
+                variant = ButtonT.success
+            elif "btn-warning" in class_str:
+                variant = ButtonT.warning
+            elif "btn-error" in class_str:
+                variant = ButtonT.error
+            elif "btn-info" in class_str:
+                variant = ButtonT.info
+
+            btn_attrs = {"variant": variant}
 
             # Support both href (standard link) and hx_get (HTMX)
             if "href" in action:
@@ -297,10 +326,10 @@ class SharedUIComponents:
 
             buttons.append(Button(action["label"], **btn_attrs))
 
-        return Div(
+        return Card(
             H3("Quick Actions", cls="text-xl font-semibold mb-4"),
             Div(*buttons, cls="flex flex-wrap gap-3"),
-            cls="card bg-base-100 shadow-sm p-6 mb-8",
+            cls="p-6 mb-8",
         )
 
     # ========================================================================
@@ -348,11 +377,11 @@ class SharedUIComponents:
         else:
             entity_cards = [P(empty_message, cls="text-center text-gray-500 py-8")]
 
-        return Div(
+        return Card(
             H2("📋 All Items", cls="text-xl font-semibold mb-4"),
             filter_widget if filter_widget else None,
             Div(*entity_cards, id=list_id, cls="space-y-3"),
-            cls="card bg-base-100 shadow-sm p-4",
+            cls="p-4",
         )
 
     @staticmethod
@@ -415,7 +444,7 @@ class SharedUIComponents:
                 Option("All Categories", value="all", selected=True),
                 *[Option(cat.title(), value=cat) for cat in categories],
                 name="category",
-                cls="select select-bordered",
+                variant=InputT.bordered,
                 hx_get=filter_endpoint,
                 hx_target=target_id,
                 hx_trigger="change",
@@ -452,7 +481,7 @@ class SharedUIComponents:
                     type="text",
                     name="query",
                     placeholder=placeholder,
-                    cls="input input-bordered w-full",
+                    variant=InputT.bordered,
                     hx_post=search_endpoint,
                     hx_target=target_id,
                     hx_trigger="keyup changed delay:300ms",
@@ -530,7 +559,29 @@ class SharedUIComponents:
         """
         action_button = None
         if action:
-            btn_attrs = {"cls": action.get("class", "btn btn-primary")}
+            # Parse variant from class string for backwards compatibility
+            class_str = action.get("class", "btn-primary")
+            variant = ButtonT.primary  # default
+
+            # Extract variant from common class patterns
+            if "btn-primary" in class_str:
+                variant = ButtonT.primary
+            elif "btn-secondary" in class_str:
+                variant = ButtonT.secondary
+            elif "btn-ghost" in class_str:
+                variant = ButtonT.ghost
+            elif "btn-outline" in class_str:
+                variant = ButtonT.outline
+            elif "btn-success" in class_str:
+                variant = ButtonT.success
+            elif "btn-warning" in class_str:
+                variant = ButtonT.warning
+            elif "btn-error" in class_str:
+                variant = ButtonT.error
+            elif "btn-info" in class_str:
+                variant = ButtonT.info
+
+            btn_attrs = {"variant": variant}
             if "href" in action:
                 btn_attrs["onclick"] = f"window.location.href='{action['href']}'"
             elif "hx_get" in action:
@@ -539,7 +590,7 @@ class SharedUIComponents:
                     btn_attrs["hx_target"] = action["hx_target"]
             action_button = Button(action["label"], **btn_attrs)
 
-        return Div(
+        return Card(
             Div(
                 Span(icon, cls="text-6xl mb-4"),
                 H3(title, cls="text-xl font-semibold mb-2"),
@@ -547,7 +598,7 @@ class SharedUIComponents:
                 action_button if action_button else None,
                 cls="text-center py-12",
             ),
-            cls="card bg-base-100 shadow-sm p-6",
+            cls="p-6",
         )
 
     # ========================================================================
@@ -612,7 +663,15 @@ class SharedUIComponents:
                     *[
                         Button(
                             a["label"],
-                            cls=a.get("class", "btn btn-secondary"),
+                            variant=(
+                                ButtonT.primary
+                                if "btn-primary" in a.get("class", "")
+                                else ButtonT.ghost
+                                if "btn-ghost" in a.get("class", "")
+                                else ButtonT.outline
+                                if "btn-outline" in a.get("class", "")
+                                else ButtonT.secondary
+                            ),
                             onclick=f"window.location.href='{a['href']}'" if "href" in a else None,
                         )
                         for a in actions
@@ -624,10 +683,10 @@ class SharedUIComponents:
             ),
             # Additional sections
             *[
-                Div(
+                Card(
                     H2(section["title"], cls="text-xl font-semibold mb-4"),
                     section["content"],
-                    cls="card bg-base-100 shadow-sm p-6 mb-6",
+                    cls="p-6 mb-6",
                 )
                 for section in sections
             ],
@@ -645,17 +704,17 @@ class SharedUIComponentsExamples:
     @staticmethod
     def _simple_habit_card(habit) -> Any:
         """Simple habit card renderer for examples."""
-        return Div(P(habit.name), cls="card bg-base-100 shadow-sm p-4")
+        return Card(P(habit.name), cls="p-4")
 
     @staticmethod
     def _simple_task_card(task) -> Any:
         """Simple task card renderer for examples."""
-        return Div(P(task.title), cls="card bg-base-100 shadow-sm p-4")
+        return Card(P(task.title), cls="p-4")
 
     @staticmethod
     def _simple_goal_card(goal) -> Any:
         """Simple goal card renderer for examples."""
-        return Div(P(goal.title), cls="card bg-base-100 shadow-sm p-4")
+        return Card(P(goal.title), cls="p-4")
 
     @staticmethod
     def habits_dashboard_example(habits) -> Any:
@@ -678,7 +737,7 @@ class SharedUIComponentsExamples:
             entities=habits,
             entity_renderer=SharedUIComponentsExamples._simple_habit_card,
             quick_actions=[
-                {"label": "➕ New Habit", "href": "/habits/create", "class": "btn-primary"},
+                {"label": "➕ New Habit", "href": "/habits/wizard/step1", "class": "btn-primary"},
                 {"label": "📊 Analytics", "href": "/habits/analytics", "class": "btn-secondary"},
             ],
             categories=["health", "productivity", "learning"],

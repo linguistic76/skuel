@@ -11,7 +11,7 @@ Clean component-based UI routes for context-aware functionality.
 - Status: Display-only file, no forms to migrate
 """
 
-from core.auth import get_current_user_or_default
+from core.auth import require_authenticated_user
 
 __version__ = "2.1"
 
@@ -262,7 +262,9 @@ class ContextAwareUIComponents:
 # ============================================================================
 
 
-def create_context_aware_ui_routes(_app, rt, context_service):  # _app unused, signature compatibility
+def create_context_aware_ui_routes(
+    _app, rt, context_service
+):  # _app unused, signature compatibility
     """Create component-based UI routes for context-aware functionality."""
 
     def _transform_dashboard_to_ui_data(
@@ -378,7 +380,7 @@ def create_context_aware_ui_routes(_app, rt, context_service):  # _app unused, s
     @rt("/context")
     async def context_dashboard(request) -> Any:
         """Main context intelligence dashboard"""
-        user_uid = get_current_user_or_default(request)
+        user_uid = require_authenticated_user(request)
 
         try:
             # Fetch dashboard data from service

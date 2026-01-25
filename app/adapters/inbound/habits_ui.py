@@ -30,6 +30,7 @@ from components.atomic_habits_components import AtomicHabitsComponents
 from components.atomic_habits_intelligence import AtomicHabitsIntelligence
 from components.atomic_habits_mobile import AtomicHabitsMobile
 from components.card_generator import CardGenerator
+from components.error_components import ErrorComponents
 from components.form_generator import FormGenerator
 from components.habits_views import HabitsViewComponents
 from components.shared_ui_components import SharedUIComponents
@@ -40,7 +41,7 @@ from core.models.habit.habit_request import HabitCreateRequest
 from core.models.shared_enums import Priority
 from core.services.protocols.facade_protocols import HabitsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
-from core.ui.daisy_components import Button, Card, CardBody, Div, Span
+from core.ui.daisy_components import Button, ButtonT, Card, CardBody, Div, Size, Span
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
@@ -126,7 +127,7 @@ class HabitUIComponents:
         quick_actions = [
             {
                 "label": "New Habit",
-                "hx_get": "/habits/create",
+                "hx_get": "/habits/wizard/step1",
                 "hx_target": "#modal",
                 "class": "btn-primary",
             },
@@ -141,18 +142,6 @@ class HabitUIComponents:
                 "hx_get": "/habits/analytics",
                 "hx_target": "#main-content",
                 "class": "btn-secondary",
-            },
-            {
-                "label": "Progress",
-                "hx_get": "/habits/progress",
-                "hx_target": "#main-content",
-                "class": "btn-outline",
-            },
-            {
-                "label": "Settings",
-                "hx_get": "/habits/settings",
-                "hx_target": "#modal",
-                "class": "btn-ghost",
             },
         ]
 
@@ -240,7 +229,8 @@ class HabitUIComponents:
             buttons.append(
                 Button(
                     "✅ Complete",
-                    cls="btn btn-success btn-sm",
+                    variant=ButtonT.success,
+                    size=Size.sm,
                     hx_post=f"/api/habits/{uid}/track",
                     hx_target="#todays-habits",
                     hx_swap="outerHTML",
@@ -251,20 +241,23 @@ class HabitUIComponents:
             [
                 Button(
                     "📊 View",
-                    cls="btn btn-outline btn-sm",
+                    variant=ButtonT.outline,
+                    size=Size.sm,
                     hx_get=f"/habits/{uid}/details",
                     hx_target="#modal",
                 ),
                 Button(
                     "🧠 Patterns",
-                    cls="btn btn-info btn-sm",
+                    variant=ButtonT.info,
+                    size=Size.sm,
                     hx_get=f"/habits/{uid}/patterns",
                     hx_target="#modal",
                     title="AI Pattern Recognition (Phase 2)",
                 ),
                 Button(
                     "✏️ Edit",
-                    cls="btn btn-ghost btn-sm",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
                     hx_get=f"/habits/{uid}/edit",
                     hx_target="#modal",
                 ),
@@ -460,16 +453,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
 
         return CalendarParams(calendar_view=calendar_view, current_date=current_date)
 
-    def render_error_banner(message: str) -> Div:
-        """Render error banner for UI failures."""
-        return Div(
-            Div(
-                P("⚠️ Error", cls="font-bold text-error"),
-                P(message, cls="text-sm"),
-                cls="alert alert-error",
-            ),
-            cls="mb-4",
-        )
+    # Error rendering moved to components.error_components.ErrorComponents
 
     # ========================================================================
     # ERROR HANDLING
@@ -531,7 +515,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to fetch habits: {e}")
+            return Result.fail(Errors.system(f"Failed to fetch habits: {e}"))
 
     # ========================================================================
     # PURE COMPUTATION HELPERS (Testable without mocks)
@@ -552,10 +536,10 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
         # Required fields
         title = form_data.get("title", "").strip()
         if not title:
-            return Errors.validation("Habit title is required")
+            return Result.fail(Errors.validation("Habit title is required"))
 
         if len(title) > 200:
-            return Errors.validation("Habit title must be 200 characters or less")
+            return Result.fail(Errors.validation("Habit title must be 200 characters or less"))
 
         # Frequency validation
         frequency_str = form_data.get("frequency", "")
@@ -563,11 +547,11 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
             try:
                 frequency = int(frequency_str)
                 if frequency < 1:
-                    return Errors.validation("Frequency must be at least 1")
+                    return Result.fail(Errors.validation("Frequency must be at least 1"))
                 if frequency > 365:
-                    return Errors.validation("Frequency must be 365 or less")
+                    return Result.fail(Errors.validation("Frequency must be 365 or less"))
             except ValueError:
-                return Errors.validation("Invalid frequency")
+                return Result.fail(Errors.validation("Invalid frequency"))
 
         return Result.ok(None)
 
@@ -676,7 +660,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                     "error_message": str(e),
                 },
             )
-            return Errors.system(f"Failed to filter habits: {e}")
+            return Result.fail(Errors.system(f"Failed to filter habits: {e}"))
 
     async def get_categories() -> Result[list[str]]:
         """Get unique habit categories."""
@@ -708,7 +692,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
         if filtered_result.is_error:
             error_content = Div(
                 HabitsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load habits"),
+                ErrorComponents.render_error_banner("Failed to load habits"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return create_habits_page(error_content, request=request)
@@ -716,7 +700,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
         if categories_result.is_error:
             error_content = Div(
                 HabitsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load categories"),
+                ErrorComponents.render_error_banner("Failed to load categories"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
             return create_habits_page(error_content, request=request)
@@ -736,7 +720,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
 
             # Check for errors
             if all_habits_result.is_error:
-                view_content = render_error_banner(
+                view_content = ErrorComponents.render_error_banner(
                     f"Failed to load calendar: {all_habits_result.error}"
                 )
             else:
@@ -781,10 +765,10 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
 
         # Handle errors (return banner directly for HTMX swap)
         if filtered_result.is_error:
-            return render_error_banner("Failed to load habits")
+            return ErrorComponents.render_error_banner("Failed to load habits")
 
         if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
+            return ErrorComponents.render_error_banner("Failed to load categories")
 
         habits, stats = filtered_result.value
         categories = categories_result.value
@@ -806,7 +790,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
 
         # Handle errors
         if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
+            return ErrorComponents.render_error_banner("Failed to load categories")
 
         return HabitsViewComponents.render_create_view(
             categories=categories_result.value,
@@ -823,7 +807,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
 
         # Handle errors
         if habits_result.is_error:
-            return render_error_banner("Failed to load calendar")
+            return ErrorComponents.render_error_banner("Failed to load calendar")
 
         return HabitsViewComponents.render_calendar_view(
             habits=habits_result.value,
@@ -845,7 +829,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
 
         # Handle errors
         if filtered_result.is_error:
-            return render_error_banner("Failed to load habits")
+            return ErrorComponents.render_error_banner("Failed to load habits")
 
         habits, _stats = filtered_result.value
 
@@ -935,31 +919,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
     QuickAddRouteFactory.register_route(rt, habits_quick_add_config)
 
     # ========================================================================
-    # LEGACY ROUTES (kept for backward compatibility)
-    # ========================================================================
-
-    @rt("/habits/create")
-    async def habits_create_form(_request) -> Any:
-        """Create habit form - NEW: Atomic Habits wizard with identity"""
-        return AtomicHabitsComponents.render_habit_creation_wizard(step=1)
-
-    @rt("/habits/progress")
-    async def habits_progress_view(_request) -> Any:
-        """Progress view - pure component"""
-        return HabitUIComponents.render_habit_progress_view()
-
-    @rt("/habits/settings")
-    async def habits_settings_page(_request) -> Any:
-        """Habits settings page - pure component"""
-        return Card(
-            CardBody(
-                H1("⚙️ Habit Settings", cls="text-2xl font-bold mb-6"),
-                P("Habit settings interface will be implemented here", cls="text-gray-500"),
-            ),
-            cls="container mx-auto",
-        )
-
-    # ========================================================================
     # ATOMIC HABITS WIZARD ROUTES (Phase 1 MVP)
     # ========================================================================
 
@@ -1031,8 +990,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                     P(f"Failed to create habit: {result.error}", cls="text-gray-700 mb-4"),
                     Button(
                         "Try Again",
-                        cls="btn btn-primary",
-                        hx_get="/habits/create",
+                        variant=ButtonT.primary,
+                        hx_get="/habits/wizard/step1",
                         hx_target="#modal",
                     ),
                     cls="p-6",
@@ -1086,7 +1045,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                 ),
                 Button(
                     "View Habits Dashboard",
-                    cls="btn btn-primary w-full",
+                    variant=ButtonT.primary,
+                    cls="w-full",
                     hx_get="/habits",
                     hx_target="#main-content",
                 ),
@@ -1897,7 +1857,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                     P("Habit not found", cls="text-gray-500"),
                     Button(
                         "Close",
-                        cls="btn btn-sm mt-4",
+                        size=Size.sm,
+                        cls="mt-4",
                         onclick="document.getElementById('modal').innerHTML=''",
                     ),
                 ),
@@ -1927,7 +1888,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                     P(f"Failed to save: {result.error}", cls="text-gray-500"),
                     Button(
                         "Close",
-                        cls="btn btn-sm mt-4",
+                        size=Size.sm,
+                        cls="mt-4",
                         onclick="document.getElementById('modal').innerHTML=''",
                     ),
                 ),
@@ -1953,7 +1915,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                     P(f"Could not load habit: {result.error}", cls="text-gray-500"),
                     Button(
                         "Close",
-                        cls="btn btn-sm mt-4",
+                        size=Size.sm,
+                        cls="mt-4",
                         onclick="document.getElementById('modal').innerHTML=''",
                     ),
                 ),
@@ -2053,12 +2016,13 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                         Button(
                             "Save Changes",
                             type="submit",
-                            cls="btn btn-primary",
+                            variant=ButtonT.primary,
                         ),
                         Button(
                             "Cancel",
                             type="button",
-                            cls="btn btn-ghost ml-2",
+                            variant=ButtonT.ghost,
+                            cls="ml-2",
                             onclick="document.getElementById('modal').innerHTML=''",
                         ),
                         cls="flex gap-2",

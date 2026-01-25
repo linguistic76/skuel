@@ -51,8 +51,10 @@ Date Added: January 2026 (Type Safety Improvements)
 
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
+
+if TYPE_CHECKING:
+    from datetime import date, datetime
 
 # ============================================================================
 # CYPHER QUERY PARAMETERS

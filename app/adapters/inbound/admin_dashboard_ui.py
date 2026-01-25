@@ -25,7 +25,9 @@ Date: 2025-12-07
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, A, Button, Div, P, Span
+from fasthtml.common import H1, H2, H3, A, Div, P, Span
+
+from core.ui.daisy_components import Button, ButtonT
 
 from components.admin_components import (
     AdminAnalyticsComponents,
@@ -458,7 +460,9 @@ def create_admin_dashboard_routes(_app, rt, services):
                 if not tasks_result.is_error:
                     activity_stats["tasks_created"] = len(tasks_result.value or [])
                 else:
-                    logger.warning(f"Failed to fetch task count: {tasks_result.expect_error().message}")
+                    logger.warning(
+                        f"Failed to fetch task count: {tasks_result.expect_error().message}"
+                    )
 
             habits_service = getattr(services, "habits", None)
             if habits_service:
@@ -466,7 +470,9 @@ def create_admin_dashboard_routes(_app, rt, services):
                 if not habits_result.is_error:
                     activity_stats["habits_active"] = len(habits_result.value or [])
                 else:
-                    logger.warning(f"Failed to fetch habit count: {habits_result.expect_error().message}")
+                    logger.warning(
+                        f"Failed to fetch habit count: {habits_result.expect_error().message}"
+                    )
 
             goals_service = getattr(services, "goals", None)
             if goals_service:
@@ -474,7 +480,9 @@ def create_admin_dashboard_routes(_app, rt, services):
                 if not goals_result.is_error:
                     activity_stats["goals_active"] = len(goals_result.value or [])
                 else:
-                    logger.warning(f"Failed to fetch goal count: {goals_result.expect_error().message}")
+                    logger.warning(
+                        f"Failed to fetch goal count: {goals_result.expect_error().message}"
+                    )
 
             # Journals service
             journals_service = getattr(services, "journals", None)
@@ -483,17 +491,16 @@ def create_admin_dashboard_routes(_app, rt, services):
                 if not journal_result.is_error:
                     activity_stats["journals_submitted"] = len(journal_result.value or [])
                 else:
-                    logger.warning(f"Failed to fetch journal count: {journal_result.expect_error().message}")
+                    logger.warning(
+                        f"Failed to fetch journal count: {journal_result.expect_error().message}"
+                    )
 
         except Exception as e:
             logger.error(f"Error fetching activity stats: {e}")
             # Leave as None values to show "N/A" in UI
 
         # Transform None to display-friendly values
-        display_stats = {
-            k: v if v is not None else "N/A"
-            for k, v in activity_stats.items()
-        }
+        display_stats = {k: v if v is not None else "N/A" for k, v in activity_stats.items()}
         activity_stats = display_stats
 
         analytics_data = {
@@ -546,7 +553,9 @@ def create_admin_dashboard_routes(_app, rt, services):
                 if not result.is_error:
                     health_data = result.value
                 else:
-                    logger.warning(f"Failed to fetch system health: {result.expect_error().message}")
+                    logger.warning(
+                        f"Failed to fetch system health: {result.expect_error().message}"
+                    )
                     health_data = {
                         "status": "error",
                         "components": {},
@@ -576,7 +585,7 @@ def create_admin_dashboard_routes(_app, rt, services):
             Div(
                 Button(
                     "Refresh",
-                    cls="btn btn-outline",
+                    variant=ButtonT.outline,
                     hx_get="/admin/system",
                     hx_target="body",
                     hx_swap="outerHTML",
