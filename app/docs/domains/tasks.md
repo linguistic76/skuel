@@ -4,7 +4,12 @@ created: 2025-12-04
 updated: 2026-01-11
 status: current
 category: domains
-tags: [tasks, activity-domain, domain]
+tags:
+- tasks
+- activity-domain
+- domain
+related_skills:
+- activity-domains
 ---
 
 # Tasks Domain

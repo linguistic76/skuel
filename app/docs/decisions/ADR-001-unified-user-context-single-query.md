@@ -5,6 +5,9 @@ status: current
 category: decisions
 tags: [001, adr, context, decisions, query]
 related: []
+tracking: conceptual
+last_reviewed: 2025-09-15
+review_frequency: annual
 ---
 
 # ADR-001: Single Complex Query for Unified User Context
@@ -69,7 +72,7 @@ We will use a **single complex Cypher query** with multiple MATCH clauses and st
 - Collect UIDs and counts for each domain
 - Return comprehensive context object with all data
 
-**File:** `/core/services/user/graph_sourced_context_builder.py:128`
+**File:** `/core/services/user/user_context_queries.py:32`
 
 **Complexity Breakdown:**
 - 8 MATCH clauses (16 pts)

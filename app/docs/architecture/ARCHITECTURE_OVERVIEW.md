@@ -5,6 +5,9 @@ status: current
 category: architecture
 tags: [architecture, overview]
 related: []
+tracking: conceptual
+last_reviewed: 2026-01-20
+review_frequency: quarterly
 ---
 
 # SKUEL Architecture Guide

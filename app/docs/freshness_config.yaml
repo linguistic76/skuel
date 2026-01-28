@@ -1,0 +1,59 @@
+# Documentation Freshness Configuration
+#
+# This file defines staleness thresholds and review schedules for
+# documentation freshness tracking.
+
+staleness:
+  # Grace period (days) - changes within this window are OK
+  grace_period: 1
+
+  # Warning threshold (days) - flagged as stale but not critical
+  warning_threshold: 7
+
+  # Critical threshold (days) - serious staleness requiring immediate attention
+  critical_threshold: 30
+
+# Review schedules by documentation category
+# These apply to docs marked with tracking: conceptual or tracking: hybrid
+review_schedules:
+  # Architecture docs - foundational design decisions
+  architecture: quarterly
+
+  # Pattern docs - implementation patterns that evolve with code
+  patterns: quarterly
+
+  # Decision records (ADRs) - historical, rarely change
+  decisions: annual
+
+  # Guides - step-by-step instructions that need regular updates
+  guides: quarterly
+
+  # Reference docs - enums, protocols, API references (change often)
+  reference: monthly
+
+  # Intelligence docs - vision and roadmap documents
+  intelligence: annual
+
+  # Domain docs - domain-specific documentation
+  domains: quarterly
+
+  # DSL docs - language specification and usage
+  dsl: quarterly
+
+  # Migration docs - historical records
+  migrations: annual
+
+  # Examples and demos - instructional content
+  examples: quarterly
+
+  # Roadmap - future planning
+  roadmap: quarterly
+
+# Default review frequency for docs without explicit category
+default_review_frequency: quarterly
+
+# Future: Add custom rules per-doc or per-directory
+# custom_rules:
+#   - path: "docs/reference/ENUM_REFERENCE.md"
+#     review_frequency: monthly
+#     reason: "Enums change frequently with new domain additions"

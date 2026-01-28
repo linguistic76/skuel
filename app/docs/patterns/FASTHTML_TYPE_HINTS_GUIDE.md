@@ -3,8 +3,15 @@ title: FastHTML Type Hints Pattern Guide
 updated: 2025-11-18
 status: current
 category: patterns
-tags: [fasthtml, guide, hints, patterns, type]
+tags:
+- fasthtml
+- guide
+- hints
+- patterns
+- type
 related: []
+related_skills:
+- fasthtml
 ---
 
 # FastHTML Type Hints Pattern Guide

@@ -1,3 +1,7 @@
+---
+related_skills:
+- fasthtml
+---
 # Route Factory Pattern
 
 *Last updated: 2026-01-24*

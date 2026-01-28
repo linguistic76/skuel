@@ -1,3 +1,7 @@
+---
+related_skills:
+- user-context-intelligence
+---
 # UserContextIntelligence - Central Intelligence Hub
 
 ## Overview
@@ -43,7 +47,6 @@ core/services/user/intelligence/
 ├── synergy_intelligence.py       (382 lines)  - SynergyIntelligenceMixin (Method 6)
 ├── schedule_intelligence.py      (469 lines)  - ScheduleIntelligenceMixin (Method 8)
 ├── daily_planning.py             (254 lines)  - DailyPlanningMixin (Method 5 - THE FLAGSHIP)
-├── graph_native.py               (366 lines)  - GraphNativeMixin (context-based methods)
 ├── core.py                       (245 lines)  - UserContextIntelligence (composes mixins)
 └── factory.py                    (234 lines)  - UserContextIntelligenceFactory
 ```
@@ -885,12 +888,6 @@ class UserContextIntelligence(
 
 **Purpose:** THE core method - synthesize ALL 9 domains to answer "What should I focus on today?"
 
-### GraphNativeMixin
-
-**Location:** `/core/services/user/intelligence/graph_native.py` (366 lines)
-
-**Purpose:** Context-based graph intelligence methods (internal helpers for the 8 flagship methods).
-
 ---
 
 ## Factory Pattern
@@ -1135,14 +1132,11 @@ class ScheduleAwareRecommendation:
 
 ## Testing
 
-### Unit Tests
+### Integration Tests
 
-**Location:** `/tests/services/user/intelligence/`
+**Location:** `/tests/integration/`
 
-Test each mixin independently:
-
-```python
-# Test LearningIntelligenceMixin
+Test intelligence methods and user context workflow:
 async def test_get_optimal_next_learning_steps():
     # Mock context and services
     context = create_mock_context()
@@ -1154,15 +1148,7 @@ async def test_get_optimal_next_learning_steps():
     # Assert
     assert len(steps) <= 3
     assert all(step.prerequisites_met for step in steps)
-```
 
-### Integration Tests
-
-**Location:** `/tests/integration/intelligence/`
-
-Test full intelligence workflow:
-
-```python
 async def test_daily_planning_workflow():
     # Build real context
     context = await user_service.get_user_context("user.mike")

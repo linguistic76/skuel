@@ -4,7 +4,12 @@ created: 2025-12-04
 updated: 2026-01-19
 status: current
 category: domains
-tags: [habits, activity-domain, domain]
+tags:
+- habits
+- activity-domain
+- domain
+related_skills:
+- activity-domains
 ---
 
 # Habits Domain

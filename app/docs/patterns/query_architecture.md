@@ -4,7 +4,17 @@ created: 2025-10-17
 updated: 2026-01-21
 status: active
 audience: developers
-tags: [patterns, query, architecture, cypher, apoc, intent-based-traversal, typeddict]
+tags:
+- patterns
+- query
+- architecture
+- cypher
+- apoc
+- intent-based-traversal
+- typeddict
+related_skills:
+- neo4j-cypher-patterns
+- skuel-search-architecture
 ---
 
 # Query Architecture
@@ -23,9 +33,10 @@ SKUEL's query architecture uses a two-layer pattern with three specialized build
 
 ```
 /core/models/query/  # Infrastructure level, accessible to ALL domains
-├── query_models.py        # Core query building, APOC operations
+├── _query_models.py       # Core query building, APOC operations
 ├── cypher_template.py     # Query optimization strategies
 ├── query_analysis.py      # Query parsing (legacy, consolidated)
+├── cypher/                # Cypher query generators (domain, intelligence, etc.)
 ├── __init__.py            # Clean public API
 └── README.md              # Usage documentation
 ```
@@ -129,9 +140,9 @@ batch_query = ApocQueryBuilder.build_batch_merge_nodes(event_nodes)
 | **ApocQueryBuilder** | APOC-powered operations | Batch operations, schema-aware merges |
 | **QueryBuilder** | Index-aware optimization | Performance-critical queries, search |
 
-### CypherGenerator - Pure Cypher Queries
+### Cypher Query Generators - Pure Cypher Queries
 
-**Location:** `/core/models/query/cypher_generator.py`
+**Location:** `/core/models/query/cypher/`
 
 **Use for:** Model introspection queries, semantic relationship traversal, pure Cypher generation.
 
@@ -256,7 +267,7 @@ BaseService provides `_records_to_domain_models()` helper for this pattern.
 
 ### ApocQueryBuilder - APOC Operations
 
-**Location:** `/core/models/query/query_models.py`
+**Location:** `/core/models/query/_query_models.py`
 
 **Use for:** Batch operations, schema-aware merges, complex graph operations requiring APOC.
 
@@ -442,9 +453,9 @@ validation = await qb.validate_query(query_string)
    - Relationship-aware context queries
    - Depth-limited graph exploration
 
-### Layer 3: Infrastructure Layer → CypherGenerator
+### Layer 3: Infrastructure Layer → Cypher Query Generators
 
-**Location:** `/core/models/query/cypher_generator.py`
+**Location:** `/core/models/query/cypher/`
 
 **Purpose:** Pure Cypher query utilities (no orchestration, no state)
 
@@ -803,8 +814,8 @@ This is the **primary query architecture documentation**. Start here.
 
 | Component | Location |
 |-----------|----------|
-| CypherGenerator | `/core/models/query/cypher_generator.py` |
-| ApocQueryBuilder | `/core/models/query/query_models.py` |
+| Cypher Query Generators | `/core/models/query/cypher/` |
+| ApocQueryBuilder | `/core/models/query/_query_models.py` |
 | QueryBuilder | `/core/services/query_builder.py` |
 | GraphIntelligenceService | `/core/services/infrastructure/graph_intelligence_service.py` |
 | QueryIntent enum | `/core/models/query/_query_models.py` |

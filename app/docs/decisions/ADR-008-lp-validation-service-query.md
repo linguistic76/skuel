@@ -56,7 +56,7 @@ Use **single complex query** with:
 5. Blocker identification using list comprehensions
 6. First blocker extraction for immediate action
 
-**File:** `/core/services/lp/lp_validation_service.py:222-265`
+**File:** `/core/services/lp/lp_core_service.py:222-265`
 
 **Complexity Breakdown:**
 - 4 MATCH clauses (8 pts)
@@ -280,9 +280,9 @@ Nested prerequisite: Variables ❌ NOT mastered → User will fail
 
 ## Implementation Details
 
-**Location:** `/core/services/lp/lp_validation_service.py:222-265`
+**Location:** `/core/services/lp/lp_core_service.py:222-265`
 
-**Helper Method:** `/core/services/lp/lp_validation_service.py:80-106`
+**Helper Method:** `/core/services/lp/lp_core_service.py:80-106`
 
 **Performance:**
 - Typical: 120-180ms (10 steps, 2-3 blockers)

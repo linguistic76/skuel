@@ -15,7 +15,6 @@ tags: [documentation, index, hub, architecture, patterns]
 >
 > **Note:** `/home/mike/0bsidian/skuel/docs/` contains Knowledge Unit (KU) **content** for the knowledge graph - learning materials about topics like investment, life, environment, etc. It is NOT technical documentation.
 
-**Location:** `/home/mike/skuel/app/docs/`
 **Last Updated:** 2026-01-02
 **Total Documents:** 123
 

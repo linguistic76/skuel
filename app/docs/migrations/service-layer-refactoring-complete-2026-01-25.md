@@ -166,7 +166,7 @@ def assignment_to_response(assignment: Assignment) -> dict[str, Any]:
 
 ### Final Decision: No Refactoring Needed ✅
 
-**File:** `search_routes.py`
+**File:** `/adapters/inbound/search_routes.py`
 **Initial Concern:** 79 lines of parameter validation/cleaning
 **Final Status:** **Correctly structured - no changes needed**
 

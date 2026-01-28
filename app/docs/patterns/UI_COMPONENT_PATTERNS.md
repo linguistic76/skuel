@@ -1,3 +1,11 @@
+---
+related_skills:
+- daisyui
+- html-htmx
+- html-navigation
+- js-alpine
+- tailwind-css
+---
 # UI Component Patterns
 
 *Last updated: 2026-01-24*

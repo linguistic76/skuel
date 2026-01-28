@@ -3,8 +3,13 @@ title: Graph Access Patterns Guide
 updated: 2025-11-27
 status: current
 category: patterns
-tags: [access, graph, patterns]
+tags:
+- access
+- graph
+- patterns
 related: []
+related_skills:
+- neo4j-cypher-patterns
 ---
 
 # Graph Access Patterns Guide

@@ -3,8 +3,16 @@ title: Unified User Architecture - ProfileHubData + UnifiedUserContext Integrati
 updated: 2026-01-20
 status: current
 category: architecture
-tags: [architecture, unified, user, mega-query]
-related: [ADR-015, ADR-029]
+tags:
+- architecture
+- unified
+- user
+- mega-query
+related:
+- ADR-015
+- ADR-029
+related_skills:
+- user-context-intelligence
 ---
 
 # Unified User Architecture - ProfileHubData + UnifiedUserContext Integration
@@ -232,7 +240,8 @@ def _compute_domain_stats_from_context(
 
 ### Building the Profile Hub
 
-**Location:** `/core/services/user_service.py::get_profile_hub_data()`
+**Location:** `/core/services/user_service.py`
+**Method:** `get_profile_hub_data()`
 
 ```python
 async def get_profile_hub_data(self, user_uid: str) -> Result[ProfileHubData]:

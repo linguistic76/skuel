@@ -62,6 +62,32 @@ async def get_learning_opportunities(
 
 **Content Location (different purpose):** `/home/mike/0bsidian/skuel/docs/` contains Knowledge Unit content for ingestion, NOT technical documentation.
 
+## Docstring Philosophy
+
+**Core Principle:** "Three layers - docstrings describe implementation, patterns describe approach, architecture describes design"
+
+| Layer | Location | Purpose | Audience |
+|-------|----------|---------|----------|
+| Implementation | Docstrings | What does THIS do? | Code readers, IDE users |
+| Pattern | /docs/patterns/ | How do we solve this? | Implementers |
+| Architecture | /docs/architecture/ | Why is it designed this way? | Architects, new devs |
+
+**When to Write Docstrings:**
+- Always: Public APIs, complex functions, service classes, protocols
+- Skip: Obvious one-liners, simple private helpers
+
+**Cross-Reference Pattern:**
+```python
+"""
+Brief description.
+
+See: /docs/patterns/PATTERN_NAME.md
+See: /docs/architecture/ARCHITECTURE_NAME.md
+"""
+```
+
+**See:** `/docs/patterns/DOCSTRING_STANDARDS.md`
+
 ## Architecture Decision Records (ADRs)
 
 **Location:** `/docs/decisions/` (33 ADRs)

@@ -1,3 +1,7 @@
+---
+related_skills:
+- skuel-search-architecture
+---
 # Search Service Method Reference
 *Last updated: 2026-01-06*
 
@@ -496,9 +500,9 @@ _graph_enrichment_patterns = [
 
 ---
 
-### MocSearchService
+### MocNavigationService
 
-**File:** `core/services/moc/moc_search_service.py`
+**File:** `/core/services/moc/moc_navigation_service.py`
 
 **Configuration:**
 ```python

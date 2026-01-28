@@ -4,7 +4,14 @@ created: 2025-12-04
 updated: 2026-01-11
 status: current
 category: domains
-tags: [ls, learning-step, curriculum-domain, domain, adr-030]
+tags:
+- ls
+- learning-step
+- curriculum-domain
+- domain
+- adr-030
+related_skills:
+- curriculum-domains
 ---
 
 # LS (Learning Step) Domain

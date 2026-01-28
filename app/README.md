@@ -369,6 +369,31 @@ poetry run ruff format .
 
 ---
 
+## Demo & Examples
+
+### Mindfulness 101 Demo
+
+Try SKUEL with a complete curriculum bundle:
+
+```bash
+# 1. Complete database reset
+poetry run python scripts/clear_neo4j.py reset
+# Type: DELETE EVERYTHING
+
+# 2. Load curriculum bundle
+poetry run python scripts/fresh_start_mindfulness.py
+# Type: FRESH START
+
+# 3. Explore in Neo4j Browser
+# Open: http://localhost:7474
+```
+
+This demo creates 6 curriculum entities (3 KUs, 2 Learning Steps, 1 Learning Path) to explore SKUEL's knowledge-centric approach.
+
+**For complete demo documentation**, see `/docs/examples/mindfulness-101-demo.md`
+
+---
+
 ## Getting Help
 
 ### Documentation Resources

@@ -3,8 +3,20 @@ title: Search Architecture - Unified Search System
 updated: 2026-01-05
 status: current
 category: architecture
-tags: [architecture, search, mega-query, graph-aware, unified-domains, pedagogical, nous]
-related: [QUERY_PATTERNS.md, UNIFIED_USER_ARCHITECTURE.md, ADR-023-curriculum-baseservice-migration.md]
+tags:
+- architecture
+- search
+- mega-query
+- graph-aware
+- unified-domains
+- pedagogical
+- nous
+related:
+- QUERY_PATTERNS.md
+- UNIFIED_USER_ARCHITECTURE.md
+- ADR-023-curriculum-baseservice-migration.md
+related_skills:
+- skuel-search-architecture
 ---
 
 # Search Architecture - Unified Search System
@@ -420,9 +432,9 @@ await lp_service.search.get_aligned_with_goal("goal:learn-python")
 await lp_service.search.intelligent_search("structured tech beginner")
 ```
 
-### MocSearchService - Maps of Content Search
+### MocNavigationService - Maps of Content Navigation
 
-**Location:** `/core/services/moc/moc_search_service.py`
+**Location:** `/core/services/moc/moc_navigation_service.py`
 
 **Backend:** `adapters/persistence/neo4j/moc_backend.py` (MocUniversalBackend)
 

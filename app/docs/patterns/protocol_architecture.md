@@ -4,8 +4,15 @@ created: 2026-01-03
 updated: 2026-01-07
 status: active
 audience: developers
-tags: [patterns, protocols, architecture]
-related: [ADR-017-relationship-service-unification.md, ADR-023-curriculum-baseservice-migration.md]
+tags:
+- patterns
+- protocols
+- architecture
+related:
+- ADR-017-relationship-service-unification.md
+- ADR-023-curriculum-baseservice-migration.md
+related_skills:
+- python
 ---
 
 # Protocol-Based Architecture

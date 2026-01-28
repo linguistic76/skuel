@@ -3,8 +3,18 @@ title: HTMX Version Standardization Guide
 updated: 2026-01-15
 status: current
 category: guides
-tags: [htmx, fasthtml, navigation, layout, critical]
-related: [UI_COMPONENT_PATTERNS.md, ALPINE_JS_ARCHITECTURE.md, FASTHTML_ROUTE_REGISTRATION.md]
+tags:
+- htmx
+- fasthtml
+- navigation
+- layout
+- critical
+related:
+- UI_COMPONENT_PATTERNS.md
+- ALPINE_JS_ARCHITECTURE.md
+- FASTHTML_ROUTE_REGISTRATION.md
+related_skills:
+- html-htmx
 ---
 
 # HTMX Version Standardization Guide

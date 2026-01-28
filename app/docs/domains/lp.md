@@ -4,7 +4,15 @@ created: 2025-12-04
 updated: 2026-01-11
 status: current
 category: domains
-tags: [lp, learning-path, curriculum-domain, domain, adr-030, adr-031]
+tags:
+- lp
+- learning-path
+- curriculum-domain
+- domain
+- adr-030
+- adr-031
+related_skills:
+- curriculum-domains
 ---
 
 # LP (Learning Path) Domain

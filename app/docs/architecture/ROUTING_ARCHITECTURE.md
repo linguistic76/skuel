@@ -1,6 +1,6 @@
 ---
 title: SKUEL Routing Architecture: Routes, Services, and Persistence
-updated: 2026-01-24
+updated: 2026-01-29
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -9,7 +9,7 @@ related: [OWNERSHIP_VERIFICATION.md]
 
 # SKUEL Routing Architecture: Routes, Services, and Persistence
 
-**Last Updated**: January 24, 2026
+**Last Updated**: January 29, 2026
 
 ## Overview
 
@@ -762,6 +762,11 @@ class TasksService:
 
 ### How Everything Gets Wired Together
 
+**Philosophy Change (January 2026):**
+- **REQUIRED**: Neo4j (graph database), Deepgram (audio transcription) - fail fast if missing
+- **OPTIONAL**: OpenAI API (AI features) - graceful degradation with basic features if missing
+- Neo4j GenAI embeddings and vector search services enabled via Neo4j AuraDB GenAI Plugin
+
 ```python
 # File: /core/utils/services_bootstrap.py
 
@@ -769,31 +774,81 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
     """
     Bootstrap process:
     1. Create driver
-    2. Create universal backends
-    3. Inject backends into services
-    4. Return services container
+    2. Validate required API keys (fail-fast: Deepgram; optional: OpenAI)
+    3. Create universal backends
+    4. Create optional AI services (Neo4j GenAI embeddings, vector search)
+    5. Inject backends into services
+    6. Return services container
     """
 
     # 1. Get Neo4j driver
     driver = neo4j_adapter.get_driver()
 
-    # 2. Create universal backends (implement protocols)
+    # 2. Validate API keys (GRACEFUL DEGRADATION)
+    # Required: DEEPGRAM_API_KEY - app fails without it
+    # Optional: OPENAI_API_KEY - app runs with basic features
+    required_keys = {
+        "DEEPGRAM_API_KEY": "Deepgram API (required for audio transcription)",
+    }
+
+    recommended_keys = {
+        "OPENAI_API_KEY": "OpenAI API (optional - enables embeddings, semantic search, AI features)",
+    }
+
+    # Fail fast on missing required keys
+    # Warn on missing optional keys (app continues)
+
+    # 3. Create optional AI services
+    try:
+        openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+        if openai_api_key and openai_api_key not in ["your-openai-api-key-here", "", "sk-"]:
+            embeddings_service = OpenAIEmbeddingsService(api_key=openai_api_key)
+            logger.info("✅ Embeddings service initialized (OpenAI)")
+        else:
+            embeddings_service = None
+            logger.warning("⚠️ Embeddings service disabled - app runs with basic features only")
+    except Exception as e:
+        embeddings_service = None
+        logger.warning("⚠️ Embeddings service disabled - continuing with basic features")
+
+    # 4. Create Neo4j GenAI services (January 2026 - Vector Search Integration)
+    # Uses Neo4j's native GenAI plugin for embeddings and vector search
+    # API keys configured at database level (AuraDB console)
+    try:
+        genai_embeddings_service = Neo4jGenAIEmbeddingsService(driver)
+        vector_search_service = Neo4jVectorSearchService(driver, genai_embeddings_service)
+        logger.info("✅ Neo4j GenAI services created (vector search enabled)")
+    except Exception as e:
+        genai_embeddings_service = None
+        vector_search_service = None
+        logger.warning("⚠️ Neo4j GenAI services unavailable - using keyword search fallback")
+
+    # 5. Create universal backends (implement protocols)
     tasks_backend = TasksUniversalBackend(driver)
     events_backend = EventsUniversalBackend(driver)
     habits_backend = HabitsUniversalBackend(driver)
     # ... all 15 domains
 
-    # 3. Create services with backend injection
+    # 6. Create services with backend injection and optional AI services
     tasks_service = TasksService(backend=tasks_backend)
     events_service = EventsService(backend=events_backend)
     habits_service = HabitsService(backend=habits_backend)
+
+    # KU service receives optional vector search and embeddings services
+    ku_service = KuService(
+        repo=knowledge_backend,
+        # ... other dependencies ...
+        vector_search_service=vector_search_service,  # Optional - can be None
+        embeddings_service=genai_embeddings_service,  # Optional - can be None
+    )
     # ... all 15 domains
 
-    # 4. Return services container
+    # 7. Return services container
     services = Services(
         tasks=tasks_service,
         events=events_service,
         habits=habits_service,
+        ku=ku_service,
         # ... all 15 domains
     )
 
@@ -1031,8 +1086,9 @@ This architecture ensures:
 
 ---
 
-*Last Updated: January 24, 2026*
+*Last Updated: January 29, 2026*
 *Architecture: Routes → Services → Backends → Neo4j*
 *Pattern: Protocol-Based Dependency Injection*
 *Security: Content Scope (USER_OWNED vs SHARED) on All Routes*
-*Philosophy: Clean Architecture, One Path Forward*
+*Philosophy: Clean Architecture, One Path Forward, Graceful Degradation for AI Features*
+*AI Services: OpenAI (optional), Neo4j GenAI Vector Search (optional)*

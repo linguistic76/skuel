@@ -3,8 +3,17 @@ title: Admin Dashboard Architecture
 updated: 2025-12-07
 status: current
 category: architecture
-tags: [architecture, admin, ui, dashboard, security]
-related: [ROUTING_ARCHITECTURE.md, USER_MODEL_ARCHITECTURE.md]
+tags:
+- architecture
+- admin
+- ui
+- dashboard
+- security
+related:
+- ROUTING_ARCHITECTURE.md
+- USER_MODEL_ARCHITECTURE.md
+related_skills:
+- chartjs
 ---
 
 # Admin Dashboard Architecture

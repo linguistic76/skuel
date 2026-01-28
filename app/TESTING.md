@@ -1,3 +1,7 @@
+---
+related_skills:
+- pytest
+---
 # SKUEL Testing Guide
 
 **Last Updated:** January 3, 2026

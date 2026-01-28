@@ -390,9 +390,9 @@ curl "http://localhost:8000/api/tasks/by-status?status=active"
 
 ## Migration Script
 
-**Location:** `/home/mike/skuel0/scripts/apply_query_factory.py`
+**Note:** This was a one-time migration script (January 2026) that has been completed. The pattern is now applied across all domains.
 
-**Usage:**
+**Historical Usage:**
 ```bash
 # Apply CommonQueryRouteFactory to all configured domains
 poetry run python scripts/apply_query_factory.py
@@ -447,8 +447,6 @@ DOMAIN_CONFIG = {
 - V2 pattern (manual extraction) is proven and works correctly
 
 **Recommendation:** Stay with V2 pattern (CRUDRouteFactory + manual extraction)
-
-**Documentation:** `/home/mike/skuel0/docs/migrations/CHOICE_API_V3_FINDINGS.md`
 
 ---
 

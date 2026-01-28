@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2025-12-07
+updated: 2026-01-29
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -14,8 +14,8 @@ related: []
 > `/home/mike/0bsidian/skuel/docs/` contains **content** (KU docs), NOT technical documentation.
 
 *Generated: 2025-12-07*
-*Updated: 2026-01-25*
-*Total: 146 documents*
+*Updated: 2026-01-29*
+*Total: 147 documents*
 
 > **📝 Documentation Standards:**
 > - **File Naming:** UPPERCASE for major reference docs/guides, lowercase for specific patterns
@@ -205,6 +205,7 @@ related: []
 |----------|---------|-------|
 | [Askesis Search Architecture - Clean & Independent](guides/ASKESIS_SEARCH_ARCHITECTURE.md) | 2025-11-27 | 243 |
 | [Event-Driven Architecture Migration Guide](guides/EVENT_DRIVEN_MIGRATION_GUIDE.md) | 2025-11-27 | 703 |
+| **[GitHub Fundamentals - Local to Remote Workflow](guides/GITHUB_FUNDAMENTALS.md)** | **2026-01-29** | **980** |
 | [Intelligence Route Factory - Usage Guide](guides/INTELLIGENCE_ROUTE_FACTORY_USAGE.md) | 2025-11-27 | 555 |
 | [HTMX Version Standardization Guide](guides/HTMX_VERSION_STANDARDIZATION.md) | 2026-01-15 | 280 |
 | [Protocol Implementation Guide](guides/PROTOCOL_IMPLEMENTATION_GUIDE.md) | 2026-01-03 | 475 |
@@ -250,6 +251,28 @@ related: []
 | [Domain Route Config Migration](migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-01-24.md) | 2026-01-24 | 251 |
 | [Neo4j Label Standardization Migration Plan](migrations/NEO4J_LABEL_STANDARDIZATION.md) | 2025-11-27 | 167 |
 | [Ports to Protocols Migration History](migrations/PORTS_TO_PROTOCOLS_MIGRATION.md) | 2026-01-03 | 385 |
+| [Assignments Routes Refactoring](migrations/assignments-refactoring-2026-01-25.md) | 2026-01-25 | 274 |
+| [Visualization Routes Refactoring](migrations/visualization-refactoring-2026-01-25.md) | 2026-01-25 | 208 |
+| [Service Refactoring Analysis](migrations/service-refactoring-analysis-2026-01-25.md) | 2026-01-25 | 298 |
+| [Service Layer Refactoring Complete](migrations/service-layer-refactoring-complete-2026-01-25.md) | 2026-01-25 | 435 |
+| [Context Health Score Enum Improvement](migrations/health-score-enum-improvement-2026-01-25.md) | 2026-01-25 | 334 |
+| [Documentation Updates 2026-01-25](migrations/documentation-updates-2026-01-25.md) | 2026-01-25 | - |
+
+## Roadmap
+
+*Future features and service development*
+
+| Document | Updated | Lines |
+|----------|---------|-------|
+| [Future Services](roadmap/future-services.md) | 2026-01-25 | - |
+
+## Examples
+
+*Demos and example workflows*
+
+| Document | Updated | Lines |
+|----------|---------|-------|
+| [Mindfulness 101 Demo](examples/mindfulness-101-demo.md) | 2026-01-25 | 198 |
 
 ## Technical Debt
 
@@ -294,12 +317,6 @@ related: []
 | [SKUEL Codebase Analysis - DRY & Separation of Conc...](ANALYSIS_README.md) | 2025-11-28 | 199 |
 | [SKUEL Documentation Hub](README.md) | 2025-12-04 | 153 |
 | [SKUEL Refactoring Checklist](REFACTORING_CHECKLIST.md) | 2025-11-28 | 323 |
-| **2026-01 Service Layer Refactoring** |
-| [Service Layer Refactoring - Complete](../REFACTORING-COMPLETE.md) | 2026-01-25 | 435 |
-| [Service Refactoring Analysis (44 Routes)](../service-refactoring-analysis.md) | 2026-01-25 | 298 |
-| [Visualization Routes Refactoring](../visualization-refactoring-summary.md) | 2026-01-25 | 208 |
-| [Assignments Routes Refactoring](../assignments-refactoring-summary.md) | 2026-01-25 | 274 |
-| [Context Health Score Enum Improvement](../health-score-enum-improvement.md) | 2026-01-25 | 334 |
 | [SKUEL Development Phases](PHASES.md) | 2026-01-03 | 440 |
 | [SKUEL Phase Dependencies](PHASE_DEPENDENCIES.md) | 2026-01-03 | 180 |
 
@@ -307,9 +324,9 @@ related: []
 
 ## Statistics
 
-- **Total documents:** 146
+- **Total documents:** 156 (146 + 7 migrations + 1 roadmap + 1 example + 1 mindfulness demo)
 - **Total lines:** ~62,000
-- **Categories:** 12
+- **Categories:** 14 (added Roadmap, Examples)
 
 **By status:**
 - active: 7

@@ -3,8 +3,16 @@ title: Return Type Error Propagation Pattern
 updated: 2025-12-05
 status: current
 category: patterns
-tags: [error, patterns, propagation, return, type, tuple-unpacking]
+tags:
+- error
+- patterns
+- propagation
+- return
+- type
+- tuple-unpacking
 related: []
+related_skills:
+- result-pattern
 ---
 
 # Return Type Error Propagation Pattern

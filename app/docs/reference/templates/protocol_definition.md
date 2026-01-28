@@ -217,7 +217,7 @@ class SomeFacadeProtocol(Protocol):
         ...
 
 # Step 2: Use as type hint in consuming code
-# File: /anywhere/that/uses/service.py
+# Example file location: <your_service_file>.py
 
 from typing import TYPE_CHECKING
 

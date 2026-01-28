@@ -3,8 +3,17 @@ title: SKUEL 14-Domain Architecture
 updated: 2026-01-19
 status: current
 category: architecture
-tags: [architecture, domain, fourteen]
-related: [ADR-019-transcription-service-standalone, ADR-023-curriculum-baseservice-migration, ADR-024-baseintellligence-service-migration, ADR-025-service-consolidation-patterns]
+tags:
+- architecture
+- domain
+- fourteen
+related:
+- ADR-019-transcription-service-standalone
+- ADR-023-curriculum-baseservice-migration
+- ADR-024-baseintellligence-service-migration
+- ADR-025-service-consolidation-patterns
+related_skills:
+- activity-domains
 ---
 
 # SKUEL 14-Domain Architecture

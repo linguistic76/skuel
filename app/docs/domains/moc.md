@@ -4,7 +4,14 @@ created: 2025-12-04
 updated: 2026-01-20
 status: current
 category: domains
-tags: [moc, map-of-content, organizational-domain, ku-based, montessori]
+tags:
+- moc
+- map-of-content
+- organizational-domain
+- ku-based
+- montessori
+related_skills:
+- curriculum-domains
 ---
 
 # MOC (Map of Content) - KU-Based Architecture

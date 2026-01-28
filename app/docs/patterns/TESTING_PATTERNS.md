@@ -3,8 +3,17 @@ title: Integration Testing Patterns
 updated: 2026-01-07
 status: current
 category: patterns
-tags: [patterns, testing, integration, neo4j]
-related: [BACKEND_OPERATIONS_ISP.md, DOMAIN_RELATIONSHIPS_PATTERN.md, UNIFIED_INGESTION_GUIDE.md]
+tags:
+- patterns
+- testing
+- integration
+- neo4j
+related:
+- BACKEND_OPERATIONS_ISP.md
+- DOMAIN_RELATIONSHIPS_PATTERN.md
+- UNIFIED_INGESTION_GUIDE.md
+related_skills:
+- pytest
 ---
 
 # Integration Testing Patterns

@@ -79,7 +79,7 @@ We will use a **single complex Cypher query** with nested EXISTS patterns and st
 - Readiness score calculation combines prerequisite depth + unlock value
 - LIMIT applied after sorting to minimize result set
 
-**File:** `/core/services/user/user_graph_intelligence.py:135`
+**File:** `/core/services/user/intelligence/learning_intelligence.py`
 
 **Complexity Breakdown:**
 - 4 MATCH clauses (8 pts)
@@ -283,15 +283,15 @@ Fundamentally breaks the learning experience. SKUEL's value is in CORRECT prereq
 
 ### Code Location
 **Where is this decision implemented?**
-- Primary file: `/core/services/user/user_graph_intelligence.py:135-179`
-- Method: `get_ready_to_learn_knowledge()`
-- Called from: Adaptive SEL curriculum service, learning recommendations
+- Primary file: `/core/services/user/intelligence/learning_intelligence.py`
+- Method: `get_optimal_next_learning_steps()`
+- Called from: User context intelligence, learning recommendations
 - Related files:
-  - `/core/services/adaptive_sel_service.py` (primary consumer)
-  - `/core/services/user/user_graph_intelligence.py` (intelligence layer)
+  - `/core/services/user/intelligence/learning_intelligence.py` (learning intelligence layer)
+  - `/core/services/user_progress_service.py` (confidence and progress tracking)
 - Tests:
   - `/tests/integration/test_ready_to_learn_query.py` (8/8 passing)
-  - `/tests/test_adaptive_sel_service.py` (prerequisite filtering tests)
+  - `/tests/integration/intelligence/` (intelligence service tests)
 
 ### Complexity Analysis
 **Breakdown of query complexity:**

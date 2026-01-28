@@ -1,0 +1,220 @@
+# SKUEL Skills Metadata Registry
+#
+# Central registry for all Claude skills with dependencies,
+# related documentation, and keywords.
+#
+# Skills are organized by foundation layer (base dependencies).
+
+skills:
+  # ============================================================================
+  # FOUNDATION LAYER - No dependencies
+  # ============================================================================
+
+  - name: python
+    description: Python development patterns in SKUEL
+    foundation: []
+    dependencies: []
+    primary_docs:
+      - /docs/patterns/three_tier_type_system.md
+      - /docs/patterns/ASYNC_SYNC_DESIGN_PATTERN.md
+      - /docs/patterns/protocol_architecture.md
+    keywords: [python, typing, protocols, dataclass, async, frozen]
+
+  - name: pydantic
+    description: Pydantic V2 validation models
+    foundation: []
+    dependencies: []
+    primary_docs:
+      - /docs/patterns/three_tier_type_system.md
+      - /docs/patterns/API_VALIDATION_PATTERNS.md
+    keywords: [pydantic, validation, basemodel, serialization]
+
+  - name: tailwind-css
+    description: Utility-first CSS with Tailwind
+    foundation: []
+    dependencies: []
+    primary_docs:
+      - /docs/patterns/UI_COMPONENT_PATTERNS.md
+    keywords: [tailwind, css, styling, responsive, utility-first]
+
+  - name: daisyui
+    description: DaisyUI component library
+    foundation: []
+    dependencies: [tailwind-css]
+    primary_docs:
+      - /docs/patterns/UI_COMPONENT_PATTERNS.md
+    keywords: [daisyui, components, ui, semantic, accessible]
+
+  - name: chartjs
+    description: Chart.js data visualization in SKUEL
+    foundation: []
+    dependencies: []
+    primary_docs:
+      - /docs/architecture/ADMIN_DASHBOARD_ARCHITECTURE.md
+    keywords: [chartjs, visualization, graphs, charts, analytics]
+
+  # ============================================================================
+  # WEB FRAMEWORK LAYER
+  # ============================================================================
+
+  - name: fasthtml
+    description: FastHTML - Python's server-rendered hypermedia framework
+    foundation: [python]
+    dependencies: [python]
+    primary_docs:
+      - /docs/patterns/FASTHTML_ROUTE_REGISTRATION.md
+      - /docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md
+      - /docs/patterns/ROUTE_FACTORIES.md
+    keywords: [fasthtml, routes, fast_app, FT, server-rendered]
+
+  - name: html-htmx
+    description: Semantic HTML and HTMX (HTTP-complete HTML)
+    foundation: [fasthtml]
+    dependencies: [fasthtml]
+    primary_docs:
+      - /docs/patterns/UI_COMPONENT_PATTERNS.md
+      - /docs/guides/HTMX_VERSION_STANDARDIZATION.md
+    keywords: [html, htmx, hypermedia, hx-*, ajax]
+
+  - name: html-navigation
+    description: Building navigation components
+    foundation: [fasthtml, html-htmx, js-alpine]
+    dependencies: [fasthtml, html-htmx, js-alpine]
+    primary_docs:
+      - /docs/patterns/UI_COMPONENT_PATTERNS.md
+    keywords: [navigation, navbar, sidebar, menu, breadcrumbs]
+
+  - name: js-alpine
+    description: Alpine.js - lightweight reactive JavaScript for HTML
+    foundation: []
+    dependencies: []
+    primary_docs:
+      - /docs/architecture/ALPINE_JS_ARCHITECTURE.md
+      - /docs/patterns/UI_COMPONENT_PATTERNS.md
+    keywords: [alpine, javascript, reactivity, x-data, client-state]
+
+  # ============================================================================
+  # DATABASE & DATA LAYER
+  # ============================================================================
+
+  - name: neo4j-cypher-patterns
+    description: Neo4j Cypher queries and SKUEL's graph patterns
+    foundation: []
+    dependencies: []
+    primary_docs:
+      - /docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md
+      - /docs/patterns/query_architecture.md
+      - /docs/patterns/GRAPH_ACCESS_PATTERNS.md
+      - /docs/patterns/CYPHER_VS_APOC_STRATEGY.md
+    keywords: [neo4j, cypher, graph, relationships, traversal]
+
+  # ============================================================================
+  # SKUEL ARCHITECTURE LAYER
+  # ============================================================================
+
+  - name: result-pattern
+    description: Result[T] error handling pattern
+    foundation: [python]
+    dependencies: [python]
+    primary_docs:
+      - /docs/patterns/ERROR_HANDLING.md
+      - /docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md
+    keywords: [error, result, failure, success, Errors]
+
+  - name: base-analytics-service
+    description: BaseAnalyticsService for domain analytics
+    foundation: [python, result-pattern, neo4j-cypher-patterns]
+    dependencies: [python, result-pattern, neo4j-cypher-patterns]
+    primary_docs:
+      - /docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md
+      - /docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
+    keywords: [analytics, intelligence, graph, IntelligenceOperations]
+
+  - name: base-ai-service
+    description: BaseAIService for AI/LLM features (optional)
+    foundation: [base-analytics-service]
+    dependencies: [base-analytics-service, python, result-pattern]
+    primary_docs:
+      - /docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md
+    keywords: [ai, llm, openai, embeddings, semantic]
+
+  - name: activity-domains
+    description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
+    foundation: [python, result-pattern, neo4j-cypher-patterns]
+    dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
+    primary_docs:
+      - /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
+      - /docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
+      - /docs/domains/tasks.md
+      - /docs/domains/goals.md
+      - /docs/domains/habits.md
+    keywords: [activity, domains, tasks, goals, habits, events, facade]
+
+  - name: curriculum-domains
+    description: Curriculum domain patterns (KU, LS, LP)
+    foundation: [python, result-pattern, neo4j-cypher-patterns]
+    dependencies: [python, result-pattern, neo4j-cypher-patterns]
+    primary_docs:
+      - /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
+      - /docs/domains/ku.md
+      - /docs/domains/ls.md
+      - /docs/domains/lp.md
+      - /docs/domains/moc.md
+    keywords: [curriculum, knowledge, learning, ku, ls, lp, moc]
+
+  - name: skuel-search-architecture
+    description: SKUEL's unified search architecture and SearchRouter
+    foundation: [python, result-pattern, neo4j-cypher-patterns]
+    dependencies: [python, result-pattern, neo4j-cypher-patterns]
+    primary_docs:
+      - /docs/architecture/SEARCH_ARCHITECTURE.md
+      - /docs/patterns/query_architecture.md
+      - /docs/reference/SEARCH_SERVICE_METHODS.md
+    keywords: [search, SearchRouter, faceted, unified, BaseService]
+
+  - name: user-context-intelligence
+    description: UserContextIntelligence - central cross-domain intelligence hub
+    foundation: [base-analytics-service]
+    dependencies: [base-analytics-service, python, result-pattern, activity-domains]
+    primary_docs:
+      - /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
+      - /docs/intelligence/USER_CONTEXT_INTELLIGENCE.md
+    keywords: [UserContext, intelligence, planning, alignment, recommendations]
+
+  # ============================================================================
+  # TESTING LAYER
+  # ============================================================================
+
+  - name: pytest
+    description: SKUEL testing patterns - fixtures, async testing, mocking with Result[T]
+    foundation: [python, result-pattern]
+    dependencies: [python, result-pattern]
+    primary_docs:
+      - /docs/patterns/TESTING_PATTERNS.md
+      - /TESTING.md
+    keywords: [pytest, testing, fixtures, async, integration, unit]
+
+# ============================================================================
+# SKILL DEPENDENCY GRAPH
+# ============================================================================
+#
+# Foundation (no dependencies):
+#   python, pydantic, tailwind-css, daisyui, chartjs, js-alpine, neo4j-cypher-patterns
+#
+# Web Framework:
+#   fasthtml → html-htmx → html-navigation
+#   (html-navigation also depends on js-alpine)
+#
+# SKUEL Architecture:
+#   result-pattern (depends on python)
+#   base-analytics-service (depends on python, result-pattern, neo4j-cypher-patterns)
+#   base-ai-service (depends on base-analytics-service)
+#   activity-domains (depends on python, result-pattern, neo4j-cypher-patterns, base-analytics-service)
+#   curriculum-domains (depends on python, result-pattern, neo4j-cypher-patterns)
+#   skuel-search-architecture (depends on python, result-pattern, neo4j-cypher-patterns)
+#   user-context-intelligence (depends on base-analytics-service, activity-domains)
+#
+# Testing:
+#   pytest (depends on python, result-pattern)
+#
+# No cycles detected - graph is valid ✓

@@ -1,6 +1,6 @@
 ---
 title: SKUEL Enum Reference
-updated: 2025-12-06
+updated: 2026-01-29
 status: current
 category: reference
 tags: [enum, reference, roles]
@@ -9706,7 +9706,7 @@ Four-tier user authorization hierarchy. Higher levels inherit permissions from l
 
 | Value | Level | Description |
 |-------|-------|-------------|
-| `registered` (REGISTERED) | 0 | Free trial user (unlimited curriculum + activities) |
+| `registered` (REGISTERED) | 0 | Free trial with limited access (5 KUs, 1 LP, 10 tasks, 5 goals, 5 habits, 10 events, 5 principles, 5 choices, 3 journals) |
 | `member` (MEMBER) | 1 | Paid subscription (unlimited access) |
 | `teacher` (TEACHER) | 2 | Content creator (Member + create/edit KU, LP, MOC) |
 | `admin` (ADMIN) | 3 | System manager (Teacher + user management) |
@@ -9715,6 +9715,7 @@ Four-tier user authorization hierarchy. Higher levels inherit permissions from l
 
 - `has_permission(required: UserRole) -> bool`: Check if this role has permission for required level
 - `is_subscriber() -> bool`: True if MEMBER or above (paid users)
+- `is_trial() -> bool`: True if REGISTERED (free trial users)
 - `can_create_curriculum() -> bool`: True if TEACHER or above
 - `can_manage_users() -> bool`: True only for ADMIN
 - `from_string(value: str) -> UserRole | None`: Parse string to UserRole
@@ -9739,6 +9740,62 @@ role = UserRole.from_string("admin")  # Returns UserRole.ADMIN
 ```
 
 **See:** `/docs/decisions/ADR-018-user-roles-four-tier-system.md`
+
+---
+
+### ContextHealthScore
+
+**Location:** `core/models/enums/user_enums.py`
+
+**Added:** January 2026 (User Context Intelligence)
+
+Health score assessment for UserContext quality across multiple dimensions. Provides semantic scoring (0.0-1.0), visual feedback (colors/icons), and tier-based evaluation.
+
+**Valid values:**
+
+| Value | Numeric Score | Color | Icon | Description |
+|-------|---------------|-------|------|-------------|
+| `poor` (POOR) | 0.25 | Red (#ef4444) | 🔴 | Critical issues, immediate attention needed |
+| `fair` (FAIR) | 0.50 | Yellow (#eab308) | 🟡 | Some gaps, improvement recommended |
+| `good` (GOOD) | 0.75 | Green (#22c55e) | 🟢 | Healthy state, minor optimizations possible |
+| `excellent` (EXCELLENT) | 1.00 | Blue (#3b82f6) | 🟢 | Optimal state across all dimensions |
+
+**Key Methods:**
+
+- `get_numeric() -> float`: Returns 0.0-1.0 score (0.25, 0.50, 0.75, 1.00)
+- `get_color() -> str`: Returns hex color code for UI display
+- `get_icon() -> str`: Returns emoji icon (🔴 🟡 🟢)
+- `from_string(value: str) -> ContextHealthScore | None`: Parse string to ContextHealthScore
+- `default() -> ContextHealthScore`: Returns FAIR (default for new users)
+
+**Usage Example:**
+
+```python
+from core.models.enums import ContextHealthScore
+
+# Assess context health
+score = ContextHealthScore.GOOD
+
+# Get numeric value for calculations
+if score.get_numeric() >= 0.75:
+    print("Context is healthy")  # True
+
+# UI display with color/icon
+color = score.get_color()  # "#22c55e"
+icon = score.get_icon()    # "🟢"
+print(f"{icon} Health: {score.value}")  # "🟢 Health: good"
+
+# Parse from string
+health = ContextHealthScore.from_string("excellent")  # Returns ContextHealthScore.EXCELLENT
+```
+
+**Used By:**
+- `UserContextIntelligence` - Overall context health assessment
+- Profile hub - Visual health indicators
+- Recommendations - Prioritization based on health scores
+- Analytics dashboards - Health trends over time
+
+**See:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`, `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md`
 
 ---
 

@@ -55,7 +55,7 @@ Use **single complex query** with:
 4. Variable-length path for prerequisite depth calculation
 5. Priority scoring server-side
 
-**File:** `/core/services/user/user_graph_intelligence.py:439`
+**File:** `/core/services/user/intelligence/learning_intelligence.py`
 
 **Complexity Breakdown:**
 - 4 MATCH/OPTIONAL MATCH clauses (8 pts)
@@ -150,7 +150,7 @@ ORDER BY priority_score DESC, blocking_goals_count DESC
 
 ## Implementation Details
 
-**Location:** `/core/services/user/user_graph_intelligence.py:439-488`
+**Location:** `/core/services/user/intelligence/learning_intelligence.py`
 
 **Performance:**
 - Typical: 120-180ms (5 active goals, 15 knowledge gaps)

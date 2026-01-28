@@ -3,8 +3,21 @@ title: Three-Tier Type System
 updated: 2026-01-24
 status: current
 category: patterns
-tags: [patterns, system, three, tier, type, typeddict, pydantic, validation]
-related: [query_architecture.md, API_VALIDATION_PATTERNS.md]
+tags:
+- patterns
+- system
+- three
+- tier
+- type
+- typeddict
+- pydantic
+- validation
+related:
+- query_architecture.md
+- API_VALIDATION_PATTERNS.md
+related_skills:
+- pydantic
+- python
 ---
 
 # Three-Tier Type System

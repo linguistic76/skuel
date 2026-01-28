@@ -3,8 +3,20 @@ title: Service Consolidation Patterns
 updated: 2026-01-21
 status: current
 category: patterns
-tags: [patterns, consolidation, baseservice, domainconfig, facade, delegation, mixin]
-related: [ADR-025-service-consolidation-patterns.md, ADR-031-baseservice-mixin-decomposition.md]
+tags:
+- patterns
+- consolidation
+- baseservice
+- domainconfig
+- facade
+- delegation
+- mixin
+related:
+- ADR-025-service-consolidation-patterns.md
+- ADR-031-baseservice-mixin-decomposition.md
+related_skills:
+- activity-domains
+- base-analytics-service
 ---
 
 # Service Consolidation Patterns

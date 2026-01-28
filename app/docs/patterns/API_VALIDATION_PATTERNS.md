@@ -3,8 +3,18 @@ title: API Validation Patterns
 updated: 2026-01-24
 status: current
 category: patterns
-tags: [patterns, api, validation, pydantic, routes]
-related: [three_tier_type_system.md, ROUTE_FACTORIES.md, ERROR_HANDLING.md]
+tags:
+- patterns
+- api
+- validation
+- pydantic
+- routes
+related:
+- three_tier_type_system.md
+- ROUTE_FACTORIES.md
+- ERROR_HANDLING.md
+related_skills:
+- pydantic
 ---
 
 # API Validation Patterns
@@ -84,7 +94,7 @@ async def get_dashboard(request: Request, user_uid: str) -> Result[Any]:
 
 **Pattern:** Pydantic `BaseModel` classes with field validation
 
-**Location:** `core/models/{domain}/{domain}_request.py`
+**File Pattern:** `core/models/{domain}/{domain}_request.py` (where {domain} is tasks, goals, habits, etc.)
 
 **Example:**
 ```python

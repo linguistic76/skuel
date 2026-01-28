@@ -1,0 +1,223 @@
+name: Documentation Quality Checks
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'docs/**'
+      - '.claude/skills/**'
+      - 'scripts/docs_*.py'
+      - 'scripts/skills_validator.py'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'docs/**'
+      - '.claude/skills/**'
+      - 'scripts/docs_*.py'
+      - 'scripts/skills_validator.py'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  validate_documentation:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for accurate freshness checks
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Check documentation freshness (critical only)
+        id: freshness
+        run: |
+          echo "Running documentation freshness check..."
+          poetry run python scripts/docs_freshness.py --critical-only || echo "freshness_failed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Validate skills metadata
+        id: skills
+        run: |
+          echo "Running skills metadata validation..."
+          poetry run python scripts/skills_validator.py || echo "skills_failed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Check for broken documentation links (optional)
+        id: broken_links
+        run: |
+          echo "Checking for broken links..."
+          # Count missing references in freshness output
+          MISSING=$(poetry run python scripts/docs_freshness.py --json | python -c "import sys, json; data = json.load(sys.stdin); print(data.get('missing_refs_count', 0))")
+          echo "Found $MISSING broken link(s)"
+
+          if [ "$MISSING" -gt 10 ]; then
+            echo "⚠️ Warning: $MISSING broken documentation links found"
+            echo "broken_links_warning=true" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+
+      - name: Generate review schedule
+        id: review
+        run: |
+          echo "Generating documentation review schedule..."
+          OVERDUE=$(poetry run python scripts/docs_review_scheduler.py --json | python -c "import sys, json; data = json.load(sys.stdin); print(data.get('overdue_docs', 0))")
+          echo "Found $OVERDUE overdue documentation(s)"
+
+          if [ "$OVERDUE" -gt 0 ]; then
+            echo "📅 $OVERDUE document(s) are overdue for review"
+            poetry run python scripts/docs_review_scheduler.py
+          fi
+        continue-on-error: true
+
+      - name: Comment on PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const freshnessStatus = '${{ steps.freshness.outputs.freshness_failed }}' === 'true' ? '❌' : '✅';
+            const skillsStatus = '${{ steps.skills.outputs.skills_failed }}' === 'true' ? '❌' : '✅';
+            const brokenLinksWarning = '${{ steps.broken_links.outputs.broken_links_warning }}' === 'true';
+
+            let comment = `## Documentation Quality Checks\n\n`;
+            comment += `${freshnessStatus} **Documentation Freshness** (critical issues only)\n`;
+            comment += `${skillsStatus} **Skills Metadata Validation**\n`;
+
+            if (brokenLinksWarning) {
+              comment += `\n⚠️ **Warning**: More than 10 broken documentation links found\n`;
+            }
+
+            comment += `\n---\n`;
+            comment += `<details>\n<summary>View detailed results</summary>\n\n`;
+            comment += `Run \`poetry run python scripts/docs_freshness.py\` locally for full freshness report.\n`;
+            comment += `Run \`poetry run python scripts/skills_validator.py\` locally for validation details.\n`;
+            comment += `</details>`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Fail if critical issues found
+        if: steps.freshness.outputs.freshness_failed == 'true' || steps.skills.outputs.skills_failed == 'true'
+        run: |
+          echo "::error::Critical documentation issues found"
+          echo ""
+          echo "Documentation freshness: ${{ steps.freshness.outputs.freshness_failed == 'true' && '❌ FAILED' || '✅ PASSED' }}"
+          echo "Skills validation: ${{ steps.skills.outputs.skills_failed == 'true' && '❌ FAILED' || '✅ PASSED' }}"
+          echo ""
+          echo "Run the following commands locally to see details:"
+          echo "  poetry run python scripts/docs_freshness.py --critical-only"
+          echo "  poetry run python scripts/skills_validator.py"
+          exit 1
+
+  # Optional: Generate documentation metrics
+  documentation_metrics:
+    name: Generate Metrics
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+
+      - name: Generate documentation metrics
+        run: |
+          echo "# Documentation Metrics" > docs_metrics.md
+          echo "" >> docs_metrics.md
+          echo "Generated: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> docs_metrics.md
+          echo "" >> docs_metrics.md
+
+          # Freshness metrics
+          echo "## Freshness Status" >> docs_metrics.md
+          poetry run python scripts/docs_freshness.py --json > freshness.json
+          python -c "
+          import json
+          with open('freshness.json') as f:
+              data = json.load(f)
+          print(f'- Total docs tracked: {data[\"total_docs\"]}')
+          print(f'- Stale docs: {data[\"stale_docs\"]}')
+          print(f'- Fresh docs: {data[\"fresh_docs\"]}')
+          print(f'- Code-based: {data[\"code_based_docs\"]}')
+          print(f'- Conceptual: {data[\"conceptual_docs\"]}')
+          print(f'- Hybrid: {data[\"hybrid_docs\"]}')
+          " >> docs_metrics.md
+          echo "" >> docs_metrics.md
+
+          # Skills metrics
+          echo "## Skills Status" >> docs_metrics.md
+          poetry run python scripts/skills_validator.py --json > skills.json
+          python -c "
+          import json
+          with open('skills.json') as f:
+              data = json.load(f)
+          print(f'- Total skills: {data[\"total_skills\"]}')
+          print(f'- Checks passed: {data[\"passed_checks\"]}/5')
+          print(f'- Errors: {len([e for e in data[\"errors\"] if e[\"severity\"] == \"error\"])}')
+          print(f'- Warnings: {data[\"warnings\"]}')
+          " >> docs_metrics.md
+          echo "" >> docs_metrics.md
+
+          # Review schedule
+          echo "## Review Schedule" >> docs_metrics.md
+          poetry run python scripts/docs_review_scheduler.py --json > review.json
+          python -c "
+          import json
+          with open('review.json') as f:
+              data = json.load(f)
+          print(f'- Total tracked docs: {data[\"total_tracked_docs\"]}')
+          print(f'- Overdue: {data[\"overdue_docs\"]}')
+          print(f'- Upcoming (30 days): {data[\"upcoming_docs\"]}')
+          print(f'- Current: {data[\"current_docs\"]}')
+          " >> docs_metrics.md
+
+          cat docs_metrics.md
+
+      - name: Upload metrics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-metrics
+          path: docs_metrics.md
+          retention-days: 90

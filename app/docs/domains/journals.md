@@ -173,7 +173,7 @@ The `enforce_voice_journal_fifo()` method:
 
 ## Service Architecture
 
-**Package:** `core.services.journals`
+**Package:** `/core/services/journals/`
 
 ```
 /core/services/journals/

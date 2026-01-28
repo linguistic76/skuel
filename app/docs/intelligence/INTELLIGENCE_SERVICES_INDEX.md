@@ -1,3 +1,15 @@
+---
+title: Intelligence Services - Master Index
+updated: 2026-01-24
+category: intelligence
+status: current
+related_skills:
+- base-ai-service
+- base-analytics-service
+tracking: conceptual
+last_reviewed: 2026-01-24
+review_frequency: annual
+---
 # Intelligence Services - Master Index
 
 **Last Updated:** January 24, 2026

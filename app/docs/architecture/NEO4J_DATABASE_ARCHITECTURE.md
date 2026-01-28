@@ -3,8 +3,13 @@ title: Neo4j Database Architecture in SKUEL
 updated: 2025-11-27
 status: current
 category: architecture
-tags: [architecture, database, neo4j]
+tags:
+- architecture
+- database
+- neo4j
 related: []
+related_skills:
+- neo4j-cypher-patterns
 ---
 
 # Neo4j Database Architecture in SKUEL

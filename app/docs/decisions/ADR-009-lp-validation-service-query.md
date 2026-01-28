@@ -61,7 +61,7 @@ Use **single complex query** with:
 6. Ranking by readiness and estimated time
 7. Top 5 paths with contextual reasons
 
-**File:** `/core/services/lp/lp_validation_service.py:333-377`
+**File:** `/core/services/lp/lp_core_service.py:333-377`
 
 **Complexity Breakdown:**
 - 4 MATCH clauses (8 pts)
@@ -293,11 +293,11 @@ Nested prerequisite: Internet Fundamentals (0% mastered) → User will struggle
 
 ## Implementation Details
 
-**Location:** `/core/services/lp/lp_validation_service.py:333-377`
+**Location:** `/core/services/lp/lp_core_service.py:333-377`
 
 **Method:** `recommend_optimal_path(user_uid: str, goal_domain: str | None = None)`
 
-**Helper Method:** `/core/services/lp/lp_validation_service.py:80-106`
+**Helper Method:** `/core/services/lp/lp_core_service.py:80-106`
 
 **Performance:**
 - Typical: 180-250ms (20 paths, avg 8 steps, 3 prerequisites each)

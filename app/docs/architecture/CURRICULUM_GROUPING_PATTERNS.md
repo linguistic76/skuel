@@ -1,4 +1,8 @@
 ---
+related_skills:
+- curriculum-domains
+---
+---
 title: Curriculum Grouping Patterns: KU, LS, LP + MOC Organization
 updated: 2026-01-20
 status: current

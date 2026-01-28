@@ -1,6 +1,6 @@
 ---
 title: Shared UI Components Guide
-updated: 2026-01-15
+updated: 2026-01-29
 status: current
 category: guides
 tags: [components, guide, guides, shared]
@@ -9,7 +9,7 @@ related: [AUTH_PATTERNS.md]
 
 # Shared UI Components Guide
 
-**Version:** 1.0.0 (October 2025)
+**Version:** 2.0.0 (January 2026) - DaisyUI Migration
 **Status:** Production Ready
 **Location:** `/components/shared_ui_components.py`
 
@@ -19,15 +19,22 @@ related: [AUTH_PATTERNS.md]
 
 The Shared UI Components library provides reusable dashboard patterns for all SKUEL domains. It eliminates duplicate code across 15+ UI files and ensures consistent user experience.
 
+**Version 2.0.0 Changes (January 2026):**
+- ✅ Migrated from FrankenUI to DaisyUI component library
+- ✅ Type-safe component imports (Button, Card, Input, Select with typed variants)
+- ✅ Enum-based variants replace string classes (ButtonT.primary instead of "btn-primary")
+- ✅ Backwards compatibility maintained for action config dictionaries
+- ✅ Updated wizard path (`/habits/wizard/step1` instead of `/habits/create`)
+
 ### Core Principle
 
 **"Write once, render everywhere"**
 
 All dashboards (Tasks, Habits, Goals, Events, Finance, etc.) share the same underlying patterns:
-- Stats cards
-- Quick action buttons
+- Stats cards (DaisyUI Card component)
+- Quick action buttons (DaisyUI Button with typed variants)
 - Entity lists/grids
-- Filters and search
+- Filters and search (DaisyUI Select/Input)
 - Empty states
 - Detail views
 
@@ -67,6 +74,15 @@ Instead of copying these patterns 15 times, we implement them once in `SharedUIC
 
 ## Quick Start
 
+**Import Pattern (January 2026):**
+```python
+from components.shared_ui_components import SharedUIComponents
+
+# DaisyUI components are imported internally by SharedUIComponents
+# You don't need to import them directly unless building custom renderers:
+from core.ui.daisy_components import Button, ButtonT, Card, Input, InputT, Select, Size
+```
+
 ### 1. Basic Dashboard
 
 ```python
@@ -82,7 +98,7 @@ def render_habits_dashboard(habits, stats):
         entities=habits,
         entity_renderer=HabitUIComponents.render_habit_card,
         quick_actions=[
-            {'label': '➕ New Habit', 'href': '/habits/create', 'class': 'btn-primary'}
+            {'label': '➕ New Habit', 'href': '/habits/wizard/step1', 'class': 'btn-primary'}
         ],
         categories=["health", "productivity", "learning"],
         filter_endpoint="/habits/filter"
@@ -647,6 +663,15 @@ entity_renderer=HabitCard  # Missing lambda/call
 
 ## Changelog
 
+### v2.0.0 (January 2026) - DaisyUI Migration
+- **BREAKING:** Migrated from FrankenUI to DaisyUI component library
+- Replaced all `Div(..., cls="card bg-base-100...")` with `Card(..., cls="...")`
+- Replaced button string classes with typed enums (`ButtonT.primary`, `ButtonT.secondary`, etc.)
+- Replaced input/select classes with variant enums (`InputT.bordered`)
+- Added backwards compatibility parser for existing action configs using "btn-primary" string classes
+- Updated wizard paths (`/habits/wizard/step1` instead of `/habits/create`)
+- All calling code continues to work with string-based action configs (internal translation to enums)
+
 ### v1.2.0 (January 2026)
 - **BREAKING:** `render_entity_dashboard()` now returns `Html` document instead of `Div`
 - Changed return type to ensure consistent HTMX 1.9.10 versioning across all pages
@@ -670,6 +695,7 @@ entity_renderer=HabitCard  # Missing lambda/call
 
 ---
 
-**Last Updated:** January 15, 2026
+**Last Updated:** January 29, 2026
 **Maintained By:** SKUEL Core Team
 **License:** MIT
+**Component Library:** DaisyUI with type-safe enums (v2.0.0+)

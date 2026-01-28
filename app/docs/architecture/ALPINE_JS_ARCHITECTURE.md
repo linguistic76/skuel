@@ -1,3 +1,7 @@
+---
+related_skills:
+- js-alpine
+---
 # Alpine.js Architecture
 *Last updated: 2026-01-15*
 
