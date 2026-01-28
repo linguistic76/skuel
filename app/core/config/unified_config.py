@@ -119,6 +119,61 @@ class GraphQLConfig:
     introspection_enabled: bool = True
 
 
+@dataclass
+class VectorSearchConfig:
+    """
+    Vector search configuration for semantic search.
+
+    Centralizes all vector search parameters to avoid hardcoded values.
+    Entity-specific thresholds optimize precision vs recall trade-offs.
+
+    Created: January 2026 (Semantic Search Architecture Improvement)
+    See: /docs/architecture/SEARCH_ARCHITECTURE.md
+    """
+
+    # Default search parameters
+    default_limit: int = 10
+    default_min_score: float = 0.7
+    batch_size: int = 25
+
+    # Entity-specific minimum similarity thresholds
+    # Higher values = more precision, lower recall
+    ku_min_score: float = 0.75  # Knowledge requires high semantic similarity
+    task_min_score: float = 0.65  # Tasks allow broader matching
+    goal_min_score: float = 0.70  # Goals need moderate precision
+    habit_min_score: float = 0.70  # Habits similar to goals
+    event_min_score: float = 0.65  # Events similar to tasks
+    lpstep_min_score: float = 0.75  # Learning steps like knowledge
+
+    # Hybrid search weights (0.0-1.0)
+    vector_weight: float = 0.5  # 50% vector similarity
+    text_weight: float = 0.5  # 50% full-text match
+
+    # RRF (Reciprocal Rank Fusion) parameter
+    rrf_k: int = 60  # Standard RRF k value
+
+    def get_min_score_for_entity(self, entity_type: str) -> float:
+        """
+        Get minimum similarity score for specific entity type.
+
+        Args:
+            entity_type: Entity type (Ku, Task, Goal, Habit, Event, Lpstep)
+
+        Returns:
+            Minimum similarity score (0.0-1.0)
+        """
+        entity_lower = entity_type.lower()
+        mapping = {
+            "ku": self.ku_min_score,
+            "task": self.task_min_score,
+            "goal": self.goal_min_score,
+            "habit": self.habit_min_score,
+            "event": self.event_min_score,
+            "lpstep": self.lpstep_min_score,
+        }
+        return mapping.get(entity_lower, self.default_min_score)
+
+
 # ============================================================================
 # ADAPTER CONFIGURATIONS (Outbound)
 # ============================================================================

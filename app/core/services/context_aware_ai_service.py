@@ -30,7 +30,7 @@ from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.embeddings_service import OpenAIEmbeddingsService
+    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
     from core.services.infrastructure.graph_intelligence_service import (
         GraphIntelligenceService,
     )
@@ -72,7 +72,7 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
         self,
         backend: Any,  # Uses UserContextOperations or similar
         llm_service: "LLMService",
-        embeddings_service: "OpenAIEmbeddingsService",
+        embeddings_service: "Neo4jGenAIEmbeddingsService",
         graph_intelligence_service: "GraphIntelligenceService | None" = None,
         event_bus: Any | None = None,
     ) -> None:

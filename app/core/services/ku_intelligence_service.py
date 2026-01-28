@@ -14,7 +14,7 @@ Architecture (Phase 2 - Decoupled):
 - Extends BaseIntelligenceService (January 2026 - Unified Pattern)
 - Uses shared intelligence utilities (NO cross-service dependencies)
 - Uses GraphIntelligenceService for semantic graph analysis
-- Uses OpenAIEmbeddingsService for semantic similarity
+- Uses Neo4jGenAIEmbeddingsService for semantic similarity
 - Returns Result[T] for error handling
 """
 

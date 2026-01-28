@@ -21,7 +21,7 @@ from core.services.protocols import LpOperations
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.embeddings_service import OpenAIEmbeddingsService
+    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
     from core.services.llm_service import LLMService
 
 
@@ -45,7 +45,7 @@ class LpAIService(BaseAIService[LpOperations, Lp]):
         self,
         backend: LpOperations,
         llm_service: "LLMService",
-        embeddings_service: "OpenAIEmbeddingsService",
+        embeddings_service: "Neo4jGenAIEmbeddingsService",
         event_bus: Any | None = None,
     ) -> None:
         super().__init__(

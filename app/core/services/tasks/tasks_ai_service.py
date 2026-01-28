@@ -29,7 +29,7 @@ from core.services.protocols import TasksOperations
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.embeddings_service import OpenAIEmbeddingsService
+    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
     from core.services.llm_service import LLMService
 
 
@@ -60,7 +60,7 @@ class TasksAIService(BaseAIService[TasksOperations, Task]):
         self,
         backend: TasksOperations,
         llm_service: "LLMService",
-        embeddings_service: "OpenAIEmbeddingsService",
+        embeddings_service: "Neo4jGenAIEmbeddingsService",
         event_bus: Any | None = None,
     ) -> None:
         """

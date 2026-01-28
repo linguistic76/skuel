@@ -28,7 +28,7 @@ from datetime import datetime
 from typing import Any
 
 from core.models.shared_enums import GuidanceMode
-from core.services.embeddings_service import OpenAIEmbeddingsService
+from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 from core.services.lp_intelligence.types import LearningAnalysis, LearningReadiness, ProgressSummary
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
@@ -60,7 +60,7 @@ class LearningStateAnalyzer:
     def __init__(
         self,
         progress_backend: Any | None = None,
-        embeddings_service: OpenAIEmbeddingsService | None = None,
+        embeddings_service: Neo4jGenAIEmbeddingsService | None = None,
     ) -> None:
         """
         Initialize learning state analyzer.

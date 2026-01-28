@@ -30,7 +30,7 @@ from core.models.query import (
     analyze_query_intent,
     create_search_request,
 )
-from core.services.embeddings_service import OpenAIEmbeddingsService
+from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 # Use protocol interfaces instead of ports
 from core.services.protocols.curriculum_protocols import KuOperations
@@ -102,7 +102,7 @@ class KuRetrieval:
     def __init__(
         self,
         knowledge_repo: KuOperations,
-        embeddings_service: OpenAIEmbeddingsService,
+        embeddings_service: Neo4jGenAIEmbeddingsService,
         unified_query_builder,  # Use the unified query builder service
         user_progress_service=None,  # Optional progress service for intelligent ranking
         chunking_service=None,  # Optional chunking service for RAG

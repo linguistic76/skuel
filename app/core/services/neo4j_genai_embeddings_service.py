@@ -19,12 +19,17 @@ SECURITY:
 See: /docs/architecture/NEO4J_GENAI_ARCHITECTURE.md
 """
 
+from datetime import datetime
 from typing import Any
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.genai_embeddings")
+
+# Embedding version tracking
+# Increment when changing embedding model or parameters
+EMBEDDING_VERSION = "v1"
 
 
 class Neo4jGenAIEmbeddingsService:
@@ -261,3 +266,237 @@ class Neo4jGenAIEmbeddingsService:
 
         similarity = dot_product / (norm1 * norm2)
         return Result.ok(similarity)
+
+    async def store_embedding_with_metadata(
+        self,
+        uid: str,
+        label: str,
+        embedding: list[float],
+        text: str | None = None,
+    ) -> Result[None]:
+        """
+        Store embedding with version metadata on a node.
+
+        Updates the node's embedding field and adds version tracking metadata:
+        - embedding_version: Version identifier (e.g., "v1")
+        - embedding_model: Model name (e.g., "text-embedding-3-small")
+        - embedding_updated_at: Timestamp of last update
+        - embedding_source_text: Optional text that was embedded
+
+        Args:
+            uid: Node UID
+            label: Node label (e.g., "Ku", "Task")
+            embedding: Embedding vector to store
+            text: Optional source text that was embedded
+
+        Returns:
+            Result indicating success or error
+
+        Example:
+            >>> result = await service.store_embedding_with_metadata(
+            ...     uid="ku.python",
+            ...     label="Ku",
+            ...     embedding=[0.1, 0.2, ...],
+            ...     text="Python programming language"
+            ... )
+        """
+        query = f"""
+        MATCH (n:{label} {{uid: $uid}})
+        SET n.embedding = $embedding,
+            n.embedding_version = $version,
+            n.embedding_model = $model,
+            n.embedding_updated_at = datetime(),
+            n.embedding_source_text = $text
+        RETURN n.uid as uid
+        """
+
+        params = {
+            "uid": uid,
+            "embedding": embedding,
+            "version": EMBEDDING_VERSION,
+            "model": self.model,
+            "text": text,
+        }
+
+        try:
+            result = await self.driver.execute_query(query, params)
+
+            if not result:
+                return Result.fail(
+                    Errors.not_found(entity="Node", identifier=f"{label}:{uid}")
+                )
+
+            self.logger.debug(f"Stored embedding for {label}:{uid} (version={EMBEDDING_VERSION})")
+            return Result.ok(None)
+
+        except Exception as e:
+            self.logger.error(f"Failed to store embedding metadata: {e}")
+            return Result.fail(
+                Errors.database(operation="store_embedding", message=f"Failed to store: {e}")
+            )
+
+    async def get_embedding_metadata(
+        self, uid: str, label: str
+    ) -> Result[dict[str, Any]]:
+        """
+        Get embedding version metadata for a node.
+
+        Returns:
+            Result containing metadata dict with keys:
+            - has_embedding: Whether node has an embedding
+            - version: Embedding version (e.g., "v1") or None
+            - model: Model name or None
+            - updated_at: Last update timestamp or None
+            - dimension: Embedding dimension or None
+
+        Example:
+            >>> result = await service.get_embedding_metadata("ku.python", "Ku")
+            >>> if result.is_ok:
+            ...     print(f"Version: {result.value['version']}")
+        """
+        query = f"""
+        MATCH (n:{label} {{uid: $uid}})
+        RETURN n.embedding as embedding,
+               n.embedding_version as version,
+               n.embedding_model as model,
+               n.embedding_updated_at as updated_at
+        """
+
+        try:
+            result = await self.driver.execute_query(query, {"uid": uid})
+
+            if not result:
+                return Result.fail(
+                    Errors.not_found(entity="Node", identifier=f"{label}:{uid}")
+                )
+
+            record = result[0]
+            embedding = record.get("embedding")
+
+            metadata = {
+                "has_embedding": embedding is not None,
+                "version": record.get("version"),
+                "model": record.get("model"),
+                "updated_at": record.get("updated_at"),
+                "dimension": len(embedding) if embedding else None,
+            }
+
+            return Result.ok(metadata)
+
+        except Exception as e:
+            self.logger.error(f"Failed to get embedding metadata: {e}")
+            return Result.fail(
+                Errors.database(operation="get_metadata", message=f"Failed to get metadata: {e}")
+            )
+
+    async def check_version_compatibility(
+        self, uid: str, label: str
+    ) -> Result[dict[str, Any]]:
+        """
+        Check if node's embedding version is compatible with current version.
+
+        Returns:
+            Result containing compatibility info:
+            - is_current: Whether embedding is current version
+            - node_version: Version on the node
+            - current_version: Current service version
+            - needs_update: Whether embedding should be regenerated
+
+        Example:
+            >>> result = await service.check_version_compatibility("ku.python", "Ku")
+            >>> if result.is_ok and result.value["needs_update"]:
+            ...     # Regenerate embedding
+        """
+        metadata_result = await self.get_embedding_metadata(uid, label)
+
+        if metadata_result.is_error:
+            return metadata_result
+
+        metadata = metadata_result.value
+        node_version = metadata.get("version")
+
+        # Check if version matches
+        is_current = node_version == EMBEDDING_VERSION
+        needs_update = metadata["has_embedding"] and not is_current
+
+        compatibility = {
+            "is_current": is_current,
+            "node_version": node_version,
+            "current_version": EMBEDDING_VERSION,
+            "needs_update": needs_update,
+            "has_embedding": metadata["has_embedding"],
+        }
+
+        return Result.ok(compatibility)
+
+    async def get_or_create_embedding(
+        self, uid: str, label: str, text: str
+    ) -> Result[list[float]]:
+        """
+        Get cached embedding or create new one with version tracking.
+
+        Checks if node has current-version embedding:
+        - Cache hit: Return existing embedding (no API call)
+        - Cache miss or stale: Generate new embedding and store with metadata
+
+        This method combines caching with version tracking for optimal performance.
+
+        Args:
+            uid: Node UID
+            label: Node label
+            text: Text to embed (used if generating new)
+
+        Returns:
+            Result containing embedding vector
+
+        Example:
+            >>> result = await service.get_or_create_embedding(
+            ...     uid="ku.python",
+            ...     label="Ku",
+            ...     text="Python programming language"
+            ... )
+        """
+        # Check if node has current-version embedding
+        compat_result = await self.check_version_compatibility(uid, label)
+
+        if compat_result.is_ok and compat_result.value["is_current"]:
+            # Cache hit - get existing embedding
+            metadata_result = await self.get_embedding_metadata(uid, label)
+
+            if metadata_result.is_ok:
+                query = f"""
+                MATCH (n:{label} {{uid: $uid}})
+                RETURN n.embedding as embedding
+                """
+
+                try:
+                    result = await self.driver.execute_query(query, {"uid": uid})
+
+                    if result and result[0].get("embedding"):
+                        self.logger.debug(f"Cache hit: {label}:{uid} (version={EMBEDDING_VERSION})")
+                        return Result.ok(result[0]["embedding"])
+
+                except Exception as e:
+                    self.logger.warning(f"Failed to get cached embedding: {e}")
+                    # Fall through to regenerate
+
+        # Cache miss or stale - generate new embedding
+        self.logger.debug(f"Cache miss: {label}:{uid} - generating new embedding")
+
+        embedding_result = await self.create_embedding(text)
+
+        if embedding_result.is_error:
+            return embedding_result
+
+        embedding = embedding_result.value
+
+        # Store with metadata
+        store_result = await self.store_embedding_with_metadata(
+            uid=uid, label=label, embedding=embedding, text=text
+        )
+
+        if store_result.is_error:
+            # Log warning but return embedding anyway
+            self.logger.warning(f"Failed to store embedding metadata: {store_result.error}")
+
+        return Result.ok(embedding)

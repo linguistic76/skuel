@@ -28,7 +28,7 @@ Architecture:
 import re
 from collections import Counter
 
-from core.services.embeddings_service import OpenAIEmbeddingsService
+from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 from core.services.lp_intelligence.types import ContentMetadata
 from core.services.protocols.content_protocols import ContentAdapter
 from core.utils.decorators import with_error_handling
@@ -56,7 +56,7 @@ class ContentAnalyzer:
     - Returns frozen dataclass ContentMetadata
     """
 
-    def __init__(self, embeddings_service: OpenAIEmbeddingsService | None = None) -> None:
+    def __init__(self, embeddings_service: Neo4jGenAIEmbeddingsService | None = None) -> None:
         """
         Initialize content analyzer.
 

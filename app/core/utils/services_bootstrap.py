@@ -511,7 +511,6 @@ def _create_learning_services(
     )
     from core.config.credential_store import get_credential
     from core.services.adaptive_sel_service import AdaptiveSELService
-    from core.services.embeddings_service import OpenAIEmbeddingsService
     from core.services.ku_retrieval import KuRetrieval
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService  # Intelligence created internally
@@ -522,28 +521,11 @@ def _create_learning_services(
     # Note: UnifiedProgressService DELETED (January 2026) - violates fail-fast
     from core.services.user_progress_service import UserProgressService
 
-    # Get OpenAI API key (OPTIONAL - enables AI features, graceful degradation if missing)
-    try:
-        openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
-        # Check if key is placeholder or empty
-        if openai_api_key and openai_api_key not in ["your-openai-api-key-here", "", "sk-"]:
-            embeddings_service = OpenAIEmbeddingsService(api_key=openai_api_key)
-            logger.info("✅ Embeddings service initialized (OpenAI)")
-        else:
-            embeddings_service = None
-            logger.warning("⚠️ Embeddings service disabled - OPENAI_API_KEY not configured")
-            logger.warning("   App will run with basic features only. Configure API key to enable:")
-            logger.warning("   - Semantic search")
-            logger.warning("   - AI-powered insights")
-    except Exception as e:
-        logger.error(f"Failed to initialize embeddings service: {e}")
-        embeddings_service = None
-        logger.warning("⚠️ Embeddings service disabled - continuing with basic features")
-
     # Create Neo4j GenAI services (January 2026 - Neo4j GenAI Plugin Integration)
     # These services use Neo4j's native GenAI plugin for embeddings and vector search
     # API keys configured at database level (AuraDB console)
-    genai_embeddings_service = None
+    # This is THE ONLY embeddings service - OpenAIEmbeddingsService removed (January 2026)
+    embeddings_service = None
     vector_search_service = None
 
     try:
@@ -551,17 +533,17 @@ def _create_learning_services(
         from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
         # Create GenAI embeddings service (uses ai.text.embed())
-        genai_embeddings_service = Neo4jGenAIEmbeddingsService(driver)
+        embeddings_service = Neo4jGenAIEmbeddingsService(driver)
         logger.info("✅ Neo4j GenAI embeddings service created")
 
         # Create vector search service (uses db.index.vector.queryNodes())
-        vector_search_service = Neo4jVectorSearchService(driver, genai_embeddings_service)
+        vector_search_service = Neo4jVectorSearchService(driver, embeddings_service)
         logger.info("✅ Neo4j vector search service created")
 
     except Exception as e:
         logger.warning(f"Failed to initialize Neo4j GenAI services: {e}")
         logger.warning("   Vector search will not be available - using keyword search fallback")
-        genai_embeddings_service = None
+        embeddings_service = None
         vector_search_service = None
 
     # NOTE: LpIntelligenceService now created internally by LpService (January 2026)
@@ -585,7 +567,7 @@ def _create_learning_services(
         driver=driver,  # Phase 4: For event-driven practice tracking
         user_service=user_service,  # January 2026: KU-Activity Integration
         vector_search_service=vector_search_service,  # January 2026: GenAI vector search
-        embeddings_service=genai_embeddings_service,  # January 2026: GenAI embeddings
+        embeddings_service=embeddings_service,  # January 2026: GenAI embeddings (THE ONLY service)
     )
 
     # Create progress services

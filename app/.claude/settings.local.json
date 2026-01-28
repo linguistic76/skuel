@@ -148,7 +148,8 @@
       "Bash(kill:*)",
       "Bash(rsync:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(PYTHONPATH=/home/mike/skuel/app poetry run python:*)"
     ]
   }
 }

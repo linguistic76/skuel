@@ -2,7 +2,7 @@
 Semantic Models
 ===============
 
-Models for semantic relationships and edge metadata (Phase 4).
+Models for semantic relationships, edge metadata, and search metrics.
 """
 
 from .edge_metadata import (
@@ -12,6 +12,7 @@ from .edge_metadata import (
     create_prerequisite_metadata,
     create_related_metadata,
 )
+from .search_metrics import SearchMetrics, SearchMetricsAggregate
 
 __all__ = [
     "EdgeMetadata",
@@ -19,4 +20,6 @@ __all__ = [
     "create_enables_metadata",
     "create_prerequisite_metadata",
     "create_related_metadata",
+    "SearchMetrics",
+    "SearchMetricsAggregate",
 ]
