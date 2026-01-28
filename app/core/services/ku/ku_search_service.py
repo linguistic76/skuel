@@ -142,20 +142,37 @@ class KuSearchService(BaseService["UniversalNeo4jBackend[Ku]", Ku]):
         content_repo: Any | None = None,  # Was ContentOperations (deleted January 2026)
         intelligence: IntelligenceOperations | None = None,
         query_builder: QueryBuilderOperations | None = None,
+        vector_search_service: Any | None = None,  # NEW: Neo4jVectorSearchService
+        embeddings_service: Any | None = None,  # NEW: Neo4jGenAIEmbeddingsService
     ) -> None:
         """
         Initialize KU search service.
+
+        ARCHITECTURE (January 2026 - Neo4j GenAI Integration):
+        - Foundation: Graph-semantic search (relationships, Pure Cypher)
+        - Enhancement: AI-powered vector search (optional, additive)
+        - Graceful degradation when AI services unavailable
 
         Args:
             backend: UniversalNeo4jBackend implementing BackendOperations[Ku]
             content_repo: Optional content operations for chunk search
             intelligence: Optional intelligence service for similarity search
             query_builder: Optional query builder for optimized queries
+            vector_search_service: Optional Neo4jVectorSearchService for semantic search
+            embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation
         """
         super().__init__(backend)  # Uses _service_name class attribute
         self.content_repo = content_repo
         self.intelligence = intelligence
         self.query_builder = query_builder
+        self.vector_search = vector_search_service  # Can be None - graceful degradation
+        self.embeddings = embeddings_service  # Can be None - graceful degradation
+
+        # Log AI capabilities
+        if self.vector_search:
+            self.logger.info("✅ Vector search available - semantic similarity enabled")
+        else:
+            self.logger.debug("⚠️ Vector search unavailable - using keyword search fallback")
 
     # =========================================================================
     # ABSTRACT METHOD IMPLEMENTATION
@@ -407,49 +424,107 @@ class KuSearchService(BaseService["UniversalNeo4jBackend[Ku]", Ku]):
 
     @track_query_metrics("ku_find_similar")
     @with_error_handling("find_similar_content", error_type="database", uid_param="uid")
-    async def find_similar_content(self, uid: str, limit: int = 5) -> Result[list[KuDTO]]:
+    async def find_similar_content(
+        self, uid: str, limit: int = 5, prefer_vector_search: bool = True
+    ) -> Result[list[KuDTO]]:
         """
         Find knowledge units similar to the given unit.
 
-        Uses intelligence service for content similarity.
+        ARCHITECTURE (January 2026 - Two Complementary Approaches):
+        - Layer 1 (Foundation): Graph-semantic search via relationships
+        - Layer 2 (Enhancement): AI-powered vector search via embeddings
+
+        The system tries vector search first (when available), then falls back
+        to keyword search if needed. Both approaches serve different purposes.
 
         Args:
             uid: Knowledge unit UID to find similar content for
             limit: Maximum similar units to return
+            prefer_vector_search: If True, use vector search when available
 
         Returns:
             Result containing list of similar KuDTOs
         """
-        if not self.intelligence:
-            return Result.fail(
-                Errors.system(
-                    message="Intelligence service not available",
-                    operation="find_similar_content",
-                )
-            )
-
         # Get the source unit to verify it exists
         source_result = await self.backend.get(uid)
         if source_result.is_error or not source_result.value:
-            return Result.fail(Errors.not_found(f"Knowledge unit {uid} not found"))
+            return Result.fail(Errors.not_found(entity_type="Ku", uid=uid))
 
-        # Find similar units using intelligence service
-        similar_result = await self.intelligence.find_similar_content(uid=uid, limit=limit)
+        # Try AI-enhanced vector search if available and preferred
+        if self.vector_search and prefer_vector_search:
+            vector_result = await self.vector_search.find_similar_to_node(
+                label="Ku", uid=uid, limit=limit, min_score=0.7
+            )
 
-        if similar_result.is_error:
-            return Result.fail(similar_result.expect_error())
+            if vector_result.is_ok:
+                similar_nodes = vector_result.value
+                # Convert nodes to DTOs
+                dtos = [self._node_dict_to_dto(node["node"]) for node in similar_nodes]
+                self.logger.debug(f"Vector search found {len(dtos)} similar units for {uid}")
+                return Result.ok(dtos)
+            else:
+                self.logger.warning(
+                    f"Vector search failed: {vector_result.expect_error()}, falling back to keyword search"
+                )
 
-        similar_uids = similar_result.value
+        # Fallback: Keyword search via structural similarity
+        self.logger.info(f"Using keyword search fallback for {uid}")
+        return await self._find_similar_by_keywords(uid, limit)
 
-        # Retrieve full entities for similar units
-        dtos = []
-        for similar_uid in similar_uids:
-            unit_result = await self.backend.get(similar_uid)
-            if unit_result.is_ok and unit_result.value:
-                dtos.append(self._to_dto(unit_result.value))
+    async def _find_similar_by_keywords(self, uid: str, limit: int) -> Result[list[KuDTO]]:
+        """
+        Fallback: Find similar KUs using keyword matching and structural similarity.
 
-        self.logger.debug(f"Found {len(dtos)} similar units for {uid}")
-        return Result.ok(dtos)
+        Uses:
+        - Shared tags
+        - Shared domain
+        - Keyword overlap in title/content
+
+        This is the graph-semantic foundation layer - always available.
+        """
+        query = """
+        MATCH (source:Ku {uid: $uid})
+        MATCH (similar:Ku)
+        WHERE similar.uid <> source.uid
+
+        // Calculate similarity based on:
+        // 1. Shared tags
+        WITH source, similar,
+             size([t IN source.tags WHERE t IN similar.tags]) as shared_tags
+
+        // 2. Same domain
+        WITH source, similar, shared_tags,
+             CASE WHEN source.domain = similar.domain THEN 2 ELSE 0 END as domain_match
+
+        // 3. Keyword overlap (simple text similarity)
+        WITH source, similar, shared_tags, domain_match,
+             size([word IN split(toLower(source.title), ' ')
+                   WHERE toLower(similar.title) CONTAINS word]) as title_overlap
+
+        // Combine scores
+        WITH similar,
+             (shared_tags * 3 + domain_match + title_overlap) as similarity_score
+        WHERE similarity_score > 0
+
+        RETURN similar
+        ORDER BY similarity_score DESC
+        LIMIT $limit
+        """
+
+        try:
+            result = await self.backend.execute_query(query, {"uid": uid, "limit": limit})
+
+            if not result:
+                return Result.ok([])
+
+            # Convert to DTOs
+            dtos = [self._node_dict_to_dto(dict(record["similar"])) for record in result]
+            self.logger.debug(f"Keyword search found {len(dtos)} similar units for {uid}")
+            return Result.ok(dtos)
+
+        except Exception as e:
+            self.logger.error(f"Keyword search failed: {e}")
+            return Result.fail(Errors.database(operation="keyword_search", message=str(e)))
 
     @with_error_handling("search_by_features", error_type="database")
     async def search_by_features(
@@ -589,6 +664,84 @@ class KuSearchService(BaseService["UniversalNeo4jBackend[Ku]", Ku]):
         return Result.ok(dtos)
 
     # =========================================================================
+    # VECTOR SEARCH METHODS (NEW - January 2026)
+    # =========================================================================
+
+    @track_query_metrics("ku_search_semantic")
+    @with_error_handling("search_by_semantic_query", error_type="database")
+    async def search_by_semantic_query(
+        self, query_text: str, limit: int = 10, min_score: float = 0.7
+    ) -> Result[list[KuDTO]]:
+        """
+        Search Knowledge Units by natural language query using vector search.
+
+        ARCHITECTURE:
+        - Uses vector embeddings for semantic similarity
+        - Falls back to keyword search if vector search unavailable
+        - Both approaches are semantic - just different implementations
+
+        Args:
+            query_text: Natural language search query
+            limit: Maximum results to return
+            min_score: Minimum similarity score (0.0-1.0)
+
+        Returns:
+            Result containing list of semantically similar KuDTOs
+        """
+        if not query_text or not query_text.strip():
+            return Result.fail(Errors.validation("Search query is required", field="query_text"))
+
+        # Try semantic search with vector embeddings
+        if self.vector_search and self.embeddings:
+            semantic_result = await self.vector_search.find_similar_by_text(
+                label="Ku", text=query_text, limit=limit, min_score=min_score
+            )
+
+            if semantic_result.is_ok:
+                similar_nodes = semantic_result.value
+                dtos = [self._node_dict_to_dto(node["node"]) for node in similar_nodes]
+                self.logger.debug(f"Semantic search found {len(dtos)} results for '{query_text}'")
+                return Result.ok(dtos)
+            else:
+                self.logger.warning(
+                    f"Semantic search failed: {semantic_result.expect_error()}, falling back to keyword search"
+                )
+
+        # Fallback: Keyword search
+        self.logger.info(f"Using keyword search fallback for '{query_text}'")
+        return await self._search_by_keywords(query_text, limit)
+
+    async def _search_by_keywords(self, query_text: str, limit: int) -> Result[list[KuDTO]]:
+        """
+        Fallback: Keyword-based search using CONTAINS.
+
+        This is the graph-semantic foundation - always available.
+        """
+        query = """
+        MATCH (ku:Ku)
+        WHERE toLower(ku.title) CONTAINS toLower($query_text)
+           OR toLower(ku.content) CONTAINS toLower($query_text)
+           OR any(tag IN ku.tags WHERE toLower(tag) CONTAINS toLower($query_text))
+        RETURN ku
+        ORDER BY ku.updated_at DESC
+        LIMIT $limit
+        """
+
+        try:
+            result = await self.backend.execute_query(query, {"query_text": query_text, "limit": limit})
+
+            if not result:
+                return Result.ok([])
+
+            dtos = [self._node_dict_to_dto(dict(record["ku"])) for record in result]
+            self.logger.debug(f"Keyword search found {len(dtos)} results for '{query_text}'")
+            return Result.ok(dtos)
+
+        except Exception as e:
+            self.logger.error(f"Keyword search failed: {e}")
+            return Result.fail(Errors.database(operation="keyword_search", message=str(e)))
+
+    # =========================================================================
     # HELPER METHODS
     # =========================================================================
 
@@ -612,6 +765,14 @@ class KuSearchService(BaseService["UniversalNeo4jBackend[Ku]", Ku]):
             tags=list(entity.tags) if entity.tags else [],
             metadata=dict(entity.metadata) if entity.metadata else {},
         )
+
+    def _node_dict_to_dto(self, node_dict: dict[str, Any]) -> KuDTO:
+        """
+        Convert Neo4j node dict to KuDTO.
+
+        Used for vector search results where nodes are returned as dicts.
+        """
+        return KuDTO.from_dict(node_dict)
 
     def _convert_to_dtos(self, entities: list[Any]) -> list[KuDTO]:
         """Convert a list of entities to KuDTOs."""

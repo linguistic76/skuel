@@ -38,8 +38,6 @@ class ChoicesAIService(BaseAIService[ChoicesOperations, Choice]):
     """
 
     _service_name = "choices.ai"
-    _require_llm = True
-    _require_embeddings = True
 
     def __init__(
         self,

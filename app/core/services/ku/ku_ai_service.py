@@ -54,8 +54,6 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
     """
 
     _service_name = "ku.ai"
-    _require_llm = True
-    _require_embeddings = True
 
     def __init__(
         self,

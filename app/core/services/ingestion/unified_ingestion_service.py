@@ -88,6 +88,7 @@ class UnifiedIngestionService:
         driver: AsyncDriver,
         default_user_uid: str | None = None,
         max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
+        embeddings_service: Any | None = None,
     ) -> None:
         """
         Initialize unified ingestion service.
@@ -98,6 +99,8 @@ class UnifiedIngestionService:
                               If not provided, uses SKUEL_DEFAULT_USER_UID env var or "user:system".
             max_file_size_bytes: Maximum file size in bytes (default: 10 MB).
                                  Files larger than this will be rejected to prevent OOM.
+            embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation.
+                                If not provided, ingestion works without embeddings (graceful degradation).
         """
         if not driver:
             raise ValueError("Neo4j driver is required")
@@ -107,7 +110,14 @@ class UnifiedIngestionService:
             default_user_uid if default_user_uid is not None else DEFAULT_USER_UID
         )
         self.max_file_size_bytes = max_file_size_bytes
+        self.embeddings = embeddings_service  # Can be None - graceful degradation
         self.logger = logger
+
+        # Log embedding availability
+        if self.embeddings:
+            self.logger.info("✅ Embeddings service available - will generate embeddings during ingestion")
+        else:
+            self.logger.warning("⚠️ Embeddings service not available - ingestion will work without embeddings")
 
         # Lazy-initialized engines per entity type (keyed by EntityType)
         self._engines: dict[EntityType, BulkIngestionEngine[Any]] = {}

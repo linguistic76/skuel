@@ -283,6 +283,8 @@ def create_ku_sub_services(
     event_bus: "EventBusOperations | None",
     driver: "AsyncDriver | None",
     user_service: Any | None = None,
+    vector_search_service: Any | None = None,
+    embeddings_service: Any | None = None,
 ) -> KuSubServices:
     """
     Factory function to create all 8 KuService sub-services.
@@ -294,7 +296,7 @@ def create_ku_sub_services(
     1. UnifiedRelationshipService (backend, config, graph_intel)
     2. KuIntelligenceService (backend, graph_intel, relationships, embeddings, llm)
     3. KuCoreService (repo, content_repo, intelligence, chunking, event_bus)
-    4. KuSearchService (backend, content_repo, intelligence, query_builder)
+    4. KuSearchService (backend, content_repo, intelligence, query_builder, vector_search, embeddings)
     5. KuGraphService (repo, neo4j_adapter, graph_intel)
     6. KuSemanticService (repo, neo4j_adapter, intelligence)
     7. KuPracticeService (driver, event_bus)
@@ -310,6 +312,8 @@ def create_ku_sub_services(
         event_bus: Event bus for publishing domain events (optional)
         driver: Neo4j async driver for Phase 4 event-driven operations (optional)
         user_service: UserService for UserContext access (January 2026 - KU-Activity Integration)
+        vector_search_service: Optional Neo4jVectorSearchService for semantic search (January 2026 - GenAI)
+        embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation (January 2026 - GenAI)
 
     Returns:
         KuSubServices dataclass with all 8 sub-services
@@ -349,12 +353,14 @@ def create_ku_sub_services(
         event_bus=event_bus,
     )
 
-    # Step 4: Create search
+    # Step 4: Create search (with optional vector search - January 2026 GenAI)
     search = KuSearchService(
         backend=backend,
         content_repo=content_repo,
         intelligence=intelligence,
         query_builder=query_builder,
+        vector_search_service=vector_search_service,  # Optional - graceful degradation
+        embeddings_service=embeddings_service,  # Optional - graceful degradation
     )
 
     # Step 5: Create graph

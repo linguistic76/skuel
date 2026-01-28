@@ -38,8 +38,6 @@ class EventsAIService(BaseAIService[EventsOperations, Event]):
     """
 
     _service_name = "events.ai"
-    _require_llm = True
-    _require_embeddings = True
 
     def __init__(
         self,

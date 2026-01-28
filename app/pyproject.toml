@@ -421,7 +421,8 @@ addopts = [
 # Test markers for type safety testing
 markers = [
     "unit: Unit tests",
-    "integration: Integration tests", 
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
     "type_safety: Type safety validation tests",
     "slow: Slow running tests",
     "asyncio: Async tests"

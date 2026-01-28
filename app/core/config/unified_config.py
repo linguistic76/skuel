@@ -224,6 +224,58 @@ class MessageQueueConfig:
 
 
 # ============================================================================
+# AI & GENAI CONFIGURATIONS
+# ============================================================================
+
+
+@dataclass
+class GenAIConfig:
+    """
+    Neo4j GenAI plugin configuration.
+
+    ARCHITECTURE:
+    - API keys configured at database level (AuraDB console)
+    - No per-query credential passing
+    - Graceful degradation when unavailable
+    """
+
+    # Feature flags
+    enabled: bool = field(default=False)
+    vector_search_enabled: bool = field(default=False)
+
+    # Provider configuration (database-level, not per-query)
+    provider: str = field(default="openai")  # openai, anthropic, azure
+    embedding_model: str = field(default="text-embedding-3-small")
+    embedding_dimension: int = field(default=1536)
+
+    # Vector index configuration
+    vector_index_similarity: str = field(default="cosine")  # cosine, euclidean
+    vector_index_name_prefix: str = field(default="vector_idx")
+
+    # Batch processing
+    batch_size: int = field(default=25)  # Neo4j optimal batch size
+    max_concurrent_batches: int = field(default=5)
+
+    # Fallback behavior
+    fallback_to_keyword_search: bool = field(default=True)
+    show_unavailable_features: bool = field(default=True)
+
+    @classmethod
+    def from_env(cls) -> "GenAIConfig":
+        """Create config from environment variables"""
+        return cls(
+            enabled=os.getenv("GENAI_ENABLED", "false").lower() == "true",
+            vector_search_enabled=os.getenv("GENAI_VECTOR_SEARCH_ENABLED", "false").lower() == "true",
+            provider=os.getenv("GENAI_PROVIDER", "openai"),
+            embedding_model=os.getenv("GENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
+            embedding_dimension=int(os.getenv("GENAI_EMBEDDING_DIMENSION", "1536")),
+            batch_size=int(os.getenv("GENAI_BATCH_SIZE", "25")),
+            fallback_to_keyword_search=os.getenv("GENAI_FALLBACK_TO_KEYWORD_SEARCH", "true").lower() == "true",
+            show_unavailable_features=os.getenv("GENAI_SHOW_UNAVAILABLE_FEATURES", "true").lower() == "true",
+        )
+
+
+# ============================================================================
 # CORE DOMAIN CONFIGURATIONS
 # ============================================================================
 
@@ -500,6 +552,9 @@ class UnifiedConfig:
     cache: CacheConfig = field(default_factory=CacheConfig)
     message_queue: MessageQueueConfig = field(default_factory=MessageQueueConfig)
 
+    # AI and GenAI configurations
+    genai: GenAIConfig = field(default_factory=GenAIConfig)
+
     # Core domain configurations
     search: SearchConfig = field(default_factory=SearchConfig)
     askesis: AskesisConfig = field(default_factory=AskesisConfig)
@@ -622,6 +677,9 @@ class UnifiedConfig:
 
         # API from env
         self.api = APIConfig.from_env()
+
+        # GenAI from env
+        self.genai = GenAIConfig.from_env()
 
         # Override specific settings from env
         if os.getenv("CACHE_ENABLED"):

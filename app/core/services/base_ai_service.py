@@ -46,15 +46,19 @@ class BaseAIService(Generic[B, T]):
     Provides AI-powered features using LLM and embeddings.
     These services are OPTIONAL - the app works without them.
 
+    ARCHITECTURE (Post-GenAI Migration):
+    - AI services accept optional LLM/embeddings (can be None)
+    - Services gracefully degrade when AI unavailable
+    - Runtime checks in methods that need AI features
+    - No _require_* flags - all AI is optional
+
     Class Attributes:
         _service_name: Override for hierarchical logger name (e.g., "tasks.ai")
-        _require_llm: If True, fail if llm_service not provided (default: True)
-        _require_embeddings: If True, fail if embeddings_service not provided (default: True)
 
     Instance Attributes:
         backend: Domain operations protocol (REQUIRED)
-        llm: LLMService for AI insights (optional but often required)
-        embeddings: EmbeddingsService for semantic search (optional but often required)
+        llm: LLMService for AI insights (optional)
+        embeddings: EmbeddingsService for semantic search (optional)
         graph_intel: GraphIntelligenceService for context (optional)
         relationships: UnifiedRelationshipService for relationships (optional)
         logger: Logger instance
@@ -69,12 +73,6 @@ class BaseAIService(Generic[B, T]):
 
     # Service name for hierarchical logging
     _service_name: ClassVar[str | None] = None
-
-    # Set to True if LLM service is required for this AI service
-    _require_llm: ClassVar[bool] = True
-
-    # Set to True if embeddings service is required for this AI service
-    _require_embeddings: ClassVar[bool] = True
 
     # Event handlers to auto-register
     _event_handlers: ClassVar[dict[type, str]] = {}
@@ -91,18 +89,21 @@ class BaseAIService(Generic[B, T]):
         """
         Initialize AI service with common attributes.
 
+        GRACEFUL DEGRADATION:
+        - LLM and embeddings services are optional (can be None)
+        - Services warn when AI unavailable but continue functioning
+        - Methods check at runtime and return Result.fail() if needed
+
         Args:
             backend: Domain operations protocol (REQUIRED)
-            llm_service: LLMService for AI insights (often required)
-            embeddings_service: EmbeddingsService for semantic search (often required)
+            llm_service: LLMService for AI insights (optional)
+            embeddings_service: EmbeddingsService for semantic search (optional)
             graph_intelligence_service: For graph context retrieval (optional)
             relationship_service: For relationship queries (optional)
             event_bus: For event publishing/subscription (optional)
 
         Raises:
             ValueError: If backend is None (FAIL-FAST architecture)
-            ValueError: If _require_llm is True but llm_service not provided
-            ValueError: If _require_embeddings is True but embeddings_service not provided
         """
         # FAIL-FAST: Backend is ALWAYS required
         if not backend:
@@ -114,7 +115,7 @@ class BaseAIService(Generic[B, T]):
         # Required attribute
         self.backend = backend
 
-        # AI services
+        # AI services (optional - can be None)
         self.llm = llm_service
         self.embeddings = embeddings_service
 
@@ -127,17 +128,15 @@ class BaseAIService(Generic[B, T]):
         service_name = self._service_name or self.__class__.__name__
         self.logger = get_logger(f"skuel.ai.{service_name}")
 
-        # Validate required AI services if specified by subclass
-        if self._require_llm and not self.llm:
-            raise ValueError(
-                f"{self.__class__.__name__} requires llm_service. "
-                "Set _require_llm = False to make it optional."
+        # Warn if AI services unavailable (graceful degradation)
+        if not self.llm:
+            self.logger.warning(
+                f"{self.__class__.__name__}: LLM service unavailable - AI insights disabled"
             )
 
-        if self._require_embeddings and not self.embeddings:
-            raise ValueError(
-                f"{self.__class__.__name__} requires embeddings_service. "
-                "Set _require_embeddings = False to make it optional."
+        if not self.embeddings:
+            self.logger.warning(
+                f"{self.__class__.__name__}: Embeddings service unavailable - semantic search disabled"
             )
 
         # Auto-register event handlers
@@ -165,34 +164,48 @@ class BaseAIService(Generic[B, T]):
         await publish_event(self.event_bus, event, self.logger)
 
     # ========================================================================
-    # AI HELPERS
+    # AI HELPERS (with graceful degradation)
     # ========================================================================
 
-    def _require_llm_service(self, operation: str) -> None:
+    def _check_llm_available(self, operation: str) -> Result[None]:
         """
-        Validate that LLM service is available.
+        Check if LLM service is available.
 
         Args:
             operation: Name of the operation for error message
 
-        Raises:
-            ValueError: If llm is not available
+        Returns:
+            Result.ok(None) if available, Result.fail() with clear error if not
         """
         if not self.llm:
-            raise ValueError(f"{self.__class__.__name__}.{operation}() requires llm_service")
+            return Result.fail(
+                Errors.unavailable(
+                    feature="ai_insights",
+                    reason="LLM service not configured. Configure OPENAI_API_KEY to enable AI features.",
+                    operation=operation,
+                )
+            )
+        return Result.ok(None)
 
-    def _require_embeddings_service(self, operation: str) -> None:
+    def _check_embeddings_available(self, operation: str) -> Result[None]:
         """
-        Validate that embeddings service is available.
+        Check if embeddings service is available.
 
         Args:
             operation: Name of the operation for error message
 
-        Raises:
-            ValueError: If embeddings is not available
+        Returns:
+            Result.ok(None) if available, Result.fail() with clear error if not
         """
         if not self.embeddings:
-            raise ValueError(f"{self.__class__.__name__}.{operation}() requires embeddings_service")
+            return Result.fail(
+                Errors.unavailable(
+                    feature="semantic_search",
+                    reason="Embeddings service not configured. Configure OPENAI_API_KEY to enable semantic search.",
+                    operation=operation,
+                )
+            )
+        return Result.ok(None)
 
     async def _get_embedding(self, text: str) -> Result[list[float]]:
         """

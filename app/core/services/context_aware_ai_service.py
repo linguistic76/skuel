@@ -67,8 +67,6 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
     _service_name = "context_aware.ai"
 
     # AI requirements - both required for this service
-    _require_llm = True
-    _require_embeddings = True
 
     def __init__(
         self,

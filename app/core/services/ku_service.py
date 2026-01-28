@@ -203,6 +203,8 @@ class KuService(FacadeDelegationMixin):
         driver: "AsyncDriver | None" = None,
         user_service: "Any | None" = None,
         ai_service: KuAIService | None = None,
+        vector_search_service: "Any | None" = None,
+        embeddings_service: "Any | None" = None,
     ) -> None:
         """
         Initialize facade with all dependencies via factory.
@@ -226,6 +228,8 @@ class KuService(FacadeDelegationMixin):
             driver: Neo4j async driver for Phase 4 event-driven operations (optional)
             user_service: UserService for UserContext access (January 2026 - KU-Activity Integration)
             ai_service: Optional KuAIService for AI features (ADR-030 separation)
+            vector_search_service: Optional Neo4jVectorSearchService for semantic search (January 2026 - GenAI)
+            embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation (January 2026 - GenAI)
         """
         # FAIL-FAST: Backend is REQUIRED
         if not repo:
@@ -254,6 +258,8 @@ class KuService(FacadeDelegationMixin):
             event_bus=event_bus,
             driver=driver,
             user_service=user_service,
+            vector_search_service=vector_search_service,  # NEW: January 2026 GenAI
+            embeddings_service=embeddings_service,  # NEW: January 2026 GenAI
         )
 
         # Assign sub-services from factory result

@@ -56,21 +56,23 @@ Design Principles:
     - Single bootstrap/wiring function
     - Easy testing with protocol implementations
     - Clean async lifecycle management
-    - **FAIL-FAST**: All dependencies required, no graceful degradation
+    - **GRACEFUL DEGRADATION**: Core services required, AI services optional
 
 Production Philosophy:
-    - All API keys and external services are REQUIRED
-    - Services fail immediately if dependencies unavailable
-    - No optional features - everything must work
+    - Core services (Neo4j, Deepgram) are REQUIRED - fail fast if missing
+    - AI services (OpenAI) are OPTIONAL - app works with basic features only
     - Clear error messages for missing configuration
+    - Services warn when AI unavailable but continue functioning
 
 INFRASTRUCTURE SERVICES
 -----------------------
 
 **Currently Active (Required):**
-    - Neo4j          ✅ Graph database (runs from /infra)
-    - OpenAI API     ✅ AI/LLM features and embeddings
-    - Deepgram API   ✅ Audio transcription
+    - Neo4j          ✅ Graph database (runs from /infra) - REQUIRED
+    - Deepgram API   ✅ Audio transcription - REQUIRED
+
+**Optional AI Services:**
+    - OpenAI API     🟡 AI/LLM features and embeddings - OPTIONAL (graceful degradation)
 
 **Future Services (Pre-wired but Disabled):**
     - Redis          🟡 Distributed caching (in-memory cache currently used)
@@ -520,9 +522,47 @@ def _create_learning_services(
     # Note: UnifiedProgressService DELETED (January 2026) - violates fail-fast
     from core.services.user_progress_service import UserProgressService
 
-    # Get required API key (already validated in PHASE 1)
-    openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
-    embeddings_service = OpenAIEmbeddingsService(api_key=openai_api_key)
+    # Get OpenAI API key (OPTIONAL - enables AI features, graceful degradation if missing)
+    try:
+        openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+        # Check if key is placeholder or empty
+        if openai_api_key and openai_api_key not in ["your-openai-api-key-here", "", "sk-"]:
+            embeddings_service = OpenAIEmbeddingsService(api_key=openai_api_key)
+            logger.info("✅ Embeddings service initialized (OpenAI)")
+        else:
+            embeddings_service = None
+            logger.warning("⚠️ Embeddings service disabled - OPENAI_API_KEY not configured")
+            logger.warning("   App will run with basic features only. Configure API key to enable:")
+            logger.warning("   - Semantic search")
+            logger.warning("   - AI-powered insights")
+    except Exception as e:
+        logger.error(f"Failed to initialize embeddings service: {e}")
+        embeddings_service = None
+        logger.warning("⚠️ Embeddings service disabled - continuing with basic features")
+
+    # Create Neo4j GenAI services (January 2026 - Neo4j GenAI Plugin Integration)
+    # These services use Neo4j's native GenAI plugin for embeddings and vector search
+    # API keys configured at database level (AuraDB console)
+    genai_embeddings_service = None
+    vector_search_service = None
+
+    try:
+        from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+        from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+
+        # Create GenAI embeddings service (uses ai.text.embed())
+        genai_embeddings_service = Neo4jGenAIEmbeddingsService(driver)
+        logger.info("✅ Neo4j GenAI embeddings service created")
+
+        # Create vector search service (uses db.index.vector.queryNodes())
+        vector_search_service = Neo4jVectorSearchService(driver, genai_embeddings_service)
+        logger.info("✅ Neo4j vector search service created")
+
+    except Exception as e:
+        logger.warning(f"Failed to initialize Neo4j GenAI services: {e}")
+        logger.warning("   Vector search will not be available - using keyword search fallback")
+        genai_embeddings_service = None
+        vector_search_service = None
 
     # NOTE: LpIntelligenceService now created internally by LpService (January 2026)
     # See LpService.__init__ for intelligence creation pattern (unified with other domains)
@@ -533,6 +573,7 @@ def _create_learning_services(
 
     # Phase 3: Create knowledge service using dynamic backends with REQUIRED query_builder
     # January 2026: KuIntelligenceService created internally, no longer passed in
+    # January 2026 - GenAI Integration: Pass vector search and embeddings services
     ku_service = KuService(
         repo=knowledge_backend,
         content_repo=content_adapter,  # Neo4jContentAdapter implements ContentOperations protocol
@@ -543,6 +584,8 @@ def _create_learning_services(
         event_bus=event_bus,  # Event-driven architecture
         driver=driver,  # Phase 4: For event-driven practice tracking
         user_service=user_service,  # January 2026: KU-Activity Integration
+        vector_search_service=vector_search_service,  # January 2026: GenAI vector search
+        embeddings_service=genai_embeddings_service,  # January 2026: GenAI embeddings
     )
 
     # Create progress services
@@ -566,16 +609,16 @@ def _create_learning_services(
         user_service=user_service,
     )
 
-    # Create retrieval service (embeddings_service is REQUIRED - always available)
+    # Create retrieval service (embeddings_service is OPTIONAL - graceful degradation)
     ku_retrieval = KuRetrieval(
         knowledge_repo=knowledge_backend,
-        embeddings_service=embeddings_service,
+        embeddings_service=embeddings_service,  # Can be None - will use keyword search fallback
         unified_query_builder=unified_query_builder,
         user_progress_service=user_progress,
         chunking_service=chunking_service,
     )
 
-    # Create personalized discovery (ku_retrieval is REQUIRED - always available)
+    # Create personalized discovery (ku_retrieval with optional embeddings)
     personalized_discovery = create_personalized_knowledge_discovery_adapter(
         user_service=user_service,
         ku_retrieval=ku_retrieval,
@@ -825,31 +868,46 @@ async def compose_services(
         else:
             logger.warning("⚠️ Cleanup had issues - continuing startup")
 
-        # Validate required API keys (FAIL-FAST)
+        # Validate API keys (GRACEFUL DEGRADATION for optional features)
+        # Required keys: DEEPGRAM (audio transcription)
+        # Optional keys: OPENAI (AI features - app works without them)
         required_keys = {
-            "OPENAI_API_KEY": "OpenAI API (required for embeddings, semantic search, and AI features)",
             "DEEPGRAM_API_KEY": "Deepgram API (required for audio transcription)",
         }
 
-        missing_keys = []
+        recommended_keys = {
+            "OPENAI_API_KEY": "OpenAI API (optional - enables embeddings, semantic search, and AI features)",
+        }
+
+        # Check required keys (FAIL-FAST)
+        missing_required = []
         for key_name, description in required_keys.items():
             key_value = get_credential(key_name, fallback_to_env=True)
             if not key_value:
-                missing_keys.append(f"  - {key_name}: {description}")
-                (logger.error(f"❌ Missing required API key: {key_name}"),)
+                missing_required.append(f"  - {key_name}: {description}")
+                logger.error(f"❌ Missing required API key: {key_name}")
             else:
                 logger.info(f"✅ {key_name} validated")
 
-        if missing_keys:
+        if missing_required:
             error_msg = (
-                "SKUEL requires ALL API keys to be configured. Missing keys:\n"
-                + "\n".join(missing_keys)
+                "SKUEL requires these API keys to be configured. Missing keys:\n"
+                + "\n".join(missing_required)
                 + "\n\nSet these environment variables or add them to your credential store."
             )
             logger.error("❌ Service composition failed - missing required API keys")
             raise ValueError(error_msg)
 
-        logger.info("✅ All required API keys validated")
+        # Check recommended keys (WARN only, don't fail)
+        for key_name, description in recommended_keys.items():
+            key_value = get_credential(key_name, fallback_to_env=True)
+            if not key_value or key_value in ["your-openai-api-key-here", "", "sk-"]:
+                logger.warning(f"⚠️ {key_name} not configured: {description}")
+                logger.warning("   App will run with basic features only")
+            else:
+                logger.info(f"✅ {key_name} validated")
+
+        logger.info("✅ Required API keys validated")
 
         # ========================================================================
         # PHASE 2: CREATE SERVICES (All dependencies are guaranteed available)
@@ -1030,10 +1088,14 @@ async def compose_services(
         # Note: MarkdownSyncService DELETED (January 2026) - use UnifiedIngestionService
 
         # Create UnifiedIngestionService (ADR-014: Merged MD + YAML ingestion)
+        # January 2026 - GenAI Integration: Pass embeddings service for automatic embedding generation
         from core.services.ingestion import UnifiedIngestionService
 
-        unified_ingestion = UnifiedIngestionService(driver=driver)
-        logger.info("✅ Content services created (includes UnifiedIngestionService)")
+        unified_ingestion = UnifiedIngestionService(
+            driver=driver,
+            embeddings_service=genai_embeddings_service,  # Optional - generates embeddings during ingestion
+        )
+        logger.info("✅ Content services created (includes UnifiedIngestionService with optional embeddings)")
 
         # Create knowledge components using 100% dynamic backend pattern
         from adapters.persistence.neo4j.neo4j_connection import get_connection
@@ -1046,18 +1108,28 @@ async def compose_services(
         connection = await get_connection()
         content_adapter = Neo4jContentAdapter(connection)
 
-        # Create LLM service BEFORE learning services (needed by askesis for RAG and intelligence services)
+        # Create LLM service BEFORE learning services (OPTIONAL - enables AI features)
         from core.config.credential_store import get_credential
         from core.services.llm_service import LLMConfig, LLMProvider, LLMService
 
-        openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
-        llm_config = LLMConfig(
-            provider=LLMProvider.OPENAI,
-            api_key=openai_api_key,
-            model_name="gpt-4",  # Use GPT-4 for high-quality RAG and intelligence insights
-        )
-        llm_service = LLMService(config=llm_config)
-        logger.info("✅ LLM service created (GPT-4 for RAG generation and intelligence services)")
+        try:
+            openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+            # Check if key is valid (not placeholder/empty)
+            if openai_api_key and openai_api_key not in ["your-openai-api-key-here", "", "sk-"]:
+                llm_config = LLMConfig(
+                    provider=LLMProvider.OPENAI,
+                    api_key=openai_api_key,
+                    model_name="gpt-4",  # Use GPT-4 for high-quality RAG and intelligence insights
+                )
+                llm_service = LLMService(config=llm_config)
+                logger.info("✅ LLM service created (GPT-4 for RAG generation and intelligence services)")
+            else:
+                llm_service = None
+                logger.warning("⚠️ LLM service disabled - OPENAI_API_KEY not configured")
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM service: {e}")
+            llm_service = None
+            logger.warning("⚠️ LLM service disabled - continuing with basic features")
 
         # Create learning services (graph_intelligence already created above)
         learning_services = _create_learning_services(

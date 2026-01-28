@@ -69,6 +69,14 @@ class LpStep:
     # Tags for categorization
     tags: list[str] = field(default_factory=list)
 
+    # =========================================================================
+    # NEO4J GENAI PLUGIN INTEGRATION (January 2026)
+    # Vector embeddings for semantic search and similarity matching
+    # =========================================================================
+    embedding: tuple[float, ...] | None = None  # 1536-dimensional vector for semantic search
+    embedding_model: str | None = None  # Model used (e.g., "text-embedding-3-small")
+    embedding_updated_at: datetime | None = None  # When embedding was generated
+
     @classmethod
     def create(
         cls, title: str, description: str = "", domain: Domain = Domain.KNOWLEDGE, **kwargs: Any

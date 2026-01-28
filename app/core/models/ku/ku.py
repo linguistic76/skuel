@@ -78,6 +78,17 @@ class Ku:
     difficulty_rating: float = 0.5  # 0.0-1.0, helps with personalized recommendations
 
     # =========================================================================
+    # NEO4J GENAI PLUGIN INTEGRATION (January 2026)
+    # Vector embeddings for semantic search and similarity matching
+    # =========================================================================
+    # Embedding fields for Neo4j GenAI plugin vector search
+    # Generated automatically during ingestion using ai.text.embed()
+    # Enables semantic similarity search via db.index.vector.queryNodes()
+    embedding: tuple[float, ...] | None = None  # 1536-dimensional vector for semantic search
+    embedding_model: str | None = None  # Model used (e.g., "text-embedding-3-small")
+    embedding_updated_at: datetime | None = None  # type: ignore[assignment]  # When embedding was generated
+
+    # =========================================================================
     # SUBSTANCE TRACKING (October 17, 2025)
     # "Applied knowledge, not pure theory" - Philosophical Foundation
     # =========================================================================

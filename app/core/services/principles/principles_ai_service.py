@@ -38,8 +38,6 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Principle]):
     """
 
     _service_name = "principles.ai"
-    _require_llm = True
-    _require_embeddings = True
 
     def __init__(
         self,

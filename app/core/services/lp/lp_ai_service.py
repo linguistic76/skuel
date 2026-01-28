@@ -40,8 +40,6 @@ class LpAIService(BaseAIService[LpOperations, Lp]):
     """
 
     _service_name = "lp.ai"
-    _require_llm = True
-    _require_embeddings = True
 
     def __init__(
         self,

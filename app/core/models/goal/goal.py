@@ -193,6 +193,14 @@ class Goal(StatusChecksMixin):
     tags: tuple[str, ...] = ()
     metadata: dict[str, Any] = None  # type: ignore[assignment]  # Rich context storage (graph neighborhoods, etc.)
 
+    # =========================================================================
+    # NEO4J GENAI PLUGIN INTEGRATION (January 2026)
+    # Vector embeddings for semantic search and similarity matching
+    # =========================================================================
+    embedding: tuple[float, ...] | None = None  # 1536-dimensional vector for semantic search
+    embedding_model: str | None = None  # Model used (e.g., "text-embedding-3-small")
+    embedding_updated_at: datetime | None = None  # type: ignore[assignment]  # When embedding was generated
+
     # StatusChecksMixin configuration
     # Goal uses GoalStatus with ACHIEVED as completed state
     _completed_statuses: ClassVar[tuple[GoalStatus, ...]] = (GoalStatus.ACHIEVED,)

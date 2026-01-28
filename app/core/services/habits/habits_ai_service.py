@@ -52,8 +52,6 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
     """
 
     _service_name = "habits.ai"
-    _require_llm = True
-    _require_embeddings = True
 
     def __init__(
         self,

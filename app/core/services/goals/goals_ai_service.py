@@ -52,8 +52,6 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
     """
 
     _service_name = "goals.ai"
-    _require_llm = True
-    _require_embeddings = True
 
     def __init__(
         self,

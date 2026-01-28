@@ -55,8 +55,6 @@ class TasksAIService(BaseAIService[TasksOperations, Task]):
     _service_name = "tasks.ai"
 
     # AI requirements - both required for this service
-    _require_llm = True
-    _require_embeddings = True
 
     def __init__(
         self,

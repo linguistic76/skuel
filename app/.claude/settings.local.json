@@ -146,7 +146,9 @@
       "Bash(du:*)",
       "Bash(docker compose:*)",
       "Bash(kill:*)",
-      "Bash(rsync:*)"
+      "Bash(rsync:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

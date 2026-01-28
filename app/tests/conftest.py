@@ -241,3 +241,29 @@ def test_user_uid() -> str:
     This matches the user created by authenticated_client fixture.
     """
     return "test_graphql_user"
+
+
+# ============================================================================
+# EMBEDDING & VECTOR SEARCH FIXTURES
+# ============================================================================
+# Import fixtures from embedding_fixtures module to make them available
+# for all tests without explicit imports
+
+from tests.fixtures.embedding_fixtures import (  # noqa: E402
+    mock_embedding_vector,
+    mock_embeddings_service,
+    mock_embeddings_unavailable,
+    mock_vector_search_service,
+    mock_vector_search_unavailable,
+    services_with_embeddings,
+)
+
+# Explicitly expose fixtures for pytest discovery
+__all__ = [
+    "mock_embedding_vector",
+    "mock_embeddings_service",
+    "mock_embeddings_unavailable",
+    "mock_vector_search_service",
+    "mock_vector_search_unavailable",
+    "services_with_embeddings",
+]

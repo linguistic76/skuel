@@ -40,8 +40,6 @@ class LsAIService(BaseAIService[LsOperations, Ls]):
     """
 
     _service_name = "ls.ai"
-    _require_llm = True
-    _require_embeddings = True
 
     def __init__(
         self,
