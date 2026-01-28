@@ -250,6 +250,69 @@ class Neo4jSchemaManager:
                 )
             )
 
+    async def _create_vector_index(
+        self,
+        label: str,
+        field_name: str = "embedding",
+        dimension: int = 1536,
+        similarity: str = "cosine",
+    ) -> Result[str]:
+        """
+        Create a vector index for embedding similarity search.
+
+        Used for Neo4j GenAI plugin vector search functionality.
+        Requires Neo4j 5.x+ with GenAI plugin installed.
+
+        Args:
+            label: Neo4j label (e.g., "Ku", "Task", "Goal")
+            field_name: Field containing embedding vector (default: "embedding")
+            dimension: Vector dimension (default 1536 for text-embedding-3-small)
+            similarity: Similarity function - "cosine" (default), "euclidean", or "dot"
+
+        Returns:
+            Result with 'created' or error
+
+        Example:
+            # Create vector index for Knowledge Units
+            await schema_manager._create_vector_index("Ku", dimension=1536)
+
+            # Creates index: ku_embedding_idx
+            # For query: db.index.vector.queryNodes('ku_embedding_idx', k, embedding)
+        """
+        index_name = f"{label.lower()}_{field_name}_idx"
+
+        try:
+            # Neo4j 5.x vector index syntax
+            # Note: Vector indexes use a different syntax than standard indexes
+            query = f"""
+            CREATE VECTOR INDEX {index_name} IF NOT EXISTS
+            FOR (n:{label}) ON (n.{field_name})
+            OPTIONS {{
+                indexConfig: {{
+                    `vector.dimensions`: {dimension},
+                    `vector.similarity_function`: '{similarity}'
+                }}
+            }}
+            """
+
+            async with self.driver.session() as session:
+                await session.run(query)
+
+            self.logger.info(
+                f"Created vector index: {index_name} (dim={dimension}, similarity={similarity})"
+            )
+            return Result.ok("created")
+
+        except Exception as e:
+            self.logger.error(f"Failed to create vector index {index_name}: {e}")
+            return Result.fail(
+                Errors.database(
+                    operation="create_vector_index",
+                    message=f"Vector index creation failed: {e}",
+                    entity=label,
+                )
+            )
+
     async def drop_index(self, index_name: str) -> Result[None]:
         """
         Drop an index by name.
@@ -361,6 +424,52 @@ class Neo4jSchemaManager:
 
         self.logger.info(
             f"Auth indexes synced: {len(results['created'])} created, {len(results['failed'])} failed"
+        )
+
+        return Result.ok(results)
+
+    async def sync_vector_indexes(
+        self,
+        entity_labels: list[str],
+        dimension: int = 1536,
+        similarity: str = "cosine",
+    ) -> Result[dict[str, Any]]:
+        """
+        Sync vector indexes for all embedding-enabled entities.
+
+        Creates vector indexes for semantic similarity search using Neo4j GenAI plugin.
+        Only run this after enabling GenAI plugin in Neo4j/AuraDB.
+
+        Args:
+            entity_labels: List of Neo4j labels with embedding fields (e.g., ["Ku", "Task", "Goal"])
+            dimension: Vector dimension (default 1536 for text-embedding-3-small)
+            similarity: Similarity function (default "cosine")
+
+        Returns:
+            Result with summary of created vector indexes
+
+        Example:
+            # Create vector indexes for all priority entities
+            await schema_manager.sync_vector_indexes(
+                entity_labels=["Ku", "Task", "Goal", "LpStep"],
+                dimension=1536,
+                similarity="cosine"
+            )
+        """
+        results = {"created": [], "failed": []}
+
+        for label in entity_labels:
+            result = await self._create_vector_index(
+                label=label, field_name="embedding", dimension=dimension, similarity=similarity
+            )
+
+            if result.is_ok:
+                results["created"].append(f"{label.lower()}_embedding_idx")
+            else:
+                results["failed"].append(f"{label.lower()}_embedding_idx")
+
+        self.logger.info(
+            f"Vector indexes synced: {len(results['created'])} created, {len(results['failed'])} failed"
         )
 
         return Result.ok(results)
