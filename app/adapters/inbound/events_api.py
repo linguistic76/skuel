@@ -41,14 +41,13 @@ from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.events_service import EventsService
     from core.services.protocols.facade_protocols import EventsFacadeProtocol
 
 
 def create_events_api_routes(
     app: Any,
     rt: Any,
-    events_service: "EventsService",
+    events_service: EventsFacadeProtocol,
     user_service: Any = None,
     goals_service: Any = None,
     habits_service: Any = None,

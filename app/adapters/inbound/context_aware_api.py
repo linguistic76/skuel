@@ -33,13 +33,13 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.user.user_context_service import UserContextService
+    from core.services.protocols import UserContextOperations
 
 logger = get_logger("skuel.routes.context_aware.api")
 
 
 def create_context_aware_api_routes(
-    _app: Any, rt: Any, context_service: "UserContextService"
+    _app: Any, rt: Any, context_service: UserContextOperations
 ) -> list[Any]:
     """
     Create clean API routes for context-aware functionality with service integration.

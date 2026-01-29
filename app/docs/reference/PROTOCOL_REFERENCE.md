@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-01-24
+updated: 2026-01-29
 status: current
 category: reference
 tags: [protocol, reference]
@@ -9,7 +9,7 @@ related: [ADR-025, ADR-027]
 
 # Protocol Reference Guide
 
-**Last Updated:** January 24, 2026
+**Last Updated:** January 29, 2026
 **Purpose:** Complete reference for all Protocol interfaces in SKUEL codebase
 **Location:** `/core/services/protocols/` (service protocols) and `/core/models/protocols/` (domain model protocols)
 
@@ -460,18 +460,23 @@ class TasksFacadeProtocol(Protocol):
 
 When you use `TasksFacadeProtocol` as a type hint, MyPy enables autocomplete and type checking for all delegated methods.
 
-### Available Facade Protocols
+### Available Facade Protocols (9 Total - January 2026)
 
-| Protocol | Facade Service | Sub-services Covered |
-|----------|----------------|---------------------|
-| `GoalsFacadeProtocol` | GoalsService | progress, search, core, intelligence |
-| `PrinciplesFacadeProtocol` | PrinciplesService | intelligence, search, core, alignment |
-| `LpFacadeProtocol` | LpService | core, intelligence |
-| `TasksFacadeProtocol` | TasksService | core, search, progress, relationships, analytics |
-| `EventsFacadeProtocol` | EventsService | core, search, intelligence |
-| `HabitsFacadeProtocol` | HabitsService | core, search, intelligence |
-| `MocFacadeProtocol` | MocService | core, section, content, discovery |
-| `LsFacadeProtocol` | LsService | core |
+**Status:** ✅ **100% Coverage** - All facade services have protocol declarations
+
+| Protocol | Facade Service | Sub-services Covered | Methods |
+|----------|----------------|---------------------|---------|
+| `TasksFacadeProtocol` | TasksService | core, search, scheduling, planning, intelligence | 45+ |
+| `GoalsFacadeProtocol` | GoalsService | core, search, scheduling, intelligence | 40+ |
+| `HabitsFacadeProtocol` | HabitsService | core, search, tracking, streaks, intelligence | 38+ |
+| `EventsFacadeProtocol` | EventsService | core, search, recurrence, intelligence | 35+ |
+| `ChoicesFacadeProtocol` | ChoicesService | core, search, decision analysis, intelligence | 30+ |
+| `PrinciplesFacadeProtocol` | PrinciplesService | core, search, alignment, intelligence | 32+ |
+| `KuFacadeProtocol` | KuService | core, search, graph, semantic, practice, interaction | 50+ |
+| `LpFacadeProtocol` | LpService | core, search, pathfinding, intelligence | 35+ |
+| `LsFacadeProtocol` | LsService | core, search, step management | 20+ |
+
+**Note:** MOC uses `KuFacadeProtocol` (MOC is KU-based as of January 2026)
 
 ### Usage Pattern: TYPE_CHECKING Guard
 

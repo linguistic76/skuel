@@ -114,7 +114,7 @@ related: []
 | [Model-to-Adapter Dynamic Architecture](patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md) | 2025-11-27 | 495 |
 | [MyPy Pragmatic Strategy - Making Peace with 2200 E...](patterns/mypy_pragmatic_strategy.md) | 2025-11-27 | 351 |
 | [Performance Monitoring System](patterns/PERFORMANCE_MONITORING.md) | 2025-11-27 | 1033 |
-| [Protocol Architecture](patterns/protocol_architecture.md) | 2026-01-03 | 225 |
+| [Protocol Architecture](patterns/protocol_architecture.md) | 2026-01-29 | 234 |
 | [Protocol LSP Compliance Pattern](patterns/PROTOCOL_LSP_COMPLIANCE.md) | 2025-11-08 | 246 |
 | [Pure Cypher vs APOC: Strategic Decision Guide](patterns/CYPHER_VS_APOC_STRATEGY.md) | 2025-11-27 | 631 |
 | [Intent-Based Graph Traversal](patterns/INTENT_BASED_TRAVERSAL.md) | 2025-12-03 | 350 |
@@ -223,7 +223,7 @@ related: []
 |----------|---------|-------|
 | [Code Review Checklist - Phase 7.3](reference/CODE_REVIEW_CHECKLIST.md) | 2025-11-27 | 602 |
 | [Protocol Definition Template](reference/templates/protocol_definition.md) | 2025-11-27 | 229 |
-| [Protocol Reference Guide](reference/PROTOCOL_REFERENCE.md) | 2025-11-27 | 617 |
+| [Protocol Reference Guide](reference/PROTOCOL_REFERENCE.md) | 2026-01-29 | 617 |
 | [Search Models Reference](reference/models/SEARCH_MODELS.md) | 2026-01-04 | 480 |
 | [Search Service Methods Reference](reference/SEARCH_SERVICE_METHODS.md) | 2026-01-06 | 580 |
 | [SKUEL Enum Reference](reference/ENUM_REFERENCE.md) | 2025-11-27 | 10051 |

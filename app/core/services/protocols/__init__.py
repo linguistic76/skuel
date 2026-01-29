@@ -197,10 +197,13 @@ from .domain_protocols import (
 # These make FacadeDelegationMixin-generated methods visible to MyPy
 # NOTE: MocFacadeProtocol removed January 2026 - MOC is KU-based
 from .facade_protocols import (
+    ChoicesFacadeProtocol,
     EventsFacadeProtocol,
     GoalsFacadeProtocol,
     HabitsFacadeProtocol,
+    KuFacadeProtocol,
     LpFacadeProtocol,
+    LsFacadeProtocol,
     PrinciplesFacadeProtocol,
     TasksFacadeProtocol,
 )
@@ -214,6 +217,7 @@ from .infrastructure_protocols import (
     Closeable,
     EventBusOperations,
     SchemaOperations,
+    UserOperations,
 )
 
 # Intelligence operation protocols
@@ -344,11 +348,15 @@ __all__ = [
     "GeConstraint",
     "GoalAwareness",
     "GoalsSearchOperations",
-    # ========== FACADE PROTOCOLS (7 - January 2026) ==========
+    # ========== FACADE PROTOCOLS (9 - January 2026) ==========
+    "ChoicesFacadeProtocol",
     "EventsFacadeProtocol",
     "GoalsFacadeProtocol",
     "HabitsFacadeProtocol",
     "GoalsOperations",
+    "KuFacadeProtocol",
+    "LpFacadeProtocol",
+    "LsFacadeProtocol",
     "GraphContextNode",
     # ========== GRAPH PROTOCOLS (2) ==========
     "GraphEntity",
@@ -455,6 +463,7 @@ __all__ = [
     "TasksFacadeProtocol",
     "TasksOperations",
     "UserContextOperations",
+    "UserOperations",
     # ========== HELPER FUNCTIONS (2) ==========
     "get_enum_value",
     "to_dict",

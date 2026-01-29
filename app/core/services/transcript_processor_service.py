@@ -36,13 +36,13 @@ from core.models.enums.journal_enums import JournalType
 from core.models.journal.journal_pure import ContentStatus, ContentType, JournalPure
 from core.services.base_service import BaseService
 from core.services.journals import JournalAIInsights, JournalContext
-from core.services.protocols import BaseUpdatePayload
+from core.services.protocols import BaseUpdatePayload, JournalsOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 
-class TranscriptProcessorService(BaseService[UniversalNeo4jBackend[JournalPure], JournalPure]):
+class TranscriptProcessorService(BaseService[JournalsOperations, JournalPure]):
     """
     Transcript processor service - transforms raw transcripts into formatted documents.
 

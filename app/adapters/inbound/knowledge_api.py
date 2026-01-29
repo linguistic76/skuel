@@ -25,10 +25,10 @@ from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.ku_service import KuService
+    from core.services.protocols.facade_protocols import KuFacadeProtocol
 
 
-def create_knowledge_api_routes(app: Any, rt: Any, ku_service: "KuService") -> list[Any]:
+def create_knowledge_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol) -> list[Any]:
     """
     Create knowledge API routes using factory pattern.
 

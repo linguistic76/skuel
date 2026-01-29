@@ -45,7 +45,6 @@ from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.habits_service import HabitsService
     from core.services.protocols.facade_protocols import HabitsFacadeProtocol
 
 
@@ -79,7 +78,7 @@ def build_archive_habit_request(uid: str, fields: dict[str, Any]) -> ArchiveHabi
 def create_habits_api_routes(
     app: Any,
     rt: Any,
-    habits_service: "HabitsService",
+    habits_service: HabitsFacadeProtocol,
     user_service: Any = None,
     goals_service: Any = None,
 ) -> list[Any]:

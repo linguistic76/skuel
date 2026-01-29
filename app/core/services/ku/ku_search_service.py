@@ -42,13 +42,14 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.services.protocols import (
         IntelligenceOperations,
+        KuOperations,
         QueryBuilderOperations,
     )
 
 logger = get_logger(__name__)
 
 
-class KuSearchService(BaseService["UniversalNeo4jBackend[Ku]", Ku]):
+class KuSearchService(BaseService[KuOperations, Ku]):
     """
     Search service for Knowledge Units - BaseService pattern.
 

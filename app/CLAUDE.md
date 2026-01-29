@@ -375,7 +375,32 @@ EntityType.get_canonical()      # Normalizes aliases (KNOWLEDGE -> KU)
 
 **Core Principle:** "Zero port dependencies - all services use Protocol interfaces exclusively"
 
-**Protocol Location:** `core/services/protocols/` - base_protocols.py, domain_protocols.py, curriculum_protocols.py, search_protocols.py
+**Status (January 2026):** ✅ **100% Protocol Compliance Achieved**
+- Zero concrete type dependencies in route signatures
+- All services use protocol-based backends
+- All facade services have MyPy-visible protocol declarations
+- Full type safety across 27+ services
+
+**Protocol Location:** `core/services/protocols/` - 8 protocol files covering all domains
+
+**Key Protocol Categories:**
+
+| Category | File | Purpose | Count |
+|----------|------|---------|-------|
+| **Backend** | `base_protocols.py` | ISP-compliant backend operations | 7 protocols |
+| **Domains** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 9 protocols |
+| **Facades** | `facade_protocols.py` | MyPy declarations for delegated methods | 9 protocols |
+| **Curriculum** | `curriculum_protocols.py` | KU, LS, LP operations | 4 protocols |
+| **Search** | `search_protocols.py` | Search and query operations | 8 protocols |
+| **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, etc. | 5 protocols |
+| **Intelligence** | `intelligence_protocols.py` | Analytics operations | 1 protocol |
+| **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence | 5 protocols |
+
+**Facade Protocols (9 total):**
+Make FacadeDelegationMixin-generated methods visible to MyPy:
+- `TasksFacadeProtocol`, `GoalsFacadeProtocol`, `HabitsFacadeProtocol`
+- `EventsFacadeProtocol`, `ChoicesFacadeProtocol`, `PrinciplesFacadeProtocol`
+- `KuFacadeProtocol`, `LpFacadeProtocol`, `LsFacadeProtocol`
 
 **BackendOperations Protocol Hierarchy:**
 ```
@@ -386,6 +411,23 @@ BackendOperations[T]  <- THE protocol (UniversalNeo4jBackend implements this)
     +-- RelationshipQueryOperations
     +-- GraphTraversalOperations
     +-- LowLevelOperations
+```
+
+**Usage Pattern:**
+
+```python
+# Routes use facade protocols
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from core.services.protocols.facade_protocols import TasksFacadeProtocol
+
+def create_tasks_api_routes(
+    app: Any,
+    rt: Any,
+    tasks_service: TasksFacadeProtocol,  # Protocol, not concrete
+) -> list[Any]:
+    # MyPy knows all 45+ delegated methods
+    await tasks_service.schedule_task(...)  # ✓ Type-safe
 ```
 
 **Relationship Service Patterns:**

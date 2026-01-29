@@ -37,7 +37,7 @@ from core.models.enums.journal_enums import JournalType
 from core.models.journal.journal_dto import JournalDTO
 from core.models.journal.journal_pure import JournalPure
 from core.services.base_service import BaseService
-from core.services.protocols import BaseUpdatePayload
+from core.services.protocols import BaseUpdatePayload, JournalsOperations
 from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -54,7 +54,7 @@ def _get_created_at_key(journal: JournalPure) -> datetime:
     return journal.created_at if journal.created_at else datetime.min
 
 
-class JournalsCoreService(BaseService[UniversalNeo4jBackend[JournalPure], JournalPure]):
+class JournalsCoreService(BaseService[JournalsOperations, JournalPure]):
     """
     Core service for Journal entities.
 

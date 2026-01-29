@@ -9,7 +9,10 @@ No UI components - only API logic.
 __version__ = "1.0"
 
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from core.services.protocols import FinancesOperations
 
 # Pydantic schemas for boundary
 from core.auth import require_admin
@@ -45,7 +48,7 @@ logger = get_logger("skuel.routes.finance.api")
 
 
 def create_finance_api_routes(
-    app: Any, rt: Any, finance_service: FinanceService, user_service: Any = None
+    app: Any, rt: Any, finance_service: "FinancesOperations", user_service: Any = None
 ) -> list[Any]:
     """
     Create finance API routes (JSON endpoints only).

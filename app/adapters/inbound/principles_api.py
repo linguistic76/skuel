@@ -34,7 +34,6 @@ from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from core.services.principles_service import PrinciplesService
     from core.services.protocols.facade_protocols import PrinciplesFacadeProtocol
 
 conversion_service = ConversionService()
@@ -43,7 +42,7 @@ conversion_service = ConversionService()
 def create_principles_api_routes(
     app: Any,
     rt: Any,
-    principles_service: "PrinciplesService",
+    principles_service: PrinciplesFacadeProtocol,
     user_service: Any = None,
     goals_service: Any = None,
     habits_service: Any = None,

@@ -35,14 +35,13 @@ from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.goals_service import GoalsService
     from core.services.protocols.facade_protocols import GoalsFacadeProtocol
 
 
 def create_goals_api_routes(
     app: Any,
     rt: Any,
-    goals_service: "GoalsService",
+    goals_service: GoalsFacadeProtocol,
     user_service: Any = None,
     habits_service: Any = None,
 ) -> list[Any]:

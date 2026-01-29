@@ -32,13 +32,12 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.services.protocols.facade_protocols import TasksFacadeProtocol
-    from core.services.tasks_service import TasksService
 
 
 def create_tasks_api_routes(
     app: Any,
     rt: Any,
-    tasks_service: "TasksService",
+    tasks_service: TasksFacadeProtocol,
     user_service: Any = None,
     goals_service: Any = None,
     habits_service: Any = None,

@@ -26,13 +26,12 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.lp_service import LpService
     from core.services.protocols.facade_protocols import LpFacadeProtocol
 
 logger = get_logger("skuel.routes.learning.api")
 
 
-def create_learning_api_routes(app: Any, rt: Any, learning_service: "LpService") -> list[Any]:
+def create_learning_api_routes(app: Any, rt: Any, learning_service: LpFacadeProtocol) -> list[Any]:
     """
     Create learning API routes using factory pattern.
 

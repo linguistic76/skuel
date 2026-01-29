@@ -28,12 +28,12 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.ls_service import LsService
+    from core.services.protocols.facade_protocols import LsFacadeProtocol
 
 logger = get_logger("skuel.routes.learning_steps.api")
 
 
-def create_learning_steps_api_routes(app: Any, rt: Any, ls_service: "LsService") -> list[Any]:
+def create_learning_steps_api_routes(app: Any, rt: Any, ls_service: LsFacadeProtocol) -> list[Any]:
     """
     Create learning steps API routes using factory pattern.
 

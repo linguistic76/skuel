@@ -30,6 +30,7 @@ from core.models.assignment.assignment import (
     ProcessorType,
 )
 from core.services.base_service import BaseService
+from core.services.protocols import BackendOperations
 from core.services.protocols.query_types import AssignmentUpdatePayload
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -37,7 +38,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class AssignmentSubmissionService(BaseService[UniversalNeo4jBackend[Assignment], Assignment]):
+class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Assignment]):
     """
     Service for file submission and assignment management.
 

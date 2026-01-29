@@ -28,7 +28,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.choices_service import ChoicesService
+    from core.services.protocols.facade_protocols import ChoicesFacadeProtocol
 
 logger = get_logger("skuel.routes.choice.api")
 
@@ -36,7 +36,7 @@ logger = get_logger("skuel.routes.choice.api")
 def create_choices_api_routes(
     app: Any,
     rt: Any,
-    choice_service: "ChoicesService",
+    choice_service: ChoicesFacadeProtocol,
     user_service: Any = None,
     goals_service: Any = None,
 ) -> list[Any]:

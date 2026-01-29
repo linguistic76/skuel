@@ -27,6 +27,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import QueryLimit
 from core.models.assignment.assignment import Assignment, AssignmentType
 from core.services.base_service import BaseService
+from core.services.protocols import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -34,7 +35,7 @@ from core.utils.result_simplified import Result
 logger = get_logger("skuel.services.assignments_query")
 
 
-class AssignmentsQueryService(BaseService[UniversalNeo4jBackend[Assignment], Assignment]):
+class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignment]):
     """
     Assignments query service - unified interface for all assignment types.
 

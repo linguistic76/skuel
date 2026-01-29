@@ -113,6 +113,7 @@ if TYPE_CHECKING:
     from core.services.adaptive_sel_service import AdaptiveSELService
 
 from core.services.protocols import (
+    AskesisOperations,
     AsyncCloseable,
     ChoicesOperations,
     Closeable,
@@ -122,16 +123,22 @@ from core.services.protocols import (
     FinancesOperations,
     GoalsOperations,
     HabitsOperations,
+    IntelligenceOperations,
     JournalsOperations,
     # Knowledge operations
     KuOperations,
     # NOTE: LearningOperations DELETED January 2026 - was dead code (type hint wrong)
     # NOTE: LearningPathsOperations DELETED January 2026 - replaced by LpOperations
     LpOperations,
+    LsOperations,
     PrinciplesOperations,
+    SearchOperations,
     # Domain operations
     TasksOperations,
+    UserContextOperations,
+    UserOperations,
 )
+from core.services.protocols.facade_protocols import LpFacadeProtocol
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -182,7 +189,7 @@ class Services:
 
     # Content services (Protocol-typed)
     journals: JournalsOperations | None = None
-    journals_core: Any = None  # JournalsCoreService - CRUD for Journal nodes (January 2026)
+    journals_core: JournalsOperations | None = None  # JournalsCoreService - CRUD for Journal nodes (January 2026)
     transcript_processor: Any = (
         None  # TranscriptProcessorService - Processes transcripts into documents
     )
@@ -208,32 +215,31 @@ class Services:
     # System services
     # Note: sync field REMOVED (January 2026) - use unified_ingestion instead
     # Note: events moved to Activity Domains section above
-    calendar: Any = None  # CalendarService - unified calendar aggregation
+    calendar: Any = None  # CalendarService - unified calendar aggregation (no CalendarOperations protocol yet)
     system_service: Any = None  # SystemService - health checks and system monitoring
 
     # User management (fundamental)
-    user_service: Any = None  # UserService - user profile management
-    user_relationships: Any = None  # UserRelationshipService - pinning, following, etc.
+    user_service: UserOperations | None = None  # UserService - user profile management
+    user_relationships: Any = None  # UserRelationshipService - pinning, following, etc. (no protocol yet)
     graph_auth: Any = None  # GraphAuthService - graph-native authentication
-    context_service: Any = None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)
+    context_service: UserContextOperations | None = None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)
     context_intelligence: Any = (
         None  # UserContextIntelligenceFactory - 13-domain intelligence (2025-11-26)
     )
 
     # Consolidated Learning Services (V4)
-    # NOTE: LearningOperations type hint was WRONG - LpIntelligenceService doesn't implement it
-    # Using Any until proper protocol alignment (January 2026)
-    learning: Any = None  # LpService facade (routes access .intelligence, .core, .search)
+    # learning facade uses LpFacadeProtocol for MyPy type checking
+    learning: LpFacadeProtocol | None = None  # LpService facade (routes access .intelligence, .core, .search)
     user_progress: Any = None  # UserProgressService - User knowledge profile and mastery tracking
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
     learning_paths: LpOperations | None = (
         None  # LpService - All path management (Protocol-typed for GraphQL)
     )
-    learning_steps: Any = (
+    learning_steps: LsOperations | None = (
         None  # LsService - Dedicated learning step management (NEW: October 24, 2025)
     )
-    learning_intelligence: Any = None  # LpIntelligenceService - analysis and recommendations
-    askesis: Any = None  # AskesisService - Unified retrieval chatbot (requires OPENAI_API_KEY)
+    learning_intelligence: IntelligenceOperations | None = None  # LpIntelligenceService - analysis and recommendations
+    askesis: AskesisOperations | None = None  # AskesisService - Unified retrieval chatbot (requires OPENAI_API_KEY)
     askesis_core: Any = (
         None  # AskesisCoreService - CRUD operations for Askesis AI assistant instances
     )
@@ -245,7 +251,8 @@ class Services:
     # Note: choices moved to Activity Domains section above
 
     # Content organization (Added: October 17, 2025)
-    moc: Any = None  # MOCService - Maps of Content for non-linear knowledge organization
+    # Note: MOC is KU-based (January 2026), uses KuOperations protocol
+    moc: KuOperations | None = None  # MOCService - Maps of Content for non-linear knowledge organization
 
     # New YAML/Graph services
     yaml_loader: Any = None
@@ -269,7 +276,7 @@ class Services:
     )
 
     # Search infrastructure (One Path Forward, January 2026)
-    search_router: Any = None  # SearchRouter - THE path for all search
+    search_router: SearchOperations | None = None  # SearchRouter - THE path for all search
 
     # Orchestration services (Phase 1 - Essential)
     # Note: principles moved to Activity Domains section above

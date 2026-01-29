@@ -39,8 +39,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
-    from core.services.askesis.askesis_core_service import AskesisCoreService
-    from core.services.askesis_service import AskesisService
+    from core.services.protocols import AskesisOperations
 
 logger = get_logger("skuel.routes.askesis.api")
 
@@ -48,8 +47,8 @@ logger = get_logger("skuel.routes.askesis.api")
 def create_askesis_api_routes(
     _app: Any,
     rt: Any,
-    _askesis_service: "AskesisService",
-    _askesis_core_service: "AskesisCoreService | None" = None,
+    _askesis_service: AskesisOperations,
+    _askesis_core_service: Any = None,
     driver: "AsyncDriver | None" = None,
 ) -> list[Any]:
     """

@@ -36,6 +36,7 @@ from core.models.assignment.assignment import (
     AssignmentType,
 )
 from core.services.base_service import BaseService
+from core.services.protocols import BackendOperations
 from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_assignment_date
@@ -97,7 +98,7 @@ class AssignmentCategory:
         ]
 
 
-class AssignmentsCoreService(BaseService[UniversalNeo4jBackend[Assignment], Assignment]):
+class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignment]):
     """
     Core assignment service for content management operations.
 
