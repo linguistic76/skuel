@@ -2,40 +2,45 @@
 Tasks Service Sub-Services
 ===========================
 
-This package contains focused sub-services that compose the unified TasksService.
+This package contains focused sub-services that compose the unified TasksService facade.
 
-Architecture: Facade Pattern
-- Each sub-service handles a specific responsibility
-- TasksService (facade) delegates to appropriate sub-service
+Architecture: Facade Pattern (7 sub-services)
+- Each sub-service handles ONE specific responsibility
+- TasksService (facade) auto-delegates to appropriate sub-service via FacadeDelegationMixin
+- ~35 auto-generated delegation methods + explicit orchestration methods
 - Zero breaking changes to external code
 
-Sub-services:
-- TasksCoreService: CRUD operations
-- TasksSearchService: Search and discovery
-- TasksProgressService: Progress tracking and completion
-- TasksSchedulingService: Scheduling and recurrence
-- TasksIntelligenceService: Graph-based intelligence + Task model analysis (NO AI dependencies)
+Sub-Services:
+- TasksCoreService: CRUD operations, event publishing
+- TasksSearchService: Search, discovery, filtering
+- TasksProgressService: Progress tracking, completion with cascade
+- TasksSchedulingService: Scheduling, capacity management
+- TasksPlanningService: Context-aware planning and recommendations
+- TasksIntelligenceService: Pure Cypher analytics (NO AI dependencies)
 - TasksAIService: AI-powered features (LLM/embeddings) - OPTIONAL
-- TasksPlanningService: Context-first user planning methods
 
-NOTE: TasksRelationshipService replaced by UnifiedRelationshipService (December 2025)
-See: core/services/relationships/unified_relationship_service.py
+Common Import Pattern (Production):
+    from core.services.tasks_service import TasksService  # Facade
+    result = await tasks_service.create_task(request, user_uid)
 
-NOTE: TasksGraphNativeService removed (January 2026)
-Replaced by UnifiedRelationshipService - see ADR-029
+Direct Sub-Service Import (Testing/Composition):
+    from core.services.tasks import TasksCoreService
+    core = TasksCoreService(backend=mock_backend)
 
-NOTE: Intelligence Layer Separation (January 2026) - ADR-030
-- TasksIntelligenceService now uses BaseAnalyticsService (NO AI deps)
-- TasksAIService added for future AI-powered features
-- App works fully without LLM/embeddings
+Documentation:
+- Quick Start: /docs/guides/BASESERVICE_QUICK_START.md
+- Sub-Service Catalog: /docs/reference/SUB_SERVICE_CATALOG.md
+- Method Index: /docs/reference/BASESERVICE_METHOD_INDEX.md
+- Service Topology: /docs/architecture/SERVICE_TOPOLOGY.md
 
-NOTE: TasksAnalyticsService removed (January 2026)
-- KU analytics methods moved to TasksService (direct KuAnalyticsEngine calls)
-- Task model analysis methods moved to TasksIntelligenceService
-- Simplifies architecture by removing unnecessary orchestration layer
+Architecture Notes:
+- TasksRelationshipService replaced by UnifiedRelationshipService (December 2025)
+- TasksGraphNativeService removed, replaced by UnifiedRelationshipService (January 2026 - ADR-029)
+- Intelligence/AI separation: IntelligenceService (analytics) vs AIService (LLM) - ADR-030
+- TasksAnalyticsService removed: KU analytics now direct KuAnalyticsEngine calls (January 2026)
 
-Version: 2.2.0
-Date: 2026-01-18
+Version: 2.3.0
+Date: 2026-01-29
 """
 
 # Import implemented services

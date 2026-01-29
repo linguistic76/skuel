@@ -2,23 +2,44 @@
 Habits Sub-Services
 ===================
 
-Decomposed habits service following the facade pattern.
+This package contains focused sub-services that compose the unified HabitsService facade.
 
-Sub-services:
-- HabitsCoreService: Basic CRUD operations
-- HabitSearchService: Search and discovery (DomainSearchOperations[Habit] protocol)
-- HabitsProgressService: Streaks, consistency, keystone habits
-- HabitsLearningService: Learning path integration
-- HabitsIntelligenceService: pure Cypher analytics
+Architecture: Facade Pattern (8 sub-services)
+- Each sub-service handles ONE specific responsibility
+- HabitsService (facade) auto-delegates to appropriate sub-service via FacadeDelegationMixin
+- ~50+ auto-generated delegation methods + explicit orchestration methods
+- Most complex Activity Domain (streaks, consistency, event integration)
+- Zero breaking changes to external code
+
+Sub-Services:
+- HabitsCoreService: CRUD operations, event publishing
+- HabitSearchService: Search, discovery, filtering
+- HabitsProgressService: Streaks, consistency tracking, keystone habits
+- HabitsLearningService: Learning path integration, knowledge reinforcement
+- HabitsPlanningService: Context-aware habit recommendations
+- HabitsSchedulingService: Smart scheduling, capacity management
 - HabitsEventIntegrationService: Cross-domain event scheduling integration
-- HabitsPlanningService: Context-aware habit recommendations (January 2026)
-- HabitsSchedulingService: Smart scheduling and capacity management (January 2026)
+- HabitsIntelligenceService: Pure Cypher analytics (NO AI dependencies)
 
-NOTE: HabitsRelationshipService replaced by UnifiedRelationshipService (December 2025)
-See: core/services/relationships/unified_relationship_service.py
+Common Import Pattern (Production):
+    from core.services.habits_service import HabitsService  # Facade
+    result = await habits_service.create_habit(request, user_uid)
 
-Version: 3.0.0
-Date: 2026-01-19
+Direct Sub-Service Import (Testing/Composition):
+    from core.services.habits import HabitsCoreService
+    core = HabitsCoreService(backend=mock_backend)
+
+Documentation:
+- Quick Start: /docs/guides/BASESERVICE_QUICK_START.md
+- Sub-Service Catalog: /docs/reference/SUB_SERVICE_CATALOG.md
+- Method Index: /docs/reference/BASESERVICE_METHOD_INDEX.md
+- Service Topology: /docs/architecture/SERVICE_TOPOLOGY.md
+
+Architecture Notes:
+- HabitsRelationshipService replaced by UnifiedRelationshipService (December 2025)
+
+Version: 3.1.0
+Date: 2026-01-29
 """
 
 from core.services.habits.habit_search_service import HabitSearchService

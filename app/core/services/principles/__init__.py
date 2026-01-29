@@ -2,22 +2,42 @@
 Principles Sub-Services Package
 ================================
 
-Specialized sub-services for the Principles domain.
+This package contains focused sub-services that compose the unified PrinciplesService facade.
 
-This package provides:
-- PrinciplesCoreService: CRUD operations
-- PrinciplesSearchService: Search and discovery (DomainSearchOperations[Principle] protocol)
-- PrinciplesAlignmentService: Alignment assessment
-- PrinciplesLearningService: Learning path integration
-- PrinciplesIntelligenceService: Pure Cypher queries
+Architecture: Facade Pattern (7 sub-services)
+- Each sub-service handles ONE specific responsibility
+- PrinciplesService (facade) auto-delegates to appropriate sub-service via FacadeDelegationMixin
+- Philosophical guidance domain with alignment, reflection, and learning integration
+- Zero breaking changes to external code
+
+Sub-Services:
+- PrinciplesCoreService: CRUD operations, event publishing
+- PrinciplesSearchService: Search, discovery, filtering
+- PrinciplesAlignmentService: Alignment assessment across domains
+- PrinciplesLearningService: Learning path integration, knowledge connections
+- PrinciplesPlanningService: Context-aware recommendations
 - PrinciplesReflectionService: Reflection persistence and analytics
-- PrinciplesPlanningService: Context-aware recommendations (January 2026)
+- PrinciplesIntelligenceService: Pure Cypher analytics (NO AI dependencies)
 
-NOTE: PrinciplesRelationshipService replaced by UnifiedRelationshipService (December 2025)
-See: core/services/relationships/unified_relationship_service.py
+Common Import Pattern (Production):
+    from core.services.principles_service import PrinciplesService  # Facade
+    result = await principles_service.create_principle(request, user_uid)
 
-Version: 2.2.0
-Date: 2026-01-19
+Direct Sub-Service Import (Testing/Composition):
+    from core.services.principles import PrinciplesCoreService
+    core = PrinciplesCoreService(backend=mock_backend)
+
+Documentation:
+- Quick Start: /docs/guides/BASESERVICE_QUICK_START.md
+- Sub-Service Catalog: /docs/reference/SUB_SERVICE_CATALOG.md
+- Method Index: /docs/reference/BASESERVICE_METHOD_INDEX.md
+- Service Topology: /docs/architecture/SERVICE_TOPOLOGY.md
+
+Architecture Notes:
+- PrinciplesRelationshipService replaced by UnifiedRelationshipService (December 2025)
+
+Version: 2.3.0
+Date: 2026-01-29
 """
 
 from core.services.principles.principles_alignment_service import PrinciplesAlignmentService

@@ -2,26 +2,44 @@
 Goals Service Sub-Services
 ===========================
 
-Specialized sub-services for goal management operations.
+This package contains focused sub-services that compose the unified GoalsService facade.
+
+Architecture: Facade Pattern (9 sub-services)
+- Each sub-service handles ONE specific responsibility
+- GoalsService (facade) auto-delegates to appropriate sub-service via FacadeDelegationMixin
+- ~40+ auto-generated delegation methods + explicit orchestration methods
+- Zero breaking changes to external code
 
 Sub-Services:
-- GoalsCoreService: CRUD operations
-- GoalsSearchService: Search and discovery (DomainSearchOperations[Goal] protocol)
-- GoalsProgressService: Progress tracking and milestones
-- GoalsLearningService: Learning path integration
-- GoalsPlanningService: UserContext-dependent planning methods
-- GoalsSchedulingService: Capacity management and schedule optimization (January 2026)
-- GoalsIntelligenceService: pure Cypher analytics + predictive analytics
+- GoalsCoreService: CRUD operations, event publishing
+- GoalsSearchService: Search, discovery, filtering
+- GoalsProgressService: Progress tracking, milestones, completion
+- GoalsLearningService: Learning path integration, knowledge connections
+- GoalsPlanningService: Context-aware planning and recommendations
+- GoalsSchedulingService: Capacity management, schedule optimization
+- GoalsRecommendationService: Goal recommendations and suggestions
+- GoalsIntelligenceService: Pure Cypher analytics and predictive analytics (NO AI dependencies)
 
-NOTE: GoalsRelationshipService replaced by UnifiedRelationshipService (December 2025)
-See: core/services/relationships/unified_relationship_service.py
+Common Import Pattern (Production):
+    from core.services.goals_service import GoalsService  # Facade
+    result = await goals_service.create_goal(request, user_uid)
 
-NOTE: GoalsGraphNativeService removed (January 2026)
-Replaced by UnifiedRelationshipService - see ADR-029
+Direct Sub-Service Import (Testing/Composition):
+    from core.services.goals import GoalsCoreService
+    core = GoalsCoreService(backend=mock_backend)
 
-Version: 6.0.0
-Date: 2026-01-19
-Architecture: Facade pattern with specialized sub-services
+Documentation:
+- Quick Start: /docs/guides/BASESERVICE_QUICK_START.md
+- Sub-Service Catalog: /docs/reference/SUB_SERVICE_CATALOG.md
+- Method Index: /docs/reference/BASESERVICE_METHOD_INDEX.md
+- Service Topology: /docs/architecture/SERVICE_TOPOLOGY.md
+
+Architecture Notes:
+- GoalsRelationshipService replaced by UnifiedRelationshipService (December 2025)
+- GoalsGraphNativeService removed, replaced by UnifiedRelationshipService (January 2026 - ADR-029)
+
+Version: 6.1.0
+Date: 2026-01-29
 """
 
 from core.services.goals.goals_core_service import GoalsCoreService

@@ -2,20 +2,42 @@
 Events Sub-Services
 ===================
 
-Decomposed events service following the facade pattern.
+This package contains focused sub-services that compose the unified EventsService facade.
 
-Sub-services:
-- EventsCoreService: Basic CRUD operations
-- EventsSearchService: Search and discovery (DomainSearchOperations[Event] protocol)
-- EventsHabitIntegrationService: Cross-domain habits integration
+Architecture: Facade Pattern (7 sub-services)
+- Each sub-service handles ONE specific responsibility
+- EventsService (facade) auto-delegates to appropriate sub-service via FacadeDelegationMixin
+- Calendar and scheduling domain with habit integration
+- Zero breaking changes to external code
+
+Sub-Services:
+- EventsCoreService: CRUD operations, event publishing
+- EventsSearchService: Search, discovery, filtering
+- EventsProgressService: Event attendance and completion tracking
+- EventsSchedulingService: Scheduling, recurrence, capacity management
 - EventsLearningService: Learning and knowledge integration
-- EventsIntelligenceService: pure Cypher analytics
+- EventsHabitIntegrationService: Cross-domain habits integration
+- EventsIntelligenceService: Pure Cypher analytics (NO AI dependencies)
 
-NOTE: EventsRelationshipService replaced by UnifiedRelationshipService (December 2025)
-See: core/services/relationships/unified_relationship_service.py
+Common Import Pattern (Production):
+    from core.services.events_service import EventsService  # Facade
+    result = await events_service.create_event(request, user_uid)
 
-Version: 2.0.0
-Date: 2025-12-03
+Direct Sub-Service Import (Testing/Composition):
+    from core.services.events import EventsCoreService
+    core = EventsCoreService(backend=mock_backend)
+
+Documentation:
+- Quick Start: /docs/guides/BASESERVICE_QUICK_START.md
+- Sub-Service Catalog: /docs/reference/SUB_SERVICE_CATALOG.md
+- Method Index: /docs/reference/BASESERVICE_METHOD_INDEX.md
+- Service Topology: /docs/architecture/SERVICE_TOPOLOGY.md
+
+Architecture Notes:
+- EventsRelationshipService replaced by UnifiedRelationshipService (December 2025)
+
+Version: 2.1.0
+Date: 2026-01-29
 """
 
 from core.services.events.events_core_service import EventsCoreService

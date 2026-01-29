@@ -68,7 +68,14 @@ Architecture Patterns:
     - One path forward (no alternatives)
     - Single Responsibility via mixin composition
 
+Documentation:
+    /docs/guides/BASESERVICE_QUICK_START.md - New developer onboarding (< 30 min)
+    /docs/reference/SUB_SERVICE_CATALOG.md - Which service does what
+    /docs/reference/BASESERVICE_METHOD_INDEX.md - Complete method listing
+    /docs/architecture/SERVICE_TOPOLOGY.md - Architecture diagrams
+
 See Also:
+    /core/services/protocols/base_service_interface.py - Complete interface (all mixins)
     /core/models/shared_enums.py - Domain enum definitions
     /core/services/protocols/domain_protocols.py - Service interfaces
     /adapters/persistence/neo4j/universal_backend.py - Generic backend

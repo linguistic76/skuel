@@ -701,6 +701,45 @@ class KuSearchService(BaseService[KuOperations, KnowledgeUnit]):
 - `/docs/patterns/query_architecture.md` - Query patterns
 - `/docs/architecture/SEARCH_ARCHITECTURE.md` - Search architecture
 
+## BaseService Architecture Documentation
+
+**Core Principle:** "Documentation-first discoverability"
+
+SKUEL's BaseService architecture uses 7 focused mixins + facade pattern with 3-11 specialized sub-services per domain. Complete reference documentation available:
+
+**Essential Documentation:**
+- `/docs/guides/BASESERVICE_QUICK_START.md` - New developer onboarding (<30 min)
+- `/docs/reference/SUB_SERVICE_CATALOG.md` - Which service does what (decision trees, patterns)
+- `/docs/reference/BASESERVICE_METHOD_INDEX.md` - Complete method listing (auto-generated)
+- `/docs/architecture/SERVICE_TOPOLOGY.md` - Architecture diagrams (data flow, dependencies)
+
+**Architecture Overview:**
+- **7 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, UserProgress, Context
+- **6 Activity Domains:** Tasks (7 sub-services), Goals (9), Habits (8), Events (7), Choices (4), Principles (7)
+- **Facade Pattern:** Auto-delegation via FacadeDelegationMixin (~35-50 methods per facade)
+- **Factory Pattern:** `create_common_sub_services()` eliminates ~80 lines of boilerplate
+
+**Quick Reference:**
+```python
+# Production: Use facade (auto-delegates to sub-services)
+from core.services.tasks_service import TasksService
+result = await tasks_service.create_task(request, user_uid)
+
+# Testing: Direct sub-service access
+from core.services.tasks import TasksCoreService
+core = TasksCoreService(backend=mock_backend)
+```
+
+**Implementation Files:**
+- `/core/services/base_service.py` - Foundation with 7 mixins
+- `/core/services/protocols/base_service_interface.py` - Complete interface (all mixins)
+- `/core/services/mixins/facade_delegation_mixin.py` - Auto-delegation pattern
+- `/core/utils/activity_domain_config.py` - Factory for common sub-services
+
+**Automation:**
+- `/scripts/generate_method_index.py` - Auto-generates method index from code
+- Run: `poetry run python scripts/generate_method_index.py`
+
 ## Unified Content Ingestion
 
 **Core Principle:** "One path forward for all content ingestion"

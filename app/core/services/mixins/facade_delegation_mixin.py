@@ -271,6 +271,75 @@ class FacadeDelegationMixin:
                 f"Delegation validation failed for {self.__class__.__name__}:\n" + "\n".join(errors)
             )
 
+    def get_delegations(self) -> dict[str, dict[str, Any]]:
+        """
+        Get all delegations for runtime introspection.
+
+        Returns a dictionary mapping facade method names to their delegation info.
+        Useful for debugging, documentation generation, and testing.
+
+        Returns:
+            Dict mapping facade methods to delegation info:
+            {
+                "create_task": {
+                    "sub_service": "core",
+                    "target_method": "create_task",
+                    "signature": "(request: TaskCreateRequest, user_uid: str) -> Result[Task]",
+                    "exists": True,
+                },
+                ...
+            }
+
+        Example:
+            ```python
+            tasks_service = TasksService(...)
+            delegations = tasks_service.get_delegations()
+
+            # Check if method is delegated
+            if "create_task" in delegations:
+                print(f"create_task delegates to {delegations['create_task']['sub_service']}")
+
+            # Get all delegated methods
+            print(f"Total delegated methods: {len(delegations)}")
+            ```
+
+        See Also:
+            - /docs/reference/BASESERVICE_METHOD_INDEX.md - Auto-generated from this method
+            - validate_delegations() - Checks delegation integrity at init time
+        """
+        result: dict[str, dict[str, Any]] = {}
+
+        for facade_method, (sub_service, target_method) in self._delegations.items():
+            # Get the actual method object
+            method = getattr(self.__class__, facade_method, None)
+
+            # Extract signature if available
+            signature_str = None
+            if method is not None:
+                try:
+                    sig = inspect.signature(method)
+                    signature_str = str(sig)
+                except (ValueError, TypeError):
+                    signature_str = None
+
+            # Check if sub-service and target method exist
+            service_exists = getattr(self, sub_service, None) is not None
+            method_exists = False
+            if service_exists:
+                service = getattr(self, sub_service)
+                method_exists = getattr(service, target_method, None) is not None
+
+            result[facade_method] = {
+                "sub_service": sub_service,
+                "target_method": target_method,
+                "signature": signature_str,
+                "exists": service_exists and method_exists,
+                "sub_service_exists": service_exists,
+                "target_method_exists": method_exists,
+            }
+
+        return result
+
 
 # ============================================================================
 # COMMON DELEGATION SPECIFICATIONS
