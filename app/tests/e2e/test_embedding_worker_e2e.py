@@ -100,7 +100,7 @@ class TestEmbeddingWorkerEventProcessing:
                 user_uid=user_uid,
                 requested_at=datetime.now(),
             )
-            await event_bus.publish(event)
+            await event_bus.publish_async(event)
 
             # Wait for worker to process (batch interval + processing time)
             # Worker runs every 30 seconds, give it up to 35 seconds
@@ -210,8 +210,8 @@ class TestEmbeddingWorkerEventProcessing:
                 requested_at=datetime.now(),
             )
 
-            await event_bus.publish(task_event)
-            await event_bus.publish(goal_event)
+            await event_bus.publish_async(task_event)
+            await event_bus.publish_async(goal_event)
 
             # Wait for processing
             await asyncio.sleep(35)
@@ -295,7 +295,7 @@ class TestEmbeddingWorkerBatchProcessing:
                     user_uid=user_uid,
                     requested_at=datetime.now(),
                 )
-                await event_bus.publish(event)
+                await event_bus.publish_async(event)
 
             # Wait for one batch cycle
             await asyncio.sleep(35)
@@ -387,8 +387,8 @@ class TestEmbeddingWorkerErrorRecovery:
                 requested_at=datetime.now(),
             )
 
-            await event_bus.publish(valid_event)
-            await event_bus.publish(invalid_event)
+            await event_bus.publish_async(valid_event)
+            await event_bus.publish_async(invalid_event)
 
             # Wait for processing
             await asyncio.sleep(35)
