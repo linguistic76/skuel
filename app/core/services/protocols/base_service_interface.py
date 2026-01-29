@@ -106,30 +106,131 @@ class ConversionOperations(Protocol[T]):
     Methods provided by ConversionHelpersMixin.
 
     Purpose: DTO ↔ Domain model conversion and result handling.
+
+    Updated: 2026-01-29 - Signatures now match actual mixin implementation.
     """
 
-    def _to_domain_model(self, dto: Any) -> T:
-        """Convert DTO to domain model."""
+    def _ensure_exists(
+        self,
+        result: Result[T | None],
+        resource_name: str,
+        identifier: str,
+    ) -> Result[T]:
+        """
+        Convert Result[T | None] to Result[T] with proper null safety.
+
+        Args:
+            result: Result that might contain None
+            resource_name: Human-readable resource type (e.g., "MOC", "Task")
+            identifier: Resource identifier for error message
+
+        Returns:
+            Result[T] - guaranteed non-null value or error
+        """
         ...
 
-    def _from_domain_model(self, model: T) -> Any:
-        """Convert domain model to DTO."""
+    def _to_domain_model(
+        self,
+        data: Any,
+        dto_class: type[Any],
+        model_class: type[T],
+    ) -> T:
+        """
+        Convert backend data to domain model through DTO layer.
+
+        Args:
+            data: Raw data from backend (dict, DTO, or object)
+            dto_class: DTO class for conversion
+            model_class: Target domain model class
+
+        Returns:
+            Domain model instance
+        """
         ...
 
-    def _to_domain_models(self, dtos: list[Any]) -> list[T]:
-        """Convert list of DTOs to domain models."""
+    def _to_domain_models(
+        self,
+        data_list: list[Any],
+        dto_class: type[Any],
+        model_class: type[T],
+    ) -> list[T]:
+        """
+        Convert list of backend data to domain models.
+
+        Args:
+            data_list: List of raw data from backend
+            dto_class: DTO class for conversion
+            model_class: Target domain model class
+
+        Returns:
+            List of domain model instances
+        """
         ...
 
-    def _ensure_exists(self, result: Result[T | None]) -> Result[T]:
-        """Convert None result to NotFound error."""
+    def _from_domain_model(self, model: T, dto_class: type) -> Any:
+        """
+        Convert domain model to DTO for backend operations.
+
+        Args:
+            model: Domain model instance
+            dto_class: Target DTO class
+
+        Returns:
+            DTO instance
+        """
         ...
 
-    def _records_to_domain_models(self, records: list[Any]) -> list[T]:
-        """Convert Neo4j records to domain models."""
+    def _records_to_domain_models(
+        self,
+        records: list[dict[str, Any]],
+        node_key: str = "n",
+    ) -> list[T]:
+        """
+        Extract nodes from query records and convert to domain models.
+
+        Args:
+            records: List of record dicts from execute_query
+            node_key: Key containing the node data (default: "n")
+
+        Returns:
+            List of domain model instances
+        """
         ...
 
-    async def _create_and_convert(self, **properties: Any) -> Result[T]:
-        """Create entity and convert to domain model."""
+    def _validate_required_user_uid(
+        self,
+        user_uid: str | None,
+        operation: str,
+    ) -> Result[Any] | None:
+        """
+        Validate that user_uid is present for an operation.
+
+        Args:
+            user_uid: The user UID to validate
+            operation: Operation name for error message (e.g., "task creation")
+
+        Returns:
+            None if valid, Result.fail() if user_uid is missing
+        """
+        ...
+
+    async def _create_and_convert(
+        self,
+        data: dict[str, Any],
+        dto_class: type[Any],
+        model_class: type[T],
+    ) -> Result[T]:
+        """
+        Create entity in backend and convert to domain model.
+
+        Args:
+            data: Dictionary data to create (typically from dto.to_dict())
+            dto_class: DTO class for conversion
+            model_class: Domain model class for conversion
+
+        Returns:
+            Result containing created domain model
+        """
         ...
 
 
@@ -139,50 +240,146 @@ class CrudOperations(Protocol[T]):
     Methods provided by CrudOperationsMixin.
 
     Purpose: CRUD operations with ownership verification.
+
+    Updated: 2026-01-29 - Signatures now match actual mixin implementation.
     """
 
-    async def create(self, **kwargs: Any) -> Result[T]:
-        """Create new entity."""
+    async def create(self, entity: T) -> Result[T]:
+        """
+        Create a new entity.
+
+        Args:
+            entity: Domain model instance to create
+
+        Returns:
+            Result[T]: Created entity
+        """
         ...
 
-    async def get(self, uid: str) -> Result[T | None]:
-        """Get entity by UID (no ownership check)."""
+    async def get(self, uid: str) -> Result[T]:
+        """
+        Get entity by UID.
+
+        Returns Result[T] - not found is an error, not a None value.
+
+        Args:
+            uid: Entity UID
+
+        Returns:
+            Result[T]: The entity if found, error otherwise
+        """
         ...
 
     async def update(self, uid: str, updates: dict[str, Any]) -> Result[T]:
-        """Update entity (no ownership check)."""
+        """
+        Update entity (no ownership check).
+
+        Args:
+            uid: Entity UID
+            updates: Dictionary of fields to update
+
+        Returns:
+            Result[T]: Updated entity
+        """
         ...
 
-    async def delete(self, uid: str) -> Result[bool]:
-        """Delete entity (no ownership check)."""
+    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
+        """
+        Delete entity (no ownership check).
+
+        Args:
+            uid: Entity UID
+            cascade: Whether to cascade delete relationships
+
+        Returns:
+            Result[bool]: True if deleted
+        """
         ...
 
     async def list(
         self,
-        filters: dict[str, Any] | None = None,
         limit: int = 100,
         offset: int = 0,
+        filters: dict[str, Any] | None = None,
+        sort_by: str | None = None,
+        sort_order: str = "asc",
+        user_uid: str | None = None,
+        order_by: str | None = None,
+        order_desc: bool = False,
     ) -> Result[tuple[list[T], int]]:
-        """List entities with pagination (entities, total_count)."""
+        """
+        List entities with pagination.
+
+        Args:
+            limit: Maximum number of entities to return
+            offset: Number of entities to skip
+            filters: Optional filters to apply
+            sort_by: Field to sort by
+            sort_order: Sort order ("asc" or "desc")
+            user_uid: Optional user UID for user-specific filtering
+            order_by: Alias for sort_by (deprecated, use sort_by)
+            order_desc: Reverse sort order
+
+        Returns:
+            Result[tuple[list[T], int]]: (entities, total_count)
+        """
         ...
 
     # Ownership-verified CRUD
     async def verify_ownership(self, uid: str, user_uid: str) -> Result[T]:
-        """Get entity with ownership check (404 if not owned)."""
+        """
+        Get entity with ownership check (404 if not owned).
+
+        Args:
+            uid: Entity UID
+            user_uid: User UID who should own the entity
+
+        Returns:
+            Result[T]: Entity if owned by user, error otherwise
+        """
         ...
 
     async def get_for_user(self, uid: str, user_uid: str) -> Result[T]:
-        """Alias for verify_ownership()."""
+        """
+        Alias for verify_ownership().
+
+        Args:
+            uid: Entity UID
+            user_uid: User UID who should own the entity
+
+        Returns:
+            Result[T]: Entity if owned by user, error otherwise
+        """
         ...
 
     async def update_for_user(
-        self, uid: str, user_uid: str, updates: dict[str, Any]
+        self, uid: str, updates: dict[str, Any], user_uid: str
     ) -> Result[T]:
-        """Update with ownership verification."""
+        """
+        Update entity, but only if owned by the specified user.
+
+        Args:
+            uid: Entity UID to update
+            updates: Dictionary of fields to update
+            user_uid: User UID who should own the entity
+
+        Returns:
+            Result[T]: Updated entity if owned by user, error otherwise
+        """
         ...
 
-    async def delete_for_user(self, uid: str, user_uid: str) -> Result[bool]:
-        """Delete with ownership verification."""
+    async def delete_for_user(self, uid: str, user_uid: str, cascade: bool = False) -> Result[bool]:
+        """
+        Delete entity, but only if owned by the specified user.
+
+        Args:
+            uid: Entity UID to delete
+            user_uid: User UID who should own the entity
+            cascade: Whether to cascade delete relationships
+
+        Returns:
+            Result[bool]: True if deleted, error otherwise
+        """
         ...
 
 
@@ -192,52 +389,128 @@ class SearchOperations(Protocol[T]):
     Methods provided by SearchOperationsMixin.
 
     Purpose: Text search, filtering, and graph-aware queries.
+
+    Updated: 2026-01-29 - Signatures now match actual mixin implementation.
     """
 
-    async def search(
-        self, query: str, limit: int = 100, user_uid: str | None = None
-    ) -> Result[list[T]]:
-        """Full-text search across configured search fields."""
+    async def search(self, query: str, limit: int = 50) -> Result[list[T]]:
+        """
+        Text search across configured search fields.
+
+        Args:
+            query: Search string (case-insensitive)
+            limit: Maximum results to return (default 50)
+
+        Returns:
+            Result containing matching entities
+        """
         ...
 
     async def search_by_tags(
-        self, tags: list[str], user_uid: str | None = None
+        self,
+        tags: list[str],
+        match_all: bool = False,
+        limit: int = 50,
     ) -> Result[list[T]]:
-        """Filter by tags."""
+        """
+        Search entities by tags (array field search).
+
+        Args:
+            tags: List of tag values to search for
+            match_all: If True, require ALL tags; if False, ANY tag matches
+            limit: Maximum results (default 50)
+
+        Returns:
+            Result containing entities with matching tags
+        """
         ...
 
-    async def get_by_status(
-        self, status: Any, user_uid: str | None = None
-    ) -> Result[list[T]]:
-        """Filter by status."""
+    async def get_by_status(self, status: str, limit: int = 100) -> Result[list[T]]:
+        """
+        Filter entities by status field.
+
+        Args:
+            status: Status string (e.g., "active", "completed", "archived")
+            limit: Maximum results to return
+
+        Returns:
+            Result containing entities with matching status
+        """
         ...
 
     async def get_by_category(
-        self, category: str, user_uid: str | None = None
+        self, category: str, user_uid: str | None = None, limit: int = 100
     ) -> Result[list[T]]:
-        """Filter by category/domain."""
-        ...
+        """
+        Filter entities by category field.
 
-    async def list_categories(self, user_uid: str | None = None) -> Result[list[str]]:
-        """Get available categories."""
+        Args:
+            category: Category name to filter by
+            user_uid: Optional user filter
+            limit: Maximum results to return
+
+        Returns:
+            Result containing entities in the specified category
+        """
         ...
 
     async def get_by_relationship(
-        self, relationship_type: str, target_uid: str
+        self,
+        related_uid: str,
+        relationship_type: Any,  # RelationshipName enum
+        direction: str = "outgoing",
     ) -> Result[list[T]]:
-        """Find entities with specific relationship."""
+        """
+        Get entities connected via graph relationship.
+
+        Args:
+            related_uid: UID of the related entity (source node)
+            relationship_type: Type-safe RelationshipName enum
+            direction: "outgoing", "incoming", or "both" (default "outgoing")
+
+        Returns:
+            Result containing related entities
+        """
         ...
 
     async def search_connected_to(
-        self, target_uid: str, relationship_type: str, direction: str = "outgoing"
+        self,
+        query: str,
+        related_uid: str,
+        relationship_type: Any,  # RelationshipName enum
+        direction: str = "outgoing",
+        limit: int = 50,
     ) -> Result[list[T]]:
-        """Graph traversal search."""
+        """
+        Graph-aware search: text search + relationship traversal in ONE query.
+
+        Args:
+            query: Search text (case-insensitive CONTAINS)
+            related_uid: UID of the entity to traverse from
+            relationship_type: Type-safe RelationshipName enum
+            direction: "outgoing", "incoming", or "both" (default "outgoing")
+            limit: Maximum results (default 50)
+
+        Returns:
+            Result containing entities matching query AND connected via relationship
+        """
         ...
 
     async def graph_aware_faceted_search(
-        self, filters: dict[str, Any], include_graph_context: bool = False
-    ) -> Result[dict[str, Any]]:
-        """Advanced search with optional graph context."""
+        self,
+        request: Any,  # SearchRequest
+        user_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Graph-aware faceted search - THE unified method for all domains.
+
+        Args:
+            request: SearchRequest with query and facets
+            user_uid: User identifier for ownership and graph patterns
+
+        Returns:
+            Result[list[dict]]: Results with _graph_context enrichment
+        """
         ...
 
 
@@ -247,52 +520,122 @@ class RelationshipOperations(Protocol[T]):
     Methods provided by RelationshipOperationsMixin.
 
     Purpose: Graph relationship operations and traversal.
+
+    Updated: 2026-01-29 - Signatures now match actual mixin implementation.
     """
 
     async def add_relationship(
         self,
         from_uid: str,
+        rel_type: str | Any,  # str or RelationshipName enum
         to_uid: str,
-        rel_type: str,
         properties: dict[str, Any] | None = None,
     ) -> Result[bool]:
-        """Create relationship between entities."""
+        """
+        Add a relationship between two entities.
+
+        Args:
+            from_uid: Source entity UID
+            rel_type: Relationship type (string or RelationshipName enum)
+            to_uid: Target entity UID
+            properties: Optional relationship properties
+
+        Returns:
+            Result[bool]: True if relationship was created successfully
+        """
         ...
 
     async def get_relationships(
-        self, uid: str, direction: str = "both"
-    ) -> Result[list[dict[str, Any]]]:
-        """Get relationships for entity."""
+        self,
+        uid: str,
+        rel_type: str | None = None,
+        direction: str = "both",  # 'in', 'out', 'both'
+    ) -> Result[list[Any]]:  # list[Relationship]
+        """
+        Get all relationships for an entity.
+
+        Args:
+            uid: Entity UID
+            rel_type: Optional filter by relationship type
+            direction: Direction of relationships to retrieve
+
+        Returns:
+            Result[list[Relationship]]: Entity relationships
+        """
         ...
 
     async def traverse(
-        self,
-        start_uid: str,
-        relationship_types: list[str],
-        depth: int = 2,
-        direction: str = "outgoing",
-    ) -> Result[list[T]]:
-        """Graph traversal from start node."""
+        self, start_uid: str, rel_pattern: str, max_depth: int = 3, include_properties: bool = False
+    ) -> Result[list[Any]]:  # list[GraphPath]
+        """
+        Traverse the graph following a relationship pattern.
+
+        Args:
+            start_uid: Starting entity UID
+            rel_pattern: Pattern like "REQUIRES*" or "ENABLES+"
+            max_depth: Maximum traversal depth
+            include_properties: Include relationship properties
+
+        Returns:
+            Result[list[GraphPath]]: Traversal paths
+        """
         ...
 
-    async def get_prerequisites(self, uid: str) -> Result[list[T]]:
-        """Get prerequisite entities (configured via DomainConfig)."""
+    async def get_prerequisites(self, uid: str, depth: int = 3) -> Result[list[T]]:
+        """
+        Get prerequisite entities.
+
+        Args:
+            uid: Entity UID
+            depth: Maximum depth to traverse (default: 3)
+
+        Returns:
+            Result[list[T]]: Prerequisite entities
+        """
         ...
 
-    async def get_enables(self, uid: str) -> Result[list[T]]:
-        """Get entities this enables (configured via DomainConfig)."""
+    async def get_enables(self, uid: str, depth: int = 3) -> Result[list[T]]:
+        """
+        Get entities enabled by this entity.
+
+        Args:
+            uid: Entity UID
+            depth: Maximum depth to traverse (default: 3)
+
+        Returns:
+            Result[list[T]]: Entities that this entity enables
+        """
         ...
 
     async def add_prerequisite(
-        self, uid: str, prerequisite_uid: str
+        self,
+        entity_uid: str,
+        prerequisite_uid: str,
+        confidence: float = 1.0,
     ) -> Result[bool]:
-        """Add prerequisite relationship."""
+        """
+        Add a prerequisite relationship.
+
+        Args:
+            entity_uid: The entity that requires the prerequisite
+            prerequisite_uid: The prerequisite entity UID
+            confidence: Relationship confidence (0.0-1.0)
+
+        Returns:
+            Result[bool]: True if relationship was created
+        """
         ...
 
-    async def get_hierarchy(
-        self, uid: str, depth: int = 2
-    ) -> Result[dict[str, Any]]:
-        """Get hierarchical structure."""
+    async def get_hierarchy(self, uid: str) -> Result[dict[str, Any]]:
+        """
+        Get hierarchical structure for this entity.
+
+        Args:
+            uid: Entity UID
+
+        Returns:
+            Result[dict]: Hierarchical context with parents and children
+        """
         ...
 
 
@@ -302,22 +645,65 @@ class TimeQueryOperations(Protocol[T]):
     Methods provided by TimeQueryMixin.
 
     Purpose: Calendar and scheduling queries.
+
+    Updated: 2026-01-29 - Signatures now match actual mixin implementation.
     """
 
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date
+        self,
+        user_uid: str,
+        start_date: date,
+        end_date: date,
+        include_completed: bool = False,
     ) -> Result[list[T]]:
-        """Get entities in date range (uses DomainConfig.date_field)."""
+        """
+        Get user's items in date range.
+
+        Args:
+            user_uid: User UID
+            start_date: Range start date
+            end_date: Range end date
+            include_completed: Whether to include completed items
+
+        Returns:
+            Result[list[T]]: Entities in the date range
+        """
         ...
 
     async def get_due_soon(
-        self, user_uid: str, days: int = 7
+        self,
+        days_ahead: int = 7,
+        user_uid: str | None = None,
+        limit: int = 100,
     ) -> Result[list[T]]:
-        """Get entities due within N days."""
+        """
+        Get entities due within specified number of days.
+
+        Args:
+            days_ahead: Number of days ahead to check
+            user_uid: Optional user filter
+            limit: Maximum results to return
+
+        Returns:
+            Result[list[T]]: Entities due soon
+        """
         ...
 
-    async def get_overdue(self, user_uid: str) -> Result[list[T]]:
-        """Get overdue entities."""
+    async def get_overdue(
+        self,
+        user_uid: str | None = None,
+        limit: int = 100,
+    ) -> Result[list[T]]:
+        """
+        Get entities past their due date.
+
+        Args:
+            user_uid: Optional user filter
+            limit: Maximum results to return
+
+        Returns:
+            Result[list[T]]: Overdue entities
+        """
         ...
 
 
@@ -329,20 +715,53 @@ class UserProgressOperations(Protocol[T]):
     Purpose: Progress and mastery tracking (curriculum-origin, now universal).
     """
 
-    async def get_user_progress(
-        self, uid: str, user_uid: str
-    ) -> Result[dict[str, Any]]:
-        """Get progress stats for entity."""
+    async def get_user_progress(self, user_uid: str, entity_uid: str) -> Result[dict[str, Any]]:
+        """
+        Get user's progress/mastery for an entity.
+
+        Args:
+            user_uid: User UID
+            entity_uid: Entity UID
+
+        Returns:
+            Result[dict]: Progress stats for entity
+        """
         ...
 
     async def update_user_mastery(
-        self, uid: str, user_uid: str, mastery_level: float
+        self,
+        user_uid: str,
+        entity_uid: str,
+        mastery_level: float,
     ) -> Result[bool]:
-        """Update mastery score (0.0-1.0)."""
+        """
+        Update user's mastery level for an entity.
+
+        Args:
+            user_uid: User UID
+            entity_uid: Entity UID
+            mastery_level: Mastery score (0.0-1.0)
+
+        Returns:
+            Result[bool]: True if updated
+        """
         ...
 
-    async def get_user_curriculum(self, user_uid: str) -> Result[list[T]]:
-        """Get user's curriculum entities."""
+    async def get_user_curriculum(
+        self,
+        user_uid: str,
+        include_completed: bool = False,
+    ) -> Result[list[T]]:
+        """
+        Get entities the user is studying/has mastered.
+
+        Args:
+            user_uid: User UID
+            include_completed: Whether to include completed items
+
+        Returns:
+            Result[list[T]]: Entities in user's curriculum
+        """
         ...
 
 
@@ -352,6 +771,8 @@ class ContextOperations(Protocol[T]):
     Methods provided by ContextOperationsMixin.
 
     Purpose: Retrieve entities with enriched graph context.
+
+    Updated: 2026-01-29 - Signatures now match actual mixin implementation.
     """
 
     async def get_with_content(self, uid: str) -> Result[T]:
@@ -359,15 +780,45 @@ class ContextOperations(Protocol[T]):
         ...
 
     async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[T, GraphContext]]:
-        """Get entity with graph neighborhood (entity, graph_context)."""
+        self,
+        uid: str,
+        depth: int = 2,
+        min_confidence: float = 0.7,
+        include_relationships: Any | None = None,  # Sequence[str]
+        exclude_relationships: Any | None = None,  # Sequence[str]
+    ) -> Result[T]:
+        """
+        Get entity with graph neighborhood context.
+
+        Args:
+            uid: Entity UID
+            depth: Maximum graph traversal depth
+            min_confidence: Minimum relationship confidence to include
+            include_relationships: Optional whitelist of relationship types
+            exclude_relationships: Optional blacklist of relationship types
+
+        Returns:
+            Result[T]: Entity with graph_context metadata
+        """
         ...
 
     async def _basic_get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[T, GraphContext]]:
-        """Internal implementation of get_with_context."""
+        self,
+        uid: str,
+        depth: int = 2,
+        min_confidence: float = 0.7,
+    ) -> Result[T]:
+        """
+        Basic get_with_context for entities not in UnifiedRelationshipRegistry.
+
+        Args:
+            uid: Entity UID
+            depth: Maximum graph traversal depth
+            min_confidence: Minimum relationship confidence to include
+
+        Returns:
+            Result[T]: Entity with graph_context metadata
+        """
         ...
 
 

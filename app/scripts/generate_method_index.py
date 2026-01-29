@@ -84,7 +84,11 @@ def _parse_delegation_expr(node: ast.expr) -> dict[str, tuple[str, str]]:
     result: dict[str, tuple[str, str]] = {}
 
     # Handle merge_delegations() calls
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "merge_delegations":
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "merge_delegations"
+    ):
         for arg in node.args:
             if isinstance(arg, ast.Dict):
                 # Direct dict argument
@@ -163,7 +167,9 @@ def generate_method_index() -> str:
     # Header
     lines.append("# BaseService Method Index")
     lines.append("")
-    lines.append("**Purpose:** Complete reference of all methods available in BaseService and Activity Domain facades.")
+    lines.append(
+        "**Purpose:** Complete reference of all methods available in BaseService and Activity Domain facades."
+    )
     lines.append("")
     lines.append(f"**Last Updated:** {datetime.now().strftime('%Y-%m-%d')} (Auto-generated)")
     lines.append("")
@@ -176,7 +182,9 @@ def generate_method_index() -> str:
     # Table of Contents
     lines.append("## Table of Contents")
     lines.append("")
-    lines.append("- [BaseService Mixin Methods](#baseservice-mixin-methods) - Methods from 7 mixins")
+    lines.append(
+        "- [BaseService Mixin Methods](#baseservice-mixin-methods) - Methods from 7 mixins"
+    )
     lines.append("- [Activity Domain Facades](#activity-domain-facades) - Facade delegations")
     lines.append("- [Common Patterns](#common-patterns) - Usage examples")
     lines.append("")
@@ -252,7 +260,9 @@ def generate_method_index() -> str:
                     by_service[sub_service].append((facade_method, target_method))
 
                 for sub_service, methods in sorted(by_service.items()):
-                    lines.append(f"#### {sub_service.capitalize()} Delegations ({len(methods)} methods)")
+                    lines.append(
+                        f"#### {sub_service.capitalize()} Delegations ({len(methods)} methods)"
+                    )
                     lines.append("")
                     lines.append("| Facade Method | Target Method |")
                     lines.append("|---------------|---------------|")
@@ -290,9 +300,13 @@ def generate_method_index() -> str:
     lines.append("")
     lines.append("## See Also")
     lines.append("")
-    lines.append("- [Sub-Service Catalog](/docs/reference/SUB_SERVICE_CATALOG.md) - Which service does what")
+    lines.append(
+        "- [Sub-Service Catalog](/docs/reference/SUB_SERVICE_CATALOG.md) - Which service does what"
+    )
     lines.append("- [Quick Start Guide](/docs/guides/BASESERVICE_QUICK_START.md) - Usage patterns")
-    lines.append("- [Service Topology](/docs/architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams")
+    lines.append(
+        "- [Service Topology](/docs/architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams"
+    )
     lines.append("- [BaseService Source](/core/services/base_service.py) - Implementation")
     lines.append("")
 

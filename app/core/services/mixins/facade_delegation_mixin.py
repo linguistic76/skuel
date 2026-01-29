@@ -297,7 +297,9 @@ class FacadeDelegationMixin:
 
             # Check if method is delegated
             if "create_task" in delegations:
-                print(f"create_task delegates to {delegations['create_task']['sub_service']}")
+                print(
+                    f"create_task delegates to {delegations['create_task']['sub_service']}"
+                )
 
             # Get all delegated methods
             print(f"Total delegated methods: {len(delegations)}")

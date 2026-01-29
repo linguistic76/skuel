@@ -363,3 +363,12 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         self.logger.debug(f"Found {len(items)} overdue {self.entity_label}(s)")
 
         return Result.ok(items)
+
+
+# ============================================================================
+# PROTOCOL COMPLIANCE VERIFICATION (January 2026)
+# ============================================================================
+if TYPE_CHECKING:
+    from core.services.protocols.base_service_interface import TimeQueryOperations
+
+    _protocol_check: type[TimeQueryOperations[Any]] = TimeQueryMixin  # type: ignore[type-arg]

@@ -237,6 +237,37 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
                 )
 
     # ========================================================================
+    # CONFIGURATION ACCESS (January 2026 - Class-Level)
+    # ========================================================================
+
+    @classmethod
+    def _get_config_cls(cls) -> Any:
+        """
+        Get class-level configuration.
+
+        Returns the DomainConfig for this service class, or None if not configured.
+        This is a CLASS-LEVEL constant shared by all instances of the same service class.
+
+        Design Note:
+            Configuration is defined once at class definition time and is immutable.
+            All instances of the same service class share the exact same _config object.
+            This method makes class-level access explicit and semantically correct.
+
+        Returns:
+            DomainConfig | None: The service's configuration, or None if not configured
+
+        Example:
+            config = TasksService._get_config_cls()
+            if config:
+                print(config.search_fields)  # ('title', 'description')
+
+        See Also:
+            /docs/patterns/DOMAIN_CONFIG_PATTERN.md - Configuration patterns
+            /core/services/domain_config.py - DomainConfig definition
+        """
+        return cls._config
+
+    # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT (Auto-Inferred with Override)
     # ========================================================================
 
@@ -261,16 +292,17 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
             5. Class name minus "Service" suffix (fallback)
         """
         # Priority 1: DomainConfig.entity_label (Phase 2)
-        if self._config and self._config.entity_label:
-            return self._config.entity_label
+        config = self._get_config_cls()
+        if config and config.entity_label:
+            return config.entity_label
 
         # Priority 2: Explicit _entity_label class attribute
         if self._entity_label:
             return self._entity_label
 
         # Priority 3: DomainConfig.model_class
-        if self._config and self._config.model_class:
-            return self._config.model_class.__name__
+        if config and config.model_class:
+            return config.model_class.__name__
 
         # Priority 4: Infer from _model_class.__name__
         if self._model_class is not None:
@@ -301,9 +333,10 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
         Raises:
             AttributeError: If attr_name doesn't exist in DomainConfig (developer error)
         """
-        # DomainConfig is THE source of truth
-        if self._config:
-            value = getattr(self._config, attr_name, None)
+        # DomainConfig is THE source of truth (class-level access)
+        config = self._get_config_cls()
+        if config:
+            value = getattr(config, attr_name, None)
             if value is not None:
                 return value
 

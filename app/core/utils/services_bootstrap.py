@@ -189,7 +189,9 @@ class Services:
 
     # Content services (Protocol-typed)
     journals: JournalsOperations | None = None
-    journals_core: JournalsOperations | None = None  # JournalsCoreService - CRUD for Journal nodes (January 2026)
+    journals_core: JournalsOperations | None = (
+        None  # JournalsCoreService - CRUD for Journal nodes (January 2026)
+    )
     transcript_processor: Any = (
         None  # TranscriptProcessorService - Processes transcripts into documents
     )
@@ -215,21 +217,29 @@ class Services:
     # System services
     # Note: sync field REMOVED (January 2026) - use unified_ingestion instead
     # Note: events moved to Activity Domains section above
-    calendar: Any = None  # CalendarService - unified calendar aggregation (no CalendarOperations protocol yet)
+    calendar: Any = (
+        None  # CalendarService - unified calendar aggregation (no CalendarOperations protocol yet)
+    )
     system_service: Any = None  # SystemService - health checks and system monitoring
 
     # User management (fundamental)
     user_service: UserOperations | None = None  # UserService - user profile management
-    user_relationships: Any = None  # UserRelationshipService - pinning, following, etc. (no protocol yet)
+    user_relationships: Any = (
+        None  # UserRelationshipService - pinning, following, etc. (no protocol yet)
+    )
     graph_auth: Any = None  # GraphAuthService - graph-native authentication
-    context_service: UserContextOperations | None = None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)
+    context_service: UserContextOperations | None = (
+        None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)
+    )
     context_intelligence: Any = (
         None  # UserContextIntelligenceFactory - 13-domain intelligence (2025-11-26)
     )
 
     # Consolidated Learning Services (V4)
     # learning facade uses LpFacadeProtocol for MyPy type checking
-    learning: LpFacadeProtocol | None = None  # LpService facade (routes access .intelligence, .core, .search)
+    learning: LpFacadeProtocol | None = (
+        None  # LpService facade (routes access .intelligence, .core, .search)
+    )
     user_progress: Any = None  # UserProgressService - User knowledge profile and mastery tracking
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
     learning_paths: LpOperations | None = (
@@ -238,8 +248,12 @@ class Services:
     learning_steps: LsOperations | None = (
         None  # LsService - Dedicated learning step management (NEW: October 24, 2025)
     )
-    learning_intelligence: IntelligenceOperations | None = None  # LpIntelligenceService - analysis and recommendations
-    askesis: AskesisOperations | None = None  # AskesisService - Unified retrieval chatbot (requires OPENAI_API_KEY)
+    learning_intelligence: IntelligenceOperations | None = (
+        None  # LpIntelligenceService - analysis and recommendations
+    )
+    askesis: AskesisOperations | None = (
+        None  # AskesisService - Unified retrieval chatbot (requires OPENAI_API_KEY)
+    )
     askesis_core: Any = (
         None  # AskesisCoreService - CRUD operations for Askesis AI assistant instances
     )
@@ -252,7 +266,9 @@ class Services:
 
     # Content organization (Added: October 17, 2025)
     # Note: MOC is KU-based (January 2026), uses KuOperations protocol
-    moc: KuOperations | None = None  # MOCService - Maps of Content for non-linear knowledge organization
+    moc: KuOperations | None = (
+        None  # MOCService - Maps of Content for non-linear knowledge organization
+    )
 
     # New YAML/Graph services
     yaml_loader: Any = None

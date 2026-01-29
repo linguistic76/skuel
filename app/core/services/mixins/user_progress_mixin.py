@@ -253,3 +253,12 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
         entities = self._records_to_domain_models(result.value)
         self.logger.debug(f"Found {len(entities)} {self.entity_label} entities for user {user_uid}")
         return Result.ok(entities)
+
+
+# ============================================================================
+# PROTOCOL COMPLIANCE VERIFICATION (January 2026)
+# ============================================================================
+if TYPE_CHECKING:
+    from core.services.protocols.base_service_interface import UserProgressOperations
+
+    _protocol_check: type[UserProgressOperations[Any]] = UserProgressMixin  # type: ignore[type-arg]

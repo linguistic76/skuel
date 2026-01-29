@@ -67,9 +67,7 @@ async def get_service_capabilities(
     try:
         config = getattr(service, "_config", None)
         if config:
-            capabilities["has_user_progress"] = getattr(
-                config, "supports_user_progress", False
-            )
+            capabilities["has_user_progress"] = getattr(config, "supports_user_progress", False)
     except AttributeError:
         capabilities["has_user_progress"] = False
 

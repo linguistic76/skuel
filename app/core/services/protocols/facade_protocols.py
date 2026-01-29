@@ -1366,7 +1366,9 @@ class KuFacadeProtocol(Protocol):
         """Search within KU chunks."""
         ...
 
-    async def search_by_features(self, features: dict[str, Any], limit: int = 50) -> Result[list[Any]]:
+    async def search_by_features(
+        self, features: dict[str, Any], limit: int = 50
+    ) -> Result[list[Any]]:
         """Search KUs by features."""
         ...
 
@@ -1412,7 +1414,9 @@ class KuFacadeProtocol(Protocol):
         """Analyze user's knowledge gaps."""
         ...
 
-    async def get_learning_recommendations(self, user_uid: str, limit: int = 10) -> Result[list[Any]]:
+    async def get_learning_recommendations(
+        self, user_uid: str, limit: int = 10
+    ) -> Result[list[Any]]:
         """Get learning recommendations for user."""
         ...
 

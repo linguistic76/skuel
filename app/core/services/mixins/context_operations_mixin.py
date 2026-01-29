@@ -333,3 +333,12 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         dto.metadata["graph_context"] = graph_context
         return Result.ok(self._model_class.from_dto(dto))
+
+
+# ============================================================================
+# PROTOCOL COMPLIANCE VERIFICATION (January 2026)
+# ============================================================================
+if TYPE_CHECKING:
+    from core.services.protocols.base_service_interface import ContextOperations
+
+    _protocol_check: type[ContextOperations[Any]] = ContextOperationsMixin  # type: ignore[type-arg]

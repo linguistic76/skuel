@@ -397,3 +397,12 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         }
 
         return Result.ok(hierarchy)
+
+
+# ============================================================================
+# PROTOCOL COMPLIANCE VERIFICATION (January 2026)
+# ============================================================================
+if TYPE_CHECKING:
+    from core.services.protocols.base_service_interface import RelationshipOperations
+
+    _protocol_check: type[RelationshipOperations[Any]] = RelationshipOperationsMixin  # type: ignore[type-arg]

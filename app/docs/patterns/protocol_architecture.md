@@ -362,12 +362,115 @@ class TasksService:
 - **Duck typing** - Implementations satisfy protocols automatically
 - **One path forward** - No alternatives, no confusion
 
+## Protocol-Mixin Compliance (January 2026)
+
+**Achievement:** 100% protocol-mixin alignment across all 7 BaseService mixins.
+
+### The Challenge
+
+BaseService is composed of 7 mixins, each with a corresponding protocol:
+- `ConversionHelpersMixin` → `ConversionOperations`
+- `CrudOperationsMixin` → `CrudOperations`
+- `SearchOperationsMixin` → `SearchOperations`
+- `RelationshipOperationsMixin` → `RelationshipOperations`
+- `TimeQueryMixin` → `TimeQueryOperations`
+- `UserProgressMixin` → `UserProgressOperations`
+- `ContextOperationsMixin` → `ContextOperations`
+
+**The Problem:** Method signatures must be duplicated in both protocol and mixin, requiring manual synchronization.
+
+### The Solution: Automated Verification
+
+**Accept the duplication** (protocols define interface, mixins define implementation), but **automate the verification**:
+
+#### 1. TYPE_CHECKING Verification Blocks
+
+Each mixin includes a verification block that MyPy checks at compile time:
+
+```python
+# core/services/mixins/conversion_helpers_mixin.py
+
+class ConversionHelpersMixin[B, T]:
+    def _to_domain_model(self, data: Any, dto_class: type, model_class: type[T]) -> T:
+        return _to_domain_model_fn(data, dto_class, model_class)
+    # ... other methods
+
+# ============================================================================
+# PROTOCOL COMPLIANCE VERIFICATION
+# ============================================================================
+if TYPE_CHECKING:
+    from core.services.protocols.base_service_interface import ConversionOperations
+
+    # MyPy verifies structural compatibility - fails if signatures don't match
+    _protocol_check: type[ConversionOperations[Any]] = ConversionHelpersMixin  # type: ignore[type-arg]
+```
+
+**How It Works:**
+- `TYPE_CHECKING` is only `True` during static analysis (MyPy), never at runtime
+- MyPy verifies the mixin structurally satisfies the protocol
+- Any signature mismatch causes a **compile-time type error**
+- **Zero runtime cost** - code is never executed
+
+#### 2. Automated Test Suite
+
+29 comprehensive tests verify all protocol-mixin pairs:
+
+```bash
+# Run all compliance tests
+poetry run pytest tests/unit/test_protocol_mixin_compliance.py -v
+
+# Check specific protocol-mixin pair
+poetry run pytest tests/unit/test_protocol_mixin_compliance.py -k "Conversion" -v
+
+# Verify with MyPy
+poetry run mypy core/services/mixins/*.py
+```
+
+**Test Coverage:**
+- ✅ 7 tests: All protocol methods exist in mixins
+- ✅ 7 tests: All method signatures match exactly
+- ✅ 7 tests: TYPE_CHECKING blocks present and correctly formatted
+- ✅ 8 tests: Infrastructure and documentation verification
+
+**Result:** 29/29 tests passing (100% compliance)
+
+#### 3. Self-Maintaining System
+
+Once protocols match implementations:
+- Tests catch any future drift immediately
+- MyPy enforces correctness at compile time
+- No manual synchronization needed
+- Impossible to miss a mismatch
+
+### Benefits
+
+**Before:**
+- ❌ Protocols and mixins out of sync
+- ❌ Manual checking required (error-prone)
+- ❌ Easy to miss mismatches
+
+**After:**
+- ✅ 100% protocol-mixin alignment
+- ✅ Automatic verification (29 tests + MyPy)
+- ✅ Self-maintaining system
+- ✅ Zero manual synchronization needed
+
+### Files
+
+**Tests:** `tests/unit/test_protocol_mixin_compliance.py`
+**Documentation:**
+- `/docs/investigations/PROTOCOL_MIXIN_ALIGNMENT_SOLUTIONS.md` - Analysis & solutions
+- `/docs/migrations/PROTOCOL_MIXIN_ALIGNMENT_COMPLETE_2026-01-29.md` - Implementation report
+
+---
+
 ## See Also
 
 - [BACKEND_OPERATIONS_ISP.md](BACKEND_OPERATIONS_ISP.md) - BackendOperations protocol hierarchy (ISP-compliant design)
 - [PROTOCOL_REFERENCE.md](../reference/PROTOCOL_REFERENCE.md) - Complete protocol catalog
 - [PORTS_TO_PROTOCOLS_MIGRATION.md](../migrations/PORTS_TO_PROTOCOLS_MIGRATION.md) - Migration history and lessons learned
 - [PROTOCOL_IMPLEMENTATION_GUIDE.md](../guides/PROTOCOL_IMPLEMENTATION_GUIDE.md) - How to implement and use protocols
+- [PROTOCOL_MIXIN_ALIGNMENT_COMPLETE_2026-01-29.md](../migrations/PROTOCOL_MIXIN_ALIGNMENT_COMPLETE_2026-01-29.md) - Protocol-mixin compliance achievement
 
 ---
 

@@ -236,3 +236,23 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         model = self._to_domain_model(create_result.value, dto_class, model_class)
         return Result.ok(model)
+
+
+# ============================================================================
+# PROTOCOL COMPLIANCE VERIFICATION (January 2026)
+# ============================================================================
+# This block ensures ConversionHelpersMixin stays in sync with the
+# ConversionOperations protocol. Any signature mismatch will cause a
+# type error during MyPy static analysis (zero runtime cost).
+#
+# To verify compliance:
+#   poetry run mypy core/services/mixins/conversion_helpers_mixin.py
+#
+# See: /docs/investigations/PROTOCOL_MIXIN_ALIGNMENT_SOLUTIONS.md
+# ============================================================================
+if TYPE_CHECKING:
+    from core.services.protocols.base_service_interface import ConversionOperations
+
+    # Structural subtyping check - verifies method signatures match
+    # If this line fails type-checking, the mixin and protocol are out of sync
+    _protocol_check: type[ConversionOperations[Any]] = ConversionHelpersMixin  # type: ignore[type-arg]

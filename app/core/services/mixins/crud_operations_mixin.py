@@ -378,3 +378,12 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             sort_by=sort_by,
             sort_order=sort_order,
         )
+
+
+# ============================================================================
+# PROTOCOL COMPLIANCE VERIFICATION (January 2026)
+# ============================================================================
+if TYPE_CHECKING:
+    from core.services.protocols.base_service_interface import CrudOperations
+
+    _protocol_check: type[CrudOperations[Any]] = CrudOperationsMixin  # type: ignore[type-arg]

@@ -757,3 +757,12 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     async def count(self, **filters: Any) -> Result[int]:
         """Count entities matching filters."""
         return await self.backend.count(**filters)
+
+
+# ============================================================================
+# PROTOCOL COMPLIANCE VERIFICATION (January 2026)
+# ============================================================================
+if TYPE_CHECKING:
+    from core.services.protocols.base_service_interface import SearchOperations
+
+    _protocol_check: type[SearchOperations[Any]] = SearchOperationsMixin  # type: ignore[type-arg]
