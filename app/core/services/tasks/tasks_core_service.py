@@ -95,6 +95,27 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         return "Task"
 
     # ========================================================================
+    # EMBEDDING HELPERS (Async Background Generation - January 2026)
+    # ========================================================================
+
+    def _build_embedding_text(self, task: Task) -> str:
+        """
+        Build text for embedding from task fields.
+
+        Used for async background embedding generation.
+
+        Args:
+            task: Task domain model
+
+        Returns:
+            Text for embedding (title + description)
+        """
+        parts = [task.title]
+        if task.description:
+            parts.append(task.description)
+        return "\n".join(parts).strip()
+
+    # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
@@ -325,6 +346,21 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
                 task_priority=task.priority.value,
             )
             await publish_event(self.event_bus, knowledge_event, self.logger)
+
+        # Publish embedding request event for async background generation (Phase 1 - January 2026)
+        # Background worker will process embeddings in batches (zero latency impact on user)
+        embedding_text = self._build_embedding_text(task)
+        if embedding_text:
+            from core.events import TaskEmbeddingRequested
+
+            embedding_event = TaskEmbeddingRequested(
+                entity_uid=task.uid,
+                entity_type="task",
+                embedding_text=embedding_text,
+                user_uid=task.user_uid,
+                requested_at=datetime.now(),
+            )
+            await publish_event(self.event_bus, embedding_event, self.logger)
 
         return Result.ok(task)
 

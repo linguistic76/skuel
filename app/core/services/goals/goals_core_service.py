@@ -25,7 +25,7 @@ Changelog:
 """
 
 from datetime import date, datetime
-from typing import Any, ClassVar
+from typing import Any
 
 from core.events import publish_event
 from core.events.goal_events import (
@@ -103,6 +103,30 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     def entity_label(self) -> str:
         """Return the graph label for Goal entities."""
         return "Goal"
+
+    # ========================================================================
+    # EMBEDDING HELPERS (Async Background Generation - January 2026)
+    # ========================================================================
+
+    def _build_embedding_text(self, goal: Goal) -> str:
+        """
+        Build text for embedding from goal fields.
+
+        Used for async background embedding generation.
+        Includes title, description, and vision_statement for comprehensive semantic search.
+
+        Args:
+            goal: Goal domain model
+
+        Returns:
+            Text for embedding (title + description + vision_statement)
+        """
+        parts = [goal.title]
+        if goal.description:
+            parts.append(goal.description)
+        if goal.vision_statement:
+            parts.append(goal.vision_statement)
+        return "\n".join(parts).strip()
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
@@ -350,6 +374,21 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
+
+        # Publish embedding request event for async background generation (Phase 1 - January 2026)
+        # Background worker will process embeddings in batches (zero latency impact on user)
+        embedding_text = self._build_embedding_text(goal)
+        if embedding_text:
+            from core.events import GoalEmbeddingRequested
+
+            embedding_event = GoalEmbeddingRequested(
+                entity_uid=goal.uid,
+                entity_type="goal",
+                embedding_text=embedding_text,
+                user_uid=goal.user_uid,
+                requested_at=datetime.now(),
+            )
+            await publish_event(self.event_bus, embedding_event, self.logger)
 
         return Result.ok(goal)
 

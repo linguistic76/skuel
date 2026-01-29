@@ -190,11 +190,19 @@ def _should_generate_embedding(entity_type: EntityType) -> bool:
 
     Priority entities for semantic search:
     - Ku: Substantial content (learning material)
-    - Task: Descriptions and contexts
-    - Goal: Objectives and vision statements
-    - LpStep: Learning steps with descriptions
+    - All 6 Activity Domains: Tasks, Goals, Habits, Events, Choices, Principles
+
+    Updated January 2026 to include all activity domains for complete semantic search coverage.
     """
-    return entity_type in [EntityType.KU, EntityType.TASK, EntityType.GOAL]
+    ACTIVITY_DOMAINS = [
+        EntityType.TASK,
+        EntityType.GOAL,
+        EntityType.HABIT,
+        EntityType.EVENT,
+        EntityType.CHOICE,
+        EntityType.PRINCIPLE,
+    ]
+    return entity_type == EntityType.KU or entity_type in ACTIVITY_DOMAINS
 
 
 def _get_embedding_text(entity_type: EntityType, entity_data: dict[str, Any]) -> str:
@@ -203,6 +211,8 @@ def _get_embedding_text(entity_type: EntityType, entity_data: dict[str, Any]) ->
 
     Combines relevant fields based on entity type to create
     a comprehensive representation for semantic search.
+
+    Updated January 2026 to support all 6 activity domains.
 
     Args:
         entity_type: Type of entity
@@ -229,6 +239,38 @@ def _get_embedding_text(entity_type: EntityType, entity_data: dict[str, Any]) ->
             parts.append(entity_data["title"])
         if "description" in entity_data:
             parts.append(entity_data["description"])
+        return "\n".join(parts).strip()
+
+    elif entity_type == EntityType.HABIT:
+        # Habit: title + description + trigger + reward
+        parts = []
+        for field in ["title", "description", "trigger", "reward"]:
+            if field in entity_data and entity_data[field]:
+                parts.append(str(entity_data[field]))
+        return "\n".join(parts).strip()
+
+    elif entity_type == EntityType.EVENT:
+        # Event: title + description + location
+        parts = []
+        for field in ["title", "description", "location"]:
+            if field in entity_data and entity_data[field]:
+                parts.append(str(entity_data[field]))
+        return "\n".join(parts).strip()
+
+    elif entity_type == EntityType.CHOICE:
+        # Choice: title + description + decision_context + outcome
+        parts = []
+        for field in ["title", "description", "decision_context", "outcome"]:
+            if field in entity_data and entity_data[field]:
+                parts.append(str(entity_data[field]))
+        return "\n".join(parts).strip()
+
+    elif entity_type == EntityType.PRINCIPLE:
+        # Principle: name + statement + description
+        parts = []
+        for field in ["name", "statement", "description"]:
+            if field in entity_data and entity_data[field]:
+                parts.append(str(entity_data[field]))
         return "\n".join(parts).strip()
 
     return ""

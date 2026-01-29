@@ -80,6 +80,17 @@ from core.events.assignment_events import (
 )
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
 
+# Embedding events (async background generation)
+from core.events.embedding_events import (
+    ChoiceEmbeddingRequested,
+    EmbeddingRequested,
+    EventEmbeddingRequested,
+    GoalEmbeddingRequested,
+    HabitEmbeddingRequested,
+    PrincipleEmbeddingRequested,
+    TaskEmbeddingRequested,
+)
+
 # Calendar Event events
 from core.events.calendar_event_events import (
     CalendarEventCompleted,
@@ -209,6 +220,14 @@ __all__ = [
     "BaseEvent",
     # Calendar Events
     "CalendarEventCompleted",
+    # Embedding events (async background generation)
+    "ChoiceEmbeddingRequested",
+    "EmbeddingRequested",
+    "EventEmbeddingRequested",
+    "GoalEmbeddingRequested",
+    "HabitEmbeddingRequested",
+    "PrincipleEmbeddingRequested",
+    "TaskEmbeddingRequested",
     # Calendar Events
     "CalendarEventCreated",
     "CalendarEventDeleted",
@@ -305,6 +324,14 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "assignment.processing_completed": AssignmentProcessingCompleted,
     "assignment.processing_failed": AssignmentProcessingFailed,
     "assignment.deleted": AssignmentDeleted,
+    # Embedding events (async background generation)
+    "embedding.requested": EmbeddingRequested,
+    "task.embedding_requested": TaskEmbeddingRequested,
+    "goal.embedding_requested": GoalEmbeddingRequested,
+    "habit.embedding_requested": HabitEmbeddingRequested,
+    "event.embedding_requested": EventEmbeddingRequested,
+    "choice.embedding_requested": ChoiceEmbeddingRequested,
+    "principle.embedding_requested": PrincipleEmbeddingRequested,
     # Tasks
     "task.created": TaskCreated,
     "task.completed": TaskCompleted,
