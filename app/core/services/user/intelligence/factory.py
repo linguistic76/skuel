@@ -38,7 +38,7 @@ plan = await intelligence.get_ready_to_work_on_today()
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.services.user.intelligence.core import UserContextIntelligence
 
@@ -110,6 +110,8 @@ class UserContextIntelligenceFactory:
         reports: ReportRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
+        # Optional: Vector search for semantic enhancements (Phase 1 - January 2026)
+        vector_search_service: Any = None,
     ) -> None:
         """
         Initialize factory with all 13 required domain services.
@@ -135,6 +137,9 @@ class UserContextIntelligenceFactory:
 
             Temporal Domain (1):
                 calendar: Calendar service for schedule awareness
+
+            Optional Services (Phase 1 Enhancement):
+                vector_search_service: Neo4jVectorSearchService for semantic/learning-aware search
 
         Raises:
             ValueError: If any required service is None
@@ -184,6 +189,8 @@ class UserContextIntelligenceFactory:
         self._reports = reports
         # Temporal domain (1)
         self._calendar = calendar
+        # Optional: Vector search (Phase 1 enhancement)
+        self._vector_search = vector_search_service
 
     def create(self, context: UserContext) -> UserContextIntelligence:
         """
@@ -214,6 +221,8 @@ class UserContextIntelligenceFactory:
             reports=self._reports,
             # Temporal domain (1)
             calendar=self._calendar,
+            # Optional: Vector search (Phase 1 enhancement)
+            vector_search=self._vector_search,
         )
 
 

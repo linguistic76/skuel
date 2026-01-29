@@ -311,6 +311,13 @@ class Services:
 
     # Infrastructure - Neo4j driver (exposed for routes that need context building)
     driver: Any = None  # Neo4j AsyncDriver - Exposed for routes requiring UserContextBuilder
+    neo4j_driver: Any = None  # Alias for driver (backward compatibility)
+
+    # GenAI services (Neo4j native embeddings and vector search - January 2026)
+    embeddings_service: Any = None  # Neo4jGenAIEmbeddingsService - Embeddings via ai.text.embed()
+    vector_search_service: Any = (
+        None  # Neo4jVectorSearchService - Vector search via db.index.vector.queryNodes()
+    )
 
     # Services are ready when constructed - no lifecycle needed
 
@@ -509,7 +516,6 @@ def _create_learning_services(
     from adapters.personalized_knowledge_discovery_adapter import (
         create_personalized_knowledge_discovery_adapter,
     )
-    from core.config.credential_store import get_credential
     from core.services.adaptive_sel_service import AdaptiveSELService
     from core.services.ku_retrieval import KuRetrieval
     from core.services.ku_service import KuService
@@ -636,6 +642,7 @@ def _create_learning_services(
         # NOTE: "askesis" MOVED to compose_services() (January 2026)
         "cross_domain": cross_domain_service,
         "embeddings_service": embeddings_service,  # For intelligence services
+        "vector_search_service": vector_search_service,  # For semantic search (Phase 1)
         # Components needed for Askesis creation in compose_services()
         "graph_intelligence": graph_intelligence,
         "llm_service": llm_service,
@@ -1075,9 +1082,11 @@ async def compose_services(
 
         unified_ingestion = UnifiedIngestionService(
             driver=driver,
-            embeddings_service=genai_embeddings_service,  # Optional - generates embeddings during ingestion
+            embeddings_service=None,  # Optional - will be created later in learning_services
         )
-        logger.info("✅ Content services created (includes UnifiedIngestionService with optional embeddings)")
+        logger.info(
+            "✅ Content services created (includes UnifiedIngestionService with optional embeddings)"
+        )
 
         # Create knowledge components using 100% dynamic backend pattern
         from adapters.persistence.neo4j.neo4j_connection import get_connection
@@ -1104,7 +1113,9 @@ async def compose_services(
                     model_name="gpt-4",  # Use GPT-4 for high-quality RAG and intelligence insights
                 )
                 llm_service = LLMService(config=llm_config)
-                logger.info("✅ LLM service created (GPT-4 for RAG generation and intelligence services)")
+                logger.info(
+                    "✅ LLM service created (GPT-4 for RAG generation and intelligence services)"
+                )
             else:
                 llm_service = None
                 logger.warning("⚠️ LLM service disabled - OPENAI_API_KEY not configured")
@@ -1132,8 +1143,9 @@ async def compose_services(
         )
         logger.info("✅ Learning services created")
 
-        # Extract embeddings service for use by intelligence services
+        # Extract embeddings and vector search services for use by intelligence services and SearchRouter
         embeddings_service = learning_services["embeddings_service"]
+        vector_search_service = learning_services["vector_search_service"]
 
         # Create Askesis core service (CRUD operations for AI assistant instances)
         from core.services.askesis.askesis_core_service import AskesisCoreService
@@ -2017,6 +2029,10 @@ async def compose_services(
             graph_adapter=neo4j_adapter,
             event_bus=event_bus,
             driver=driver,  # Exposed for routes requiring UserContextBuilder
+            neo4j_driver=driver,  # Alias for backward compatibility
+            # GenAI services (Neo4j native - January 2026)
+            embeddings_service=embeddings_service,
+            vector_search_service=vector_search_service,
             # Reports
             reports=report_service,
             cross_domain_analytics=advanced["cross_domain_analytics"],  # Phase 5
@@ -2090,6 +2106,8 @@ async def compose_services(
             reports=report_relationship_service,
             # Temporal Domain (1)
             calendar=calendar_service,
+            # Optional: Vector search for semantic enhancements (Phase 1 - January 2026)
+            vector_search_service=vector_search_service,
         )
         services.context_intelligence = context_intelligence_factory
         logger.info("✅ UserContextIntelligence factory created (13 domain services wired)")

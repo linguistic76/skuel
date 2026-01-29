@@ -263,6 +263,34 @@ class SearchRequest(BaseModel):
     )
 
     # ========================================================================
+    # SEMANTIC SEARCH ENHANCEMENT (Phase 1 - January 2026)
+    # ========================================================================
+
+    # Enable semantic relationship boosting
+    enable_semantic_boost: bool = Field(
+        False,
+        description="Enable semantic relationship boosting (requires context_uids)",
+    )
+
+    # Context for semantic boosting
+    context_uids: list[str] | None = Field(
+        None,
+        description="UIDs representing user's current context for semantic boosting (e.g., current learning path, active tasks)",
+    )
+
+    # Enable learning-aware personalization
+    enable_learning_aware: bool = Field(
+        False,
+        description="Enable learning state boosting (personalizes results based on user progress)",
+    )
+
+    # Learning preference mode
+    prefer_unmastered: bool = Field(
+        True,
+        description="True = prioritize unlearned content, False = prioritize mastered content (review mode)",
+    )
+
+    # ========================================================================
     # EXTENDED FACETS (Domain-specific, rarely used)
     # ========================================================================
 
@@ -623,16 +651,36 @@ class SearchRequest(BaseModel):
         """Check if tag/array filter is specified."""
         return self.tags_contain is not None and len(self.tags_contain) > 0
 
+    def has_semantic_boost(self) -> bool:
+        """Check if semantic relationship boosting is enabled."""
+        return (
+            self.enable_semantic_boost
+            and self.context_uids is not None
+            and len(self.context_uids) > 0
+        )
+
+    def has_learning_aware(self) -> bool:
+        """Check if learning-aware personalization is enabled."""
+        return self.enable_learning_aware
+
     def get_search_strategy(self) -> str:
         """
         Determine the optimal search strategy based on filters.
 
         Returns:
+            'semantic': Use semantic-enhanced search (relationship boosting)
+            'learning': Use learning-aware search (personalization)
             'graph': Use graph-aware search (relationship traversal)
             'tags': Use tag/array search
             'text': Use text search only
             'faceted': Use faceted property search
         """
+        # Semantic/learning-aware search takes priority (Phase 1 enhancement)
+        if self.has_semantic_boost():
+            return "semantic"
+        if self.has_learning_aware():
+            return "learning"
+        # Existing strategies
         if self.has_graph_traversal_filter():
             return "graph"
         if self.has_tag_filter():

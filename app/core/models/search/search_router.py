@@ -842,6 +842,7 @@ class SearchRouter:
         Execute the appropriate search strategy based on request filters.
 
         Strategy selection:
+        0. Semantic/Learning-Aware: Use vector search with boosting (Phase 1 enhancement)
         1. Graph + Text: Use search_connected_to if available
         2. Tags + Text: Use search_by_tags, then filter by text
         3. Text only: Use search directly
@@ -851,6 +852,16 @@ class SearchRouter:
         # Calculate per-domain limit
         limit_per_domain = request.limit // max(len(request.entity_types), 1)
         limit_per_domain = max(limit_per_domain, 10)  # Minimum 10 per domain
+
+        # Strategy 0: Semantic-enhanced or learning-aware search (Phase 1 Enhancement)
+        if request.has_semantic_boost() or request.has_learning_aware():
+            items = await self._semantic_or_learning_search(
+                entity_type=entity_type, request=request, limit=limit_per_domain
+            )
+            # If semantic/learning search succeeded, return those results
+            if items:
+                return items
+            # Otherwise fall through to standard search
 
         # Strategy 1: Graph-aware search (Phase 2)
         if request.has_graph_traversal_filter():
@@ -932,6 +943,146 @@ class SearchRouter:
             items = self._filter_by_tags_from_request(items, request)
 
         return items[:limit_per_domain]
+
+    async def _semantic_or_learning_search(
+        self,
+        entity_type: EntityType,
+        request: "SearchRequest",
+        limit: int,
+    ) -> list[SearchResultItem]:
+        """
+        Execute semantic-enhanced or learning-aware vector search.
+
+        Uses Neo4jVectorSearchService to perform context-aware or personalized search.
+        Falls back gracefully if vector search is unavailable.
+
+        Args:
+            entity_type: Target entity type (currently only Ku supported for learning-aware)
+            request: SearchRequest with semantic/learning-aware flags
+            limit: Max results per domain
+
+        Returns:
+            List of SearchResultItem with semantic boost metadata
+        """
+        # Check if vector search service available
+        if (
+            not hasattr(self.services, "vector_search_service")
+            or self.services.vector_search_service is None
+        ):
+            self.logger.warning(
+                "Vector search service not available, falling back to standard search"
+            )
+            return []
+
+        vector_search = self.services.vector_search_service
+
+        # Must have query text for vector search
+        if not request.query_text:
+            self.logger.debug("Vector search requires query_text, skipping")
+            return []
+
+        # Get label from entity type
+        label = entity_type.value.capitalize()  # Task -> "Task", ku -> "Ku"
+
+        try:
+            # Choose search method based on flags
+            if request.has_semantic_boost():
+                # Semantic-enhanced search (context-aware)
+                result = await vector_search.semantic_enhanced_search(
+                    label=label,
+                    text=request.query_text,
+                    context_uids=request.context_uids,
+                    limit=limit,
+                )
+            elif request.has_learning_aware():
+                # Learning-aware search (personalized)
+                # Requires user_uid
+                if not request.user_uid:
+                    self.logger.warning("Learning-aware search requires user_uid, skipping")
+                    return []
+
+                result = await vector_search.learning_aware_search(
+                    label=label,
+                    text=request.query_text,
+                    user_uid=request.user_uid,
+                    prefer_unmastered=request.prefer_unmastered,
+                    limit=limit,
+                )
+            else:
+                # Shouldn't reach here, but fall back to standard
+                return []
+
+            # Handle result
+            if result.is_error:
+                self.logger.warning(f"Vector search failed: {result.expect_error()}")
+                return []
+
+            if not result.value:
+                return []
+
+            # Wrap vector search results as SearchResultItems
+            items = []
+            for vec_result in result.value:
+                node = vec_result["node"]
+                score = vec_result["score"]
+
+                # Create SearchResultItem with semantic metadata
+                item = SearchResultItem(
+                    entity=node,  # The node dict
+                    entity_type=entity_type,
+                    uid=node.get("uid", ""),
+                    title=node.get("title", ""),
+                    relevance_score=score,  # Use vector/semantic score as relevance
+                    priority_score=node.get("priority_score", 0.0),
+                    match_reason=self._create_match_reason(vec_result, request),
+                )
+                items.append(item)
+
+            self.logger.info(
+                f"Semantic/learning-aware search returned {len(items)} results for {entity_type}"
+            )
+            return items
+
+        except Exception as e:
+            self.logger.error(f"Semantic/learning-aware search failed: {e}")
+            return []  # Graceful degradation
+
+    def _create_match_reason(self, vec_result: dict, request: "SearchRequest") -> str:
+        """
+        Create human-readable match reason from vector search result.
+
+        Args:
+            vec_result: Vector search result dict
+            request: Original search request
+
+        Returns:
+            Match reason string explaining why this result matched
+        """
+        reasons = []
+
+        # Vector similarity
+        vector_score = vec_result.get("vector_score")
+        if vector_score:
+            reasons.append(f"Text match: {vector_score:.0%}")
+
+        # Semantic boost
+        semantic_boost = vec_result.get("semantic_boost")
+        if semantic_boost and semantic_boost > 0:
+            reasons.append(f"Related to context: +{semantic_boost:.0%}")
+
+        # Learning state
+        learning_state = vec_result.get("learning_state")
+        if learning_state:
+            state_labels = {
+                "mastered": "Already mastered",
+                "in_progress": "Currently learning",
+                "viewed": "Previously viewed",
+                "none": "Not started",
+            }
+            label = state_labels.get(learning_state, learning_state)
+            reasons.append(f"{label}")
+
+        return ", ".join(reasons) if reasons else "Matched query"
 
     def _filter_by_tags_from_request(
         self,

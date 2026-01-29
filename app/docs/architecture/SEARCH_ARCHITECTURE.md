@@ -727,6 +727,57 @@ To add a new filter:
 2. **Relationship filter**: Add bool field, update `has_relationship_filters()` and `to_graph_patterns()`
 3. **New domain**: Add handler `_graph_aware_search_{domain}()` in backend
 
+## Semantic Search Enhancement (Phase 1 - January 2026)
+
+**Status:** Implemented (2026-01-29)
+
+SKUEL's semantic search has been enhanced to leverage the rich semantic relationship infrastructure (60+ relationship types) for context-aware and personalized results.
+
+### New Capabilities
+
+**1. Semantic-Enhanced Search** - Boosts results based on semantic relationships
+- Combines vector similarity (70%) + semantic context (30%)
+- Uses relationship type, confidence, and strength for boosting
+- Context-aware: requires user's current learning path/task context
+- Performance: +30-50ms overhead
+
+**2. Learning-Aware Search** - Personalizes based on learning progress
+- Boosts unlearned content (+15%), penalizes mastered content (-20%)
+- Perfect for "what should I learn next?" recommendations
+- Performance: +20-30ms overhead
+
+### Usage Examples
+
+```python
+# Semantic-enhanced search (context-aware)
+result = await vector_search.semantic_enhanced_search(
+    label="Ku",
+    text="python programming",
+    context_uids=["ku.python-basics", "ku.functions"],
+    limit=10
+)
+
+# Learning-aware search (personalized)
+result = await vector_search.learning_aware_search(
+    label="Ku",
+    text="python programming",
+    user_uid="user.alice",
+    prefer_unmastered=True,
+    limit=10
+)
+```
+
+### Configuration
+
+**VectorSearchConfig** (in `unified_config.py`):
+- `semantic_boost_weight`: Weight for semantic relationships (default: 0.3)
+- `relationship_type_weights`: Importance weights per relationship type
+- `learning_state_boost_*`: Boost/penalty multipliers per learning state
+
+**See:** [SEMANTIC_SEARCH_PHASE1_IMPLEMENTATION.md](SEMANTIC_SEARCH_PHASE1_IMPLEMENTATION.md) for complete details.
+
+---
+
 ## See Also
 
 ### Search Documentation
@@ -735,6 +786,7 @@ To add a new filter:
 |----------|---------|-------------|
 | **[SEARCH_SERVICE_METHODS.md](../reference/SEARCH_SERVICE_METHODS.md)** | **Method catalog** | Complete method reference for all 10 search services |
 | **[SEARCH_MODELS.md](../reference/models/SEARCH_MODELS.md)** | **Model reference** | Complete SearchRequest/SearchResponse documentation |
+| **[SEMANTIC_SEARCH_PHASE1_IMPLEMENTATION.md](SEMANTIC_SEARCH_PHASE1_IMPLEMENTATION.md)** | **Phase 1 implementation** | Semantic enhancement details, configuration, usage |
 | [search_service_pattern.md](../patterns/search_service_pattern.md) | Service pattern | How to implement domain search services |
 | [search-one-path-forward.md](~/.claude/plans/search-one-path-forward.md) | Architecture plan | One Path Forward consolidation (January 2026) |
 
@@ -742,3 +794,4 @@ To add a new filter:
 
 - [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) - UserContext and MEGA-QUERY
 - [query_architecture.md](../patterns/query_architecture.md) - Query builders and patterns
+- [NEO4J_GENAI_ARCHITECTURE.md](NEO4J_GENAI_ARCHITECTURE.md) - Vector search and embeddings

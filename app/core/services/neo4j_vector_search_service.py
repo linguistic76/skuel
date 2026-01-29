@@ -41,7 +41,7 @@ class Neo4jVectorSearchService:
         driver: Any,
         embeddings_service: Any | None = None,
         config: VectorSearchConfig | None = None,
-    ):
+    ) -> None:
         """
         Initialize vector search service.
 
@@ -90,7 +90,12 @@ class Neo4jVectorSearchService:
         ORDER BY score DESC
         """
 
-        params = {"index_name": index_name, "limit": limit, "embedding": embedding, "min_score": min_score}
+        params = {
+            "index_name": index_name,
+            "limit": limit,
+            "embedding": embedding,
+            "min_score": min_score,
+        }
 
         try:
             result = await self.driver.execute_query(query, params)
@@ -99,7 +104,9 @@ class Neo4jVectorSearchService:
                 return Result.ok([])
 
             # Convert to list of dicts
-            similar = [{"node": dict(record["node"]), "score": record["score"]} for record in result]
+            similar = [
+                {"node": dict(record["node"]), "score": record["score"]} for record in result
+            ]
 
             return Result.ok(similar)
 
@@ -202,12 +209,17 @@ class Neo4jVectorSearchService:
         except Exception as e:
             self.logger.error(f"Failed to get source embedding: {e}")
             return Result.fail(
-                Errors.database(operation="get_embedding", message=f"Failed to retrieve embedding: {e}")
+                Errors.database(
+                    operation="get_embedding", message=f"Failed to retrieve embedding: {e}"
+                )
             )
 
         # Find similar nodes
         similar_result = await self.find_similar_by_vector(
-            label=label, embedding=source_embedding, limit=limit + 1 if exclude_self else limit, min_score=min_score
+            label=label,
+            embedding=source_embedding,
+            limit=limit + 1 if exclude_self else limit,
+            min_score=min_score,
         )
 
         if similar_result.is_error:
@@ -249,7 +261,9 @@ class Neo4jVectorSearchService:
 
         for label in labels:
             # Use entity-specific threshold unless overridden
-            label_min_score = min_score if min_score is not None else self.config.get_min_score_for_entity(label)
+            label_min_score = (
+                min_score if min_score is not None else self.config.get_min_score_for_entity(label)
+            )
 
             search_result = await self.find_similar_by_vector(
                 label=label, embedding=embedding, limit=limit_per_label, min_score=label_min_score
@@ -259,7 +273,9 @@ class Neo4jVectorSearchService:
                 results[label] = search_result.value
             else:
                 # Log error but continue with other labels
-                self.logger.warning(f"Search failed for label {label}: {search_result.expect_error()}")
+                self.logger.warning(
+                    f"Search failed for label {label}: {search_result.expect_error()}"
+                )
                 results[label] = []
 
         return Result.ok(results)
@@ -325,7 +341,9 @@ class Neo4jVectorSearchService:
             vector_nodes = vector_results.value
 
         # Step 2: Full-text search (no min_score - fulltext scores are different scale)
-        fulltext_results = await self._fulltext_search(label=label, query_text=query_text, limit=limit * 2)
+        fulltext_results = await self._fulltext_search(
+            label=label, query_text=query_text, limit=limit * 2
+        )
 
         if fulltext_results.is_error:
             self.logger.warning(f"Full-text search failed: {fulltext_results.expect_error()}")
@@ -494,7 +512,9 @@ class Neo4jVectorSearchService:
         """
         start_time = time.perf_counter()
 
-        result = await self.find_similar_by_text(label=label, text=text, limit=limit, min_score=min_score)
+        result = await self.find_similar_by_text(
+            label=label, text=text, limit=limit, min_score=min_score
+        )
 
         latency_ms = (time.perf_counter() - start_time) * 1000
 
@@ -571,3 +591,388 @@ class Neo4jVectorSearchService:
         self.logger.info(metrics.to_log_string())
 
         return result, metrics
+
+    async def semantic_enhanced_search(
+        self,
+        label: str,
+        text: str,
+        context_uids: list[str] | None = None,
+        limit: int | None = None,
+        min_score: float | None = None,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Vector search enhanced with semantic relationship boosting.
+
+        Combines vector similarity with semantic context to improve result relevance.
+        For each result, checks semantic relationships to provided context UIDs and
+        boosts the score based on relationship type, confidence, and strength.
+
+        Algorithm:
+        1. Perform initial vector search (gets top results by cosine similarity)
+        2. For each result, query semantic relationships to context_uids
+        3. Calculate semantic boost based on:
+           - Relationship type importance weight (from config)
+           - Relationship confidence (0.0-1.0)
+           - Relationship strength (0.0-1.0)
+        4. Combine: final_score = vector_score * (1-w) + semantic_boost * w
+           where w = semantic_boost_weight (default 0.3 = 30% semantic, 70% vector)
+        5. Re-rank by enhanced score
+
+        Args:
+            label: Node label (e.g., "Ku", "Task", "Goal")
+            text: Query text to embed and search
+            context_uids: Optional list of UIDs representing user's current context
+                         (e.g., current learning path KUs, active tasks)
+            limit: Max results to return (uses config default if None)
+            min_score: Minimum similarity score before boosting (uses entity-specific if None)
+
+        Returns:
+            Result containing list of {node, score} dicts sorted by enhanced relevance
+
+        Example:
+            >>> # Search for Python content in context of current learning
+            >>> result = await service.semantic_enhanced_search(
+            ...     label="Ku",
+            ...     text="python programming",
+            ...     context_uids=["ku.python-basics", "ku.functions"],
+            ...     limit=10,
+            ... )
+            >>> if result.is_ok:
+            ...     for item in result.value:
+            ...         print(f"{item['node']['title']}: {item['score']:.3f}")
+
+        Performance:
+            - Adds ~30-50ms per search (1-2 graph queries for relationships)
+            - Recommended for interactive search (not background batch)
+        """
+        if not self.config.semantic_boost_enabled:
+            # Fall back to standard vector search if boosting disabled
+            return await self.find_similar_by_text(
+                label=label, text=text, limit=limit, min_score=min_score
+            )
+
+        if not context_uids:
+            # No context provided - fall back to standard vector search
+            return await self.find_similar_by_text(
+                label=label, text=text, limit=limit, min_score=min_score
+            )
+
+        # Use config defaults
+        if limit is None:
+            limit = self.config.default_limit
+        if min_score is None:
+            min_score = self.config.get_min_score_for_entity(label)
+
+        # Step 1: Perform initial vector search (fetch 2x limit for better coverage)
+        vector_results = await self.find_similar_by_text(
+            label=label, text=text, limit=limit * 2, min_score=min_score
+        )
+
+        if vector_results.is_error:
+            return vector_results
+
+        results = vector_results.value
+
+        if not results:
+            return Result.ok([])
+
+        # Step 2: For each result, calculate semantic boost
+        for result in results:
+            uid = result["node"]["uid"]
+            vector_score = result["score"]
+
+            # Query semantic relationships to context UIDs
+            semantic_boost = await self._calculate_semantic_boost(uid, context_uids)
+
+            # Step 3: Combine vector similarity + semantic boost
+            # final_score = vector_score * (1 - w) + semantic_boost * w
+            vector_weight = 1.0 - self.config.semantic_boost_weight
+            semantic_weight = self.config.semantic_boost_weight
+
+            enhanced_score = (vector_score * vector_weight) + (semantic_boost * semantic_weight)
+
+            result["score"] = enhanced_score
+            result["vector_score"] = vector_score  # Preserve original for debugging
+            result["semantic_boost"] = semantic_boost
+
+        # Step 4: Re-rank by enhanced score
+        results.sort(key=lambda x: x["score"], reverse=True)
+
+        # Step 5: Limit to requested count
+        final_results = results[:limit]
+
+        self.logger.info(
+            f"Semantic-enhanced search: {len(results)} candidates → {len(final_results)} final "
+            f"(boost_weight={self.config.semantic_boost_weight:.2f}, context_uids={len(context_uids)})"
+        )
+
+        return Result.ok(final_results)
+
+    async def _calculate_semantic_boost(
+        self,
+        entity_uid: str,
+        context_uids: list[str],
+    ) -> float:
+        """
+        Calculate semantic relationship boost for an entity.
+
+        Queries semantic relationships between entity and context UIDs,
+        then computes boost based on relationship metadata.
+
+        Args:
+            entity_uid: Entity UID to calculate boost for
+            context_uids: List of context UIDs to check relationships against
+
+        Returns:
+            Semantic boost score (0.0-1.0)
+        """
+        # Query semantic relationships from entity to context UIDs
+        query = """
+        MATCH (entity {uid: $entity_uid})
+        MATCH (context)
+        WHERE context.uid IN $context_uids
+        MATCH (entity)-[r]->(context)
+        WHERE r.confidence IS NOT NULL
+        RETURN
+            type(r) as relationship_type,
+            r.confidence as confidence,
+            COALESCE(r.strength, 1.0) as strength
+        """
+
+        params = {
+            "entity_uid": entity_uid,
+            "context_uids": context_uids,
+        }
+
+        try:
+            result = await self.driver.execute_query(query, params)
+
+            if not result:
+                return 0.0
+
+            # Aggregate boosts from all relationships
+            total_boost = 0.0
+            relationship_count = 0
+
+            for record in result:
+                rel_type = record["relationship_type"]
+                confidence = record["confidence"]
+                strength = record["strength"]
+
+                # Get importance weight for this relationship type
+                type_weight = self.config.get_relationship_weight(rel_type)
+
+                # Calculate boost contribution from this relationship
+                # boost = type_weight * confidence * strength
+                boost_contribution = type_weight * confidence * strength
+
+                total_boost += boost_contribution
+                relationship_count += 1
+
+            # Normalize by number of relationships (average boost)
+            if relationship_count > 0:
+                avg_boost = total_boost / relationship_count
+                # Cap at 1.0
+                return min(avg_boost, 1.0)
+
+            return 0.0
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate semantic boost for {entity_uid}: {e}")
+            return 0.0  # Fail gracefully - return no boost
+
+    async def learning_aware_search(
+        self,
+        label: str,
+        text: str,
+        user_uid: str,
+        prefer_unmastered: bool = True,
+        limit: int | None = None,
+        min_score: float | None = None,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Vector search with learning state boosting for personalized results.
+
+        Adjusts search results based on user's learning progress to prioritize
+        content aligned with their current learning journey. Useful for
+        "what should I learn next?" style searches.
+
+        Boost Strategy:
+        - MASTERED: -20% penalty (user already knows this)
+        - IN_PROGRESS: +10% boost (currently learning, highly relevant)
+        - VIEWED: 0% neutral (seen but not actively working on)
+        - NOT_STARTED: +15% boost (new content, prioritize discovery)
+
+        Args:
+            label: Node label (currently only "Ku" supported)
+            text: Query text to embed and search
+            user_uid: User's UID for learning state lookup
+            prefer_unmastered: If True, applies boosts as above. If False, inverts
+                              boosts to prioritize mastered content (useful for review)
+            limit: Max results to return (uses config default if None)
+            min_score: Minimum similarity score before boosting (uses entity-specific if None)
+
+        Returns:
+            Result containing list of {node, score} dicts sorted by learning-aware relevance
+
+        Example:
+            >>> # Search for Python content, prioritizing unlearned material
+            >>> result = await service.learning_aware_search(
+            ...     label="Ku",
+            ...     text="python programming",
+            ...     user_uid="user.alice",
+            ...     prefer_unmastered=True,
+            ...     limit=10,
+            ... )
+            >>> if result.is_ok:
+            ...     for item in result.value:
+            ...         state = item.get("learning_state", "none")
+            ...         print(f"{item['node']['title']}: {item['score']:.3f} ({state})")
+
+        Performance:
+            - Adds ~20-30ms per search (1 batch query for learning states)
+            - Recommended for interactive "next steps" recommendations
+        """
+        # Only supported for Knowledge Units currently
+        if label != "Ku":
+            self.logger.warning(
+                f"Learning-aware search only supports Ku, got {label}. Falling back."
+            )
+            return await self.find_similar_by_text(
+                label=label, text=text, limit=limit, min_score=min_score
+            )
+
+        # Use config defaults
+        if limit is None:
+            limit = self.config.default_limit
+        if min_score is None:
+            min_score = self.config.get_min_score_for_entity(label)
+
+        # Step 1: Perform initial vector search (fetch 2x limit for better coverage)
+        vector_results = await self.find_similar_by_text(
+            label=label, text=text, limit=limit * 2, min_score=min_score
+        )
+
+        if vector_results.is_error:
+            return vector_results
+
+        results = vector_results.value
+
+        if not results:
+            return Result.ok([])
+
+        # Step 2: Batch fetch learning states for all result KUs
+        ku_uids = [r["node"]["uid"] for r in results]
+        learning_states_result = await self._get_learning_states_batch(user_uid, ku_uids)
+
+        if learning_states_result.is_error:
+            # If learning state fetch fails, log and fall back to unmodified results
+            self.logger.warning(
+                f"Failed to fetch learning states: {learning_states_result.expect_error()}"
+            )
+            learning_states = {}
+        else:
+            learning_states = learning_states_result.value
+
+        # Step 3: Apply learning state boost to each result
+        for result in results:
+            uid = result["node"]["uid"]
+            vector_score = result["score"]
+
+            # Get learning state for this KU
+            state = learning_states.get(uid, "none")
+
+            # Get boost multiplier from config
+            boost_multiplier = self.config.get_learning_state_boost(state)
+
+            # Invert boost if prefer_unmastered is False (for review mode)
+            if not prefer_unmastered:
+                boost_multiplier = -boost_multiplier
+
+            # Apply boost: score * (1 + boost_multiplier)
+            # Example: 0.8 score with +15% boost = 0.8 * 1.15 = 0.92
+            boosted_score = vector_score * (1.0 + boost_multiplier)
+
+            result["score"] = boosted_score
+            result["vector_score"] = vector_score  # Preserve original
+            result["learning_state"] = state
+            result["learning_boost"] = boost_multiplier
+
+        # Step 4: Re-rank by boosted score
+        results.sort(key=lambda x: x["score"], reverse=True)
+
+        # Step 5: Limit to requested count
+        final_results = results[:limit]
+
+        # Log summary
+        state_counts = {}
+        for r in final_results:
+            state = r.get("learning_state", "none")
+            state_counts[state] = state_counts.get(state, 0) + 1
+
+        self.logger.info(
+            f"Learning-aware search: {len(results)} candidates → {len(final_results)} final "
+            f"(states={state_counts}, prefer_unmastered={prefer_unmastered})"
+        )
+
+        return Result.ok(final_results)
+
+    async def _get_learning_states_batch(
+        self,
+        user_uid: str,
+        ku_uids: list[str],
+    ) -> Result[dict[str, str]]:
+        """
+        Batch fetch learning states for multiple KUs.
+
+        Internal helper that queries learning state relationships efficiently.
+        Returns dict mapping ku_uid -> state string.
+
+        Args:
+            user_uid: User's UID
+            ku_uids: List of KU UIDs to check
+
+        Returns:
+            Result containing dict of ku_uid -> learning_state
+            States: "mastered", "in_progress", "viewed", "none"
+        """
+        if not ku_uids:
+            return Result.ok({})
+
+        query = """
+        UNWIND $ku_uids as ku_uid
+        MATCH (ku:Ku {uid: ku_uid})
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[p:IN_PROGRESS]->(ku)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
+        RETURN
+            ku.uid as ku_uid,
+            v IS NOT NULL as has_viewed,
+            p IS NOT NULL as has_in_progress,
+            m IS NOT NULL as has_mastered
+        """
+
+        try:
+            result = await self.driver.execute_query(
+                query, {"user_uid": user_uid, "ku_uids": ku_uids}
+            )
+
+            states = {}
+            for record in result:
+                if record["has_mastered"]:
+                    state = "mastered"
+                elif record["has_in_progress"]:
+                    state = "in_progress"
+                elif record["has_viewed"]:
+                    state = "viewed"
+                else:
+                    state = "none"
+                states[record["ku_uid"]] = state
+
+            return Result.ok(states)
+
+        except Exception as e:
+            self.logger.error(f"Failed to batch fetch learning states: {e}")
+            return Result.fail(
+                Errors.database(operation="get_learning_states_batch", message=str(e))
+            )

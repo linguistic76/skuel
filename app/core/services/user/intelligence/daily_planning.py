@@ -31,6 +31,7 @@ class DailyPlanningMixin:
     - self.tasks, self.habits, self.goals, self.events
     - self.choices, self.principles
     - self.ku
+    Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     """
 
     context: UserContext
@@ -41,6 +42,7 @@ class DailyPlanningMixin:
     choices: Any  # ChoicesRelationshipService
     principles: Any  # PrinciplesRelationshipService
     ku: Any  # KuGraphService
+    vector_search: Any = None  # Neo4jVectorSearchService (optional - Phase 1 enhancement)
 
     # =========================================================================
     # METHOD 5: Ready to Work on Today - THE FLAGSHIP METHOD
@@ -132,19 +134,61 @@ class DailyPlanningMixin:
 
         # =====================================================================
         # PRIORITY 5: Learning (if capacity allows)
+        # Phase 1 Enhancement: Use semantic/learning-aware search if available
         # =====================================================================
         if not respect_capacity or plan.estimated_time_minutes < available_time * 0.7:
-            learning_result = await self.ku.get_ready_to_learn_for_user(self.context, limit=3)
-            if learning_result.is_ok and learning_result.value:
-                for contextual_ku in learning_result.value:
-                    est_time = self.context.estimated_time_to_mastery.get(contextual_ku.uid, 30)
-                    if (
-                        not respect_capacity
-                        or plan.estimated_time_minutes + est_time <= available_time
-                    ):
-                        plan.learning.append(contextual_ku.uid)
-                        plan.contextual_knowledge.append(contextual_ku)
-                        plan.estimated_time_minutes += est_time
+            # Try semantic-enhanced search first (Phase 1)
+            if self.vector_search and hasattr(self.vector_search, "learning_aware_search"):
+                search_query = self._generate_daily_learning_query(plan)
+                vector_result = await self.vector_search.learning_aware_search(
+                    label="Ku",
+                    text=search_query,
+                    user_uid=self.context.user_uid,
+                    prefer_unmastered=True,
+                    limit=3,
+                )
+
+                if vector_result.is_ok and vector_result.value:
+                    for result in vector_result.value:
+                        node = result["node"]
+                        ku_uid = node["uid"]
+                        est_time = self.context.estimated_time_to_mastery.get(ku_uid, 30)
+                        if (
+                            not respect_capacity
+                            or plan.estimated_time_minutes + est_time <= available_time
+                        ):
+                            plan.learning.append(ku_uid)
+                            plan.estimated_time_minutes += est_time
+                else:
+                    # Fallback to standard KU service
+                    learning_result = await self.ku.get_ready_to_learn_for_user(
+                        self.context, limit=3
+                    )
+                    if learning_result.is_ok and learning_result.value:
+                        for contextual_ku in learning_result.value:
+                            est_time = self.context.estimated_time_to_mastery.get(
+                                contextual_ku.uid, 30
+                            )
+                            if (
+                                not respect_capacity
+                                or plan.estimated_time_minutes + est_time <= available_time
+                            ):
+                                plan.learning.append(contextual_ku.uid)
+                                plan.contextual_knowledge.append(contextual_ku)
+                                plan.estimated_time_minutes += est_time
+            else:
+                # Standard path: Use KU service
+                learning_result = await self.ku.get_ready_to_learn_for_user(self.context, limit=3)
+                if learning_result.is_ok and learning_result.value:
+                    for contextual_ku in learning_result.value:
+                        est_time = self.context.estimated_time_to_mastery.get(contextual_ku.uid, 30)
+                        if (
+                            not respect_capacity
+                            or plan.estimated_time_minutes + est_time <= available_time
+                        ):
+                            plan.learning.append(contextual_ku.uid)
+                            plan.contextual_knowledge.append(contextual_ku)
+                            plan.estimated_time_minutes += est_time
 
         # =====================================================================
         # PRIORITY 6: Advancing goals
@@ -250,6 +294,39 @@ class DailyPlanningMixin:
             rationale_parts.append("Light schedule - opportunity for deep work")
 
         return "; ".join(rationale_parts) if rationale_parts else "Balanced daily plan"
+
+    # =========================================================================
+    # Vector Search Helpers (Phase 1 Enhancement)
+    # =========================================================================
+
+    def _generate_daily_learning_query(self, plan: DailyWorkPlan) -> str:
+        """
+        Generate semantic search query for daily learning based on current plan context.
+
+        Combines:
+        - Active goals
+        - Scheduled tasks/events
+        - Life path alignment
+        """
+        query_parts = []
+
+        # Include goal context
+        if plan.goals:
+            query_parts.append("goal-aligned learning")
+
+        # Include task context
+        if plan.tasks:
+            query_parts.append("actionable knowledge")
+
+        # Include life path
+        if self.context.life_path_uid:
+            query_parts.append("life path knowledge")
+
+        # Default
+        if not query_parts:
+            query_parts.append("daily learning")
+
+        return " ".join(query_parts)
 
 
 __all__ = ["DailyPlanningMixin"]

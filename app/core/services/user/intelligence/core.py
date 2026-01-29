@@ -47,7 +47,7 @@ Date: January 2026
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.services.user.intelligence.daily_planning import DailyPlanningMixin
 from core.services.user.intelligence.learning_intelligence import LearningIntelligenceMixin
@@ -143,6 +143,8 @@ class UserContextIntelligence(
         reports: ReportRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
+        # Optional: Vector search for semantic enhancements (Phase 1 - January 2026)
+        vector_search: Any = None,
     ) -> None:
         """
         Initialize with user context and all 13 required relationship services.
@@ -170,6 +172,9 @@ class UserContextIntelligence(
 
             Temporal Domain (1):
                 calendar: Calendar service for schedule-aware intelligence
+
+            Optional Services (Phase 1 Enhancement):
+                vector_search: Neo4jVectorSearchService for semantic/learning-aware search
 
         Raises:
             ValueError: If any required service is None
@@ -226,6 +231,9 @@ class UserContextIntelligence(
 
         # Temporal domain (1)
         self.calendar = calendar
+
+        # Optional: Vector search (Phase 1 enhancement - January 2026)
+        self.vector_search = vector_search
 
 
 __all__ = ["UserContextIntelligence"]

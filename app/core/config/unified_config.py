@@ -152,6 +152,43 @@ class VectorSearchConfig:
     # RRF (Reciprocal Rank Fusion) parameter
     rrf_k: int = 60  # Standard RRF k value
 
+    # Semantic relationship boosting (Phase 1 Enhancement)
+    semantic_boost_weight: float = 0.3  # 30% semantic, 70% vector similarity
+    semantic_boost_enabled: bool = True
+
+    # Relationship type importance weights (higher = more important)
+    # Used to weight different semantic relationships when boosting scores
+    relationship_type_weights: dict[str, float] = field(
+        default_factory=lambda: {
+            # Learning domain - high importance
+            "REQUIRES_THEORETICAL_UNDERSTANDING": 1.0,
+            "REQUIRES_PRACTICAL_APPLICATION": 0.9,
+            "REQUIRES_CONCEPTUAL_FOUNDATION": 0.9,
+            "BUILDS_MENTAL_MODEL": 0.8,
+            "PROVIDES_FOUNDATION_FOR": 0.8,
+            "EXTENDS_PATTERN": 0.7,
+            # Task domain - medium importance
+            "BLOCKS_UNTIL_COMPLETE": 1.0,
+            "ENABLES_START_OF": 0.9,
+            "CONTRIBUTES_TO_GOAL": 0.8,
+            # Cross-domain - medium importance
+            "APPLIES_KNOWLEDGE_TO": 0.8,
+            "PRACTICES_VIA_HABIT": 0.7,
+            "IMPLEMENTS_VIA_TASK": 0.7,
+            # Conceptual - lower importance
+            "RELATED_TO": 0.5,
+            "ANALOGOUS_TO": 0.6,
+            "PART_OF_SYSTEM": 0.6,
+        }
+    )
+
+    # Learning state boost/penalty multipliers (Phase 1 Enhancement)
+    # Applied to search results based on user's learning progress
+    learning_state_boost_mastered: float = -0.2  # -20% penalty (already know)
+    learning_state_boost_in_progress: float = 0.1  # +10% boost (currently learning)
+    learning_state_boost_viewed: float = 0.0  # No change (neutral)
+    learning_state_boost_not_started: float = 0.15  # +15% boost (discovery)
+
     def get_min_score_for_entity(self, entity_type: str) -> float:
         """
         Get minimum similarity score for specific entity type.
@@ -172,6 +209,61 @@ class VectorSearchConfig:
             "lpstep": self.lpstep_min_score,
         }
         return mapping.get(entity_lower, self.default_min_score)
+
+    def get_relationship_weight(self, relationship_type: str) -> float:
+        """
+        Get importance weight for a semantic relationship type.
+
+        Args:
+            relationship_type: Semantic relationship type (e.g., "REQUIRES_THEORETICAL_UNDERSTANDING")
+
+        Returns:
+            Weight value (0.0-1.0), defaults to 0.5 for unknown types
+        """
+        return self.relationship_type_weights.get(relationship_type, 0.5)
+
+    def get_learning_state_boost(self, learning_state: str) -> float:
+        """
+        Get boost/penalty multiplier for a learning state.
+
+        Args:
+            learning_state: Learning state (mastered, in_progress, viewed, none)
+
+        Returns:
+            Boost multiplier (-1.0 to 1.0)
+        """
+        mapping = {
+            "mastered": self.learning_state_boost_mastered,
+            "in_progress": self.learning_state_boost_in_progress,
+            "viewed": self.learning_state_boost_viewed,
+            "none": self.learning_state_boost_not_started,
+        }
+        return mapping.get(learning_state.lower(), 0.0)
+
+
+@dataclass
+class ABTestingConfig:
+    """
+    A/B testing configuration for search experiments.
+
+    **Use Case:** Compare semantic search vs standard search performance.
+
+    **Design:**
+    - Hash-based assignment (deterministic, no DB storage)
+    - Configuration-driven (enable/disable per test)
+    - Simple 50/50 split by default
+
+    Created: January 2026 (Phase 2 Enhancement)
+    See: /docs/architecture/AB_TESTING.md
+    """
+
+    # Semantic search A/B test
+    semantic_search_enabled: bool = False  # Disabled by default
+    semantic_search_treatment_pct: float = 0.5  # 50% in treatment group
+
+    # Future tests can be added here
+    # example_test_enabled: bool = False
+    # example_test_treatment_pct: float = 0.5
 
 
 # ============================================================================
@@ -320,13 +412,16 @@ class GenAIConfig:
         """Create config from environment variables"""
         return cls(
             enabled=os.getenv("GENAI_ENABLED", "false").lower() == "true",
-            vector_search_enabled=os.getenv("GENAI_VECTOR_SEARCH_ENABLED", "false").lower() == "true",
+            vector_search_enabled=os.getenv("GENAI_VECTOR_SEARCH_ENABLED", "false").lower()
+            == "true",
             provider=os.getenv("GENAI_PROVIDER", "openai"),
             embedding_model=os.getenv("GENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
             embedding_dimension=int(os.getenv("GENAI_EMBEDDING_DIMENSION", "1536")),
             batch_size=int(os.getenv("GENAI_BATCH_SIZE", "25")),
-            fallback_to_keyword_search=os.getenv("GENAI_FALLBACK_TO_KEYWORD_SEARCH", "true").lower() == "true",
-            show_unavailable_features=os.getenv("GENAI_SHOW_UNAVAILABLE_FEATURES", "true").lower() == "true",
+            fallback_to_keyword_search=os.getenv("GENAI_FALLBACK_TO_KEYWORD_SEARCH", "true").lower()
+            == "true",
+            show_unavailable_features=os.getenv("GENAI_SHOW_UNAVAILABLE_FEATURES", "true").lower()
+            == "true",
         )
 
 
@@ -622,6 +717,9 @@ class UnifiedConfig:
     application: ApplicationConfig = field(default_factory=ApplicationConfig)
     features: FeatureFlags = field(default_factory=FeatureFlags)
     dependencies: DependencyConfig = field(default_factory=DependencyConfig)
+
+    # Experimental configurations (Phase 2 Enhancement - January 2026)
+    ab_testing: ABTestingConfig = field(default_factory=ABTestingConfig)
 
     # Metadata
     created_at: datetime = field(default_factory=datetime.now)

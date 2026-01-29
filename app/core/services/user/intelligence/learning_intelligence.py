@@ -29,11 +29,13 @@ class LearningIntelligenceMixin:
     Mixin providing learning intelligence methods.
 
     Requires self.context (UserContext) and self.tasks, self.ku (relationship services).
+    Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     """
 
     context: UserContext
     tasks: Any  # TasksRelationshipService
     ku: Any  # KuGraphService
+    vector_search: Any = None  # Neo4jVectorSearchService (optional - Phase 1 enhancement)
 
     # =========================================================================
     # METHOD 1: Optimal Next Learning Steps
@@ -50,12 +52,14 @@ class LearningIntelligenceMixin:
 
         **Synthesizes:**
         - KU service: get_ready_to_learn_for_user() - Prerequisites met
+        - Vector search (Phase 1): Learning-aware search with mastery boosting
         - Goals service: Goal alignment
         - Tasks service: Knowledge application opportunities
         - Context: Capacity, energy, life path alignment
 
         **Ranking Factors:**
         - Prerequisites met (ready to learn)
+        - Learning state (prefer unmastered content)
         - Goal alignment (helps achieve goals)
         - User capacity (fits available time)
         - Life path alignment (flows toward ultimate path)
@@ -69,7 +73,26 @@ class LearningIntelligenceMixin:
         Returns:
             Result[list[LearningStep]] ranked by priority with full context
         """
-        # Get knowledge ready to learn from KU relationship service
+        # Phase 1 Enhancement: Try learning-aware search first (if available)
+        if self.vector_search and hasattr(self.vector_search, "learning_aware_search"):
+            # Use semantic/learning-aware search to find optimal next steps
+            # This personalizes based on mastery state (MASTERED, IN_PROGRESS, etc.)
+            search_query = self._generate_learning_query()
+            vector_result = await self.vector_search.learning_aware_search(
+                label="Ku",
+                text=search_query,
+                user_uid=self.context.user_uid,
+                prefer_unmastered=True,
+                limit=max_steps * 2,
+            )
+
+            if vector_result.is_ok and vector_result.value:
+                # Convert vector results to learning steps
+                return await self._vector_results_to_learning_steps(
+                    vector_result.value, max_steps, consider_goals, consider_capacity
+                )
+
+        # Fallback: Get knowledge ready to learn from KU relationship service
         ready_result = await self.ku.get_ready_to_learn_for_user(self.context, limit=max_steps * 2)
 
         if ready_result.is_error or not ready_result.value:
@@ -464,6 +487,104 @@ class LearningIntelligenceMixin:
         from core.utils.sort_functions import get_second_item
 
         return Result.ok(sorted(blocker_counts.items(), key=get_second_item, reverse=True))
+
+    # =========================================================================
+    # Vector Search Helpers (Phase 1 Enhancement)
+    # =========================================================================
+
+    def _generate_learning_query(self) -> str:
+        """
+        Generate a semantic search query based on user's learning goals and life path.
+
+        Combines:
+        - Life path focus
+        - Active learning goals
+        - Current knowledge context
+        """
+        query_parts = []
+
+        # Include life path focus
+        if self.context.life_path_uid:
+            # Extract meaningful terms from life path context
+            query_parts.append("learning path knowledge")
+
+        # Include learning goals context
+        if self.context.learning_goals:
+            query_parts.append("goal-aligned learning")
+
+        # Include current learning focus
+        if self.context.current_learning_focus:
+            query_parts.append(self.context.current_learning_focus)
+
+        # Default if no context
+        if not query_parts:
+            query_parts.append("ready to learn knowledge")
+
+        return " ".join(query_parts)
+
+    async def _vector_results_to_learning_steps(
+        self,
+        vector_results: list[dict[str, Any]],
+        max_steps: int,
+        consider_goals: bool,
+        consider_capacity: bool,
+    ) -> Result[list[LearningStep]]:
+        """
+        Convert vector search results to LearningStep objects.
+
+        Args:
+            vector_results: Results from learning_aware_search()
+            max_steps: Maximum steps to return
+            consider_goals: Whether to weight by goal alignment
+            consider_capacity: Whether to filter by capacity
+
+        Returns:
+            Result[list[LearningStep]] with full context
+        """
+        learning_steps = []
+
+        for result in vector_results[: max_steps * 2]:
+            node = result["node"]
+            ku_uid = node["uid"]
+            score = result.get("score", 0.0)
+
+            # Get application opportunities
+            applications = await self._get_application_opportunities_for_ku(ku_uid)
+
+            # Count unlocks
+            unlocks_count = self._count_items_unlocked_by(ku_uid)
+
+            # Find aligned goals
+            aligned_goals = self._find_aligned_goals(ku_uid)
+
+            # Check prerequisites met
+            prereqs_needed = self.context.prerequisites_needed.get(ku_uid, [])
+            unmet_prereqs = [
+                p for p in prereqs_needed if p not in self.context.prerequisites_completed
+            ]
+            prerequisites_met = len(unmet_prereqs) == 0
+
+            step = LearningStep(
+                ku_uid=ku_uid,
+                title=node.get("title", f"Knowledge Unit {ku_uid}"),
+                rationale=self._generate_learning_rationale(
+                    ku_uid, aligned_goals, unlocks_count, applications
+                ),
+                prerequisites_met=prerequisites_met,
+                aligns_with_goals=aligned_goals,
+                unlocks_count=unlocks_count,
+                estimated_time_minutes=self.context.estimated_time_to_mastery.get(ku_uid, 60),
+                priority_score=score,  # Use vector search score
+                application_opportunities=applications,
+            )
+
+            learning_steps.append(step)
+
+        # Apply capacity filter if requested
+        if consider_capacity:
+            learning_steps = self._filter_by_capacity(learning_steps)
+
+        return Result.ok(learning_steps[:max_steps])
 
 
 __all__ = ["LearningIntelligenceMixin"]

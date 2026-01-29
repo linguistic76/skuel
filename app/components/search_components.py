@@ -195,7 +195,7 @@ def _render_filter_bar() -> str:
         </div>
 
         <!-- Checkbox Groups Row -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-3 border-t border-base-200">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-3 border-t border-base-200">
             <!-- Learning Progress -->
             <div>
                 <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">Learning Progress</div>
@@ -209,6 +209,16 @@ def _render_filter_bar() -> str:
                 <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">Graph Relationships</div>
                 <div class="flex flex-wrap gap-x-4 gap-y-1">
                     {_render_relationship_checkboxes()}
+                </div>
+            </div>
+
+            <!-- Semantic Search (Phase 1 Enhancement) -->
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">Semantic Search
+                    <span class="badge badge-xs badge-primary ml-1">NEW</span>
+                </div>
+                <div class="flex flex-wrap gap-x-4 gap-y-1">
+                    {_render_semantic_search_checkboxes()}
                 </div>
             </div>
         </div>
@@ -613,6 +623,31 @@ def _render_relationship_checkboxes() -> str:
         ("applied_in_tasks", "Applied recently"),
         ("aligned_with_principles", "Aligned with values"),
         ("next_logical_step", "Next logical step"),
+    ]
+
+    result = ""
+    for name, label in filters:
+        result += f"""
+        <label class="label cursor-pointer justify-start gap-2 py-0.5">
+            <input type="checkbox" name="{name}" value="true" class="checkbox checkbox-xs checkbox-primary"
+                   hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
+                   hx-include="{_get_hx_include(name)}">
+            <span class="label-text text-xs">{label}</span>
+        </label>
+        """
+    return result
+
+
+def _render_semantic_search_checkboxes() -> str:
+    """
+    Semantic search checkboxes (Phase 1 Enhancement - January 2026).
+
+    Enables semantic relationship boosting and learning-aware search.
+    """
+    filters = [
+        ("enable_semantic_boost", "Semantic boost"),
+        ("enable_learning_aware", "Learning-aware"),
+        ("prefer_unmastered", "Prefer new content"),
     ]
 
     result = ""
