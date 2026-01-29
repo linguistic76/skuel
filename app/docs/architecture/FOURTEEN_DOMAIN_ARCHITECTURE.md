@@ -964,7 +964,7 @@ The **Supporting Services** work together to provide intelligent content discove
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ STEP 1: Get User Context (UserService)                                   │
 │                                                                          │
-│  user_context = await user_service.get_unified_context(user_uid)        │
+│  user_context = await user_service.get_user_context(user_uid)           │
 │                                                                          │
 │  UserContext contains (~240 fields):                                     │
 │    - active_goal_uids: ['goal:learn-python', 'goal:get-fit']            │
@@ -1015,7 +1015,7 @@ from core.services.user_service import UserService
 from core.services.askesis_service import AskesisService
 
 # Get user's current context
-user_context_result = await user_service.get_unified_context(user_uid)
+user_context_result = await user_service.get_user_context(user_uid)
 if user_context_result.is_error:
     return user_context_result
 

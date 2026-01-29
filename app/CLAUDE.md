@@ -141,10 +141,12 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - No intelligence service - pure bookkeeping
 - Unique: budgets, expense categories, recurring expenses
 
-**Curriculum Domains (3)** - Shared content (no user ownership):
-- `_user_ownership_relationship = None` - content shared across users
+**Curriculum Domains (3)** - Shared content (user-creatable, publicly readable):
+- `ContentScope.SHARED` - any authenticated user can create, all users can read
+- `_user_ownership_relationship = None` - no ownership verification needed
 - KU (point), LS (edge), LP (path) - three grouping patterns
 - Core + search services extend `BaseService`
+- **NOT admin-only** - differs from Finance which requires ADMIN role
 
 **Content/Processing Domains (2)**:
 - `/journals` - Voice + text submission (type=JOURNAL hardcoded)
@@ -240,9 +242,34 @@ LifePath <--> All Domains
 | Transfer | DTOs | Mutable | Data movement between layers |
 | Core | Domain Models | **Frozen** | Immutable business entities |
 
-Key: Frozen dataclasses with `__post_init__` for dynamic defaults, `DomainModelProtocol` for generics.
+### Pattern Selection (Two Patterns)
 
-**See:** `/docs/patterns/three_tier_type_system.md`
+SKUEL uses two approved patterns: **Pattern A (Three-Tier)** for most domains, **Pattern B (Two-Tier)** for simple bookkeeping.
+
+**Decision Matrix**:
+
+```
+Does the domain have 3+ business logic methods?
+├─ YES → Pattern A (Three-Tier) ✅ [Default]
+└─ NO  → Is domain admin-only bookkeeping?
+    ├─ YES → Pattern B (Two-Tier) ✅ [Exception]
+    └─ NO  → Pattern A (Three-Tier) ✅ [Default]
+```
+
+| Pattern | Files | Tiers | Use For | Domains |
+|---------|-------|-------|---------|---------|
+| **A: Three-Tier** | 4-5 | Pydantic→DTO→Domain | Complex logic, immutability | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Assignments, User, LifePath (12 domains) |
+| **B: Two-Tier** | 2 | Pydantic→DTO | Simple CRUD, minimal logic | Finance, Journals (2 domains) |
+
+**Rule**: Default to Pattern A unless domain is genuinely simple (admin-only bookkeeping, no business logic).
+
+Key: Frozen dataclasses with `__post_init__` for dynamic defaults, `DomainModelProtocol` for generics (Pattern A only).
+
+**See:**
+- `/docs/patterns/three_tier_type_system.md` - Pattern details
+- `/docs/patterns/DOMAIN_PATTERNS_CATALOG.md` - Complete examples
+- `/docs/decisions/ADR-035-tier-selection-guidelines.md` - Decision rationale
+- `/docs/tutorials/DATA_FLOW_WALKTHROUGH.md` - Step-by-step example
 
 ## User Roles & Authentication
 
@@ -472,9 +499,15 @@ await service.verify_ownership(uid, user_uid)  # Returns entity or NotFound
 await service.get_for_user(uid, user_uid)      # Get with ownership check
 ```
 
-**Domain Types:**
-- User-owned: Tasks, Goals, Habits, Events, Choices, Principles, Finance, Journals
-- Shared: KU, LS, LP (MOC is KU-based - uses ORGANIZES relationships)
+**Access Patterns (ContentScope):**
+
+| Pattern | Domains | Create | Read | Ownership Check |
+|---------|---------|--------|------|-----------------|
+| **USER_OWNED** | Tasks, Goals, Habits, Events, Choices, Principles, Journals | User | Owner only | Yes (returns 404 if not owner) |
+| **SHARED** | KU, LS, LP (MOC is KU-based) | Any authenticated user | All users | No (content is public) |
+| **ADMIN_ONLY** | Finance | Admin role only | Admin only | No (admin-gated at route) |
+
+**Key distinction**: SHARED ≠ ADMIN_ONLY. Curriculum domains (KU/LS/LP) are user-creatable, while Finance requires admin role.
 
 **See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`
 

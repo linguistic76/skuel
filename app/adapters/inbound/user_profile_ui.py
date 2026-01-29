@@ -315,7 +315,7 @@ def setup_user_profile_routes(rt, services):
         user = user_result.value
 
         # Get context - ONE PATH (no fallback)
-        context_result = await services.user_service.get_unified_context(user_uid)
+        context_result = await services.user_service.get_rich_unified_context(user_uid)
         if context_result.is_error:
             raise ValueError(f"Failed to load context for user: {user_uid}")
         context = context_result.value

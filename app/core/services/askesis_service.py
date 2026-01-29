@@ -711,7 +711,7 @@ class AskesisService(FacadeDelegationMixin):
         **Use Case:**
         ```python
         # Get user's current context
-        user_context = await user_service.get_unified_context(user_uid)
+        user_context = await user_service.get_user_context(user_uid)
 
         # Find knowledge that matches their activities
         relevant_ku = await askesis_service.find_relevant_for_context(
@@ -896,7 +896,7 @@ class AskesisService(FacadeDelegationMixin):
         **Usage:**
         ```python
         # Get user context
-        result = await user_service.get_unified_context(user_uid)
+        result = await user_service.get_user_context(user_uid)
         if result.is_error:
             return result
 

@@ -40,6 +40,59 @@ External World → [Pydantic] → [DTOs] → [Domain Models] → Core Logic
 | **Transfer** | DTOs | Mutable | Data movement between layers |
 | **Core** | Domain Models | **Frozen** | Immutable business entities |
 
+## Data Flow Overview
+
+**See [DATA_FLOW_WALKTHROUGH.md](/docs/tutorials/DATA_FLOW_WALKTHROUGH.md) for a complete step-by-step example following a Task creation request through all tiers.**
+
+### Create Flow (HTTP → Neo4j)
+
+```
+User Client
+     │
+     │ POST /api/tasks/create + JSON
+     ▼
+[Tier 1: Pydantic Request]
+     │ Validates JSON, returns 422 on failure
+     ▼
+[Tier 2: DTO]
+     │ Generate UID, set timestamps, prepare for persistence
+     ▼
+[Neo4j]
+     │ Store properties + create relationship edges
+```
+
+### Read Flow (Neo4j → HTTP)
+
+```
+[Neo4j]
+     │ Query node properties + relationships
+     ▼
+[Tier 2: DTO]
+     │ Reconstitute from database (strings → enums/dates)
+     ▼
+[Tier 3: Domain Model]
+     │ Apply business logic (is_overdue, urgency_score, etc.)
+     ▼
+[Tier 1: Pydantic Response]
+     │ Combine scalar fields + relationships + computed fields
+     ▼
+User Client (receives JSON)
+```
+
+### When to Use Each Tier
+
+**Always use Tier 1 (Pydantic)**:
+- API request validation (prevents 500 errors)
+- API response serialization (consistent JSON format)
+
+**Always use Tier 2 (DTO)**:
+- Service layer operations (mutable for status updates)
+- Database serialization (to_dict / from_dict)
+
+**Tier 3 (Domain) is optional**:
+- ✅ Use when: Complex business logic, immutability semantics, protocol-based generics
+- ❌ Skip when: Simple bookkeeping (Finance), admin-only CRUD (no complex state)
+
 ## Implementation Example
 
 ```python
@@ -557,8 +610,70 @@ The `total=False` makes all fields optional, matching the partial update semanti
 | `/scripts/add_frozen_dataclass_type_ignores.py` | Migration script |
 | `/core/models/task/task.py` | Example implementation |
 
+## Why Three Tiers? (Design Rationale)
+
+### Tier 1 (Pydantic) - Protection at Boundaries
+
+**Problem solved**: External input can be malformed, causing 500 errors deep in business logic.
+
+**Solution**: Validate at API boundaries BEFORE any service code runs.
+
+**Benefits**:
+- Automatic 422 responses with field-level error details
+- Self-documenting API contracts
+- Type-safe parameter extraction
+- No manual JSON parsing
+
+**Example**: Without Pydantic validation, `{"priority": "super-high"}` would cause a crash when converting to Priority enum. With Pydantic, it returns 422 immediately: "Input should be 'low', 'medium', 'high', or 'critical'".
+
+### Tier 2 (DTO) - Flexibility in Services
+
+**Problem solved**: Service operations need to modify data (status updates, computed fields) but domain models should be immutable.
+
+**Solution**: Mutable DTOs allow service-layer modifications without violating immutability principles.
+
+**Benefits**:
+- Update fields without creating new instances
+- Clean database serialization (to_dict / from_dict)
+- Separation from business logic
+- Graph-native design (relationships separate from properties)
+
+**Example**: Task completion requires updating 4 fields (status, completion_date, actual_minutes, updated_at). With DTOs, this is simple field assignment. With frozen domain models, you'd need to create a new instance with all fields.
+
+### Tier 3 (Domain) - Business Logic Safety
+
+**Problem solved**: Business logic needs immutability guarantees and semantic correctness.
+
+**Solution**: Frozen dataclasses with business logic methods.
+
+**Benefits**:
+- Immutability prevents accidental mutations
+- Business logic methods (is_overdue, urgency_score, impact_score)
+- Protocol-based type safety (`DomainModelProtocol`)
+- Used by intelligence services for calculations
+
+**Example**: `task.urgency_score()` combines priority, due date, and status using domain logic. This logic belongs in the domain model, not spread across services.
+
+### Trade-off: Conversion Boilerplate
+
+**Cost**: Each tier requires converter functions (`request_to_dto`, `dto_to_domain`, `domain_to_dto`).
+
+**Benefit**: Clear separation of concerns - each tier has a single responsibility.
+
+**Mitigation**: Converter functions follow consistent patterns and use shared helpers (`dto_to_dict`, `dto_from_dict`).
+
+## Complete Example: Following a Request
+
+See [DATA_FLOW_WALKTHROUGH.md](/docs/tutorials/DATA_FLOW_WALKTHROUGH.md) for a comprehensive example following a Task creation request through all three tiers, showing:
+- Exact code files involved at each stage
+- What data looks like at each transformation
+- Why each conversion happens
+- Where relationships are stored (graph-native design)
+- When to skip Tier 3 (Finance/Journals examples)
+
 ## See Also
 
+- [DATA_FLOW_WALKTHROUGH.md](/docs/tutorials/DATA_FLOW_WALKTHROUGH.md) - Complete step-by-step example
 - [Model Architecture](/docs/architecture/MODEL_ARCHITECTURE.md)
 - [Protocol-Based Architecture](#protocol-based-architecture) in CLAUDE.md
 - [Unified User Architecture](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md)
