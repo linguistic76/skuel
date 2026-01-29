@@ -115,9 +115,13 @@ class UnifiedIngestionService:
 
         # Log embedding availability
         if self.embeddings:
-            self.logger.info("✅ Embeddings service available - will generate embeddings during ingestion")
+            self.logger.info(
+                "✅ Embeddings service available - will generate embeddings during ingestion"
+            )
         else:
-            self.logger.warning("⚠️ Embeddings service not available - ingestion will work without embeddings")
+            self.logger.warning(
+                "⚠️ Embeddings service not available - ingestion will work without embeddings"
+            )
 
         # Lazy-initialized engines per entity type (keyed by EntityType)
         self._engines: dict[EntityType, BulkIngestionEngine[Any]] = {}

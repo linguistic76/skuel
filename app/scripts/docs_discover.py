@@ -405,9 +405,7 @@ def search_by_task(docs_dir: Path, task: str) -> list[SearchResult]:
     return results
 
 
-def search_by_keywords(
-    docs_dir: Path, keywords: list[str], limit: int = 10
-) -> list[SearchResult]:
+def search_by_keywords(docs_dir: Path, keywords: list[str], limit: int = 10) -> list[SearchResult]:
     """
     Search by multiple keywords (AND logic).
 
@@ -499,7 +497,7 @@ def list_available_tasks() -> None:
 
     tasks = sorted(TASK_MAP.keys())
     for task in tasks:
-        print(f"  --task \"{task}\"")
+        print(f'  --task "{task}"')
         docs = TASK_MAP[task]
         print(f"      → {len(docs)} document(s)")
 

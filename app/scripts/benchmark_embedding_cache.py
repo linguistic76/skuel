@@ -199,7 +199,9 @@ async def benchmark_always_generate(
     """
     # Limit to 10 nodes to avoid excessive API costs
     sample_nodes = nodes[:10]
-    logger.info(f"Benchmarking always-generate on {len(sample_nodes)} nodes (limited to save costs)...")
+    logger.info(
+        f"Benchmarking always-generate on {len(sample_nodes)} nodes (limited to save costs)..."
+    )
 
     total_latency = 0.0
     successes = 0
@@ -261,13 +263,17 @@ def calculate_cost_savings(cache_results: dict, always_results: dict) -> dict:
     with_cache_api_calls = int(monthly_searches * (1 - cache_hit_rate / 100))
 
     api_calls_saved = without_cache_api_calls - with_cache_api_calls
-    api_calls_reduction_pct = (api_calls_saved / without_cache_api_calls * 100) if without_cache_api_calls > 0 else 0
+    api_calls_reduction_pct = (
+        (api_calls_saved / without_cache_api_calls * 100) if without_cache_api_calls > 0 else 0
+    )
 
     # Cost calculation (assuming 500 tokens per embedding)
     cost_per_1m_tokens = 0.02  # text-embedding-3-small
     tokens_per_embedding = 500
 
-    cost_without_cache = (without_cache_api_calls * tokens_per_embedding / 1_000_000) * cost_per_1m_tokens
+    cost_without_cache = (
+        without_cache_api_calls * tokens_per_embedding / 1_000_000
+    ) * cost_per_1m_tokens
     cost_with_cache = (with_cache_api_calls * tokens_per_embedding / 1_000_000) * cost_per_1m_tokens
     monthly_savings = cost_without_cache - cost_with_cache
     annual_savings = monthly_savings * 12
@@ -276,7 +282,9 @@ def calculate_cost_savings(cache_results: dict, always_results: dict) -> dict:
     avg_without_cache = always_results["avg_latency_ms"]
     avg_with_cache = cache_results["avg_latency_ms"]
     latency_improvement = avg_without_cache - avg_with_cache
-    latency_improvement_pct = (latency_improvement / avg_without_cache * 100) if avg_without_cache > 0 else 0
+    latency_improvement_pct = (
+        (latency_improvement / avg_without_cache * 100) if avg_without_cache > 0 else 0
+    )
 
     return {
         "cache_hit_rate": cache_hit_rate,
@@ -330,8 +338,10 @@ def print_report(cache_results: dict, always_results: dict, cost_analysis: dict)
     print(f"Overall (cached):  {cache_results['avg_latency_ms']:6.1f}ms average")
     print(f"Always-generate:   {always_results['avg_latency_ms']:6.1f}ms average")
     print()
-    print(f"Latency improvement: {cost_analysis['latency_improvement_ms']:.1f}ms "
-          f"({cost_analysis['latency_improvement_pct']:.1f}% faster)")
+    print(
+        f"Latency improvement: {cost_analysis['latency_improvement_ms']:.1f}ms "
+        f"({cost_analysis['latency_improvement_pct']:.1f}% faster)"
+    )
     print()
 
     # Cache hits by label
@@ -352,8 +362,10 @@ def print_report(cache_results: dict, always_results: dict, cost_analysis: dict)
     print()
     print(f"API calls without caching: {cost_analysis['api_calls_without_cache']:,}")
     print(f"API calls with caching:    {cost_analysis['api_calls_with_cache']:,}")
-    print(f"API calls saved:           {cost_analysis['api_calls_saved']:,} "
-          f"({cost_analysis['api_calls_reduction_pct']:.1f}% reduction)")
+    print(
+        f"API calls saved:           {cost_analysis['api_calls_saved']:,} "
+        f"({cost_analysis['api_calls_reduction_pct']:.1f}% reduction)"
+    )
     print()
     print(f"Cost without caching: ${cost_analysis['cost_without_cache']:.2f}/month")
     print(f"Cost with caching:    ${cost_analysis['cost_with_cache']:.2f}/month")
@@ -365,9 +377,9 @@ def print_report(cache_results: dict, always_results: dict, cost_analysis: dict)
     print()
 
     # Recommendations
-    if cost_analysis['cache_hit_rate'] >= 80:
+    if cost_analysis["cache_hit_rate"] >= 80:
         print("✅ Excellent cache hit rate! Caching is highly effective.")
-    elif cost_analysis['cache_hit_rate'] >= 60:
+    elif cost_analysis["cache_hit_rate"] >= 60:
         print("✓ Good cache hit rate. Consider increasing embedding coverage.")
     else:
         print("⚠️  Low cache hit rate. Check:")
@@ -395,7 +407,9 @@ Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
         """,
     )
 
-    parser.add_argument("--sample", type=int, default=100, help="Number of nodes to sample (default: 100)")
+    parser.add_argument(
+        "--sample", type=int, default=100, help="Number of nodes to sample (default: 100)"
+    )
     parser.add_argument("--label", help="Filter by entity label (e.g., Ku, Task)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed output")
 
@@ -458,6 +472,7 @@ Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
     except Exception as e:
         logger.error(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

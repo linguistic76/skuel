@@ -77,9 +77,7 @@ def serialize_frontmatter(frontmatter: dict) -> str:
     return yaml.dump(frontmatter, default_flow_style=False, sort_keys=False)
 
 
-def add_related_skills(
-    content: str, skill_names: set[str]
-) -> tuple[str, bool]:
+def add_related_skills(content: str, skill_names: set[str]) -> tuple[str, bool]:
     """
     Add or update related_skills field in frontmatter.
 

@@ -290,7 +290,9 @@ def print_schedule(
             print(f"    Path: {review.path}")
             print(f"    Category: {review.category}")
             if review.last_reviewed:
-                print(f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)")
+                print(
+                    f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)"
+                )
             else:
                 print(f"    Last reviewed: Never")
             print(f"    Frequency: {review.review_frequency}")
@@ -305,7 +307,9 @@ def print_schedule(
             print(f"    Path: {review.path}")
             print(f"    Category: {review.category}")
             if review.last_reviewed:
-                print(f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)")
+                print(
+                    f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)"
+                )
             else:
                 print(f"    Last reviewed: Never")
             print(f"    Frequency: {review.review_frequency}")
@@ -320,7 +324,9 @@ def print_schedule(
             print(f"    Path: {review.path}")
             print(f"    Category: {review.category}")
             if review.last_reviewed:
-                print(f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)")
+                print(
+                    f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)"
+                )
             else:
                 print(f"    Last reviewed: Never")
             print(f"    Frequency: {review.review_frequency}")
@@ -335,7 +341,9 @@ def print_schedule(
             print(f"    Path: {review.path}")
             print(f"    Category: {review.category}")
             if review.last_reviewed:
-                print(f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)")
+                print(
+                    f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)"
+                )
             else:
                 print(f"    Last reviewed: Never")
             print(f"    Frequency: {review.review_frequency}")
@@ -403,7 +411,12 @@ def main() -> None:
     elif show_categories:
         print_categories(schedule)
     else:
-        print_schedule(schedule, show_all=show_all, show_upcoming=show_upcoming, category_filter=category_filter)
+        print_schedule(
+            schedule,
+            show_all=show_all,
+            show_upcoming=show_upcoming,
+            category_filter=category_filter,
+        )
 
 
 if __name__ == "__main__":

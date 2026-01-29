@@ -211,7 +211,9 @@ class Neo4jGenAIEmbeddingsService:
             result = await self.driver.execute_query(query, params)
 
             # Extract embeddings in order
-            embeddings = [record["embedding"] for record in sorted(result, key=lambda r: r["index"])]
+            embeddings = [
+                record["embedding"] for record in sorted(result, key=lambda r: r["index"])
+            ]
 
             # Validate all dimensions
             for idx, emb in enumerate(embeddings):
@@ -297,7 +299,7 @@ class Neo4jGenAIEmbeddingsService:
             ...     uid="ku.python",
             ...     label="Ku",
             ...     embedding=[0.1, 0.2, ...],
-            ...     text="Python programming language"
+            ...     text="Python programming language",
             ... )
         """
         query = f"""
@@ -322,9 +324,7 @@ class Neo4jGenAIEmbeddingsService:
             result = await self.driver.execute_query(query, params)
 
             if not result:
-                return Result.fail(
-                    Errors.not_found(entity="Node", identifier=f"{label}:{uid}")
-                )
+                return Result.fail(Errors.not_found(entity="Node", identifier=f"{label}:{uid}"))
 
             self.logger.debug(f"Stored embedding for {label}:{uid} (version={EMBEDDING_VERSION})")
             return Result.ok(None)
@@ -335,9 +335,7 @@ class Neo4jGenAIEmbeddingsService:
                 Errors.database(operation="store_embedding", message=f"Failed to store: {e}")
             )
 
-    async def get_embedding_metadata(
-        self, uid: str, label: str
-    ) -> Result[dict[str, Any]]:
+    async def get_embedding_metadata(self, uid: str, label: str) -> Result[dict[str, Any]]:
         """
         Get embedding version metadata for a node.
 
@@ -366,9 +364,7 @@ class Neo4jGenAIEmbeddingsService:
             result = await self.driver.execute_query(query, {"uid": uid})
 
             if not result:
-                return Result.fail(
-                    Errors.not_found(entity="Node", identifier=f"{label}:{uid}")
-                )
+                return Result.fail(Errors.not_found(entity="Node", identifier=f"{label}:{uid}"))
 
             record = result[0]
             embedding = record.get("embedding")
@@ -389,9 +385,7 @@ class Neo4jGenAIEmbeddingsService:
                 Errors.database(operation="get_metadata", message=f"Failed to get metadata: {e}")
             )
 
-    async def check_version_compatibility(
-        self, uid: str, label: str
-    ) -> Result[dict[str, Any]]:
+    async def check_version_compatibility(self, uid: str, label: str) -> Result[dict[str, Any]]:
         """
         Check if node's embedding version is compatible with current version.
 
@@ -429,9 +423,7 @@ class Neo4jGenAIEmbeddingsService:
 
         return Result.ok(compatibility)
 
-    async def get_or_create_embedding(
-        self, uid: str, label: str, text: str
-    ) -> Result[list[float]]:
+    async def get_or_create_embedding(self, uid: str, label: str, text: str) -> Result[list[float]]:
         """
         Get cached embedding or create new one with version tracking.
 
@@ -451,9 +443,7 @@ class Neo4jGenAIEmbeddingsService:
 
         Example:
             >>> result = await service.get_or_create_embedding(
-            ...     uid="ku.python",
-            ...     label="Ku",
-            ...     text="Python programming language"
+            ...     uid="ku.python", label="Ku", text="Python programming language"
             ... )
         """
         # Check if node has current-version embedding

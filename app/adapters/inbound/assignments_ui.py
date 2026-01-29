@@ -217,19 +217,24 @@ def _render_processed_content(content: str | None, has_content: bool) -> Any:
 
 def _render_category_selector(assignment: Any) -> Any:
     """Render category selector for assignment."""
-    current_category = getattr(assignment.metadata, "category", None) if hasattr(assignment, "metadata") else None
+    current_category = (
+        getattr(assignment.metadata, "category", None) if hasattr(assignment, "metadata") else None
+    )
     categories = ["daily", "weekly", "reflection", "work", "personal", "other"]
 
     return Div(
         Label("Category:", cls="label"),
         Select(
-            *[Option(cat.title(), value=cat, selected=(cat == current_category)) for cat in categories],
+            *[
+                Option(cat.title(), value=cat, selected=(cat == current_category))
+                for cat in categories
+            ],
             cls="select select-bordered w-full",
             hx_post=f"/api/assignments/categorize?assignment_uid={assignment.uid}&user_uid={assignment.user_uid}",
             hx_trigger="change",
             hx_target=f"#category-display-{assignment.uid}",
             hx_swap="outerHTML",
-            hx_vals='js:{category: event.target.value}',
+            hx_vals="js:{category: event.target.value}",
         ),
         id=f"category-selector-{assignment.uid}",
         cls="form-control",
@@ -238,7 +243,11 @@ def _render_category_selector(assignment: Any) -> Any:
 
 def _render_category_display(assignment: Any) -> Any:
     """Render category display with edit button."""
-    current_category = getattr(assignment.metadata, "category", "none") if hasattr(assignment, "metadata") else "none"
+    current_category = (
+        getattr(assignment.metadata, "category", "none")
+        if hasattr(assignment, "metadata")
+        else "none"
+    )
 
     return Div(
         Span(f"Category: {current_category.title()}", cls="badge badge-primary"),
@@ -274,7 +283,9 @@ def _render_tags_manager(assignment: Any) -> Any:
     ]
 
     return Div(
-        Div(*tag_elements, cls="flex flex-wrap") if tags else Div("No tags", cls="text-sm text-base-content/60"),
+        Div(*tag_elements, cls="flex flex-wrap")
+        if tags
+        else Div("No tags", cls="text-sm text-base-content/60"),
         Form(
             Input(
                 type="text",
@@ -285,7 +296,7 @@ def _render_tags_manager(assignment: Any) -> Any:
             Button("Add Tag", type="submit", cls="btn btn-primary btn-sm ml-2"),
             cls="flex items-center mt-2",
             hx_post=f"/api/assignments/tags/add?assignment_uid={assignment.uid}&user_uid={assignment.user_uid}",
-            hx_vals='js:{tags: [document.querySelector(\'[name="new_tag"]\').value]}',
+            hx_vals="js:{tags: [document.querySelector('[name=\"new_tag\"]').value]}",
             hx_target=f"#tags-manager-{assignment.uid}",
             hx_swap="outerHTML",
         ),
@@ -327,7 +338,9 @@ def _render_status_buttons(assignment: Any) -> Any:
             cls="flex gap-2",
         ),
         Div(
-            Span(f"Current status: {current_status}", cls="text-xs text-base-content/60 mt-2 block"),
+            Span(
+                f"Current status: {current_status}", cls="text-xs text-base-content/60 mt-2 block"
+            ),
         ),
         id=f"status-buttons-{assignment.uid}",
         cls="p-4 bg-base-200 rounded-lg",

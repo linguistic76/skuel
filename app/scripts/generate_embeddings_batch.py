@@ -92,7 +92,7 @@ async def generate_embeddings_batch(
         uids = [r["uid"] for r in batch]
 
         # Combine title and text for embedding
-        texts = [f"{r['title']}\n{r['text']}" if r['title'] else r['text'] for r in batch]
+        texts = [f"{r['title']}\n{r['text']}" if r["title"] else r["text"] for r in batch]
 
         logger.info(f"Processing batch {batches_processed + 1}: {len(batch)} nodes")
 
@@ -116,7 +116,9 @@ async def generate_embeddings_batch(
             n.embedding_updated_at = datetime()
         """
 
-        updates = [{"uid": uid, "embedding": emb} for uid, emb in zip(uids, embeddings, strict=False)]
+        updates = [
+            {"uid": uid, "embedding": emb} for uid, emb in zip(uids, embeddings, strict=False)
+        ]
 
         try:
             await driver.execute_query(
@@ -187,9 +189,9 @@ async def main():
     else:
         entity_labels = ["Ku", "Task", "Goal", "LpStep"]
 
-    logger.info(f"\n{'='*60}")
+    logger.info(f"\n{'=' * 60}")
     logger.info(f"Batch Embedding Generation")
-    logger.info(f"{'='*60}\n")
+    logger.info(f"{'=' * 60}\n")
     logger.info(f"Entity types: {', '.join(entity_labels)}")
     logger.info(f"Batch size: {args.batch_size}")
     if args.max_batches:
@@ -199,9 +201,9 @@ async def main():
     all_stats = []
 
     for label in entity_labels:
-        logger.info(f"\n{'='*60}")
+        logger.info(f"\n{'=' * 60}")
         logger.info(f"Processing {label}")
-        logger.info(f"{'='*60}\n")
+        logger.info(f"{'=' * 60}\n")
 
         stats = await generate_embeddings_batch(
             driver=driver,
@@ -217,9 +219,9 @@ async def main():
         await asyncio.sleep(2)
 
     # Print summary
-    logger.info(f"\n{'='*60}")
+    logger.info(f"\n{'=' * 60}")
     logger.info("Summary")
-    logger.info(f"{'='*60}\n")
+    logger.info(f"{'=' * 60}\n")
 
     total_processed = sum(s["successful"] for s in all_stats)
     total_failed = sum(s["failed"] for s in all_stats)

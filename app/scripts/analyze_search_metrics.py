@@ -152,7 +152,9 @@ def get_top_queries(metrics_list: list[dict[str, Any]], top_n: int = 10) -> list
     return query_counts.most_common(top_n)
 
 
-def get_slow_queries(metrics_list: list[dict[str, Any]], threshold_ms: float = 200.0) -> list[dict[str, Any]]:
+def get_slow_queries(
+    metrics_list: list[dict[str, Any]], threshold_ms: float = 200.0
+) -> list[dict[str, Any]]:
     """
     Get queries that exceeded latency threshold.
 
@@ -241,7 +243,9 @@ def print_report(
         print(f"SLOW QUERIES (>{slow_queries[0]['latency_ms']:.0f}ms threshold)")
         print("-" * 80)
         for i, sq in enumerate(slow_queries[:10], 1):
-            print(f"{i:2d}. {sq['query'][:50]:50s} {sq['latency_ms']:6.1f}ms ({sq['search_type']} on {sq['label']})")
+            print(
+                f"{i:2d}. {sq['query'][:50]:50s} {sq['latency_ms']:6.1f}ms ({sq['search_type']} on {sq['label']})"
+            )
         print()
 
     # By search type
@@ -296,10 +300,14 @@ Examples:
     )
 
     parser.add_argument("log_file", help="Path to log file to analyze")
-    parser.add_argument("--top", type=int, default=10, help="Number of top queries to show (default: 10)")
+    parser.add_argument(
+        "--top", type=int, default=10, help="Number of top queries to show (default: 10)"
+    )
     parser.add_argument("--type", help="Filter by search type (vector, fulltext, hybrid)")
     parser.add_argument("--label", help="Filter by entity label (Ku, Task, Goal, etc.)")
-    parser.add_argument("--slow", type=float, default=200.0, help="Slow query threshold in ms (default: 200)")
+    parser.add_argument(
+        "--slow", type=float, default=200.0, help="Slow query threshold in ms (default: 200)"
+    )
 
     args = parser.parse_args()
 
@@ -327,7 +335,9 @@ Examples:
 
     if not metrics_list:
         print("No search metrics found in log file.")
-        print("Make sure the application is using find_similar_with_metrics() or hybrid_search_with_metrics()")
+        print(
+            "Make sure the application is using find_similar_with_metrics() or hybrid_search_with_metrics()"
+        )
         return 1
 
     print(f"Found {len(metrics_list)} search metric entries")

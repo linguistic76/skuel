@@ -200,6 +200,7 @@ async def test_get_or_create_embedding_returns_embedding(embeddings_service, moc
     Note: Full integration test of caching logic is in integration tests.
     This unit test just verifies the method structure.
     """
+
     # Mock all possible queries to return valid responses
     async def mock_query(query, params=None):
         # Metadata query

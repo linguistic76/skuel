@@ -470,9 +470,7 @@ def check_freshness(
     return None
 
 
-def scan_docs(
-    docs_dir: Path, project_root: Path, config: StalenessConfig
-) -> list[DocFreshness]:
+def scan_docs(docs_dir: Path, project_root: Path, config: StalenessConfig) -> list[DocFreshness]:
     """
     Scan all documentation files and check their freshness.
 
@@ -546,12 +544,8 @@ def print_report(report: FreshnessReport, config: StalenessConfig) -> None:
             # Show code staleness
             if result.stale_refs:
                 for ref in result.stale_refs:
-                    severity_marker = (
-                        "🔴" if ref.severity == "critical" else "🟡"
-                    )
-                    print(
-                        f"    {severity_marker} {ref.code_path} ({ref.days_newer} days newer)"
-                    )
+                    severity_marker = "🔴" if ref.severity == "critical" else "🟡"
+                    print(f"    {severity_marker} {ref.code_path} ({ref.days_newer} days newer)")
 
             # Show review staleness
             if result.review_overdue:
@@ -566,7 +560,9 @@ def print_report(report: FreshnessReport, config: StalenessConfig) -> None:
 
     print(f"FRESH: {report.fresh_docs} docs are up-to-date")
     print()
-    print(f"TRACKING: {report.code_based_docs} code-based, {report.conceptual_docs} conceptual, {report.hybrid_docs} hybrid")
+    print(
+        f"TRACKING: {report.code_based_docs} code-based, {report.conceptual_docs} conceptual, {report.hybrid_docs} hybrid"
+    )
 
     if report.missing_refs_count > 0:
         missing_docs = [r for r in report.results if r.missing_refs]
@@ -588,19 +584,14 @@ def print_filtered_report(
 
     if filter_type == "critical":
         filtered = [
-            r
-            for r in stale_results
-            if any(ref.severity == "critical" for ref in r.stale_refs)
+            r for r in stale_results if any(ref.severity == "critical" for ref in r.stale_refs)
         ]
         title = "CRITICAL Stale Documentation (30+ days)"
     elif filter_type == "warnings":
         filtered = [
             r
             for r in stale_results
-            if any(
-                ref.severity == "warning" and ref.severity != "critical"
-                for ref in r.stale_refs
-            )
+            if any(ref.severity == "warning" and ref.severity != "critical" for ref in r.stale_refs)
         ]
         title = "WARNING Stale Documentation (7-29 days)"
     else:

@@ -80,7 +80,9 @@ async def test_fulltext_search_handles_missing_index(vector_search_service, mock
 
 
 @pytest.mark.asyncio
-async def test_hybrid_search_combines_results(vector_search_service, mock_driver, mock_embeddings_service):
+async def test_hybrid_search_combines_results(
+    vector_search_service, mock_driver, mock_embeddings_service
+):
     """Test hybrid search merges vector and full-text results with RRF."""
     # Mock vector search results (via find_similar_by_text)
     vector_results = [
@@ -91,7 +93,10 @@ async def test_hybrid_search_combines_results(vector_search_service, mock_driver
     # Mock full-text search results
     fulltext_results = [
         {"node": {"uid": "ku.python", "title": "Python Basics"}, "score": 5.0},  # Also in vector
-        {"node": {"uid": "ku.django", "title": "Django Framework"}, "score": 3.0},  # Only in fulltext
+        {
+            "node": {"uid": "ku.django", "title": "Django Framework"},
+            "score": 3.0,
+        },  # Only in fulltext
     ]
 
     # Setup driver to return different results based on query
@@ -187,6 +192,7 @@ async def test_hybrid_search_rrf_scoring(vector_search_service, mock_driver):
 @pytest.mark.asyncio
 async def test_hybrid_search_uses_config_defaults(vector_search_service, mock_driver):
     """Test hybrid search uses config defaults correctly."""
+
     # Mock empty results
     async def mock_execute_query(query, params):
         return []
@@ -206,6 +212,7 @@ async def test_hybrid_search_uses_config_defaults(vector_search_service, mock_dr
 @pytest.mark.asyncio
 async def test_hybrid_search_filters_by_min_rrf_score(vector_search_service, mock_driver):
     """Test hybrid search filters results below min_rrf_score threshold."""
+
     # Mock results with varying RRF scores
     async def mock_execute_query(query, params):
         if "db.index.vector.queryNodes" in query:
@@ -217,7 +224,9 @@ async def test_hybrid_search_filters_by_min_rrf_score(vector_search_service, moc
 
     # Set high min_rrf_score threshold (higher than typical RRF score)
     result = await vector_search_service.hybrid_search(
-        label="Ku", query_text="test", min_rrf_score=0.1  # Higher than RRF score (~0.016)
+        label="Ku",
+        query_text="test",
+        min_rrf_score=0.1,  # Higher than RRF score (~0.016)
     )
 
     assert result.is_ok
@@ -226,8 +235,11 @@ async def test_hybrid_search_filters_by_min_rrf_score(vector_search_service, moc
 
 
 @pytest.mark.asyncio
-async def test_hybrid_search_entity_specific_thresholds_for_vector(vector_search_service, mock_driver):
+async def test_hybrid_search_entity_specific_thresholds_for_vector(
+    vector_search_service, mock_driver
+):
     """Test hybrid search uses entity-specific thresholds for vector input search."""
+
     async def mock_execute_query(query, params):
         # Return empty for simplicity
         return []
@@ -262,7 +274,9 @@ async def test_hybrid_search_handles_vector_failure(vector_search_service, mock_
 
     mock_driver.execute_query = mock_execute_query
 
-    result = await vector_search_service.hybrid_search(label="Ku", query_text="test", min_rrf_score=0.0)
+    result = await vector_search_service.hybrid_search(
+        label="Ku", query_text="test", min_rrf_score=0.0
+    )
 
     assert result.is_ok
     # Should still have full-text results
@@ -272,6 +286,7 @@ async def test_hybrid_search_handles_vector_failure(vector_search_service, mock_
 @pytest.mark.asyncio
 async def test_hybrid_search_handles_fulltext_failure(vector_search_service, mock_driver):
     """Test hybrid search continues with vector only if full-text fails."""
+
     async def mock_execute_query(query, params):
         if "db.index.vector.queryNodes" in query:
             return [{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.8}]
@@ -281,7 +296,9 @@ async def test_hybrid_search_handles_fulltext_failure(vector_search_service, moc
 
     mock_driver.execute_query = mock_execute_query
 
-    result = await vector_search_service.hybrid_search(label="Ku", query_text="test", min_rrf_score=0.0)
+    result = await vector_search_service.hybrid_search(
+        label="Ku", query_text="test", min_rrf_score=0.0
+    )
 
     assert result.is_ok
     # Should still have vector results
@@ -291,6 +308,7 @@ async def test_hybrid_search_handles_fulltext_failure(vector_search_service, moc
 @pytest.mark.asyncio
 async def test_hybrid_search_custom_weights(vector_search_service, mock_driver):
     """Test hybrid search respects custom vector/text weights."""
+
     # Mock results
     async def mock_execute_query(query, params):
         if "db.index.vector.queryNodes" in query:

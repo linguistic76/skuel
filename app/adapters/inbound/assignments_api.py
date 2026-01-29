@@ -589,7 +589,9 @@ def create_assignments_api_routes(
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
-                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+                return Result.fail(
+                    Errors.not_found(resource="Assignment", identifier=assignment_uid)
+                )
 
             return await assignments_core_service.categorize_assignment(
                 uid=assignment_uid, category=req.category
@@ -620,7 +622,9 @@ def create_assignments_api_routes(
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
-                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+                return Result.fail(
+                    Errors.not_found(resource="Assignment", identifier=assignment_uid)
+                )
 
             return await assignments_core_service.add_tags(uid=assignment_uid, tags=req.tags)
 
@@ -649,7 +653,9 @@ def create_assignments_api_routes(
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
-                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+                return Result.fail(
+                    Errors.not_found(resource="Assignment", identifier=assignment_uid)
+                )
 
             return await assignments_core_service.remove_tags(uid=assignment_uid, tags=req.tags)
 
@@ -672,7 +678,9 @@ def create_assignments_api_routes(
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
-                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+                return Result.fail(
+                    Errors.not_found(resource="Assignment", identifier=assignment_uid)
+                )
 
             return await assignments_core_service.publish_assignment(uid=assignment_uid)
 
@@ -695,7 +703,9 @@ def create_assignments_api_routes(
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
-                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+                return Result.fail(
+                    Errors.not_found(resource="Assignment", identifier=assignment_uid)
+                )
 
             return await assignments_core_service.archive_assignment(uid=assignment_uid)
 
@@ -718,7 +728,9 @@ def create_assignments_api_routes(
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
-                return Result.fail(Errors.not_found(resource="Assignment", identifier=assignment_uid))
+                return Result.fail(
+                    Errors.not_found(resource="Assignment", identifier=assignment_uid)
+                )
 
             return await assignments_core_service.mark_as_draft(uid=assignment_uid)
 
@@ -747,7 +759,9 @@ def create_assignments_api_routes(
                 assignment = assignment_result.value
                 if assignment.user_uid != user_uid:
                     return Result.fail(
-                        Errors.validation(f"You do not own assignment {uid}", field="assignment_uids")
+                        Errors.validation(
+                            f"You do not own assignment {uid}", field="assignment_uids"
+                        )
                     )
 
             return await assignments_core_service.bulk_categorize(
@@ -779,7 +793,9 @@ def create_assignments_api_routes(
                 assignment = assignment_result.value
                 if assignment.user_uid != user_uid:
                     return Result.fail(
-                        Errors.validation(f"You do not own assignment {uid}", field="assignment_uids")
+                        Errors.validation(
+                            f"You do not own assignment {uid}", field="assignment_uids"
+                        )
                     )
 
             return await assignments_core_service.bulk_tag(uids=req.assignment_uids, tags=req.tags)
@@ -809,7 +825,9 @@ def create_assignments_api_routes(
                 assignment = assignment_result.value
                 if assignment.user_uid != user_uid:
                     return Result.fail(
-                        Errors.validation(f"You do not own assignment {uid}", field="assignment_uids")
+                        Errors.validation(
+                            f"You do not own assignment {uid}", field="assignment_uids"
+                        )
                     )
 
             return await assignments_core_service.bulk_delete(

@@ -728,7 +728,9 @@ class KuSearchService(BaseService["UniversalNeo4jBackend[Ku]", Ku]):
         """
 
         try:
-            result = await self.backend.execute_query(query, {"query_text": query_text, "limit": limit})
+            result = await self.backend.execute_query(
+                query, {"query_text": query_text, "limit": limit}
+            )
 
             if not result:
                 return Result.ok([])

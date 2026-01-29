@@ -68,9 +68,7 @@ def load_skills_metadata(metadata_path: Path) -> dict:
         sys.exit(1)
 
 
-def validate_skill_directories(
-    skills: list[dict], skills_dir: Path
-) -> list[ValidationError]:
+def validate_skill_directories(skills: list[dict], skills_dir: Path) -> list[ValidationError]:
     """Check that all skills in metadata exist as directories."""
     errors = []
 
@@ -110,9 +108,7 @@ def validate_skill_directories(
     return errors
 
 
-def validate_required_files(
-    skills: list[dict], skills_dir: Path
-) -> list[ValidationError]:
+def validate_required_files(skills: list[dict], skills_dir: Path) -> list[ValidationError]:
     """Check that required files exist for each skill."""
     required_files = ["SKILL.md", "QUICK_REFERENCE.md", "PATTERNS.md"]
     errors = []
@@ -214,9 +210,7 @@ def validate_no_cycles(skills: list[dict]) -> list[ValidationError]:
     return errors
 
 
-def validate_primary_docs(
-    skills: list[dict], project_root: Path
-) -> list[ValidationError]:
+def validate_primary_docs(skills: list[dict], project_root: Path) -> list[ValidationError]:
     """Check that all primary_docs referenced in metadata exist."""
     errors = []
 
@@ -275,9 +269,7 @@ def parse_frontmatter(doc_path: Path) -> dict:
         return {}
 
 
-def validate_backlinks(
-    skills: list[dict], project_root: Path
-) -> list[ValidationError]:
+def validate_backlinks(skills: list[dict], project_root: Path) -> list[ValidationError]:
     """
     Check that docs referenced in primary_docs have backlinks to skills.
 

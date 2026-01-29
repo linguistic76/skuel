@@ -48,7 +48,9 @@ class BloatDetector:
         # Method tracking
         self.method_definitions: dict[str, list[str]] = defaultdict(list)  # method_name -> [files]
         self.method_calls: dict[str, list[str]] = defaultdict(list)  # method_name -> [files]
-        self.reflection_calls: dict[str, list[str]] = defaultdict(list)  # NEW: method_name -> [files using reflection]
+        self.reflection_calls: dict[str, list[str]] = defaultdict(
+            list
+        )  # NEW: method_name -> [files using reflection]
 
         # Service method tracking (public methods in services)
         self.service_methods: dict[str, dict[str, list[str]]] = defaultdict(
@@ -136,7 +138,7 @@ class BloatDetector:
         """Track event imports to correlate with usage."""
         # Pattern: from core.events import EventName
         # Pattern: from core.events.{module}_events import EventName
-        import_pattern = r'from core\.events(?:\.\w+)? import .*?([A-Z]\w+(?:Event|Created|Updated|Deleted|Completed|Made|Recorded|Paid|Achieved|Mastered|Started|Changed|Assessed|Generated|Earned|Broken|Missed|Reached|Abandoned|Analyzed|Invalidated|Practiced|Milestone|Rescheduled|Applied|Task|Habit|Choice|Journal))'
+        import_pattern = r"from core\.events(?:\.\w+)? import .*?([A-Z]\w+(?:Event|Created|Updated|Deleted|Completed|Made|Recorded|Paid|Achieved|Mastered|Started|Changed|Assessed|Generated|Earned|Broken|Missed|Reached|Abandoned|Analyzed|Invalidated|Practiced|Milestone|Rescheduled|Applied|Task|Habit|Choice|Journal))"
         matches = re.finditer(import_pattern, content)
         for match in matches:
             event_class = match.group(1)
@@ -193,7 +195,10 @@ class BloatDetector:
         for match in matches:
             event_class = match.group(2)
             # Check if followed by publish_async OR publish_event (increased lookahead for multiline constructors)
-            if "publish_async" in content[match.end() : match.end() + 1500] or "publish_event" in content[match.end() : match.end() + 1500]:
+            if (
+                "publish_async" in content[match.end() : match.end() + 1500]
+                or "publish_event" in content[match.end() : match.end() + 1500]
+            ):
                 self.event_publications[event_class].append(file_path)
                 if self.verbose:
                     print(f"  📤 Found event publication: {event_class} in {file_path}")
@@ -293,7 +298,7 @@ class BloatDetector:
 
         # NEW: Special pattern for ConversionService - any getattr on ConversionService/V2 is reflection
         # Pattern: getattr(ConversionService[V2], ...)
-        conversion_service_pattern = r'getattr\((ConversionService(?:V2)?),\s*(\w+)'
+        conversion_service_pattern = r"getattr\((ConversionService(?:V2)?),\s*(\w+)"
         matches = re.finditer(conversion_service_pattern, content)
         for match in matches:
             # Mark all conversion service methods as reflection-used
@@ -485,7 +490,7 @@ class BloatDetector:
                         if item["called_in"]:
                             print(f"      (called internally in {len(item['called_in'])} places)")
                         # NEW: Note if used via reflection
-                        if self._is_reflection_method(item['service'], item['method']):
+                        if self._is_reflection_method(item["service"], item["method"]):
                             print(f"      {CYAN}ℹ️  Used via reflection (getattr){RESET}")
                     print()
             else:

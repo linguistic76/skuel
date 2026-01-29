@@ -115,26 +115,20 @@ class AddTagsRequest(BaseModel):
 class RemoveTagsRequest(BaseModel):
     """Request to remove tags from an assignment."""
 
-    tags: list[str] = Field(
-        ..., min_length=1, description="List of tags to remove"
-    )
+    tags: list[str] = Field(..., min_length=1, description="List of tags to remove")
 
 
 class BulkCategorizeRequest(BaseModel):
     """Request to categorize multiple assignments."""
 
-    assignment_uids: list[str] = Field(
-        ..., min_length=1, description="List of assignment UIDs"
-    )
+    assignment_uids: list[str] = Field(..., min_length=1, description="List of assignment UIDs")
     category: str = Field(..., description="Category to assign")
 
 
 class BulkTagRequest(BaseModel):
     """Request to tag multiple assignments."""
 
-    assignment_uids: list[str] = Field(
-        ..., min_length=1, description="List of assignment UIDs"
-    )
+    assignment_uids: list[str] = Field(..., min_length=1, description="List of assignment UIDs")
     tags: list[str] = Field(..., min_length=1, description="List of tags to add")
 
 

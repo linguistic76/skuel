@@ -495,7 +495,10 @@ async def test_vector_search_empty_results(mock_vector_search_service):
 
     # Search with very high min_score (no results should match)
     result = await mock_vector_search_service.find_similar_by_vector(
-        label="Ku", embedding=query_embedding, limit=10, min_score=0.99  # Very high threshold
+        label="Ku",
+        embedding=query_embedding,
+        limit=10,
+        min_score=0.99,  # Very high threshold
     )
 
     assert result.is_ok

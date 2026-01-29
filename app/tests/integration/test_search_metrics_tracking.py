@@ -145,6 +145,7 @@ async def test_hybrid_search_with_metrics(vector_search_service, mock_driver):
 @pytest.mark.asyncio
 async def test_hybrid_search_with_metrics_custom_weight(vector_search_service, mock_driver):
     """Test metrics capture custom vector weight."""
+
     # Mock empty results for simplicity
     async def mock_execute_query(query, params):
         return []

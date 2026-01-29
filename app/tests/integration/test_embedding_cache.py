@@ -250,6 +250,7 @@ async def test_different_nodes_independent_cache(embeddings_service, mock_driver
 @pytest.mark.asyncio
 async def test_cache_failure_returns_embedding_anyway(embeddings_service, mock_driver):
     """Test that if storing to cache fails, we still return the embedding."""
+
     async def track_calls(query, params=None):
         if "ai.text.embed" in query:
             return [{"embedding": [0.8] * 1536}]

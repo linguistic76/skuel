@@ -429,7 +429,7 @@ async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_
         # Store in Neo4j
         if entity["label"] == "Ku":
             create_query = f"""
-            CREATE (n:{entity['label']} {{
+            CREATE (n:{entity["label"]} {{
                 uid: $uid,
                 title: $title,
                 content: $content,
@@ -447,7 +447,7 @@ async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_
             }
         else:
             create_query = f"""
-            CREATE (n:{entity['label']} {{
+            CREATE (n:{entity["label"]} {{
                 uid: $uid,
                 title: $title,
                 description: $description,
@@ -528,7 +528,9 @@ async def test_embedding_update_workflow(neo4j_driver, clean_neo4j, services_wit
         await session.run(create_query, {"content": text_v1, "embedding": embedding_v1})
 
     # 2. Update content
-    text_v2 = "Python functions are reusable blocks of code that can accept parameters and return values."
+    text_v2 = (
+        "Python functions are reusable blocks of code that can accept parameters and return values."
+    )
 
     embedding_v2_result = await embeddings_service.create_embedding(text_v2)
     assert embedding_v2_result.is_ok

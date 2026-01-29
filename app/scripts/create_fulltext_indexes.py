@@ -94,7 +94,9 @@ async def check_index_exists(driver: Any, index_name: str) -> bool:
         return False
 
 
-async def create_fulltext_index(driver: Any, label: str, index_name: str, fields: list[str]) -> bool:
+async def create_fulltext_index(
+    driver: Any, label: str, index_name: str, fields: list[str]
+) -> bool:
     """
     Create a full-text index for a node label.
 

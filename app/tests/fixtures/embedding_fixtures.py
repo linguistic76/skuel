@@ -148,7 +148,9 @@ def mock_vector_search_service():
 
     async def find_similar_to_node(label, uid, limit=10, min_score=0.7, exclude_self=True):
         """Mock node-to-node similarity search."""
-        similar = await find_similar_by_vector(label, [], limit + 1 if exclude_self else limit, min_score)
+        similar = await find_similar_by_vector(
+            label, [], limit + 1 if exclude_self else limit, min_score
+        )
 
         if similar.is_error:
             return similar
@@ -271,12 +273,21 @@ def mock_vector_search_unavailable():
 
     async def find_similar_by_text(label, text, limit=10, min_score=0.7):
         return Result.fail(
-            {"error": "unavailable", "feature": "semantic_search", "reason": "Embeddings service required"}
+            {
+                "error": "unavailable",
+                "feature": "semantic_search",
+                "reason": "Embeddings service required",
+            }
         )
 
     async def find_similar_to_node(label, uid, limit=10, min_score=0.7, exclude_self=True):
         return Result.fail(
-            {"error": "not_found", "entity_type": label, "uid": uid, "context": {"reason": "No embedding found"}}
+            {
+                "error": "not_found",
+                "entity_type": label,
+                "uid": uid,
+                "context": {"reason": "No embedding found"},
+            }
         )
 
     service.find_similar_by_vector = find_similar_by_vector

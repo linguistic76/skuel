@@ -151,7 +151,10 @@ async def migrate_node(
 
         # Store with new version metadata
         store_result = await service.store_embedding_with_metadata(
-            uid=uid, label=label, embedding=embedding, text=text[:1000]  # Store first 1000 chars
+            uid=uid,
+            label=label,
+            embedding=embedding,
+            text=text[:1000],  # Store first 1000 chars
         )
 
         if store_result.is_error:
@@ -313,10 +316,17 @@ CAUTION: This makes API calls to regenerate embeddings. Costs apply.
         """,
     )
 
-    parser.add_argument("--dry-run", action="store_true", help="Show what would be done without making changes")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would be done without making changes"
+    )
     parser.add_argument("--label", help="Filter by entity label (e.g., Ku, Task, Goal)")
     parser.add_argument("--limit", type=int, help="Limit number of nodes to migrate")
-    parser.add_argument("--batch-size", type=int, default=10, help="Batch size for parallel processing (default: 10)")
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=10,
+        help="Batch size for parallel processing (default: 10)",
+    )
 
     args = parser.parse_args()
 
