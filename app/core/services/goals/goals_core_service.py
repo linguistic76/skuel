@@ -40,6 +40,7 @@ from core.models.goal.goal_request import GoalCreateRequest
 from core.models.relationship_names import RelationshipName
 from core.models.shared_enums import ActivityStatus, GoalStatus
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value
 from core.services.protocols.domain_protocols import GoalsOperations
 from core.services.protocols.query_types import GoalUpdatePayload
@@ -104,19 +105,16 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         return "Goal"
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONFIGURATION (Class Attributes)
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
     # ========================================================================
-    # CONSOLIDATED (November 27, 2025): These class attributes configure
-    # the unified get_user_items_in_range() method in BaseService.
 
-    _date_field: str = "target_date"  # Goals filter by target date
-    _completed_statuses: ClassVar[list[str]] = [
-        GoalStatus.ACHIEVED.value,
-        GoalStatus.CANCELLED.value,
-    ]
-    _dto_class = GoalDTO
-    _model_class = Goal
-
+    _config = create_activity_domain_config(
+        dto_class=GoalDTO,
+        model_class=Goal,
+        domain_name="goals",
+        date_field="target_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================

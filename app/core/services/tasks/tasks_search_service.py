@@ -77,12 +77,6 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
         completed_statuses=(ActivityStatus.COMPLETED.value,),
     )
 
-    # For backward compatibility, also set class attributes
-    # (These will be removed in future when all code uses _config)
-    _dto_class = TaskDTO
-    _model_class = Task
-    _service_name: ClassVar[str] = "tasks.search"
-
     # ========================================================================
     # RELATIONSHIP-BASED SEARCH
     # ========================================================================

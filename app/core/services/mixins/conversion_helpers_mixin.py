@@ -7,6 +7,18 @@ Provides DTO/domain model conversion and result handling helpers.
 These are foundational methods used by other mixins and service methods
 for converting between backend data and domain models.
 
+REQUIRES (Mixin Dependencies):
+    - None - This is a foundational mixin with no dependencies
+
+PROVIDES (Methods for Other Mixins):
+    - _ensure_exists: Convert Result[T | None] to Result[T] with null safety
+    - _to_domain_model: Convert backend data to domain model
+    - _to_domain_models: Bulk convert backend data to domain models
+    - _from_domain_model: Convert domain model to DTO
+    - _records_to_domain_models: Extract and convert Neo4j query records
+    - _validate_required_user_uid: Validate presence of user_uid
+    - _create_and_convert: Create entity and convert to domain model
+
 Methods:
     - _ensure_exists: Convert Result[T | None] to Result[T] with null safety
     - _to_domain_model: Convert backend data to domain model

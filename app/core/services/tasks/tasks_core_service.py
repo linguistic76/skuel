@@ -29,6 +29,7 @@ from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import TasksOperations
 from core.services.protocols.query_types import TaskUpdatePayload
 from core.utils.decorators import with_error_handling
@@ -73,6 +74,18 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         self.event_bus = event_bus
 
     # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=TaskDTO,
+        model_class=Task,
+        domain_name="tasks",
+        date_field="due_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
+
+    # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
     # ========================================================================
 
@@ -80,18 +93,6 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     def entity_label(self) -> str:
         """Return the graph label for Task entities."""
         return "Task"
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONFIGURATION (Class Attributes)
-    # ========================================================================
-    # CONSOLIDATED (November 27, 2025): These class attributes configure
-    # the unified get_user_items_in_range() method in BaseService.
-    # Previously this was a 40-line method that duplicated base logic.
-
-    _date_field: str = "due_date"  # Tasks filter by due date
-    _completed_statuses: ClassVar[list[str]] = [ActivityStatus.COMPLETED.value]
-    _dto_class = TaskDTO
-    _model_class = Task
 
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS

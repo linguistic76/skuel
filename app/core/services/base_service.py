@@ -183,6 +183,52 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
         # Log initialization
         self.logger.debug(f"{self.service_name} initialized with BackendOperations backend")
 
+        # Early validation: fail-fast on missing configuration
+        self._validate_configuration()
+
+    # ========================================================================
+    # CONFIGURATION VALIDATION
+    # ========================================================================
+
+    def _validate_configuration(self) -> None:
+        """
+        Validate service configuration at initialization time.
+
+        Fail-fast philosophy: catch configuration errors immediately at startup
+        rather than during runtime when methods are called.
+
+        Raises:
+            ValueError: If critical configuration is missing or invalid
+        """
+        # Validate: entity_label is resolvable
+        try:
+            _ = self.entity_label
+        except (AttributeError, NotImplementedError):
+            raise ValueError(
+                f"{self.service_name}: entity_label not configured. "
+                "Set _entity_label class attribute or provide _config with entity_label."
+            ) from None
+
+        # Validate: search-enabled services have required configuration
+        # Check if service defines _search_fields (indicates search capability)
+        if hasattr(self.__class__, "_search_fields"):
+            dto_class = self._get_config_value("dto_class")
+            model_class = self._get_config_value("model_class")
+
+            if dto_class is None:
+                self.logger.warning(
+                    f"{self.service_name}: Search enabled but dto_class not configured. "
+                    "Search operations will fail at runtime. "
+                    "Set via DomainConfig or _dto_class class attribute."
+                )
+
+            if model_class is None:
+                self.logger.warning(
+                    f"{self.service_name}: Search enabled but model_class not configured. "
+                    "Search operations will fail at runtime. "
+                    "Set via DomainConfig or _model_class class attribute."
+                )
+
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT (Auto-Inferred with Override)
     # ========================================================================
@@ -233,30 +279,110 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 
     def _get_config_value(self, attr_name: str, default: Any = None) -> Any:
         """
-        Get configuration value with DomainConfig priority.
+        Get configuration value from DomainConfig.
 
-        Checks _config first, then class attribute, then default.
+        **ONE PATH FORWARD (January 2026 - Phase 3):**
+        DomainConfig is THE configuration source. Class attribute fallback removed.
 
         Args:
             attr_name: Attribute name (e.g., "dto_class", "search_fields")
-            default: Default value if not found
+            default: Default value if not found in config
 
         Returns:
-            Configuration value from config, class attribute, or default
+            Configuration value from DomainConfig or default
+
+        Raises:
+            AttributeError: If attr_name doesn't exist in DomainConfig (developer error)
         """
-        # Priority 1: DomainConfig
+        # DomainConfig is THE source of truth
         if self._config:
             value = getattr(self._config, attr_name, None)
             if value is not None:
                 return value
 
-        # Priority 2: Class attribute
-        class_attr = f"_{attr_name}"
-        value = getattr(self, class_attr, None)
-        if value is not None:
-            return value
-
+        # Fallback to default if not in config
         return default
+
+    # ========================================================================
+    # CONFIGURATION PROPERTY WRAPPERS (January 2026 - Standardization)
+    # ========================================================================
+
+    @property
+    def dto_class(self) -> type[DTOProtocol] | None:
+        """
+        Get DTO class from config or class attribute.
+
+        Priority:
+            1. _config.dto_class (DomainConfig)
+            2. _dto_class (class attribute)
+            3. None
+
+        Returns:
+            DTO class or None if not configured
+        """
+        return self._get_config_value("dto_class")
+
+    @property
+    def model_class(self) -> type[T] | None:
+        """
+        Get domain model class from config or class attribute.
+
+        Priority:
+            1. _config.model_class (DomainConfig)
+            2. _model_class (class attribute)
+            3. None
+
+        Returns:
+            Domain model class or None if not configured
+        """
+        return self._get_config_value("model_class")
+
+    @property
+    def search_fields(self) -> list[str]:
+        """
+        Get search fields from config or class attribute.
+
+        Priority:
+            1. _config.search_fields (DomainConfig)
+            2. _search_fields (class attribute)
+            3. ["title", "description"] (default)
+
+        Returns:
+            List of field names for text search
+        """
+        value = self._get_config_value("search_fields", ["title", "description"])
+        # Convert tuple to list for backward compatibility
+        return list(value) if isinstance(value, tuple) else value
+
+    @property
+    def search_order_by(self) -> str:
+        """
+        Get search order by field from config or class attribute.
+
+        Priority:
+            1. _config.search_order_by (DomainConfig)
+            2. _search_order_by (class attribute)
+            3. "created_at" (default)
+
+        Returns:
+            Field name for ordering search results
+        """
+        return self._get_config_value("search_order_by", "created_at")
+
+    @property
+    def category_field(self) -> str:
+        """
+        Get category field from config or class attribute.
+
+        Priority:
+            1. _config.category_field (DomainConfig)
+            2. _category_field (class attribute)
+            3. "category" (default)
+
+        Returns:
+            Field name for category filtering
+        """
+        return self._get_config_value("category_field", "category")
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (Class Attributes or DomainConfig)

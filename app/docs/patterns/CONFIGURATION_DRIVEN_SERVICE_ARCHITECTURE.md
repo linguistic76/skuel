@@ -1,26 +1,29 @@
 ---
 title: Configuration-Driven Service Architecture
-updated: 2026-01-07
+updated: 2026-01-29
 status: current
 category: patterns
-tags: [patterns, baseservice, configuration, inheritance, unified-architecture]
-related: [ADR-023-curriculum-baseservice-migration.md, ADR-025-service-consolidation-patterns.md]
+tags: [patterns, baseservice, configuration, domainconfig, unified-architecture]
+related: [ADR-023-curriculum-baseservice-migration.md, ADR-025-service-consolidation-patterns.md, DOMAINCONFIG_MIGRATION_COMPLETE.md]
 ---
 
 # Configuration-Driven Service Architecture
 
-How SKUEL services use configuration over inheritance to enable features.
+How SKUEL services use DomainConfig for unified, type-safe configuration.
 
 **Decision context:** See [ADR-023](/docs/decisions/ADR-023-curriculum-baseservice-migration.md) for the unification decision.
+
+**Migration Status:** ✅ **100% Complete** (January 2026) - All services migrated to DomainConfig.
 
 ---
 
 ## Core Principle
 
-**Configuration over inheritance** - Services opt-in to features via class attributes, not by inheriting from specialized base classes.
+**Configuration over inheritance** - Services opt-in to features via DomainConfig, not by inheriting from specialized base classes.
 
-### Before (Two Base Classes)
+### Evolution: From Two Base Classes → Class Attributes → DomainConfig
 
+**Phase 1 (Before 2025):** Two separate base classes
 ```python
 # Activity domains used BaseService
 class TasksSearchService(BaseService[TasksOperations, Task]): ...
@@ -29,53 +32,74 @@ class TasksSearchService(BaseService[TasksOperations, Task]): ...
 class LsSearchService(CurriculumBaseService[LsOperations, Ls]): ...
 ```
 
-### After (One BaseService, Configuration)
-
+**Phase 2 (2025):** Unified BaseService with class attributes
 ```python
-# ALL domains use BaseService with configuration
+# ALL domains use BaseService with class attributes
 class TasksSearchService(BaseService[TasksOperations, Task]):
-    _supports_user_progress = True  # Enable mastery tracking
-
-class LsSearchService(BaseService[BackendOperations[Ls], Ls]):
+    _dto_class = TaskDTO
+    _model_class = Task
     _supports_user_progress = True
-    _user_ownership_relationship = None  # Shared content
+    # ... 15 more scattered attributes
+```
+
+**Phase 3 (January 2026):** DomainConfig - THE path
+```python
+from core.services.domain_config import create_activity_domain_config
+
+# ALL domains use BaseService with DomainConfig
+class TasksSearchService(BaseService[TasksOperations, Task]):
+    _config = create_activity_domain_config(
+        dto_class=TaskDTO,
+        model_class=Task,
+        domain_name="tasks",
+        date_field="due_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
 ```
 
 ---
 
-## BaseService Configuration Attributes
+## DomainConfig Architecture
 
-### Required Configuration
+### Factory Functions (One Path Forward)
+
+| Factory | Use For | Key Settings |
+|---------|---------|--------------|
+| `create_activity_domain_config()` | Tasks, Goals, Habits, Events, Choices, Principles | `user_ownership_relationship="OWNS"` |
+| `create_curriculum_domain_config()` | KU, LS, LP, MOC | `user_ownership_relationship=None` (shared) |
+
+### Activity Domain Configuration
 
 ```python
-class MySearchService(BaseService[BackendOperations[MyModel], MyModel]):
-    # Required - DTO and model classes
-    _dto_class = MyDTO
-    _model_class = MyModel
+from core.services.domain_config import create_activity_domain_config
+
+class TasksSearchService(BaseService[TasksOperations, Task]):
+    _config = create_activity_domain_config(
+        dto_class=TaskDTO,                 # Required: DTO class
+        model_class=Task,                  # Required: Domain model class
+        domain_name="tasks",               # Required: Logger name
+        date_field="due_date",             # Optional: Default "created_at"
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        category_field="category",         # Optional: Default "category"
+        search_fields=("title", "description"),  # Optional
+        search_order_by="created_at",      # Optional
+    )
 ```
 
-### Search Configuration
+### Curriculum Domain Configuration
 
 ```python
-    # Search fields for text search (default: ["title", "description"])
-    _search_fields: ClassVar[list[str]] = ["title", "description", "summary"]
+from core.services.domain_config import create_curriculum_domain_config
 
-    # Default sort order (default: "created_at")
-    _search_order_by: str = "updated_at"
-
-    # Field for category filtering (default: "category")
-    _category_field: str = "domain"  # Curriculum uses "domain"
-```
-
-### Ownership Configuration
-
-```python
-    # Ownership relationship (default: "OWNS")
-    # Set to None for shared content (no user filter)
-    _user_ownership_relationship: ClassVar[str | None] = "OWNS"
-
-    # Activity domains: "OWNS" (user-owned)
-    # Curriculum domains: None (shared content)
+class LsSearchService(BaseService[BackendOperations[Ls], Ls]):
+    _config = create_curriculum_domain_config(
+        dto_class=LsDTO,
+        model_class=Ls,
+        domain_name="ls",
+        search_fields=("title", "description", "content"),
+        category_field="domain",           # Curriculum uses "domain"
+        # user_ownership_relationship=None automatically set (shared content)
+    )
 ```
 
 ### Curriculum Features (Opt-In)

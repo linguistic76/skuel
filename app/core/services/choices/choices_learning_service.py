@@ -17,6 +17,7 @@ from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.shared_enums import Domain, Priority
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper
 from core.services.protocols.domain_protocols import ChoicesOperations
 from core.utils.logging import get_logger
@@ -55,6 +56,18 @@ class ChoicesLearningService(BaseService[ChoicesOperations, Choice]):
     - Logs operations with structured logging
 
     """
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=ChoiceDTO,
+        model_class=Choice,
+        domain_name="choices",
+        date_field="decision_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
 
     def __init__(self, backend: ChoicesOperations) -> None:
         """

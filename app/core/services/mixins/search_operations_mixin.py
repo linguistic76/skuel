@@ -4,6 +4,28 @@ Search Operations Mixin
 
 Provides text search, graph-aware search, filtering, and faceted search.
 
+REQUIRES (Mixin Dependencies):
+    - ConversionHelpersMixin: Uses _to_domain_models() for result conversion
+
+PROVIDES (Methods for Routes/Facades):
+    Text Search:
+        - search: Text search across configured fields
+        - search_by_tags: Search by tag array field
+        - search_array_field: Generic array field search
+
+    Graph Search:
+        - get_by_relationship: Get entities via graph relationship
+        - search_connected_to: Text search + relationship traversal
+        - graph_aware_faceted_search: Unified faceted search
+
+    Filtering:
+        - get_by_status: Filter by status field
+        - get_by_domain: Filter by domain enum
+        - get_by_category: Filter by category field
+        - list_user_categories: List unique categories for user
+        - list_all_categories: List all categories (admin)
+        - count: Count entities matching filters
+
 Methods:
     Text Search:
         - search: Text search across configured fields
@@ -107,6 +129,31 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         raise NotImplementedError
 
     # ========================================================================
+    # CONFIGURATION VALIDATION
+    # ========================================================================
+
+    def _ensure_configured_for_search(self) -> Result[None]:
+        """
+        Fail-fast validation: ensure search configuration exists.
+
+        Checks that _dto_class and _model_class are configured, which are
+        required for all search operations using CypherGenerator.
+
+        Returns:
+            Result.ok(None) if configured, Result.fail() with clear error otherwise
+        """
+        if self._dto_class is None or self._model_class is None:
+            return Result.fail(
+                Errors.validation(
+                    message=f"{self.service_name} is not configured for search operations. "
+                    "Set _dto_class and _model_class via DomainConfig or class attributes.",
+                    field="configuration",
+                    user_message="Search is not available for this entity type",
+                )
+            )
+        return Result.ok(None)
+
+    # ========================================================================
     # SEARCH AND QUERY OPERATIONS
     # ========================================================================
 
@@ -134,19 +181,20 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not query:
             return Result.fail(Errors.validation(message="Search query is required", field="query"))
 
-        # Check if we have the required configuration for CypherGenerator search
-        if self._dto_class is None or self._model_class is None:
-            # Fall back to backend.search() for unconfigured services
-            return await self.backend.search(query, limit)
+        # Validate configuration
+        config_result = self._ensure_configured_for_search()
+        if config_result.is_error:
+            return config_result
 
         # Use modular cypher query for consistent text search pattern
+        # Access config via properties for consistency (DomainConfig priority honored)
         cypher_query, params = build_text_search_query(
-            self._model_class,
+            self.model_class,  # type: ignore - validated above
             query,
-            search_fields=self._search_fields,
+            search_fields=self.search_fields,  # type: ignore - property access
             label=self.entity_label,
             limit=limit,
-            order_by=self._search_order_by,
+            order_by=self.search_order_by,  # type: ignore - property access
             order_desc=True,
         )
 
@@ -186,15 +234,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
                 Errors.validation(message="related_uid is required", field="related_uid")
             )
 
-        # Check if we have the required configuration
-        if self._dto_class is None or self._model_class is None:
-            return Result.fail(
-                Errors.system(
-                    message=f"{self.service_name} must configure _dto_class and _model_class "
-                    "class attributes to use get_by_relationship()",
-                    operation="get_by_relationship",
-                )
-            )
+        # Validate configuration
+        config_result = self._ensure_configured_for_search()
+        if config_result.is_error:
+            return config_result
 
         # Single-query traversal - returns full entities (no N+1)
         cypher_query, params = build_relationship_traversal_query(
@@ -250,15 +293,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
                 Errors.validation(message="related_uid is required", field="related_uid")
             )
 
-        # Check if we have the required configuration
-        if self._dto_class is None or self._model_class is None:
-            return Result.fail(
-                Errors.system(
-                    message=f"{self.service_name} must configure _dto_class and _model_class "
-                    "class attributes to use search_connected_to()",
-                    operation="search_connected_to",
-                )
-            )
+        # Validate configuration
+        config_result = self._ensure_configured_for_search()
+        if config_result.is_error:
+            return config_result
 
         # Use graph-aware search query builder
         from core.models.query.cypher import build_graph_aware_search_query
@@ -376,15 +414,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not value:
             return Result.fail(Errors.validation(message="Search value is required", field="value"))
 
-        # Check if we have the required configuration
-        if self._dto_class is None or self._model_class is None:
-            return Result.fail(
-                Errors.system(
-                    message=f"{self.service_name} must configure _dto_class and _model_class "
-                    "class attributes to use search_array_field()",
-                    operation="search_array_field",
-                )
-            )
+        # Validate configuration
+        config_result = self._ensure_configured_for_search()
+        if config_result.is_error:
+            return config_result
 
         # Use array contains query builder
         from core.models.query.cypher import build_array_contains_query
@@ -438,13 +471,9 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             Result[list[dict]]: Results with _graph_context enrichment
         """
         # Validate configuration
-        if self._dto_class is None or self._model_class is None:
-            return Result.fail(
-                Errors.system(
-                    message=f"{self.service_name} must configure _dto_class and _model_class",
-                    operation="graph_aware_faceted_search",
-                )
-            )
+        config_result = self._ensure_configured_for_search()
+        if config_result.is_error:
+            return config_result
 
         # Build dynamic Cypher query
         # Note: Using dict[str, Any] for params because we dynamically add keys
@@ -585,13 +614,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing entities with matching status
         """
-        if self._dto_class is None or self._model_class is None:
-            return Result.fail(
-                Errors.system(
-                    message=f"{self.service_name} must configure _dto_class and _model_class",
-                    operation="get_by_status",
-                )
-            )
+        # Validate configuration
+        config_result = self._ensure_configured_for_search()
+        if config_result.is_error:
+            return config_result
 
         result = await self.backend.find_by(status=status, limit=limit)
         if result.is_error:
@@ -614,13 +640,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing entities in specified domain
         """
-        if self._dto_class is None or self._model_class is None:
-            return Result.fail(
-                Errors.system(
-                    message=f"{self.service_name} must configure _dto_class and _model_class",
-                    operation="get_by_domain",
-                )
-            )
+        # Validate configuration
+        config_result = self._ensure_configured_for_search()
+        if config_result.is_error:
+            return config_result
 
         from core.services.protocols import get_enum_value
 
@@ -653,13 +676,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing entities in the specified category
         """
-        if self._dto_class is None or self._model_class is None:
-            return Result.fail(
-                Errors.system(
-                    message=f"{self.service_name} must configure _dto_class and _model_class",
-                    operation="get_by_category",
-                )
-            )
+        # Validate configuration
+        config_result = self._ensure_configured_for_search()
+        if config_result.is_error:
+            return config_result
 
         # Build filter kwargs dynamically using _category_field
         filters: dict[str, Any] = {self._category_field: category, "limit": limit}

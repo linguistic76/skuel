@@ -7,6 +7,15 @@ Provides graph context retrieval and enrichment operations.
 These methods enable fetching entities with their graph neighborhood context
 in a single query, supporting rich entity views with related data.
 
+REQUIRES (Mixin Dependencies):
+    - CrudOperationsMixin: Uses get() method for entity retrieval
+
+PROVIDES (Methods for Intelligence/Routes):
+    - get_with_content: Get entity with full content loaded
+    - get_with_context: Get entity with graph neighborhood context
+    - _basic_get_with_context: Implementation for entities not in registry
+    - _parse_context_result: Parse context query results
+
 Methods:
     - get_with_content: Get entity with full content loaded
     - get_with_context: Get entity with graph neighborhood context

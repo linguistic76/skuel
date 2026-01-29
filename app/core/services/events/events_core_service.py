@@ -32,6 +32,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.shared_enums import ActivityStatus
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value
 from core.services.protocols.domain_protocols import EventsOperations
 from core.utils.result_simplified import Result
@@ -99,19 +100,16 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
         return "Event"
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONFIGURATION (Class Attributes)
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
     # ========================================================================
-    # CONSOLIDATED (November 27, 2025): These class attributes configure
-    # the unified get_user_items_in_range() method in BaseService.
 
-    _date_field: str = "event_date"  # Events filter by event date
-    _completed_statuses: ClassVar[list[str]] = [
-        ActivityStatus.COMPLETED.value,
-        ActivityStatus.CANCELLED.value,
-    ]
-    _dto_class = EventDTO
-    _model_class = Event
-
+    _config = create_activity_domain_config(
+        dto_class=EventDTO,
+        model_class=Event,
+        domain_name="events",
+        date_field="event_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================

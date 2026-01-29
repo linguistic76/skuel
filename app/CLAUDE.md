@@ -646,34 +646,60 @@ tasks = await backend.find_by(priority='high', due_date__gte=date.today())
 
 **Searchable Domains:** All 9 - Task, Goal, Habit, Event, Choice, Principle, KU, LS, LP (MOC is KU-based)
 
-**BaseService Class Attributes** (configure via class variables):
+**BaseService Configuration** (ONE PATH FORWARD - January 2026):
 
-| Attribute | Purpose | Default |
-|-----------|---------|---------|
-| `_dto_class` | DTO class for serialization | Required |
-| `_model_class` | Domain model class | Required |
-| `_search_fields` | Fields for text search | `["title", "description"]` |
-| `_search_order_by` | Default sort field | `"created_at"` |
-| `_category_field` | Field for categorization | `"category"` |
-| `_supports_user_progress` | Enable progress tracking | `False` |
-| `_user_ownership_relationship` | Ownership rel type | `"OWNS"` (None for shared) |
-| `_graph_enrichment_patterns` | Graph context patterns | `[]` |
-| `_prerequisite_relationships` | For `get_prerequisites()` | `[]` |
-| `_enables_relationships` | For `get_enables()` | `[]` |
+All services use **DomainConfig** - THE single source of truth for configuration.
+
+| Configuration Field | Purpose | Default |
+|---------------------|---------|---------|
+| `dto_class` | DTO class for serialization | Required |
+| `model_class` | Domain model class | Required |
+| `search_fields` | Fields for text search | `("title", "description")` |
+| `search_order_by` | Default sort field | `"created_at"` |
+| `category_field` | Field for categorization | `"category"` |
+| `supports_user_progress` | Enable progress tracking | `False` |
+| `user_ownership_relationship` | Ownership rel type | `"OWNS"` (None for shared) |
+| `graph_enrichment_patterns` | Graph context patterns | `()` |
+| `prerequisite_relationships` | For `get_prerequisites()` | `()` |
+| `enables_relationships` | For `get_enables()` | `()` |
 
 **Inherited Methods:** `search()`, `get_by_status()`, `get_by_category()`, `list_categories()`, `get_prerequisites()`, `get_enables()`, `verify_ownership()`
 
-**Example:**
+**Configuration Example (Activity Domains):**
 ```python
+from core.services.domain_config import create_activity_domain_config
+
 class GoalsSearchService(BaseService[GoalsOperations, Goal]):
-    _dto_class = GoalDTO
-    _model_class = Goal
-    _search_fields = ["title", "description"]
-    _category_field = "domain"  # Goals use 'domain' for categorization
-    _supports_user_progress = True
+    _config = create_activity_domain_config(
+        dto_class=GoalDTO,
+        model_class=Goal,
+        domain_name="goals",
+        date_field="target_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        category_field="domain",  # Goals use 'domain' for categorization
+    )
 ```
 
-**See:** `/docs/patterns/query_architecture.md`, `/docs/architecture/SEARCH_ARCHITECTURE.md`
+**Configuration Example (Curriculum Domains):**
+```python
+from core.services.domain_config import create_curriculum_domain_config
+
+class KuSearchService(BaseService[KuOperations, KnowledgeUnit]):
+    _config = create_curriculum_domain_config(
+        dto_class=KuDTO,
+        model_class=KnowledgeUnit,
+        domain_name="ku",
+        search_fields=("title", "description", "content"),
+        category_field="domain",
+    )
+```
+
+**Migration Status:** ✅ 100% complete (25 services migrated - January 2026)
+
+**See:**
+- `/docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md` - Migration guide
+- `/docs/patterns/query_architecture.md` - Query patterns
+- `/docs/architecture/SEARCH_ARCHITECTURE.md` - Search architecture
 
 ## Unified Content Ingestion
 

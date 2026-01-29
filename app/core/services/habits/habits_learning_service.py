@@ -26,6 +26,7 @@ from core.models.lp.lp_position import LpPosition
 from core.models.shared_enums import Domain
 from core.models.shared_enums import RecurrencePattern as HabitFrequency
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper
 from core.services.protocols.domain_protocols import HabitsOperations
 from core.services.user import UserContext
@@ -61,6 +62,18 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
     - Logs operations with structured logging
 
     """
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=HabitDTO,
+        model_class=Habit,
+        domain_name="habits",
+        date_field="created_at",
+        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+    )
 
     def __init__(self, backend: HabitsOperations, event_bus=None) -> None:
         """

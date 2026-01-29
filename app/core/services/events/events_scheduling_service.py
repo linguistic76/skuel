@@ -27,6 +27,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.shared_enums import ActivityStatus, RecurrencePattern
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import EventsOperations
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
@@ -55,9 +56,19 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
     - Logs operations with structured logging
     """
 
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=EventDTO,
+        model_class=Event,
+        domain_name="events",
+        date_field="event_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
+
     # Configure BaseService
-    _dto_class = EventDTO
-    _model_class = Event
     _date_field = "event_date"
 
     def __init__(self, backend: EventsOperations, event_bus=None) -> None:

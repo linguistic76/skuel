@@ -248,6 +248,9 @@ related: []
 
 | Document | Updated | Lines |
 |----------|---------|-------|
+| [**DomainConfig Migration Complete**](migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md) | 2026-01-29 | 486 |
+| [**BaseService Improvements 2026-01-29**](migrations/BASESERVICE_IMPROVEMENTS_2026-01-29.md) | 2026-01-29 | 513 |
+| [**Documentation Updates 2026-01-29**](migrations/DOCUMENTATION_UPDATES_2026-01-29.md) | 2026-01-29 | 374 |
 | [Domain Route Config Migration](migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-01-24.md) | 2026-01-24 | 251 |
 | [Neo4j Label Standardization Migration Plan](migrations/NEO4J_LABEL_STANDARDIZATION.md) | 2025-11-27 | 167 |
 | [Ports to Protocols Migration History](migrations/PORTS_TO_PROTOCOLS_MIGRATION.md) | 2026-01-03 | 385 |
@@ -324,8 +327,8 @@ related: []
 
 ## Statistics
 
-- **Total documents:** 156 (146 + 7 migrations + 1 roadmap + 1 example + 1 mindfulness demo)
-- **Total lines:** ~62,000
+- **Total documents:** 159 (146 + 10 migrations + 1 roadmap + 1 example + 1 mindfulness demo)
+- **Total lines:** ~63,500
 - **Categories:** 14 (added Roadmap, Examples)
 
 **By status:**

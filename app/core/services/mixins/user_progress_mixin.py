@@ -7,6 +7,14 @@ Provides user progress and mastery tracking operations.
 These methods track user progress on entities, originally for Curriculum
 domains but now available to any domain via _supports_user_progress flag.
 
+REQUIRES (Mixin Dependencies):
+    - ConversionHelpersMixin: Uses _records_to_domain_models() for result conversion
+
+PROVIDES (Methods for Progress Tracking):
+    - get_user_progress: Get user's progress/mastery for an entity
+    - update_user_mastery: Update user's mastery level
+    - get_user_curriculum: Get entities the user is studying/has mastered
+
 Methods:
     - get_user_progress: Get user's progress/mastery for an entity
     - update_user_mastery: Update user's mastery level

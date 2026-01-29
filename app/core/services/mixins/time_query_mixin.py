@@ -4,6 +4,15 @@ Time Query Mixin
 
 Provides date-based query operations for calendar and scheduling.
 
+REQUIRES (Mixin Dependencies):
+    - ConversionHelpersMixin: Uses _to_domain_models() for result conversion
+
+PROVIDES (Methods for Calendar/Scheduling):
+    - get_user_items_in_range_base: Generic date range query
+    - get_user_items_in_range: Configured date range query
+    - get_due_soon: Get entities due within N days
+    - get_overdue: Get entities past their due date
+
 Methods:
     - get_user_items_in_range_base: Generic date range query
     - get_user_items_in_range: Configured date range query
@@ -178,25 +187,32 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
             Result containing list of domain model instances
         """
         # Fail-fast: configuration is required
-        if self._dto_class is None or self._model_class is None:
+        dto_class = self._get_config_value("dto_class")
+        model_class = self._get_config_value("model_class")
+
+        if dto_class is None or model_class is None:
             return Result.fail(
                 Errors.system(
-                    message=f"{self.service_name} must configure _dto_class and _model_class",
+                    message=f"{self.service_name} must configure dto_class and model_class "
+                    "via DomainConfig or class attributes",
                     operation="get_user_items_in_range",
                 )
             )
 
-        # Determine statuses to exclude
-        exclude_statuses = [] if include_completed else list(self._completed_statuses)
+        # Determine statuses to exclude (use config accessor)
+        completed_statuses = self._get_config_value("completed_statuses", [])
+        exclude_statuses = [] if include_completed else list(completed_statuses)
 
-        # Delegate to base implementation
+        # Delegate to base implementation (use config-accessed values)
+        date_field = self._get_config_value("date_field", "created_at")
+
         return await self.get_user_items_in_range_base(
             user_uid=user_uid,
             start_date=start_date,
             end_date=end_date,
-            date_field=self._date_field,
-            dto_class=self._dto_class,
-            model_class=self._model_class,
+            date_field=date_field,
+            dto_class=dto_class,
+            model_class=model_class,
             exclude_statuses=exclude_statuses,
         )
 

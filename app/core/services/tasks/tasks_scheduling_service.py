@@ -30,6 +30,7 @@ from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import PrerequisiteHelper
 from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
 from core.services.protocols.domain_protocols import TasksOperations
@@ -90,6 +91,18 @@ class TasksSchedulingService(BaseService[TasksOperations, Task]):
     - Logs operations with structured logging
 
     """
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=TaskDTO,
+        model_class=Task,
+        domain_name="tasks",
+        date_field="due_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
 
     def __init__(self, backend=None) -> None:
         """

@@ -7,38 +7,50 @@ Centralized configuration for BaseService behavior.
 This module consolidates the 18 class attributes previously scattered
 across individual service classes into a single, type-safe dataclass.
 
-**January 2026 Phase 2 Consolidation:**
-Instead of each service defining its own class attributes:
+**ONE PATH FORWARD (January 2026 - Phase 3 Complete):**
+DomainConfig is THE ONLY configuration source for BaseService.
+
+**Before (scattered class attributes):**
 ```python
 class TasksSearchService(BaseService):
     _dto_class = TaskDTO
     _model_class = Task
     _search_fields = ["title", "description"]
-    # ... 15 more attributes
+    _date_field = "due_date"
+    _completed_statuses = [ActivityStatus.COMPLETED.value]
+    # ... 13 more attributes scattered across the class
 ```
 
-Services now use a single configuration object:
+**After (single configuration object):**
 ```python
-TASKS_CONFIG = DomainConfig(
-    dto_class=TaskDTO,
-    model_class=Task,
-    search_fields=("title", "description"),
-)
-
-
 class TasksSearchService(BaseService):
-    _config = TASKS_CONFIG
+    _config = create_activity_domain_config(
+        dto_class=TaskDTO,
+        model_class=Task,
+        domain_name="tasks",
+        date_field="due_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
 ```
 
 **Benefits:**
-- Single source of truth for domain behavior
-- Type-safe with IDE completion
-- Easy to compare configurations across domains
-- Enables DomainConfig-aware factories
+- ✅ Single source of truth for domain behavior (One Path Forward)
+- ✅ Type-safe with IDE completion
+- ✅ Easy to compare configurations across domains
+- ✅ Centralized validation in DomainConfig.__post_init__
+- ✅ Factory functions for Activity and Curriculum domains
+- ✅ No dual configuration system - DomainConfig is THE path
+
+**Migration Status (January 2026):**
+- ✅ Phase 1: Created DomainConfig and factories
+- ✅ Phase 2: Migrated search services to use DomainConfig
+- ✅ Phase 3: Migrated ALL services to DomainConfig (19 core + 6 search = 25 services)
+- ✅ Phase 3: Removed class attribute fallback from _get_config_value()
 
 See Also:
-    - /core/services/base_service.py - Uses DomainConfig
+    - /core/services/base_service.py - Uses DomainConfig exclusively
     - /core/models/relationship_registry.py - Relationship configurations
+    - /docs/migrations/BASESERVICE_IMPROVEMENTS_2026-01-29.md - Migration guide
 """
 
 from __future__ import annotations

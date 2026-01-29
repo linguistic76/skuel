@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-01-21
+updated: 2026-01-29
 status: current
 category: patterns
 tags:
@@ -14,6 +14,7 @@ tags:
 related:
 - ADR-025-service-consolidation-patterns.md
 - ADR-031-baseservice-mixin-decomposition.md
+- DOMAINCONFIG_MIGRATION_COMPLETE.md
 related_skills:
 - activity-domains
 - base-analytics-service
@@ -25,9 +26,13 @@ Six patterns to reduce boilerplate in SKUEL services (~1,500+ lines saved across
 
 **Decision context:** See [ADR-025](/docs/decisions/ADR-025-service-consolidation-patterns.md) for why these patterns were chosen over alternatives.
 
+**Migration Status:** ✅ **100% Complete** (January 2026) - All 25 Activity domain services migrated to DomainConfig. See [Migration Guide](/docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md).
+
 ---
 
 ## 1. DomainConfig Dataclass
+
+**Status:** ✅ Production (January 2026)
 
 Consolidates 18 class attributes into a single, immutable configuration object.
 

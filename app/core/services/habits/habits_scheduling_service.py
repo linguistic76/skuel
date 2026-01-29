@@ -45,6 +45,7 @@ from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.shared_enums import Domain, Priority, RecurrencePattern
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper
 from core.services.protocols.domain_protocols import HabitsOperations
 from core.utils.decorators import with_error_handling
@@ -105,9 +106,19 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
     - Logs operations with structured logging
     """
 
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=HabitDTO,
+        model_class=Habit,
+        domain_name="habits",
+        date_field="created_at",
+        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+    )
+
     # Configure BaseService
-    _dto_class = HabitDTO
-    _model_class = Habit
 
     def __init__(
         self,

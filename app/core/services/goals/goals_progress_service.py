@@ -26,6 +26,7 @@ from core.models.goal.goal_relationships import GoalRelationships
 from core.models.graph_context import GraphContext
 from core.models.shared_enums import Domain, GoalStatus
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import ProgressCalculationHelper
 from core.services.protocols.domain_protocols import GoalsOperations
 from core.services.protocols.query_types import GoalUpdatePayload
@@ -69,6 +70,18 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     - Logs operations with structured logging
 
     """
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=GoalDTO,
+        model_class=Goal,
+        domain_name="goals",
+        date_field="target_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
 
     # Service name for hierarchical logging
     _service_name = "goals.progress"

@@ -49,6 +49,7 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.shared_enums import Domain, GoalStatus, Priority
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper
 from core.services.protocols.domain_protocols import GoalsOperations
 from core.utils.decorators import with_error_handling
@@ -189,9 +190,19 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
     - Logs operations with structured logging
     """
 
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=GoalDTO,
+        model_class=Goal,
+        domain_name="goals",
+        date_field="target_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
+
     # Configure BaseService
-    _dto_class = GoalDTO
-    _model_class = Goal
 
     def __init__(
         self,

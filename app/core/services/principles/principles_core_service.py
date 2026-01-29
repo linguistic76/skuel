@@ -20,6 +20,7 @@ from core.events import publish_event
 from core.models.principle.principle import Principle, PrincipleCategory, PrincipleStrength
 from core.models.principle.principle_dto import PrincipleDTO
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import PrinciplesOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -56,6 +57,18 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     - Logs operations with structured logging
 
     """
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=PrincipleDTO,
+        model_class=Principle,
+        domain_name="principles",
+        date_field="created_at",
+        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+    )
 
     def __init__(self, backend: PrinciplesOperations, event_bus=None) -> None:
         """

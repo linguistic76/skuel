@@ -4,6 +4,21 @@ Relationship Operations Mixin
 
 Provides graph relationship management and prerequisite/hierarchy traversal.
 
+REQUIRES (Mixin Dependencies):
+    - ConversionHelpersMixin: Uses _records_to_domain_models() for result conversion
+
+PROVIDES (Methods for Graph Operations):
+    Core Relationships:
+        - add_relationship: Create relationship between entities
+        - get_relationships: Get all relationships for an entity
+        - traverse: Graph traversal following patterns
+
+    Prerequisite Operations:
+        - get_prerequisites: Get prerequisite entities
+        - get_enables: Get entities enabled by this entity
+        - add_prerequisite: Add prerequisite relationship
+        - get_hierarchy: Get hierarchical structure
+
 Methods:
     Core Relationships:
         - add_relationship: Create relationship between entities

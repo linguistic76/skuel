@@ -4,6 +4,23 @@ CRUD Operations Mixin
 
 Provides core CRUD operations and ownership-verified CRUD for multi-tenant security.
 
+REQUIRES (Mixin Dependencies):
+    - None - Foundational CRUD with no dependencies on other mixins
+
+PROVIDES (Methods for All Service Layers):
+    Core CRUD:
+        - create: Create a new entity
+        - get: Get entity by UID
+        - update: Update entity (accepts BaseUpdatePayload or dict[str, Any])
+        - delete: Delete entity
+        - list: List entities with pagination
+
+    Ownership-Verified CRUD (multi-tenant security):
+        - verify_ownership: Verify entity belongs to user
+        - get_for_user: Get entity only if owned by user
+        - update_for_user: Update entity only if owned by user
+        - delete_for_user: Delete entity only if owned by user
+
 Methods:
     Core CRUD:
         - create: Create a new entity

@@ -25,6 +25,7 @@ from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.shared_enums import Domain
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
 from core.services.protocols.domain_protocols import PrinciplesOperations
 from core.utils.logging import get_logger
@@ -137,6 +138,18 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
     - Uses LearningAlignmentHelper with custom scorers (Phase 6)
 
     """
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=PrincipleDTO,
+        model_class=Principle,
+        domain_name="principles",
+        date_field="created_at",
+        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+    )
 
     def __init__(self, backend: PrinciplesOperations) -> None:
         """

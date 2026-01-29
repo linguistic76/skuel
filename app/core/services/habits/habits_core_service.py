@@ -24,6 +24,7 @@ from core.models.habit.habit import Habit, HabitStatus
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value
 from core.services.protocols.domain_protocols import HabitsOperations
 from core.utils.result_simplified import Result
@@ -85,16 +86,16 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         return "Habit"
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONFIGURATION (Class Attributes)
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
     # ========================================================================
-    # CONSOLIDATED (November 27, 2025): These class attributes configure
-    # the unified get_user_items_in_range() method in BaseService.
 
-    _date_field: str = "created_at"  # Habits filter by creation date
-    _completed_statuses: ClassVar[list[str]] = [HabitStatus.ARCHIVED.value]
-    _dto_class = HabitDTO
-    _model_class = Habit
-
+    _config = create_activity_domain_config(
+        dto_class=HabitDTO,
+        model_class=Habit,
+        domain_name="habits",
+        date_field="created_at",
+        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+    )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================

@@ -25,6 +25,7 @@ from core.models.goal.goal_request import GoalCreateRequest
 from core.models.lp.lp_position import LpPosition
 from core.models.shared_enums import Domain
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.goals_types import GoalLearningProgress, PathProgressData
 from core.services.infrastructure import LearningAlignmentHelper
 from core.services.protocols.domain_protocols import GoalsOperations
@@ -65,6 +66,18 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
     - Logs operations with structured logging
 
     """
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=GoalDTO,
+        model_class=Goal,
+        domain_name="goals",
+        date_field="target_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
 
     def __init__(
         self,

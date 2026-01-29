@@ -24,6 +24,7 @@ from core.models.event.event_request import EventCreateRequest
 from core.models.lp.lp_position import LpPosition
 from core.models.shared_enums import Domain
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
 from core.services.protocols import get_enum_value
 from core.services.protocols.domain_protocols import EventsOperations
@@ -61,6 +62,18 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
     - Logs operations with structured logging
 
     """
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=EventDTO,
+        model_class=Event,
+        domain_name="events",
+        date_field="event_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
 
     def __init__(
         self,

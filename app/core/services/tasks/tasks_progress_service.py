@@ -30,6 +30,7 @@ from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_relationships import TaskRelationships
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import TasksOperations
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
@@ -61,6 +62,18 @@ class TasksProgressService(BaseService[TasksOperations, Task]):
     - Logs operations with structured logging
 
     """
+
+    # ========================================================================
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+
+    _config = create_activity_domain_config(
+        dto_class=TaskDTO,
+        model_class=Task,
+        domain_name="tasks",
+        date_field="due_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
 
     def __init__(self, backend=None, analytics_engine=None, event_bus=None) -> None:
         """

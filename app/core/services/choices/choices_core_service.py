@@ -25,6 +25,7 @@ from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_request import ChoiceUpdateRequest
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import ChoicesOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -96,16 +97,16 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         return "Choice"
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONFIGURATION (Class Attributes)
+    # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
     # ========================================================================
-    # CONSOLIDATED (November 27, 2025): These class attributes configure
-    # the unified get_user_items_in_range() method in BaseService.
 
-    _date_field: str = "decided_at"  # Choices filter by decision date
-    _completed_statuses: ClassVar[list[str]] = [ChoiceStatus.ARCHIVED.value]
-    _dto_class = ChoiceDTO
-    _model_class = Choice
-
+    _config = create_activity_domain_config(
+        dto_class=ChoiceDTO,
+        model_class=Choice,
+        domain_name="choices",
+        date_field="decision_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
