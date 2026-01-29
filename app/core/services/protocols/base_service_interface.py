@@ -6,20 +6,80 @@ Explicit Protocol interfaces for BaseService mixins.
 
 Purpose:
 - Provides type-safe interface for all BaseService methods
-- Enables IDE autocomplete for mixin methods
+- Enables IDE autocomplete for mixin methods (all 7 mixins)
 - Documents complete BaseService public API
 - Allows static type checking with MyPy
 
-Usage:
+Real-World Usage Examples
+-------------------------
+
+1. Generic Service Handlers (Type Safety + Autocomplete):
+    from core.services.protocols.base_service_interface import BaseServiceInterface
+    from typing import Any
+
+    def validate_service_health(
+        service: BaseServiceInterface[Any, Any]
+    ) -> dict[str, Any]:
+        '''Check if service has required data for analysis.'''
+        # IDE autocompletes: search, get_by_status, list_categories, etc.
+        categories = service.list_categories()  # Type-checked!
+        if categories.is_error:
+            return {"healthy": False, "reason": "No categories"}
+        return {"healthy": True, "categories": categories.value}
+
+2. Service Container/Registry (Dependency Injection):
     from core.services.protocols.base_service_interface import BaseServiceInterface
 
-    def process_service(service: BaseServiceInterface[BackendOperations, Task]):
-        # IDE will autocomplete all BaseService methods
-        result = service.search("query")  # Type-checked!
+    class ServiceRegistry:
+        def __init__(self):
+            self._services: dict[str, BaseServiceInterface[Any, Any]] = {}
 
-See:
-- /docs/reference/BASESERVICE_METHOD_INDEX.md - Complete method listing
-- /core/services/base_service.py - Implementation
+        def register(self, name: str, service: BaseServiceInterface[Any, Any]):
+            '''Register a service by name - works with ANY BaseService.'''
+            self._services[name] = service
+
+        def get_categories(self, service_name: str) -> list[str]:
+            service = self._services[service_name]
+            result = service.list_categories()  # IDE knows this method exists!
+            return result.value if not result.is_error else []
+
+3. Cross-Domain Analytics (Generic Operations):
+    from core.services.protocols.base_service_interface import BaseServiceInterface
+
+    async def analyze_domain_health(
+        services: list[tuple[str, BaseServiceInterface[Any, Any]]]
+    ) -> dict[str, dict]:
+        '''Analyze health across multiple domains generically.'''
+        health_report = {}
+        for domain_name, service in services:
+            # IDE provides autocomplete for all BaseService methods
+            categories = await service.list_categories()
+            statuses = await service.get_by_status("active")
+            health_report[domain_name] = {
+                "category_count": len(categories.value or []),
+                "active_count": len(statuses.value or []),
+            }
+        return health_report
+
+When NOT to Use BaseServiceInterface
+-------------------------------------
+For domain-specific operations, use concrete types or domain protocols:
+- TasksService has create_task_with_context() - use TasksOperations
+- GoalsService has get_milestones() - use GoalsOperations
+- BaseServiceInterface only provides COMMON methods (search, CRUD, etc.)
+
+Production Examples
+-------------------
+For real-world usage, see:
+- /core/utils/service_introspection.py - Generic service utilities using BaseServiceInterface
+  - get_service_capabilities() - Analyze service features generically
+  - ServiceRegistry - Type-safe service container
+  - get_domain_health_report() - Cross-domain analytics
+
+See Also:
+- /docs/reference/BASESERVICE_METHOD_INDEX.md - Complete method listing (35-50 methods)
+- /docs/reference/SUB_SERVICE_CATALOG.md - Domain-specific method catalog
+- /core/services/base_service.py - Implementation (7 mixins)
 - /core/services/mixins/ - Individual mixin implementations
 
 Version: 1.0.0

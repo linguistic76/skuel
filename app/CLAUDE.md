@@ -732,9 +732,20 @@ core = TasksCoreService(backend=mock_backend)
 
 **Implementation Files:**
 - `/core/services/base_service.py` - Foundation with 7 mixins
-- `/core/services/protocols/base_service_interface.py` - Complete interface (all mixins)
+- `/core/services/protocols/base_service_interface.py` - Protocol for type checking & IDE autocomplete
 - `/core/services/mixins/facade_delegation_mixin.py` - Auto-delegation pattern
 - `/core/utils/activity_domain_config.py` - Factory for common sub-services
+- `/core/utils/service_introspection.py` - Generic service utilities (type-safe examples)
+
+**Type Safety with BaseServiceInterface:**
+Use `BaseServiceInterface[Any, Any]` for type hints when passing services generically:
+```python
+from core.services.protocols.base_service_interface import BaseServiceInterface
+from core.utils.service_introspection import get_service_capabilities
+
+# IDE autocompletes all BaseService methods (search, get_by_status, etc.)
+capabilities = await get_service_capabilities(any_service)
+```
 
 **Automation:**
 - `/scripts/generate_method_index.py` - Auto-generates method index from code
