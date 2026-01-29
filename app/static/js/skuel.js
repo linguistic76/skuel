@@ -35,7 +35,24 @@
         // ---------------------------------------------------------------------
         // Search Filters Component (Horizontal Layout)
         // ---------------------------------------------------------------------
-        // Handles horizontal filter bar, context filters, and advanced panel
+        /**
+         * Search filter bar component.
+         * Manages entity type selection and dynamic filter visibility.
+         *
+         * @returns {Object} Alpine.js component
+         * @property {string} entityType - Currently selected entity type
+         * @property {boolean} showAdvanced - Advanced filter panel visibility
+         * @property {Object} entityTypeFilters - Filter groups by entity type
+         * @property {Object} entityTypeLabels - Display labels for entity types
+         * @property {boolean} showContextFilters - Computed: show context filters row
+         * @property {string} contextFilterLabel - Computed: label for filter section
+         * @property {boolean} hasActiveFilters - Computed: has any active filters
+         *
+         * @example
+         * <div x-data="searchFilters()">
+         *   <button @click="entityType = 'task'">Tasks</button>
+         * </div>
+         */
         Alpine.data('searchFilters', function() {
             return {
                 entityType: '',
@@ -449,37 +466,64 @@
         // ---------------------------------------------------------------------
         // Swipe Handler Component (from atomic_habits_mobile.py)
         // ---------------------------------------------------------------------
-        // Handles touch swipe gestures for card carousels
+        /**
+         * Touch gesture handler for mobile card swiping.
+         * Supports velocity-based detection and adaptive thresholds.
+         *
+         * @param {number} totalCards - Total number of cards in the swipeable set
+         * @returns {Object} Alpine.js component
+         * @property {number} swipeIndex - Current card index (0-based)
+         * @property {number} touchStartX - Touch start X coordinate
+         * @property {number} touchStartY - Touch start Y coordinate
+         * @property {number} touchStartTime - Touch start timestamp
+         * @property {number} totalCards - Total number of cards
+         *
+         * @example
+         * <div x-data="swipeHandler(3)" @touchstart="handleTouchStart($event)" @touchend="handleTouchEnd($event)">
+         *   <div x-show="swipeIndex === 0">Card 1</div>
+         *   <div x-show="swipeIndex === 1">Card 2</div>
+         * </div>
+         */
         Alpine.data('swipeHandler', function(totalCards) {
             return {
                 swipeIndex: 0,
                 touchStartX: 0,
-                touchEndX: 0,
+                touchStartY: 0,
+                touchStartTime: 0,
                 totalCards: totalCards || 0,
 
                 handleTouchStart: function(event) {
                     this.touchStartX = event.changedTouches[0].screenX;
+                    this.touchStartY = event.changedTouches[0].screenY;
+                    this.touchStartTime = Date.now();
                 },
 
                 handleTouchEnd: function(event) {
-                    this.touchEndX = event.changedTouches[0].screenX;
-                    this.handleSwipe();
-                },
+                    var touchEndX = event.changedTouches[0].screenX;
+                    var touchEndY = event.changedTouches[0].screenY;
+                    var touchEndTime = Date.now();
 
-                handleSwipe: function() {
-                    var threshold = 50;
+                    var deltaX = touchEndX - this.touchStartX;
+                    var deltaY = touchEndY - this.touchStartY;
+                    var duration = touchEndTime - this.touchStartTime;
 
-                    if (this.touchEndX < this.touchStartX - threshold) {
-                        // Swipe left - next
-                        if (this.swipeIndex < this.totalCards - 1) {
-                            this.swipeIndex++;
-                        }
-                    }
+                    // Velocity-based threshold (pixels per ms)
+                    var velocity = Math.abs(deltaX) / duration;
+                    var minVelocity = 0.3; // 0.3px/ms = fast flick
 
-                    if (this.touchEndX > this.touchStartX + threshold) {
-                        // Swipe right - previous
-                        if (this.swipeIndex > 0) {
-                            this.swipeIndex--;
+                    // Distance threshold (adaptive based on screen width)
+                    var minDistance = window.innerWidth * 0.15; // 15% of screen width
+
+                    // Horizontal swipe detection (more horizontal than vertical)
+                    if (Math.abs(deltaY) < Math.abs(deltaX)) {
+                        if (Math.abs(deltaX) > minDistance || velocity > minVelocity) {
+                            if (deltaX > 0 && this.swipeIndex > 0) {
+                                // Swipe right - previous
+                                this.swipeIndex--;
+                            } else if (deltaX < 0 && this.swipeIndex < this.totalCards - 1) {
+                                // Swipe left - next
+                                this.swipeIndex++;
+                            }
                         }
                     }
                 }
@@ -881,6 +925,172 @@
             };
         });
 
+        // ---------------------------------------------------------------------
+        // Focus Trap Modal Component
+        // ---------------------------------------------------------------------
+        // Manages modal focus trapping and keyboard navigation
+        Alpine.data('focusTrapModal', function(isOpen) {
+            return {
+                isOpen: isOpen || false,
+                previousFocus: null,
+
+                open: function() {
+                    this.previousFocus = document.activeElement;
+                    this.isOpen = true;
+
+                    var self = this;
+                    this.$nextTick(function() {
+                        var modal = self.$refs.modal;
+                        if (!modal) return;
+
+                        var focusable = modal.querySelectorAll(
+                            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                        );
+                        if (focusable.length > 0) {
+                            focusable[0].focus();
+                        }
+                    });
+                },
+
+                close: function() {
+                    this.isOpen = false;
+                    if (this.previousFocus && this.previousFocus.focus) {
+                        this.previousFocus.focus();
+                    }
+                },
+
+                handleKeydown: function(e) {
+                    if (e.key === 'Escape') {
+                        this.close();
+                    } else if (e.key === 'Tab') {
+                        this.trapFocus(e);
+                    }
+                },
+
+                trapFocus: function(e) {
+                    var modal = this.$refs.modal;
+                    if (!modal) return;
+
+                    var focusable = Array.from(modal.querySelectorAll(
+                        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                    ));
+
+                    if (focusable.length === 0) return;
+
+                    var firstFocusable = focusable[0];
+                    var lastFocusable = focusable[focusable.length - 1];
+
+                    if (e.shiftKey && document.activeElement === firstFocusable) {
+                        lastFocusable.focus();
+                        e.preventDefault();
+                    } else if (!e.shiftKey && document.activeElement === lastFocusable) {
+                        firstFocusable.focus();
+                        e.preventDefault();
+                    }
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
+        // Toast Manager Component
+        // ---------------------------------------------------------------------
+        // Manages toast notifications with auto-dismiss
+        Alpine.data('toastManager', function() {
+            return {
+                toasts: [],
+
+                show: function(message, type, duration) {
+                    type = type || 'info';
+                    duration = typeof duration !== 'undefined' ? duration : 3000;
+
+                    var id = Date.now();
+                    this.toasts.push({ id: id, message: message, type: type });
+
+                    if (duration > 0) {
+                        var self = this;
+                        setTimeout(function() {
+                            self.dismiss(id);
+                        }, duration);
+                    }
+                },
+
+                dismiss: function(id) {
+                    this.toasts = this.toasts.filter(function(t) {
+                        return t.id !== id;
+                    });
+                },
+
+                init: function() {
+                    var self = this;
+                    document.body.addEventListener('htmx:afterSwap', function(event) {
+                        var xhr = event.detail.xhr;
+                        if (!xhr) return;
+
+                        var successMsg = xhr.getResponseHeader('X-Toast-Message');
+                        var successType = xhr.getResponseHeader('X-Toast-Type') || 'success';
+
+                        if (successMsg) {
+                            self.show(successMsg, successType);
+                        }
+                    });
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
+        // Form Validator Component
+        // ---------------------------------------------------------------------
+        // Client-side form validation with accessible error display
+        Alpine.data('formValidator', function() {
+            return {
+                errors: {},
+
+                validate: function(event) {
+                    this.errors = {};
+                    var form = event.target;
+                    var inputs = form.querySelectorAll('input, textarea, select');
+                    var hasErrors = false;
+
+                    var self = this;
+                    inputs.forEach(function(input) {
+                        if (!input.checkValidity()) {
+                            hasErrors = true;
+                            var errorDiv = document.getElementById(input.name + '-error');
+                            var message = input.dataset.patternMsg || input.validationMessage;
+                            self.errors[input.name] = message;
+
+                            if (errorDiv) {
+                                errorDiv.textContent = message;
+                                errorDiv.style.display = 'block';
+                            }
+
+                            input.setAttribute('aria-invalid', 'true');
+                        }
+                    });
+
+                    if (hasErrors) {
+                        event.preventDefault();
+                        var firstInvalid = form.querySelector('[aria-invalid="true"]');
+                        if (firstInvalid && firstInvalid.focus) {
+                            firstInvalid.focus();
+                        }
+                    }
+                },
+
+                clearError: function(fieldName) {
+                    delete this.errors[fieldName];
+                    var errorDiv = document.getElementById(fieldName + '-error');
+                    if (errorDiv) {
+                        errorDiv.style.display = 'none';
+                    }
+                    var input = document.getElementById(fieldName);
+                    if (input) {
+                        input.removeAttribute('aria-invalid');
+                    }
+                }
+            };
+        });
+
         window.SKUEL.debug('Alpine.js components initialized');
     });
 
@@ -904,6 +1114,23 @@
                 var returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
                 window.location.href = '/login?next=' + returnUrl;
             }
+        });
+
+        // =========================================================================
+        // Live Region for Screen Reader Announcements
+        // =========================================================================
+
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            var liveRegion = document.getElementById('live-region');
+            if (!liveRegion) return;
+
+            var target = event.detail.target;
+            var announcement = target.dataset.liveAnnounce || 'Content updated';
+
+            liveRegion.textContent = announcement;
+            setTimeout(function() {
+                liveRegion.textContent = '';
+            }, 1000);
         });
 
         // =========================================================================

@@ -308,7 +308,14 @@ class FormGenerator:
         form_fields.append(Button(submit_label, type="submit", variant=ButtonT.primary, cls="mt-4"))
 
         # Build form attributes
-        attrs = {"action": action, "method": method.upper(), "cls": "space-y-4"}
+        attrs = {
+            "action": action,
+            "method": method.upper(),
+            "cls": "space-y-4",
+            # Add Alpine.js form validation
+            "x-data": "formValidator",
+            "@submit": "validate($event)",
+        }
 
         # Merge custom attributes
         if form_attrs:
@@ -317,7 +324,7 @@ class FormGenerator:
         # Return generated form
         form = Form(*form_fields, **attrs)
 
-        logger.info(f"✅ Generated form with {len(form_fields) - 1} fields")
+        logger.info(f"✅ Generated form with {len(form_fields) - 1} fields (validation enabled)")
         return form
 
     @staticmethod
@@ -348,10 +355,17 @@ class FormGenerator:
             field_name, widget_type, annotation, placeholder, constraints, is_required
         )
 
-        # Wrap in form control div
+        # Wrap in form control div with error display
         return Div(
             Label(label_text, **({"required": True} if is_required else {}), cls="label"),
             widget,
+            # Error message div (hidden by default, shown by formValidator)
+            Div(
+                id=f"{field_name}-error",
+                role="alert",
+                cls="text-sm text-error mt-1",
+                style="display:none;",
+            ),
             cls="form-control",
         )
 
@@ -377,6 +391,8 @@ class FormGenerator:
             "name": field_name,
             "cls": "input" if widget_type != "textarea" else "textarea",
             **constraints,
+            # Add Alpine.js error clearing on input
+            "@input": f"clearError('{field_name}')",
         }
 
         if is_required:

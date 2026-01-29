@@ -811,17 +811,14 @@ class TodoistTaskComponents:
     def render_task_list(tasks: list[Any], user_uid: str | None = None) -> Any:
         """Render the task list container."""
         if not tasks:
-            return Ul(
-                Li(
-                    Div(
-                        P("No tasks yet", cls="text-gray-500 font-medium"),
-                        P("Add a task above to get started", cls="text-gray-400 text-sm"),
-                        cls="text-center py-8",
-                    ),
-                    cls="list-none",
-                ),
-                id="task-list",
-                cls="list-none divide-y divide-gray-100",
+            from ui.patterns.empty_state import EmptyState
+
+            return EmptyState(
+                icon="📋",
+                title="No tasks yet",
+                description="Create your first task to get started",
+                action_text="Create Task",
+                action_url="/tasks?view=create",
             )
 
         task_items = [TodoistTaskComponents.render_task_item(task, user_uid) for task in tasks]

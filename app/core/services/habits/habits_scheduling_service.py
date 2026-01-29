@@ -43,7 +43,7 @@ from core.events import HabitCreated, publish_event
 from core.models.habit.habit import Habit, HabitCategory, HabitDifficulty
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
-from core.models.shared_enums import Domain, Priority, RecurrencePattern
+from core.models.shared_enums import ActivityStatus, Domain, Priority, RecurrencePattern
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper

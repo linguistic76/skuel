@@ -20,6 +20,7 @@ from typing import Any, ClassVar
 
 from core.events import publish_event
 from core.events.habit_events import HabitCreated
+from core.models.enums.activity_enums import ActivityStatus
 from core.models.habit.habit import Habit, HabitStatus
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest

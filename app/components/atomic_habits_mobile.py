@@ -47,7 +47,7 @@ class AtomicHabitsMobile:
             AtomicHabitsMobile._render_quick_actions_mobile(),
             # Bottom navigation
             AtomicHabitsMobile._render_bottom_nav(),
-            cls="min-h-screen bg-gray-50 pb-20",  # pb-20 for bottom nav clearance
+            cls="min-h-screen bg-gray-50 mobile-bottom-nav",  # Safe zone support for iOS
             **{"x-data": "{ swipeIndex: 0 }"},  # Alpine.js for swipe state
         )
 

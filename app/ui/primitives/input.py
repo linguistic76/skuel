@@ -33,6 +33,11 @@ def Input(
 
     Returns:
         A Div containing the label (optional), input, and error (optional)
+
+    Accessibility:
+        - Uses aria-invalid to indicate error state
+        - Links error message via aria-describedby
+        - Error div has role="alert" for screen reader announcements
     """
     input_cls = (
         "w-full px-3 py-2 bg-base-100 border rounded-lg text-base-content "
@@ -46,11 +51,19 @@ def Input(
         input_cls += " border-base-300"
 
     elements = []
+    error_id = f"{name}-error"
+    has_error = error is not None
 
     if label:
         label_cls = "block text-sm font-medium text-base-content mb-1.5"
         label_text = f"{label} *" if required else label
         elements.append(Label(label_text, cls=label_cls, for_=name))
+
+    # Build ARIA attributes for accessibility
+    aria_attrs = {}
+    if has_error:
+        aria_attrs["aria_invalid"] = "true"
+        aria_attrs["aria_describedby"] = error_id
 
     elements.append(
         HtmlInput(
@@ -60,12 +73,21 @@ def Input(
             cls=input_cls,
             id=name,
             required=required,
+            **aria_attrs,
             **kwargs,
         )
     )
 
+    # Error message with proper ARIA role for screen readers
     if error:
-        elements.append(Div(error, cls="mt-1 text-sm text-error"))
+        elements.append(
+            Div(
+                error,
+                id=error_id,
+                role="alert",
+                cls="mt-1 text-sm text-error",
+            )
+        )
 
     return Div(*elements, cls="space-y-1")
 
@@ -92,6 +114,11 @@ def Textarea(
 
     Returns:
         A Div containing the label (optional), textarea, and error (optional)
+
+    Accessibility:
+        - Uses aria-invalid to indicate error state
+        - Links error message via aria-describedby
+        - Error div has role="alert" for screen reader announcements
     """
     textarea_cls = (
         "w-full px-3 py-2 bg-base-100 border rounded-lg text-base-content "
@@ -106,11 +133,19 @@ def Textarea(
         textarea_cls += " border-base-300"
 
     elements = []
+    error_id = f"{name}-error"
+    has_error = error is not None
 
     if label:
         label_cls = "block text-sm font-medium text-base-content mb-1.5"
         label_text = f"{label} *" if required else label
         elements.append(Label(label_text, cls=label_cls, for_=name))
+
+    # Build ARIA attributes for accessibility
+    aria_attrs = {}
+    if has_error:
+        aria_attrs["aria_invalid"] = "true"
+        aria_attrs["aria_describedby"] = error_id
 
     elements.append(
         HtmlTextarea(
@@ -120,12 +155,21 @@ def Textarea(
             cls=textarea_cls,
             id=name,
             required=required,
+            **aria_attrs,
             **kwargs,
         )
     )
 
+    # Error message with proper ARIA role for screen readers
     if error:
-        elements.append(Div(error, cls="mt-1 text-sm text-error"))
+        elements.append(
+            Div(
+                error,
+                id=error_id,
+                role="alert",
+                cls="mt-1 text-sm text-error",
+            )
+        )
 
     return Div(*elements, cls="space-y-1")
 
@@ -154,6 +198,11 @@ def SelectInput(
 
     Returns:
         A Div containing the label (optional), select, and error (optional)
+
+    Accessibility:
+        - Uses aria-invalid to indicate error state
+        - Links error message via aria-describedby
+        - Error div has role="alert" for screen reader announcements
     """
     select_cls = (
         "w-full px-3 py-2 bg-base-100 border rounded-lg text-base-content "
@@ -166,6 +215,8 @@ def SelectInput(
         select_cls += " border-base-300"
 
     elements = []
+    error_id = f"{name}-error"
+    has_error = error is not None
 
     if label:
         label_cls = "block text-sm font-medium text-base-content mb-1.5"
@@ -177,6 +228,12 @@ def SelectInput(
     for value, display in options:
         option_elements.append(Option(display, value=value, selected=(value == selected)))
 
+    # Build ARIA attributes for accessibility
+    aria_attrs = {}
+    if has_error:
+        aria_attrs["aria_invalid"] = "true"
+        aria_attrs["aria_describedby"] = error_id
+
     elements.append(
         Select(
             *option_elements,
@@ -184,12 +241,21 @@ def SelectInput(
             cls=select_cls,
             id=name,
             required=required,
+            **aria_attrs,
             **kwargs,
         )
     )
 
+    # Error message with proper ARIA role for screen readers
     if error:
-        elements.append(Div(error, cls="mt-1 text-sm text-error"))
+        elements.append(
+            Div(
+                error,
+                id=error_id,
+                role="alert",
+                cls="mt-1 text-sm text-error",
+            )
+        )
 
     return Div(*elements, cls="space-y-1")
 

@@ -23,7 +23,7 @@ from core.models.lp.lp_position import LpPosition
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
-from core.models.shared_enums import Domain
+from core.models.shared_enums import ActivityStatus, Domain
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper

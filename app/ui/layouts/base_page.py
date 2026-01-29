@@ -25,7 +25,7 @@ Usage:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Body, Div, Head, Html, Link, Main, Meta, Script, Title
+from fasthtml.common import Body, Button, Div, Head, Html, Link, Main, Meta, P, Script, Title
 
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
 from ui.layouts.page_types import PAGE_CONFIG, PageType
@@ -54,7 +54,7 @@ def _build_head(
 
     return Head(
         Meta(charset="UTF-8"),
-        Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
+        Meta(name="viewport", content="width=device-width, initial-scale=1.0, viewport-fit=cover"),
         Title(f"{title} - SKUEL"),
         # DaisyUI CSS
         Link(
@@ -178,6 +178,45 @@ def BasePage(
             main_area,
             # Modal container for overlays
             Div(id="modal"),
+            # Live region for screen reader announcements
+            Div(
+                id="live-region",
+                role="status",
+                cls="sr-only",
+                **{"aria-live": "polite", "aria-atomic": "true"},
+            ),
+            # Toast notification container
+            Div(
+                **{"x-data": "toastManager", "x-cloak": True},
+                cls="fixed top-4 right-4 z-50 space-y-2",
+            )(
+                # Template for rendering toasts
+                Div(
+                    **{"x-for": "toast in toasts", ":key": "toast.id"},
+                )(
+                    Div(
+                        Div(
+                            P(**{"x-text": "toast.message"}, cls="text-sm font-medium"),
+                            Button(
+                                "×",
+                                **{"@click": "dismiss(toast.id)"},
+                                cls="ml-4 text-lg hover:opacity-70 transition-opacity",
+                                type="button",
+                            ),
+                            cls="flex items-center justify-between",
+                        ),
+                        cls="alert shadow-lg max-w-sm transition-all",
+                        **{
+                            ":class": """{
+                                'alert-success': toast.type === 'success',
+                                'alert-error': toast.type === 'error',
+                                'alert-info': toast.type === 'info',
+                                'alert-warning': toast.type === 'warning'
+                            }""",
+                        },
+                    )
+                )
+            ),
             cls="bg-base-100",
         ),
         **{"data-theme": "light"},

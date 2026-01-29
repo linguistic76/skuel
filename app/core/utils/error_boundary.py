@@ -41,9 +41,35 @@ def result_to_response[T](result: Result[T], success_status: int = 200) -> JSONR
 
     Returns:
         JSONResponse with appropriate status code
+
+    Note:
+        If result.value is a dict with a '_headers' key, those headers will be
+        added to the response and the '_headers' key will be removed from the content.
+        This allows services to specify custom headers (e.g., toast notifications):
+
+        return Result.ok({
+            "task": task_data,
+            "_headers": {
+                "X-Toast-Message": "Task created successfully",
+                "X-Toast-Type": "success"
+            }
+        })
     """
     if result.is_ok:
-        return JSONResponse(content=result.value, status_code=success_status)
+        content = result.value
+        headers = {}
+
+        # Extract _headers if present in dict response
+        if isinstance(content, dict) and "_headers" in content:
+            headers = content.pop("_headers")
+
+        response = JSONResponse(content=content, status_code=success_status)
+
+        # Add custom headers
+        for key, value in headers.items():
+            response.headers[key] = value
+
+        return response
 
     # Map error categories to HTTP status codes
     error = result.expect_error()
@@ -59,8 +85,12 @@ def result_to_response[T](result: Result[T], success_status: int = 200) -> JSONR
 
     status_code = status_map.get(error.category, 500)
 
-    # Return error context as JSON
-    return JSONResponse(content=error.to_dict(), status_code=status_code)
+    # Return error context as JSON with toast header for errors
+    response = JSONResponse(content=error.to_dict(), status_code=status_code)
+    response.headers["X-Toast-Message"] = error.message
+    response.headers["X-Toast-Type"] = "error"
+
+    return response
 
 
 def result_to_exception[T](result: Result[T]) -> T:

@@ -101,7 +101,11 @@ def _mobile_menu_button() -> Button:
         Span(_close_icon(), **{"x-show": "mobileMenuOpen", "x-cloak": ""}),
         type="button",
         cls="btn btn-ghost btn-square sm:hidden",
-        **{"@click": "toggleMobile()"},
+        **{
+            "@click": "toggleMobile()",
+            "aria-label": "Toggle menu",
+            ":aria-expanded": "mobileMenuOpen.toString()",
+        },
     )
 
 

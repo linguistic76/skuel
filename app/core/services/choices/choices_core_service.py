@@ -24,6 +24,7 @@ from core.models.choice.choice import Choice, ChoiceStatus, ChoiceType
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_request import ChoiceUpdateRequest
 from core.models.relationship_names import RelationshipName
+from core.models.shared_enums import ActivityStatus
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import ChoicesOperations
