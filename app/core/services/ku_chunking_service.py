@@ -106,6 +106,57 @@ class KuChunkingService:
     # CONTENT PROCESSING
     # ==========================================================================
 
+    async def process_content_for_ingestion(
+        self,
+        parent_uid: str,
+        content_body: str,
+        format: str = "markdown",
+        source_path: str | None = None,
+    ) -> Result[tuple[KuContent, KuMetadata]]:
+        """
+        Process knowledge content during ingestion (simplified interface).
+
+        This method is designed for use during ingestion when we have raw
+        entity data but not a full Ku domain model yet. It creates chunks
+        and metadata directly from the UID and content.
+
+        Args:
+            parent_uid: UID of the knowledge unit (e.g., "ku.python_basics")
+            content_body: The raw content text
+            format: Content format (markdown/html/text)
+            source_path: Original file path if imported
+
+        Returns:
+            Result containing tuple of (KuContent, KuMetadata)
+        """
+        try:
+            # Create KuContent with automatic chunking
+            content = KuContent.create(
+                unit_uid=parent_uid, body=content_body, format=format, source_path=source_path
+            )
+
+            # Generate metadata from content
+            metadata = KuMetadata.from_content(content)
+
+            # Cache for quick retrieval
+            self._content_cache[parent_uid] = content
+            self._metadata_cache[parent_uid] = metadata
+
+            self.logger.info(
+                f"Processed content for {parent_uid}: "
+                f"{content.word_count} words, {content.chunk_count} chunks"
+            )
+
+            return Result.ok((content, metadata))
+
+        except ValueError as e:
+            return Result.fail(Errors.validation(f"Invalid content: {e!s}", field="content_body"))
+        except Exception as e:
+            self.logger.error(f"Failed to process content: {e}")
+            return Result.fail(
+                Errors.system(f"Content processing failed: {e!s}", operation="process_content_for_ingestion")
+            )
+
     async def process_ku_content(
         self,
         knowledge: Ku,

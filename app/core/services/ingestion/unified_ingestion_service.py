@@ -89,6 +89,7 @@ class UnifiedIngestionService:
         default_user_uid: str | None = None,
         max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
         embeddings_service: Any | None = None,
+        chunking_service: Any | None = None,
     ) -> None:
         """
         Initialize unified ingestion service.
@@ -101,6 +102,8 @@ class UnifiedIngestionService:
                                  Files larger than this will be rejected to prevent OOM.
             embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation.
                                 If not provided, ingestion works without embeddings (graceful degradation).
+            chunking_service: Optional KuChunkingService for automatic chunk generation.
+                              If not provided, ingestion works without chunking (graceful degradation).
         """
         if not driver:
             raise ValueError("Neo4j driver is required")
@@ -111,6 +114,7 @@ class UnifiedIngestionService:
         )
         self.max_file_size_bytes = max_file_size_bytes
         self.embeddings = embeddings_service  # Can be None - graceful degradation
+        self.chunking = chunking_service  # Can be None - graceful degradation
         self.logger = logger
 
         # Log embedding availability
@@ -121,6 +125,16 @@ class UnifiedIngestionService:
         else:
             self.logger.warning(
                 "⚠️ Embeddings service not available - ingestion will work without embeddings"
+            )
+
+        # Log chunking availability
+        if self.chunking:
+            self.logger.info(
+                "✅ Chunking service available - will generate chunks during KU ingestion"
+            )
+        else:
+            self.logger.warning(
+                "⚠️ Chunking service not available - KU ingestion will work without chunks"
             )
 
         # Lazy-initialized engines per entity type (keyed by EntityType)
@@ -281,6 +295,33 @@ class UnifiedIngestionService:
         stats = result.value
         self.logger.info(f"Ingested {entity_type.value}: {entity_data['uid']}")
 
+        # Phase 1: Automatic chunking for KU entities (January 2026)
+        # Generate chunks immediately after successful KU ingestion for RAG-readiness
+        chunks_generated = False
+        if entity_type == EntityType.KU and self.chunking:
+            content_body = entity_data.get("content", "")
+            if content_body:
+                chunk_result = await self.chunking.process_content_for_ingestion(
+                    parent_uid=entity_data["uid"],
+                    content_body=content_body,
+                    format=file_format,
+                    source_path=str(file_path),
+                )
+
+                if chunk_result.is_error:
+                    # Log warning but don't fail ingestion - chunks can be regenerated later
+                    self.logger.warning(
+                        f"Failed to generate chunks for {entity_data['uid']}: "
+                        f"{chunk_result.expect_error().message}"
+                    )
+                else:
+                    content, metadata = chunk_result.value
+                    chunks_generated = True
+                    self.logger.info(
+                        f"Generated {content.chunk_count} chunks for {entity_data['uid']} "
+                        f"({content.word_count} words)"
+                    )
+
         return Result.ok(
             {
                 "uid": entity_data["uid"],
@@ -291,6 +332,7 @@ class UnifiedIngestionService:
                 "nodes_created": stats.nodes_created,
                 "nodes_updated": stats.nodes_updated,
                 "relationships_created": stats.relationships_created,
+                "chunks_generated": chunks_generated,  # Track whether chunking succeeded
             }
         )
 
