@@ -20,7 +20,7 @@ Date: 2025-10-10
 """
 
 from datetime import date, datetime
-from typing import Any, ClassVar
+from typing import Any
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.models.relationship_names import RelationshipName

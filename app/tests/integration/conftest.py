@@ -966,3 +966,122 @@ async def populated_test_data(skuel_app):
             """,
             user_uid=test_user_uid,
         )
+
+
+# ========================================================================
+# ASYNC EMBEDDING TEST FIXTURES (January 2026)
+# ========================================================================
+
+
+@pytest.fixture
+def event_bus():
+    """Create a simple event bus for testing."""
+    from core.events.event_bus import EventBus
+
+    return EventBus()
+
+
+@pytest.fixture
+def user_uid():
+    """Standard test user UID."""
+    return "user.test_async_embeddings"
+
+
+@pytest_asyncio.fixture
+async def tasks_backend(neo4j_driver):
+    """Create tasks backend for testing."""
+    from core.models.task.task import Task
+
+    return UniversalNeo4jBackend[Task](driver=neo4j_driver, label="Task", model_class=Task)
+
+
+@pytest_asyncio.fixture
+async def tasks_service(tasks_backend, event_bus):
+    """Create tasks core service for testing."""
+    from core.services.tasks.tasks_core_service import TasksCoreService
+
+    return TasksCoreService(backend=tasks_backend, event_bus=event_bus)
+
+
+@pytest_asyncio.fixture
+async def goals_backend(neo4j_driver):
+    """Create goals backend for testing."""
+    from core.models.goal.goal import Goal
+
+    return UniversalNeo4jBackend[Goal](driver=neo4j_driver, label="Goal", model_class=Goal)
+
+
+@pytest_asyncio.fixture
+async def goals_service(goals_backend, event_bus):
+    """Create goals core service for testing."""
+    from core.services.goals.goals_core_service import GoalsCoreService
+
+    return GoalsCoreService(backend=goals_backend, event_bus=event_bus)
+
+
+@pytest_asyncio.fixture
+async def habits_backend(neo4j_driver):
+    """Create habits backend for testing."""
+    from core.models.habit.habit import Habit
+
+    return UniversalNeo4jBackend[Habit](driver=neo4j_driver, label="Habit", model_class=Habit)
+
+
+@pytest_asyncio.fixture
+async def habits_service(habits_backend, event_bus):
+    """Create habits core service for testing."""
+    from core.services.habits.habits_core_service import HabitsCoreService
+
+    return HabitsCoreService(backend=habits_backend, event_bus=event_bus)
+
+
+@pytest_asyncio.fixture
+async def events_backend(neo4j_driver):
+    """Create events backend for testing."""
+    from core.models.event.event import Event
+
+    return UniversalNeo4jBackend[Event](driver=neo4j_driver, label="Event", model_class=Event)
+
+
+@pytest_asyncio.fixture
+async def events_service(events_backend, event_bus):
+    """Create events core service for testing."""
+    from core.services.events.events_core_service import EventsCoreService
+
+    return EventsCoreService(backend=events_backend, event_bus=event_bus)
+
+
+@pytest_asyncio.fixture
+async def choices_backend(neo4j_driver):
+    """Create choices backend for testing."""
+    from core.models.choice.choice import Choice
+
+    return UniversalNeo4jBackend[Choice](
+        driver=neo4j_driver, label="Choice", model_class=Choice
+    )
+
+
+@pytest_asyncio.fixture
+async def choices_service(choices_backend, event_bus):
+    """Create choices core service for testing."""
+    from core.services.choices.choices_core_service import ChoicesCoreService
+
+    return ChoicesCoreService(backend=choices_backend, event_bus=event_bus)
+
+
+@pytest_asyncio.fixture
+async def principles_backend(neo4j_driver):
+    """Create principles backend for testing."""
+    from core.models.principle.principle import Principle
+
+    return UniversalNeo4jBackend[Principle](
+        driver=neo4j_driver, label="Principle", model_class=Principle
+    )
+
+
+@pytest_asyncio.fixture
+async def principles_service(principles_backend, event_bus):
+    """Create principles core service for testing."""
+    from core.services.principles.principles_core_service import PrinciplesCoreService
+
+    return PrinciplesCoreService(backend=principles_backend, event_bus=event_bus)

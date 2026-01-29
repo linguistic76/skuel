@@ -368,6 +368,196 @@ class TestGoalEmbeddingTextExtraction:
         assert text == "Get fit"
 
 
-# TODO: Add tests for other activity domains (Habits, Events, Choices, Principles)
+class TestHabitEmbeddingEvents:
+    """Test embedding event publishing for habits."""
+
+    @pytest.mark.asyncio
+    async def test_habit_creation_publishes_embedding_event(
+        self, habits_service, event_bus, user_uid
+    ):
+        """
+        GIVEN: Habit service with event bus
+        WHEN: Creating a habit
+        THEN: HabitEmbeddingRequested event is published
+        """
+        # Capture events
+        events_received = []
+
+        async def capture_event(event):
+            events_received.append(event)
+
+        from core.events import HabitEmbeddingRequested
+
+        event_bus.subscribe(HabitEmbeddingRequested, capture_event)
+
+        # Create habit
+        from core.models.habit.habit_request import HabitCreateRequest
+
+        request = HabitCreateRequest(
+            name="Morning Meditation",
+            description="Practice mindfulness for 10 minutes",
+            cue="After waking up",
+            reward="Feel calm and centered",
+        )
+        result = await habits_service.create_habit(request, user_uid)
+
+        # Wait for event propagation
+        await asyncio.sleep(0.1)
+
+        # Verify
+        assert result.is_ok
+        assert len(events_received) == 1
+
+        event = events_received[0]
+        assert event.entity_uid == result.value.uid
+        assert event.entity_type == "habit"
+        assert "Morning Meditation" in event.embedding_text
+        assert "Practice mindfulness" in event.embedding_text
+        assert "After waking up" in event.embedding_text
+        assert "Feel calm" in event.embedding_text
+
+
+class TestEventEmbeddingEvents:
+    """Test embedding event publishing for events."""
+
+    @pytest.mark.asyncio
+    async def test_event_creation_publishes_embedding_event(self, events_service, event_bus, user_uid):
+        """
+        GIVEN: Event service with event bus
+        WHEN: Creating an event
+        THEN: EventEmbeddingRequested event is published
+        """
+        # Capture events
+        events_received = []
+
+        async def capture_event(event):
+            events_received.append(event)
+
+        from core.events import EventEmbeddingRequested
+
+        event_bus.subscribe(EventEmbeddingRequested, capture_event)
+
+        # Create event
+        from core.models.event.event import Event
+
+        event_entity = Event(
+            uid="event.test",
+            user_uid=user_uid,
+            title="Team Meeting",
+            description="Quarterly planning session",
+            location="Conference Room A",
+            event_date=datetime.now().date(),
+        )
+        result = await events_service.create(event_entity)
+
+        # Wait for event propagation
+        await asyncio.sleep(0.1)
+
+        # Verify
+        assert result.is_ok
+        assert len(events_received) == 1
+
+        event = events_received[0]
+        assert event.entity_uid == result.value.uid
+        assert event.entity_type == "event"
+        assert "Team Meeting" in event.embedding_text
+        assert "Quarterly planning" in event.embedding_text
+        assert "Conference Room A" in event.embedding_text
+
+
+class TestChoiceEmbeddingEvents:
+    """Test embedding event publishing for choices."""
+
+    @pytest.mark.asyncio
+    async def test_choice_creation_publishes_embedding_event(
+        self, choices_service, event_bus, user_uid
+    ):
+        """
+        GIVEN: Choice service with event bus
+        WHEN: Creating a choice
+        THEN: ChoiceEmbeddingRequested event is published
+        """
+        # Capture events
+        events_received = []
+
+        async def capture_event(event):
+            events_received.append(event)
+
+        from core.events import ChoiceEmbeddingRequested
+
+        event_bus.subscribe(ChoiceEmbeddingRequested, capture_event)
+
+        # Create choice
+        from core.models.choice.choice_request import ChoiceCreateRequest
+
+        request = ChoiceCreateRequest(
+            title="Career Path Decision",
+            description="Choose between staying at current company or joining startup",
+            decision_context="Looking for growth opportunities",
+        )
+        result = await choices_service.create_choice(request, user_uid)
+
+        # Wait for event propagation
+        await asyncio.sleep(0.1)
+
+        # Verify
+        assert result.is_ok
+        assert len(events_received) == 1
+
+        event = events_received[0]
+        assert event.entity_uid == result.value.uid
+        assert event.entity_type == "choice"
+        assert "Career Path Decision" in event.embedding_text
+        assert "current company or joining startup" in event.embedding_text
+        assert "growth opportunities" in event.embedding_text
+
+
+class TestPrincipleEmbeddingEvents:
+    """Test embedding event publishing for principles."""
+
+    @pytest.mark.asyncio
+    async def test_principle_creation_publishes_embedding_event(
+        self, principles_service, event_bus, user_uid
+    ):
+        """
+        GIVEN: Principle service with event bus
+        WHEN: Creating a principle
+        THEN: PrincipleEmbeddingRequested event is published
+        """
+        # Capture events
+        events_received = []
+
+        async def capture_event(event):
+            events_received.append(event)
+
+        from core.events import PrincipleEmbeddingRequested
+
+        event_bus.subscribe(PrincipleEmbeddingRequested, capture_event)
+
+        # Create principle
+        from core.models.principle.principle import PrincipleCategory
+
+        result = await principles_service.create_principle(
+            label="Continuous Learning",
+            description="Always seek to expand knowledge and skills",
+            category=PrincipleCategory.PERSONAL_GROWTH,
+            why_matters="Growth mindset enables adaptation and success",
+            user_uid=user_uid,
+        )
+
+        # Wait for event propagation
+        await asyncio.sleep(0.1)
+
+        # Verify
+        assert result.is_ok
+        assert len(events_received) == 1
+
+        event = events_received[0]
+        assert event.entity_uid == result.value.uid
+        assert event.entity_type == "principle"
+        assert "Continuous Learning" in event.embedding_text
+        assert "expand knowledge and skills" in event.embedding_text
+
+
 # TODO: Add end-to-end test with real Neo4j
 # TODO: Add performance benchmarking test

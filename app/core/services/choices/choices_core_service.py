@@ -11,7 +11,7 @@ Version: 1.0.0
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.choice_events import (
@@ -96,6 +96,32 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
     def entity_label(self) -> str:
         """Return the graph label for Choice entities."""
         return "Choice"
+
+    # ========================================================================
+    # EMBEDDING HELPERS (Async Background Generation - January 2026)
+    # ========================================================================
+
+    def _build_embedding_text(self, choice: Choice) -> str:
+        """
+        Build text for embedding from choice fields.
+
+        Used for async background embedding generation.
+        Includes title, description, decision_context, and outcome for comprehensive semantic search.
+
+        Args:
+            choice: Choice domain model
+
+        Returns:
+            Text for embedding (title + description + decision_context + outcome)
+        """
+        parts = [choice.title]
+        if choice.description:
+            parts.append(choice.description)
+        if choice.decision_context:
+            parts.append(choice.decision_context)
+        if choice.outcome:
+            parts.append(choice.outcome)
+        return "\n".join(parts).strip()
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
@@ -282,6 +308,21 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
                 choice_title=choice.title,
             )
             await publish_event(self.event_bus, knowledge_event, self.logger)
+
+        # Publish embedding request event for async background generation (Phase 1 - January 2026)
+        # Background worker will process embeddings in batches (zero latency impact on user)
+        embedding_text = self._build_embedding_text(choice)
+        if embedding_text:
+            from core.events import ChoiceEmbeddingRequested
+
+            embedding_event = ChoiceEmbeddingRequested(
+                entity_uid=choice.uid,
+                entity_type="choice",
+                embedding_text=embedding_text,
+                user_uid=choice.user_uid,
+                requested_at=datetime.now(),
+            )
+            await publish_event(self.event_bus, embedding_event, self.logger)
 
         return Result.ok(choice)
 

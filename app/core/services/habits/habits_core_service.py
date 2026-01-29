@@ -16,7 +16,7 @@ Date: 2025-11-05
 """
 
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any
 
 from core.events import publish_event
 from core.events.habit_events import HabitCreated
@@ -85,6 +85,32 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
     def entity_label(self) -> str:
         """Return the graph label for Habit entities."""
         return "Habit"
+
+    # ========================================================================
+    # EMBEDDING HELPERS (Async Background Generation - January 2026)
+    # ========================================================================
+
+    def _build_embedding_text(self, habit: Habit) -> str:
+        """
+        Build text for embedding from habit fields.
+
+        Used for async background embedding generation.
+        Includes name, description, cue (trigger), and reward for comprehensive semantic search.
+
+        Args:
+            habit: Habit domain model
+
+        Returns:
+            Text for embedding (name + description + cue + reward)
+        """
+        parts = [habit.name]
+        if habit.description:
+            parts.append(habit.description)
+        if habit.cue:
+            parts.append(habit.cue)
+        if habit.reward:
+            parts.append(habit.reward)
+        return "\n".join(parts).strip()
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
@@ -335,6 +361,21 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
+
+        # Publish embedding request event for async background generation (Phase 1 - January 2026)
+        # Background worker will process embeddings in batches (zero latency impact on user)
+        embedding_text = self._build_embedding_text(habit)
+        if embedding_text:
+            from core.events import HabitEmbeddingRequested
+
+            embedding_event = HabitEmbeddingRequested(
+                entity_uid=habit.uid,
+                entity_type="habit",
+                embedding_text=embedding_text,
+                user_uid=habit.user_uid,
+                requested_at=datetime.now(),
+            )
+            await publish_event(self.event_bus, embedding_event, self.logger)
 
         return Result.ok(habit)
 

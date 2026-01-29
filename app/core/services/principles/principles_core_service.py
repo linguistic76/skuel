@@ -96,6 +96,30 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         return "Principle"
 
     # ========================================================================
+    # EMBEDDING HELPERS (Async Background Generation - January 2026)
+    # ========================================================================
+
+    def _build_embedding_text(self, principle: Principle) -> str:
+        """
+        Build text for embedding from principle fields.
+
+        Used for async background embedding generation.
+        Includes name, statement, and description for comprehensive semantic search.
+
+        Args:
+            principle: Principle domain model
+
+        Returns:
+            Text for embedding (name + statement + description)
+        """
+        parts = [principle.name]
+        if principle.statement:
+            parts.append(principle.statement)
+        if principle.description:
+            parts.append(principle.description)
+        return "\n".join(parts).strip()
+
+    # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
@@ -289,6 +313,21 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, logger)
+
+        # Publish embedding request event for async background generation (Phase 1 - January 2026)
+        # Background worker will process embeddings in batches (zero latency impact on user)
+        embedding_text = self._build_embedding_text(principle)
+        if embedding_text:
+            from core.events import PrincipleEmbeddingRequested
+
+            embedding_event = PrincipleEmbeddingRequested(
+                entity_uid=principle.uid,
+                entity_type="principle",
+                embedding_text=embedding_text,
+                user_uid=user_uid,
+                requested_at=datetime.now(),
+            )
+            await publish_event(self.event_bus, embedding_event, logger)
 
         logger.info(f"Created principle: {label}")
         return result  # backend.create() already returns Result[Principle]

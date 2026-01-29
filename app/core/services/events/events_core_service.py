@@ -18,7 +18,7 @@ Date: 2025-11-05
 
 from datetime import date, datetime
 from operator import attrgetter
-from typing import Any, ClassVar
+from typing import Any
 
 from core.events import publish_event
 from core.events.calendar_event_events import (
@@ -98,6 +98,30 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
     def entity_label(self) -> str:
         """Return the graph label for Event entities."""
         return "Event"
+
+    # ========================================================================
+    # EMBEDDING HELPERS (Async Background Generation - January 2026)
+    # ========================================================================
+
+    def _build_embedding_text(self, event: Event) -> str:
+        """
+        Build text for embedding from event fields.
+
+        Used for async background embedding generation.
+        Includes title, description, and location for comprehensive semantic search.
+
+        Args:
+            event: Event domain model
+
+        Returns:
+            Text for embedding (title + description + location)
+        """
+        parts = [event.title]
+        if event.description:
+            parts.append(event.description)
+        if event.location:
+            parts.append(event.location)
+        return "\n".join(parts).strip()
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
@@ -368,6 +392,21 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, domain_event, self.logger)
+
+            # Publish embedding request event for async background generation (Phase 1 - January 2026)
+            # Background worker will process embeddings in batches (zero latency impact on user)
+            embedding_text = self._build_embedding_text(event)
+            if embedding_text:
+                from core.events import EventEmbeddingRequested
+
+                embedding_event = EventEmbeddingRequested(
+                    entity_uid=event.uid,
+                    entity_type="event",
+                    embedding_text=embedding_text,
+                    user_uid=event.user_uid,
+                    requested_at=datetime.now(),
+                )
+                await publish_event(self.event_bus, embedding_event, self.logger)
 
         return result
 
