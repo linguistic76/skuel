@@ -343,6 +343,9 @@ class Services:
         None  # Neo4jVectorSearchService - Vector search via db.index.vector.queryNodes()
     )
 
+    # Background workers (January 2026)
+    embedding_worker: Any = None  # EmbeddingBackgroundWorker - Async background embedding generation
+
     # Services are ready when constructed - no lifecycle needed
 
     async def cleanup(self) -> None:
@@ -1106,24 +1109,28 @@ async def compose_services(
         # Note: TranscriptionService is already created in core_services with Deepgram wiring
         # Note: MarkdownSyncService DELETED (January 2026) - use UnifiedIngestionService
 
+        # Create knowledge components using 100% dynamic backend pattern
+        # IMPORTANT: chunking_service must be created BEFORE UnifiedIngestionService (January 2026)
+        from adapters.persistence.neo4j.neo4j_connection import get_connection
+        from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
+        from core.services.ku_chunking_service import KuChunkingService
+
+        chunking_service = KuChunkingService()
+        logger.info("✅ KuChunkingService created for automatic chunk generation")
+
         # Create UnifiedIngestionService (ADR-014: Merged MD + YAML ingestion)
+        # January 2026 - Automatic Chunking: Pass chunking service for RAG-ready ingestion
         # January 2026 - GenAI Integration: Pass embeddings service for automatic embedding generation
         from core.services.ingestion import UnifiedIngestionService
 
         unified_ingestion = UnifiedIngestionService(
             driver=driver,
             embeddings_service=None,  # Optional - will be created later in learning_services
+            chunking_service=chunking_service,  # Automatic chunk generation for KU entities
         )
         logger.info(
-            "✅ Content services created (includes UnifiedIngestionService with optional embeddings)"
+            "✅ Content services created (includes UnifiedIngestionService with automatic chunking)"
         )
-
-        # Create knowledge components using 100% dynamic backend pattern
-        from adapters.persistence.neo4j.neo4j_connection import get_connection
-        from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
-        from core.services.ku_chunking_service import KuChunkingService
-
-        chunking_service = KuChunkingService()
 
         # Use Neo4jContentAdapter for ContentOperations protocol (store_content_with_chunks, get_chunks, etc.)
         connection = await get_connection()
@@ -1176,6 +1183,34 @@ async def compose_services(
         # Extract embeddings and vector search services for use by intelligence services and SearchRouter
         embeddings_service = learning_services["embeddings_service"]
         vector_search_service = learning_services["vector_search_service"]
+
+        # ========================================================================
+        # CREATE BACKGROUND WORKERS (January 2026)
+        # ========================================================================
+
+        # Create embedding background worker (async embedding generation for all activity domains)
+        # Worker processes EmbeddingRequested events in batches for zero-latency user experience
+        embedding_worker = None
+        if embeddings_service:
+            try:
+                from core.services.background.embedding_worker import EmbeddingBackgroundWorker
+
+                embedding_worker = EmbeddingBackgroundWorker(
+                    event_bus=event_bus,
+                    embeddings_service=embeddings_service,
+                    driver=driver,
+                    batch_size=25,  # Process 25 entities per batch (cost-optimized)
+                    batch_interval_seconds=30,  # Run every 30 seconds
+                )
+                logger.info(
+                    "✅ Embedding background worker created (batch_size=25, interval=30s)"
+                )
+                logger.info("   Worker will process embeddings for: Tasks, Goals, Habits, Events, Choices, Principles")
+            except Exception as e:
+                logger.warning(f"Failed to initialize embedding background worker: {e}")
+                logger.warning("   Embeddings will only be generated during ingestion")
+        else:
+            logger.info("⏭️  Embedding background worker skipped (embeddings_service not available)")
 
         # Create Askesis core service (CRUD operations for AI assistant instances)
         from core.services.askesis.askesis_core_service import AskesisCoreService
@@ -2064,6 +2099,8 @@ async def compose_services(
             # GenAI services (Neo4j native - January 2026)
             embeddings_service=embeddings_service,
             vector_search_service=vector_search_service,
+            # Background workers (January 2026)
+            embedding_worker=embedding_worker,
             # Reports
             reports=report_service,
             cross_domain_analytics=advanced["cross_domain_analytics"],  # Phase 5

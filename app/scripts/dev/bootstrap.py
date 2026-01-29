@@ -17,6 +17,7 @@ This eliminates:
 __version__ = "1.0"
 
 
+import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -598,9 +599,22 @@ async def _wire_all_routes(
 # ============================================================================
 
 
-async def startup_skuel(_container: AppContainer) -> None:
+async def startup_skuel(container: AppContainer) -> None:
     """Handle application startup events"""
     logger.info("🌟 SKUEL Application started on http://localhost:8000")
+
+    # Start embedding background worker (async background task - January 2026)
+    # Worker processes EmbeddingRequested events in batches for zero-latency user experience
+    if container.services.embedding_worker:
+        background_task = asyncio.create_task(
+            container.services.embedding_worker.start(),
+            name="embedding_worker"
+        )
+        # Store task reference on app state for shutdown cleanup
+        container.app.state.embedding_worker_task = background_task
+        logger.info("✅ Embedding background worker started (processes Tasks, Goals, Habits, Events, Choices, Principles)")
+    else:
+        logger.info("⏭️  Embedding background worker not available (embeddings only via ingestion)")
 
 
 async def shutdown_skuel(container: AppContainer) -> None:
@@ -608,6 +622,18 @@ async def shutdown_skuel(container: AppContainer) -> None:
     logger.info("👋 Shutting down SKUEL Application")
 
     try:
+        # Stop embedding background worker if running (January 2026)
+        embedding_worker_task = getattr(container.app.state, "embedding_worker_task", None)
+        if embedding_worker_task and not embedding_worker_task.done():
+            logger.info("🛑 Stopping embedding background worker...")
+            embedding_worker_task.cancel()
+            try:
+                await embedding_worker_task
+            except asyncio.CancelledError:
+                logger.info("✅ Embedding background worker stopped")
+            except Exception as e:
+                logger.warning(f"⚠️  Error stopping embedding worker: {e}")
+
         # Single cleanup path through Services.stop()
         await container.services.cleanup()
         logger.info("✅ Application shutdown complete")
