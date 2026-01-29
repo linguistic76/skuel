@@ -213,6 +213,7 @@ class Services:
 
     # User management (fundamental)
     user_service: Any = None  # UserService - user profile management
+    user_relationships: Any = None  # UserRelationshipService - pinning, following, etc.
     graph_auth: Any = None  # GraphAuthService - graph-native authentication
     context_service: Any = None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)
     context_intelligence: Any = (
@@ -973,6 +974,12 @@ async def compose_services(
 
         user_service = create_user_service(users_backend, driver)
         logger.info("✅ UserService created (foundation service)")
+
+        # Create user relationship service (pinning, following, etc.)
+        from core.services.user_relationship_service import UserRelationshipService
+
+        user_relationships = UserRelationshipService(driver=driver)
+        logger.info("✅ UserRelationshipService created (pinning, following)")
 
         # Create graph-native authentication service (January 2026)
         # Sessions stored in Neo4j with bcrypt password hashing
@@ -2010,6 +2017,7 @@ async def compose_services(
             transcription=core_services["transcription"],
             # User management
             user_service=core_services["user"],
+            user_relationships=user_relationships,  # UserRelationshipService (pinning, following)
             graph_auth=graph_auth,  # Graph-native authentication (January 2026)
             context_service=context_service,  # Context-aware intelligence (NEW: 2025-11-18)
             # Content organization
