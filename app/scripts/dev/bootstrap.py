@@ -351,6 +351,12 @@ async def _wire_all_routes(
 
     create_system_routes(app, rt, services, None)  # sync field removed (Jan 2026)
 
+    # Monitoring routes (Phase 3 - January 2026)
+    from adapters.inbound.monitoring_routes import create_monitoring_routes
+
+    create_monitoring_routes(app, rt, services)
+    logger.info("✅ Monitoring routes registered (/api/monitoring/*)")
+
     # Core domain routes
     if services.tasks:
         from adapters.inbound.tasks_routes import create_tasks_routes

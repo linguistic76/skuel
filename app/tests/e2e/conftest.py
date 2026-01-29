@@ -8,6 +8,8 @@ E2E tests use the same Neo4j testcontainer and fixtures as integration tests,
 but test complete workflows from start to finish.
 """
 
+import pytest_asyncio
+
 # Import all integration test fixtures for E2E tests
 from tests.integration.conftest import (
     clean_neo4j,
@@ -34,6 +36,47 @@ from tests.integration.conftest import (
     user_service,
 )
 
+# ========================================================================
+# E2E-SPECIFIC FIXTURES (Embedding Worker - January 2026)
+# ========================================================================
+
+
+@pytest_asyncio.fixture
+async def event_bus():
+    """Create event bus for e2e tests."""
+    from adapters.infrastructure.event_bus import InMemoryEventBus
+
+    return InMemoryEventBus()
+
+
+@pytest_asyncio.fixture
+async def embeddings_service(neo4j_driver):
+    """Create embeddings service for e2e tests."""
+    try:
+        from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+
+        return Neo4jGenAIEmbeddingsService(neo4j_driver)
+    except Exception:
+        # If embeddings service fails (no OpenAI key), skip these tests
+        import pytest
+
+        pytest.skip("Embeddings service not available (requires OpenAI API key)")
+
+
+@pytest_asyncio.fixture
+async def embedding_worker(event_bus, embeddings_service, neo4j_driver):
+    """Create embedding background worker for e2e tests."""
+    from core.services.background.embedding_worker import EmbeddingBackgroundWorker
+
+    return EmbeddingBackgroundWorker(
+        event_bus=event_bus,
+        embeddings_service=embeddings_service,
+        driver=neo4j_driver,
+        batch_size=25,
+        batch_interval_seconds=30,
+    )
+
+
 # Re-export all fixtures so they're available to E2E tests
 __all__ = [
     "neo4j_container",
@@ -58,4 +101,8 @@ __all__ = [
     "populated_test_data",
     "create_relationship",
     "lp_relationship_service",
+    # E2E-specific fixtures
+    "event_bus",
+    "embeddings_service",
+    "embedding_worker",
 ]
