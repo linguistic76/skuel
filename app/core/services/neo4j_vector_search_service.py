@@ -98,14 +98,14 @@ class Neo4jVectorSearchService:
         }
 
         try:
-            result = await self.driver.execute_query(query, params)
+            records, _, _ = await self.driver.execute_query(query, params)
 
-            if not result:
+            if not records:
                 return Result.ok([])
 
             # Convert to list of dicts
             similar = [
-                {"node": dict(record["node"]), "score": record["score"]} for record in result
+                {"node": dict(record["node"]), "score": record["score"]} for record in records
             ]
 
             return Result.ok(similar)
@@ -193,9 +193,9 @@ class Neo4jVectorSearchService:
         """
 
         try:
-            result = await self.driver.execute_query(query, {"uid": uid})
+            records, _, _ = await self.driver.execute_query(query, {"uid": uid})
 
-            if not result or not result[0].get("embedding"):
+            if not records or not records[0].get("embedding"):
                 return Result.fail(
                     Errors.not_found(
                         entity_type=label,
@@ -204,7 +204,7 @@ class Neo4jVectorSearchService:
                     )
                 )
 
-            source_embedding = result[0]["embedding"]
+            source_embedding = records[0]["embedding"]
 
         except Exception as e:
             self.logger.error(f"Failed to get source embedding: {e}")
@@ -420,13 +420,13 @@ class Neo4jVectorSearchService:
         params = {"index_name": index_name, "query_text": query_text, "limit": limit}
 
         try:
-            result = await self.driver.execute_query(query, params)
+            records, _, _ = await self.driver.execute_query(query, params)
 
-            if not result:
+            if not records:
                 return Result.ok([])
 
             # Convert to list of dicts
-            nodes = [{"node": dict(record["node"]), "score": record["score"]} for record in result]
+            nodes = [{"node": dict(record["node"]), "score": record["score"]} for record in records]
 
             return Result.ok(nodes)
 
@@ -745,16 +745,16 @@ class Neo4jVectorSearchService:
         }
 
         try:
-            result = await self.driver.execute_query(query, params)
+            records, _, _ = await self.driver.execute_query(query, params)
 
-            if not result:
+            if not records:
                 return 0.0
 
             # Aggregate boosts from all relationships
             total_boost = 0.0
             relationship_count = 0
 
-            for record in result:
+            for record in records:
                 rel_type = record["relationship_type"]
                 confidence = record["confidence"]
                 strength = record["strength"]
@@ -942,9 +942,10 @@ class Neo4jVectorSearchService:
         query = """
         UNWIND $ku_uids as ku_uid
         MATCH (ku:Ku {uid: ku_uid})
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[p:IN_PROGRESS]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
+        MATCH (u:User {uid: $user_uid})
+        OPTIONAL MATCH (u)-[v:VIEWED]->(ku)
+        OPTIONAL MATCH (u)-[p:IN_PROGRESS]->(ku)
+        OPTIONAL MATCH (u)-[m:MASTERED]->(ku)
         RETURN
             ku.uid as ku_uid,
             v IS NOT NULL as has_viewed,
@@ -953,12 +954,12 @@ class Neo4jVectorSearchService:
         """
 
         try:
-            result = await self.driver.execute_query(
+            records, _, _ = await self.driver.execute_query(
                 query, {"user_uid": user_uid, "ku_uids": ku_uids}
             )
 
             states = {}
-            for record in result:
+            for record in records:
                 if record["has_mastered"]:
                     state = "mastered"
                 elif record["has_in_progress"]:

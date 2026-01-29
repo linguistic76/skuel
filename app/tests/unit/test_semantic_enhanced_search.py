@@ -68,13 +68,13 @@ class TestSemanticEnhancedSearch:
         ):
             # Mock semantic relationship query results
             # ku.python-advanced has high-confidence relationship to context
-            mock_driver.execute_query.return_value = [
+            mock_driver.execute_query.return_value = ([
                 {
                     "relationship_type": "REQUIRES_THEORETICAL_UNDERSTANDING",
                     "confidence": 0.9,
                     "strength": 1.0,
                 }
-            ]
+            ], None, None)
 
             # Execute semantic-enhanced search
             result = await vector_search_service.semantic_enhanced_search(
@@ -97,7 +97,7 @@ class TestSemanticEnhancedSearch:
         """Test semantic boost calculation with different relationship types."""
 
         # Mock relationships with different types and confidence
-        mock_driver.execute_query.return_value = [
+        mock_driver.execute_query.return_value = ([
             {
                 "relationship_type": "REQUIRES_THEORETICAL_UNDERSTANDING",  # weight: 1.0
                 "confidence": 0.9,
@@ -108,7 +108,7 @@ class TestSemanticEnhancedSearch:
                 "confidence": 0.7,
                 "strength": 0.8,
             },
-        ]
+        ], None, None)
 
         # Calculate boost
         boost = await vector_search_service._calculate_semantic_boost(
@@ -184,7 +184,7 @@ class TestSemanticEnhancedSearch:
         """Test boost calculation when no relationships exist."""
 
         # Mock empty relationship results
-        mock_driver.execute_query.return_value = []
+        mock_driver.execute_query.return_value = ([], None, None)
 
         boost = await vector_search_service._calculate_semantic_boost(
             entity_uid="ku.test", context_uids=["ku.context"]
@@ -235,14 +235,14 @@ class TestLearningAwareSearch:
             vector_search_service, "find_similar_by_text", return_value=Result.ok(initial_results)
         ):
             # Mock learning state: mastered
-            mock_driver.execute_query.return_value = [
+            mock_driver.execute_query.return_value = ([
                 {
                     "ku_uid": "ku.python-basics",
                     "has_viewed": True,
                     "has_in_progress": True,
                     "has_mastered": True,
                 }
-            ]
+            ], None, None)
 
             result = await vector_search_service.learning_aware_search(
                 label="Ku", text="python", user_uid="user.test", prefer_unmastered=True, limit=10
@@ -269,14 +269,14 @@ class TestLearningAwareSearch:
             vector_search_service, "find_similar_by_text", return_value=Result.ok(initial_results)
         ):
             # Mock learning state: not started
-            mock_driver.execute_query.return_value = [
+            mock_driver.execute_query.return_value = ([
                 {
                     "ku_uid": "ku.advanced-python",
                     "has_viewed": False,
                     "has_in_progress": False,
                     "has_mastered": False,
                 }
-            ]
+            ], None, None)
 
             result = await vector_search_service.learning_aware_search(
                 label="Ku", text="python", user_uid="user.test", prefer_unmastered=True, limit=10
@@ -303,14 +303,14 @@ class TestLearningAwareSearch:
             vector_search_service, "find_similar_by_text", return_value=Result.ok(initial_results)
         ):
             # Mock learning state: mastered
-            mock_driver.execute_query.return_value = [
+            mock_driver.execute_query.return_value = ([
                 {
                     "ku_uid": "ku.test",
                     "has_viewed": True,
                     "has_in_progress": False,
                     "has_mastered": True,
                 }
-            ]
+            ], None, None)
 
             result = await vector_search_service.learning_aware_search(
                 label="Ku",

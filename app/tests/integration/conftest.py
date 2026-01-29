@@ -112,13 +112,17 @@ async def ensure_test_users(neo4j_container):
         "user.mike",  # Used in askesis tests
         "user_test_123",  # Used in some tests
         "user_test_456",  # Used in some tests
+        # Semantic search integration test users
+        "user.test_learning",
+        "user.discovery",
+        "user.test_perf",
     ]
 
     async def create_users():
         """Create all test User nodes."""
         async with driver.session() as session:
             for user_uid in test_user_uids:
-                await session.run(
+                result = await session.run(
                     """
                     MERGE (u:User {uid: $user_uid})
                     ON CREATE SET u.created_at = datetime($created_at)
@@ -126,6 +130,7 @@ async def ensure_test_users(neo4j_container):
                     user_uid=user_uid,
                     created_at=datetime.now().isoformat(),
                 )
+                await result.consume()  # Ensure transaction commits
 
     # Create all test users before tests
     await create_users()
@@ -155,6 +160,8 @@ async def clean_neo4j(neo4j_container, create_moc_test_user, ensure_test_users):
 
     Deletes all nodes EXCEPT User nodes, which are preserved across tests
     for user relationship creation.
+
+    Also ensures vector indexes are created for semantic search tests.
     """
     from neo4j import AsyncGraphDatabase
 
@@ -168,8 +175,29 @@ async def clean_neo4j(neo4j_container, create_moc_test_user, ensure_test_users):
             # Delete all nodes except User nodes
             await session.run("MATCH (n) WHERE NOT n:User DETACH DELETE n")
 
+    async def create_vector_indexes():
+        """Create vector indexes required for semantic search tests."""
+        async with driver.session() as session:
+            # Create vector index for KU entities
+            # Required by semantic search integration tests
+            result = await session.run("""
+                CREATE VECTOR INDEX ku_embedding_idx IF NOT EXISTS
+                FOR (n:Ku)
+                ON (n.embedding)
+                OPTIONS {
+                    indexConfig: {
+                        `vector.dimensions`: 1536,
+                        `vector.similarity_function`: 'cosine'
+                    }
+                }
+            """)
+            await result.consume()  # Ensure transaction commits
+
     # Cleanup before test
     await cleanup()
+
+    # Create indexes after cleanup
+    await create_vector_indexes()
 
     yield
 
@@ -495,7 +523,7 @@ async def create_moc_test_user(neo4j_container):
     async def create_user():
         """Create User node for MOC tests."""
         async with driver.session() as session:
-            await session.run(
+            result = await session.run(
                 """
                 MERGE (u:User {uid: $user_uid})
                 ON CREATE SET u.created_at = datetime($created_at)
@@ -504,6 +532,7 @@ async def create_moc_test_user(neo4j_container):
                 user_uid="user.test_integration",
                 created_at=datetime.now().isoformat(),
             )
+            await result.consume()  # Ensure transaction commits
 
     # Create user before tests
     await create_user()
