@@ -5,14 +5,14 @@
 # Purpose: Consolidate three config directories into clear, purpose-driven structure
 #
 # BEFORE:
-#   /home/mike/skuel0/core/config/    - Application config (Python)
-#   /home/mike/skuel0/config/         - Orphaned domain data (YAML)
-#   /home/mike/skuel0/conf/           - Infrastructure (Docker/Neo4j)
+#   /home/mike/skuel/app/core/config/    - Application config (Python)
+#   /home/mike/skuel/app/config/         - Orphaned domain data (YAML)
+#   /home/mike/skuel/app/conf/           - Infrastructure (Docker/Neo4j)
 #
 # AFTER:
-#   /home/mike/skuel0/core/config/    - Application config (unchanged)
-#   /home/mike/skuel0/data/config/    - Domain data config (moved from /config)
-#   /home/mike/skuel0/infrastructure/ - Infrastructure (renamed from /conf)
+#   /home/mike/skuel/app/core/config/    - Application config (unchanged)
+#   /home/mike/skuel/app/data/config/    - Domain data config (moved from /config)
+#   /home/mike/skuel/app/infrastructure/ - Infrastructure (renamed from /conf)
 
 set -e  # Exit on error
 
@@ -24,7 +24,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Base directory
-BASE_DIR="/home/mike/skuel0"
+BASE_DIR="/home/mike/skuel/app"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Config Directory Consolidation Migration${NC}"
@@ -293,7 +293,7 @@ cp neo4j.conf.example neo4j.conf
 ### Starting Neo4j
 
 ```bash
-cd /home/mike/skuel0/infrastructure
+cd /home/mike/skuel/app/infrastructure
 docker-compose -f docker-compose.neo4j.yml up -d
 ```
 

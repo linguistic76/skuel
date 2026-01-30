@@ -325,7 +325,7 @@ The Event domain model (Tier 3) includes extensive business logic:
 ## Template Reference
 
 Full YAML template with all fields and documentation:
-`/home/mike/skuel0/yaml_templates/_schemas/event_template.yaml`
+`/home/mike/skuel/app/yaml_templates/_schemas/event_template.yaml`
 
 ## Validation Rules
 

@@ -217,7 +217,7 @@ transcription_service = TranscriptionService(
 
 ## Files Archived
 
-Moved to `/skuel0/zarchives/`:
+Moved to `/skuel/app/zarchives/`:
 - `transcription_service.py` (old 997-line service)
 - `audio_transcription_service.py` (old 846-line service)
 - `transcription_routes.py` (old route wiring)

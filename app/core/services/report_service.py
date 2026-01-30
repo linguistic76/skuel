@@ -186,7 +186,7 @@ class ReportService:
         )
 
         # Report storage
-        self.report_dir = report_dir or Path("/home/mike/skuel0/data/reports")
+        self.report_dir = report_dir or Path("/home/mike/skuel/app/data/reports")
         self.report_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger = logger

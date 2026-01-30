@@ -41,10 +41,10 @@ echo "✅ All processes cleaned up successfully"
 
 # Start the server with proper environment
 echo "🚀 Starting SKUEL server..."
-cd /home/mike/skuel00
+cd /home/mike/skuel/app0
 export NEO4J_USERNAME=neo4j
 export NEO4J_PASSWORD='pQm0*.Q35M8#'
-export PYTHONPATH=/home/mike/skuel00
+export PYTHONPATH=/home/mike/skuel/app0
 
 # Start server as a background process with proper process group
 setsid poetry run python main.py > server.log 2>&1 &

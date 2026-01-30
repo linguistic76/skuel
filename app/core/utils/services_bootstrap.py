@@ -1420,7 +1420,7 @@ async def compose_services(
 
         # Load default transcript instructions from file
         # This creates/updates a reusable project that users can edit by modifying the file
-        default_instructions_path = "/home/mike/skuel0/data/instructions - transcripts 0.md"
+        default_instructions_path = "/home/mike/skuel/app/data/instructions - transcripts 0.md"
         default_project_uid = "jp.transcript_default"
 
         try:

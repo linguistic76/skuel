@@ -242,4 +242,4 @@ Use these for pre-ingestion validation to catch errors early.
 
 ---
 
-**Architecture Documentation**: See `/home/mike/skuel0/CLAUDE.md` section 1.4 for UID conventions.
+**Architecture Documentation**: See `/home/mike/skuel/app/CLAUDE.md` section 1.4 for UID conventions.

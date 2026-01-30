@@ -743,7 +743,7 @@ def main() -> int:
     if args.files:
         files_to_lint = [Path(f) for f in args.files]
     else:
-        root_dir = Path("/home/mike/skuel0")
+        root_dir = Path("/home/mike/skuel/app")
         files_to_lint = find_python_files_with_cypher(root_dir)
         print(f"🔍 Auto-discovered {len(files_to_lint)} files with potential Cypher queries\n")
 

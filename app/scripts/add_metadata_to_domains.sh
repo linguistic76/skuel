@@ -8,10 +8,10 @@ for domain in $DOMAINS; do
     echo "Processing $domain..."
 
     # DTO file
-    dto_file="/home/mike/skuel0/core/models/${domain}/${domain}_dto.py"
+    dto_file="/home/mike/skuel/app/core/models/${domain}/${domain}_dto.py"
 
     # Model file
-    model_file="/home/mike/skuel0/core/models/${domain}/${domain}.py"
+    model_file="/home/mike/skuel/app/core/models/${domain}/${domain}.py"
 
     # Check if files exist
     if [ -f "$dto_file" ] && [ -f "$model_file" ]; then
@@ -23,8 +23,8 @@ done
 
 # Handle finance/expense separately
 echo "Processing expense..."
-dto_file="/home/mike/skuel0/core/models/finance/expense_dto.py"
-model_file="/home/mike/skuel0/core/models/finance/expense.py"
+dto_file="/home/mike/skuel/app/core/models/finance/expense_dto.py"
+model_file="/home/mike/skuel/app/core/models/finance/expense.py"
 if [ -f "$dto_file" ] && [ -f "$model_file" ]; then
     echo "  Found DTO and Model for expense"
 else

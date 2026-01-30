@@ -480,10 +480,10 @@ substance_score = min(1.0, sum([
 
 ## Related Documentation
 
-- [Substance Tracking Implementation](/home/mike/skuel0/SUBSTANCE_TRACKING_IMPLEMENTATION.md)
-- [Knowledge Events Catalog](/home/mike/skuel0/core/events/knowledge_events.py)
-- [Substance Dashboard Components](/home/mike/skuel0/core/ui/substance_dashboard.py)
-- [KU Model Implementation](/home/mike/skuel0/core/models/ku/ku.py)
+- [Substance Tracking Implementation](/home/mike/skuel/app/SUBSTANCE_TRACKING_IMPLEMENTATION.md)
+- [Knowledge Events Catalog](/home/mike/skuel/app/core/events/knowledge_events.py)
+- [Substance Dashboard Components](/home/mike/skuel/app/core/ui/substance_dashboard.py)
+- [KU Model Implementation](/home/mike/skuel/app/core/models/ku/ku.py)
 - [Event-Driven Architecture Guide](/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md)
 
 ---

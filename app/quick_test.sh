@@ -9,8 +9,8 @@ echo "Quick Verification Test Suite"
 echo "=========================================="
 echo ""
 
-# Change to skuel0 directory
-cd /home/mike/skuel0
+# Change to skuel/app directory
+cd /home/mike/skuel/app
 
 echo "1. Testing Bootstrap (Circular Dependency Fix)..."
 echo "   Verifies UserService created before dependent services"

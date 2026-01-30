@@ -43,7 +43,7 @@ class LegacyPattern:
 class LegacyCodeDetector:
     """Detect and categorize legacy code patterns."""
 
-    def __init__(self, root_path: Path = Path("/home/mike/skuel0")):
+    def __init__(self, root_path: Path = Path("/home/mike/skuel/app")):
         self.root_path = root_path
         self.patterns: list[LegacyPattern] = []
 

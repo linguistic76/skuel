@@ -473,7 +473,7 @@ Tests:
 
 ## Integration with FastHTML
 
-GraphQL routes are registered in [bootstrap.py:/home/mike/skuel0/scripts/dev/bootstrap.py](../../scripts/dev/bootstrap.py):
+GraphQL routes are registered in [bootstrap.py:/home/mike/skuel/app/scripts/dev/bootstrap.py](../../scripts/dev/bootstrap.py):
 
 ```python
 # GraphQL API routes (Complex nested queries + real-time subscriptions)

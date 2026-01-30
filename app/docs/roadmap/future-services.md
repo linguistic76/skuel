@@ -54,7 +54,7 @@ class CacheConfig:
 
 **To Enable**:
 1. Add Redis to `/infra/docker-compose.yml`
-2. Set in `/skuel00/.env`:
+2. Set in `/skuel/app/.env`:
    ```bash
    REDIS_URL=redis://:password@localhost:6379
    CACHE_PROVIDER=redis
@@ -457,7 +457,7 @@ Even though services are disabled, their configurations should be maintained:
 **Quarterly Check** (recommended):
 ```bash
 # Test that future services still start correctly
-cd /skuel00
+cd /skuel/app
 docker compose -f docker-compose.production.yml up redis
 docker compose -f docker-compose.production.yml up ollama
 docker compose -f docker-compose.production.yml up prometheus grafana

@@ -83,7 +83,7 @@ The Admin Dashboard provides a centralized UI for system administration at `/adm
 ## File Structure
 
 ```
-/home/mike/skuel0/
+/home/mike/skuel/app/
 ├── ui/admin/
 │   ├── __init__.py              # Module exports
 │   └── layout.py                # AdminLayout, AdminNavItem, create_admin_page

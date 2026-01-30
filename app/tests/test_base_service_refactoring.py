@@ -555,9 +555,9 @@ class TestBackwardCompatibility:
         import py_compile
 
         files = [
-            "/home/mike/skuel0/core/utils/decorators.py",
-            "/home/mike/skuel0/core/utils/validation_helpers.py",
-            "/home/mike/skuel0/core/utils/dto_converters.py",
+            "/home/mike/skuel/app/core/utils/decorators.py",
+            "/home/mike/skuel/app/core/utils/validation_helpers.py",
+            "/home/mike/skuel/app/core/utils/dto_converters.py",
             # graph.py was removed - only compile existing files
         ]
 

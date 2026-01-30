@@ -65,8 +65,8 @@ Learning:
 References:
 ----------
 - Migration Guide: /home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md
-- Quick Reference: /home/mike/skuel0/core/events/README.md
-- Event Bus: /home/mike/skuel0/adapters/infrastructure/event_bus.py
+- Quick Reference: /home/mike/skuel/app/core/events/README.md
+- Event Bus: /home/mike/skuel/app/adapters/infrastructure/event_bus.py
 """
 
 # Base classes and protocols
@@ -677,5 +677,5 @@ Quick Reference - Common Patterns
 
 For complete documentation, see:
 - Migration Guide: /home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md
-- Quick Reference: /home/mike/skuel0/core/events/README.md
+- Quick Reference: /home/mike/skuel/app/core/events/README.md
 """

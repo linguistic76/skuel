@@ -159,7 +159,15 @@
       "Bash(env)",
       "Bash(poetry:*)",
       "Bash(./scripts/production/enable_genai.sh:*)",
-      "Bash(claude tasks:*)"
+      "Bash(claude tasks:*)",
+      "Bash(not configured\" errors. Moved config initialization before parent\ninit and updated property to use config directly.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Skill(neo4j-genai-plugin)",
+      "Bash(docker ps:*)",
+      "Bash(systemctl list-timers:*)",
+      "Bash(crontab:*)",
+      "Bash(docker inspect:*)",
+      "Bash(journalctl:*)",
+      "Bash(/dev/null -exec grep -l skuel0 {})"
     ]
   }
 }

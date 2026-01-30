@@ -484,8 +484,8 @@ poetry run python scripts/auto_fresh_start.py
 - `/core/services/yaml_ingestion_service.py` - Where validation happens
 
 **Architecture Docs**:
-- `/home/mike/skuel0/CLAUDE.md` - Three-tier architecture
-- `/home/mike/skuel0/SCHEMA_VALIDATION_ASSESSMENT.md` - Why templates, not schemas
+- `/home/mike/skuel/app/CLAUDE.md` - Three-tier architecture
+- `/home/mike/skuel/app/SCHEMA_VALIDATION_ASSESSMENT.md` - Why templates, not schemas
 
 ---
 

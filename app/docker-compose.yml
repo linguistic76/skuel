@@ -6,8 +6,8 @@
 #
 # ⚠️ RECOMMENDED WORKFLOW:
 #    cd ~/infra && docker compose up -d              # Start Neo4j
-#    cd ~/skuel00 && docker compose up -d            # Start app (Docker)
-#    OR: cd ~/skuel00 && poetry run python main.py   # Start app (local)
+#    cd ~/skuel/app0 && docker compose up -d            # Start app (Docker)
+#    OR: cd ~/skuel/app0 && poetry run python main.py   # Start app (local)
 #
 # This docker-compose.yml is for:
 #   - Running SKUEL app in Docker (connects to /infra Neo4j)

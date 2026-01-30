@@ -40,7 +40,7 @@ External World → [Tier 1: Pydantic] → [Tier 2: DTOs] → [Tier 3: Domain Mod
 ## Directory Structure
 
 ```
-/home/mike/skuel0/core/models/
+/home/mike/skuel/app/core/models/
 ├── task/
 │   ├── __init__.py
 │   ├── task.py            # Tier 3: Domain model

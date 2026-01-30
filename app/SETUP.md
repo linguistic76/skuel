@@ -79,7 +79,7 @@ LOG_LEVEL=INFO
 ### 3. Install Dependencies
 
 ```bash
-cd ~/skuel00
+cd ~/skuel/app0
 poetry install
 ```
 
@@ -87,13 +87,13 @@ poetry install
 
 **Option A: Local Python (Recommended for development)**
 ```bash
-cd ~/skuel00
+cd ~/skuel/app0
 poetry run python main.py
 ```
 
 **Option B: Dockerized Application**
 ```bash
-cd ~/skuel00
+cd ~/skuel/app0
 docker compose up -d
 ```
 
@@ -155,7 +155,7 @@ See `/home/mike/infra/README.md` for complete configuration reference.
 cd ~/infra && docker compose up -d
 
 # Terminal 2: Application (restart as needed)
-cd ~/skuel00 && poetry run python main.py
+cd ~/skuel/app0 && poetry run python main.py
 ```
 
 **Benefits:**
@@ -170,7 +170,7 @@ cd ~/skuel00 && poetry run python main.py
 
 ```bash
 cd ~/infra && docker compose up -d     # Start Neo4j
-cd ~/skuel00 && docker compose up -d   # Start app in Docker
+cd ~/skuel/app0 && docker compose up -d   # Start app in Docker
 ```
 
 **Benefits:**
@@ -183,7 +183,7 @@ cd ~/skuel00 && docker compose up -d   # Start app in Docker
 **For production deployment:**
 
 ```bash
-cd ~/skuel00
+cd ~/skuel/app0
 docker compose -f docker-compose.production.yml up -d
 ```
 
@@ -264,7 +264,7 @@ docker compose start neo4j
 ### Clear Database (Keep Structure)
 
 ```bash
-cd ~/skuel00
+cd ~/skuel/app0
 poetry run python scripts/clear_neo4j.py reset
 # Type: DELETE EVERYTHING
 ```
@@ -298,7 +298,7 @@ docker ps | grep neo4j
 
 **Test connection:**
 ```bash
-cd ~/skuel00
+cd ~/skuel/app0
 poetry run python -c "
 from neo4j import GraphDatabase
 driver = GraphDatabase.driver('neo4j://localhost:7687', auth=('neo4j', 'password'))
@@ -312,7 +312,7 @@ driver.close()
 ```bash
 # Compare passwords
 cat ~/infra/.env | grep NEO4J_AUTH
-cat ~/skuel00/.env | grep NEO4J_PASSWORD
+cat ~/skuel/app0/.env | grep NEO4J_PASSWORD
 # These must match!
 ```
 
@@ -372,7 +372,7 @@ NEO4J_HEAP_MAX=1500M
 NEO4J_PAGECACHE=2G
 ```
 
-### Application (.env in /skuel00)
+### Application (.env in /skuel/app)
 
 ```bash
 # Neo4j Connection
@@ -437,14 +437,14 @@ cd ~/infra && docker compose restart neo4j      # Restart Neo4j
 cd ~/infra && docker compose down               # Stop (preserves data)
 
 # Application (Local)
-cd ~/skuel00 && poetry install                  # Install dependencies
-cd ~/skuel00 && poetry run python main.py       # Start app
-cd ~/skuel00 && ./restart_server.sh             # Restart app (if script exists)
+cd ~/skuel/app0 && poetry install                  # Install dependencies
+cd ~/skuel/app0 && poetry run python main.py       # Start app
+cd ~/skuel/app0 && ./restart_server.sh             # Restart app (if script exists)
 
 # Application (Docker)
-cd ~/skuel00 && docker compose up -d            # Start app container
-cd ~/skuel00 && docker compose logs -f          # View app logs
-cd ~/skuel00 && docker compose restart          # Restart app
+cd ~/skuel/app0 && docker compose up -d            # Start app container
+cd ~/skuel/app0 && docker compose logs -f          # View app logs
+cd ~/skuel/app0 && docker compose restart          # Restart app
 
 # Database
 cd ~/infra && docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/backups

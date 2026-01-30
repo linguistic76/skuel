@@ -403,10 +403,10 @@ steps:
 ## Template Reference
 
 Full YAML template with all fields and documentation:
-`/home/mike/skuel0/yaml_templates/_schemas/learning_path_template.yaml`
+`/home/mike/skuel/app/yaml_templates/_schemas/learning_path_template.yaml`
 
 See also:
-`/home/mike/skuel0/yaml_templates/_schemas/learning_step_template.yaml`
+`/home/mike/skuel/app/yaml_templates/_schemas/learning_step_template.yaml`
 
 ## Validation Rules
 

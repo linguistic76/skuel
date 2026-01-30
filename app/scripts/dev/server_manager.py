@@ -145,13 +145,13 @@ def start_server():
             executor = get_secure_executor()
 
             # Set up environment variables securely
-            env_vars = {"PYTHONPATH": "/home/mike/skuel0"}
+            env_vars = {"PYTHONPATH": "/home/mike/skuel/app"}
 
             # Execute via poetry
             result = executor.execute_safe_command(
                 "poetry",
                 ["run", "python", "main.py"],
-                working_dir="/home/mike/skuel0",
+                working_dir="/home/mike/skuel/app",
                 timeout=10,  # Short timeout just to start the process
                 env_vars=env_vars,
             )
@@ -164,11 +164,11 @@ def start_server():
             # Fallback to subprocess
             print("⚠️  Using fallback command execution...")
             env = os.environ.copy()
-            env["PYTHONPATH"] = "/home/mike/skuel0"
+            env["PYTHONPATH"] = "/home/mike/skuel/app"
 
             subprocess.Popen(
                 ["poetry", "run", "python", "main.py"],
-                cwd="/home/mike/skuel0",
+                cwd="/home/mike/skuel/app",
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

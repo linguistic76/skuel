@@ -162,7 +162,7 @@ External World (HTTP/Files)
 ## Project Structure
 
 ```
-skuel00/
+skuel/app/
 ├── core/                      # Domain logic & services
 │   ├── models/                # Domain models (frozen dataclasses)
 │   ├── services/              # Business logic (protocol-based)

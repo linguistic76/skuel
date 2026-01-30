@@ -268,7 +268,7 @@ The Choice domain model (Tier 3) includes these business logic methods:
 ## Template Reference
 
 Full YAML template with all fields and documentation:
-`/home/mike/skuel0/yaml_templates/_schemas/choice_template.yaml`
+`/home/mike/skuel/app/yaml_templates/_schemas/choice_template.yaml`
 
 ## Validation Rules
 
