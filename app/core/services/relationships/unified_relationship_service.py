@@ -122,18 +122,20 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         if not backend:
             raise ValueError(f"{config.entity_label} backend is required")
 
+        # Store configuration BEFORE calling super().__init__()
+        # (needed by entity_label property during validation)
+        self.config = config
+
         logger_name = f"{config.domain.value}.relationships"
         super().__init__(backend, logger_name)
 
-        # Store configuration
-        self.config = config
+        # Store graph_intel
         self.graph_intel = graph_intel
 
         # Store commonly accessed config values for convenience
         self._domain = config.domain
         self._dto_class = config.dto_class
         self._model_class = config.model_class
-        self._entity_label_value = config.entity_label
         self._backend_get_method = config.backend_get_method
 
         # Initialize RelationshipCreationHelper (always)
@@ -168,7 +170,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     @property
     def entity_label(self) -> str:
         """Return the graph label for this domain's entities."""
-        return self._entity_label_value
+        return self.config.entity_label
 
     # =========================================================================
     # ENTITY CONVERSION
