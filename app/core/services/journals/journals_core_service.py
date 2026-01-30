@@ -25,7 +25,7 @@ See: /docs/architecture/JOURNAL_ASSIGNMENT_SEPARATION.md
 """
 
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
@@ -37,6 +37,7 @@ from core.models.enums.journal_enums import JournalType
 from core.models.journal.journal_dto import JournalDTO
 from core.models.journal.journal_pure import JournalPure
 from core.services.base_service import BaseService
+from core.services.domain_config import DomainConfig
 from core.services.protocols import BaseUpdatePayload, JournalsOperations
 from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.decorators import with_error_handling
@@ -65,17 +66,21 @@ class JournalsCoreService(BaseService[JournalsOperations, JournalPure]):
     - CURATED (PJ2): Permanent curated text/markdown journals
 
     BaseService Configuration:
-    - _dto_class: JournalDTO
-    - _model_class: JournalPure
-    - _user_ownership_relationship: "OWNS"
+    - Configured via DomainConfig (January 2026 Phase 3)
     """
 
-    _dto_class = JournalDTO
-    _model_class = JournalPure
-    _user_ownership_relationship = "OWNS"
-    _search_fields: ClassVar[list[str]] = ["title", "content", "key_topics"]
-    _search_order_by = "entry_date"
-    _category_field = "category"
+    # =========================================================================
+    # DomainConfig (January 2026 Phase 3)
+    # =========================================================================
+    _config = DomainConfig(
+        dto_class=JournalDTO,
+        model_class=JournalPure,
+        entity_label="Journal",
+        search_fields=("title", "content", "key_topics"),
+        search_order_by="entry_date",
+        category_field="category",
+        user_ownership_relationship="OWNS",  # User-owned content
+    )
 
     def __init__(
         self,

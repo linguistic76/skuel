@@ -32,10 +32,12 @@ from core.events import publish_event
 from core.events.assignment_events import AssignmentDeleted
 from core.models.assignment.assignment import (
     Assignment,
+    AssignmentDTO,
     AssignmentStatus,
     AssignmentType,
 )
 from core.services.base_service import BaseService
+from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations
 from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.result_simplified import Errors, Result
@@ -122,6 +124,19 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
     - 0.5-0.7: Suggested based on patterns
     - <0.5: Low confidence, needs verification
     """
+
+    # =========================================================================
+    # DomainConfig (January 2026 Phase 3)
+    # =========================================================================
+    _config = DomainConfig(
+        dto_class=AssignmentDTO,
+        model_class=Assignment,
+        entity_label="Assignment",
+        search_fields=("original_filename", "processed_title", "processed_content"),
+        search_order_by="submitted_at",
+        category_field="assignment_type",
+        user_ownership_relationship="OWNS",  # User-owned content
+    )
 
     def __init__(
         self,

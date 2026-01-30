@@ -33,8 +33,10 @@ from typing import Any
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
 from core.models.enums.journal_enums import JournalType
+from core.models.journal.journal_dto import JournalDTO
 from core.models.journal.journal_pure import ContentStatus, ContentType, JournalPure
 from core.services.base_service import BaseService
+from core.services.domain_config import DomainConfig
 from core.services.journals import JournalAIInsights, JournalContext
 from core.services.protocols import BaseUpdatePayload, JournalsOperations
 from core.utils.decorators import with_error_handling
@@ -85,6 +87,18 @@ class TranscriptProcessorService(BaseService[JournalsOperations, JournalPure]):
     - Logs operations with structured logging
 
     """
+
+    # =========================================================================
+    # DomainConfig (January 2026 Phase 3)
+    # =========================================================================
+    _config = DomainConfig(
+        dto_class=JournalDTO,
+        model_class=JournalPure,
+        entity_label="Journal",
+        search_fields=("title", "content", "summary"),
+        search_order_by="created_at",
+        user_ownership_relationship="OWNS",  # User-owned content
+    )
 
     def __init__(
         self,

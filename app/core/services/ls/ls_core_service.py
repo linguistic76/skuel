@@ -26,7 +26,7 @@ Part of LsService decomposition (October 24, 2025)
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.curriculum_events import (
@@ -38,6 +38,7 @@ from core.models.ls import Ls
 from core.models.ls.ls_dto import LearningStepDTO
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
+from core.services.domain_config import create_curriculum_domain_config
 from core.services.protocols import get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -86,17 +87,19 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
     - Logs operations with structured logging
     """
 
-    # Service configuration (BaseService pattern)
-    _dto_class = LearningStepDTO
-    _model_class = Ls
-    _search_fields: ClassVar[list[str]] = ["title", "intent", "description"]
-    _content_field: str = "description"  # Regular class var (not ClassVar)
-    _prerequisite_relationships: ClassVar[list[str]] = [
-        "REQUIRES_STEP",
-        RelationshipName.REQUIRES_KNOWLEDGE.value,
-    ]
-    _enables_relationships: ClassVar[list[str]] = ["ENABLES_STEP"]
-    _user_ownership_relationship: ClassVar[str | None] = None  # Shared curriculum content
+    # =========================================================================
+    # DomainConfig consolidation (January 2026 Phase 3)
+    # =========================================================================
+    # All configuration in one place, using centralized relationship registry
+    # See: /docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
+    _config = create_curriculum_domain_config(
+        dto_class=LearningStepDTO,
+        model_class=Ls,
+        domain_name="ls",
+        search_fields=("title", "intent", "description"),  # LS-specific fields
+        search_order_by="updated_at",
+        content_field="description",  # LS stores content in description field
+    )
 
     @property
     def entity_label(self) -> str:

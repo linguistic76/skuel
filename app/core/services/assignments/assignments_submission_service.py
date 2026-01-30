@@ -25,11 +25,13 @@ from core.events import publish_event
 from core.events.assignment_events import AssignmentSubmitted
 from core.models.assignment.assignment import (
     Assignment,
+    AssignmentDTO,
     AssignmentStatus,
     AssignmentType,
     ProcessorType,
 )
 from core.services.base_service import BaseService
+from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations
 from core.services.protocols.query_types import AssignmentUpdatePayload
 from core.utils.decorators import with_error_handling
@@ -66,6 +68,19 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
     - <0.5: Low confidence, needs verification
 
     """
+
+    # =========================================================================
+    # DomainConfig (January 2026 Phase 3)
+    # =========================================================================
+    _config = DomainConfig(
+        dto_class=AssignmentDTO,
+        model_class=Assignment,
+        entity_label="Assignment",
+        search_fields=("original_filename", "file_type", "processed_title"),
+        search_order_by="submitted_at",
+        category_field="assignment_type",
+        user_ownership_relationship="OWNS",  # User-owned content
+    )
 
     def __init__(
         self,

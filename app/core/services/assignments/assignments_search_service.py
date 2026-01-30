@@ -25,8 +25,9 @@ from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import QueryLimit
-from core.models.assignment.assignment import Assignment, AssignmentType
+from core.models.assignment.assignment import Assignment, AssignmentDTO, AssignmentType
 from core.services.base_service import BaseService
+from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -58,6 +59,19 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
     - Content processing (use AssignmentProcessorService)
     - AI formatting (use TranscriptProcessorService)
     """
+
+    # =========================================================================
+    # DomainConfig (January 2026 Phase 3)
+    # =========================================================================
+    _config = DomainConfig(
+        dto_class=AssignmentDTO,
+        model_class=Assignment,
+        entity_label="Assignment",
+        search_fields=("original_filename", "processed_title", "processed_content"),
+        search_order_by="submitted_at",
+        category_field="assignment_type",
+        user_ownership_relationship="OWNS",  # User-owned content
+    )
 
     def __init__(
         self, assignment_backend: UniversalNeo4jBackend[Assignment], event_bus=None

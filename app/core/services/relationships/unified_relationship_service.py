@@ -172,6 +172,29 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         """Return the graph label for this domain's entities."""
         return self.config.entity_label
 
+    def _get_config_value(self, attr_name: str, default: Any = None) -> Any:
+        """
+        Get configuration value from RelationshipConfig.
+
+        Overrides BaseService._get_config_value() to use RelationshipConfig
+        instead of DomainConfig.
+
+        Args:
+            attr_name: Attribute name (e.g., "dto_class", "model_class")
+            default: Default value if not found
+
+        Returns:
+            Configuration value from RelationshipConfig or default
+        """
+        # Check RelationshipConfig (instance config)
+        if hasattr(self, "config") and self.config:
+            value = getattr(self.config, attr_name, None)
+            if value is not None:
+                return value
+
+        # Fallback to parent implementation (checks class-level _config)
+        return super()._get_config_value(attr_name, default)
+
     # =========================================================================
     # ENTITY CONVERSION
     # =========================================================================

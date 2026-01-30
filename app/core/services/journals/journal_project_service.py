@@ -21,11 +21,13 @@ from datetime import datetime
 from typing import Any
 
 from core.models.journal import (
+    JournalProjectDTO,
     JournalProjectPure,
     create_journal_project,
 )
 from core.models.shared_enums import Domain
 from core.services.base_service import BaseService
+from core.services.domain_config import DomainConfig
 from core.services.protocols import get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -60,6 +62,18 @@ class JournalProjectService(BaseService):
     - Logs operations with structured logging
 
     """
+
+    # =========================================================================
+    # DomainConfig (January 2026 Phase 3)
+    # =========================================================================
+    _config = DomainConfig(
+        dto_class=JournalProjectDTO,
+        model_class=JournalProjectPure,
+        entity_label="JournalProject",
+        search_fields=("name", "instructions"),
+        search_order_by="created_at",
+        user_ownership_relationship="OWNS",  # User-owned content
+    )
 
     def __init__(self, backend) -> None:
         """

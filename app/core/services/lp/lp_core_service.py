@@ -26,7 +26,7 @@ Part of LpService decomposition (October 24, 2025)
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 from core.constants import MasteryLevel
 from core.events import publish_event
@@ -37,6 +37,7 @@ from core.models.ls import Ls
 from core.models.relationship_names import RelationshipName
 from core.models.shared_enums import Domain
 from core.services.base_service import BaseService
+from core.services.domain_config import create_curriculum_domain_config
 from core.services.protocols import HasUID, get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -85,17 +86,19 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
     - Logs operations with structured logging
     """
 
-    # Service configuration (BaseService pattern)
-    _dto_class = LpDTO
-    _model_class = Lp
-    _search_fields: ClassVar[list[str]] = ["name", "goal", "description"]
-    _content_field: str = "goal"  # Regular class var (not ClassVar)
-    _prerequisite_relationships: ClassVar[list[str]] = [
-        RelationshipName.REQUIRES_KNOWLEDGE.value,
-        "REQUIRES_STEP",
-    ]
-    _enables_relationships: ClassVar[list[str]] = ["ENABLES_ACHIEVEMENT"]
-    _user_ownership_relationship: ClassVar[str | None] = None  # Shared curriculum content
+    # =========================================================================
+    # DomainConfig consolidation (January 2026 Phase 3)
+    # =========================================================================
+    # All configuration in one place, using centralized relationship registry
+    # See: /docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
+    _config = create_curriculum_domain_config(
+        dto_class=LpDTO,
+        model_class=Lp,
+        domain_name="lp",
+        search_fields=("name", "goal", "description"),  # LP-specific fields
+        search_order_by="updated_at",
+        content_field="goal",  # LP stores primary content in goal field
+    )
 
     @property
     def entity_label(self) -> str:
