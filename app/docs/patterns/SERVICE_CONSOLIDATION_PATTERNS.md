@@ -26,7 +26,7 @@ Six patterns to reduce boilerplate in SKUEL services (~1,500+ lines saved across
 
 **Decision context:** See [ADR-025](/docs/decisions/ADR-025-service-consolidation-patterns.md) for why these patterns were chosen over alternatives.
 
-**Migration Status:** ✅ **100% Complete** (January 2026) - All 25 Activity domain services migrated to DomainConfig. See [Migration Guide](/docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md).
+**Migration Status:** ✅ **100% Complete** (January 2026) - All 34 BaseService subclasses migrated to DomainConfig across all domains (Activity: 25, Curriculum: 2, Content: 3, Assignments: 3, Infrastructure: 1). See [Migration Guide](/docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md).
 
 ---
 

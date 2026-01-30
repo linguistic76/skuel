@@ -750,7 +750,12 @@ class KuSearchService(BaseService[KuOperations, KnowledgeUnit]):
     )
 ```
 
-**Migration Status:** ✅ 100% complete (25 services migrated - January 2026)
+**Migration Status:** ✅ 100% complete (34 services migrated - January 2026)
+- Activity domains: 25 services (6 core, 6 search, 13 specialized)
+- Curriculum domains: 2 services (LS, LP core)
+- Content domains: 3 services (Transcript, Journal core/project)
+- Assignment domain: 3 services (core, search, submission)
+- Infrastructure: 1 service (UnifiedRelationshipService)
 
 **See:**
 - `/docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md` - Migration guide
