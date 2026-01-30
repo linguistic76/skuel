@@ -13,6 +13,7 @@ Test Coverage:
 """
 
 import asyncio
+import contextlib
 from datetime import datetime
 
 import pytest
@@ -41,10 +42,8 @@ class TestEmbeddingWorkerLifecycle:
 
         # Stop worker
         worker_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await worker_task
-        except asyncio.CancelledError:
-            pass  # Expected
 
         # Verify task stopped
         assert worker_task.done()
@@ -125,10 +124,8 @@ class TestEmbeddingWorkerEventProcessing:
         finally:
             # Cleanup: Stop worker
             worker_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await worker_task
-            except asyncio.CancelledError:
-                pass
 
             # Cleanup: Delete test task
             async with neo4j_driver.session() as session:
@@ -237,10 +234,8 @@ class TestEmbeddingWorkerEventProcessing:
         finally:
             # Cleanup
             worker_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await worker_task
-            except asyncio.CancelledError:
-                pass
 
             async with neo4j_driver.session() as session:
                 await session.run("MATCH (t:Task {uid: $uid}) DETACH DELETE t", uid=task_uid)
@@ -321,10 +316,8 @@ class TestEmbeddingWorkerBatchProcessing:
         finally:
             # Cleanup
             worker_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await worker_task
-            except asyncio.CancelledError:
-                pass
 
             async with neo4j_driver.session() as session:
                 await session.run(
@@ -406,10 +399,8 @@ class TestEmbeddingWorkerErrorRecovery:
         finally:
             # Cleanup
             worker_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await worker_task
-            except asyncio.CancelledError:
-                pass
 
             async with neo4j_driver.session() as session:
                 await session.run("MATCH (t:Task {uid: $uid}) DETACH DELETE t", uid=valid_uid)

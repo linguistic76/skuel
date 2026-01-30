@@ -17,17 +17,15 @@ Output:
 """
 
 import asyncio
-import time
 import statistics
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
-import pytest
 from neo4j import AsyncGraphDatabase
 
 from core.config.unified_config import VectorSearchConfig
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
-from tests.fixtures.embedding_fixtures import mock_embedding_vector
 
 
 @dataclass

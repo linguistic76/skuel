@@ -25,7 +25,6 @@ See: /docs/architecture/SEARCH_ARCHITECTURE.md
 import argparse
 import asyncio
 import sys
-from datetime import datetime
 
 from neo4j import AsyncGraphDatabase
 

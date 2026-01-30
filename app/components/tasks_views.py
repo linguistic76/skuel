@@ -29,8 +29,6 @@ from fasthtml.common import (
     P,
 )
 
-from core.ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
-
 from components.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
@@ -48,6 +46,7 @@ from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
 )
+from core.ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.components.tasks_views")

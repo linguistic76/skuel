@@ -6,14 +6,14 @@ Tests version tracking, metadata storage, and cache-first retrieval.
 Created: January 2026
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from core.services.neo4j_genai_embeddings_service import (
     EMBEDDING_VERSION,
     Neo4jGenAIEmbeddingsService,
 )
-from core.utils.result_simplified import Result
 
 
 @pytest.fixture

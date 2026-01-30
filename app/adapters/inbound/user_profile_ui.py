@@ -22,9 +22,9 @@ from typing import Any
 from fasthtml.common import Request
 
 from core.auth import require_authenticated_user
-from core.ui.daisy_components import Div
 from core.services.protocols import get_enum_value
 from core.services.user.unified_user_context import UserContext
+from core.ui.daisy_components import Div
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from ui.profile.badges import DomainStatus
@@ -137,6 +137,7 @@ def error_page(message: str, status_code: int, user_display_name: str = "User") 
         Error page with consistent styling
     """
     from fasthtml.common import H1, P
+
     from ui.profile.layout import create_profile_page
 
     content = Div(

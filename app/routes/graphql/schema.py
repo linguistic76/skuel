@@ -24,9 +24,10 @@ from strawberry.extensions import MaxTokensLimiter, QueryDepthLimiter
 from core.constants import ConfidenceLevel, QueryLimit
 from core.models.shared_enums import Domain
 from routes.graphql.config import get_graphql_config, validate_list_limit
-from strawberry.types import Info
 
 if TYPE_CHECKING:
+    from strawberry.types import Info
+
     from core.models.ls import Ls
     from core.utils.result_simplified import Result
     from routes.graphql.context import GraphQLContext

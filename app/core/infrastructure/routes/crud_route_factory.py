@@ -64,7 +64,6 @@ from pydantic import BaseModel
 
 from core.auth.session import get_current_user, require_authenticated_user
 from core.models.enums import ContentScope, UserRole
-from core.services.protocols.base_service_interface import BaseServiceInterface
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

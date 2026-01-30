@@ -684,10 +684,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         event = result.value
         event_types_result = await get_event_types()
-        if event_types_result.is_error:
-            event_types = []  # Fallback to empty list
-        else:
-            event_types = event_types_result.value
+        event_types = [] if event_types_result.is_error else event_types_result.value
 
         # Extract current values
         title = getattr(event, "title", "")

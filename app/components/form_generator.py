@@ -28,8 +28,6 @@ from enum import Enum
 from typing import Any, get_args, get_origin
 
 from fasthtml.common import Div, Form, Label, Option
-
-from core.ui.daisy_components import Button, ButtonT, Input, InputT, Select, Textarea
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
@@ -42,6 +40,7 @@ from core.services.protocols import (
     MinLenConstraint,
     PydanticFieldInfo,
 )
+from core.ui.daisy_components import Button, ButtonT, Input, InputT, Select, Textarea
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.components.form_generator")

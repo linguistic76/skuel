@@ -13,7 +13,7 @@ This file uses:
 - Manual routes for domain-specific operations (calendar, recurrence, attendees, intelligence)
 """
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from fasthtml.common import Request
 
@@ -37,11 +37,9 @@ from core.models.event.event_request import (
     RecurringInstancesRequest,
     RemoveAttendeeRequest,
 )
+from core.services.protocols.facade_protocols import EventsFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
-
-if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import EventsFacadeProtocol
 
 
 def create_events_api_routes(

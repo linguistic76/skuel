@@ -14,7 +14,7 @@ This file uses:
 
 __version__ = "2.0"
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fasthtml.common import Request
 
@@ -23,12 +23,10 @@ from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactor
 from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
 from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
 from core.models.enums import ContentScope
+from core.services.protocols.facade_protocols import ChoicesFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-
-if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import ChoicesFacadeProtocol
 
 logger = get_logger("skuel.routes.choice.api")
 

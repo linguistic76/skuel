@@ -9,14 +9,6 @@ These tests serve as examples for how to use the fixtures in domain-specific tes
 
 import pytest
 
-from tests.fixtures.embedding_fixtures import (
-    mock_embeddings_service,
-    mock_embeddings_unavailable,
-    mock_vector_search_service,
-    mock_vector_search_unavailable,
-    services_with_embeddings,
-)
-
 
 @pytest.mark.asyncio
 async def test_embedding_generation_with_mock(mock_embeddings_service):

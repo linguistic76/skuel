@@ -12,7 +12,7 @@ This file uses:
 - Manual routes for domain-specific operations (complete, assign, dependencies, etc.)
 """
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from fasthtml.common import Request
 
@@ -27,11 +27,9 @@ from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFac
 from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
 from core.models.enums import ContentScope
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
+from core.services.protocols.facade_protocols import TasksFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
-
-if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import TasksFacadeProtocol
 
 
 def create_tasks_api_routes(
@@ -152,7 +150,7 @@ def create_tasks_api_routes(
     # ========================================================================
 
     async def handle_performance_analytics(
-        service: "TasksService", params: dict[str, Any]
+        service: TasksFacadeProtocol, params: dict[str, Any]
     ) -> Result[Any]:
         """Handle performance analytics request."""
         period_days = int(params.get("period_days", "30"))
@@ -161,7 +159,7 @@ def create_tasks_api_routes(
         return cast("Result[Any]", result)
 
     async def handle_behavioral_insights(
-        service: "TasksService", params: dict[str, Any]
+        service: TasksFacadeProtocol, params: dict[str, Any]
     ) -> Result[Any]:
         """Handle behavioral insights request."""
         period_days = int(params.get("period_days", "90"))

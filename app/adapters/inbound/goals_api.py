@@ -16,7 +16,7 @@ SECURITY UPDATE (December 2025):
 - Manual routes use require_authenticated_user + verify_ownership for security
 """
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from fasthtml.common import Request
 
@@ -31,11 +31,9 @@ from core.infrastructure.routes.query_route_factory import CommonQueryRouteFacto
 from core.models.enums import ContentScope
 from core.models.goal.goal import Goal
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
+from core.services.protocols.facade_protocols import GoalsFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
-
-if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import GoalsFacadeProtocol
 
 
 def create_goals_api_routes(

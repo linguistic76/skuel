@@ -19,7 +19,6 @@ SECURITY:
 See: /docs/architecture/NEO4J_GENAI_ARCHITECTURE.md
 """
 
-from datetime import datetime
 from typing import Any
 
 from core.utils.logging import get_logger
@@ -40,7 +39,7 @@ class Neo4jGenAIEmbeddingsService:
     Plugin must be enabled in AuraDB with OpenAI API key configured at database level.
     """
 
-    def __init__(self, driver: Any, model: str = "text-embedding-3-small", dimension: int = 1536):
+    def __init__(self, driver: Any, model: str = "text-embedding-3-small", dimension: int = 1536) -> None:
         """
         Initialize embeddings service.
 

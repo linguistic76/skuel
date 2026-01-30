@@ -8,8 +8,6 @@ This test shows how TYPE_CHECKING blocks catch signature mismatches.
 """
 
 import inspect
-import pytest
-from typing import Any
 
 from core.services.mixins import ConversionHelpersMixin
 from core.services.protocols.base_service_interface import ConversionOperations
@@ -29,10 +27,11 @@ class TestProtocolComplianceDemonstration:
         ]
 
         # Verify mixin has each method
-        missing_methods = []
-        for method_name in protocol_methods:
-            if not hasattr(ConversionHelpersMixin, method_name):
-                missing_methods.append(method_name)
+        missing_methods = [
+            method_name
+            for method_name in protocol_methods
+            if not hasattr(ConversionHelpersMixin, method_name)
+        ]
 
         assert not missing_methods, (
             f"ConversionHelpersMixin missing methods from ConversionOperations: "
@@ -74,7 +73,7 @@ class TestProtocolComplianceDemonstration:
                 )
 
         assert not mismatches, (
-            f"Signature mismatches between ConversionHelpersMixin and ConversionOperations:\n"
+            "Signature mismatches between ConversionHelpersMixin and ConversionOperations:\n"
             + "\n".join(f"  - {m}" for m in mismatches)
         )
 

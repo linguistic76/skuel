@@ -3,7 +3,6 @@
 Verifies that accessibility and user feedback improvements are working correctly.
 """
 
-import pytest
 from fasthtml.common import Div
 
 

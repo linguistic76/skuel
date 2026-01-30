@@ -57,9 +57,7 @@ from core.ui.daisy_components import (
     Input,
     InputT,
     Select,
-    Size,
 )
-
 from core.utils.logging import get_logger
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
 

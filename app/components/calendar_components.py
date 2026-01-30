@@ -20,7 +20,7 @@ __version__ = "1.0"
 from datetime import date, timedelta
 from typing import Any
 
-from fasthtml.common import A, Form, H2, H3, H4, P
+from fasthtml.common import H2, H3, H4, A, Form, P
 
 from core.models.event.calendar_models import (
     CalendarData,

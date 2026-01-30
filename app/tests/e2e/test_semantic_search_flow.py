@@ -16,10 +16,7 @@ All tests use mock embedding services to avoid API calls.
 import pytest
 
 from core.models.enums.entity_enums import EntityType
-from core.models.ku.ku_dto import KuDTO
 from core.services.ingestion.preparer import prepare_entity_data_async
-from core.utils.result_simplified import Result
-from scripts.generate_embeddings_batch import generate_embeddings_batch
 
 
 @pytest.mark.e2e
@@ -486,7 +483,7 @@ async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_
     assert "Goal" in results_by_domain
 
     # Each domain should have results (mock returns up to 3)
-    for label, results in results_by_domain.items():
+    for results in results_by_domain.values():
         assert isinstance(results, list)
 
 

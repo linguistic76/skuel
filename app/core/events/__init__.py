@@ -80,17 +80,6 @@ from core.events.assignment_events import (
 )
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
 
-# Embedding events (async background generation)
-from core.events.embedding_events import (
-    ChoiceEmbeddingRequested,
-    EmbeddingRequested,
-    EventEmbeddingRequested,
-    GoalEmbeddingRequested,
-    HabitEmbeddingRequested,
-    PrincipleEmbeddingRequested,
-    TaskEmbeddingRequested,
-)
-
 # Calendar Event events
 from core.events.calendar_event_events import (
     CalendarEventCompleted,
@@ -116,6 +105,17 @@ from core.events.curriculum_events import (
     LearningStepCreated,
     LearningStepDeleted,
     LearningStepUpdated,
+)
+
+# Embedding events (async background generation)
+from core.events.embedding_events import (
+    ChoiceEmbeddingRequested,
+    EmbeddingRequested,
+    EventEmbeddingRequested,
+    GoalEmbeddingRequested,
+    HabitEmbeddingRequested,
+    PrincipleEmbeddingRequested,
+    TaskEmbeddingRequested,
 )
 
 # Finance events

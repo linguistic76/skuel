@@ -20,22 +20,12 @@ Usage:
 from datetime import date, timedelta
 from typing import Any
 
-from fasthtml.common import Form, H2, H3, P
+from fasthtml.common import H2, H3, Form, P
 
 from components.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
     ActivityViewTabs,
-)
-from core.ui.daisy_components import (
-    Button,
-    Div,
-    Input,
-    Label,
-    Option,
-    Select,
-    Span,
-    Textarea,
 )
 from components.calendar_components import (
     create_day_timeline,
@@ -49,6 +39,16 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.models.event.event import Event
+from core.ui.daisy_components import (
+    Button,
+    Div,
+    Input,
+    Label,
+    Option,
+    Select,
+    Span,
+    Textarea,
+)
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.components.events_views")

@@ -18,7 +18,7 @@ so CRUDRouteFactory is not applicable. Migration focuses on:
 
 __version__ = "2.0"
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fasthtml.common import Request
 
@@ -27,13 +27,11 @@ from core.models.context import (
     HabitCompletionRequest,
     TaskCompletionRequest,
 )
+from core.services.protocols import UserContextOperations
 from core.services.protocols.query_types import ContextDashboard
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.services.protocols import UserContextOperations
 
 logger = get_logger("skuel.routes.context_aware.api")
 

@@ -13,7 +13,6 @@ These tests verify:
 
 import pytest
 
-from core.models.ku.ku_dto import KuDTO
 from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 from core.utils.result_simplified import Result
@@ -393,7 +392,7 @@ async def test_cross_domain_search_mock(neo4j_driver, clean_neo4j, mock_vector_s
     assert "Goal" in results
 
     # Each domain should have results (mock returns up to 3)
-    for label, items in results.items():
+    for items in results.values():
         assert isinstance(items, list)
         assert len(items) <= 3
 

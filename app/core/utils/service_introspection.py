@@ -111,10 +111,9 @@ def validate_service_for_analytics(
             "convert_to_dto",  # ConversionHelpersMixin
         ]
 
-    missing_methods = []
-    for method_name in required_methods:
-        if not hasattr(service, method_name):
-            missing_methods.append(method_name)
+    missing_methods = [
+        method_name for method_name in required_methods if not hasattr(service, method_name)
+    ]
 
     is_valid = len(missing_methods) == 0
     return is_valid, missing_methods

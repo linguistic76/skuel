@@ -24,7 +24,6 @@ from typing import Any, Protocol
 from fasthtml.common import JSONResponse, Response
 
 from components.error_components import ErrorComponents
-from core.ui.daisy_components import Div
 from components.tasks_views import TasksViewComponents
 from components.todoist_task_components import TodoistTaskComponents
 from core.auth import require_authenticated_user
@@ -33,6 +32,7 @@ from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.shared_enums import ActivityStatus, Priority
 from core.models.task.task_request import TaskCreateRequest
 from core.services.protocols.facade_protocols import TasksFacadeProtocol
+from core.ui.daisy_components import Div
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (

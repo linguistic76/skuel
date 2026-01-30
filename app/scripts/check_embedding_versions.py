@@ -24,7 +24,6 @@ import argparse
 import asyncio
 import sys
 from collections import Counter, defaultdict
-from pathlib import Path
 
 from neo4j import AsyncGraphDatabase
 
@@ -184,7 +183,7 @@ def print_report(analysis: dict, verbose: bool = False):
 
         print()
         print(f"⚠️  Run migration script to update {len(needs_update)} stale embeddings")
-        print(f"    poetry run python scripts/migrate_embeddings_version.py")
+        print("    poetry run python scripts/migrate_embeddings_version.py")
 
     else:
         print("-" * 80)

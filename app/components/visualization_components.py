@@ -25,7 +25,7 @@ Usage:
     )
 """
 
-from fasthtml.common import Canvas, H3, Link, P, Script
+from fasthtml.common import H3, Canvas, Link, P, Script
 
 from core.ui.daisy_components import Div, Span
 

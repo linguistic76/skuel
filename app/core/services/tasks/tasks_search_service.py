@@ -27,7 +27,7 @@ Changes:
 """
 
 from operator import attrgetter, itemgetter, methodcaller
-from typing import Any, ClassVar
+from typing import Any
 
 from core.constants import QueryLimit
 from core.models.lp.lp_position import LpPosition

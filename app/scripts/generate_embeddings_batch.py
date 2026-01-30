@@ -30,9 +30,7 @@ See: /docs/migrations/NEO4J_GENAI_MIGRATION.md
 
 import argparse
 import asyncio
-from datetime import datetime
 
-from core.models.shared_enums import EntityType
 from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 from core.utils.logging import get_logger
 
@@ -190,7 +188,7 @@ async def main():
         entity_labels = ["Ku", "Task", "Goal", "LpStep"]
 
     logger.info(f"\n{'=' * 60}")
-    logger.info(f"Batch Embedding Generation")
+    logger.info("Batch Embedding Generation")
     logger.info(f"{'=' * 60}\n")
     logger.info(f"Entity types: {', '.join(entity_labels)}")
     logger.info(f"Batch size: {args.batch_size}")
@@ -232,7 +230,7 @@ async def main():
             f"({stats['failed']} failed)"
         )
 
-    logger.info(f"\n✅ All batch embedding generation complete")
+    logger.info("\n✅ All batch embedding generation complete")
     logger.info(f"Total: {total_processed} successful, {total_failed} failed")
 
     await driver.close()

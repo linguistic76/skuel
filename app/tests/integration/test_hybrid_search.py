@@ -9,8 +9,9 @@ Tests the hybrid_search method that combines:
 Created: January 2026
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from core.config.unified_config import VectorSearchConfig
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService

@@ -19,7 +19,7 @@ Usage:
 
 from typing import Any
 
-from fasthtml.common import Form, H2, H3, P
+from fasthtml.common import H2, H3, Form, P
 
 from components.activity_views_base import ActivityViewTabs
 from core.ui.daisy_components import (

@@ -14,19 +14,17 @@ This file uses:
 
 __version__ = "3.0"
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from fasthtml.common import Request
 
 from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
 from core.models.enums import ContentScope
 from core.models.lp.lp_request import LpCreateRequest, LpUpdateRequest
+from core.services.protocols.facade_protocols import LpFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import LpFacadeProtocol
 
 logger = get_logger("skuel.routes.learning.api")
 

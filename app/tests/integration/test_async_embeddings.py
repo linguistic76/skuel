@@ -18,6 +18,7 @@ Test Coverage:
 """
 
 import asyncio
+import contextlib
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock
 
@@ -135,10 +136,8 @@ class TestEmbeddingBackgroundWorker:
 
         # Cleanup
         worker_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await worker_task
-        except asyncio.CancelledError:
-            pass
 
     @pytest.mark.asyncio
     async def test_worker_graceful_degradation_on_failure(
@@ -186,10 +185,8 @@ class TestEmbeddingBackgroundWorker:
 
         # Cleanup
         worker_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await worker_task
-        except asyncio.CancelledError:
-            pass
 
 
 class TestEmbeddingTextExtraction:
@@ -298,8 +295,8 @@ class TestGoalEmbeddingEvents:
         WHEN: Creating a goal
         THEN: Goal creation succeeds (graceful degradation)
         """
-        from core.services.goals.goals_core_service import GoalsCoreService
         from core.models.goal.goal_request import GoalCreateRequest
+        from core.services.goals.goals_core_service import GoalsCoreService
 
         # Create service without event bus
         goals_service = GoalsCoreService(backend=goals_backend, event_bus=None)

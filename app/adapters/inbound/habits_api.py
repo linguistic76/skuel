@@ -16,7 +16,7 @@ SECURITY UPDATE (December 2025):
 - StatusRouteFactory provides automatic ownership verification
 """
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from fasthtml.common import Request
 
@@ -41,12 +41,9 @@ from core.models.habit.habit_request import (
     TrackHabitRequest,
     UntrackHabitRequest,
 )
+from core.services.protocols.facade_protocols import HabitsFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
-
-if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import HabitsFacadeProtocol
-
 
 # ============================================================================
 # REQUEST BUILDERS (SKUEL012 compliance - no lambda expressions)

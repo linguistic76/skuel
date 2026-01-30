@@ -28,8 +28,8 @@ from datetime import datetime
 from typing import Any
 
 from core.models.shared_enums import GuidanceMode
-from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 from core.services.lp_intelligence.types import LearningAnalysis, LearningReadiness, ProgressSummary
+from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

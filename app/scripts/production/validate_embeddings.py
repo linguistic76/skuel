@@ -123,7 +123,7 @@ async def main():
             record = await result.single()
 
             if record and record["has_embedding"]:
-                print(f"  ✅ Embedding generated successfully!")
+                print("  ✅ Embedding generated successfully!")
                 print(f"     Dimension: {record['embedding_size']}")
                 print(f"     Model: {record['model']}")
                 print(f"     Updated: {record['updated_at']}")
@@ -167,7 +167,7 @@ async def main():
         print("\n[CLEANUP] Removing test task...")
         async with driver.session() as session:
             await session.run("MATCH (t:Task {uid: $uid}) DETACH DELETE t", uid=test_uid)
-            print(f"  ✅ Test task removed")
+            print("  ✅ Test task removed")
 
         # Success summary
         print("\n" + "=" * 60)

@@ -27,8 +27,6 @@ from typing import Any
 
 from fasthtml.common import H1, H2, H3, A, Div, P, Span
 
-from core.ui.daisy_components import Button, ButtonT
-
 from components.admin_components import (
     AdminAnalyticsComponents,
     AdminSystemComponents,
@@ -36,6 +34,7 @@ from components.admin_components import (
 )
 from core.auth import require_admin
 from core.models.enums import UserRole
+from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
 from ui.admin.layout import create_admin_page
 

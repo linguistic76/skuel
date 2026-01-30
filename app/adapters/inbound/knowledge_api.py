@@ -12,7 +12,7 @@ This file uses:
 - Manual routes for domain-specific operations (relationships, content, search, organization, analytics)
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fasthtml.common import Request
 
@@ -21,11 +21,9 @@ from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactor
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
 from core.models.ku.ku_request import KuCreateRequest, KuUpdateRequest
+from core.services.protocols.facade_protocols import KuFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import KuFacadeProtocol
 
 
 def create_knowledge_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol) -> list[Any]:

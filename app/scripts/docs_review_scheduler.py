@@ -20,7 +20,7 @@ import json
 import re
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -294,7 +294,7 @@ def print_schedule(
                     f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)"
                 )
             else:
-                print(f"    Last reviewed: Never")
+                print("    Last reviewed: Never")
             print(f"    Frequency: {review.review_frequency}")
             print(f"    Overdue by: {abs(review.days_until_due)} days")
             print()
@@ -311,7 +311,7 @@ def print_schedule(
                     f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)"
                 )
             else:
-                print(f"    Last reviewed: Never")
+                print("    Last reviewed: Never")
             print(f"    Frequency: {review.review_frequency}")
             print(f"    Overdue by: {abs(review.days_until_due)} days")
             print()
@@ -328,7 +328,7 @@ def print_schedule(
                     f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)"
                 )
             else:
-                print(f"    Last reviewed: Never")
+                print("    Last reviewed: Never")
             print(f"    Frequency: {review.review_frequency}")
             print(f"    Due in: {review.days_until_due} days")
             print()
@@ -345,7 +345,7 @@ def print_schedule(
                     f"    Last reviewed: {review.last_reviewed} ({review.days_since_review} days ago)"
                 )
             else:
-                print(f"    Last reviewed: Never")
+                print("    Last reviewed: Never")
             print(f"    Frequency: {review.review_frequency}")
             print(f"    Due in: {review.days_until_due} days")
             print()

@@ -88,11 +88,12 @@ Date: 2026-01-29
 
 from __future__ import annotations
 
-from datetime import date
-from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
-from core.models.graph_context import GraphContext
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from datetime import date
 
 # Type variables for generics
 T = TypeVar("T", contravariant=False, covariant=True)  # Domain model type

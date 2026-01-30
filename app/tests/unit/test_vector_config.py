@@ -4,7 +4,6 @@ Unit tests for VectorSearchConfig.
 Tests configuration defaults and entity-specific thresholds.
 """
 
-import pytest
 
 from core.config.unified_config import VectorSearchConfig
 

@@ -465,7 +465,7 @@ class JournalProjectUIComponents:
 
 
 def create_journal_projects_ui_routes(
-    app, rt, journal_projects_service, journals_service=None, **related_services
+    app, rt, journal_projects_service, journals_service=None, **related_services: Any
 ):
     """
     Create journal projects UI routes.

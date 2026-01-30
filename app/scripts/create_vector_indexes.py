@@ -33,10 +33,11 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from neo4j import AsyncGraphDatabase
+
 from core.config.unified_config import get_config
 from core.utils.logging import get_logger
 from core.utils.neo4j_schema_manager import Neo4jSchemaManager
-from neo4j import AsyncGraphDatabase
 
 logger = get_logger("skuel.scripts.create_vector_indexes")
 
@@ -112,7 +113,7 @@ async def create_vector_indexes(
         failed = summary.get("failed", [])
 
         logger.info("")
-        logger.info(f"✅ Vector index creation complete")
+        logger.info("✅ Vector index creation complete")
         logger.info(f"   Created: {len(created)}")
         logger.info(f"   Failed: {len(failed)}")
         logger.info("")

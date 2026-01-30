@@ -530,11 +530,11 @@ def main() -> None:
             task_mode = True
             i += 1
             continue
-        elif arg == "--keywords":
+        if arg == "--keywords":
             keywords_mode = True
             i += 1
             continue
-        elif arg == "--limit":
+        if arg == "--limit":
             if i + 1 < len(args):
                 try:
                     limit = int(args[i + 1])

@@ -178,10 +178,10 @@ async def create_all_fulltext_indexes(driver: Any, recreate: bool = False) -> di
 
         if exists:
             if recreate:
-                logger.info(f"  Index exists - dropping for recreation")
+                logger.info("  Index exists - dropping for recreation")
                 await drop_fulltext_index(driver, index_name)
             else:
-                logger.info(f"  ⏭️  Index already exists - skipping")
+                logger.info("  ⏭️  Index already exists - skipping")
                 results[index_name] = True
                 continue
 

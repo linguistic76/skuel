@@ -12,7 +12,7 @@ This file uses:
 - Manual routes for domain-specific operations (expressions, alignment, links, search)
 """
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from fasthtml.common import Request
 
@@ -29,12 +29,10 @@ from core.models.principle.principle_request import (
     PrincipleUpdateRequest,
 )
 from core.services.conversion_service import ConversionService
+from core.services.protocols.facade_protocols import PrinciplesFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
-
-if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import PrinciplesFacadeProtocol
 
 conversion_service = ConversionService()
 

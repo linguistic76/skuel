@@ -41,10 +41,10 @@ from tests.fixtures.service_factories import (
     create_askesis_user_context_for_testing,
     create_finance_service_for_testing,
     create_knowledge_state_for_testing,
+    create_moc_service_for_testing,
     create_mock_backend,
     create_mock_backend_for_base_service,
     create_mock_driver,
-    create_moc_service_for_testing,
     create_tasks_service_for_testing,
     create_unified_user_context_for_testing,
 )

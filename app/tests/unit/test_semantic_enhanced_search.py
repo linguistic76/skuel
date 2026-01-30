@@ -12,8 +12,9 @@ Test Coverage:
 5. Graceful degradation scenarios
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from core.config.unified_config import VectorSearchConfig
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService

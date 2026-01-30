@@ -456,19 +456,19 @@ def create_assignments_api_routes(
 
         file_content = file_result.value
 
-        # Create temp file
-        temp_file = tempfile.NamedTemporaryFile(
+        # Create temp file with context manager
+        with tempfile.NamedTemporaryFile(
             delete=False, suffix=Path(assignment.original_filename).suffix
-        )
-        temp_file.write(file_content)
-        temp_file.close()
+        ) as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
 
         # Return file with background cleanup task
         return FileResponse(
-            path=temp_file.name,
+            path=temp_file_path,
             filename=assignment.original_filename,
             media_type=assignment.file_type,
-            background=BackgroundTask(cleanup_temp_file, temp_file.name),
+            background=BackgroundTask(cleanup_temp_file, temp_file_path),
         )
 
     @rt("/api/assignments/download-processed")
@@ -517,19 +517,19 @@ def create_assignments_api_routes(
 
         file_content = file_result.value
 
-        # Create temp file
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
-        temp_file.write(file_content)
-        temp_file.close()
+        # Create temp file with context manager
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
 
         processed_filename = f"processed_{assignment.original_filename}"
 
         # Return file with background cleanup task
         return FileResponse(
-            path=temp_file.name,
+            path=temp_file_path,
             filename=processed_filename,
             media_type="text/plain",
-            background=BackgroundTask(cleanup_temp_file, temp_file.name),
+            background=BackgroundTask(cleanup_temp_file, temp_file_path),
         )
 
     # ========================================================================

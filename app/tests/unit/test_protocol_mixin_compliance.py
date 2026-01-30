@@ -17,26 +17,26 @@ See: /docs/investigations/PROTOCOL_MIXIN_ALIGNMENT_SOLUTIONS.md
 
 import inspect
 import pathlib
+
 import pytest
-from typing import Any
 
 from core.services.mixins import (
+    ContextOperationsMixin,
     ConversionHelpersMixin,
     CrudOperationsMixin,
-    SearchOperationsMixin,
     RelationshipOperationsMixin,
+    SearchOperationsMixin,
     TimeQueryMixin,
     UserProgressMixin,
-    ContextOperationsMixin,
 )
 from core.services.protocols.base_service_interface import (
+    ContextOperations,
     ConversionOperations,
     CrudOperations,
-    SearchOperations,
     RelationshipOperations,
+    SearchOperations,
     TimeQueryOperations,
     UserProgressOperations,
-    ContextOperations,
 )
 
 # ============================================================================
@@ -76,10 +76,9 @@ def test_mixin_has_all_protocol_methods(name, mixin, protocol, filename):
     ]
 
     # Verify mixin has each method
-    missing_methods = []
-    for method_name in protocol_methods:
-        if not hasattr(mixin, method_name):
-            missing_methods.append(method_name)
+    missing_methods = [
+        method_name for method_name in protocol_methods if not hasattr(mixin, method_name)
+    ]
 
     assert not missing_methods, (
         f"{name}: {mixin.__name__} missing methods from {protocol.__name__}:\n"
@@ -211,7 +210,7 @@ def test_all_mixin_files_exist():
     mixin_dir = pathlib.Path("core/services/mixins")
 
     missing_files = []
-    for name, mixin, protocol, filename in MIXIN_PROTOCOL_PAIRS:
+    for name, _mixin, _protocol, filename in MIXIN_PROTOCOL_PAIRS:
         file_path = mixin_dir / filename
         if not file_path.exists():
             missing_files.append(f"{name}: {filename}")

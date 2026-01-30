@@ -10,8 +10,6 @@ Tests cover:
 from datetime import date
 from unittest.mock import Mock
 
-import pytest
-
 # Import the functions we're testing (they're in route modules)
 # We'll need to import from the actual modules
 
@@ -22,7 +20,6 @@ class TestTasksUIFormParsers:
     def test_parse_filters_with_all_params(self):
         """parse_filters should extract all filter params from request"""
         # Import here to avoid circular imports
-        from adapters.inbound.tasks_ui import create_tasks_ui_routes
 
         # Access the nested parse_filters function
         module_dict = {}

@@ -12,12 +12,11 @@ Test Coverage:
 """
 
 import time
+
 import pytest
-from datetime import datetime
 
 from core.config.unified_config import VectorSearchConfig
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
-from tests.fixtures.embedding_fixtures import mock_embeddings_service
 
 
 @pytest.mark.integration

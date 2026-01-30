@@ -194,7 +194,7 @@ def _should_generate_embedding(entity_type: EntityType) -> bool:
 
     Updated January 2026 to include all activity domains for complete semantic search coverage.
     """
-    ACTIVITY_DOMAINS = [
+    activity_domains = [
         EntityType.TASK,
         EntityType.GOAL,
         EntityType.HABIT,
@@ -202,7 +202,7 @@ def _should_generate_embedding(entity_type: EntityType) -> bool:
         EntityType.CHOICE,
         EntityType.PRINCIPLE,
     ]
-    return entity_type == EntityType.KU or entity_type in ACTIVITY_DOMAINS
+    return entity_type == EntityType.KU or entity_type in activity_domains
 
 
 def _get_embedding_text(entity_type: EntityType, entity_data: dict[str, Any]) -> str:
@@ -245,7 +245,7 @@ def _get_embedding_text(entity_type: EntityType, entity_data: dict[str, Any]) ->
         # Habit: title + description + trigger + reward
         parts = []
         for field in ["title", "description", "trigger", "reward"]:
-            if field in entity_data and entity_data[field]:
+            if entity_data.get(field):
                 parts.append(str(entity_data[field]))
         return "\n".join(parts).strip()
 
@@ -253,7 +253,7 @@ def _get_embedding_text(entity_type: EntityType, entity_data: dict[str, Any]) ->
         # Event: title + description + location
         parts = []
         for field in ["title", "description", "location"]:
-            if field in entity_data and entity_data[field]:
+            if entity_data.get(field):
                 parts.append(str(entity_data[field]))
         return "\n".join(parts).strip()
 
@@ -261,7 +261,7 @@ def _get_embedding_text(entity_type: EntityType, entity_data: dict[str, Any]) ->
         # Choice: title + description + decision_context + outcome
         parts = []
         for field in ["title", "description", "decision_context", "outcome"]:
-            if field in entity_data and entity_data[field]:
+            if entity_data.get(field):
                 parts.append(str(entity_data[field]))
         return "\n".join(parts).strip()
 
@@ -269,7 +269,7 @@ def _get_embedding_text(entity_type: EntityType, entity_data: dict[str, Any]) ->
         # Principle: name + statement + description
         parts = []
         for field in ["name", "statement", "description"]:
-            if field in entity_data and entity_data[field]:
+            if entity_data.get(field):
                 parts.append(str(entity_data[field]))
         return "\n".join(parts).strip()
 
