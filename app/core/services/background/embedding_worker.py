@@ -35,8 +35,8 @@ from core.events import (
     PrincipleEmbeddingRequested,
     TaskEmbeddingRequested,
 )
+from core.events import publish_event
 from core.events.embedding_events import EmbeddingRequested
-from core.events.utils import publish_event
 from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 
@@ -59,6 +59,7 @@ class EmbeddingBackgroundWorker:
         event_bus: EventBusOperations,
         embeddings_service: Any,  # Neo4jGenAIEmbeddingsService
         driver: Any,  # AsyncDriver
+        config: Any,  # UnifiedConfig for embedding version
         content_adapter: Any | None = None,  # Neo4jContentAdapter for chunk storage
         batch_size: int = 25,
         batch_interval_seconds: int = 30,
@@ -70,6 +71,7 @@ class EmbeddingBackgroundWorker:
             event_bus: Event bus for subscribing to embedding requests
             embeddings_service: Neo4jGenAIEmbeddingsService for generating embeddings
             driver: Neo4j driver for updating nodes
+            config: UnifiedConfig for accessing embedding version
             content_adapter: Neo4jContentAdapter for chunk embedding storage (optional)
             batch_size: Number of entities to process per batch
             batch_interval_seconds: Seconds between batch processing runs
@@ -77,6 +79,7 @@ class EmbeddingBackgroundWorker:
         self.event_bus = event_bus
         self.embeddings_service = embeddings_service
         self.driver = driver
+        self.config = config
         self.content_adapter = content_adapter
         self.batch_size = batch_size
         self.batch_interval = batch_interval_seconds
@@ -244,7 +247,7 @@ class EmbeddingBackgroundWorker:
         self, entity_uid: str, entity_type: str, embedding: list[float]
     ) -> bool:
         """
-        Store embedding in Neo4j node.
+        Store embedding in Neo4j node with version tracking.
 
         Args:
             entity_uid: UID of entity
@@ -269,6 +272,7 @@ class EmbeddingBackgroundWorker:
             query = f"""
                 MATCH (n:{label} {{uid: $uid}})
                 SET n.embedding = $embedding,
+                    n.embedding_version = $version,
                     n.embedding_model = $model,
                     n.embedding_updated_at = datetime()
                 RETURN n.uid
@@ -278,6 +282,7 @@ class EmbeddingBackgroundWorker:
                 query,
                 uid=entity_uid,
                 embedding=embedding,
+                version=self.config.genai.embedding_version,
                 model=self.embeddings_service.model,
             )
 

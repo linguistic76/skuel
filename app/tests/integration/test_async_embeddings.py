@@ -105,11 +105,16 @@ class TestEmbeddingBackgroundWorker:
             return_value=Mock(is_ok=True, value=[[0.1] * 1536 for _ in range(10)])
         )
 
+        # Mock config for embedding version
+        mock_config = Mock()
+        mock_config.genai.embedding_version = "v1"
+
         # Create and start worker
         worker = EmbeddingBackgroundWorker(
             event_bus=event_bus,
             embeddings_service=embeddings_service,
             driver=neo4j_driver,
+            config=mock_config,
             batch_size=25,
             batch_interval_seconds=1,  # Faster for testing
         )
@@ -159,10 +164,15 @@ class TestEmbeddingBackgroundWorker:
             )
         )
 
+        # Mock config for embedding version
+        mock_config = Mock()
+        mock_config.genai.embedding_version = "v1"
+
         worker = EmbeddingBackgroundWorker(
             event_bus=event_bus,
             embeddings_service=embeddings_service,
             driver=neo4j_driver,
+            config=mock_config,
             batch_size=5,
             batch_interval_seconds=1,
         )

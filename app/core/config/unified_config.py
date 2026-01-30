@@ -394,6 +394,7 @@ class GenAIConfig:
     provider: str = field(default="openai")  # openai, anthropic, azure
     embedding_model: str = field(default="text-embedding-3-small")
     embedding_dimension: int = field(default=1536)
+    embedding_version: str = field(default="v1")  # Version tracking for model upgrades
 
     # Vector index configuration
     vector_index_similarity: str = field(default="cosine")  # cosine, euclidean
@@ -417,6 +418,7 @@ class GenAIConfig:
             provider=os.getenv("GENAI_PROVIDER", "openai"),
             embedding_model=os.getenv("GENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
             embedding_dimension=int(os.getenv("GENAI_EMBEDDING_DIMENSION", "1536")),
+            embedding_version=os.getenv("EMBEDDING_VERSION", "v1"),
             batch_size=int(os.getenv("GENAI_BATCH_SIZE", "25")),
             fallback_to_keyword_search=os.getenv("GENAI_FALLBACK_TO_KEYWORD_SEARCH", "true").lower()
             == "true",

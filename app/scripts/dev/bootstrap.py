@@ -75,7 +75,7 @@ async def bootstrap_skuel() -> AppContainer:
         neo4j_adapter, event_bus = await _build_infrastructure()
 
         # Step 3: Compose business services
-        services, knowledge_backend = await _compose_services(neo4j_adapter, event_bus)
+        services, knowledge_backend = await _compose_services(neo4j_adapter, event_bus, config)
 
         # Step 4: Wire routes
         static_dir = getattr(config.application, "static_directory", None)
@@ -134,7 +134,7 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations]:
 
 
 async def _compose_services(
-    neo4j_adapter: Any, event_bus: EventBusOperations
+    neo4j_adapter: Any, event_bus: EventBusOperations, config: UnifiedConfig
 ) -> tuple[Services, Any]:
     """
     Step 3: Compose all business services with dependency injection.
@@ -146,7 +146,7 @@ async def _compose_services(
         Tuple of (Services, KnowledgeUniversalBackend)
     """
     # Call compose_services which returns Result[tuple[Services, knowledge_backend]]
-    services_result = await compose_services(neo4j_adapter, event_bus)
+    services_result = await compose_services(neo4j_adapter, event_bus, config)
 
     # Convert Result to exception at boundary
     if services_result.is_error:

@@ -785,7 +785,7 @@ def _create_advanced_services(driver: Any) -> dict[str, Any]:
 
 
 async def compose_services(
-    neo4j_adapter: Any, event_bus: EventBusOperations = None
+    neo4j_adapter: Any, event_bus: EventBusOperations = None, config: Any = None
 ) -> Result[tuple[Services, Any, Any]]:
     """
     Bootstrap function: creates all services with their dependencies.
@@ -801,6 +801,7 @@ async def compose_services(
     Args:
         neo4j_adapter: Database adapter (satisfies GraphPort) - REQUIRED,
         event_bus: Event bus adapter (optional, will create default if None)
+        config: UnifiedConfig for accessing configuration (optional, will load if None)
 
     Returns:
         Result[tuple[Services, knowledge_backend]]: Success with wired services or failure
@@ -811,6 +812,11 @@ async def compose_services(
         ValueError: If any required dependency is missing
     """
     logger.info("🔧 Composing service dependencies (FAIL-FAST mode)...")
+
+    # Load config if not provided
+    if config is None:
+        from core.config import get_settings
+        config = get_settings()
 
     try:
         # ========================================================================
@@ -1199,6 +1205,7 @@ async def compose_services(
                     event_bus=event_bus,
                     embeddings_service=embeddings_service,
                     driver=driver,
+                    config=config,
                     batch_size=25,  # Process 25 entities per batch (cost-optimized)
                     batch_interval_seconds=30,  # Run every 30 seconds
                 )
