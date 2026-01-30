@@ -151,7 +151,15 @@
       "Bash(git commit:*)",
       "Bash(PYTHONPATH=/home/mike/skuel/app poetry run python:*)",
       "Bash(git push)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(if grep -q \"class.*BaseService\" \"$file\")",
+      "Bash(if grep -q \"_config = create_\" \"$file\")",
+      "Bash(elif grep -q \"_config =\" \"$file\")",
+      "Bash(node -c:*)",
+      "Bash(env)",
+      "Bash(poetry:*)",
+      "Bash(./scripts/production/enable_genai.sh:*)",
+      "Bash(claude tasks:*)"
     ]
   }
 }

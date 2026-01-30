@@ -1,6 +1,6 @@
 ---
 title: ADR-003: Journal Context Gathering Query
-updated: 2026-01-24
+updated: 2026-01-30
 status: current
 category: decisions
 tags: [003, adr, decisions, journals, query]
@@ -346,17 +346,18 @@ AI with mood trends: "You've been low energy this week - consider self-care"
 
 ---
 
-## 2026-01 Update: Transcript Processor Refactoring
+## 2026-01 Update: Protocol Compliance & Domain Separation
 
-**Date:** November 27, 2025
-**Status:** Implemented
+**Dates:**
+- November 27, 2025 - Transcript processor refactoring
+- January 28, 2026 - Protocol compliance update
 
 The transcript processor was refactored to streamline journal processing:
 
 ### Key Changes
 
 1. **Single-Query Context Gathering**
-   - Method: `get_journal_context_for_processing(user_uid: str, transcript_id: str)`
+   - Method: `get_journal_context_for_processing(user_uid: str)`
    - Returns: `JournalContext` (same structure as above)
    - Purpose: Fetch all context needed for AI processing in one query
 
@@ -365,28 +366,34 @@ The transcript processor was refactored to streamline journal processing:
    - **New:** Returns `JournalAIInsights` only (AI-processed data)
    - **Rationale:** Separation of concerns - processor analyzes, other services persist
 
-3. **AssignmentProcessorService Handles Persistence**
-   - Journal entity creation moved to `AssignmentProcessorService`
-   - Transcript processor is now purely analytical (no database writes)
-   - Cleaner separation: analysis vs persistence
+3. **Domain Separation (January 2026)**
+   - Journals are now a separate domain with JournalsCoreService
+   - Queries `:Journal` nodes directly (not `:Assignment` nodes)
+   - Reflects proper domain boundaries in the graph
+
+4. **Protocol Compliance (January 28, 2026)**
+   - **Old:** `BaseService[UniversalNeo4jBackend[JournalPure], JournalPure]`
+   - **New:** `BaseService[JournalsOperations, JournalPure]`
+   - Uses protocol-based backend for zero port dependencies
 
 ### Updated Architecture
 
 ```
-Audio Transcript → TranscriptProcessorService
+Audio Transcript → TranscriptProcessorService (JournalsOperations protocol)
     │
     ├─ gather_journal_context(user_uid)     # Single query (this ADR)
+    │  └─ Queries: :Journal nodes directly
     │  └─ Returns: JournalContext
     │
     └─ process_transcript(transcript, context)
        └─ Returns: JournalAIInsights (NO entity creation)
 
-JournalAIInsights → AssignmentProcessorService
+JournalAIInsights → JournalsCoreService
     └─ create_journal_from_insights(insights)
        └─ Creates: Journal node in Neo4j
 ```
 
-**See:** `/core/services/transcript_processor_service.py` (refactored pipeline)
+**See:** `/core/services/transcript_processor_service.py` (protocol-compliant, line 45)
 
 ---
 
