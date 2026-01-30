@@ -84,14 +84,23 @@ class RelationshipName(str, Enum):
     # TASK RELATIONSHIPS
     # Task dependencies, contributions, and cross-domain links
     # =========================================================================
+    # Parent-Child Composition (2026-01-30 - Hierarchical Relationships Pattern)
+    HAS_SUBTASK = "HAS_SUBTASK"  # (parent)-[:HAS_SUBTASK {progress_weight, order}]->(child)
+    SUBTASK_OF = (
+        "SUBTASK_OF"  # (child)-[:SUBTASK_OF]->(parent) - Bidirectional for efficient queries
+    )
+
+    # Task Dependencies & Prerequisites
     DEPENDS_ON = "DEPENDS_ON"
     BLOCKS = "BLOCKS"
     BLOCKED_BY = "BLOCKED_BY"
+    REQUIRES_TASK = "REQUIRES_TASK"  # Sequential prerequisite (different from parent-child!)
+
+    # Task Contributions & Cross-Domain
     CONTRIBUTES_TO_GOAL = "CONTRIBUTES_TO_GOAL"
     FULFILLS_GOAL = "FULFILLS_GOAL"
     GENERATES_TASK = "GENERATES_TASK"
     EXECUTES_TASK = "EXECUTES_TASK"
-    REQUIRES_TASK = "REQUIRES_TASK"
     FUNDS_TASK = "FUNDS_TASK"
     TRIGGERS_ON_COMPLETION = "TRIGGERS_ON_COMPLETION"
     UNLOCKS_KNOWLEDGE = "UNLOCKS_KNOWLEDGE"
@@ -120,9 +129,16 @@ class RelationshipName(str, Enum):
     # HABIT RELATIONSHIPS
     # Habit chains, prerequisites, and reinforcement
     # =========================================================================
+    # Parent-Child Composition (2026-01-30 - Hierarchical Relationships Pattern)
+    HAS_SUBHABIT = "HAS_SUBHABIT"  # (parent)-[:HAS_SUBHABIT {progress_weight, order}]->(child)
+    SUBHABIT_OF = "SUBHABIT_OF"  # (child)-[:SUBHABIT_OF]->(parent) - Habit routines with sub-steps
+
+    # Habit Prerequisites & Dependencies
     REQUIRES_PREREQUISITE_HABIT = "REQUIRES_PREREQUISITE_HABIT"
     ENABLES_HABIT = "ENABLES_HABIT"
     REQUIRES_HABIT = "REQUIRES_HABIT"
+
+    # Habit Reinforcement & Impact
     REINFORCES_HABIT = "REINFORCES_HABIT"
     INSPIRES_HABIT = "INSPIRES_HABIT"
     IMPACTS_HABIT = "IMPACTS_HABIT"  # (choice)-[:IMPACTS_HABIT]->(habit)
@@ -393,3 +409,43 @@ class RelationshipName(str, Enum):
             self.SERVES_LIFE_PATH,
         }
         return self in life_path_types
+
+    def is_parent_child_relationship(self) -> bool:
+        """Check if this is a parent-child composition relationship.
+
+        These relationships represent decomposition where a parent entity
+        is composed of child entities. Used for:
+        - Task decomposition (task with subtasks)
+        - Goal milestone breakdown (goal with subgoals)
+        - Habit routines (habit with sub-steps)
+
+        See: /docs/patterns/HIERARCHICAL_RELATIONSHIPS_PATTERN.md
+        """
+        parent_child_types = {
+            self.HAS_SUBTASK,
+            self.SUBTASK_OF,
+            self.HAS_SUBGOAL,
+            self.SUBGOAL_OF,
+            self.HAS_SUBHABIT,
+            self.SUBHABIT_OF,
+        }
+        return self in parent_child_types
+
+    def is_prerequisite_relationship(self) -> bool:
+        """Check if this is a prerequisite/sequential dependency relationship.
+
+        These relationships enforce ordering (must complete A before B).
+        Different from parent-child which represents composition.
+
+        See: /docs/patterns/HIERARCHICAL_RELATIONSHIPS_PATTERN.md
+        """
+        prerequisite_types = {
+            self.REQUIRES_TASK,
+            self.REQUIRES_GOAL,
+            self.REQUIRES_HABIT,
+            self.REQUIRES_PREREQUISITE_HABIT,
+            self.REQUIRES_KNOWLEDGE,
+            self.REQUIRES_STEP,
+            self.PREREQUISITE,
+        }
+        return self in prerequisite_types

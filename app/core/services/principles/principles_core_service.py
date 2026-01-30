@@ -101,7 +101,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
     # ========================================================================
 
-
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
@@ -267,8 +266,10 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         user_uid = kwargs.pop("user_uid", "unknown")  # Use pop to remove from kwargs
         strength = kwargs.get("strength", PrincipleStrength.CORE)
 
+        from core.utils.uid_generator import UIDGenerator
+
         principle = Principle(
-            uid=f"principle_{label.lower().replace(' ', '_')}_{datetime.now().timestamp()}",
+            uid=UIDGenerator.generate_random_uid("principle"),
             user_uid=user_uid,
             name=label,  # Map label → name
             statement=description,  # Map description → statement
@@ -531,7 +532,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         Example:
             # Get active principles adopted in October 2025
             result = await principles_core.get_user_items_in_range(
-                user_uid="user.mike",
+                user_uid="user_mike",
                 start_date=date(2025, 10, 1),
                 end_date=date(2025, 10, 31),
                 include_completed=False
@@ -619,3 +620,293 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             await publish_event(self.event_bus, event, self.logger)
 
         return result
+
+    # ========================================================================
+    # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Universal Hierarchical Pattern)
+    # ========================================================================
+
+    @with_error_handling("get_subprinciples", error_type="database", uid_param="parent_uid")
+    async def get_subprinciples(self, parent_uid: str, depth: int = 1) -> Result[list[Principle]]:
+        """
+        Get all subprinciples of a parent principle.
+
+        Args:
+            parent_uid: Parent principle UID
+            depth: How many levels deep (1=direct children, 2=children+grandchildren, etc.)
+
+        Returns:
+            Result containing list of subprinciples ordered by created_at
+
+        Example:
+            # Get direct children
+            subprinciples = await service.get_subprinciples("principle_abc123")
+
+            # Get all descendants
+            all_subprinciples = await service.get_subprinciples("principle_abc123", depth=99)
+        """
+        query = f"""
+        MATCH (parent:Principle {{uid: $parent_uid}})
+        MATCH (parent)-[:HAS_SUBPRINCIPLE*1..{depth}]->(subprinciple:Principle)
+        RETURN subprinciple
+        ORDER BY subprinciple.created_at
+        """
+
+        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid)
+
+        if not result.records:
+            return Result.ok([])
+
+        # Convert to Principle models
+        principles = []
+        for record in result.records:
+            principle_data = dict(record["subprinciple"])
+            principle = self._to_domain_model(principle_data, PrincipleDTO, Principle)
+            principles.append(principle)
+
+        return Result.ok(principles)
+
+    @with_error_handling(
+        "get_parent_principle", error_type="database", uid_param="subprinciple_uid"
+    )
+    async def get_parent_principle(self, subprinciple_uid: str) -> Result[Principle | None]:
+        """
+        Get immediate parent of a subprinciple (if any).
+
+        Args:
+            subprinciple_uid: Subprinciple UID
+
+        Returns:
+            Result containing parent Principle or None if root-level principle
+        """
+        query = """
+        MATCH (subprinciple:Principle {uid: $subprinciple_uid})
+        MATCH (parent:Principle)-[:HAS_SUBPRINCIPLE]->(subprinciple)
+        RETURN parent
+        LIMIT 1
+        """
+
+        result = await self.backend.driver.execute_query(query, subprinciple_uid=subprinciple_uid)
+
+        if not result.records:
+            return Result.ok(None)
+
+        parent_data = dict(result.records[0]["parent"])
+        parent = self._to_domain_model(parent_data, PrincipleDTO, Principle)
+        return Result.ok(parent)
+
+    @with_error_handling(
+        "get_principle_hierarchy", error_type="database", uid_param="principle_uid"
+    )
+    async def get_principle_hierarchy(self, principle_uid: str) -> Result[dict[str, Any]]:
+        """
+        Get full hierarchy context: ancestors, siblings, children.
+
+        Args:
+            principle_uid: Principle UID to get context for
+
+        Returns:
+            Result containing hierarchy dict with keys:
+            - ancestors: list[Principle] (root to immediate parent)
+            - current: Principle
+            - siblings: list[Principle] (other children of same parent)
+            - children: list[Principle] (immediate children)
+            - depth: int (how deep in hierarchy, 0=root)
+
+        Example:
+            hierarchy = await service.get_principle_hierarchy("principle_xyz789")
+            # {
+            #   "ancestors": [root_principle, parent_principle],
+            #   "current": principle_xyz789,
+            #   "siblings": [sibling1, sibling2],
+            #   "children": [child1, child2],
+            #   "depth": 2
+            # }
+        """
+        # Get ancestors
+        ancestors_query = """
+        MATCH path = (root:Principle)-[:HAS_SUBPRINCIPLE*]->(current:Principle {uid: $principle_uid})
+        WHERE NOT EXISTS((root)<-[:HAS_SUBPRINCIPLE]-())
+        RETURN nodes(path) as ancestors
+        """
+
+        # Get siblings
+        siblings_query = """
+        MATCH (current:Principle {uid: $principle_uid})
+        OPTIONAL MATCH (parent:Principle)-[:HAS_SUBPRINCIPLE]->(current)
+        OPTIONAL MATCH (parent)-[:HAS_SUBPRINCIPLE]->(sibling:Principle)
+        WHERE sibling.uid <> $principle_uid
+        RETURN collect(sibling) as siblings
+        """
+
+        # Get children
+        children_query = """
+        MATCH (current:Principle {uid: $principle_uid})
+        OPTIONAL MATCH (current)-[:HAS_SUBPRINCIPLE]->(child:Principle)
+        RETURN collect(child) as children
+        """
+
+        # Execute all queries
+        current_result = await self.backend.get(principle_uid)
+        if current_result.is_error:
+            return Result.fail(current_result)
+
+        current_principle = self._to_domain_model(current_result.value, PrincipleDTO, Principle)
+
+        ancestors_result = await self.backend.driver.execute_query(
+            ancestors_query, principle_uid=principle_uid
+        )
+        siblings_result = await self.backend.driver.execute_query(
+            siblings_query, principle_uid=principle_uid
+        )
+        children_result = await self.backend.driver.execute_query(
+            children_query, principle_uid=principle_uid
+        )
+
+        # Process ancestors
+        ancestors = []
+        if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
+            for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
+                principle_data = dict(node)
+                ancestors.append(self._to_domain_model(principle_data, PrincipleDTO, Principle))
+
+        # Process siblings
+        siblings = []
+        if siblings_result.records and siblings_result.records[0]["siblings"]:
+            for node in siblings_result.records[0]["siblings"]:
+                if node:  # Skip None values
+                    principle_data = dict(node)
+                    siblings.append(self._to_domain_model(principle_data, PrincipleDTO, Principle))
+
+        # Process children
+        children = []
+        if children_result.records and children_result.records[0]["children"]:
+            for node in children_result.records[0]["children"]:
+                if node:  # Skip None values
+                    principle_data = dict(node)
+                    children.append(self._to_domain_model(principle_data, PrincipleDTO, Principle))
+
+        return Result.ok(
+            {
+                "ancestors": ancestors,
+                "current": current_principle,
+                "siblings": siblings,
+                "children": children,
+                "depth": len(ancestors),
+            }
+        )
+
+    @with_error_handling("create_subprinciple_relationship", error_type="database")
+    async def create_subprinciple_relationship(
+        self, parent_uid: str, subprinciple_uid: str, order: int = 0, importance: str = "supporting"
+    ) -> Result[bool]:
+        """
+        Create bidirectional parent-child relationship.
+
+        Args:
+            parent_uid: Parent principle UID
+            subprinciple_uid: Subprinciple UID
+            order: Display order for subprinciples (default: 0)
+            importance: Importance level - "core", "supporting", or "derived" (default: "supporting")
+
+        Returns:
+            Result indicating success
+
+        Note:
+            Creates both HAS_SUBPRINCIPLE (parent→child) and SUBPRINCIPLE_OF (child→parent)
+            for efficient bidirectional queries. Supports value hierarchies via importance property.
+        """
+        # Validate no cycle (can't make parent a child of its descendant)
+        cycle_check = await self._would_create_cycle(parent_uid, subprinciple_uid)
+        if cycle_check:
+            return Result.fail(
+                Errors.validation(
+                    f"Cannot create subprinciple relationship: would create cycle "
+                    f"({subprinciple_uid} is ancestor of {parent_uid})"
+                )
+            )
+
+        query = """
+        MATCH (parent:Principle {uid: $parent_uid})
+        MATCH (subprinciple:Principle {uid: $subprinciple_uid})
+
+        CREATE (parent)-[:HAS_SUBPRINCIPLE {
+            order: $order,
+            importance: $importance,
+            created_at: datetime()
+        }]->(subprinciple)
+
+        CREATE (subprinciple)-[:SUBPRINCIPLE_OF {
+            created_at: datetime()
+        }]->(parent)
+
+        RETURN true as success
+        """
+
+        result = await self.backend.driver.execute_query(
+            query,
+            parent_uid=parent_uid,
+            subprinciple_uid=subprinciple_uid,
+            order=order,
+            importance=importance,
+        )
+
+        if result.records:
+            self.logger.info(
+                f"Created subprinciple relationship: {parent_uid} -> {subprinciple_uid} "
+                f"(order: {order}, importance: {importance})"
+            )
+            return Result.ok(True)
+
+        return Result.fail(Errors.database("Failed to create subprinciple relationship"))
+
+    @with_error_handling("remove_subprinciple_relationship", error_type="database")
+    async def remove_subprinciple_relationship(
+        self, parent_uid: str, subprinciple_uid: str
+    ) -> Result[bool]:
+        """
+        Remove bidirectional parent-child relationship.
+
+        Args:
+            parent_uid: Parent principle UID
+            subprinciple_uid: Subprinciple UID
+
+        Returns:
+            Result containing True if relationships were deleted
+        """
+        query = """
+        MATCH (parent:Principle {uid: $parent_uid})-[r1:HAS_SUBPRINCIPLE]->(subprinciple:Principle {uid: $subprinciple_uid})
+        MATCH (subprinciple)-[r2:SUBPRINCIPLE_OF]->(parent)
+        DELETE r1, r2
+        RETURN count(r1) + count(r2) as deleted_count
+        """
+
+        result = await self.backend.driver.execute_query(
+            query, parent_uid=parent_uid, subprinciple_uid=subprinciple_uid
+        )
+
+        if result.records:
+            deleted = result.records[0]["deleted_count"]
+            if deleted > 0:
+                self.logger.info(
+                    f"Removed subprinciple relationship: {parent_uid} -> {subprinciple_uid}"
+                )
+                return Result.ok(True)
+
+        return Result.ok(False)
+
+    async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
+        """Check if adding parent->child relationship would create a cycle."""
+        query = """
+        MATCH (child:Principle {uid: $child_uid})
+        MATCH path = (child)-[:HAS_SUBPRINCIPLE*]->(parent:Principle {uid: $parent_uid})
+        RETURN count(path) > 0 as would_create_cycle
+        """
+
+        result = await self.backend.driver.execute_query(
+            query, parent_uid=parent_uid, child_uid=child_uid
+        )
+
+        if result.records:
+            return result.records[0]["would_create_cycle"]
+
+        return False

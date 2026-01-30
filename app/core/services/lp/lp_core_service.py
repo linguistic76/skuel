@@ -884,6 +884,263 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
             return Result.ok(True)
 
     # ============================================================================
+    # STEP MANAGEMENT (2026-01-30 - Universal Hierarchical Pattern)
+    # ============================================================================
+
+    @with_error_handling("get_steps", error_type="database", uid_param="path_uid")
+    async def get_steps(self, path_uid: str, depth: int = 1) -> Result[list[Ls]]:
+        """
+        Get all steps in a learning path ordered by sequence.
+
+        Args:
+            path_uid: Learning path UID
+            depth: Traversal depth (default: 1, immediate steps only)
+
+        Returns:
+            Result containing list of Ls (learning steps) ordered by sequence
+
+        Example:
+            steps = await service.get_steps("lp:abc123")
+            # Returns [ls1, ls2, ls3] in sequence order
+        """
+        query = f"""
+        MATCH (lp:Lp {{uid: $path_uid}})-[r:HAS_STEP*1..{depth}]->(ls:Ls)
+        RETURN ls, r[0].sequence as sequence
+        ORDER BY sequence
+        """
+
+        result = await self.backend.driver.execute_query(query, path_uid=path_uid)
+
+        if not result.records:
+            return Result.ok([])
+
+        # Convert to Ls models
+        steps = []
+        for record in result.records:
+            ls_data = dict(record["ls"])
+            # Convert to Ls model using the LS adapter
+            from core.models.learning_step.learning_step_dto import LsDTO
+            from core.models.learning_step.learning_step import Ls
+
+            ls = self._to_domain_model(ls_data, LsDTO, Ls)
+            steps.append(ls)
+
+        return Result.ok(steps)
+
+    @with_error_handling("get_parent_path", error_type="database", uid_param="step_uid")
+    async def get_parent_path(self, step_uid: str) -> Result[Lp | None]:
+        """
+        Get the learning path containing this step.
+
+        Args:
+            step_uid: Learning step UID
+
+        Returns:
+            Result containing parent Lp or None if step not in any path
+
+        Note:
+            A learning step can belong to multiple paths. This returns the first match.
+        """
+        query = """
+        MATCH (lp:Lp)-[:HAS_STEP]->(ls:Ls {uid: $step_uid})
+        RETURN lp
+        LIMIT 1
+        """
+
+        result = await self.backend.driver.execute_query(query, step_uid=step_uid)
+
+        if not result.records:
+            return Result.ok(None)
+
+        lp_data = dict(result.records[0]["lp"])
+        lp = self._to_domain_model(lp_data, LpDTO, Lp)
+        return Result.ok(lp)
+
+    @with_error_handling("get_path_hierarchy", error_type="database", uid_param="path_uid")
+    async def get_path_hierarchy(self, path_uid: str) -> Result[dict[str, Any]]:
+        """
+        Get learning path with all its steps.
+
+        Args:
+            path_uid: Learning path UID
+
+        Returns:
+            Result containing hierarchy dict with keys:
+            - current: Lp (the path itself)
+            - steps: list[Ls] (ordered learning steps)
+            - step_count: int (total number of steps)
+
+        Example:
+            hierarchy = await service.get_path_hierarchy("lp:abc123")
+            # {
+            #   "current": lp_abc123,
+            #   "steps": [ls1, ls2, ls3],
+            #   "step_count": 3
+            # }
+        """
+        # Get current path
+        current_result = await self.backend.get(path_uid)
+        if current_result.is_error:
+            return Result.fail(current_result)
+
+        current_lp = self._to_domain_model(current_result.value, LpDTO, Lp)
+
+        # Get steps
+        steps_result = await self.get_steps(path_uid)
+        if steps_result.is_error:
+            return Result.fail(steps_result)
+
+        steps = steps_result.value
+
+        return Result.ok(
+            {
+                "current": current_lp,
+                "steps": steps,
+                "step_count": len(steps),
+            }
+        )
+
+    @with_error_handling("add_step_to_path", error_type="database")
+    async def add_step_to_path(
+        self, path_uid: str, step_uid: str, sequence: int, order: int = 0
+    ) -> Result[bool]:
+        """
+        Add a learning step to a path with sequence ordering.
+
+        Args:
+            path_uid: Learning path UID
+            step_uid: Learning step UID
+            sequence: Position in path (0-indexed)
+            order: Additional ordering hint (default: 0)
+
+        Returns:
+            Result indicating success
+
+        Note:
+            Creates HAS_STEP relationship with sequence property for ordering.
+        """
+        # Validate path exists
+        path_result = await self.backend.get(path_uid)
+        if path_result.is_error:
+            return Result.fail(Errors.not_found(f"Learning path not found: {path_uid}"))
+
+        # Validate step exists (need to query Ls node)
+        step_query = """
+        MATCH (ls:Ls {uid: $step_uid})
+        RETURN ls
+        """
+        step_check = await self.backend.driver.execute_query(step_query, step_uid=step_uid)
+        if not step_check.records:
+            return Result.fail(Errors.not_found(f"Learning step not found: {step_uid}"))
+
+        # Create relationship
+        query = """
+        MATCH (lp:Lp {uid: $path_uid})
+        MATCH (ls:Ls {uid: $step_uid})
+        CREATE (lp)-[:HAS_STEP {
+            sequence: $sequence,
+            order: $order,
+            created_at: datetime()
+        }]->(ls)
+        RETURN true as success
+        """
+
+        result = await self.backend.driver.execute_query(
+            query, path_uid=path_uid, step_uid=step_uid, sequence=sequence, order=order
+        )
+
+        if result.records:
+            self.logger.info(f"Added step {step_uid} to path {path_uid} at sequence {sequence}")
+            return Result.ok(True)
+
+        return Result.fail(Errors.database("Failed to add step to path"))
+
+    @with_error_handling("remove_step_from_path", error_type="database")
+    async def remove_step_from_path(self, path_uid: str, step_uid: str) -> Result[bool]:
+        """
+        Remove a learning step from a path and reorder remaining steps.
+
+        Args:
+            path_uid: Learning path UID
+            step_uid: Learning step UID
+
+        Returns:
+            Result containing True if step was removed
+
+        Note:
+            Automatically closes sequence gaps by reordering remaining steps.
+        """
+        # Delete the relationship
+        delete_query = """
+        MATCH (lp:Lp {uid: $path_uid})-[r:HAS_STEP]->(ls:Ls {uid: $step_uid})
+        DELETE r
+        RETURN count(r) as deleted_count
+        """
+
+        result = await self.backend.driver.execute_query(
+            delete_query, path_uid=path_uid, step_uid=step_uid
+        )
+
+        if not result.records or result.records[0]["deleted_count"] == 0:
+            return Result.ok(False)
+
+        # Reorder remaining steps to close gaps
+        reorder_query = """
+        MATCH (lp:Lp {uid: $path_uid})-[r:HAS_STEP]->(ls:Ls)
+        WITH ls, r
+        ORDER BY r.sequence
+        WITH collect(ls) as steps
+        UNWIND range(0, size(steps)-1) as idx
+        MATCH (lp:Lp {uid: $path_uid})-[r:HAS_STEP]->(steps[idx])
+        SET r.sequence = idx
+        RETURN count(r) as updated
+        """
+
+        await self.backend.driver.execute_query(reorder_query, path_uid=path_uid)
+
+        self.logger.info(
+            f"Removed step {step_uid} from path {path_uid} and reordered remaining steps"
+        )
+        return Result.ok(True)
+
+    @with_error_handling("reorder_steps", error_type="database")
+    async def reorder_steps(self, path_uid: str, step_uids: list[str]) -> Result[bool]:
+        """
+        Batch reorder all steps in a learning path.
+
+        Args:
+            path_uid: Learning path UID
+            step_uids: Ordered list of step UIDs (defines new sequence)
+
+        Returns:
+            Result indicating success
+
+        Example:
+            # Swap first two steps
+            await service.reorder_steps("lp:abc123", ["ls:step2", "ls:step1", "ls:step3"])
+        """
+        query = """
+        MATCH (lp:Lp {uid: $path_uid})
+        WITH lp
+        UNWIND range(0, size($step_uids)-1) as idx
+        MATCH (lp)-[r:HAS_STEP]->(ls:Ls {uid: $step_uids[idx]})
+        SET r.sequence = idx
+        RETURN count(r) as updated
+        """
+
+        result = await self.backend.driver.execute_query(
+            query, path_uid=path_uid, step_uids=step_uids
+        )
+
+        updated = result.records[0]["updated"] if result.records else 0
+        success = updated == len(step_uids)
+
+        if success:
+            self.logger.info(f"Reordered {updated} steps in path {path_uid}")
+
+        return Result.ok(success)
+
+    # ============================================================================
     # PRIVATE HELPERS
     # ============================================================================
 

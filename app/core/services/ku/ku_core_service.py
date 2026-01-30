@@ -206,7 +206,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
                 parent_uid=parent_uid,
                 child_uid=uid,
                 order=metadata.get("order", 0),
-                importance=metadata.get("importance", "normal")
+                importance=metadata.get("importance", "normal"),
             )
             if organize_result.is_error:
                 self.logger.warning(
@@ -301,9 +301,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
                             user_uid=metadata.get("created_by_user"),
                         )
                         await publish_event(self.event_bus, embedding_event, self.logger)
-                        self.logger.debug(
-                            f"Requested embeddings for {len(chunks)} chunks of {uid}"
-                        )
+                        self.logger.debug(f"Requested embeddings for {len(chunks)} chunks of {uid}")
 
                     return
 
@@ -755,11 +753,8 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
     @track_query_metrics("ku_get_subkus")
     @with_error_handling("get_subkus", error_type="database", uid_param="parent_uid")
     async def get_subkus(
-        self,
-        parent_uid: str,
-        depth: int = 1,
-        include_metadata: bool = False
-    ) -> Result[list[KnowledgeUnit]]:
+        self, parent_uid: str, depth: int = 1, include_metadata: bool = False
+    ) -> Result[list[Ku]]:
         """
         Get all KUs organized under this parent KU (MOC pattern).
 
@@ -789,17 +784,13 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         ORDER BY r[0].order ASC
         """
 
-        result = await self.backend.driver.execute_query(
-            query,
-            parent_uid=parent_uid,
-            routing_="r"
-        )
+        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid, routing_="r")
 
-        # Convert to KnowledgeUnit domain objects
+        # Convert to Ku domain objects
         kus = []
         for record in result.records:
             ku_node = dict(record["child"])
-            ku = KnowledgeUnit(
+            ku = Ku(
                 uid=ku_node["uid"],
                 title=ku_node["title"],
                 content=ku_node.get("content", ""),
@@ -807,7 +798,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
                 tags=ku_node.get("tags", []),
                 status=KnowledgeStatus[ku_node.get("status", "DRAFT")],
                 created_at=ku_node.get("created_at"),
-                updated_at=ku_node.get("updated_at")
+                updated_at=ku_node.get("updated_at"),
             )
             kus.append(ku)
 
@@ -816,7 +807,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
 
     @track_query_metrics("ku_get_parent_kus")
     @with_error_handling("get_parent_kus", error_type="database", uid_param="ku_uid")
-    async def get_parent_kus(self, ku_uid: str) -> Result[list[KnowledgeUnit]]:
+    async def get_parent_kus(self, ku_uid: str) -> Result[list[Ku]]:
         """
         Get all parent KUs (can have multiple via MOC pattern).
 
@@ -842,16 +833,12 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         ORDER BY parent.title
         """
 
-        result = await self.backend.driver.execute_query(
-            query,
-            ku_uid=ku_uid,
-            routing_="r"
-        )
+        result = await self.backend.driver.execute_query(query, ku_uid=ku_uid, routing_="r")
 
         parents = []
         for record in result.records:
             parent_node = dict(record["parent"])
-            parent = KnowledgeUnit(
+            parent = Ku(
                 uid=parent_node["uid"],
                 title=parent_node["title"],
                 content=parent_node.get("content", ""),
@@ -859,7 +846,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
                 tags=parent_node.get("tags", []),
                 status=KnowledgeStatus[parent_node.get("status", "DRAFT")],
                 created_at=parent_node.get("created_at"),
-                updated_at=parent_node.get("updated_at")
+                updated_at=parent_node.get("updated_at"),
             )
             parents.append(parent)
 
@@ -925,28 +912,18 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
 
         hierarchy = {
             "ancestors": [
-                {
-                    "uid": r["ancestor"]["uid"],
-                    "title": r["ancestor"]["title"],
-                    "level": r["depth"]
-                }
+                {"uid": r["ancestor"]["uid"], "title": r["ancestor"]["title"], "level": r["depth"]}
                 for r in ancestors_result.records
             ],
             "children": [
-                {
-                    "uid": r["child"]["uid"],
-                    "title": r["child"]["title"]
-                }
+                {"uid": r["child"]["uid"], "title": r["child"]["title"]}
                 for r in children_result.records
             ],
             "siblings": [
-                {
-                    "uid": r["sibling"]["uid"],
-                    "title": r["sibling"]["title"]
-                }
+                {"uid": r["sibling"]["uid"], "title": r["sibling"]["title"]}
                 for r in siblings_result.records
             ],
-            "depth": len(ancestors_result.records)
+            "depth": len(ancestors_result.records),
         }
 
         self.logger.info(
@@ -961,11 +938,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
     @track_query_metrics("ku_organize")
     @with_error_handling("organize_ku", error_type="database")
     async def organize_ku(
-        self,
-        parent_uid: str,
-        child_uid: str,
-        order: int = 0,
-        importance: str = "normal"
+        self, parent_uid: str, child_uid: str, order: int = 0, importance: str = "normal"
     ) -> Result[bool]:
         """
         Create ORGANIZES relationship between KUs (MOC pattern).
@@ -995,10 +968,12 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         """
         # Validate importance
         if importance not in ("core", "normal", "supplemental"):
-            return Result.fail(Errors.validation(
-                f"Invalid importance: {importance}. Must be 'core', 'normal', or 'supplemental'",
-                field="importance"
-            ))
+            return Result.fail(
+                Errors.validation(
+                    f"Invalid importance: {importance}. Must be 'core', 'normal', or 'supplemental'",
+                    field="importance",
+                )
+            )
 
         # Check for cycle prevention
         cycle_query = """
@@ -1007,16 +982,16 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         LIMIT 1
         """
         cycle_result = await self.backend.driver.execute_query(
-            cycle_query,
-            parent_uid=parent_uid,
-            child_uid=child_uid
+            cycle_query, parent_uid=parent_uid, child_uid=child_uid
         )
 
         if cycle_result.records:
-            return Result.fail(Errors.validation(
-                f"Cannot organize: would create cycle ({child_uid} already organizes {parent_uid})",
-                field="parent_uid,child_uid"
-            ))
+            return Result.fail(
+                Errors.validation(
+                    f"Cannot organize: would create cycle ({child_uid} already organizes {parent_uid})",
+                    field="parent_uid,child_uid",
+                )
+            )
 
         # Create ORGANIZES relationship
         query = """
@@ -1031,11 +1006,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         """
 
         result = await self.backend.driver.execute_query(
-            query,
-            parent_uid=parent_uid,
-            child_uid=child_uid,
-            order=order,
-            importance=importance
+            query, parent_uid=parent_uid, child_uid=child_uid, order=order, importance=importance
         )
 
         success = len(result.records) > 0
@@ -1081,9 +1052,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         """
 
         result = await self.backend.driver.execute_query(
-            query,
-            parent_uid=parent_uid,
-            child_uid=child_uid
+            query, parent_uid=parent_uid, child_uid=child_uid
         )
 
         deleted = result.records[0]["deleted"] if result.records else 0

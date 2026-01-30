@@ -30,6 +30,8 @@ from components.form_generator import FormGenerator
 from components.goals_views import GoalsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.shared_enums import Priority
@@ -1346,6 +1348,44 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
             H2("📈 Update Progress", cls="text-xl font-bold mb-4"),
             P(f"Progress update form for goal {uid} will be implemented here", cls="text-gray-500"),
             cls="p-6",
+        )
+
+    @rt("/goals/{uid}/hierarchy")
+    async def goal_hierarchy_view(request, uid: str) -> Any:
+        """
+        Hierarchy tree view for a goal and its subgoals.
+
+        Displays expandable tree with drag-drop, keyboard nav, multi-select.
+        """
+        user_uid = require_authenticated_user(request)
+
+        # Verify goal exists and user owns it
+        result = await goals_service.get_for_user(uid, user_uid)
+        if result.is_error:
+            return BasePage(
+                content=Card(
+                    H3("Goal Not Found", cls="text-lg font-bold text-error"),
+                    P(f"Could not find goal: {uid}"),
+                    cls="p-6",
+                ),
+                title="Goal Not Found",
+                page_type=PageType.STANDARD,
+                request=request,
+            )
+
+        goal = result.value
+
+        # Render hierarchy view
+        content = GoalsViewComponents.render_hierarchy_view(
+            root_uid=uid,
+            root_goal=goal,
+        )
+
+        return BasePage(
+            content=content,
+            title=f"{goal.title} - Hierarchy",
+            page_type=PageType.STANDARD,
+            request=request,
         )
 
     @rt("/goals/{uid}/gantt")

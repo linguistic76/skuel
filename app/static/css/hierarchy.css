@@ -1,0 +1,127 @@
+/**
+ * Hierarchy Components - Custom Styles
+ * =====================================
+ *
+ * Styles for TreeView, AccordionHierarchy, Breadcrumbs, IndentedList
+ */
+
+/* Tree View Container */
+.tree-container {
+    @apply bg-base-100 rounded-lg border border-base-300 p-4;
+    @apply overflow-auto max-h-[600px];
+}
+
+.tree-container:focus {
+    @apply outline-none ring-2 ring-primary ring-opacity-50;
+}
+
+/* Tree Node */
+.tree-node {
+    @apply select-none;
+}
+
+.tree-node .node-content {
+    @apply transition-colors duration-150;
+}
+
+.tree-node .node-content:hover {
+    @apply bg-base-200;
+}
+
+/* Drag states */
+.tree-node[draggable="true"] .node-content {
+    @apply cursor-move;
+}
+
+.tree-node.dragging {
+    @apply opacity-50;
+}
+
+.tree-node.drag-over {
+    @apply ring-2 ring-primary;
+}
+
+/* Expand/collapse icons */
+.expand-icon {
+    @apply transition-transform duration-200;
+}
+
+.expand-icon.expanded {
+    @apply rotate-90;
+}
+
+/* Keyboard focus */
+.tree-node.keyboard-focused {
+    @apply ring-2 ring-primary ring-opacity-50;
+}
+
+/* Accordion Hierarchy */
+.accordion-hierarchy .collapse {
+    @apply transition-all duration-200;
+}
+
+.accordion-hierarchy .collapse-title {
+    @apply cursor-pointer;
+}
+
+/* Breadcrumbs */
+.breadcrumbs {
+    @apply flex flex-wrap items-center gap-2;
+}
+
+.breadcrumbs li:not(:last-child)::after {
+    content: "›";
+    @apply ml-2 text-base-content/50;
+}
+
+.breadcrumbs li:last-child {
+    @apply text-base-content/70 font-medium;
+}
+
+/* Indented List */
+.indented-list {
+    @apply bg-base-100 rounded-lg border border-base-300 p-2;
+}
+
+/* Loading state */
+.tree-loading {
+    @apply animate-pulse;
+}
+
+.tree-loading .node-content {
+    @apply bg-base-200;
+}
+
+/* Empty state */
+.tree-empty {
+    @apply text-base-content/50 text-sm italic text-center py-8;
+}
+
+/* Alpine.js cloak */
+[x-cloak] {
+    display: none !important;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 640px) {
+    .tree-container {
+        @apply max-h-[400px];
+    }
+
+    .tree-node .node-content {
+        @apply text-xs;
+    }
+
+    /* Smaller indent on mobile */
+    .tree-node[data-depth="1"] .node-content {
+        padding-left: 12px !important;
+    }
+
+    .tree-node[data-depth="2"] .node-content {
+        padding-left: 24px !important;
+    }
+
+    .tree-node[data-depth="3"] .node-content {
+        padding-left: 36px !important;
+    }
+}

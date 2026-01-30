@@ -606,5 +606,94 @@ class GoalsViewComponents:
             **{"x-data": "calendarDrag()"},
         )
 
+    @staticmethod
+    def render_hierarchy_view(
+        root_uid: str,
+        root_goal: Goal,
+    ) -> Div:
+        """
+        Render goal hierarchy tree view.
+
+        Args:
+            root_uid: Root goal UID
+            root_goal: Root goal entity
+
+        Returns:
+            Hierarchy view with TreeView component and controls
+
+        See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
+        """
+        from ui.patterns.tree_view import TreeView
+        from ui.primitives.layout import Row, Stack
+
+        return Stack(
+            # Page header with controls
+            Div(
+                H2(f"Hierarchy: {root_goal.title}", cls="text-2xl font-bold"),
+                P("Explore goal breakdown and dependencies", cls="text-base-content/70 text-sm"),
+                Row(
+                    Button(
+                        "Expand All",
+                        variant="secondary",
+                        size="sm",
+                        **{"x-on:click": "expandAll()"},
+                    ),
+                    Button(
+                        "Collapse All",
+                        variant="secondary",
+                        size="sm",
+                        **{"x-on:click": "collapseAll()"},
+                    ),
+                    Button(
+                        "Select All",
+                        variant="secondary",
+                        size="sm",
+                        **{"x-on:click": "selectAll()"},
+                        **{"x-show": "showCheckboxes"},
+                    ),
+                    gap=2,
+                ),
+                cls="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4",
+            ),
+            # Tree view
+            TreeView(
+                root_uid=root_uid,
+                entity_type="goal",
+                children_endpoint="/api/goals/{uid}/children",
+                move_endpoint="/api/goals/{uid}/move",
+                show_checkboxes=True,
+                keyboard_nav=True,
+                draggable=True,
+            ),
+            # Bulk actions (shown when items selected)
+            Div(**{"x-show": "selected.length > 0", "x-cloak": True})(
+                Div(
+                    Div(
+                        Span(
+                            **{"x-text": "`${selected.length} items selected`"}, cls="font-medium"
+                        ),
+                        Row(
+                            Button(
+                                "Deselect All",
+                                variant="secondary",
+                                size="sm",
+                                **{"x-on:click": "deselectAll()"},
+                            ),
+                            Button(
+                                "Delete Selected",
+                                variant="danger",
+                                size="sm",
+                                **{"x-on:click": "bulkDelete()"},
+                            ),
+                            gap=2,
+                        ),
+                        cls="flex items-center justify-between",
+                    ),
+                    cls="bg-base-200 rounded-lg border border-base-300 p-4",
+                ),
+            ),
+            gap=6,
+        )
+
 
 __all__ = ["GoalsViewComponents", "goal_to_calendar_item"]

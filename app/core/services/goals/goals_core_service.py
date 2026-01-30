@@ -44,6 +44,7 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value
 from core.services.protocols.domain_protocols import GoalsOperations
 from core.services.protocols.query_types import GoalUpdatePayload
+from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -108,7 +109,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
     # ========================================================================
-
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
@@ -809,3 +809,274 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             await publish_event(self.event_bus, event, self.logger)
 
         return result
+
+    # ========================================================================
+    # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Universal Hierarchical Pattern)
+    # ========================================================================
+
+    @with_error_handling("get_subgoals", error_type="database", uid_param="parent_uid")
+    async def get_subgoals(self, parent_uid: str, depth: int = 1) -> Result[list[Goal]]:
+        """
+        Get all subgoals of a parent goal.
+
+        Args:
+            parent_uid: Parent goal UID
+            depth: How many levels deep (1=direct children, 2=children+grandchildren, etc.)
+
+        Returns:
+            Result containing list of subgoals ordered by created_at
+
+        Example:
+            # Get direct children
+            subgoals = await service.get_subgoals("goal_abc123")
+
+            # Get all descendants
+            all_subgoals = await service.get_subgoals("goal_abc123", depth=99)
+        """
+        query = f"""
+        MATCH (parent:Goal {{uid: $parent_uid}})
+        MATCH (parent)-[:HAS_SUBGOAL*1..{depth}]->(subgoal:Goal)
+        RETURN subgoal
+        ORDER BY subgoal.created_at
+        """
+
+        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid)
+
+        if not result.records:
+            return Result.ok([])
+
+        # Convert to Goal models
+        goals = []
+        for record in result.records:
+            goal_data = dict(record["subgoal"])
+            goal = self._to_domain_model(goal_data, GoalDTO, Goal)
+            goals.append(goal)
+
+        return Result.ok(goals)
+
+    @with_error_handling("get_parent_goal", error_type="database", uid_param="subgoal_uid")
+    async def get_parent_goal(self, subgoal_uid: str) -> Result[Goal | None]:
+        """
+        Get immediate parent of a subgoal (if any).
+
+        Args:
+            subgoal_uid: Subgoal UID
+
+        Returns:
+            Result containing parent Goal or None if root-level goal
+        """
+        query = """
+        MATCH (subgoal:Goal {uid: $subgoal_uid})
+        MATCH (parent:Goal)-[:HAS_SUBGOAL]->(subgoal)
+        RETURN parent
+        LIMIT 1
+        """
+
+        result = await self.backend.driver.execute_query(query, subgoal_uid=subgoal_uid)
+
+        if not result.records:
+            return Result.ok(None)
+
+        parent_data = dict(result.records[0]["parent"])
+        parent = self._to_domain_model(parent_data, GoalDTO, Goal)
+        return Result.ok(parent)
+
+    @with_error_handling("get_goal_hierarchy", error_type="database", uid_param="goal_uid")
+    async def get_goal_hierarchy(self, goal_uid: str) -> Result[dict[str, Any]]:
+        """
+        Get full hierarchy context: ancestors, siblings, children.
+
+        Args:
+            goal_uid: Goal UID to get context for
+
+        Returns:
+            Result containing hierarchy dict with keys:
+            - ancestors: list[Goal] (root to immediate parent)
+            - current: Goal
+            - siblings: list[Goal] (other children of same parent)
+            - children: list[Goal] (immediate children)
+            - depth: int (how deep in hierarchy, 0=root)
+
+        Example:
+            hierarchy = await service.get_goal_hierarchy("goal_xyz789")
+            # {
+            #   "ancestors": [root_goal, parent_goal],
+            #   "current": goal_xyz789,
+            #   "siblings": [sibling1, sibling2],
+            #   "children": [child1, child2],
+            #   "depth": 2
+            # }
+        """
+        # Get ancestors
+        ancestors_query = """
+        MATCH path = (root:Goal)-[:HAS_SUBGOAL*]->(current:Goal {uid: $goal_uid})
+        WHERE NOT EXISTS((root)<-[:HAS_SUBGOAL]-())
+        RETURN nodes(path) as ancestors
+        """
+
+        # Get siblings
+        siblings_query = """
+        MATCH (current:Goal {uid: $goal_uid})
+        OPTIONAL MATCH (parent:Goal)-[:HAS_SUBGOAL]->(current)
+        OPTIONAL MATCH (parent)-[:HAS_SUBGOAL]->(sibling:Goal)
+        WHERE sibling.uid <> $goal_uid
+        RETURN collect(sibling) as siblings
+        """
+
+        # Get children
+        children_query = """
+        MATCH (current:Goal {uid: $goal_uid})
+        OPTIONAL MATCH (current)-[:HAS_SUBGOAL]->(child:Goal)
+        RETURN collect(child) as children
+        """
+
+        # Execute all queries
+        current_result = await self.backend.get(goal_uid)
+        if current_result.is_error:
+            return Result.fail(current_result)
+
+        current_goal = self._to_domain_model(current_result.value, GoalDTO, Goal)
+
+        ancestors_result = await self.backend.driver.execute_query(
+            ancestors_query, goal_uid=goal_uid
+        )
+        siblings_result = await self.backend.driver.execute_query(siblings_query, goal_uid=goal_uid)
+        children_result = await self.backend.driver.execute_query(children_query, goal_uid=goal_uid)
+
+        # Process ancestors
+        ancestors = []
+        if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
+            for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
+                goal_data = dict(node)
+                ancestors.append(self._to_domain_model(goal_data, GoalDTO, Goal))
+
+        # Process siblings
+        siblings = []
+        if siblings_result.records and siblings_result.records[0]["siblings"]:
+            for node in siblings_result.records[0]["siblings"]:
+                if node:  # Skip None values
+                    goal_data = dict(node)
+                    siblings.append(self._to_domain_model(goal_data, GoalDTO, Goal))
+
+        # Process children
+        children = []
+        if children_result.records and children_result.records[0]["children"]:
+            for node in children_result.records[0]["children"]:
+                if node:  # Skip None values
+                    goal_data = dict(node)
+                    children.append(self._to_domain_model(goal_data, GoalDTO, Goal))
+
+        return Result.ok(
+            {
+                "ancestors": ancestors,
+                "current": current_goal,
+                "siblings": siblings,
+                "children": children,
+                "depth": len(ancestors),
+            }
+        )
+
+    @with_error_handling("create_subgoal_relationship", error_type="database")
+    async def create_subgoal_relationship(
+        self, parent_uid: str, subgoal_uid: str, progress_weight: float = 1.0
+    ) -> Result[bool]:
+        """
+        Create bidirectional parent-child relationship.
+
+        Args:
+            parent_uid: Parent goal UID
+            subgoal_uid: Subgoal UID
+            progress_weight: How much this subgoal contributes to parent progress (default: 1.0)
+
+        Returns:
+            Result indicating success
+
+        Note:
+            Creates both HAS_SUBGOAL (parent→child) and SUBGOAL_OF (child→parent)
+            for efficient bidirectional queries.
+        """
+        # Validate no cycle (can't make parent a child of its descendant)
+        cycle_check = await self._would_create_cycle(parent_uid, subgoal_uid)
+        if cycle_check:
+            return Result.fail(
+                Errors.validation(
+                    f"Cannot create subgoal relationship: would create cycle "
+                    f"({subgoal_uid} is ancestor of {parent_uid})"
+                )
+            )
+
+        query = """
+        MATCH (parent:Goal {uid: $parent_uid})
+        MATCH (subgoal:Goal {uid: $subgoal_uid})
+
+        CREATE (parent)-[:HAS_SUBGOAL {
+            progress_weight: $weight,
+            created_at: datetime()
+        }]->(subgoal)
+
+        CREATE (subgoal)-[:SUBGOAL_OF {
+            created_at: datetime()
+        }]->(parent)
+
+        RETURN true as success
+        """
+
+        result = await self.backend.driver.execute_query(
+            query, parent_uid=parent_uid, subgoal_uid=subgoal_uid, weight=progress_weight
+        )
+
+        if result.records:
+            self.logger.info(
+                f"Created subgoal relationship: {parent_uid} -> {subgoal_uid} (weight: {progress_weight})"
+            )
+            return Result.ok(True)
+
+        return Result.fail(Errors.database("Failed to create subgoal relationship"))
+
+    @with_error_handling("remove_subgoal_relationship", error_type="database")
+    async def remove_subgoal_relationship(self, parent_uid: str, subgoal_uid: str) -> Result[bool]:
+        """
+        Remove bidirectional parent-child relationship.
+
+        Args:
+            parent_uid: Parent goal UID
+            subgoal_uid: Subgoal UID
+
+        Returns:
+            Result containing True if relationships were deleted
+        """
+        query = """
+        MATCH (parent:Goal {uid: $parent_uid})-[r1:HAS_SUBGOAL]->(subgoal:Goal {uid: $subgoal_uid})
+        MATCH (subgoal)-[r2:SUBGOAL_OF]->(parent)
+        DELETE r1, r2
+        RETURN count(r1) + count(r2) as deleted_count
+        """
+
+        result = await self.backend.driver.execute_query(
+            query, parent_uid=parent_uid, subgoal_uid=subgoal_uid
+        )
+
+        if result.records:
+            deleted = result.records[0]["deleted_count"]
+            if deleted > 0:
+                self.logger.info(f"Removed subgoal relationship: {parent_uid} -> {subgoal_uid}")
+                return Result.ok(True)
+
+        return Result.ok(False)
+
+    async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
+        """Check if adding parent->child relationship would create a cycle."""
+        query = """
+        MATCH (child:Goal {uid: $child_uid})
+        MATCH path = (child)-[:HAS_SUBGOAL*]->(parent:Goal {uid: $parent_uid})
+        RETURN count(path) > 0 as would_create_cycle
+        """
+
+        result = await self.backend.driver.execute_query(
+            query, parent_uid=parent_uid, child_uid=child_uid
+        )
+
+        if result.records:
+            return result.records[0]["would_create_cycle"]
+
+        return False

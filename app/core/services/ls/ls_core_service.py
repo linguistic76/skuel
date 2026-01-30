@@ -42,6 +42,7 @@ from core.services.domain_config import create_curriculum_domain_config
 from core.services.protocols import get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
+from core.utils.metrics import track_query_metrics
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -806,10 +807,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
     @track_query_metrics("ls_add_knowledge")
     @with_error_handling("add_knowledge_relationship", error_type="database")
     async def add_knowledge_relationship(
-        self,
-        ls_uid: str,
-        ku_uid: str,
-        knowledge_type: str = "primary"
+        self, ls_uid: str, ku_uid: str, knowledge_type: str = "primary"
     ) -> Result[bool]:
         """
         Create CONTAINS_KNOWLEDGE relationship between LS and KU.
@@ -844,10 +842,12 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
         """
         # Validate knowledge_type
         if knowledge_type not in ("primary", "supporting"):
-            return Result.fail(Errors.validation(
-                f"Invalid knowledge_type: {knowledge_type}. Must be 'primary' or 'supporting'",
-                field="knowledge_type"
-            ))
+            return Result.fail(
+                Errors.validation(
+                    f"Invalid knowledge_type: {knowledge_type}. Must be 'primary' or 'supporting'",
+                    field="knowledge_type",
+                )
+            )
 
         query = """
         MATCH (ls:Ls {uid: $ls_uid})
@@ -861,38 +861,32 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
 
         try:
             result = await self.backend.driver.execute_query(
-                query,
-                ls_uid=ls_uid,
-                ku_uid=ku_uid,
-                knowledge_type=knowledge_type
+                query, ls_uid=ls_uid, ku_uid=ku_uid, knowledge_type=knowledge_type
             )
 
             success = len(result.records) > 0
             if success:
                 self.logger.info(
-                    f"Created CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid} "
-                    f"(type={knowledge_type})"
+                    f"Created CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid} (type={knowledge_type})"
                 )
             else:
-                self.logger.warning(
-                    f"Failed to create CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}"
-                )
+                self.logger.warning(f"Failed to create CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
 
             return Result.ok(success)
 
         except Exception as e:
             self.logger.error(f"Error creating knowledge relationship: {e}")
-            return Result.fail(Errors.database(
-                f"Failed to create knowledge relationship: {e}",
-                context={"ls_uid": ls_uid, "ku_uid": ku_uid}
-            ))
+            return Result.fail(
+                Errors.database(
+                    f"Failed to create knowledge relationship: {e}",
+                    context={"ls_uid": ls_uid, "ku_uid": ku_uid},
+                )
+            )
 
     @track_query_metrics("ls_get_knowledge")
     @with_error_handling("get_contained_knowledge", error_type="database")
     async def get_contained_knowledge(
-        self,
-        ls_uid: str,
-        knowledge_type: str | None = None
+        self, ls_uid: str, knowledge_type: str | None = None
     ) -> Result[list[dict]]:
         """
         Get KUs contained in this Learning Step via CONTAINS_KNOWLEDGE relationships.
@@ -929,10 +923,12 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         if knowledge_type and knowledge_type not in ("primary", "supporting"):
-            return Result.fail(Errors.validation(
-                f"Invalid knowledge_type: {knowledge_type}. Must be 'primary', 'supporting', or None",
-                field="knowledge_type"
-            ))
+            return Result.fail(
+                Errors.validation(
+                    f"Invalid knowledge_type: {knowledge_type}. Must be 'primary', 'supporting', or None",
+                    field="knowledge_type",
+                )
+            )
 
         # Build query based on filter
         if knowledge_type:
@@ -967,32 +963,29 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                     "title": record["title"],
                     "domain": record["domain"],
                     "type": record["type"],
-                    "created_at": record["created_at"]
+                    "created_at": record["created_at"],
                 }
                 for record in result.records
             ]
 
             self.logger.info(
-                f"Found {len(knowledge)} KUs for LS {ls_uid} "
-                f"(type={knowledge_type or 'all'})"
+                f"Found {len(knowledge)} KUs for LS {ls_uid} (type={knowledge_type or 'all'})"
             )
 
             return Result.ok(knowledge)
 
         except Exception as e:
             self.logger.error(f"Error querying knowledge relationships: {e}")
-            return Result.fail(Errors.database(
-                f"Failed to query knowledge relationships: {e}",
-                context={"ls_uid": ls_uid, "knowledge_type": knowledge_type}
-            ))
+            return Result.fail(
+                Errors.database(
+                    f"Failed to query knowledge relationships: {e}",
+                    context={"ls_uid": ls_uid, "knowledge_type": knowledge_type},
+                )
+            )
 
     @track_query_metrics("ls_remove_knowledge")
     @with_error_handling("remove_knowledge_relationship", error_type="database")
-    async def remove_knowledge_relationship(
-        self,
-        ls_uid: str,
-        ku_uid: str
-    ) -> Result[bool]:
+    async def remove_knowledge_relationship(self, ls_uid: str, ku_uid: str) -> Result[bool]:
         """
         Remove CONTAINS_KNOWLEDGE relationship between LS and KU.
 
@@ -1021,11 +1014,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
         """
 
         try:
-            result = await self.backend.driver.execute_query(
-                query,
-                ls_uid=ls_uid,
-                ku_uid=ku_uid
-            )
+            result = await self.backend.driver.execute_query(query, ls_uid=ls_uid, ku_uid=ku_uid)
 
             deleted = result.records[0]["deleted"] if result.records else 0
             success = deleted > 0
@@ -1041,10 +1030,12 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
 
         except Exception as e:
             self.logger.error(f"Error removing knowledge relationship: {e}")
-            return Result.fail(Errors.database(
-                f"Failed to remove knowledge relationship: {e}",
-                context={"ls_uid": ls_uid, "ku_uid": ku_uid}
-            ))
+            return Result.fail(
+                Errors.database(
+                    f"Failed to remove knowledge relationship: {e}",
+                    context={"ls_uid": ls_uid, "ku_uid": ku_uid},
+                )
+            )
 
     @track_query_metrics("ls_get_knowledge_summary")
     @with_error_handling("get_knowledge_summary", error_type="database")
@@ -1091,13 +1082,15 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             result = await self.backend.driver.execute_query(query, ls_uid=ls_uid)
 
             if not result.records:
-                return Result.ok({
-                    "primary_count": 0,
-                    "supporting_count": 0,
-                    "total_count": 0,
-                    "primary_uids": [],
-                    "supporting_uids": []
-                })
+                return Result.ok(
+                    {
+                        "primary_count": 0,
+                        "supporting_count": 0,
+                        "total_count": 0,
+                        "primary_uids": [],
+                        "supporting_uids": [],
+                    }
+                )
 
             record = result.records[0]
             summary = {
@@ -1105,7 +1098,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                 "supporting_count": record["supporting_count"],
                 "total_count": record["total_count"],
                 "primary_uids": [uid for uid in record["primary_uids"] if uid],
-                "supporting_uids": [uid for uid in record["supporting_uids"] if uid]
+                "supporting_uids": [uid for uid in record["supporting_uids"] if uid],
             }
 
             self.logger.info(
@@ -1118,7 +1111,6 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
 
         except Exception as e:
             self.logger.error(f"Error getting knowledge summary: {e}")
-            return Result.fail(Errors.database(
-                f"Failed to get knowledge summary: {e}",
-                context={"ls_uid": ls_uid}
-            ))
+            return Result.fail(
+                Errors.database(f"Failed to get knowledge summary: {e}", context={"ls_uid": ls_uid})
+            )

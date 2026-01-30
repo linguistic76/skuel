@@ -242,15 +242,18 @@ class Services:
     )
     user_progress: Any = None  # UserProgressService - User knowledge profile and mastery tracking
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
-    learning_paths: LpOperations | None = (
+    lp: LpOperations | None = (
         None  # LpService - All path management (Protocol-typed for GraphQL)
     )
-    learning_steps: LsOperations | None = (
+    ls: LsOperations | None = (
         None  # LsService - Dedicated learning step management (NEW: October 24, 2025)
     )
     learning_intelligence: IntelligenceOperations | None = (
         None  # LpIntelligenceService - analysis and recommendations
     )
+    # Relationship sub-services for curriculum domains
+    ls_relationships: Any = None  # LsService.relationships - UnifiedRelationshipService
+    lp_relationships: Any = None  # LpService.relationships - UnifiedRelationshipService
     askesis: AskesisOperations | None = (
         None  # AskesisService - Unified retrieval chatbot (requires OPENAI_API_KEY)
     )
@@ -344,7 +347,23 @@ class Services:
     )
 
     # Background workers (January 2026)
-    embedding_worker: Any = None  # EmbeddingBackgroundWorker - Async background embedding generation
+    embedding_worker: Any = (
+        None  # EmbeddingBackgroundWorker - Async background embedding generation
+    )
+
+    # ========================================================================
+    # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
+    # ========================================================================
+    lateral: Any = None  # LateralRelationshipService - Core domain-agnostic service
+    tasks_lateral: Any = None  # TasksLateralService - Task dependencies and alternatives
+    goals_lateral: Any = None  # GoalsLateralService - Goal blocking and complementary
+    habits_lateral: Any = None  # HabitsLateralService - Habit stacking and synergy
+    events_lateral: Any = None  # EventsLateralService - Event conflicts and scheduling
+    choices_lateral: Any = None  # ChoicesLateralService - Choice alternatives and blocking
+    principles_lateral: Any = None  # PrinciplesLateralService - Value relationships and tensions
+    ku_lateral: Any = None  # KuLateralService - Knowledge prerequisites and semantic connections
+    ls_lateral: Any = None  # LsLateralService - Learning step dependencies and alternatives
+    lp_lateral: Any = None  # LpLateralService - Learning path prerequisites and complementary
 
     # Services are ready when constructed - no lifecycle needed
 
@@ -816,6 +835,7 @@ async def compose_services(
     # Load config if not provided
     if config is None:
         from core.config import get_settings
+
         config = get_settings()
 
     try:
@@ -1006,6 +1026,14 @@ async def compose_services(
 
         user_service = create_user_service(users_backend, driver)
         logger.info("✅ UserService created (foundation service)")
+
+        # Ensure system user exists for infrastructure operations
+        logger.info("Ensuring system user exists...")
+        system_user_result = await user_service.ensure_system_user()
+        if system_user_result.is_error:
+            logger.warning(f"Failed to create system user: {system_user_result.error}")
+        else:
+            logger.info("✅ System user ready")
 
         # Create user relationship service (pinning, following, etc.)
         from core.services.user_relationship_service import UserRelationshipService
@@ -1209,15 +1237,89 @@ async def compose_services(
                     batch_size=25,  # Process 25 entities per batch (cost-optimized)
                     batch_interval_seconds=30,  # Run every 30 seconds
                 )
+                logger.info("✅ Embedding background worker created (batch_size=25, interval=30s)")
                 logger.info(
-                    "✅ Embedding background worker created (batch_size=25, interval=30s)"
+                    "   Worker will process embeddings for: Tasks, Goals, Habits, Events, Choices, Principles"
                 )
-                logger.info("   Worker will process embeddings for: Tasks, Goals, Habits, Events, Choices, Principles")
             except Exception as e:
                 logger.warning(f"Failed to initialize embedding background worker: {e}")
                 logger.warning("   Embeddings will only be generated during ingestion")
         else:
             logger.info("⏭️  Embedding background worker skipped (embeddings_service not available)")
+
+        # ========================================================================
+        # CREATE LATERAL RELATIONSHIP SERVICES (January 2026)
+        # ========================================================================
+        # Core lateral relationships infrastructure - foundational graph architecture
+        # Enables explicit modeling of sibling, cousin, dependency, and semantic relationships
+        # across all 8 hierarchical domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP)
+
+        from core.services.lateral_relationships import LateralRelationshipService
+        from core.services.tasks.tasks_lateral_service import TasksLateralService
+        from core.services.goals.goals_lateral_service import GoalsLateralService
+        from core.services.habits.habits_lateral_service import HabitsLateralService
+        from core.services.events.events_lateral_service import EventsLateralService
+        from core.services.choices.choices_lateral_service import ChoicesLateralService
+        from core.services.principles.principles_lateral_service import PrinciplesLateralService
+        from core.services.ku.ku_lateral_service import KuLateralService
+        from core.services.ls.ls_lateral_service import LsLateralService
+        from core.services.lp.lp_lateral_service import LpLateralService
+
+        # Create core lateral relationship service (domain-agnostic)
+        lateral_service = LateralRelationshipService(driver)
+        logger.info("✅ Core LateralRelationshipService created (domain-agnostic)")
+
+        # Create domain-specific lateral services
+        tasks_lateral = TasksLateralService(
+            driver=driver,
+            tasks_service=activity_services["tasks"],
+        )
+
+        goals_lateral = GoalsLateralService(
+            driver=driver,
+            goals_service=activity_services["goals"],
+        )
+
+        habits_lateral = HabitsLateralService(
+            driver=driver,
+            habits_service=activity_services["habits"],
+        )
+
+        events_lateral = EventsLateralService(
+            driver=driver,
+            events_service=activity_services["events"],
+        )
+
+        choices_lateral = ChoicesLateralService(
+            driver=driver,
+            choices_service=activity_services["choices"],
+        )
+
+        principles_lateral = PrinciplesLateralService(
+            driver=driver,
+            principles_service=activity_services["principles"],
+        )
+
+        ku_lateral = KuLateralService(
+            driver=driver,
+            ku_service=learning_services["ku_service"],
+        )
+
+        ls_lateral = LsLateralService(
+            driver=driver,
+            ls_service=learning_services["learning_steps"],
+        )
+
+        lp_lateral = LpLateralService(
+            driver=driver,
+            lp_service=learning_services["learning_paths"],
+        )
+
+        logger.info("✅ Domain lateral services created (8 domains):")
+        logger.info("   - Activity Domains: Tasks, Goals, Habits, Events, Choices, Principles")
+        logger.info("   - Curriculum Domains: KU, LS, LP")
+        logger.info("   Lateral relationships: BLOCKS, PREREQUISITE_FOR, ALTERNATIVE_TO, COMPLEMENTARY_TO,")
+        logger.info("                         CONFLICTS_WITH, STACKS_WITH, RELATED_TO, SIMILAR_TO, ENABLES")
 
         # Create Askesis core service (CRUD operations for AI assistant instances)
         from core.services.askesis.askesis_core_service import AskesisCoreService
@@ -1430,7 +1532,7 @@ async def compose_services(
                 # load_project_from_file handles both create and update
                 result = await journal_project_service.load_project_from_file(
                     file_path=default_instructions_path,
-                    user_uid="system",  # System-owned default project
+                    user_uid="user_system",  # System-owned default project (UID follows user_{username} pattern)
                     project_uid=default_project_uid,
                     model="gpt-4o",
                 )
@@ -2093,8 +2195,8 @@ async def compose_services(
             ],  # LpService facade (routes access .intelligence)
             user_progress=learning_services["user_progress"],
             # unified_progress DELETED (January 2026) - use user_progress
-            learning_paths=learning_services["learning_paths"],
-            learning_steps=learning_services["learning_steps"],  # NEW: Dedicated LS service
+            lp=learning_services["learning_paths"],  # Renamed from learning_paths (consistency: ku, ls, lp)
+            ls=learning_services["learning_steps"],  # Renamed from learning_steps (consistency: ku, ls, lp)
             learning_intelligence=learning_services["learning_intelligence"],
             askesis=None,  # Created in PHASE 4 after intelligence_factory (January 2026)
             askesis_core=askesis_core_service,  # Priority 1.1: CRUD operations for Askesis AI
@@ -2133,6 +2235,17 @@ async def compose_services(
             # Cross-cutting AI services (require LLM/embeddings)
             askesis_ai=askesis_ai,
             context_aware_ai=context_aware_ai,
+            # Lateral relationship services (January 2026 - Core graph architecture)
+            lateral=lateral_service,  # Core domain-agnostic service
+            tasks_lateral=tasks_lateral,
+            goals_lateral=goals_lateral,
+            habits_lateral=habits_lateral,
+            events_lateral=events_lateral,
+            choices_lateral=choices_lateral,
+            principles_lateral=principles_lateral,
+            ku_lateral=ku_lateral,
+            ls_lateral=ls_lateral,
+            lp_lateral=lp_lateral,
         )
 
         # ========================================================================
@@ -2173,8 +2286,8 @@ async def compose_services(
             ku=learning_services["ku_service"].graph,  # KuGraphService
             ls=learning_services[
                 "learning_steps"
-            ].relationships,  # UnifiedRelationshipService (January 2026)
-            lp=learning_services["learning_paths"].relationships,
+            ].relationships,  # Factory expects 'ls' parameter name
+            lp=learning_services["learning_paths"].relationships,  # Factory expects 'lp' parameter name
             # Processing Domains (3)
             assignments=assignment_relationship_service,
             journals=journal_relationship_service,

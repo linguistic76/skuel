@@ -99,7 +99,6 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
     # ========================================================================
 
-
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
@@ -347,6 +346,18 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             )
             await publish_event(self.event_bus, embedding_event, self.logger)
 
+        # Create parent-child relationship if parent_task_uid specified (2026-01-30)
+        if task_request.parent_task_uid:
+            subtask_result = await self.create_subtask_relationship(
+                parent_uid=task_request.parent_task_uid,
+                subtask_uid=task.uid,
+                progress_weight=task_request.progress_weight,
+            )
+            if subtask_result.is_error:
+                self.logger.warning(
+                    f"Failed to create subtask relationship for {task.uid}: {subtask_result.error}"
+                )
+
         return Result.ok(task)
 
     # ========================================================================
@@ -540,3 +551,387 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             await publish_event(self.event_bus, event, self.logger)
 
         return result
+
+    # ========================================================================
+    # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Flat UID, Rich Structure)
+    # ========================================================================
+
+    @with_error_handling("get_subtasks", error_type="database", uid_param="parent_uid")
+    async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Task]]:
+        """
+        Get all subtasks of a parent task.
+
+        Args:
+            parent_uid: Parent task UID
+            depth: How many levels deep (1=direct children, 2=children+grandchildren, etc.)
+
+        Returns:
+            Result containing list of subtasks ordered by created_at
+
+        Example:
+            # Get direct children
+            subtasks = await service.get_subtasks("task_abc123")
+
+            # Get all descendants
+            all = await service.get_subtasks("task_abc123", depth=99)
+        """
+        query = f"""
+        MATCH (parent:Task {{uid: $parent_uid}})
+        MATCH (parent)-[:HAS_SUBTASK*1..{depth}]->(subtask:Task)
+        RETURN subtask
+        ORDER BY subtask.created_at
+        """
+
+        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid)
+
+        if not result.records:
+            return Result.ok([])
+
+        # Convert to Task models
+        tasks = []
+        for record in result.records:
+            task_data = dict(record["subtask"])
+            task = self._to_domain_model(task_data, TaskDTO, Task)
+            tasks.append(task)
+
+        return Result.ok(tasks)
+
+    @with_error_handling("get_parent_task", error_type="database", uid_param="subtask_uid")
+    async def get_parent_task(self, subtask_uid: str) -> Result[Task | None]:
+        """
+        Get immediate parent of a subtask (if any).
+
+        Args:
+            subtask_uid: Subtask UID
+
+        Returns:
+            Result containing parent Task or None if root-level task
+        """
+        query = """
+        MATCH (subtask:Task {uid: $subtask_uid})
+        MATCH (parent:Task)-[:HAS_SUBTASK]->(subtask)
+        RETURN parent
+        LIMIT 1
+        """
+
+        result = await self.backend.driver.execute_query(query, subtask_uid=subtask_uid)
+
+        if not result.records:
+            return Result.ok(None)
+
+        parent_data = dict(result.records[0]["parent"])
+        parent = self._to_domain_model(parent_data, TaskDTO, Task)
+        return Result.ok(parent)
+
+    @with_error_handling("get_task_hierarchy", error_type="database", uid_param="task_uid")
+    async def get_task_hierarchy(self, task_uid: str) -> Result[dict[str, Any]]:
+        """
+        Get full hierarchy context: ancestors, siblings, children.
+
+        Args:
+            task_uid: Task UID to get context for
+
+        Returns:
+            Result containing hierarchy dict with keys:
+            - ancestors: list[Task] (root to immediate parent)
+            - current: Task
+            - siblings: list[Task] (other children of same parent)
+            - children: list[Task] (immediate children)
+            - depth: int (how deep in hierarchy, 0=root)
+
+        Example:
+            hierarchy = await service.get_task_hierarchy("task_xyz789")
+            # {
+            #   "ancestors": [root_task, parent_task],
+            #   "current": task_xyz789,
+            #   "siblings": [sibling1, sibling2],
+            #   "children": [child1, child2],
+            #   "depth": 2
+            # }
+        """
+        # Get ancestors
+        ancestors_query = """
+        MATCH path = (root:Task)-[:HAS_SUBTASK*]->(current:Task {uid: $task_uid})
+        WHERE NOT EXISTS((root)<-[:HAS_SUBTASK]-())
+        RETURN nodes(path) as ancestors
+        """
+
+        # Get siblings
+        siblings_query = """
+        MATCH (current:Task {uid: $task_uid})
+        OPTIONAL MATCH (parent:Task)-[:HAS_SUBTASK]->(current)
+        OPTIONAL MATCH (parent)-[:HAS_SUBTASK]->(sibling:Task)
+        WHERE sibling.uid <> $task_uid
+        RETURN collect(sibling) as siblings
+        """
+
+        # Get children
+        children_query = """
+        MATCH (current:Task {uid: $task_uid})
+        OPTIONAL MATCH (current)-[:HAS_SUBTASK]->(child:Task)
+        RETURN collect(child) as children
+        """
+
+        # Execute all queries
+        current_result = await self.backend.get(task_uid)
+        if current_result.is_error:
+            return Result.fail(current_result)
+
+        current_task = self._to_domain_model(current_result.value, TaskDTO, Task)
+
+        ancestors_result = await self.backend.driver.execute_query(
+            ancestors_query, task_uid=task_uid
+        )
+        siblings_result = await self.backend.driver.execute_query(siblings_query, task_uid=task_uid)
+        children_result = await self.backend.driver.execute_query(children_query, task_uid=task_uid)
+
+        # Process ancestors
+        ancestors = []
+        if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
+            for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
+                task_data = dict(node)
+                ancestors.append(self._to_domain_model(task_data, TaskDTO, Task))
+
+        # Process siblings
+        siblings = []
+        if siblings_result.records and siblings_result.records[0]["siblings"]:
+            for node in siblings_result.records[0]["siblings"]:
+                if node:  # Skip None values
+                    task_data = dict(node)
+                    siblings.append(self._to_domain_model(task_data, TaskDTO, Task))
+
+        # Process children
+        children = []
+        if children_result.records and children_result.records[0]["children"]:
+            for node in children_result.records[0]["children"]:
+                if node:  # Skip None values
+                    task_data = dict(node)
+                    children.append(self._to_domain_model(task_data, TaskDTO, Task))
+
+        return Result.ok(
+            {
+                "ancestors": ancestors,
+                "current": current_task,
+                "siblings": siblings,
+                "children": children,
+                "depth": len(ancestors),
+            }
+        )
+
+    async def create_subtask_relationship(
+        self, parent_uid: str, subtask_uid: str, progress_weight: float = 1.0
+    ) -> Result[bool]:
+        """
+        Create bidirectional parent-child relationship.
+
+        Args:
+            parent_uid: Parent task UID
+            subtask_uid: Subtask UID
+            progress_weight: How much this subtask contributes to parent progress (default: 1.0)
+
+        Returns:
+            Result indicating success
+
+        Note:
+            Creates both HAS_SUBTASK (parent→child) and SUBTASK_OF (child→parent)
+            for efficient bidirectional queries.
+        """
+        # Validate no cycle (can't make parent a child of its descendant)
+        cycle_check = await self._would_create_cycle(parent_uid, subtask_uid)
+        if cycle_check:
+            return Result.fail(
+                Errors.validation(
+                    f"Cannot create subtask relationship: would create cycle "
+                    f"({subtask_uid} is ancestor of {parent_uid})"
+                )
+            )
+
+        query = """
+        MATCH (parent:Task {uid: $parent_uid})
+        MATCH (subtask:Task {uid: $subtask_uid})
+
+        CREATE (parent)-[:HAS_SUBTASK {
+            progress_weight: $weight,
+            created_at: datetime()
+        }]->(subtask)
+
+        CREATE (subtask)-[:SUBTASK_OF {
+            created_at: datetime()
+        }]->(parent)
+
+        RETURN true as success
+        """
+
+        result = await self.backend.driver.execute_query(
+            query, parent_uid=parent_uid, subtask_uid=subtask_uid, weight=progress_weight
+        )
+
+        if result.records:
+            self.logger.info(
+                f"Created subtask relationship: {parent_uid} -> {subtask_uid} (weight: {progress_weight})"
+            )
+            return Result.ok(True)
+
+        return Result.fail(Errors.database("Failed to create subtask relationship"))
+
+    async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
+        """Check if adding parent->child relationship would create a cycle."""
+        query = """
+        MATCH (child:Task {uid: $child_uid})
+        MATCH path = (child)-[:HAS_SUBTASK*]->(parent:Task {uid: $parent_uid})
+        RETURN count(path) > 0 as would_create_cycle
+        """
+
+        result = await self.backend.driver.execute_query(
+            query, parent_uid=parent_uid, child_uid=child_uid
+        )
+
+        if result.records:
+            return result.records[0]["would_create_cycle"]
+
+        return False
+
+    # ========================================================================
+    # COMPLETION PROPAGATION (2026-01-30 - Auto-Complete Parents)
+    # ========================================================================
+
+    async def check_and_complete_parent(self, completed_task_uid: str) -> Result[list[str]]:
+        """
+        Check if parent task should auto-complete after child completes.
+
+        When a subtask is completed, this checks if all siblings are also complete.
+        If yes, auto-completes the parent and recursively checks grandparent.
+
+        Args:
+            completed_task_uid: UID of subtask that was just completed
+
+        Returns:
+            Result containing list of parent UIDs that were auto-completed
+
+        Example:
+            # Complete subtask
+            await tasks_service.update_task(subtask_uid, {"status": "completed"})
+
+            # Check if parent should auto-complete
+            auto_completed = await tasks_service.check_and_complete_parent(subtask_uid)
+            # Returns: ["task_parent", "task_grandparent"] if they auto-completed
+        """
+        auto_completed_uids = []
+
+        query = """
+        MATCH (completed:Task {uid: $task_uid})
+        MATCH (parent:Task)-[:HAS_SUBTASK]->(completed)
+
+        // Get all subtasks of this parent
+        MATCH (parent)-[:HAS_SUBTASK]->(sibling:Task)
+
+        // Check if all siblings are complete
+        WITH parent,
+             count(sibling) as total_subtasks,
+             count(CASE WHEN sibling.status = 'completed' THEN 1 END) as completed_subtasks
+
+        WHERE total_subtasks = completed_subtasks
+          AND parent.status <> 'completed'  // Don't update if already complete
+
+        // Auto-complete parent
+        SET parent.status = 'completed',
+            parent.completed_at = datetime(),
+            parent.auto_completed = true
+
+        RETURN parent.uid as parent_uid
+        """
+
+        result = await self.backend.driver.execute_query(query, task_uid=completed_task_uid)
+
+        if result.records:
+            for record in result.records:
+                parent_uid = record["parent_uid"]
+                auto_completed_uids.append(parent_uid)
+                self.logger.info(
+                    f"Auto-completed parent task: {parent_uid} (all subtasks complete)"
+                )
+
+                # Recursively check grandparent
+                grandparent_result = await self.check_and_complete_parent(parent_uid)
+                if grandparent_result.is_ok:
+                    auto_completed_uids.extend(grandparent_result.value)
+
+        return Result.ok(auto_completed_uids)
+
+    async def calculate_parent_progress(self, parent_uid: str) -> Result[dict[str, Any]]:
+        """
+        Calculate parent task progress based on weighted subtask completion.
+
+        Uses progress_weight from HAS_SUBTASK relationships to calculate
+        weighted completion percentage.
+
+        Args:
+            parent_uid: Parent task UID
+
+        Returns:
+            Result containing dict with:
+            - total_weight: Sum of all subtask weights
+            - completed_weight: Sum of completed subtask weights
+            - progress_percentage: Completion percentage (0-100)
+            - total_subtasks: Count of subtasks
+            - completed_subtasks: Count of completed subtasks
+
+        Example:
+            progress = await service.calculate_parent_progress("task_abc123")
+            # {
+            #   "total_weight": 3.0,
+            #   "completed_weight": 2.0,
+            #   "progress_percentage": 66.67,
+            #   "total_subtasks": 3,
+            #   "completed_subtasks": 2
+            # }
+        """
+        query = """
+        MATCH (parent:Task {uid: $parent_uid})
+        MATCH (parent)-[r:HAS_SUBTASK]->(child:Task)
+
+        WITH parent,
+             count(child) as total_subtasks,
+             count(CASE WHEN child.status = 'completed' THEN 1 END) as completed_subtasks,
+             sum(r.progress_weight) as total_weight,
+             sum(
+               CASE WHEN child.status = 'completed'
+               THEN r.progress_weight
+               ELSE 0
+               END
+             ) as completed_weight
+
+        RETURN
+          total_subtasks,
+          completed_subtasks,
+          total_weight,
+          completed_weight,
+          CASE WHEN total_weight > 0
+            THEN (completed_weight / total_weight) * 100.0
+            ELSE 0.0
+          END as progress_percentage
+        """
+
+        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid)
+
+        if not result.records:
+            return Result.ok(
+                {
+                    "total_weight": 0.0,
+                    "completed_weight": 0.0,
+                    "progress_percentage": 0.0,
+                    "total_subtasks": 0,
+                    "completed_subtasks": 0,
+                }
+            )
+
+        record = result.records[0]
+        return Result.ok(
+            {
+                "total_weight": record["total_weight"] or 0.0,
+                "completed_weight": record["completed_weight"] or 0.0,
+                "progress_percentage": record["progress_percentage"] or 0.0,
+                "total_subtasks": record["total_subtasks"],
+                "completed_subtasks": record["completed_subtasks"],
+            }
+        )

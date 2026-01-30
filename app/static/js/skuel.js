@@ -1162,6 +1162,321 @@
                 window.htmx.process(loadedElement);
             }
         });
+        // ---------------------------------------------------------------------
+        // Hierarchy Tree Component
+        // ---------------------------------------------------------------------
+        /**
+         * State management for TreeView component.
+         *
+         * Features:
+         * - Expand/collapse tracking
+         * - Keyboard navigation (↑↓←→)
+         * - Multi-select with checkboxes
+         * - Drag-and-drop node movement
+         * - Inline title editing
+         *
+         * @param {Object} config - Configuration object
+         * @param {string} config.entityType - Entity type ("goal", "habit", etc.)
+         * @param {string} config.childrenEndpoint - API endpoint template for children
+         * @param {string} config.moveEndpoint - API endpoint for moving nodes
+         * @param {boolean} config.showCheckboxes - Enable multi-select checkboxes
+         * @param {boolean} config.keyboardNav - Enable keyboard navigation
+         * @param {boolean} config.draggable - Enable drag-and-drop
+         * @returns {Object} Alpine.js component
+         */
+        Alpine.data('hierarchyTree', function(config) {
+            return {
+                // Configuration
+                entityType: config.entityType || 'goal',
+                childrenEndpoint: config.childrenEndpoint || '',
+                moveEndpoint: config.moveEndpoint || '',
+                showCheckboxes: config.showCheckboxes || false,
+                keyboardNav: config.keyboardNav || true,
+                draggable: config.draggable || true,
+
+                // State
+                expanded: new Set(),      // Set of expanded node UIDs
+                selected: [],             // Array of selected node UIDs (for checkboxes)
+                focusedNode: null,        // Currently focused node UID (keyboard nav)
+                editingNode: null,        // Node being edited inline
+                draggedNode: null,        // Node being dragged
+
+                // Expand/Collapse
+                isExpanded: function(uid) {
+                    return this.expanded.has(uid);
+                },
+
+                toggleExpand: function(uid) {
+                    if (this.expanded.has(uid)) {
+                        this.expanded.delete(uid);
+                    } else {
+                        this.expanded.add(uid);
+                        // Trigger HTMX lazy load via custom event
+                        document.body.dispatchEvent(new CustomEvent('expand-' + uid));
+                    }
+                },
+
+                expandAll: function() {
+                    var self = this;
+                    var nodes = this.$el.querySelectorAll('.tree-node[data-has-children="true"]');
+                    nodes.forEach(function(node) {
+                        var uid = node.dataset.uid;
+                        if (!self.expanded.has(uid)) {
+                            self.toggleExpand(uid);
+                        }
+                    });
+                },
+
+                collapseAll: function() {
+                    this.expanded.clear();
+                },
+
+                // Keyboard Navigation
+                handleKeydown: function(event) {
+                    if (!this.keyboardNav) return;
+
+                    var key = event.key;
+                    var nodes = Array.from(this.$el.querySelectorAll('.tree-node'));
+                    var currentIndex = nodes.findIndex(function(n) { return n.dataset.uid === this.focusedNode; }.bind(this));
+
+                    var handled = false;
+
+                    switch(key) {
+                        case 'ArrowDown':
+                            // Move to next visible node
+                            if (currentIndex < nodes.length - 1) {
+                                var nextNode = nodes[currentIndex + 1];
+                                this.focusNode(nextNode.dataset.uid);
+                                handled = true;
+                            }
+                            break;
+
+                        case 'ArrowUp':
+                            // Move to previous visible node
+                            if (currentIndex > 0) {
+                                var prevNode = nodes[currentIndex - 1];
+                                this.focusNode(prevNode.dataset.uid);
+                                handled = true;
+                            }
+                            break;
+
+                        case 'ArrowRight':
+                            // Expand if collapsed, move to first child if expanded
+                            if (this.focusedNode && !this.isExpanded(this.focusedNode)) {
+                                this.toggleExpand(this.focusedNode);
+                                handled = true;
+                            } else if (currentIndex < nodes.length - 1) {
+                                // Move to first child
+                                var nextNode = nodes[currentIndex + 1];
+                                var currentDepth = parseInt(nodes[currentIndex].dataset.depth);
+                                var nextDepth = parseInt(nextNode.dataset.depth);
+                                if (nextDepth > currentDepth) {
+                                    this.focusNode(nextNode.dataset.uid);
+                                    handled = true;
+                                }
+                            }
+                            break;
+
+                        case 'ArrowLeft':
+                            // Collapse if expanded, move to parent if collapsed
+                            if (this.focusedNode && this.isExpanded(this.focusedNode)) {
+                                this.toggleExpand(this.focusedNode);
+                                handled = true;
+                            } else if (currentIndex > 0) {
+                                // Move to parent
+                                var currentDepth = parseInt(nodes[currentIndex].dataset.depth);
+                                for (var i = currentIndex - 1; i >= 0; i--) {
+                                    var parentDepth = parseInt(nodes[i].dataset.depth);
+                                    if (parentDepth < currentDepth) {
+                                        this.focusNode(nodes[i].dataset.uid);
+                                        handled = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            break;
+
+                        case 'Enter':
+                        case ' ':
+                            // Toggle expand/collapse
+                            if (this.focusedNode) {
+                                this.toggleExpand(this.focusedNode);
+                                handled = true;
+                            }
+                            break;
+                    }
+
+                    if (handled) {
+                        event.preventDefault();
+                    }
+                },
+
+                focusNode: function(uid) {
+                    this.focusedNode = uid;
+                    var node = this.$el.querySelector('[data-uid="' + uid + '"]');
+                    if (node) {
+                        node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        // Visual highlight
+                        node.classList.add('ring-2', 'ring-primary');
+                        setTimeout(function() {
+                            node.classList.remove('ring-2', 'ring-primary');
+                        }, 300);
+                    }
+                },
+
+                // Multi-Select
+                selectAll: function() {
+                    var allUids = Array.from(this.$el.querySelectorAll('.tree-node'))
+                        .map(function(n) { return n.dataset.uid; });
+                    this.selected = allUids;
+                },
+
+                deselectAll: function() {
+                    this.selected = [];
+                },
+
+                bulkDelete: function() {
+                    if (this.selected.length === 0) return;
+                    if (!confirm('Delete ' + this.selected.length + ' items?')) return;
+
+                    var self = this;
+                    // Send bulk delete request
+                    fetch('/api/' + this.entityType + '/bulk-delete', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({uids: this.selected}),
+                    })
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        self.$dispatch('toast', {
+                            message: 'Deleted ' + self.selected.length + ' items',
+                            type: 'success',
+                        });
+                        self.selected = [];
+                        // Refresh tree
+                        window.location.reload();
+                    })
+                    .catch(function(error) {
+                        self.$dispatch('toast', {
+                            message: 'Delete failed: ' + error.message,
+                            type: 'error',
+                        });
+                    });
+                },
+
+                // Drag and Drop
+                handleDragStart: function(event, uid) {
+                    if (!this.draggable) return;
+                    this.draggedNode = uid;
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.target.classList.add('opacity-50');
+                },
+
+                handleDragOver: function(event) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                },
+
+                handleDrop: function(event, newParentUid) {
+                    event.preventDefault();
+                    if (!this.draggedNode || this.draggedNode === newParentUid) return;
+
+                    // Prevent dropping onto descendant (would create cycle)
+                    if (this.isDescendant(newParentUid, this.draggedNode)) {
+                        this.$dispatch('toast', {
+                            message: 'Cannot move parent into its own descendant',
+                            type: 'error',
+                        });
+                        return;
+                    }
+
+                    var self = this;
+                    // Send move request
+                    fetch(this.moveEndpoint.replace('{uid}', this.draggedNode), {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({new_parent_uid: newParentUid}),
+                    })
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        self.$dispatch('toast', {
+                            message: 'Moved successfully',
+                            type: 'success',
+                        });
+                        // Refresh affected nodes via HTMX
+                        if (window.htmx) {
+                            window.htmx.trigger('#children-' + newParentUid, 'refresh');
+                        }
+                    })
+                    .catch(function(error) {
+                        self.$dispatch('toast', {
+                            message: 'Move failed: ' + error.message,
+                            type: 'error',
+                        });
+                    });
+
+                    this.draggedNode = null;
+                    event.target.classList.remove('opacity-50');
+                },
+
+                isDescendant: function(potentialDescendant, ancestor) {
+                    // Check if potentialDescendant is a child/grandchild of ancestor
+                    var current = this.$el.querySelector('[data-uid="' + potentialDescendant + '"]');
+                    while (current) {
+                        var parentNode = current.parentElement ? current.parentElement.closest('.tree-node') : null;
+                        if (!parentNode) return false;
+                        if (parentNode.dataset.uid === ancestor) return true;
+                        current = parentNode;
+                    }
+                    return false;
+                },
+
+                // Inline Editing
+                startEdit: function(uid) {
+                    this.editingNode = uid;
+                    // Focus input after Alpine renders it
+                    var self = this;
+                    this.$nextTick(function() {
+                        var input = self.$el.querySelector('#edit-input-' + uid);
+                        if (input) {
+                            input.focus();
+                            input.select();
+                        }
+                    });
+                },
+
+                saveEdit: function(uid, newTitle) {
+                    var self = this;
+                    fetch('/api/' + this.entityType + '/' + uid, {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({title: newTitle}),
+                    })
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        self.$dispatch('toast', {
+                            message: 'Title updated',
+                            type: 'success',
+                        });
+                        self.editingNode = null;
+                        // Update DOM
+                        var titleSpan = self.$el.querySelector('[data-uid="' + uid + '"] .node-title');
+                        if (titleSpan) titleSpan.textContent = newTitle;
+                    })
+                    .catch(function(error) {
+                        self.$dispatch('toast', {
+                            message: 'Update failed: ' + error.message,
+                            type: 'error',
+                        });
+                    });
+                },
+
+                cancelEdit: function() {
+                    this.editingNode = null;
+                },
+            };
+        });
+
     });
 
 })();

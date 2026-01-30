@@ -71,6 +71,7 @@ def _build_head(
         # SKUEL CSS
         Link(rel="stylesheet", href="/static/css/output.css"),
         Link(rel="stylesheet", href="/static/css/main.css"),
+        Link(rel="stylesheet", href="/static/css/hierarchy.css"),
         # Extra CSS for specific pages
         *css_links,
         # SKUEL JavaScript (Alpine components)

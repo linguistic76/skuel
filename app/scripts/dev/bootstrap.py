@@ -472,6 +472,22 @@ async def _wire_all_routes(
         )
         logger.info("✅ MOC UI routes registered (dashboard, detail views, forms)")
 
+    # Hierarchy routes (TreeView, AccordionHierarchy API endpoints)
+    from adapters.inbound.hierarchy_routes import create_hierarchy_routes
+
+    hierarchy_routes = create_hierarchy_routes(app, rt, services)
+    logger.info(
+        f"✅ Registered {len(hierarchy_routes)} hierarchy routes (Goals, Habits, Events, Choices, Principles, LP)"
+    )
+
+    # Lateral relationship routes (January 2026 - Core graph architecture)
+    from adapters.inbound.lateral_routes import create_lateral_routes
+
+    lateral_routes = create_lateral_routes(app, rt, services)
+    logger.info(
+        f"✅ Registered {len(lateral_routes)} lateral relationship routes (8 domains: Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP)"
+    )
+
     # Unified Ingestion routes (ADR-014: Merged MD + YAML ingestion)
     # Note: sync_routes.py DELETED (January 2026) - use /api/ingest/* endpoints
     if services.unified_ingestion:
@@ -613,12 +629,13 @@ async def startup_skuel(container: AppContainer) -> None:
     # Worker processes EmbeddingRequested events in batches for zero-latency user experience
     if container.services.embedding_worker:
         background_task = asyncio.create_task(
-            container.services.embedding_worker.start(),
-            name="embedding_worker"
+            container.services.embedding_worker.start(), name="embedding_worker"
         )
         # Store task reference on app state for shutdown cleanup
         container.app.state.embedding_worker_task = background_task
-        logger.info("✅ Embedding background worker started (processes Tasks, Goals, Habits, Events, Choices, Principles)")
+        logger.info(
+            "✅ Embedding background worker started (processes Tasks, Goals, Habits, Events, Choices, Principles)"
+        )
     else:
         logger.info("⏭️  Embedding background worker not available (embeddings only via ingestion)")
 
