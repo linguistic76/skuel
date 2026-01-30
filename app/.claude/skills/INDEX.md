@@ -5,7 +5,7 @@ updated: 2026-01-17
 
 # SKUEL Claude Skills Index
 
-> Quick navigation for all 20 project-specific Claude skills.
+> Quick navigation for all 21 project-specific Claude skills.
 
 ## Skill Stacks
 
@@ -40,6 +40,7 @@ updated: 2026-01-17
 | Skill | Purpose | Foundation |
 |-------|---------|------------|
 | [neo4j-cypher-patterns](neo4j-cypher-patterns/SKILL.md) | Graph queries & relationships | None (base layer) |
+| [neo4j-genai-plugin](neo4j-genai-plugin/SKILL.md) | AI-powered graph features (embeddings, vector search, RAG) | neo4j-cypher-patterns |
 | [skuel-search-architecture](skuel-search-architecture/SKILL.md) | Unified search routing | neo4j-cypher-patterns |
 
 ### SKUEL Architecture
@@ -81,6 +82,7 @@ updated: 2026-01-17
 | js-alpine | 4 | Alpine.js client-side reactivity |
 | monsterui | 3 | MonsterUI FastHTML components |
 | neo4j-cypher-patterns | 3 | Cypher query patterns for graph database |
+| neo4j-genai-plugin | 3 | Neo4j GenAI plugin integration (embeddings, vector search, RAG) |
 | pydantic | 3 | Pydantic validation & three-tier types |
 | pytest | 4 | Testing patterns with Result[T] |
 | python | 4 | Python development patterns |
@@ -107,6 +109,7 @@ Key documentation links by topic:
 | Protocol Architecture | `/docs/patterns/protocol_architecture.md` |
 | Route Registration | `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md` |
 | Service Consolidation | `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md` |
+| GenAI Setup | `/docs/development/GENAI_SETUP.md`, `/docs/architecture/SEMANTIC_SEARCH_PHASE1_IMPLEMENTATION.md` |
 
 ---
 
@@ -144,6 +147,8 @@ Frontend/Web:
 
 Database/Search:
     neo4j-cypher-patterns
+         |
+         +---> neo4j-genai-plugin (embeddings, vector search, RAG)
          |
          v
     skuel-search-architecture
