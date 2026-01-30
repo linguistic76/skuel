@@ -111,6 +111,16 @@ case "$1" in
     npm run css:prod
     ;;
 
+  docs-check)
+    echo -e "${YELLOW}Checking for documentation updates needed...${NC}"
+    poetry run python scripts/docs_contextual_check.py
+    ;;
+
+  docs-check-fast)
+    echo -e "${YELLOW}Checking for documentation updates (fast mode, no LLM)...${NC}"
+    poetry run python scripts/docs_contextual_check.py --fast
+    ;;
+
   help|*)
     echo "SKUEL Development Commands"
     echo "=========================="
@@ -135,6 +145,10 @@ case "$1" in
     echo "  ./dev test-service      - Run service tests (~600 tests, ~92% pass)"
     echo "  ./dev test-unit         - Run unit tests (only - many need Phase 2 migration updates)"
     echo "  ./dev test-quick        - Run quick smoke test (~350 tests, ~99% pass) [FASTEST]"
+    echo ""
+    echo "Documentation:"
+    echo "  ./dev docs-check      - Check if docs need updating (based on recent changes)"
+    echo "  ./dev docs-check-fast - Fast check (text search only, no LLM)"
     echo ""
     echo "Development:"
     echo "  ./dev serve          - Start development server"
