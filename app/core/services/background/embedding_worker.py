@@ -27,6 +27,8 @@ from typing import Any
 
 from core.events import (
     ChoiceEmbeddingRequested,
+    ChunkEmbeddingRequested,
+    ChunkEmbeddingsCompleted,
     EventEmbeddingRequested,
     GoalEmbeddingRequested,
     HabitEmbeddingRequested,
@@ -34,6 +36,7 @@ from core.events import (
     TaskEmbeddingRequested,
 )
 from core.events.embedding_events import EmbeddingRequested
+from core.events.utils import publish_event
 from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 
@@ -56,6 +59,7 @@ class EmbeddingBackgroundWorker:
         event_bus: EventBusOperations,
         embeddings_service: Any,  # Neo4jGenAIEmbeddingsService
         driver: Any,  # AsyncDriver
+        content_adapter: Any | None = None,  # Neo4jContentAdapter for chunk storage
         batch_size: int = 25,
         batch_interval_seconds: int = 30,
     ) -> None:
@@ -66,15 +70,18 @@ class EmbeddingBackgroundWorker:
             event_bus: Event bus for subscribing to embedding requests
             embeddings_service: Neo4jGenAIEmbeddingsService for generating embeddings
             driver: Neo4j driver for updating nodes
+            content_adapter: Neo4jContentAdapter for chunk embedding storage (optional)
             batch_size: Number of entities to process per batch
             batch_interval_seconds: Seconds between batch processing runs
         """
         self.event_bus = event_bus
         self.embeddings_service = embeddings_service
         self.driver = driver
+        self.content_adapter = content_adapter
         self.batch_size = batch_size
         self.batch_interval = batch_interval_seconds
         self._pending_requests: list[EmbeddingRequested] = []
+        self._pending_chunk_requests: list[ChunkEmbeddingRequested] = []
         self.logger = get_logger("skuel.background.embeddings")
 
         # Metrics (Phase 3 - January 2026)
@@ -97,6 +104,9 @@ class EmbeddingBackgroundWorker:
         self.event_bus.subscribe(EventEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(ChoiceEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(PrincipleEmbeddingRequested, self._queue_request)
+
+        # Subscribe to chunk embedding requests (separate queue)
+        self.event_bus.subscribe(ChunkEmbeddingRequested, self._queue_chunk_request)
 
         # Track start time for metrics
         from datetime import datetime
@@ -124,29 +134,52 @@ class EmbeddingBackgroundWorker:
             f"(queue size: {len(self._pending_requests)})"
         )
 
+    async def _queue_chunk_request(self, event: ChunkEmbeddingRequested) -> None:
+        """
+        Add chunk embedding request to pending queue.
+
+        Args:
+            event: ChunkEmbeddingRequested event from KU creation
+        """
+        self._pending_chunk_requests.append(event)
+        self.logger.debug(
+            f"Queued chunk embedding request for {event.ku_uid} "
+            f"({len(event.chunk_uids)} chunks, queue size: {len(self._pending_chunk_requests)})"
+        )
+
     async def _process_batches_loop(self) -> None:
         """
         Process pending embedding requests in batches every N seconds.
 
         Infinite loop that runs batch processing at regular intervals.
+        Processes both entity embeddings and chunk embeddings.
         """
         while True:
             await asyncio.sleep(self.batch_interval)
 
-            if not self._pending_requests:
-                continue
+            # Process entity embeddings
+            if self._pending_requests:
+                batch = self._pending_requests[: self.batch_size]
+                self._pending_requests = self._pending_requests[self.batch_size :]
 
-            # Take batch of requests
-            batch = self._pending_requests[: self.batch_size]
-            self._pending_requests = self._pending_requests[self.batch_size :]
+                self.logger.info(
+                    f"Processing batch of {len(batch)} embedding requests "
+                    f"({len(self._pending_requests)} remaining in queue)"
+                )
 
-            self.logger.info(
-                f"Processing batch of {len(batch)} embedding requests "
-                f"({len(self._pending_requests)} remaining in queue)"
-            )
+                await self._process_batch(batch)
 
-            # Process batch
-            await self._process_batch(batch)
+            # Process chunk embeddings
+            if self._pending_chunk_requests:
+                chunk_batch = self._pending_chunk_requests[: self.batch_size]
+                self._pending_chunk_requests = self._pending_chunk_requests[self.batch_size :]
+
+                self.logger.info(
+                    f"Processing batch of {len(chunk_batch)} chunk embedding requests "
+                    f"({len(self._pending_chunk_requests)} remaining in queue)"
+                )
+
+                await self._process_chunk_batch(chunk_batch)
 
     async def _process_batch(self, requests: list[EmbeddingRequested]) -> None:
         """
@@ -259,6 +292,95 @@ class EmbeddingBackgroundWorker:
             self.logger.error(f"Failed to store embedding for {entity_uid}: {e}")
             return False
 
+    async def _process_chunk_batch(self, requests: list[ChunkEmbeddingRequested]) -> None:
+        """
+        Generate embeddings for batch of chunk requests.
+
+        Each request contains multiple chunks from a single KU.
+        Flattens chunks across all requests for efficient batch processing.
+
+        Args:
+            requests: List of ChunkEmbeddingRequested events to process
+        """
+        import time
+        from datetime import datetime
+
+        batch_start = time.time()
+
+        try:
+            # Flatten chunks from all requests
+            all_chunk_uids: list[str] = []
+            all_chunk_texts: list[str] = []
+            request_map: dict[str, ChunkEmbeddingRequested] = {}
+
+            for req in requests:
+                all_chunk_uids.extend(req.chunk_uids)
+                all_chunk_texts.extend(req.chunk_texts)
+                request_map[req.ku_uid] = req
+
+            self.logger.info(
+                f"Processing {len(all_chunk_uids)} chunks from {len(requests)} KUs"
+            )
+
+            # Generate embeddings in batch
+            embeddings_result = await self.embeddings_service.create_batch_embeddings(
+                all_chunk_texts
+            )
+
+            if embeddings_result.is_error:
+                self.logger.error(
+                    f"Batch chunk embedding generation failed: {embeddings_result.expect_error().message}"
+                )
+                # Re-queue for retry
+                self._pending_chunk_requests.extend(requests)
+                return
+
+            embeddings = embeddings_result.value
+
+            # Store embeddings via content adapter
+            if self.content_adapter:
+                stored = await self.content_adapter.store_chunk_embeddings(
+                    chunk_uids=all_chunk_uids,
+                    embeddings=embeddings,
+                    version="v1",
+                    model=self.embeddings_service.model,
+                )
+
+                if stored:
+                    # Publish completion events for each KU
+                    for ku_uid, req in request_map.items():
+                        await publish_event(
+                            self.event_bus,
+                            ChunkEmbeddingsCompleted(
+                                ku_uid=ku_uid,
+                                chunk_uids=req.chunk_uids,
+                                success_count=len(req.chunk_uids),
+                                failed_count=0,
+                                completed_at=datetime.now(),
+                            ),
+                            self.logger,
+                        )
+
+                    batch_duration = time.time() - batch_start
+                    self.logger.info(
+                        f"✅ Generated {len(all_chunk_uids)} chunk embeddings successfully "
+                        f"(took {batch_duration:.2f}s)"
+                    )
+                else:
+                    self.logger.error("Failed to store chunk embeddings")
+                    # Re-queue for retry
+                    self._pending_chunk_requests.extend(requests)
+            else:
+                self.logger.warning(
+                    "Content adapter not configured - chunk embeddings not stored"
+                )
+
+        except Exception as e:
+            self.logger.error(f"Chunk batch processing exception: {e}")
+            # Re-queue for retry (with safety limit)
+            if len(self._pending_chunk_requests) < 1000:
+                self._pending_chunk_requests.extend(requests)
+
     def get_metrics(self) -> dict[str, Any]:
         """
         Get worker performance metrics (Phase 3 - January 2026).
@@ -270,6 +392,7 @@ class EmbeddingBackgroundWorker:
             - total_failed: Failed embeddings
             - batches_processed: Number of batches processed
             - queue_size: Current pending requests count
+            - chunk_queue_size: Current pending chunk requests count
             - uptime_seconds: Worker uptime in seconds
             - success_rate: Percentage of successful embeddings
             - avg_batch_size: Average entities per batch
@@ -298,6 +421,7 @@ class EmbeddingBackgroundWorker:
             "total_failed": self._total_failed,
             "batches_processed": self._batches_processed,
             "queue_size": len(self._pending_requests),
+            "chunk_queue_size": len(self._pending_chunk_requests),
             "uptime_seconds": uptime,
             "success_rate": round(success_rate, 2),
             "avg_batch_size": round(avg_batch, 2),

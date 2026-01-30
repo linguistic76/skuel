@@ -250,7 +250,7 @@ class Neo4jSchemaManager:
                 )
             )
 
-    async def _create_vector_index(
+    async def create_vector_index(
         self,
         label: str,
         field_name: str = "embedding",
@@ -264,7 +264,7 @@ class Neo4jSchemaManager:
         Requires Neo4j 5.x+ with GenAI plugin installed.
 
         Args:
-            label: Neo4j label (e.g., "Ku", "Task", "Goal")
+            label: Neo4j label (e.g., "Ku", "Task", "Goal", "ContentChunk")
             field_name: Field containing embedding vector (default: "embedding")
             dimension: Vector dimension (default 1536 for text-embedding-3-small)
             similarity: Similarity function - "cosine" (default), "euclidean", or "dot"
@@ -274,9 +274,12 @@ class Neo4jSchemaManager:
 
         Example:
             # Create vector index for Knowledge Units
-            await schema_manager._create_vector_index("Ku", dimension=1536)
+            await schema_manager.create_vector_index("Ku", dimension=1536)
 
-            # Creates index: ku_embedding_idx
+            # Create vector index for ContentChunk nodes
+            await schema_manager.create_vector_index("ContentChunk", dimension=1536)
+
+            # Creates index: ku_embedding_idx or contentchunk_embedding_idx
             # For query: db.index.vector.queryNodes('ku_embedding_idx', k, embedding)
         """
         index_name = f"{label.lower()}_{field_name}_idx"
@@ -459,7 +462,7 @@ class Neo4jSchemaManager:
         results = {"created": [], "failed": []}
 
         for label in entity_labels:
-            result = await self._create_vector_index(
+            result = await self.create_vector_index(
                 label=label, field_name="embedding", dimension=dimension, similarity=similarity
             )
 

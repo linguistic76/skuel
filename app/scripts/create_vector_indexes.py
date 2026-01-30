@@ -35,16 +35,17 @@ sys.path.insert(0, str(project_root))
 
 from neo4j import AsyncGraphDatabase
 
-from core.config.unified_config import get_config
+from core.config import create_config
 from core.utils.logging import get_logger
 from core.utils.neo4j_schema_manager import Neo4jSchemaManager
 
 logger = get_logger("skuel.scripts.create_vector_indexes")
 
 
-# Priority entities with embedding fields (as of Phase 7 - January 2026)
+# Priority entities with embedding fields (as of Phase 8 - January 2026)
 PRIORITY_ENTITIES = [
     "Ku",  # Knowledge Units - CRITICAL
+    "ContentChunk",  # KU Content Chunks - CRITICAL (for RAG)
     "Task",  # Tasks - HIGH
     "Goal",  # Goals - HIGH
     "LpStep",  # Learning Path Steps - HIGH
@@ -64,7 +65,7 @@ async def create_vector_indexes(
         dimension: Vector dimension (default 1536 for text-embedding-3-small)
         similarity: Similarity function (default "cosine")
     """
-    config = get_config()
+    config = create_config()
 
     # Check if GenAI is enabled
     if not config.genai.enabled:
@@ -91,7 +92,7 @@ async def create_vector_indexes(
 
     # Connect to Neo4j
     driver = AsyncGraphDatabase.driver(
-        config.neo4j.uri, auth=(config.neo4j.username, config.neo4j.password)
+        config.database.neo4j_uri, auth=(config.database.neo4j_username, config.database.neo4j_password)
     )
 
     try:
@@ -157,13 +158,13 @@ async def verify_vector_indexes() -> None:
     """
     Verify that vector indexes exist and show their configuration.
     """
-    config = get_config()
+    config = create_config()
 
     logger.info("Verifying vector indexes...")
 
     # Connect to Neo4j
     driver = AsyncGraphDatabase.driver(
-        config.neo4j.uri, auth=(config.neo4j.username, config.neo4j.password)
+        config.database.neo4j_uri, auth=(config.database.neo4j_username, config.database.neo4j_password)
     )
 
     try:

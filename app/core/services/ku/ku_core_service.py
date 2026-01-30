@@ -268,6 +268,27 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
                     self.logger.info(
                         f"Stored content with {content_obj.chunk_count} chunks for {uid}"
                     )
+
+                    # Publish chunk embedding request event (async background processing)
+                    chunks = getattr(content_obj, "chunks", None)
+                    if chunks and len(chunks) > 0:
+                        from core.events import ChunkEmbeddingRequested
+
+                        chunk_uids = tuple(chunk.chunk_id for chunk in chunks)
+                        chunk_texts = tuple(chunk.context_window for chunk in chunks)
+
+                        embedding_event = ChunkEmbeddingRequested(
+                            ku_uid=uid,
+                            chunk_uids=chunk_uids,
+                            chunk_texts=chunk_texts,
+                            requested_at=datetime.now(UTC),
+                            user_uid=metadata.get("created_by_user"),
+                        )
+                        await publish_event(self.event_bus, embedding_event, self.logger)
+                        self.logger.debug(
+                            f"Requested embeddings for {len(chunks)} chunks of {uid}"
+                        )
+
                     return
 
         # Fallback: simple content storage

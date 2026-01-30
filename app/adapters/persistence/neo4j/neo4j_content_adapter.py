@@ -298,13 +298,19 @@ class Neo4jContentAdapter:
             if chunks:
                 chunk_query = """
                 MATCH (c:Content {uid: $uid})
-                CREATE (chunk:ContentChunk {,
+                CREATE (chunk:ContentChunk {
                     uid: $chunk_uid,
                     chunk_type: $chunk_type,
                     text: $text,
                     start_index: $start_index,
                     end_index: $end_index,
-                    created_at: datetime()
+                    context_window: $context_window,
+                    created_at: datetime(),
+                    embedding: null,
+                    embedding_version: null,
+                    embedding_model: null,
+                    embedding_updated_at: null,
+                    embedding_source_text: null
                 })
                 CREATE (c)-[:HAS_CHUNK {sequence: $sequence}]->(chunk)
                 RETURN chunk.uid
@@ -323,6 +329,7 @@ class Neo4jContentAdapter:
                         "chunk_uid": getattr(chunk, "chunk_id", f"{uid}_chunk_{i}"),
                         "chunk_type": chunk_type,
                         "text": getattr(chunk, "text", str(chunk)),
+                        "context_window": getattr(chunk, "context_window", getattr(chunk, "text", str(chunk))),
                         "start_index": getattr(chunk, "chunk_index", i),
                         "end_index": getattr(
                             chunk, "word_count", len(getattr(chunk, "text", "").split())
@@ -403,3 +410,67 @@ class Neo4jContentAdapter:
         except Exception as e:
             logger.error(f"Failed to retrieve chunks for {uid}: {e}")
             return []
+
+    async def store_chunk_embeddings(
+        self,
+        chunk_uids: list[str],
+        embeddings: list[list[float]],
+        version: str,
+        model: str,
+    ) -> bool:
+        """
+        Store pre-generated embeddings on existing ContentChunk nodes.
+
+        Used by background worker after batch generation.
+
+        Args:
+            chunk_uids: List of chunk UIDs to update
+            embeddings: List of embedding vectors (same length as chunk_uids)
+            version: Embedding version (e.g., "v1")
+            model: Model name (e.g., "text-embedding-3-small")
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if len(chunk_uids) != len(embeddings):
+                logger.error(
+                    f"Mismatch: {len(chunk_uids)} chunk UIDs but {len(embeddings)} embeddings"
+                )
+                return False
+
+            query = """
+            UNWIND $chunks as chunk_data
+            MATCH (c:ContentChunk {uid: chunk_data.uid})
+            SET c.embedding = chunk_data.embedding,
+                c.embedding_version = $version,
+                c.embedding_model = $model,
+                c.embedding_updated_at = datetime(),
+                c.embedding_source_text = c.context_window
+            RETURN count(c) as updated_count
+            """
+
+            chunks_param = [
+                {"uid": uid, "embedding": emb}
+                for uid, emb in zip(chunk_uids, embeddings, strict=True)
+            ]
+
+            result = await self.neo4j.execute_query(
+                query,
+                {"chunks": chunks_param, "version": version, "model": model},
+            )
+
+            if result and len(result) > 0:
+                updated_count = result[0]["updated_count"]
+                logger.info(
+                    f"✅ Stored embeddings for {updated_count}/{len(chunk_uids)} chunks "
+                    f"(version={version}, model={model})"
+                )
+                return updated_count == len(chunk_uids)
+
+            logger.warning("No chunks updated - chunks may not exist")
+            return False
+
+        except Exception as e:
+            logger.error(f"Failed to store chunk embeddings: {e}")
+            return False

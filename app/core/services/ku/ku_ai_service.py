@@ -167,6 +167,125 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
 
         return await self._semantic_search(query, candidates, limit)
 
+    async def semantic_search_chunks(
+        self,
+        query: str,
+        limit: int = 10,
+        similarity_threshold: float = 0.7,
+        chunk_types: list[str] | None = None,
+        ku_uid: str | None = None,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Semantic search across ContentChunk nodes for precise RAG retrieval.
+
+        Returns chunks with context windows ranked by semantic similarity.
+        More precise than KU-level search for answering specific questions.
+
+        Args:
+            query: Search query (will be embedded)
+            limit: Max results (default 10)
+            similarity_threshold: Min cosine similarity (0.0-1.0, default 0.7)
+            chunk_types: Filter by types (e.g., ["definition", "example"])
+            ku_uid: Filter by parent KU
+
+        Returns:
+            Result with list of dicts containing:
+            - chunk_uid: Unique chunk identifier
+            - chunk_type: Semantic type (definition, example, code, etc.)
+            - text: Chunk text
+            - context_window: Text with surrounding context
+            - similarity_score: Cosine similarity to query (0.0-1.0)
+            - parent_ku_uid: Parent KU UID
+            - parent_ku_title: Parent KU title
+
+        Example:
+            result = await ku_ai_service.semantic_search_chunks(
+                query="How do I define a function in Python?",
+                chunk_types=["definition", "example"],
+                limit=5
+            )
+        """
+        if not self.embeddings_service:
+            return Result.fail(
+                Errors.integration(
+                    provider="embeddings_service",
+                    message="Embeddings service not configured",
+                    operation="semantic_search_chunks",
+                )
+            )
+
+        # Generate query embedding
+        query_embedding_result = await self.embeddings_service.create_embedding(query)
+        if query_embedding_result.is_error:
+            return Result.fail(query_embedding_result.expect_error())
+
+        query_embedding = query_embedding_result.value
+
+        # Build vector search query
+        cypher = """
+        CALL db.index.vector.queryNodes(
+            'contentchunk_embedding_idx',
+            $limit * 2,
+            $query_embedding
+        ) YIELD node AS chunk, score
+        WHERE score >= $threshold
+        """
+
+        # Add optional filters
+        if chunk_types:
+            cypher += " AND chunk.chunk_type IN $chunk_types"
+        if ku_uid:
+            cypher += """
+            AND EXISTS {
+                MATCH (chunk)<-[:HAS_CHUNK]-(content:Content {uid: $ku_uid})
+            }
+            """
+
+        # Get parent KU information
+        cypher += """
+        MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)<-[:HAS_CONTENT]-(ku:Ku)
+        RETURN
+            chunk.uid as chunk_uid,
+            chunk.chunk_type as chunk_type,
+            chunk.text as text,
+            chunk.context_window as context_window,
+            score as similarity_score,
+            ku.uid as parent_ku_uid,
+            ku.title as parent_ku_title
+        ORDER BY score DESC
+        LIMIT $limit
+        """
+
+        params = {
+            "query_embedding": query_embedding,
+            "limit": limit,
+            "threshold": similarity_threshold,
+            "chunk_types": chunk_types,
+            "ku_uid": ku_uid,
+        }
+
+        # Execute query via backend driver
+        try:
+            result = await self.backend.driver.execute_query(cypher, params)
+
+            if not result:
+                return Result.ok([])
+
+            chunks = [dict(record) for record in result]
+            self.logger.info(
+                f"Found {len(chunks)} chunks with similarity >= {similarity_threshold:.2f}"
+            )
+            return Result.ok(chunks)
+
+        except Exception as e:
+            self.logger.error(f"Chunk semantic search failed: {e}")
+            return Result.fail(
+                Errors.database(
+                    operation="semantic_search_chunks",
+                    message=f"Vector search failed: {e}",
+                )
+            )
+
     # ========================================================================
     # AI-GENERATED SUMMARIES
     # ========================================================================

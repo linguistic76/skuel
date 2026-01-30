@@ -80,6 +80,12 @@ from core.events.assignment_events import (
 )
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
 
+# Chunk embedding events (async background generation for RAG)
+from core.events.chunk_events import (
+    ChunkEmbeddingRequested,
+    ChunkEmbeddingsCompleted,
+)
+
 # Calendar Event events
 from core.events.calendar_event_events import (
     CalendarEventCompleted,
@@ -220,6 +226,9 @@ __all__ = [
     "BaseEvent",
     # Calendar Events
     "CalendarEventCompleted",
+    # Chunk embedding events (async background generation for RAG)
+    "ChunkEmbeddingRequested",
+    "ChunkEmbeddingsCompleted",
     # Embedding events (async background generation)
     "ChoiceEmbeddingRequested",
     "EmbeddingRequested",
@@ -324,6 +333,9 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "assignment.processing_completed": AssignmentProcessingCompleted,
     "assignment.processing_failed": AssignmentProcessingFailed,
     "assignment.deleted": AssignmentDeleted,
+    # Chunk embedding events (async background generation for RAG)
+    "chunk.embedding_requested": ChunkEmbeddingRequested,
+    "chunk.embeddings_completed": ChunkEmbeddingsCompleted,
     # Embedding events (async background generation)
     "embedding.requested": EmbeddingRequested,
     "task.embedding_requested": TaskEmbeddingRequested,
