@@ -17,7 +17,7 @@ __version__ = "4.0"
 
 from typing import Any
 
-from fasthtml.common import H1, Body, Form, Head, Html, Link, Meta, NotStr, P, Script, Title
+from fasthtml.common import H1, H2, Body, Form, Head, Html, Label, Link, Meta, NotStr, P, Script, Title
 from starlette.requests import Request
 
 from core.auth import get_current_user
@@ -554,6 +554,169 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
         )
 
     routes.append(askesis_home)
+
+    @rt("/askesis/new-chat")
+    async def askesis_new_chat(request: Request) -> Any:
+        """Start a new chat conversation."""
+        content = AskesisUI.render_centered_welcome()
+        page_layout = AskesisUI.render_sidebar_layout("new-chat", content)
+        navbar = _render_minimal_nav(request)
+
+        return Html(
+            Head(
+                Meta(charset="UTF-8"),
+                Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
+                Title("New Chat - Askesis - SKUEL"),
+                Link(rel="stylesheet", href="/static/css/output.css"),
+                Script(src="/static/vendor/htmx/htmx.1.9.10.min.js"),
+                Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
+            ),
+            Body(
+                navbar,
+                page_layout,
+                cls="bg-base-100 text-base-content",
+            ),
+            **{"data-theme": "light"},
+        )
+
+    routes.append(askesis_new_chat)
+
+    @rt("/askesis/history")
+    async def askesis_history(request: Request) -> Any:
+        """View conversation history."""
+        content = Div(
+            H1("Chat History", cls="text-3xl font-bold mb-6"),
+            P("Your past conversations will appear here.", cls="text-base-content/60 mb-4"),
+            Div(
+                Card(
+                    P("No conversations yet", cls="text-center py-8 text-base-content/50"),
+                    cls="bg-base-200",
+                ),
+                cls="max-w-4xl mx-auto",
+            ),
+        )
+        page_layout = AskesisUI.render_sidebar_layout("history", content)
+        navbar = _render_minimal_nav(request)
+
+        return Html(
+            Head(
+                Meta(charset="UTF-8"),
+                Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
+                Title("Chat History - Askesis - SKUEL"),
+                Link(rel="stylesheet", href="/static/css/output.css"),
+                Script(src="/static/vendor/htmx/htmx.1.9.10.min.js"),
+                Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
+            ),
+            Body(
+                navbar,
+                page_layout,
+                cls="bg-base-100 text-base-content",
+            ),
+            **{"data-theme": "light"},
+        )
+
+    routes.append(askesis_history)
+
+    @rt("/askesis/analytics")
+    async def askesis_analytics(request: Request) -> Any:
+        """View AI insights and analytics."""
+        content = Div(
+            H1("Analytics", cls="text-3xl font-bold mb-6"),
+            P("Intelligence insights and performance metrics.", cls="text-base-content/60 mb-4"),
+            Div(
+                Card(
+                    Div(
+                        H2("Coming Soon", cls="text-xl font-semibold mb-2"),
+                        P("AI analytics and insights will be available here.", cls="text-base-content/60"),
+                        cls="text-center py-12",
+                    ),
+                    cls="bg-base-200",
+                ),
+                cls="max-w-4xl mx-auto",
+            ),
+        )
+        page_layout = AskesisUI.render_sidebar_layout("analytics", content)
+        navbar = _render_minimal_nav(request)
+
+        return Html(
+            Head(
+                Meta(charset="UTF-8"),
+                Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
+                Title("Analytics - Askesis - SKUEL"),
+                Link(rel="stylesheet", href="/static/css/output.css"),
+                Script(src="/static/vendor/htmx/htmx.1.9.10.min.js"),
+                Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
+            ),
+            Body(
+                navbar,
+                page_layout,
+                cls="bg-base-100 text-base-content",
+            ),
+            **{"data-theme": "light"},
+        )
+
+    routes.append(askesis_analytics)
+
+    @rt("/askesis/settings")
+    async def askesis_settings(request: Request) -> Any:
+        """Configure Askesis assistant."""
+        content = Div(
+            H1("Settings", cls="text-3xl font-bold mb-6"),
+            P("Configure your AI assistant preferences.", cls="text-base-content/60 mb-6"),
+            Div(
+                Card(
+                    Form(
+                        Div(
+                            Label("Default Model", cls="label"),
+                            Select(
+                                Option("Sonnet 4.5", value="sonnet-4.5", selected=True),
+                                Option("Opus 3", value="opus-3"),
+                                Option("Haiku 3", value="haiku-3"),
+                                name="default_model",
+                                cls="select select-bordered w-full",
+                            ),
+                            cls="form-control mb-4",
+                        ),
+                        Div(
+                            Label("Response Length", cls="label"),
+                            Select(
+                                Option("Concise", value="concise"),
+                                Option("Balanced", value="balanced", selected=True),
+                                Option("Detailed", value="detailed"),
+                                name="response_length",
+                                cls="select select-bordered w-full",
+                            ),
+                            cls="form-control mb-4",
+                        ),
+                        Button("Save Settings", variant=ButtonT.primary, type="submit"),
+                        cls="space-y-4",
+                    ),
+                    cls="bg-base-200 p-6",
+                ),
+                cls="max-w-2xl mx-auto",
+            ),
+        )
+        page_layout = AskesisUI.render_sidebar_layout("settings", content)
+        navbar = _render_minimal_nav(request)
+
+        return Html(
+            Head(
+                Meta(charset="UTF-8"),
+                Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
+                Title("Settings - Askesis - SKUEL"),
+                Link(rel="stylesheet", href="/static/css/output.css"),
+                Script(src="/static/vendor/htmx/htmx.1.9.10.min.js"),
+                Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
+            ),
+            Body(
+                navbar,
+                page_layout,
+                cls="bg-base-100 text-base-content",
+            ),
+            **{"data-theme": "light"},
+        )
+
+    routes.append(askesis_settings)
 
     @rt("/askesis/api/submit")
     async def submit_message(request: Request):

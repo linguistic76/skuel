@@ -377,36 +377,38 @@ def create_calendar_routes(app, rt, services):
 
         return _wrap_calendar_page(
             navbar,
-            Container(
-                # Header with navigation
-                Div(
-                    H1(f"{month_name} {year}", cls="text-3xl font-bold mb-4"),
-                    create_view_switcher("month", first_day),
-                    # Month navigation - using links instead of JavaScript
+            Div(
+                Container(
+                    # Header with navigation
                     Div(
-                        A(
-                            "← Previous",
-                            href=f"/calendar/month/{_get_prev_month(year, month)[0]}/{_get_prev_month(year, month)[1]}",
-                            cls="btn btn-ghost btn-sm",
+                        H1(f"{month_name} {year}", cls="text-3xl font-bold mb-4"),
+                        create_view_switcher("month", first_day),
+                        # Month navigation - using links instead of JavaScript
+                        Div(
+                            A(
+                                "← Previous",
+                                href=f"/calendar/month/{_get_prev_month(year, month)[0]}/{_get_prev_month(year, month)[1]}",
+                                cls="btn btn-ghost btn-sm",
+                            ),
+                            A(
+                                "Today",
+                                href="/calendar",
+                                cls="btn btn-primary btn-sm mx-2",
+                            ),
+                            A(
+                                "Next →",
+                                href=f"/calendar/month/{_get_next_month(year, month)[0]}/{_get_next_month(year, month)[1]}",
+                                cls="btn btn-ghost btn-sm",
+                            ),
+                            cls="flex justify-center mb-6",
                         ),
-                        A(
-                            "Today",
-                            href="/calendar",
-                            cls="btn btn-primary btn-sm mx-2",
-                        ),
-                        A(
-                            "Next →",
-                            href=f"/calendar/month/{_get_next_month(year, month)[0]}/{_get_next_month(year, month)[1]}",
-                            cls="btn btn-ghost btn-sm",
-                        ),
-                        cls="flex justify-center mb-6",
+                        cls="mb-6",
                     ),
-                    cls="mb-6",
+                    # Month grid
+                    create_month_grid(calendar_data),
+                    # Hidden form for HTMX drag-drop reschedule
+                    create_reschedule_form(),
                 ),
-                # Month grid
-                create_month_grid(calendar_data),
-                # Hidden form for HTMX drag-drop reschedule
-                create_reschedule_form(),
                 cls="max-w-7xl mx-auto p-6",
             ),
             f"{month_name} {year}",
@@ -444,39 +446,41 @@ def create_calendar_routes(app, rt, services):
 
         return _wrap_calendar_page(
             navbar,
-            Container(
-                # Header
-                Div(
-                    H1(
-                        f"Week of {week_start.strftime('%B %d, %Y')}",
-                        cls="text-3xl font-bold mb-4",
-                    ),
-                    create_view_switcher("week", week_start),
-                    # Week navigation - using links instead of JavaScript
+            Div(
+                Container(
+                    # Header
                     Div(
-                        A(
-                            "← Previous Week",
-                            href=f"/calendar/week/{_get_prev_week(week_start)}",
-                            cls="btn btn-ghost btn-sm",
+                        H1(
+                            f"Week of {week_start.strftime('%B %d, %Y')}",
+                            cls="text-3xl font-bold mb-4",
                         ),
-                        A(
-                            "This Week",
-                            href=f"/calendar/week/{date.today().isoformat()}",
-                            cls="btn btn-primary btn-sm mx-2",
+                        create_view_switcher("week", week_start),
+                        # Week navigation - using links instead of JavaScript
+                        Div(
+                            A(
+                                "← Previous Week",
+                                href=f"/calendar/week/{_get_prev_week(week_start)}",
+                                cls="btn btn-ghost btn-sm",
+                            ),
+                            A(
+                                "This Week",
+                                href=f"/calendar/week/{date.today().isoformat()}",
+                                cls="btn btn-primary btn-sm mx-2",
+                            ),
+                            A(
+                                "Next Week →",
+                                href=f"/calendar/week/{_get_next_week(week_start)}",
+                                cls="btn btn-ghost btn-sm",
+                            ),
+                            cls="flex justify-center mb-6",
                         ),
-                        A(
-                            "Next Week →",
-                            href=f"/calendar/week/{_get_next_week(week_start)}",
-                            cls="btn btn-ghost btn-sm",
-                        ),
-                        cls="flex justify-center mb-6",
+                        cls="mb-6",
                     ),
-                    cls="mb-6",
+                    # Week grid
+                    create_week_grid(calendar_data),
+                    # Hidden form for HTMX drag-drop reschedule
+                    create_reschedule_form(),
                 ),
-                # Week grid
-                create_week_grid(calendar_data),
-                # Hidden form for HTMX drag-drop reschedule
-                create_reschedule_form(),
                 cls="max-w-7xl mx-auto p-6",
             ),
             f"Week of {week_start.strftime('%B %d, %Y')}",
@@ -508,39 +512,41 @@ def create_calendar_routes(app, rt, services):
 
         return _wrap_calendar_page(
             navbar,
-            Container(
-                # Header
-                Div(
-                    H1(
-                        target_date.strftime("%A, %B %d, %Y"),
-                        cls="text-3xl font-bold mb-4",
-                    ),
-                    create_view_switcher("day", target_date),
-                    # Day navigation - using links instead of JavaScript
+            Div(
+                Container(
+                    # Header
                     Div(
-                        A(
-                            "← Previous Day",
-                            href=f"/calendar/day/{_get_prev_day(target_date)}",
-                            cls="btn btn-ghost btn-sm",
+                        H1(
+                            target_date.strftime("%A, %B %d, %Y"),
+                            cls="text-3xl font-bold mb-4",
                         ),
-                        A(
-                            "Today",
-                            href=f"/calendar/day/{date.today().isoformat()}",
-                            cls="btn btn-primary btn-sm mx-2",
+                        create_view_switcher("day", target_date),
+                        # Day navigation - using links instead of JavaScript
+                        Div(
+                            A(
+                                "← Previous Day",
+                                href=f"/calendar/day/{_get_prev_day(target_date)}",
+                                cls="btn btn-ghost btn-sm",
+                            ),
+                            A(
+                                "Today",
+                                href=f"/calendar/day/{date.today().isoformat()}",
+                                cls="btn btn-primary btn-sm mx-2",
+                            ),
+                            A(
+                                "Next Day →",
+                                href=f"/calendar/day/{_get_next_day(target_date)}",
+                                cls="btn btn-ghost btn-sm",
+                            ),
+                            cls="flex justify-center mb-6",
                         ),
-                        A(
-                            "Next Day →",
-                            href=f"/calendar/day/{_get_next_day(target_date)}",
-                            cls="btn btn-ghost btn-sm",
-                        ),
-                        cls="flex justify-center mb-6",
+                        cls="mb-6",
                     ),
-                    cls="mb-6",
+                    # Day timeline
+                    create_day_timeline(calendar_data),
+                    # Hidden form for HTMX drag-drop reschedule
+                    create_reschedule_form(),
                 ),
-                # Day timeline
-                create_day_timeline(calendar_data),
-                # Hidden form for HTMX drag-drop reschedule
-                create_reschedule_form(),
                 cls="max-w-7xl mx-auto p-6",
             ),
             "Day View",
