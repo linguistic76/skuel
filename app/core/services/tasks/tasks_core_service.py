@@ -24,7 +24,7 @@ from typing import Any
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.models.relationship_names import RelationshipName
-from core.models.shared_enums import ActivityStatus
+from core.models.shared_enums import ActivityStatus, EntityType
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
@@ -33,6 +33,7 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import TasksOperations
 from core.services.protocols.query_types import TaskUpdatePayload
 from core.utils.decorators import with_error_handling
+from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
@@ -98,22 +99,6 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
     # ========================================================================
 
-    def _build_embedding_text(self, task: Task) -> str:
-        """
-        Build text for embedding from task fields.
-
-        Used for async background embedding generation.
-
-        Args:
-            task: Task domain model
-
-        Returns:
-            Text for embedding (title + description)
-        """
-        parts = [task.title]
-        if task.description:
-            parts.append(task.description)
-        return "\n".join(parts).strip()
 
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -349,7 +334,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
 
         # Publish embedding request event for async background generation (Phase 1 - January 2026)
         # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = self._build_embedding_text(task)
+        embedding_text = build_embedding_text(EntityType.TASK, task)
         if embedding_text:
             from core.events import TaskEmbeddingRequested
 

@@ -24,10 +24,12 @@ from core.models.enums.activity_enums import ActivityStatus
 from core.models.habit.habit import Habit, HabitStatus
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
+from core.models.shared_enums import EntityType
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value
 from core.services.protocols.domain_protocols import HabitsOperations
+from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 
@@ -90,27 +92,6 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
     # ========================================================================
 
-    def _build_embedding_text(self, habit: Habit) -> str:
-        """
-        Build text for embedding from habit fields.
-
-        Used for async background embedding generation.
-        Includes name, description, cue (trigger), and reward for comprehensive semantic search.
-
-        Args:
-            habit: Habit domain model
-
-        Returns:
-            Text for embedding (name + description + cue + reward)
-        """
-        parts = [habit.name]
-        if habit.description:
-            parts.append(habit.description)
-        if habit.cue:
-            parts.append(habit.cue)
-        if habit.reward:
-            parts.append(habit.reward)
-        return "\n".join(parts).strip()
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
@@ -364,7 +345,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         # Publish embedding request event for async background generation (Phase 1 - January 2026)
         # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = self._build_embedding_text(habit)
+        embedding_text = build_embedding_text(EntityType.HABIT, habit)
         if embedding_text:
             from core.events import HabitEmbeddingRequested
 

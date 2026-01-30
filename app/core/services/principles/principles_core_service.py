@@ -20,10 +20,12 @@ from core.events import publish_event
 from core.models.enums.activity_enums import ActivityStatus
 from core.models.principle.principle import Principle, PrincipleCategory, PrincipleStrength
 from core.models.principle.principle_dto import PrincipleDTO
+from core.models.shared_enums import EntityType
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import PrinciplesOperations
 from core.utils.decorators import with_error_handling
+from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_principle_priority
@@ -99,25 +101,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
     # ========================================================================
 
-    def _build_embedding_text(self, principle: Principle) -> str:
-        """
-        Build text for embedding from principle fields.
-
-        Used for async background embedding generation.
-        Includes name, statement, and description for comprehensive semantic search.
-
-        Args:
-            principle: Principle domain model
-
-        Returns:
-            Text for embedding (name + statement + description)
-        """
-        parts = [principle.name]
-        if principle.statement:
-            parts.append(principle.statement)
-        if principle.description:
-            parts.append(principle.description)
-        return "\n".join(parts).strip()
 
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -316,7 +299,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
         # Publish embedding request event for async background generation (Phase 1 - January 2026)
         # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = self._build_embedding_text(principle)
+        embedding_text = build_embedding_text(EntityType.PRINCIPLE, principle)
         if embedding_text:
             from core.events import PrincipleEmbeddingRequested
 

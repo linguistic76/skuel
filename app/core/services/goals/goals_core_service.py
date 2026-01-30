@@ -38,12 +38,13 @@ from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.relationship_names import RelationshipName
-from core.models.shared_enums import ActivityStatus, GoalStatus
+from core.models.shared_enums import ActivityStatus, EntityType, GoalStatus
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value
 from core.services.protocols.domain_protocols import GoalsOperations
 from core.services.protocols.query_types import GoalUpdatePayload
+from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -108,25 +109,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
     # ========================================================================
 
-    def _build_embedding_text(self, goal: Goal) -> str:
-        """
-        Build text for embedding from goal fields.
-
-        Used for async background embedding generation.
-        Includes title, description, and vision_statement for comprehensive semantic search.
-
-        Args:
-            goal: Goal domain model
-
-        Returns:
-            Text for embedding (title + description + vision_statement)
-        """
-        parts = [goal.title]
-        if goal.description:
-            parts.append(goal.description)
-        if goal.vision_statement:
-            parts.append(goal.vision_statement)
-        return "\n".join(parts).strip()
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
@@ -377,7 +359,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         # Publish embedding request event for async background generation (Phase 1 - January 2026)
         # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = self._build_embedding_text(goal)
+        embedding_text = build_embedding_text(EntityType.GOAL, goal)
         if embedding_text:
             from core.events import GoalEmbeddingRequested
 

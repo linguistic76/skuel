@@ -1034,6 +1034,34 @@ All 10 domain `*_intelligence_service.py` files extend `BaseAnalyticsService`. A
 
 **See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`
 
+## Embedding Text Extraction
+
+**Core Principle:** "Single source of truth for embedding field mappings"
+
+**Location:** `/core/utils/embedding_text_builder.py`
+
+**Usage:**
+```python
+from core.utils.embedding_text_builder import build_embedding_text
+from core.models.shared_enums import EntityType
+
+# From dict (ingestion path)
+text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Details"})
+
+# From model (background worker path)
+text = build_embedding_text(EntityType.TASK, task_model)
+```
+
+**Field Mappings:** See `EMBEDDING_FIELD_MAPS` in the utility for canonical field list per entity type.
+
+**Supported Entity Types:** KU, Task, Goal, Habit, Event, Choice, Principle (7 total)
+
+**Key Design:**
+- KU uses double newline separator (`\n\n`) for semantic section separation
+- All other domains use single newline (`\n`)
+- Graceful handling of missing/empty fields (returns empty string, no exceptions)
+- Duck typing via `getattr()` with sentinel pattern (SKUEL011 compliant)
+
 ## Quick Reference: Key Files
 
 | Purpose | Location |

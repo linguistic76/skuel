@@ -24,11 +24,12 @@ from core.models.choice.choice import Choice, ChoiceStatus, ChoiceType
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_request import ChoiceUpdateRequest
 from core.models.relationship_names import RelationshipName
-from core.models.shared_enums import ActivityStatus
+from core.models.shared_enums import ActivityStatus, EntityType
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import ChoicesOperations
 from core.utils.decorators import with_error_handling
+from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_attribute_sort_key
@@ -101,27 +102,6 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
     # ========================================================================
 
-    def _build_embedding_text(self, choice: Choice) -> str:
-        """
-        Build text for embedding from choice fields.
-
-        Used for async background embedding generation.
-        Includes title, description, decision_context, and outcome for comprehensive semantic search.
-
-        Args:
-            choice: Choice domain model
-
-        Returns:
-            Text for embedding (title + description + decision_context + outcome)
-        """
-        parts = [choice.title]
-        if choice.description:
-            parts.append(choice.description)
-        if choice.decision_context:
-            parts.append(choice.decision_context)
-        if choice.outcome:
-            parts.append(choice.outcome)
-        return "\n".join(parts).strip()
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
@@ -311,7 +291,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
 
         # Publish embedding request event for async background generation (Phase 1 - January 2026)
         # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = self._build_embedding_text(choice)
+        embedding_text = build_embedding_text(EntityType.CHOICE, choice)
         if embedding_text:
             from core.events import ChoiceEmbeddingRequested
 

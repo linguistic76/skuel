@@ -25,8 +25,10 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.events import TaskEmbeddingRequested
+from core.models.shared_enums import EntityType
 from core.models.task.task_request import TaskCreateRequest
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
+from core.utils.embedding_text_builder import build_embedding_text
 
 
 class TestTaskEmbeddingEvents:
@@ -199,9 +201,6 @@ class TestEmbeddingTextExtraction:
         THEN: Returns title + description
         """
         from core.models.task.task import Task
-        from core.services.tasks.tasks_core_service import TasksCoreService
-
-        service = TasksCoreService(backend=None)
 
         task = Task(
             uid="task.test",
@@ -212,7 +211,7 @@ class TestEmbeddingTextExtraction:
             status="pending",
         )
 
-        text = service._build_embedding_text(task)
+        text = build_embedding_text(EntityType.TASK, task)
 
         assert "Learn Python" in text
         assert "Study async/await patterns" in text
@@ -224,9 +223,6 @@ class TestEmbeddingTextExtraction:
         THEN: Returns title only
         """
         from core.models.task.task import Task
-        from core.services.tasks.tasks_core_service import TasksCoreService
-
-        service = TasksCoreService(backend=None)
 
         task = Task(
             uid="task.test",
@@ -237,7 +233,7 @@ class TestEmbeddingTextExtraction:
             status="pending",
         )
 
-        text = service._build_embedding_text(task)
+        text = build_embedding_text(EntityType.TASK, task)
 
         assert text == "Buy groceries"
 
@@ -321,10 +317,6 @@ class TestGoalEmbeddingTextExtraction:
         THEN: Returns all three fields combined
         """
         from core.models.goal.goal import Goal
-        from core.services.goals.goals_core_service import GoalsCoreService
-
-        service = GoalsCoreService(backend=None)
-
         goal = Goal(
             uid="goal.test",
             user_uid="user.test",
@@ -334,7 +326,7 @@ class TestGoalEmbeddingTextExtraction:
             status="active",
         )
 
-        text = service._build_embedding_text(goal)
+        text = build_embedding_text(EntityType.GOAL, goal)
 
         assert "Learn Machine Learning" in text
         assert "Study ML algorithms" in text
@@ -347,9 +339,6 @@ class TestGoalEmbeddingTextExtraction:
         THEN: Returns title only
         """
         from core.models.goal.goal import Goal
-        from core.services.goals.goals_core_service import GoalsCoreService
-
-        service = GoalsCoreService(backend=None)
 
         goal = Goal(
             uid="goal.test",
@@ -360,7 +349,7 @@ class TestGoalEmbeddingTextExtraction:
             status="active",
         )
 
-        text = service._build_embedding_text(goal)
+        text = build_embedding_text(EntityType.GOAL, goal)
 
         assert text == "Get fit"
 

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from core.models.shared_enums import EntityType
+from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 
 from .config import ENTITY_CONFIGS
@@ -155,7 +156,7 @@ async def prepare_entity_data_async(
     # Generate embeddings (NEW - January 2026)
     # Priority entities: Ku, Task, Goal, LpStep - others don't need embeddings
     if embeddings_service and _should_generate_embedding(entity_type):
-        embedding_text = _get_embedding_text(entity_type, entity_data)
+        embedding_text = build_embedding_text(entity_type, entity_data)
 
         if embedding_text:
             try:
@@ -205,75 +206,6 @@ def _should_generate_embedding(entity_type: EntityType) -> bool:
     return entity_type == EntityType.KU or entity_type in activity_domains
 
 
-def _get_embedding_text(entity_type: EntityType, entity_data: dict[str, Any]) -> str:
-    """
-    Extract text for embedding generation.
-
-    Combines relevant fields based on entity type to create
-    a comprehensive representation for semantic search.
-
-    Updated January 2026 to support all 6 activity domains.
-
-    Args:
-        entity_type: Type of entity
-        entity_data: Entity data dict
-
-    Returns:
-        Combined text suitable for embedding
-    """
-    if entity_type == EntityType.KU:
-        # Ku: title + content + summary
-        parts = []
-        if "title" in entity_data:
-            parts.append(entity_data["title"])
-        if "content" in entity_data:
-            parts.append(entity_data["content"])
-        if "summary" in entity_data:
-            parts.append(entity_data["summary"])
-        return "\n\n".join(parts).strip()
-
-    elif entity_type in [EntityType.TASK, EntityType.GOAL]:
-        # Task/Goal: title + description
-        parts = []
-        if "title" in entity_data:
-            parts.append(entity_data["title"])
-        if "description" in entity_data:
-            parts.append(entity_data["description"])
-        return "\n".join(parts).strip()
-
-    elif entity_type == EntityType.HABIT:
-        # Habit: title + description + trigger + reward
-        parts = []
-        for field in ["title", "description", "trigger", "reward"]:
-            if entity_data.get(field):
-                parts.append(str(entity_data[field]))
-        return "\n".join(parts).strip()
-
-    elif entity_type == EntityType.EVENT:
-        # Event: title + description + location
-        parts = []
-        for field in ["title", "description", "location"]:
-            if entity_data.get(field):
-                parts.append(str(entity_data[field]))
-        return "\n".join(parts).strip()
-
-    elif entity_type == EntityType.CHOICE:
-        # Choice: title + description + decision_context + outcome
-        parts = []
-        for field in ["title", "description", "decision_context", "outcome"]:
-            if entity_data.get(field):
-                parts.append(str(entity_data[field]))
-        return "\n".join(parts).strip()
-
-    elif entity_type == EntityType.PRINCIPLE:
-        # Principle: name + statement + description
-        parts = []
-        for field in ["name", "statement", "description"]:
-            if entity_data.get(field):
-                parts.append(str(entity_data[field]))
-        return "\n".join(parts).strip()
-
-    return ""
 
 
 def prepare_entity_data_sync(
