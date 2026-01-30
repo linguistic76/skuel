@@ -95,9 +95,15 @@ class Ls:
     intent: str  # Learning objective / what learner will achieve
     description: str | None = None
 
-    # Knowledge Content
-    primary_knowledge_uids: tuple[str, ...] = ()  # Main knowledge units (ku:*)
-    supporting_knowledge_uids: tuple[str, ...] = ()  # Supporting/optional knowledge
+    # Knowledge Content (Universal Hierarchical Pattern - Transitional)
+    # GRAPH-NATIVE: These properties support backward compatibility during migration.
+    # Preferred: Use CONTAINS_KNOWLEDGE relationships via service methods:
+    #   - LsCoreService.add_knowledge_relationship(ls_uid, ku_uid, type)
+    #   - LsCoreService.get_contained_knowledge(ls_uid, type)
+    # Relationship: (ls)-[:CONTAINS_KNOWLEDGE {type: "primary"|"supporting"}]->(ku)
+    # See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
+    primary_knowledge_uids: tuple[str, ...] = ()  # Main knowledge units (transitional)
+    supporting_knowledge_uids: tuple[str, ...] = ()  # Supporting knowledge (transitional)
 
     # Path Integration (optional - can be standalone)
     learning_path_uid: str | None = None  # Parent path (lp:*) if part of sequence

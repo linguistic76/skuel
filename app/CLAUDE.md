@@ -118,14 +118,14 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 
 ### The 14 Domains
 
-| # | Domain | Group | UID Prefix | Purpose |
+| # | Domain | Group | UID Format | Purpose |
 |---|--------|-------|-----------|---------|
-| 1-6 | Tasks, Goals, Habits, Events, Choices, Principles | Activity | `task:`, `goal:`, etc. | User activities |
-| 7 | Finance | Finance | `expense:` | Admin-only bookkeeping |
-| 8-10 | KU, LS, LP | Curriculum | `ku:`, `ls:`, `lp:` | Knowledge organization |
-| 11-12 | Journals, Assignments | Content | `journal:`, `assignment:` | Processing |
-| 13 | MOC | Organizational | `ku:` (MOC is a KU) | Non-linear KU navigation |
-| 14 | LifePath | Destination | - | "Am I living my life path?" |
+| 1-6 | Tasks, Goals, Habits, Events, Choices, Principles | Activity | `{type}_{slug}_{random}` | User activities |
+| 7 | Finance | Finance | `expense_{random}` | Admin-only bookkeeping |
+| 8-10 | KU, LS, LP | Curriculum | `ku_{slug}_{random}`, `ls:{random}`, `lp:{random}` | Knowledge organization |
+| 11-12 | Journals, Assignments | Content | `journal_{random}`, `assignment_{random}` | Processing |
+| 13 | MOC | Organizational | `ku_{slug}_{random}` (MOC is a KU) | Non-linear KU navigation |
+| 14 | LifePath | Destination | `lp_{random}` | "Am I living my life path?" |
 
 ### Domain Category Details
 
@@ -286,7 +286,7 @@ Key: Frozen dataclasses with `__post_init__` for dynamic defaults, `DomainModelP
 ```python
 from core.auth import UserUID, require_authenticated_user
 
-user_uid: UserUID = require_authenticated_user(request)  # Returns "user.{name}"
+user_uid: UserUID = require_authenticated_user(request)  # Returns "user_{name}"
 
 # Role protection (use named function, not lambda - SKUEL012)
 def get_user_service():
@@ -595,8 +595,8 @@ Reusable patterns for cross-cutting concerns:
 from core.services.infrastructure import PrerequisiteHelper, PrerequisiteResult
 
 result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
-    required_knowledge_uids=["ku.python"],
-    required_task_uids=["task.setup"],
+    required_knowledge_uids=["ku_python-basics_abc123"],
+    required_task_uids=["task_setup-env_xyz789"],
     context=user_context,
 )
 # result.score (0.0-1.0), result.is_ready, result.blocking_reasons
@@ -832,11 +832,11 @@ from core.services.ingestion import UnifiedIngestionService
 
 **Core Principle:** "Three patterns, two access paths"
 
-| Pattern | Prefix | Topology | Metaphor |
-|---------|--------|----------|----------|
-| KU | `ku:` | Point | A single brick |
-| LS | `ls:` | Edge | A step in a staircase |
-| LP | `lp:` | Path | The full staircase |
+| Pattern | UID Format | Topology | Metaphor |
+|---------|-----------|----------|----------|
+| KU | `ku_{slug}_{random}` | Point | A single brick |
+| LS | `ls:{random}` | Edge | A step in a staircase |
+| LP | `lp:{random}` | Path | The full staircase |
 
 **Two Paths to Knowledge (Montessori-Inspired):**
 - **LS Path:** Structured, linear, teacher-directed curriculum (KU → LS → LP)
@@ -848,13 +848,34 @@ from core.services.ingestion import UnifiedIngestionService
 
 ## KU UID Format
 
-**Core Principle:** "Identity is independent of location"
+**Core Principle:** "Identity is independent of location" (Universal Hierarchical Pattern - 2026-01-30)
 
-**Format:** `ku.{filename}` (flat, NOT hierarchical paths)
+**Format:** `ku_{slug}_{random}` (flat UIDs, hierarchy in ORGANIZES relationships)
 
-**Critical:** Database uses dot notation. Always use `ku.simple-test` not `ku:simple-test` for retrieval.
+**Examples:**
+```
+ku_meditation-basics_a1b2c3d4    (Service-created)
+ku.meditation-basics              (Markdown ingestion - legacy)
+```
 
-**See:** `/docs/decisions/ADR-013-ku-uid-flat-identity.md`
+**Hierarchy via Relationships:**
+```cypher
+// MOC Pattern - KU organizing KUs
+(moc:Ku {uid: "ku_yoga-fundamentals_abc123"})
+  -[:ORGANIZES {order: 1, importance: "core"}]->
+(child:Ku {uid: "ku_meditation-basics_xyz789"})
+```
+
+**Service Methods:**
+```python
+await ku_service.organize_ku(parent_uid, child_uid, order, importance)
+await ku_service.get_subkus(parent_uid, depth=1)
+await ku_service.get_parent_kus(ku_uid)  # Multiple parents possible!
+```
+
+**See:**
+- `/docs/decisions/ADR-013-ku-uid-flat-identity.md` - Decision & implementation
+- `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md` - Complete pattern guide
 
 ## MetadataManagerMixin
 

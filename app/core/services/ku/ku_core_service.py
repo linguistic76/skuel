@@ -34,6 +34,7 @@ from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared_enums import Domain, KnowledgeStatus
 from core.services.base_service import BaseService
+from core.services.domain_config import create_curriculum_domain_config
 from core.services.metadata_manager_mixin import MetadataManagerMixin
 from core.services.protocols.content_protocols import ensure_content_protocol
 from core.services.protocols.curriculum_protocols import CurriculumOperations
@@ -78,15 +79,18 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
     - Logs operations with structured logging
     """
 
-    # BaseService configuration (January 2026 - Unified)
-    _dto_class = KuDTO
-    _model_class = Ku
-    _search_fields = ["title", "content", "tags"]
-    _content_field = "content"
-    _prerequisite_relationships = [RelationshipName.REQUIRES_KNOWLEDGE.value]
-    _enables_relationships = [RelationshipName.ENABLES_KNOWLEDGE.value]
-    _supports_user_progress = True  # KU supports mastery tracking
-    _user_ownership_relationship = None  # KU is shared content
+    # BaseService configuration (January 2026 - DomainConfig)
+    _config = create_curriculum_domain_config(
+        dto_class=KuDTO,
+        model_class=Ku,
+        domain_name="ku",
+        search_fields=("title", "content", "tags"),
+        supports_user_progress=True,  # KU supports mastery tracking
+        user_ownership_relationship=None,  # KU is shared content
+        prerequisite_relationships=(RelationshipName.REQUIRES_KNOWLEDGE.value,),
+        enables_relationships=(RelationshipName.ENABLES_KNOWLEDGE.value,),
+    )
+    _content_field = "content"  # Keep as class attribute (not in DomainConfig schema)
 
     @property
     def entity_label(self) -> str:
@@ -176,12 +180,9 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         if not title or not body:
             return Result.fail(Errors.validation("Title and body are required", field="title,body"))
 
-        # Generate UID
-        uid = UIDGenerator.generate_knowledge_uid(
-            title=title,
-            parent_uid=metadata.get("parent_uid"),
-            domain_uid=metadata.get("domain_uid"),
-        )
+        # Generate flat UID (Universal Hierarchical Pattern)
+        # Parent relationship handled separately via ORGANIZES edge
+        uid = UIDGenerator.generate_knowledge_uid(title=title)
 
         # Prepare unit data with timestamps (via MetadataManagerMixin)
         unit_data = {
@@ -197,6 +198,21 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
 
         # Store unit in graph
         await self.backend.create(unit_data)
+
+        # Handle parent organization if specified (Universal Hierarchical Pattern)
+        parent_uid = metadata.get("parent_uid")
+        if parent_uid:
+            organize_result = await self.organize_ku(
+                parent_uid=parent_uid,
+                child_uid=uid,
+                order=metadata.get("order", 0),
+                importance=metadata.get("importance", "normal")
+            )
+            if organize_result.is_error:
+                self.logger.warning(
+                    f"Failed to create ORGANIZES relationship from {parent_uid} to {uid}: "
+                    f"{organize_result.error}"
+                )
 
         # Process and store content
         await self._store_content(uid, body, title, tags, metadata)
@@ -731,3 +747,353 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
             # No mastery relationship found - return 0.0
             self.logger.debug(f"No mastery found for {user_uid} on {ku_uid}, returning 0.0")
             return Result.ok(0.0)
+
+    # ========================================================================
+    # HIERARCHICAL METHODS (Universal Hierarchical Pattern - 2026-01-30)
+    # ========================================================================
+
+    @track_query_metrics("ku_get_subkus")
+    @with_error_handling("get_subkus", error_type="database", uid_param="parent_uid")
+    async def get_subkus(
+        self,
+        parent_uid: str,
+        depth: int = 1,
+        include_metadata: bool = False
+    ) -> Result[list[KnowledgeUnit]]:
+        """
+        Get all KUs organized under this parent KU (MOC pattern).
+
+        Universal Hierarchical Pattern: Uses ORGANIZES relationships to
+        retrieve child KUs, supporting multi-level hierarchy traversal.
+
+        Args:
+            parent_uid: Parent KU UID
+            depth: How many levels deep (1 = direct children only, 2 = children + grandchildren)
+            include_metadata: Include relationship metadata (order, importance)
+
+        Returns:
+            Result containing list of child KUs
+
+        Example:
+            # Get all KUs organized under "Yoga Fundamentals" MOC
+            result = await ku_service.get_subkus("ku_yoga-fundamentals_abc123")
+            if result.is_ok:
+                for child_ku in result.value:
+                    print(f"  - {child_ku.title}")
+
+        See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
+        """
+        query = f"""
+        MATCH (parent:Ku {{uid: $parent_uid}})-[r:ORGANIZES*1..{depth}]->(child:Ku)
+        RETURN child, r
+        ORDER BY r[0].order ASC
+        """
+
+        result = await self.backend.driver.execute_query(
+            query,
+            parent_uid=parent_uid,
+            routing_="r"
+        )
+
+        # Convert to KnowledgeUnit domain objects
+        kus = []
+        for record in result.records:
+            ku_node = dict(record["child"])
+            ku = KnowledgeUnit(
+                uid=ku_node["uid"],
+                title=ku_node["title"],
+                content=ku_node.get("content", ""),
+                domain=Domain[ku_node.get("domain", "KNOWLEDGE")],
+                tags=ku_node.get("tags", []),
+                status=KnowledgeStatus[ku_node.get("status", "DRAFT")],
+                created_at=ku_node.get("created_at"),
+                updated_at=ku_node.get("updated_at")
+            )
+            kus.append(ku)
+
+        self.logger.info(f"Found {len(kus)} subKUs for parent {parent_uid} (depth={depth})")
+        return Result.ok(kus)
+
+    @track_query_metrics("ku_get_parent_kus")
+    @with_error_handling("get_parent_kus", error_type="database", uid_param="ku_uid")
+    async def get_parent_kus(self, ku_uid: str) -> Result[list[KnowledgeUnit]]:
+        """
+        Get all parent KUs (can have multiple via MOC pattern).
+
+        Universal Hierarchical Pattern: A single KU can be organized under
+        multiple parent KUs (MOCs), supporting DAG structure.
+
+        Args:
+            ku_uid: Child KU UID
+
+        Returns:
+            Result containing list of parent KUs
+
+        Example:
+            # "Machine Learning" might be in multiple MOCs
+            result = await ku_service.get_parent_kus("ku_machine-learning_xyz789")
+            # Could return: ["AI Fundamentals", "Data Science", "Python Advanced"]
+
+        See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
+        """
+        query = """
+        MATCH (parent:Ku)-[:ORGANIZES]->(child:Ku {uid: $ku_uid})
+        RETURN parent
+        ORDER BY parent.title
+        """
+
+        result = await self.backend.driver.execute_query(
+            query,
+            ku_uid=ku_uid,
+            routing_="r"
+        )
+
+        parents = []
+        for record in result.records:
+            parent_node = dict(record["parent"])
+            parent = KnowledgeUnit(
+                uid=parent_node["uid"],
+                title=parent_node["title"],
+                content=parent_node.get("content", ""),
+                domain=Domain[parent_node.get("domain", "KNOWLEDGE")],
+                tags=parent_node.get("tags", []),
+                status=KnowledgeStatus[parent_node.get("status", "DRAFT")],
+                created_at=parent_node.get("created_at"),
+                updated_at=parent_node.get("updated_at")
+            )
+            parents.append(parent)
+
+        self.logger.info(f"Found {len(parents)} parent KUs for {ku_uid}")
+        return Result.ok(parents)
+
+    @track_query_metrics("ku_get_hierarchy")
+    @with_error_handling("get_ku_hierarchy", error_type="database", uid_param="ku_uid")
+    async def get_ku_hierarchy(self, ku_uid: str) -> Result[dict]:
+        """
+        Get full hierarchy context for a KU.
+
+        Universal Hierarchical Pattern: Returns complete hierarchical context
+        including ancestors, siblings, children, and depth level.
+
+        Returns:
+            dict with:
+            - ancestors: List of ancestor KUs (grandparent, parent, etc.)
+            - siblings: Other KUs with same parents
+            - children: Direct child KUs
+            - depth: How deep in hierarchy (0 = root, no parents)
+
+        Example:
+            hierarchy = {
+                "ancestors": [
+                    {"uid": "ku_yoga_abc", "title": "Yoga Fundamentals", "level": 1},
+                    {"uid": "ku_meditation_def", "title": "Meditation", "level": 2}
+                ],
+                "siblings": [...]  # Other KUs under same parents
+                "children": [...]  # KUs this KU organizes
+                "depth": 3  # Three levels from root
+            }
+
+        See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
+        """
+        # Get ancestors
+        ancestors_query = """
+        MATCH path = (ancestor:Ku)-[:ORGANIZES*]->(ku:Ku {uid: $ku_uid})
+        RETURN ancestor, length(path) as depth
+        ORDER BY depth DESC
+        """
+
+        # Get children
+        children_query = """
+        MATCH (ku:Ku {uid: $ku_uid})-[:ORGANIZES]->(child:Ku)
+        RETURN child
+        ORDER BY child.title
+        """
+
+        # Get siblings (KUs with same parents)
+        siblings_query = """
+        MATCH (parent:Ku)-[:ORGANIZES]->(sibling:Ku)
+        WHERE (parent)-[:ORGANIZES]->(:Ku {uid: $ku_uid})
+        AND sibling.uid <> $ku_uid
+        RETURN DISTINCT sibling
+        ORDER BY sibling.title
+        """
+
+        # Execute queries
+        ancestors_result = await self.backend.driver.execute_query(ancestors_query, ku_uid=ku_uid)
+        children_result = await self.backend.driver.execute_query(children_query, ku_uid=ku_uid)
+        siblings_result = await self.backend.driver.execute_query(siblings_query, ku_uid=ku_uid)
+
+        hierarchy = {
+            "ancestors": [
+                {
+                    "uid": r["ancestor"]["uid"],
+                    "title": r["ancestor"]["title"],
+                    "level": r["depth"]
+                }
+                for r in ancestors_result.records
+            ],
+            "children": [
+                {
+                    "uid": r["child"]["uid"],
+                    "title": r["child"]["title"]
+                }
+                for r in children_result.records
+            ],
+            "siblings": [
+                {
+                    "uid": r["sibling"]["uid"],
+                    "title": r["sibling"]["title"]
+                }
+                for r in siblings_result.records
+            ],
+            "depth": len(ancestors_result.records)
+        }
+
+        self.logger.info(
+            f"Hierarchy for {ku_uid}: depth={hierarchy['depth']}, "
+            f"ancestors={len(hierarchy['ancestors'])}, "
+            f"children={len(hierarchy['children'])}, "
+            f"siblings={len(hierarchy['siblings'])}"
+        )
+
+        return Result.ok(hierarchy)
+
+    @track_query_metrics("ku_organize")
+    @with_error_handling("organize_ku", error_type="database")
+    async def organize_ku(
+        self,
+        parent_uid: str,
+        child_uid: str,
+        order: int = 0,
+        importance: str = "normal"
+    ) -> Result[bool]:
+        """
+        Create ORGANIZES relationship between KUs (MOC pattern).
+
+        Universal Hierarchical Pattern: Creates parent-child relationship via
+        ORGANIZES edge. Supports multiple parents (DAG) and relationship metadata.
+
+        Args:
+            parent_uid: Parent KU UID (the MOC)
+            child_uid: Child KU UID
+            order: Display order (0 = first, higher = later)
+            importance: "core", "normal", "supplemental"
+
+        Returns:
+            Result[bool] - True if created
+
+        Example:
+            # Add "Meditation" to "Yoga Fundamentals" MOC
+            await ku_service.organize_ku(
+                parent_uid="ku_yoga-fundamentals_abc123",
+                child_uid="ku_meditation_xyz789",
+                order=1,
+                importance="core"
+            )
+
+        See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
+        """
+        # Validate importance
+        if importance not in ("core", "normal", "supplemental"):
+            return Result.fail(Errors.validation(
+                f"Invalid importance: {importance}. Must be 'core', 'normal', or 'supplemental'",
+                field="importance"
+            ))
+
+        # Check for cycle prevention
+        cycle_query = """
+        MATCH path = (child:Ku {uid: $child_uid})-[:ORGANIZES*]->(parent:Ku {uid: $parent_uid})
+        RETURN length(path) as cycle_length
+        LIMIT 1
+        """
+        cycle_result = await self.backend.driver.execute_query(
+            cycle_query,
+            parent_uid=parent_uid,
+            child_uid=child_uid
+        )
+
+        if cycle_result.records:
+            return Result.fail(Errors.validation(
+                f"Cannot organize: would create cycle ({child_uid} already organizes {parent_uid})",
+                field="parent_uid,child_uid"
+            ))
+
+        # Create ORGANIZES relationship
+        query = """
+        MATCH (parent:Ku {uid: $parent_uid})
+        MATCH (child:Ku {uid: $child_uid})
+        MERGE (parent)-[r:ORGANIZES]->(child)
+        SET r.order = $order,
+            r.importance = $importance,
+            r.created_at = COALESCE(r.created_at, datetime()),
+            r.updated_at = datetime()
+        RETURN r
+        """
+
+        result = await self.backend.driver.execute_query(
+            query,
+            parent_uid=parent_uid,
+            child_uid=child_uid,
+            order=order,
+            importance=importance
+        )
+
+        success = len(result.records) > 0
+        if success:
+            self.logger.info(
+                f"Created ORGANIZES: {parent_uid} -> {child_uid} "
+                f"(order={order}, importance={importance})"
+            )
+        else:
+            self.logger.warning(f"Failed to create ORGANIZES: {parent_uid} -> {child_uid}")
+
+        return Result.ok(success)
+
+    @track_query_metrics("ku_unorganize")
+    @with_error_handling("unorganize_ku", error_type="database")
+    async def unorganize_ku(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        """
+        Remove ORGANIZES relationship between KUs.
+
+        Universal Hierarchical Pattern: Removes parent-child relationship while
+        preserving both KU nodes. Useful for reorganization.
+
+        Args:
+            parent_uid: Parent KU UID
+            child_uid: Child KU UID
+
+        Returns:
+            Result[bool] - True if removed
+
+        Example:
+            # Remove "Meditation" from "Yoga Fundamentals" MOC
+            await ku_service.unorganize_ku(
+                parent_uid="ku_yoga-fundamentals_abc123",
+                child_uid="ku_meditation_xyz789"
+            )
+
+        See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
+        """
+        query = """
+        MATCH (parent:Ku {uid: $parent_uid})-[r:ORGANIZES]->(child:Ku {uid: $child_uid})
+        DELETE r
+        RETURN count(r) as deleted
+        """
+
+        result = await self.backend.driver.execute_query(
+            query,
+            parent_uid=parent_uid,
+            child_uid=child_uid
+        )
+
+        deleted = result.records[0]["deleted"] if result.records else 0
+        success = deleted > 0
+
+        if success:
+            self.logger.info(f"Removed ORGANIZES: {parent_uid} -> {child_uid}")
+        else:
+            self.logger.warning(
+                f"No ORGANIZES relationship found to remove: {parent_uid} -> {child_uid}"
+            )
+
+        return Result.ok(success)

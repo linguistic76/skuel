@@ -2,13 +2,21 @@
 UID Generation Utilities
 ========================
 
-Hierarchical UID generation for knowledge units and domains.
-UIDs follow a semantic structure: prefix.domain.parent.slug
+UID generation for SKUEL entities with consistent naming conventions.
+
+UID Format Rules (2026-01-30 Universal Hierarchical Pattern):
+- ALL domains: {type}_{identifier}_{random} (underscore separator)
+- Hierarchy stored in graph relationships, NEVER in UIDs
 
 Examples:
-- ku.yoga.meditation       (Knowledge Unit)
-- dom.technology          (Domain)
-- path.beginner.python    (Learning Path)
+- task_implement-auth_a1b2c3d4    (Task - flat UID)
+- goal_complete-project_x7y8z9w0  (Goal - flat UID)
+- ku_meditation-basics_def45678   (Knowledge Unit - NOW FLAT!)
+- habit_daily-exercise_abc12345   (Habit - flat UID)
+- user_mike                        (User - no random suffix for named entities)
+
+See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
+See: /docs/migrations/UNIVERSAL_HIERARCHICAL_IMPLEMENTATION_2026-01-30.md
 """
 
 __version__ = "1.0"
@@ -21,12 +29,14 @@ from typing import Any
 
 class UIDGenerator:
     """
-    Generate hierarchical UIDs for knowledge entities.
+    Generate flat UIDs for all SKUEL entities.
 
-    UIDs follow patterns that make relationships clear:
-    - ku.domain.topic.subtopic
-    - dom.domain.subdomain
-    - path.level.subject
+    Universal Hierarchical Pattern (2026-01-30):
+    - All UIDs are FLAT: {type}_{name}_{random}
+    - Hierarchy stored in graph relationships, NOT UIDs
+    - Identity independent of location/organization
+
+    See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
     """
 
     # Prefixes for different entity types
@@ -57,49 +67,33 @@ class UIDGenerator:
         return text.strip("-")
 
     @classmethod
-    def generate_knowledge_uid(
-        cls, title: str, parent_uid: str | None = None, domain_uid: str | None = None
-    ) -> str:
+    def generate_knowledge_uid(cls, title: str) -> str:
         """
-        Generate a knowledge unit UID.
+        Generate a flat knowledge unit UID.
+
+        Universal Hierarchical Pattern: UIDs are FLAT, hierarchy is in
+        ORGANIZES relationships. Identity is independent of location.
 
         Args:
-            title: Knowledge unit title,
-            parent_uid: Parent unit's UID (for hierarchy),
-            domain_uid: Domain UID (for categorization)
+            title: Knowledge unit title
 
         Returns:
-            Hierarchical UID,
+            Flat UID with format: ku_{slug}_{random}
 
         Examples:
-            - ku.yoga.meditation-basics
-            - ku.tech.python.functions
+            >>> generate_knowledge_uid("Meditation Basics")
+            'ku_meditation-basics_a1b2c3d4'
+            >>> generate_knowledge_uid("Python Functions")
+            'ku_python-functions_x7y8z9w0'
+
+        Note:
+            - Hierarchy stored in (ku)-[:ORGANIZES]->(ku) relationships
+            - Use KuCoreService.organize_ku() to create parent-child relationships
+            - See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         slug = cls.slugify(title)
-
-        # Build hierarchical UID
-        parts = [cls.KNOWLEDGE_PREFIX]
-
-        # Add domain if provided
-        if domain_uid:
-            # Extract domain part (remove 'dom.' prefix)
-            domain_part = domain_uid.replace(f"{cls.DOMAIN_PREFIX}.", "")
-            parts.append(domain_part)
-
-        # Add parent hierarchy if provided
-        if parent_uid:
-            # Extract parent parts (remove prefix)
-            parent_parts = parent_uid.split(".")[1:]  # Skip prefix
-            # Don't duplicate domain if already added
-            if domain_uid and parent_parts and parent_parts[0] == domain_part:
-                parent_parts = parent_parts[1:]
-            if parent_parts:
-                parts.extend(parent_parts)
-
-        # Add the slug
-        parts.append(slug)
-
-        return ".".join(parts)
+        random_suffix = uuid.uuid4().hex[:8]
+        return f"{cls.KNOWLEDGE_PREFIX}_{slug}_{random_suffix}"
 
     @classmethod
     def generate_domain_uid(cls, name: str, parent_domain_uid: str | None = None) -> str:
@@ -167,95 +161,42 @@ class UIDGenerator:
     @classmethod
     def generate_random_uid(cls, prefix: str = "ku") -> str:
         """
-        Generate a random UID when hierarchy isn't important.
+        Generate a random UID for non-hierarchical entities.
+
+        Uses underscore notation for activity domains and infrastructure entities.
+        Curriculum entities (ku, dom, path, ls) should use their specialized
+        generators (generate_knowledge_uid, generate_domain_uid, generate_path_uid).
 
         Args:
-            prefix: Entity type prefix
+            prefix: Entity type prefix (task, goal, habit, user, askesis, etc.)
 
         Returns:
-            Random UID with prefix
+            Random UID with underscore separator: {prefix}_{random}
+
+        Examples:
+            >>> UIDGenerator.generate_random_uid("task")
+            'task_a1b2c3d4'
+            >>> UIDGenerator.generate_random_uid("goal")
+            'goal_x7y8z9w0'
+
+        Note:
+            Changed from dot (.) to underscore (_) notation as of 2026-01-30.
+            See: /docs/migrations/UID_STANDARDIZATION_MIGRATION_2026-01-30.md
         """
         random_part = uuid.uuid4().hex[:8]
-        return f"{prefix}.{random_part}"
+        return f"{prefix}_{random_part}"
 
-    @staticmethod
-    def extract_parts(uid: str) -> dict[str, Any]:
-        """
-        Extract parts from a UID.
-
-        Args:
-            uid: The UID to parse
-
-        Returns:
-            Dictionary with prefix, domain, hierarchy parts
-
-        Example:
-            'ku.yoga.meditation.basics' -> {
-                'prefix': 'ku',
-                'domain': 'yoga',
-                'hierarchy': ['meditation'],
-                'slug': 'basics'
-            }
-        """
-        parts = uid.split(".")
-
-        if len(parts) < 2:
-            return {"prefix": uid, "domain": None, "hierarchy": [], "slug": None}
-
-        result: dict[str, Any] = {"prefix": parts[0], "domain": None, "hierarchy": [], "slug": None}
-
-        if len(parts) >= 2:
-            result["slug"] = parts[-1]
-
-        if len(parts) >= 3:
-            result["domain"] = parts[1]
-
-        if len(parts) > 3:
-            result["hierarchy"] = parts[2:-1]
-
-        return result
-
-    @staticmethod
-    def get_parent_uid(uid: str) -> str | None:
-        """
-        Get the parent UID from a hierarchical UID.
-
-        Args:
-            uid: The child UID
-
-        Returns:
-            Parent UID or None if root
-
-        Example:
-            'ku.yoga.meditation.basics' -> 'ku.yoga.meditation'
-        """
-        parts = uid.split(".")
-
-        if len(parts) <= 2:
-            return None
-
-        return ".".join(parts[:-1])
-
-    @staticmethod
-    def get_domain_from_uid(uid: str) -> str | None:
-        """
-        Extract domain UID from a knowledge UID.
-
-        Args:
-            uid: Knowledge unit UID
-
-        Returns:
-            Domain UID
-
-        Example:
-            'ku.yoga.meditation.basics' -> 'dom.yoga'
-        """
-        parts = UIDGenerator.extract_parts(uid)
-
-        if parts["domain"]:
-            return f"{UIDGenerator.DOMAIN_PREFIX}.{parts['domain']}"
-
-        return None
+    # REMOVED (2026-01-30 Universal Hierarchical Pattern):
+    # - extract_parts() - No longer needed (UIDs are flat, not hierarchical)
+    # - get_parent_uid() - No longer needed (parent via ORGANIZES relationship)
+    # - get_domain_from_uid() - No longer needed (domain not encoded in UID)
+    #
+    # Hierarchy is now stored in graph relationships:
+    # - (parent:Ku)-[:ORGANIZES {order}]->(child:Ku)
+    # - Use KuCoreService.get_parent_kus() to find parents
+    # - Use KuCoreService.get_ku_hierarchy() for full hierarchy context
+    #
+    # See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
 
     @classmethod
     def generate_uid(cls, entity_type: str, name: str | None = None) -> str:

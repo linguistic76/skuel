@@ -1,17 +1,17 @@
 ---
 title: ADR-013: KU UID Flat Identity Design
-updated: 2025-12-03
-status: accepted
+updated: 2026-01-30
+status: implemented
 category: decisions
-tags: [adr, decisions, ku, uid, identity, curriculum]
-related: [FOURTEEN_DOMAIN_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md]
+tags: [adr, decisions, ku, uid, identity, curriculum, universal-hierarchical-pattern]
+related: [FOURTEEN_DOMAIN_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md, UNIVERSAL_HIERARCHICAL_PATTERN.md]
 ---
 
 # ADR-013: KU UID Flat Identity Design
 
-**Status:** Accepted
+**Status:** Implemented (Universal Hierarchical Pattern - 2026-01-30)
 
-**Date:** 2025-12-03
+**Date:** 2025-12-03 (Decision) | 2026-01-30 (Implementation)
 
 **Decision Type:** ☑️ Pattern/Practice  ⬜ Query Architecture  ⬜ Graph Schema  ⬜ Performance Optimization
 
@@ -56,24 +56,30 @@ Encoding ONE path in the UID implies that's THE primary location, but knowledge 
 
 ## Decision
 
-**KU UIDs are FLAT: `ku.{filename}`**
+**KU UIDs are FLAT: Identity independent of location**
 
-Identity is independent of location. Organization is handled separately by MOC, tags, and relationships.
+**Universal Hierarchical Pattern (2026-01-30):** KU UIDs use the same flat format as Activity domains (Tasks, Goals, Habits), with hierarchy stored in ORGANIZES relationships.
 
 ### UID Format
 
 ```
-ku.{filename}
+ku_{slug}_{random}
 ```
 
-Where `{filename}` is the markdown file's stem (name without extension).
+Where:
+- `{slug}` is a URL-safe version of the title
+- `{random}` is an 8-character random suffix for uniqueness
 
 **Examples:**
 ```
-/docs/stories/machine-learning.md  →  ku.machine-learning
-/docs/tech/python-basics.md        →  ku.python-basics
-/docs/investment/portfolio.md      →  ku.portfolio
+Title: "Meditation Basics"    →  ku_meditation-basics_a1b2c3d4
+Title: "Python Functions"     →  ku_python-functions_x7y8z9w0
+Title: "Machine Learning 101" →  ku_machine-learning-101_def45678
 ```
+
+**Previous Format (Pre-2026-01-30):**
+- Markdown ingestion: `ku.{filename}` (e.g., `ku.meditation-basics`)
+- Still supported for backward compatibility during transition
 
 ### Override Mechanism
 
@@ -106,10 +112,28 @@ If two files produce the same UID, the second sync overwrites the first. This is
 
 | Concern | Who Handles It |
 |---------|----------------|
-| **Identity** | UID (flat: `ku.{filename}`) |
+| **Identity** | UID (flat: `ku_{slug}_{random}`) |
+| **Hierarchy** | ORGANIZES relationships in graph |
 | **Human Browsing** | Folder structure in Obsidian vault |
 | **Navigation** | MOC (Map of Content) - graph structure |
 | **Categorization** | Tags, Domain enum, relationships |
+
+### Hierarchy Storage
+
+**Critical:** Hierarchy is NEVER encoded in UIDs. Instead, it's stored in graph relationships:
+
+```cypher
+// Parent-child organization (MOC pattern)
+(parent:Ku {uid: "ku_yoga-fundamentals_abc123"})
+  -[:ORGANIZES {order: 1, importance: "core"}]->
+(child:Ku {uid: "ku_meditation-basics_xyz789"})
+```
+
+**Benefits:**
+- KU can have multiple parents (DAG, not tree)
+- Reorganization never changes UIDs
+- Relationship metadata (order, importance)
+- Query consistency across all domains
 
 ---
 
@@ -196,31 +220,80 @@ If two files produce the same UID, the second sync overwrites the first. This is
 
 ## Implementation Details
 
+**Implementation Date:** 2026-01-30 (Universal Hierarchical Pattern)
+
 ### Code Location
 
 **Primary files:**
-- `/core/services/markdown_sync_service.py:323` - UID generation
-- `/adapters/inbound/docs_routes.py:262` - UID query construction
+- `/core/utils/uid_generator.py:67-92` - Flat UID generation
+- `/core/services/ku/ku_core_service.py:183-218` - KU creation with ORGANIZES support
+- `/core/services/ku/ku_core_service.py:750-1013` - Hierarchical methods
+- `/core/models/relationship_names.py:273` - ORGANIZES relationship
 
 **Related files:**
+- `/core/services/markdown_sync_service.py` - Markdown ingestion (legacy dot format)
 - `/core/ingestion/bulk_ingestion.py` - MERGE upsert logic
-- `/ui/docs/components.py` - ContentPending shows expected UID
 
-### UID Generation Code
+### UID Generation Code (2026-01-30)
 
 ```python
-# markdown_sync_service.py:323
-def _parse_knowledge_unit(self, frontmatter: dict, body: str, file_path: Path):
-    # Extract or generate UID
-    uid = frontmatter.get("uid") or f"ku.{file_path.stem}"
+# core/utils/uid_generator.py:67-92
+@classmethod
+def generate_knowledge_uid(cls, title: str) -> str:
+    """
+    Generate a flat knowledge unit UID.
+
+    Format: ku_{slug}_{random}
+    Hierarchy stored in ORGANIZES relationships.
+    """
+    slug = cls.slugify(title)
+    random_suffix = uuid.uuid4().hex[:8]
+    return f"{cls.KNOWLEDGE_PREFIX}_{slug}_{random_suffix}"
 ```
 
-### Query Construction Code
+### KU Creation with Hierarchy
 
 ```python
-# docs_routes.py:262
-# Convention: topic slug maps to KU uid with "ku." prefix (dot notation)
-ku_uid = f"ku.{topic_slug}"
+# core/services/ku/ku_core_service.py
+async def create(self, title: str, body: str, **metadata) -> Result[KuDTO]:
+    # Generate flat UID
+    uid = UIDGenerator.generate_knowledge_uid(title=title)
+
+    # Store KU node
+    await self.backend.create(unit_data)
+
+    # Handle parent organization if specified
+    parent_uid = metadata.get("parent_uid")
+    if parent_uid:
+        await self.organize_ku(
+            parent_uid=parent_uid,
+            child_uid=uid,
+            order=metadata.get("order", 0),
+            importance=metadata.get("importance", "normal")
+        )
+```
+
+### Hierarchical Service Methods
+
+```python
+# Added 2026-01-30
+await ku_service.get_subkus(parent_uid, depth=1)  # Get children
+await ku_service.get_parent_kus(ku_uid)           # Get parents (can be multiple!)
+await ku_service.get_ku_hierarchy(ku_uid)         # Full context
+await ku_service.organize_ku(parent, child, ...)  # Create relationship
+await ku_service.unorganize_ku(parent, child)     # Remove relationship
+```
+
+### ORGANIZES Relationship
+
+```cypher
+// Cypher pattern
+MATCH (parent:Ku {uid: "ku_yoga_abc"})
+MATCH (child:Ku {uid: "ku_meditation_xyz"})
+MERGE (parent)-[r:ORGANIZES]->(child)
+SET r.order = 1,
+    r.importance = 'core',
+    r.created_at = datetime()
 ```
 
 ---
@@ -267,8 +340,10 @@ As of ADR-014 (Unified Ingestion Service), **dot notation is the canonical UID f
 
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
-| 2025-12-03 | Claude | Initial decision | 1.0 |
+| 2025-12-03 | Claude | Initial decision (flat UIDs principle) | 1.0 |
 | 2025-12-03 | Claude | Added UID normalization note (ADR-014) | 1.1 |
+| 2026-01-30 | Claude | Implemented Universal Hierarchical Pattern | 2.0 |
+| 2026-01-30 | Claude | Updated with underscore format & ORGANIZES | 2.1 |
 
 ---
 
@@ -276,19 +351,36 @@ As of ADR-014 (Unified Ingestion Service), **dot notation is the canonical UID f
 
 ### Content Creator Workflow
 
-**Creating a new KU:**
+**Creating a new KU via Service (Primary):**
+
+```python
+# Create KU with flat UID
+result = await ku_service.create(
+    title="Meditation Basics",
+    body=content,
+    tags=["meditation", "mindfulness"],
+    parent_uid="ku_yoga-fundamentals_abc123",  # Optional: create ORGANIZES
+    order=1,
+    importance="core"
+)
+
+# Result: ku_meditation-basics_a1b2c3d4
+# Relationship: (yoga)-[:ORGANIZES {order: 1}]->(meditation)
+```
+
+**Creating a KU via Markdown (Legacy Support):**
 
 1. Create markdown file in Obsidian vault:
    ```
-   /docs/stories/machine-learning.md
+   /docs/meditation/meditation-basics.md
    ```
 
 2. Add frontmatter:
    ```yaml
    ---
-   title: Machine Learning
-   domain: tech
-   tags: [ml, ai, basics]
+   title: Meditation Basics
+   domain: wellness
+   tags: [meditation, mindfulness]
    ---
    ```
 
@@ -297,30 +389,56 @@ As of ADR-014 (Unified Ingestion Service), **dot notation is the canonical UID f
    await markdown_sync.sync_file(path)
    ```
 
-4. Result in Neo4j:
+4. Result in Neo4j (legacy dot format):
    ```
-   (:Ku {uid: "ku.machine-learning", title: "Machine Learning", ...})
-   ```
-
-5. Accessible at:
-   ```
-   /docs/stories/machine-learning
+   (:Ku {uid: "ku.meditation-basics", title: "Meditation Basics", ...})
    ```
 
-### Override Example
+**Note:** Markdown ingestion still uses `ku.{filename}` format for backward compatibility. New service-created KUs use `ku_{slug}_{random}` format.
 
-When two topics might have the same filename:
+### Hierarchical Organization Example
 
-```yaml
-# /docs/stories/python.md
----
-uid: ku.python-stories
-title: Python in Storytelling
----
+**Before (2026-01-30 - Hierarchical UIDs):**
+```python
+# Parent encoded in UID - WRONG!
+uid = generate_knowledge_uid(
+    title="Meditation",
+    parent_uid="ku.yoga",
+    domain_uid="dom.wellness"
+)
+# Result: "ku.yoga.meditation" - hierarchy in UID string
+```
 
-# /docs/tech/python.md
----
-uid: ku.python-programming
-title: Python Programming
----
+**After (2026-01-30 - Universal Hierarchical Pattern):**
+```python
+# Flat UID + relationship - CORRECT!
+uid = generate_knowledge_uid(title="Meditation")
+# Result: "ku_meditation_a1b2c3d4" - flat, stable
+
+# Hierarchy via ORGANIZES
+await ku_service.organize_ku(
+    parent_uid="ku_yoga-fundamentals_abc123",
+    child_uid="ku_meditation_a1b2c3d4",
+    order=1,
+    importance="core"
+)
+# Creates: (parent)-[:ORGANIZES {order: 1, importance: "core"}]->(child)
+```
+
+**Multiple Parents (DAG):**
+```python
+# Same KU can be in multiple MOCs
+await ku_service.organize_ku("ku_ai-fundamentals_xyz", "ku_ml_abc", order=1)
+await ku_service.organize_ku("ku_data-science_def", "ku_ml_abc", order=2)
+await ku_service.organize_ku("ku_python-advanced_ghi", "ku_ml_abc", order=3)
+
+# Machine Learning appears in 3 different organizational contexts!
+```
+
+**Reorganization Safety:**
+```python
+# Moving KU to different parent - UID unchanged!
+await ku_service.unorganize_ku(old_parent_uid, ku_uid)
+await ku_service.organize_ku(new_parent_uid, ku_uid, order=1)
+# All references to ku_uid remain valid
 ```
