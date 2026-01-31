@@ -177,10 +177,12 @@ $ git commit -m "Fix typo in comment"
 
 | File | Purpose |
 |------|---------|
-| `scripts/docs_contextual_check.py` | Main script - detection logic |
-| `.git/hooks/post-commit` | Git hook - runs after commits |
-| `scripts/docs_update.py` | LLM-assisted doc updater |
-| `scripts/docs_freshness.py` | Traditional mtime-based staleness |
+| `app/scripts/docs_contextual_check.py` | Main script - detection logic |
+| `.git/hooks/post-commit` | Git hook - runs after commits (at repo root) |
+| `app/scripts/docs_update.py` | LLM-assisted doc updater |
+| `app/scripts/docs_freshness.py` | Traditional mtime-based staleness |
+
+**Note:** The git repository is at `/home/mike/skuel/` but application code is in the `app/` subdirectory. The hook is at repo root (`.git/hooks/post-commit`) and references scripts with the `app/` prefix.
 
 ### Detection Flow
 
@@ -257,19 +259,52 @@ Developer Reviews & Updates
 
 ### Hook Not Running
 
+**Symptom:** No output after commits, even when code changes
+
+**Check 1: Verify hook exists and is executable**
 ```bash
-# Check if hook is executable
+# From project root
 ls -la .git/hooks/post-commit
+# Should show: -rwxrwxr-x (executable)
 
 # If not executable, fix it
 chmod +x .git/hooks/post-commit
+```
 
+**Check 2: Verify hook is in correct location**
+```bash
+# Git repo root (where .git directory lives)
+git rev-parse --show-toplevel  # Should show /home/mike/skuel
+
+# Hook MUST be in repository .git/hooks/, not app/.git/hooks/
+ls -la $(git rev-parse --show-toplevel)/.git/hooks/post-commit
+```
+
+**Check 3: Test hook manually**
+```bash
+# Run hook directly to see if it works
+.git/hooks/post-commit
+# Should show documentation suggestions or run silently
+```
+
+**Check 4: Verify docs-check is enabled**
+```bash
 # Check if docs-check is disabled
 git config --get skuel.docs-check
 
 # Re-enable if needed
 git config skuel.docs-check true
 ```
+
+**Common Issue: Wrong Hook Location**
+
+SKUEL uses a nested repository structure:
+- Git repo root: `/home/mike/skuel/` (contains `.git/`)
+- Application code: `/home/mike/skuel/app/` (contains scripts/)
+- Hook location: `/home/mike/skuel/.git/hooks/post-commit` ✅
+- Script location: `/home/mike/skuel/app/scripts/docs_contextual_check.py` ✅
+
+The hook must be in the repository's `.git/hooks/` directory (at git root), NOT in `app/.git/hooks/`. The hook script accounts for the `app/` subdirectory when locating the Python script.
 
 ### No LLM Analysis
 
