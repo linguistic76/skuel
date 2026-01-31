@@ -1,0 +1,36 @@
+#!/bin/bash
+#
+# Git Hook: post-commit
+# Automatically check if documentation needs updating after each commit
+#
+# To install: ln -sf ../../app/scripts/hooks/post-commit .git/hooks/post-commit
+# To disable: git config skuel.docs-check false
+# To re-enable: git config skuel.docs-check true
+#
+
+# Check if docs-check is disabled
+DOCS_CHECK_ENABLED=$(git config --get skuel.docs-check)
+if [ "$DOCS_CHECK_ENABLED" = "false" ]; then
+    exit 0
+fi
+
+# Get the project root (parent of .git directory)
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+
+# Check if the script exists (in app/ subdirectory)
+SCRIPT_PATH="$PROJECT_ROOT/app/scripts/docs_contextual_check.py"
+if [ ! -f "$SCRIPT_PATH" ]; then
+    echo "Warning: docs_contextual_check.py not found at $SCRIPT_PATH" >&2
+    exit 0
+fi
+
+# Change to app directory for poetry to work correctly
+cd "$PROJECT_ROOT/app" || exit 0
+
+# Run the docs check
+# Note: We run with --quiet in hook context to avoid noise on clean commits
+# The script will only print output if docs need updating
+poetry run python "$SCRIPT_PATH" --since HEAD --quiet
+
+# Always exit 0 - we don't want to block the commit even if docs need updating
+exit 0
