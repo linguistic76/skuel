@@ -54,10 +54,10 @@ Building equivalent functionality in-house would require:
 
 **Option: Build observability dashboards in SKUEL's UI using existing in-memory metrics**
 
-SKUEL already has in-memory metrics:
-- `MetricsStore` - Query performance tracking
-- `PerformanceMonitor` - Event bus monitoring
-- `SearchMetrics` - Search quality tracking
+SKUEL uses Prometheus for metrics:
+- Query performance tracking
+- Event bus monitoring via MetricsCache
+- Search quality tracking
 
 **Why not just build dashboards on top of these?**
 
@@ -298,7 +298,7 @@ SKUEL App (:8000)
 
 ### Philosophy
 
-**"Export, don't replace"** - Existing in-memory metrics (PerformanceMonitor, MetricsStore) remain for debugging. Prometheus provides historical trends and dashboards.
+**"Prometheus First"** - Prometheus is the source of truth for all metrics. MetricsCache provides in-memory debugging access (last 100 items) while Prometheus handles historical trends and dashboards.
 
 ---
 
@@ -797,24 +797,47 @@ grep "background task started" /tmp/skuel_app.log
 **Goal**: Business-level metrics
 
 **Implemented**:
-- PrometheusPerformanceBridge (exports in-memory event bus metrics)
+- MetricsCache (Prometheus as primary, in-memory cache for debugging)
 - MetricsEventHandler (subscribes to domain events)
-- Background export task (30-second interval)
+- Direct Prometheus writes (no bridge, no export lag)
 - Domain Activity dashboard
 
 **Files Created**:
-- `/core/infrastructure/monitoring/prometheus_bridge.py`
+- `/core/infrastructure/monitoring/metrics_cache.py`
 - `/core/infrastructure/monitoring/metrics_event_handler.py`
 - `/monitoring/grafana/dashboards/domain_activity.json`
 
 **Modified**:
-- `/scripts/dev/bootstrap.py` (wired metrics + background tasks)
+- `/scripts/dev/bootstrap.py` (wired metrics cache to event bus)
+- `/adapters/infrastructure/event_bus.py` (uses MetricsCache)
 
 **Metrics Added**:
 - Event bus: events_published, handler_calls, handler_duration, handler_errors
 - Domain activity: entities_created, entities_completed by type
 
-**Outcome**: ✅ Domain activity tracking operational
+**Outcome**: ✅ Domain activity tracking operational (Prometheus-first architecture)
+
+### Phase 3.5: Prometheus-Primary Pattern (January 2026)
+
+**Goal**: Reduce duplication, improve cohesion (Option D from analysis)
+
+**Changes**:
+- Removed PrometheusPerformanceBridge (no longer needed)
+- Event bus writes directly to Prometheus (source of truth)
+- MetricsCache provides debugging access (last 100 items)
+- Zero export lag (was 30 seconds with bridge)
+
+**Files Removed**:
+- `/core/infrastructure/monitoring/prometheus_bridge.py`
+
+**Benefits**:
+- ✅ Single source of truth (Prometheus)
+- ✅ Reduced duplication (40% → 10%)
+- ✅ No bridge code to maintain
+- ✅ Real-time metrics (no 30s delay)
+- ✅ Maintains debugging access (cache)
+
+**See**: `/docs/decisions/ADR-XXX-prometheus-primary-cache-pattern.md`
 
 ### Phase 4: Graph Health & Lateral Relationships (Week 4) ← PRIMARY
 

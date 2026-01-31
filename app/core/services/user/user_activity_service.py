@@ -103,7 +103,11 @@ class UserActivityService:
     """
 
     def __init__(
-        self, user_repo: UserOperations, event_bus=None, invalidation_delay_ms: int = 100
+        self,
+        user_repo: UserOperations,
+        event_bus=None,
+        metrics_cache=None,
+        invalidation_delay_ms: int = 100,
     ) -> None:
         """
         Initialize user activity service.
@@ -111,6 +115,7 @@ class UserActivityService:
         Args:
             user_repo: Repository implementation for user persistence (protocol-based)
             event_bus: Event bus for publishing domain events (optional)
+            metrics_cache: MetricsCache for performance tracking (optional)
             invalidation_delay_ms: Debounce delay for context invalidation (default 100ms).
                                    Set to 0 to disable debouncing.
 
@@ -121,6 +126,7 @@ class UserActivityService:
             raise ValueError("User repository is required")
         self.repo = user_repo
         self.event_bus = event_bus
+        self._metrics_cache = metrics_cache
         self._context_cache = UserContextCache()  # Event-driven cache invalidation
 
         # Debounced invalidation to collapse rapid event bursts (O(n) → O(1))
@@ -338,8 +344,6 @@ class UserActivityService:
         """
         import time
 
-        from core.infrastructure.monitoring import get_performance_monitor
-
         start_time = time.perf_counter()
 
         logger.debug(f"Executing context invalidation for user {user_uid} (reason: {reason})")
@@ -347,16 +351,16 @@ class UserActivityService:
         # Invalidate the context cache (event-driven cache invalidation)
         self._context_cache.invalidate(user_uid)
 
-        # Track invalidation performance
-        duration_ms = (time.perf_counter() - start_time) * 1000
-        monitor = get_performance_monitor()
-        await monitor.record_context_invalidation(
-            user_uid=user_uid,
-            duration_ms=duration_ms,
-            reason=reason,
-            affected_contexts=affected_contexts
-            or ["askesis", "search", "recommendations", "dashboard"],
-        )
+        # Track invalidation performance (if metrics cache is available)
+        if self._metrics_cache:
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            await self._metrics_cache.record_context_invalidation(
+                user_uid=user_uid,
+                duration_ms=duration_ms,
+                reason=reason,
+                affected_contexts=affected_contexts
+                or ["askesis", "search", "recommendations", "dashboard"],
+            )
 
     async def flush_pending_invalidations(self, user_uid: str | None = None) -> Result[None]:
         """

@@ -2,9 +2,13 @@
 Performance Monitoring Infrastructure
 ======================================
 
-Lightweight performance monitoring for SKUEL's event system.
-Includes Prometheus metrics export for observability (Phase 1 - January 2026).
-Phase 2: HTTP and database instrumentation (January 2026).
+Prometheus-first metrics with in-memory cache for debugging.
+Phase 3.5 - January 2026 (Option D: Prometheus as Primary)
+
+Key Components:
+- PrometheusMetrics: Source of truth for production monitoring
+- MetricsCache: In-memory cache for debugging (last 100 items)
+- HTTP Instrumentation: Request/response timing and logging
 """
 
 from core.infrastructure.monitoring.http_instrumentation import (
@@ -14,28 +18,17 @@ from core.infrastructure.monitoring.http_instrumentation import (
 )
 
 # NOTE: MetricsEventHandler not imported here to avoid circular dependency
-# (it imports EventBus, which imports get_performance_monitor from this module)
 # Import MetricsEventHandler directly in bootstrap.py instead
-from core.infrastructure.monitoring.performance_metrics import (
-    ContextInvalidationMetrics,
-    EventMetrics,
-    HandlerMetrics,
-    PerformanceMonitor,
-    get_performance_monitor,
-    reset_performance_monitor,
-)
-from core.infrastructure.monitoring.prometheus_bridge import PrometheusPerformanceBridge
+from core.infrastructure.monitoring.metrics_cache import MetricsCache
 from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+from core.infrastructure.monitoring.query_metrics_cache import QueryMetricsCache
 
 __all__ = [
-    "ContextInvalidationMetrics",
-    "EventMetrics",
-    "HandlerMetrics",
-    "PerformanceMonitor",
-    "get_performance_monitor",
-    "reset_performance_monitor",
+    # Prometheus-first metrics
     "PrometheusMetrics",
-    "PrometheusPerformanceBridge",
+    "MetricsCache",
+    "QueryMetricsCache",
+    # HTTP instrumentation
     "create_instrumented_wrapper",
     "instrument_handler",
     "instrument_with_boundary_handler",

@@ -804,7 +804,11 @@ def _create_advanced_services(driver: Any) -> dict[str, Any]:
 
 
 async def compose_services(
-    neo4j_adapter: Any, event_bus: EventBusOperations = None, config: Any = None
+    neo4j_adapter: Any,
+    event_bus: EventBusOperations = None,
+    config: Any = None,
+    prometheus_metrics: Any = None,
+    metrics_cache: Any = None,
 ) -> Result[tuple[Services, Any, Any]]:
     """
     Bootstrap function: creates all services with their dependencies.
@@ -819,8 +823,12 @@ async def compose_services(
 
     Args:
         neo4j_adapter: Database adapter (satisfies GraphPort) - REQUIRED,
-        event_bus: Event bus adapter (optional, will create default if None)
+        event_bus: Event bus adapter (optional, will create default if None),
+        config: Configuration (optional),
+        prometheus_metrics: Prometheus metrics registry (optional),
+        metrics_cache: MetricsCache for performance tracking (optional)
         config: UnifiedConfig for accessing configuration (optional, will load if None)
+        prometheus_metrics: PrometheusMetrics for instrumentation (optional, Phase 2 - January 2026)
 
     Returns:
         Result[tuple[Services, knowledge_backend]]: Success with wired services or failure
@@ -981,18 +989,33 @@ async def compose_services(
         # Create backends directly (no wrapper) - makes lattice pattern visible
         # ACTIVITY DOMAINS - Use UniversalNeo4jBackend (requires DomainModelProtocol)
         # Labels use NeoLabel enum for type-safety and codebase self-awareness
-        tasks_backend = UniversalNeo4jBackend[Task](driver, NeoLabel.TASK, Task)
-        events_backend = UniversalNeo4jBackend[Event](driver, NeoLabel.EVENT, Event)
-        habits_backend = UniversalNeo4jBackend[Habit](driver, NeoLabel.HABIT, Habit)
-        habit_completions_backend = UniversalNeo4jBackend[HabitCompletion](
-            driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
+        # Phase 2 (January 2026): Pass prometheus_metrics for database instrumentation
+        tasks_backend = UniversalNeo4jBackend[Task](
+            driver, NeoLabel.TASK, Task, prometheus_metrics=prometheus_metrics
         )
-        goals_backend = UniversalNeo4jBackend[Goal](driver, NeoLabel.GOAL, Goal)
-        finance_backend = UniversalNeo4jBackend[ExpensePure](driver, NeoLabel.EXPENSE, ExpensePure)
-        invoice_backend = UniversalNeo4jBackend[InvoicePure](driver, NeoLabel.INVOICE, InvoicePure)
-        journals_backend = UniversalNeo4jBackend[JournalPure](driver, NeoLabel.JOURNAL, JournalPure)
+        events_backend = UniversalNeo4jBackend[Event](
+            driver, NeoLabel.EVENT, Event, prometheus_metrics=prometheus_metrics
+        )
+        habits_backend = UniversalNeo4jBackend[Habit](
+            driver, NeoLabel.HABIT, Habit, prometheus_metrics=prometheus_metrics
+        )
+        habit_completions_backend = UniversalNeo4jBackend[HabitCompletion](
+            driver, NeoLabel.HABIT_COMPLETION, HabitCompletion, prometheus_metrics=prometheus_metrics
+        )
+        goals_backend = UniversalNeo4jBackend[Goal](
+            driver, NeoLabel.GOAL, Goal, prometheus_metrics=prometheus_metrics
+        )
+        finance_backend = UniversalNeo4jBackend[ExpensePure](
+            driver, NeoLabel.EXPENSE, ExpensePure, prometheus_metrics=prometheus_metrics
+        )
+        invoice_backend = UniversalNeo4jBackend[InvoicePure](
+            driver, NeoLabel.INVOICE, InvoicePure, prometheus_metrics=prometheus_metrics
+        )
+        journals_backend = UniversalNeo4jBackend[JournalPure](
+            driver, NeoLabel.JOURNAL, JournalPure, prometheus_metrics=prometheus_metrics
+        )
         transcription_backend = UniversalNeo4jBackend[Transcription](
-            driver, NeoLabel.TRANSCRIPTION, Transcription
+            driver, NeoLabel.TRANSCRIPTION, Transcription, prometheus_metrics=prometheus_metrics
         )
 
         # IDENTITY/FOUNDATION - Use dedicated UserBackend (no DTO conversion lifecycle)
@@ -1001,30 +1024,38 @@ async def compose_services(
         from adapters.persistence.neo4j.user_backend import UserBackend
 
         users_backend = UserBackend(driver)
-        knowledge_backend = UniversalNeo4jBackend[Ku](driver, NeoLabel.KU, Ku)
-        principle_backend = UniversalNeo4jBackend[Principle](driver, NeoLabel.PRINCIPLE, Principle)
-        reflection_backend = UniversalNeo4jBackend[PrincipleReflection](
-            driver, NeoLabel.PRINCIPLE_REFLECTION, PrincipleReflection
+        knowledge_backend = UniversalNeo4jBackend[Ku](
+            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics
         )
-        choice_backend = UniversalNeo4jBackend[Choice](driver, NeoLabel.CHOICE, Choice)
+        principle_backend = UniversalNeo4jBackend[Principle](
+            driver, NeoLabel.PRINCIPLE, Principle, prometheus_metrics=prometheus_metrics
+        )
+        reflection_backend = UniversalNeo4jBackend[PrincipleReflection](
+            driver, NeoLabel.PRINCIPLE_REFLECTION, PrincipleReflection, prometheus_metrics=prometheus_metrics
+        )
+        choice_backend = UniversalNeo4jBackend[Choice](
+            driver, NeoLabel.CHOICE, Choice, prometheus_metrics=prometheus_metrics
+        )
         progress_backend = UniversalNeo4jBackend[UserProgress](
-            driver, NeoLabel.USER_PROGRESS, UserProgress
+            driver, NeoLabel.USER_PROGRESS, UserProgress, prometheus_metrics=prometheus_metrics
         )
         # NOTE: vectors_backend REMOVED (January 2026) - was unused dead code
         # NOTE: MOC backend REMOVED (January 2026) - MOC is now KU-based
         # MOC is a KU with ORGANIZES relationships, uses KU backend via MOCService
         # See /docs/domains/moc.md for the KU-based architecture
         assignments_backend = UniversalNeo4jBackend[Assignment](
-            driver, NeoLabel.ASSIGNMENT, Assignment
+            driver, NeoLabel.ASSIGNMENT, Assignment, prometheus_metrics=prometheus_metrics
         )
-        askesis_backend = UniversalNeo4jBackend[Askesis](driver, NeoLabel.ASKESIS, Askesis)
+        askesis_backend = UniversalNeo4jBackend[Askesis](
+            driver, NeoLabel.ASKESIS, Askesis, prometheus_metrics=prometheus_metrics
+        )
 
         logger.info("✅ Domain backends created (100% dynamic pattern - direct instantiation)")
 
         # Create user service FIRST (foundation service with no dependencies)
         from core.services.user_service import create_user_service
 
-        user_service = create_user_service(users_backend, driver)
+        user_service = create_user_service(users_backend, driver, metrics_cache=metrics_cache)
         logger.info("✅ UserService created (foundation service)")
 
         # Ensure system user exists for infrastructure operations
@@ -1514,7 +1545,10 @@ async def compose_services(
         from core.models.journal import JournalProjectPure
 
         journal_projects_backend = UniversalNeo4jBackend[JournalProjectPure](
-            driver=driver, label=NeoLabel.JOURNAL_PROJECT, entity_class=JournalProjectPure
+            driver=driver,
+            label=NeoLabel.JOURNAL_PROJECT,
+            entity_class=JournalProjectPure,
+            prometheus_metrics=prometheus_metrics,
         )
 
         journal_project_service = JournalProjectService(backend=journal_projects_backend)

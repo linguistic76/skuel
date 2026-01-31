@@ -85,6 +85,7 @@ class UserService:
         driver: "AsyncDriver | None" = None,
         event_bus: EventBusOperations | None = None,
         intelligence_factory: UserContextIntelligenceFactory | None = None,
+        metrics_cache=None,
     ) -> None:
         """
         Initialize facade with all sub-services.
@@ -95,6 +96,7 @@ class UserService:
             event_bus: Event bus for publishing domain events (protocol-based)
             intelligence_factory: Factory for creating UserContextIntelligence instances
                                   (wired with all 9 domain relationship services)
+            metrics_cache: MetricsCache for performance tracking (optional)
 
         Raises:
             ValueError: If user_repo is None
@@ -105,7 +107,9 @@ class UserService:
         # Initialize all sub-services
         self.core = UserCoreService(user_repo)
         self.progress = UserProgressRecorderService(user_repo)
-        self.activity = UserActivityService(user_repo, event_bus=event_bus)
+        self.activity = UserActivityService(
+            user_repo, event_bus=event_bus, metrics_cache=metrics_cache
+        )
 
         # Context builder requires Neo4j driver
         if driver:
@@ -139,6 +143,10 @@ class UserService:
     ) -> Result[User]:
         """Create a new user with default preferences."""
         return await self.core.create_user(username, email, display_name, **kwargs)
+
+    async def ensure_system_user(self) -> Result[User]:
+        """Ensure system user exists for infrastructure operations."""
+        return await self.core.ensure_system_user()
 
     async def get_user(self, user_uid: str) -> Result[User | None]:
         """Get user by UID."""
@@ -746,6 +754,7 @@ def create_user_service(
     driver: Any | None = None,
     event_bus: Any | None = None,
     intelligence_factory: UserContextIntelligenceFactory | None = None,
+    metrics_cache=None,
 ) -> UserService:
     """
     Factory function to create a UserService instance.
@@ -756,8 +765,9 @@ def create_user_service(
         event_bus: Event bus for publishing domain events (optional)
         intelligence_factory: Factory for creating UserContextIntelligence instances
                               (wired with all 9 domain relationship services)
+        metrics_cache: MetricsCache for performance tracking (optional)
 
     Returns:
         UserService: Configured user service instance (facade pattern)
     """
-    return UserService(user_repo, driver, event_bus, intelligence_factory)
+    return UserService(user_repo, driver, event_bus, intelligence_factory, metrics_cache)

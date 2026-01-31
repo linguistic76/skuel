@@ -29,7 +29,6 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from core.infrastructure.monitoring import get_performance_monitor
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -52,14 +51,16 @@ class InMemoryEventBus:
     """
 
     def __init__(
-        self, capture_history: bool = False, enable_performance_monitoring: bool = True
+        self,
+        capture_history: bool = False,
+        metrics_cache: Any = None,
     ) -> None:
         """
         Initialize event bus.
 
         Args:
-            capture_history: If True, maintain event history for debugging/replay,
-            enable_performance_monitoring: If True, track performance metrics
+            capture_history: If True, maintain event history for debugging/replay
+            metrics_cache: MetricsCache instance for performance tracking (optional)
         """
         self._handlers: dict[type, list[Callable]] = {}
         self._async_handlers: dict[type, list[Callable]] = {}
@@ -67,17 +68,14 @@ class InMemoryEventBus:
         self._event_history: list[
             Any
         ] = []  # Always initialize (populated only if capture_history=True)
-        self._performance_monitoring_enabled = enable_performance_monitoring
-        self._performance_monitor = (
-            get_performance_monitor() if enable_performance_monitoring else None
-        )
+        self._metrics_cache = metrics_cache
 
         # Track background tasks to prevent garbage collection (RUF006)
         self._background_tasks: set[asyncio.Task[None]] = set()
 
         logger.info(
             f"In-memory event bus initialized "
-            f"(typed events enabled, performance monitoring={enable_performance_monitoring})"
+            f"(typed events enabled, metrics_cache={'enabled' if metrics_cache else 'disabled'})"
         )
 
     def publish(self, event: Any) -> None:
@@ -127,7 +125,7 @@ class InMemoryEventBus:
         event_type_str = getattr(event, "event_type", event_type.__name__)
 
         # Start timing for performance monitoring
-        start_time = time.perf_counter() if self._performance_monitoring_enabled else None
+        start_time = time.perf_counter() if self._metrics_cache else None
 
         # Capture event in history if enabled
         if self._capture_history:
@@ -141,7 +139,7 @@ class InMemoryEventBus:
 
         # Call synchronous handlers
         for handler in self._handlers.get(event_type, []):
-            handler_start = time.perf_counter() if self._performance_monitoring_enabled else None
+            handler_start = time.perf_counter() if self._metrics_cache else None
             handler_name = handler.__name__
             handlers_called += 1
 
@@ -149,13 +147,9 @@ class InMemoryEventBus:
                 handler(event)
 
                 # Record handler metrics
-                if (
-                    self._performance_monitoring_enabled
-                    and handler_start is not None
-                    and self._performance_monitor is not None
-                ):
+                if self._metrics_cache and handler_start is not None:
                     duration_ms = (time.perf_counter() - handler_start) * 1000
-                    await self._performance_monitor.record_handler_execution(
+                    await self._metrics_cache.record_handler_execution(
                         event_type=event_type_str,
                         handler_name=handler_name,
                         duration_ms=duration_ms,
@@ -166,13 +160,9 @@ class InMemoryEventBus:
                 logger.error(f"Error in sync handler for {event_type_str}: {e}", exc_info=True)
 
                 # Record error metrics
-                if (
-                    self._performance_monitoring_enabled
-                    and handler_start is not None
-                    and self._performance_monitor is not None
-                ):
+                if self._metrics_cache and handler_start is not None:
                     duration_ms = (time.perf_counter() - handler_start) * 1000
-                    await self._performance_monitor.record_handler_execution(
+                    await self._metrics_cache.record_handler_execution(
                         event_type=event_type_str,
                         handler_name=handler_name,
                         duration_ms=duration_ms,
@@ -193,13 +183,9 @@ class InMemoryEventBus:
             )
 
         # Record event publication metrics
-        if (
-            self._performance_monitoring_enabled
-            and start_time is not None
-            and self._performance_monitor is not None
-        ):
+        if self._metrics_cache and start_time is not None:
             total_duration_ms = (time.perf_counter() - start_time) * 1000
-            await self._performance_monitor.record_event_publication(
+            await self._metrics_cache.record_event_publication(
                 event_type=event_type_str,
                 duration_ms=total_duration_ms,
                 handlers_called=handlers_called,
@@ -218,19 +204,15 @@ class InMemoryEventBus:
     ) -> None:
         """Helper to call async handler with error handling and performance metrics."""
         handler_name = handler.__name__
-        handler_start = time.perf_counter() if self._performance_monitoring_enabled else None
+        handler_start = time.perf_counter() if self._metrics_cache else None
 
         try:
             await handler(event)
 
             # Record success metrics
-            if (
-                self._performance_monitoring_enabled
-                and handler_start is not None
-                and self._performance_monitor is not None
-            ):
+            if self._metrics_cache and handler_start is not None:
                 duration_ms = (time.perf_counter() - handler_start) * 1000
-                await self._performance_monitor.record_handler_execution(
+                await self._metrics_cache.record_handler_execution(
                     event_type=event_type_str,
                     handler_name=handler_name,
                     duration_ms=duration_ms,
@@ -241,13 +223,9 @@ class InMemoryEventBus:
             logger.error(f"Error in async handler for {event_type_str}: {e}", exc_info=True)
 
             # Record error metrics
-            if (
-                self._performance_monitoring_enabled
-                and handler_start is not None
-                and self._performance_monitor is not None
-            ):
+            if self._metrics_cache and handler_start is not None:
                 duration_ms = (time.perf_counter() - handler_start) * 1000
-                await self._performance_monitor.record_handler_execution(
+                await self._metrics_cache.record_handler_execution(
                     event_type=event_type_str,
                     handler_name=handler_name,
                     duration_ms=duration_ms,
@@ -336,35 +314,38 @@ class InMemoryEventBus:
 
     async def get_performance_metrics(self) -> dict[str, Any] | None:
         """
-        Get performance metrics for event processing.
+        Get cached performance metrics for debugging.
+
+        Note: Returns cache data (last 100 items). Query Prometheus for complete metrics.
 
         Returns:
-            Performance metrics dict or None if monitoring disabled
+            Cached metrics dict or None if cache disabled
         """
-        if not self._performance_monitoring_enabled or not self._performance_monitor:
+        if not self._metrics_cache:
             return None
 
         return {
-            "summary": await self._performance_monitor.get_summary(),
-            "slow_handlers": await self._performance_monitor.get_slow_handlers(),
-            "event_metrics": await self._performance_monitor.get_event_metrics(),
-            "handler_metrics": await self._performance_monitor.get_handler_metrics(),
+            "summary": await self._metrics_cache.get_summary(),
+            "slow_handlers": await self._metrics_cache.get_slow_handlers(),
+            "event_metrics": await self._metrics_cache.get_event_metrics(),
+            "handler_metrics": await self._metrics_cache.get_handler_metrics(),
         }
 
     async def get_slow_handlers(self, threshold_ms: float | None = None) -> list[dict[str, Any]]:
         """
-        Get list of slow event handlers.
+        Get list of slow event handlers from cache.
 
         Args:
-            threshold_ms: Custom threshold (uses default if None)
+            threshold_ms: Custom threshold (default 100ms)
 
         Returns:
-            List of slow handlers with metrics
+            List of slow handlers with cached metrics
         """
-        if not self._performance_monitoring_enabled or not self._performance_monitor:
+        if not self._metrics_cache:
             return []
 
-        return await self._performance_monitor.get_slow_handlers(threshold_ms)
+        threshold = threshold_ms if threshold_ms is not None else 100.0
+        return await self._metrics_cache.get_slow_handlers(threshold)
 
     def get_pending_task_count(self) -> int:
         """

@@ -276,6 +276,35 @@ class SearchMetrics:
         )
 
 
+class QueryMetrics:
+    """
+    Query/operation performance metrics (Phase 3.6 - January 2026).
+
+    Tracks individual operation performance (e.g., ku_search_by_title, ls_add_knowledge).
+    More granular than DatabaseMetrics (which tracks by operation type: create/read/update/delete).
+    """
+
+    def __init__(self) -> None:
+        self.operation_calls_total = Counter(
+            "skuel_operation_calls_total",
+            "Total operation calls by name",
+            ["operation_name"],  # e.g., ku_search_by_title, ls_add_knowledge
+        )
+
+        self.operation_duration_seconds = Histogram(
+            "skuel_operation_duration_seconds",
+            "Operation execution time in seconds",
+            ["operation_name"],
+            buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+        )
+
+        self.operation_errors_total = Counter(
+            "skuel_operation_errors_total",
+            "Total operation errors by name",
+            ["operation_name"],
+        )
+
+
 class PrometheusMetrics:
     """
     Central registry for all Prometheus metrics.
@@ -306,3 +335,4 @@ class PrometheusMetrics:
         self.domains = DomainMetrics()
         self.relationships = RelationshipMetrics()
         self.search = SearchMetrics()
+        self.queries = QueryMetrics()

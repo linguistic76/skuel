@@ -73,11 +73,11 @@ async def bootstrap_skuel() -> AppContainer:
         config = _load_config()
 
         # Step 2: Build infrastructure
-        neo4j_adapter, event_bus, prometheus_metrics = await _build_infrastructure()
+        neo4j_adapter, event_bus, prometheus_metrics, metrics_cache, query_metrics_cache = await _build_infrastructure()
 
         # Step 3: Compose business services
         services, knowledge_backend = await _compose_services(
-            neo4j_adapter, event_bus, config, prometheus_metrics
+            neo4j_adapter, event_bus, config, prometheus_metrics, metrics_cache
         )
 
         # Step 4: Wire routes
@@ -121,56 +121,47 @@ def _load_config() -> UnifiedConfig:
     return config
 
 
-async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any]:
+async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, Any]:
     """Step 2: Build core infrastructure (database, event bus, metrics)"""
     from adapters.infrastructure.event_bus import InMemoryEventBus
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
-    from core.infrastructure.monitoring import (
-        PrometheusMetrics,
-        PrometheusPerformanceBridge,
-        get_performance_monitor,
-    )
+    from core.infrastructure.monitoring import MetricsCache, PrometheusMetrics, QueryMetricsCache
+
     # Import MetricsEventHandler here to avoid circular dependency
     from core.infrastructure.monitoring.metrics_event_handler import MetricsEventHandler
+
+    # Import set_query_metrics_cache to wire global instance
+    from core.utils.metrics import set_query_metrics_cache
 
     # Create Neo4j adapter and connect
     neo4j_adapter = Neo4jAdapter()
     await neo4j_adapter.connect()
     logger.info("✅ Neo4j adapter connected")
 
-    # Initialize event bus
-    event_bus = InMemoryEventBus()
-    logger.info("✅ Event bus initialized")
-
-    # Initialize Prometheus metrics (Phase 2 - January 2026)
+    # Initialize Prometheus metrics (Phase 3.5 - January 2026)
+    # Prometheus is THE source of truth for production monitoring
     prometheus_metrics = PrometheusMetrics()
-    logger.info("✅ Prometheus metrics initialized")
+    logger.info("✅ Prometheus metrics initialized (source of truth)")
+
+    # Initialize metrics cache (Phase 3.5 - January 2026)
+    # Cache provides debugging access (last 100 items) while Prometheus is primary
+    metrics_cache = MetricsCache(prometheus_metrics, enabled=True)
+    logger.info("✅ MetricsCache initialized (debugging access to last 100 items)")
+
+    # Initialize query metrics cache (Phase 3.6 - January 2026)
+    # Query-level performance tracking with Prometheus as source of truth
+    query_metrics_cache = QueryMetricsCache(prometheus_metrics, enabled=True)
+    set_query_metrics_cache(query_metrics_cache)
+    logger.info("✅ QueryMetricsCache initialized and set as global instance")
+
+    # Initialize event bus with metrics cache
+    event_bus = InMemoryEventBus(metrics_cache=metrics_cache)
+    logger.info("✅ Event bus initialized with MetricsCache")
 
     # Initialize metrics event handler (Phase 3 - January 2026)
     # Subscribes to domain events and tracks entity creation/completion
     metrics_handler = MetricsEventHandler(event_bus, prometheus_metrics)
     logger.info("✅ MetricsEventHandler initialized and subscribed to domain events")
-
-    # Initialize Prometheus bridge for PerformanceMonitor (Phase 3 - January 2026)
-    # Exports in-memory event bus metrics to Prometheus
-    performance_monitor = get_performance_monitor()
-    prometheus_bridge = PrometheusPerformanceBridge(performance_monitor, prometheus_metrics)
-    logger.info("✅ PrometheusPerformanceBridge initialized")
-
-    # Start background task to periodically export performance metrics
-    import asyncio
-
-    async def export_performance_metrics():
-        """Background task to export PerformanceMonitor metrics to Prometheus."""
-        while True:
-            try:
-                await asyncio.sleep(30)  # Export every 30 seconds
-                await prometheus_bridge.export_to_prometheus()
-            except Exception as e:
-                logger.error(f"Error exporting performance metrics: {e}")
-
-    asyncio.create_task(export_performance_metrics())
-    logger.info("✅ Performance metrics export task started (30s interval)")
 
     # Start background task to periodically update graph health metrics
     async def update_graph_health_metrics():
@@ -336,7 +327,7 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any]:
     asyncio.create_task(update_graph_health_metrics())
     logger.info("✅ Graph health metrics update task started (5 min interval)")
 
-    return neo4j_adapter, event_bus, prometheus_metrics
+    return neo4j_adapter, event_bus, prometheus_metrics, metrics_cache, query_metrics_cache
 
 
 async def _compose_services(
@@ -344,6 +335,7 @@ async def _compose_services(
     event_bus: EventBusOperations,
     config: UnifiedConfig,
     prometheus_metrics: Any,
+    metrics_cache: Any,
 ) -> tuple[Services, Any]:
     """
     Step 3: Compose all business services with dependency injection.
@@ -355,7 +347,9 @@ async def _compose_services(
         Tuple of (Services, KnowledgeUniversalBackend)
     """
     # Call compose_services which returns Result[tuple[Services, knowledge_backend]]
-    services_result = await compose_services(neo4j_adapter, event_bus, config, prometheus_metrics)
+    services_result = await compose_services(
+        neo4j_adapter, event_bus, config, prometheus_metrics, metrics_cache
+    )
 
     # Convert Result to exception at boundary
     if services_result.is_error:
