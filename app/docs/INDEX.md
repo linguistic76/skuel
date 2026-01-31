@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-01-31
+updated: 2026-02-01
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -14,8 +14,8 @@ related: []
 > `/home/mike/0bsidian/skuel/docs/` contains **content** (KU docs), NOT technical documentation.
 
 *Generated: 2025-12-07*
-*Updated: 2026-01-31*
-*Total: 168 documents* (3 new: 1 feature, 1 pattern, 1 migration)
+*Updated: 2026-02-01*
+*Total: 173 documents* (5 new: 1 pattern, 4 ADRs - Phase 5 Lateral Relationships Visualization)
 
 > **📝 Documentation Standards:**
 > - **File Naming:** UPPERCASE for major reference docs/guides, lowercase for specific patterns
@@ -106,6 +106,7 @@ related: []
 | [Domain Relationships Pattern (Graph-Native Archite...](patterns/DOMAIN_RELATIONSHIPS_PATTERN.md) | 2026-01-07 | 620 |
 | **[Domain Lateral Service Quick Start](patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md)** | **2026-01-31** | **350** |
 | [Domain-Specific Hooks Pattern](patterns/DOMAIN_SPECIFIC_HOOKS.md) | 2025-11-08 | 440 |
+| **[Lateral Relationships Visualization Pattern](patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md)** | **2026-02-01** | **1020** |
 | [Error Handling Architecture](patterns/ERROR_HANDLING.md) | 2025-11-27 | 456 |
 | [Event-Driven Architecture](patterns/event_driven_architecture.md) | 2025-10-17 | 204 |
 | [FastHTML Type Hints Pattern Guide](patterns/FASTHTML_TYPE_HINTS_GUIDE.md) | 2025-11-18 | 434 |
@@ -200,6 +201,10 @@ related: []
 | [ADR-030: UserContext File Consolidation](decisions/ADR-030-usercontext-file-consolidation.md) | 2026-01-20 | 95 |
 | [ADR-031: BaseService Mixin Decomposition](decisions/ADR-031-baseservice-mixin-decomposition.md) | 2026-01-21 | 295 |
 | [ADR-032: Search Routes Explicit Dependency Injection](decisions/ADR-032-search-routes-explicit-di.md) | 2026-01-26 | 346 |
+| [ADR-034: Semantic Search Phase 1 Enhancement](decisions/ADR-034-semantic-search-phase1-enhancement.md) | 2026-01-30 | 270 |
+| [ADR-035: Tier Selection Guidelines](decisions/ADR-035-tier-selection-guidelines.md) | 2026-01-30 | 430 |
+| [ADR-036: Prometheus Primary Cache Pattern](decisions/ADR-036-prometheus-primary-cache-pattern.md) | 2026-01-31 | 230 |
+| **[ADR-037: Lateral Relationships Visualization (Phase 5)](decisions/ADR-037-lateral-relationships-visualization-phase5.md)** | **2026-02-01** | **1330** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Guides
