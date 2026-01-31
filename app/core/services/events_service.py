@@ -31,8 +31,10 @@ from typing import TYPE_CHECKING, Any, cast
 from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
 from core.models.event.event import Event
+from core.models.event.event_dto import EventDTO
 from core.models.shared_enums import ActivityStatus, RecurrencePattern
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 
 # Import sub-services
 from core.services.events import (
@@ -117,6 +119,18 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
+
+    # ========================================================================
+    # DOMAIN CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+    # Facade services use same config as core/search sub-services
+    _config = create_activity_domain_config(
+        dto_class=EventDTO,
+        model_class=Event,
+        domain_name="events",
+        date_field="event_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
 
     # ========================================================================
     # CLASS-LEVEL TYPE ANNOTATIONS (for FacadeDelegationMixin signature preservation)

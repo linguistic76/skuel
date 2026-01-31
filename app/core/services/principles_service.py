@@ -33,7 +33,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.principle.principle import Principle, PrincipleCategory
+from core.models.principle.principle_dto import PrincipleDTO
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 
 # Import sub-services, mixins, and their types
 from core.services.mixins import (
@@ -102,6 +104,18 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     - Uses CypherGenerator for ALL graph queries
     - Returns Result[T] for error handling
     """
+
+    # ========================================================================
+    # DOMAIN CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+    # Facade services use same config as core/search sub-services
+    _config = create_activity_domain_config(
+        dto_class=PrincipleDTO,
+        model_class=Principle,
+        domain_name="principles",
+        date_field="created_at",
+        completed_statuses=(),  # Principles don't have completion status
+    )
 
     # ========================================================================
     # DELEGATION SPECIFICATION (FacadeDelegationMixin)

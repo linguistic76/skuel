@@ -36,10 +36,13 @@ if TYPE_CHECKING:
 # Knowledge generation service (Phase 4.1)
 # Protocol interfaces
 # Domain models
+from core.models.shared_enums import ActivityStatus
 from core.models.task.task import Task
+from core.models.task.task_dto import TaskDTO
 
 # Base service
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 
 # Analytics engine (Phase 2.5)
 from core.services.ku_analytics_engine import (
@@ -170,6 +173,18 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
+
+    # ========================================================================
+    # DOMAIN CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+    # Facade services use same config as core/search sub-services
+    _config = create_activity_domain_config(
+        dto_class=TaskDTO,
+        model_class=Task,
+        domain_name="tasks",
+        date_field="due_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
 
     # ========================================================================
     # CLASS-LEVEL TYPE ANNOTATIONS (for FacadeDelegationMixin signature preservation)

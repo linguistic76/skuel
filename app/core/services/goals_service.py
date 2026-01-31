@@ -33,8 +33,9 @@ from typing import TYPE_CHECKING, Any
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_relationships import GoalRelationships
-from core.models.shared_enums import Priority
+from core.models.shared_enums import GoalStatus, Priority
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 
 # Import sub-services
 from core.services.goals import (
@@ -100,6 +101,19 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
+
+    # ========================================================================
+    # DOMAIN CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+    # Facade services use same config as core/search sub-services
+    _config = create_activity_domain_config(
+        dto_class=GoalDTO,
+        model_class=Goal,
+        domain_name="goals",
+        date_field="target_date",
+        completed_statuses=(GoalStatus.ACHIEVED.value, GoalStatus.CANCELLED.value),
+        category_field="domain",  # Goals use 'domain' field for categorization
+    )
 
     # ========================================================================
     # DELEGATION SPECIFICATION (FacadeDelegationMixin)

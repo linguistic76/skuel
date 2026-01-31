@@ -36,8 +36,10 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
+from core.models.habit.habit_dto import HabitDTO
 from core.models.shared_enums import ActivityStatus
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 
 # Import sub-services and mixins
 from core.services.habits import (
@@ -118,6 +120,18 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
     - Returns Result[T] for error handling
     - Logs operations with structured logging
     """
+
+    # ========================================================================
+    # DOMAIN CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+    # Facade services use same config as core/search sub-services
+    _config = create_activity_domain_config(
+        dto_class=HabitDTO,
+        model_class=Habit,
+        domain_name="habits",
+        date_field="created_at",
+        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+    )
 
     # ========================================================================
     # DELEGATION SPECIFICATION (FacadeDelegationMixin)

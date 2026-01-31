@@ -26,7 +26,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.choice.choice import Choice
+from core.models.choice.choice_dto import ChoiceDTO
+from core.models.shared_enums import ActivityStatus
 from core.services.base_service import BaseService
+from core.services.domain_config import create_activity_domain_config
 
 # Import sub-services and mixins
 from core.services.choices import ChoicesLearningService
@@ -79,6 +82,18 @@ class ChoicesService(FacadeDelegationMixin, BaseService[ChoicesOperations, Choic
     - Uses CypherGenerator for ALL graph queries
     - Returns Result[T] for error handling
     """
+
+    # ========================================================================
+    # DOMAIN CONFIGURATION (DomainConfig - January 2026)
+    # ========================================================================
+    # Facade services use same config as core/search sub-services
+    _config = create_activity_domain_config(
+        dto_class=ChoiceDTO,
+        model_class=Choice,
+        domain_name="choices",
+        date_field="decision_date",
+        completed_statuses=(ActivityStatus.COMPLETED.value,),
+    )
 
     # ========================================================================
     # DELEGATION SPECIFICATION (FacadeDelegationMixin)
