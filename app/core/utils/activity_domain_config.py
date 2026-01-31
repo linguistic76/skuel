@@ -163,6 +163,7 @@ def create_common_sub_services(
     backend: Any,
     graph_intel: Any,
     event_bus: Any = None,
+    insight_store: Any = None,
 ) -> CommonSubServices[Any]:
     """
     Factory function to create the 4 common sub-services for Activity Domain facades.
@@ -174,6 +175,7 @@ def create_common_sub_services(
         backend: Domain backend operations (protocol-typed)
         graph_intel: GraphIntelligenceService for analytics
         event_bus: Event bus for domain events (optional)
+        insight_store: InsightStore for persisting event-driven insights (optional, Phase 1 - January 2026)
 
     Returns:
         CommonSubServices dataclass with core, search, relationships, intelligence.
@@ -183,7 +185,7 @@ def create_common_sub_services(
 
     Example:
         common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(
-            "tasks", backend, graph_intel, event_bus
+            "tasks", backend, graph_intel, event_bus, insight_store
         )
         self.core = common.core
         self.search = common.search
@@ -217,12 +219,22 @@ def create_common_sub_services(
         graph_intel=graph_intel,
     )
 
-    # Create intelligence service (backend + graph_intel + relationships)
-    intelligence = intel_class(
-        backend=backend,
-        graph_intelligence_service=graph_intel,
-        relationship_service=relationships,
-    )
+    # Create intelligence service (backend + graph_intel + relationships + insight_store)
+    # Note: Not all intelligence services support insight_store yet - pass if available
+    try:
+        intelligence = intel_class(
+            backend=backend,
+            graph_intelligence_service=graph_intel,
+            relationship_service=relationships,
+            insight_store=insight_store,
+        )
+    except TypeError:
+        # Fallback for intelligence services that don't have insight_store parameter yet
+        intelligence = intel_class(
+            backend=backend,
+            graph_intelligence_service=graph_intel,
+            relationship_service=relationships,
+        )
 
     return CommonSubServices(
         core=core,

@@ -22,6 +22,7 @@ from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.graph_context import GraphContext
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
+from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.models.shared_enums import Domain
@@ -46,6 +47,7 @@ from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.services.insight.insight_store import InsightStore
     from core.services.protocols.domain_protocols import HabitsRelationshipOperations
 
 
@@ -94,6 +96,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         backend: HabitsOperations,
         relationship_service: "HabitsRelationshipOperations",
         graph_intelligence_service=None,
+        insight_store: "InsightStore | None" = None,
     ) -> None:
         """
         Initialize habits intelligence service.
@@ -102,6 +105,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             backend: Protocol-based backend for habit operations,
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
             relationship_service: HabitsRelationshipOperations protocol for specialized relationship queries (REQUIRED)
+            insight_store: InsightStore for persisting event-driven insights (optional)
 
         Note:
             Context invalidation now happens via event-driven architecture.
@@ -113,6 +117,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             relationship_service=relationship_service,
         )
         self.context_service = get_context_service()  # Phase 3: DRY cross-domain context
+        self.insight_store = insight_store
 
         # Initialize GraphContextOrchestrator for generic get_with_context pattern
         if graph_intelligence_service:
@@ -972,6 +977,37 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                 },
             )
 
+            # Persist insight to InsightStore (Phase 1: Quick Wins)
+            if self.insight_store:
+                impact = InsightImpact.HIGH if is_very_difficult else InsightImpact.MEDIUM
+                insight = PersistedInsight(
+                    uid=PersistedInsight.generate_uid(
+                        InsightType.DIFFICULTY_PATTERN, event.habit_uid
+                    ),
+                    user_uid=event.user_uid,
+                    insight_type=InsightType.DIFFICULTY_PATTERN,
+                    domain="habits",
+                    title=f"{habit.name}: Difficulty Detected",
+                    description=f"You've missed this habit {consecutive_misses} times in a row.",
+                    confidence=0.85,
+                    impact=impact,
+                    entity_uid=event.habit_uid,
+                    recommended_actions=[{"action": "Adjust frequency", "rationale": suggestion}]
+                    if suggestion
+                    else [],
+                    supporting_data={
+                        "consecutive_misses": consecutive_misses,
+                        "days_overdue": days_overdue,
+                        "severity": severity,
+                        "difficulty_assessment": difficulty_assessment,
+                    },
+                )
+                create_result = await self.insight_store.create_insight(insight)
+                if create_result.is_error:
+                    self.logger.warning(
+                        f"Failed to persist difficulty insight: {create_result.error}"
+                    )
+
     def _calculate_miss_severity(
         self,
         consecutive_misses: int,
@@ -1041,7 +1077,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             >>> from core.models.enums.activity_enums import ConsistencyLevel
             >>> result = await service.assess_consistency_dual_track(
             ...     habit_uid="habit.morning-meditation",
-            ...     user_uid="user.mike",
+            ...     user_uid="user_mike",
             ...     user_consistency_level=ConsistencyLevel.CONSISTENT,
             ...     user_evidence="I meditate most mornings",
             ...     user_reflection="Sometimes skip on weekends",

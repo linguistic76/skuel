@@ -568,6 +568,13 @@ async def _wire_all_routes(
     create_metrics_routes(app, rt)
     logger.info("✅ Prometheus metrics endpoint registered (/metrics)")
 
+    # Insights routes (Phase 2 - Event-Driven Insights Dashboard)
+    if services.insight_store:
+        from adapters.inbound.insights_routes import create_insights_routes
+
+        create_insights_routes(app, rt, services)
+        logger.info("✅ Insights routes registered (/insights, /api/insights/*)")
+
     # Core domain routes
     if services.tasks:
         from adapters.inbound.tasks_api import create_tasks_api_routes

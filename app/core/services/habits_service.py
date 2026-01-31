@@ -241,6 +241,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
         driver: AsyncDriver,
         event_bus: EventBusOperations | None = None,
         ai_service: HabitsAIService | None = None,
+        insight_store: Any = None,
     ) -> None:
         """
         Initialize enhanced habits service with specialized sub-services.
@@ -252,6 +253,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
             driver: Neo4j driver for event-driven integrations (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
             ai_service: Optional AI service for LLM/embeddings features (January 2026)
+            insight_store: InsightStore for persisting event-driven insights (optional, Phase 1 - January 2026)
 
         Note:
             Context invalidation now happens via event-driven architecture.
@@ -279,6 +281,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
+            insight_store=insight_store,
         )
         self.core = common.core
         self.search: HabitsSearchOperations = common.search

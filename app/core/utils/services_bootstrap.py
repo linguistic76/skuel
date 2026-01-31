@@ -265,6 +265,9 @@ class Services:
     graph_adapter: Any = None  # Neo4jAdapter - database connection
     event_bus: EventBusOperations | None = None
 
+    # Event-driven intelligence (Phase 1 - January 2026)
+    insight_store: Any = None  # InsightStore - Persists event-driven insights
+
     # Note: choices moved to Activity Domains section above
 
     # Content organization (Added: October 17, 2025)
@@ -715,6 +718,8 @@ def _create_activity_services(
     ku_inference_service: Any = None,
     analytics_engine: Any = None,
     ku_generation_service: Any = None,
+    # Event-driven insights (Phase 1 - January 2026)
+    insight_store: Any = None,
 ) -> dict[str, Any]:
     """Create all 6 Activity Domain services.
 
@@ -758,6 +763,7 @@ def _create_activity_services(
             completions_backend=habit_completions_backend,  # REQUIRED - fail-fast
             driver=driver,  # REQUIRED - fail-fast
             event_bus=event_bus,
+            insight_store=insight_store,
         ),
         "goals": GoalsService(
             backend=goals_backend,
@@ -769,6 +775,7 @@ def _create_activity_services(
             backend=choices_backend,
             graph_intelligence_service=graph_intelligence,
             event_bus=event_bus,
+            insight_store=insight_store,
         ),
         "principles": PrinciplesService(
             backend=principles_backend,
@@ -777,6 +784,7 @@ def _create_activity_services(
             habits_backend=habits_backend,
             reflection_backend=reflection_backend,
             event_bus=event_bus,
+            insight_store=insight_store,
         ),
     }
 
@@ -1117,6 +1125,12 @@ async def compose_services(
         ku_generation_service = KuGenerationService()
         logger.info("✅ Analytics and inference services created")
 
+        # Create InsightStore (Phase 1: Event-Driven Architecture - January 2026)
+        from core.services.insight import InsightStore
+
+        insight_store = InsightStore(driver)
+        logger.info("✅ InsightStore created (event-driven insights)")
+
         # ========================================================================
         # ACTIVITY DOMAIN SERVICES (6) - Unified creation
         # ========================================================================
@@ -1135,6 +1149,7 @@ async def compose_services(
             ku_inference_service=ku_inference_service,
             analytics_engine=analytics_engine,
             ku_generation_service=ku_generation_service,
+            insight_store=insight_store,
         )
         logger.info("✅ Activity Domain services created (6 facades with embedded intelligence)")
 
@@ -2242,6 +2257,7 @@ async def compose_services(
             event_bus=event_bus,
             driver=driver,  # Exposed for routes requiring UserContextBuilder
             neo4j_driver=driver,  # Alias for backward compatibility
+            insight_store=insight_store,  # Event-driven insights (Phase 1 - January 2026)
             # GenAI services (Neo4j native - January 2026)
             embeddings_service=embeddings_service,
             vector_search_service=vector_search_service,

@@ -59,13 +59,38 @@ class MetricsEventHandler:
 
     def _subscribe_to_creation_events(self) -> None:
         """Subscribe to entity creation events across all domains."""
-        # Activity domains
+        # Activity domains (6)
         self.event_bus.subscribe(TaskCreated, self._on_task_created)
         self.event_bus.subscribe(GoalCreated, self._on_goal_created)
         self.event_bus.subscribe(HabitCreated, self._on_habit_created)
         self.event_bus.subscribe(CalendarEventCreated, self._on_event_created)
         self.event_bus.subscribe(ChoiceCreated, self._on_choice_created)
         self.event_bus.subscribe(PrincipleCreated, self._on_principle_created)
+
+        # Finance domain (1)
+        from core.events.finance_events import ExpenseCreated
+
+        self.event_bus.subscribe(ExpenseCreated, self._on_expense_created)
+
+        # Content/Processing domains (2)
+        from core.events.journal_events import JournalCreated
+        from core.events.transcription_events import TranscriptionCreated
+
+        self.event_bus.subscribe(JournalCreated, self._on_journal_created)
+        self.event_bus.subscribe(TranscriptionCreated, self._on_transcription_created)
+
+        # Curriculum domains (3)
+        from core.events.curriculum_events import LearningStepCreated
+        from core.events.learning_events import KnowledgeCreated, LearningPathStarted
+
+        self.event_bus.subscribe(KnowledgeCreated, self._on_knowledge_created)
+        self.event_bus.subscribe(LearningStepCreated, self._on_ls_created)
+        self.event_bus.subscribe(LearningPathStarted, self._on_lp_started)
+
+        # Assignment domain (1)
+        from core.events.assignment_events import AssignmentSubmitted
+
+        self.event_bus.subscribe(AssignmentSubmitted, self._on_assignment_submitted)
 
     def _subscribe_to_completion_events(self) -> None:
         """Subscribe to entity completion events."""
@@ -111,6 +136,68 @@ class MetricsEventHandler:
         """Track principle creation."""
         self.prometheus_metrics.domains.entities_created.labels(
             entity_type="principle", user_uid=event.user_uid
+        ).inc()
+
+    async def _on_expense_created(self, event) -> None:
+        """Track expense creation."""
+        from core.events.finance_events import ExpenseCreated
+
+        self.prometheus_metrics.domains.entities_created.labels(
+            entity_type="expense", user_uid=event.user_uid
+        ).inc()
+
+    async def _on_journal_created(self, event) -> None:
+        """Track journal creation."""
+        from core.events.journal_events import JournalCreated
+
+        self.prometheus_metrics.domains.entities_created.labels(
+            entity_type="journal", user_uid=event.user_uid
+        ).inc()
+
+    async def _on_transcription_created(self, event) -> None:
+        """Track transcription creation."""
+        from core.events.transcription_events import TranscriptionCreated
+
+        self.prometheus_metrics.domains.entities_created.labels(
+            entity_type="transcription", user_uid=event.user_uid
+        ).inc()
+
+    async def _on_knowledge_created(self, event) -> None:
+        """Track KU creation."""
+        from core.events.learning_events import KnowledgeCreated
+
+        # KU is shared content - may not have user_uid, use "system" as fallback
+        user_uid = getattr(event, "user_uid", None) or getattr(
+            event, "created_by_user", "system"
+        )
+        self.prometheus_metrics.domains.entities_created.labels(
+            entity_type="ku", user_uid=user_uid
+        ).inc()
+
+    async def _on_ls_created(self, event) -> None:
+        """Track LS creation."""
+        from core.events.curriculum_events import LearningStepCreated
+
+        # LS is shared content - may not have user_uid, use "system" as fallback
+        user_uid = getattr(event, "user_uid", "system")
+        self.prometheus_metrics.domains.entities_created.labels(
+            entity_type="ls", user_uid=user_uid
+        ).inc()
+
+    async def _on_lp_started(self, event) -> None:
+        """Track LP start (proxy for creation tracking)."""
+        from core.events.learning_events import LearningPathStarted
+
+        self.prometheus_metrics.domains.entities_created.labels(
+            entity_type="lp", user_uid=event.user_uid
+        ).inc()
+
+    async def _on_assignment_submitted(self, event) -> None:
+        """Track assignment submission (proxy for creation)."""
+        from core.events.assignment_events import AssignmentSubmitted
+
+        self.prometheus_metrics.domains.entities_created.labels(
+            entity_type="assignment", user_uid=event.user_uid
         ).inc()
 
     # === Completion Event Handlers ===

@@ -26,6 +26,7 @@ from core.events.principle_events import (
     PrincipleReflectionRecorded,
     PrincipleStrengthChanged,
 )
+from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.principle.principle import AlignmentLevel, Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
@@ -54,6 +55,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
+    from core.services.insight.insight_store import InsightStore
     from core.services.protocols.domain_protocols import PrinciplesRelationshipOperations
 
 logger = get_logger(__name__)
@@ -100,6 +102,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         backend: PrinciplesOperations,
         graph_intelligence_service=None,
         relationship_service: PrinciplesRelationshipOperations | None = None,
+        insight_store: "InsightStore | None" = None,
     ) -> None:
         """
         Initialize principles intelligence service.
@@ -108,6 +111,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             backend: Backend for principle operations,
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
             relationship_service: PrinciplesRelationshipOperations protocol for specialized relationship queries
+            insight_store: InsightStore for persisting event-driven insights (optional)
         """
         super().__init__(
             backend=backend,
@@ -115,6 +119,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             relationship_service=relationship_service,
         )
         self.context_service = get_context_service()  # Phase 3: DRY cross-domain context
+        self.insight_store = insight_store
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:
@@ -430,7 +435,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             >>> from core.models.principle.principle import AlignmentLevel
             >>> result = await service.assess_alignment_dual_track(
             ...     principle_uid="principle.integrity",
-            ...     user_uid="user.mike",
+            ...     user_uid="user_mike",
             ...     user_alignment_level=AlignmentLevel.ALIGNED,
             ...     user_evidence="I always act with integrity",
             ...     user_reflection="This is my core value",
@@ -1710,6 +1715,40 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                     "guidance": resolution_guidance,
                 },
             )
+
+            # 7. Persist conflict insight to InsightStore (Phase 1: Quick Wins)
+            if self.insight_store:
+                impact = InsightImpact.CRITICAL if severity == "high" else InsightImpact.HIGH
+                insight = PersistedInsight(
+                    uid=PersistedInsight.generate_uid(
+                        InsightType.PRINCIPLE_CONFLICT, event.principle_uid
+                    ),
+                    user_uid=event.user_uid,
+                    insight_type=InsightType.PRINCIPLE_CONFLICT,
+                    domain="principles",
+                    title=f"Conflict: {principle1.name} vs {principle2.name}",
+                    description=(
+                        f"A conflict has been revealed between '{principle1.name}' and "
+                        f"'{principle2.name}'. {event.conflict_context or 'Consider how to resolve this tension.'}"
+                    ),
+                    confidence=0.9,
+                    impact=impact,
+                    entity_uid=event.principle_uid,
+                    related_entities={"principles": [event.conflicting_principle_uid]},
+                    recommended_actions=resolution_guidance,
+                    supporting_data={
+                        "severity": severity,
+                        "conflict_context": event.conflict_context,
+                        "reflection_uid": event.reflection_uid,
+                        "principle1_strength": principle1.strength.value,
+                        "principle2_strength": principle2.strength.value,
+                    },
+                )
+                create_result = await self.insight_store.create_insight(insight)
+                if create_result.is_error:
+                    self.logger.warning(
+                        f"Failed to persist conflict insight: {create_result.error}"
+                    )
 
         except Exception as e:
             self.logger.error(

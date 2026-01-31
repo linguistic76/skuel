@@ -19,6 +19,7 @@ from core.events.choice_events import ChoiceMade, ChoiceOutcomeRecorded
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.enums.activity_enums import DecisionQualityLevel
+from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.models.shared_enums import Domain
@@ -49,6 +50,7 @@ from core.utils.sort_functions import get_aligned_count, get_domain_choice_count
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
+    from core.services.insight.insight_store import InsightStore
     from core.services.protocols.domain_protocols import ChoicesRelationshipOperations
 
 
@@ -93,6 +95,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
         backend: ChoicesOperations,
         graph_intelligence_service=None,
         relationship_service: ChoicesRelationshipOperations | None = None,
+        insight_store: "InsightStore | None" = None,
     ) -> None:
         """
         Initialize choices intelligence service.
@@ -101,6 +104,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
             backend: Protocol-based backend for choice operations,
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
             relationship_service: ChoicesRelationshipOperations protocol for specialized relationship queries
+            insight_store: InsightStore for persisting event-driven insights (optional)
         """
         super().__init__(
             backend=backend,
@@ -108,6 +112,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
             relationship_service=relationship_service,
         )
         self.context_service = get_context_service()  # Phase 3: DRY cross-domain context
+        self.insight_store = insight_store
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:
@@ -1483,6 +1488,35 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
                         "event_type": "choice.principle_confidence.high",
                     },
                 )
+
+                # Persist insight for positive pattern (Phase 1: Quick Wins)
+                if self.insight_store:
+                    insight = PersistedInsight(
+                        uid=PersistedInsight.generate_uid(
+                            InsightType.DECISION_PATTERN, event.choice_uid
+                        ),
+                        user_uid=event.user_uid,
+                        insight_type=InsightType.DECISION_PATTERN,
+                        domain="choices",
+                        title=f"Strong Principle-Aligned Decision",
+                        description=f"You made a high-confidence decision aligned with {len(aligned_principles)} principle(s).",
+                        confidence=0.9,
+                        impact=InsightImpact.LOW,  # Positive pattern, not urgent
+                        entity_uid=event.choice_uid,
+                        recommended_actions=[],
+                        supporting_data={
+                            "confidence": round(confidence, 2),
+                            "principle_count": len(aligned_principles),
+                            "aligned_principles": aligned_principles[:3],
+                            "complexity": round(complexity, 2),
+                        },
+                    )
+                    create_result = await self.insight_store.create_insight(insight)
+                    if create_result.is_error:
+                        self.logger.warning(
+                            f"Failed to persist decision pattern insight: {create_result.error}"
+                        )
+
             elif not was_principle_aligned and complexity > 5.0:
                 self.logger.info(
                     "Complex decision made without principle alignment",
@@ -1492,6 +1526,37 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
                         "event_type": "choice.principle_alignment.missing",
                     },
                 )
+
+                # Persist insight for missing alignment (Phase 1: Quick Wins)
+                if self.insight_store:
+                    insight = PersistedInsight(
+                        uid=PersistedInsight.generate_uid(
+                            InsightType.PRINCIPLE_ALIGNMENT, event.choice_uid
+                        ),
+                        user_uid=event.user_uid,
+                        insight_type=InsightType.PRINCIPLE_ALIGNMENT,
+                        domain="choices",
+                        title="Complex Decision Without Principle Guidance",
+                        description=f"This complex decision (complexity: {round(complexity, 1)}) wasn't aligned with any principles.",
+                        confidence=0.8,
+                        impact=InsightImpact.MEDIUM,
+                        entity_uid=event.choice_uid,
+                        recommended_actions=[
+                            {
+                                "action": "Link principles to guide future decisions",
+                                "rationale": "Principles provide clarity for complex choices",
+                            }
+                        ],
+                        supporting_data={
+                            "complexity": round(complexity, 2),
+                            "confidence": round(confidence, 2),
+                        },
+                    )
+                    create_result = await self.insight_store.create_insight(insight)
+                    if create_result.is_error:
+                        self.logger.warning(
+                            f"Failed to persist alignment insight: {create_result.error}"
+                        )
 
         except Exception as e:
             self.logger.error(

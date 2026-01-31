@@ -149,6 +149,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService[ChoicesOperations, Choic
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
         ai_service: ChoicesAIService | None = None,
+        insight_store: Any = None,
     ) -> None:
         """
         Initialize enhanced choices service with specialized sub-services.
@@ -157,6 +158,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService[ChoicesOperations, Choic
             backend: Protocol-based backend for choice operations
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
+            insight_store: InsightStore for persisting event-driven insights (optional, Phase 1 - January 2026)
 
         Note:
             Context invalidation now happens via event-driven architecture.
@@ -179,6 +181,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService[ChoicesOperations, Choic
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
+            insight_store=insight_store,
         )
         self.core = common.core
         self.search: ChoicesSearchOperations = common.search

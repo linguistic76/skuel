@@ -210,6 +210,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         reflection_backend: Any | None = None,
         event_bus: Any = None,
         ai_service: PrinciplesAIService | None = None,
+        insight_store: Any = None,
     ) -> None:
         """
         Initialize enhanced principles service with specialized sub-services.
@@ -221,6 +222,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             habits_backend: Backend for habit queries (cross-domain alignment)
             reflection_backend: Backend for reflection persistence (optional, uses backend if not provided)
             event_bus: Event bus for publishing domain events (optional)
+            insight_store: InsightStore for persisting event-driven insights (optional, Phase 1 - January 2026)
 
         Note:
             Context invalidation now happens via event-driven architecture.
@@ -244,6 +246,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
+            insight_store=insight_store,
         )
         self.core = common.core
         self.search: PrinciplesSearchOperations = common.search
