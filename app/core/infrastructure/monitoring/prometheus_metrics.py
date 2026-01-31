@@ -305,6 +305,74 @@ class QueryMetrics:
         )
 
 
+class AiMetrics:
+    """
+    AI service operation metrics (Phase 1 - January 2026).
+
+    Tracks OpenAI API calls, embedding generation, and Deepgram transcription.
+    Critical for monitoring expensive AI operations and enabling cost optimization.
+    """
+
+    def __init__(self) -> None:
+        # OpenAI API calls
+        self.openai_requests_total = Counter(
+            "skuel_openai_requests_total",
+            "Total OpenAI API requests",
+            ["operation", "model"],  # operation: embeddings/chat/completion
+        )
+
+        self.openai_duration_seconds = Histogram(
+            "skuel_openai_duration_seconds",
+            "OpenAI API call duration",
+            ["operation", "model"],
+            buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
+        )
+
+        self.openai_tokens_used = Counter(
+            "skuel_openai_tokens_total",
+            "Total OpenAI tokens consumed",
+            ["operation", "model", "token_type"],  # token_type: prompt/completion
+        )
+
+        self.openai_errors_total = Counter(
+            "skuel_openai_errors_total",
+            "Total OpenAI API errors",
+            ["operation", "error_type"],  # error_type: rate_limit/timeout/auth
+        )
+
+        # Embedding worker
+        self.embedding_queue_size = Gauge(
+            "skuel_embedding_queue_size",
+            "Pending embeddings in queue",
+            ["queue_type"],  # queue_type: entity/chunk
+        )
+
+        self.embeddings_processed_total = Counter(
+            "skuel_embeddings_processed_total",
+            "Total embeddings processed",
+            ["entity_type", "status"],  # status: success/failed
+        )
+
+        self.embedding_batch_size = Histogram(
+            "skuel_embedding_batch_size",
+            "Embedding batch size distribution",
+            buckets=(1, 5, 10, 25, 50, 100),
+        )
+
+        # Deepgram transcription
+        self.transcription_requests_total = Counter(
+            "skuel_transcription_requests_total",
+            "Total transcription requests",
+            ["status"],
+        )
+
+        self.transcription_duration_seconds = Histogram(
+            "skuel_transcription_duration_seconds",
+            "Transcription processing time",
+            buckets=(0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
+        )
+
+
 class PrometheusMetrics:
     """
     Central registry for all Prometheus metrics.
@@ -325,6 +393,11 @@ class PrometheusMetrics:
         prometheus_metrics.db.queries_total.labels(
             operation="create", label="Task"
         ).inc()
+
+        # In AI services (Phase 1 - January 2026)
+        prometheus_metrics.ai.openai_requests_total.labels(
+            operation="embeddings", model="text-embedding-3-small"
+        ).inc()
     """
 
     def __init__(self) -> None:
@@ -336,3 +409,4 @@ class PrometheusMetrics:
         self.relationships = RelationshipMetrics()
         self.search = SearchMetrics()
         self.queries = QueryMetrics()
+        self.ai = AiMetrics()  # Phase 1 - January 2026

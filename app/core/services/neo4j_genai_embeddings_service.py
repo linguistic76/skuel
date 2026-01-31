@@ -39,7 +39,13 @@ class Neo4jGenAIEmbeddingsService:
     Plugin must be enabled in AuraDB with OpenAI API key configured at database level.
     """
 
-    def __init__(self, driver: Any, model: str = "text-embedding-3-small", dimension: int = 1536) -> None:
+    def __init__(
+        self,
+        driver: Any,
+        model: str = "text-embedding-3-small",
+        dimension: int = 1536,
+        prometheus_metrics: Any | None = None,
+    ) -> None:
         """
         Initialize embeddings service.
 
@@ -47,11 +53,13 @@ class Neo4jGenAIEmbeddingsService:
             driver: Neo4j driver instance
             model: Embedding model to use (default: text-embedding-3-small)
             dimension: Expected embedding dimension (default: 1536 for text-embedding-3-small)
+            prometheus_metrics: PrometheusMetrics for tracking OpenAI calls (Phase 1 - January 2026)
         """
         self.driver = driver
         self.model = model
         self.dimension = dimension
         self.logger = logger
+        self.prometheus_metrics = prometheus_metrics
 
         # Check plugin availability (async, done lazily on first use)
         self._plugin_available: bool | None = None
@@ -135,8 +143,30 @@ class Neo4jGenAIEmbeddingsService:
 
         params = {"text": text, "model": self.model}
 
+        # Track OpenAI API call metrics (Phase 1 - January 2026)
+        import time
+
+        start_time = time.time()
+
         try:
             result = await self.driver.execute_query(query, params)
+
+            # Track successful request
+            duration = time.time() - start_time
+            if self.prometheus_metrics:
+                self.prometheus_metrics.ai.openai_requests_total.labels(
+                    operation="embeddings", model=self.model
+                ).inc()
+
+                self.prometheus_metrics.ai.openai_duration_seconds.labels(
+                    operation="embeddings", model=self.model
+                ).observe(duration)
+
+                # Estimate token usage (rough approximation: ~4 chars per token)
+                estimated_tokens = len(text) // 4
+                self.prometheus_metrics.ai.openai_tokens_used.labels(
+                    operation="embeddings", model=self.model, token_type="prompt"
+                ).inc(estimated_tokens)
 
             if not result or not result[0].get("embedding"):
                 return Result.fail(
@@ -159,6 +189,13 @@ class Neo4jGenAIEmbeddingsService:
             return Result.ok(embedding)
 
         except Exception as e:
+            # Track error metrics
+            if self.prometheus_metrics:
+                error_type = "timeout" if "timeout" in str(e).lower() else "unknown"
+                self.prometheus_metrics.ai.openai_errors_total.labels(
+                    operation="embeddings", error_type=error_type
+                ).inc()
+
             self.logger.error(f"Embedding generation failed: {e}")
             return Result.fail(
                 Errors.integration(service="GenAI", message=f"Embedding generation failed: {e}")
@@ -206,8 +243,31 @@ class Neo4jGenAIEmbeddingsService:
 
         params = {"texts": truncated_texts, "model": self.model}
 
+        # Track OpenAI batch API call metrics (Phase 1 - January 2026)
+        import time
+
+        start_time = time.time()
+
         try:
             result = await self.driver.execute_query(query, params)
+
+            # Track successful batch request
+            duration = time.time() - start_time
+            if self.prometheus_metrics:
+                self.prometheus_metrics.ai.openai_requests_total.labels(
+                    operation="embeddings", model=self.model
+                ).inc()
+
+                self.prometheus_metrics.ai.openai_duration_seconds.labels(
+                    operation="embeddings", model=self.model
+                ).observe(duration)
+
+                # Estimate total token usage for batch (rough approximation)
+                total_chars = sum(len(t) for t in truncated_texts)
+                estimated_tokens = total_chars // 4
+                self.prometheus_metrics.ai.openai_tokens_used.labels(
+                    operation="embeddings", model=self.model, token_type="prompt"
+                ).inc(estimated_tokens)
 
             # Extract embeddings in order
             embeddings = [
@@ -227,6 +287,13 @@ class Neo4jGenAIEmbeddingsService:
             return Result.ok(embeddings)
 
         except Exception as e:
+            # Track error metrics
+            if self.prometheus_metrics:
+                error_type = "timeout" if "timeout" in str(e).lower() else "unknown"
+                self.prometheus_metrics.ai.openai_errors_total.labels(
+                    operation="embeddings", error_type=error_type
+                ).inc()
+
             self.logger.error(f"Batch embedding failed: {e}")
             return Result.fail(
                 Errors.integration(service="GenAI", message=f"Batch embedding failed: {e}")

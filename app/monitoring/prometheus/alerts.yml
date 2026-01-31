@@ -1,0 +1,227 @@
+# Prometheus Alerting Rules for SKUEL
+# =====================================
+# Critical alerts for production monitoring and incident response.
+#
+# Alert Severity Levels:
+# - critical: Immediate action required (service down, high error rate)
+# - warning:  Attention needed (degraded performance, queue backlog)
+#
+# Testing Alerts:
+#   promtool check rules /monitoring/prometheus/alerts.yml
+#   curl http://localhost:9090/api/v1/rules
+#
+# See: .claude/skills/prometheus-grafana/ALERTING.md (to be created)
+
+groups:
+  - name: skuel_critical
+    interval: 30s
+    rules:
+      # ==================================================================
+      # HTTP / API Health
+      # ==================================================================
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(skuel_http_errors_total[5m]))
+            /
+            sum(rate(skuel_http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP error rate (>5%)"
+          description: "Error rate is {{ $value | humanizePercentage }} over last 5 minutes"
+          runbook: "Check /logs for errors, verify Neo4j connection, review recent deployments"
+
+      - alert: SlowHttpRequests
+        expr: |
+          histogram_quantile(0.95,
+            rate(skuel_http_request_duration_seconds_bucket[5m])
+          ) > 5.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "95th percentile HTTP latency >5s"
+          description: "p95 latency is {{ $value }}s (threshold: 5s)"
+          runbook: "Check slow queries in Grafana, review database indexes"
+
+      # ==================================================================
+      # Database Health
+      # ==================================================================
+
+      - alert: Neo4jDown
+        expr: skuel_neo4j_connected == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Neo4j database unavailable"
+          description: "Neo4j connection is down for over 1 minute"
+          runbook: "Check Neo4j service status, verify network connectivity, check credentials"
+
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95,
+            rate(skuel_neo4j_query_duration_seconds_bucket[5m])
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "95th percentile database query latency >2s"
+          description: "p95 query latency is {{ $value }}s (threshold: 2s)"
+          runbook: "Check slow queries in Neo4j Browser, review indexes, check APOC usage"
+
+      - alert: HighDatabaseErrorRate
+        expr: |
+          (
+            sum(rate(skuel_neo4j_errors_total[5m]))
+            /
+            sum(rate(skuel_neo4j_queries_total[5m]))
+          ) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database error rate >10%"
+          description: "{{ $value | humanizePercentage }} of database queries failing"
+          runbook: "Check Neo4j logs, verify schema constraints, review recent migrations"
+
+      # ==================================================================
+      # Event Processing
+      # ==================================================================
+
+      - alert: HighEventHandlerErrorRate
+        expr: |
+          (
+            sum(rate(skuel_event_handler_errors_total[5m]))
+            /
+            sum(rate(skuel_event_handler_calls_total[5m]))
+          ) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Event handler error rate >10%"
+          description: "{{ $value | humanizePercentage }} of event handlers failing"
+          runbook: "Check event handler logs, verify service dependencies"
+
+      - alert: SlowEventHandlers
+        expr: |
+          histogram_quantile(0.95,
+            rate(skuel_event_handler_duration_seconds_bucket[5m])
+          ) > 5.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Event handlers p95 latency >5s"
+          description: "Event handlers taking {{ $value }}s at p95"
+          runbook: "Check for blocking operations in handlers, review async patterns"
+
+      # ==================================================================
+      # Graph Health
+      # ==================================================================
+
+      - alert: HighOrphanedEntityCount
+        expr: skuel_orphaned_entities_count > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} orphaned entities detected"
+          description: "Entities with no relationships (isolated nodes)"
+          runbook: "Review entity creation logic, check relationship service"
+
+      - alert: LongDependencyChains
+        expr: skuel_dependency_chain_max_length > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dependency chain length is {{ $value }}"
+          description: "Maximum BLOCKS → BLOCKED_BY chain exceeds 10 levels"
+          runbook: "Review task/goal dependency structure, check for circular dependencies"
+
+      # ==================================================================
+      # AI Services (Phase 1 - January 2026)
+      # ==================================================================
+
+      - alert: HighOpenAIErrorRate
+        expr: |
+          (
+            sum(rate(skuel_openai_errors_total[5m]))
+            /
+            sum(rate(skuel_openai_requests_total[5m]))
+          ) > 0.20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OpenAI error rate >20%"
+          description: "{{ $value | humanizePercentage }} of OpenAI API calls failing"
+          runbook: "Check API key validity, verify rate limits, check OpenAI status page"
+
+      - alert: EmbeddingQueueBacklog
+        expr: skuel_embedding_queue_size > 500
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Embedding queue has {{ $value }} pending items"
+          description: "Background worker may be falling behind or stalled"
+          runbook: "Check embedding worker logs, verify OpenAI API availability, consider increasing batch size"
+
+      - alert: HighEmbeddingFailureRate
+        expr: |
+          (
+            sum(rate(skuel_embeddings_processed_total{status="failed"}[5m]))
+            /
+            sum(rate(skuel_embeddings_processed_total[5m]))
+          ) > 0.20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Embedding failure rate >20%"
+          description: "{{ $value | humanizePercentage }} of embeddings failing to generate"
+          runbook: "Check OpenAI API status, review error logs, verify text preprocessing"
+
+      - alert: SlowOpenAICalls
+        expr: |
+          histogram_quantile(0.95,
+            rate(skuel_openai_duration_seconds_bucket[5m])
+          ) > 30.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OpenAI API calls p95 latency >30s"
+          description: "OpenAI responses taking {{ $value }}s at p95"
+          runbook: "Check OpenAI service status, review batch sizes, verify network latency"
+
+  # ==================================================================
+  # Service Level Objectives (SLOs)
+  # ==================================================================
+  # Optional: Uncomment after defining SLOs in /docs/observability/SLO.md
+  # ==================================================================
+
+  # - name: skuel_slo
+  #   interval: 30s
+  #   rules:
+  #     - alert: ErrorBudgetDepleted
+  #       expr: |
+  #         100 - (
+  #           (1 - (sum(rate(skuel_http_requests_total{status!~"5.."}[5m])) / sum(rate(skuel_http_requests_total[5m]))))
+  #           /
+  #           (1 - 0.99) * 100
+  #         ) < 10
+  #       for: 30m
+  #       labels:
+  #         severity: critical
+  #       annotations:
+  #         summary: "99% availability SLO error budget <10%"
+  #         description: "Less than 10% error budget remaining for current period"

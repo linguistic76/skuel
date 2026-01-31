@@ -18,9 +18,9 @@ SKUEL uses Prometheus for metrics collection and Grafana for visualization, foll
 **Grafana**: Visualization platform with 4 production dashboards for operational intelligence
 **Architecture**: Direct writes to Prometheus (zero lag), optional in-memory cache for debugging
 
-### The 35 Metrics
+### The 43 Metrics (Phase 1 - January 2026)
 
-SKUEL tracks 35 metrics across 8 categories:
+SKUEL tracks 43 metrics across 9 categories:
 
 | Category | Metrics | Purpose | Examples |
 |----------|---------|---------|----------|
@@ -32,6 +32,7 @@ SKUEL tracks 35 metrics across 8 categories:
 | **Relationships** (15) | Graph density, layers, dependencies | Graph health | `skuel_graph_density`, `skuel_blocking_relationships_count` |
 | **Search** (3) | Searches, duration, similarity | Search performance | `skuel_searches_total`, `skuel_search_similarity_score` |
 | **Queries** (3) | Operations, duration, errors | Granular performance | `skuel_operation_calls_total`, `skuel_operation_duration_seconds` |
+| **AI Services** (8) | OpenAI calls, embeddings, transcription | AI cost & performance | `skuel_openai_requests_total`, `skuel_embedding_queue_size` |
 
 ### The 4 Grafana Dashboards
 
@@ -279,6 +280,104 @@ More granular than DatabaseMetrics - tracks individual operation performance.
 
 **Operation Names**: `ku_search_by_title`, `ls_add_knowledge`, `task_complete_with_context`, etc.
 **Duration Buckets**: `(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0)`
+
+---
+
+### 9. AI Service Metrics (8 metrics) - Phase 1 (January 2026)
+
+**Class**: `AiMetrics`
+
+Tracks OpenAI API calls, embedding generation, and Deepgram transcription. Critical for monitoring expensive AI operations and enabling cost optimization.
+
+#### OpenAI API Metrics (4 metrics)
+
+| Metric | Type | Labels | Purpose |
+|--------|------|--------|---------|
+| `skuel_openai_requests_total` | Counter | `operation`, `model` | Total OpenAI API requests |
+| `skuel_openai_duration_seconds` | Histogram | `operation`, `model` | OpenAI API call duration |
+| `skuel_openai_tokens_total` | Counter | `operation`, `model`, `token_type` | Token consumption |
+| `skuel_openai_errors_total` | Counter | `operation`, `error_type` | OpenAI API errors |
+
+**Operations**: `embeddings`, `chat`, `completion`
+**Models**: `text-embedding-3-small`, `gpt-4`, etc.
+**Token Types**: `prompt`, `completion`
+**Error Types**: `rate_limit`, `timeout`, `auth`, `unknown`
+**Duration Buckets**: `(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0)`
+
+**Example Queries**:
+```promql
+# OpenAI request rate by model
+sum by (model) (rate(skuel_openai_requests_total[5m]))
+
+# Average OpenAI latency
+histogram_quantile(0.50, rate(skuel_openai_duration_seconds_bucket[5m]))
+
+# Token usage by operation (cost tracking)
+sum by (operation) (rate(skuel_openai_tokens_total[1h]))
+
+# OpenAI error rate
+sum(rate(skuel_openai_errors_total[5m]))
+/ sum(rate(skuel_openai_requests_total[5m]))
+```
+
+#### Embedding Worker Metrics (3 metrics)
+
+| Metric | Type | Labels | Purpose |
+|--------|------|--------|---------|
+| `skuel_embedding_queue_size` | Gauge | `queue_type` | Pending embeddings in queue |
+| `skuel_embeddings_processed_total` | Counter | `entity_type`, `status` | Total embeddings processed |
+| `skuel_embedding_batch_size` | Histogram | - | Batch size distribution |
+
+**Queue Types**: `entity` (tasks/goals/etc.), `chunk` (KU chunks)
+**Entity Types**: `task`, `goal`, `habit`, `event`, `choice`, `principle`
+**Statuses**: `success`, `failed`
+**Batch Buckets**: `(1, 5, 10, 25, 50, 100)`
+
+**Example Queries**:
+```promql
+# Embedding queue backlog
+skuel_embedding_queue_size{queue_type="entity"}
+
+# Embedding success rate
+sum(rate(skuel_embeddings_processed_total{status="success"}[5m]))
+/ sum(rate(skuel_embeddings_processed_total[5m]))
+
+# Average batch size
+histogram_quantile(0.50, rate(skuel_embedding_batch_size_bucket[5m]))
+
+# Embeddings by entity type
+sum by (entity_type) (rate(skuel_embeddings_processed_total[5m]))
+```
+
+#### Deepgram Transcription Metrics (1 metric + duration)
+
+| Metric | Type | Labels | Purpose |
+|--------|------|--------|---------|
+| `skuel_transcription_requests_total` | Counter | `status` | Total transcription requests |
+| `skuel_transcription_duration_seconds` | Histogram | - | Transcription time |
+
+**Statuses**: `success`, `failed`
+**Duration Buckets**: `(0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0)`
+
+**Example Queries**:
+```promql
+# Transcription request rate
+rate(skuel_transcription_requests_total[5m])
+
+# p95 transcription latency
+histogram_quantile(0.95, rate(skuel_transcription_duration_seconds_bucket[5m]))
+```
+
+**Instrumentation Locations**:
+- OpenAI calls: `core/services/neo4j_genai_embeddings_service.py:138-160`
+- Embedding worker: `core/services/background/embedding_worker.py:165-180`
+- Updated in services_bootstrap: `core/utils/services_bootstrap.py:588-590`
+
+**Key Alerts** (see `ALERTING.md`):
+- `HighOpenAIErrorRate` - >20% API failures
+- `EmbeddingQueueBacklog` - >500 pending items
+- `HighEmbeddingFailureRate` - >20% failed embeddings
+- `SlowOpenAICalls` - p95 >30s
 
 ---
 

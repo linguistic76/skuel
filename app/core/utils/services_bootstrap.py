@@ -585,8 +585,10 @@ def _create_learning_services(
         from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
         # Create GenAI embeddings service (uses ai.text.embed())
-        embeddings_service = Neo4jGenAIEmbeddingsService(driver)
-        logger.info("✅ Neo4j GenAI embeddings service created")
+        embeddings_service = Neo4jGenAIEmbeddingsService(
+            driver=driver, prometheus_metrics=prometheus_metrics  # Phase 1 - Track OpenAI calls
+        )
+        logger.info("✅ Neo4j GenAI embeddings service created (with Prometheus instrumentation)")
 
         # Create vector search service (uses db.index.vector.queryNodes())
         vector_search_service = Neo4jVectorSearchService(driver, embeddings_service)
@@ -1265,6 +1267,7 @@ async def compose_services(
                     embeddings_service=embeddings_service,
                     driver=driver,
                     config=config,
+                    prometheus_metrics=prometheus_metrics,  # Phase 1 - Real-time metrics exposure
                     batch_size=25,  # Process 25 entities per batch (cost-optimized)
                     batch_interval_seconds=30,  # Run every 30 seconds
                 )

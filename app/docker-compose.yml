@@ -67,6 +67,7 @@ services:
   # --------------------------------------------------------------------------
   # Scrapes /metrics endpoint from skuel-app every 15 seconds
   # Prometheus UI: http://localhost:9090
+  # Alerts API: http://localhost:9090/api/v1/rules
   # --------------------------------------------------------------------------
   prometheus:
     image: prom/prometheus:v2.50.0
@@ -75,6 +76,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml  # Phase 1 - Alerting rules
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'

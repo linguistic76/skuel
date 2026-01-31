@@ -63,6 +63,7 @@ class EmbeddingBackgroundWorker:
         content_adapter: Any | None = None,  # Neo4jContentAdapter for chunk storage
         batch_size: int = 25,
         batch_interval_seconds: int = 30,
+        prometheus_metrics: Any | None = None,  # PrometheusMetrics for real-time instrumentation
     ) -> None:
         """
         Initialize background worker.
@@ -75,6 +76,7 @@ class EmbeddingBackgroundWorker:
             content_adapter: Neo4jContentAdapter for chunk embedding storage (optional)
             batch_size: Number of entities to process per batch
             batch_interval_seconds: Seconds between batch processing runs
+            prometheus_metrics: PrometheusMetrics for exposing metrics (Phase 1 - January 2026)
         """
         self.event_bus = event_bus
         self.embeddings_service = embeddings_service
@@ -83,11 +85,12 @@ class EmbeddingBackgroundWorker:
         self.content_adapter = content_adapter
         self.batch_size = batch_size
         self.batch_interval = batch_interval_seconds
+        self.prometheus_metrics = prometheus_metrics
         self._pending_requests: list[EmbeddingRequested] = []
         self._pending_chunk_requests: list[ChunkEmbeddingRequested] = []
         self.logger = get_logger("skuel.background.embeddings")
 
-        # Metrics (Phase 3 - January 2026)
+        # Internal metrics (kept for backward compatibility with /api/monitoring endpoint)
         self._total_processed = 0
         self._total_success = 0
         self._total_failed = 0
@@ -156,9 +159,21 @@ class EmbeddingBackgroundWorker:
 
         Infinite loop that runs batch processing at regular intervals.
         Processes both entity embeddings and chunk embeddings.
+
+        Exposes queue sizes to Prometheus in real-time (Phase 1 - January 2026).
         """
         while True:
             await asyncio.sleep(self.batch_interval)
+
+            # Update Prometheus queue size gauges
+            if self.prometheus_metrics:
+                self.prometheus_metrics.ai.embedding_queue_size.labels(
+                    queue_type="entity"
+                ).set(len(self._pending_requests))
+
+                self.prometheus_metrics.ai.embedding_queue_size.labels(
+                    queue_type="chunk"
+                ).set(len(self._pending_chunk_requests))
 
             # Process entity embeddings
             if self._pending_requests:
@@ -216,17 +231,44 @@ class EmbeddingBackgroundWorker:
 
             # Update each entity with its embedding
             success_count = 0
+            entity_type_stats: dict[str, dict[str, int]] = {}
+
             for req, embedding in zip(requests, embeddings, strict=True):
                 stored = await self._store_embedding(req.entity_uid, req.entity_type, embedding)
+
+                # Track stats per entity type
+                if req.entity_type not in entity_type_stats:
+                    entity_type_stats[req.entity_type] = {"success": 0, "failed": 0}
+
                 if stored:
                     success_count += 1
+                    entity_type_stats[req.entity_type]["success"] += 1
+                else:
+                    entity_type_stats[req.entity_type]["failed"] += 1
 
-            # Track metrics
+            # Track internal metrics (backward compatibility)
             failed_count = len(requests) - success_count
             self._total_processed += len(requests)
             self._total_success += success_count
             self._total_failed += failed_count
             self._batches_processed += 1
+
+            # Track Prometheus metrics (Phase 1 - January 2026)
+            if self.prometheus_metrics:
+                # Per-entity-type counters
+                for entity_type, stats in entity_type_stats.items():
+                    if stats["success"] > 0:
+                        self.prometheus_metrics.ai.embeddings_processed_total.labels(
+                            entity_type=entity_type, status="success"
+                        ).inc(stats["success"])
+
+                    if stats["failed"] > 0:
+                        self.prometheus_metrics.ai.embeddings_processed_total.labels(
+                            entity_type=entity_type, status="failed"
+                        ).inc(stats["failed"])
+
+                # Batch size histogram
+                self.prometheus_metrics.ai.embedding_batch_size.observe(len(requests))
 
             batch_duration = time.time() - batch_start
 
@@ -323,9 +365,7 @@ class EmbeddingBackgroundWorker:
                 all_chunk_texts.extend(req.chunk_texts)
                 request_map[req.ku_uid] = req
 
-            self.logger.info(
-                f"Processing {len(all_chunk_uids)} chunks from {len(requests)} KUs"
-            )
+            self.logger.info(f"Processing {len(all_chunk_uids)} chunks from {len(requests)} KUs")
 
             # Generate embeddings in batch
             embeddings_result = await self.embeddings_service.create_batch_embeddings(
@@ -376,9 +416,7 @@ class EmbeddingBackgroundWorker:
                     # Re-queue for retry
                     self._pending_chunk_requests.extend(requests)
             else:
-                self.logger.warning(
-                    "Content adapter not configured - chunk embeddings not stored"
-                )
+                self.logger.warning("Content adapter not configured - chunk embeddings not stored")
 
         except Exception as e:
             self.logger.error(f"Chunk batch processing exception: {e}")
@@ -404,9 +442,7 @@ class EmbeddingBackgroundWorker:
         """
         from datetime import datetime
 
-        uptime = (
-            (datetime.now() - self._started_at).total_seconds() if self._started_at else 0
-        )
+        uptime = (datetime.now() - self._started_at).total_seconds() if self._started_at else 0
 
         success_rate = (
             (self._total_success / self._total_processed * 100)

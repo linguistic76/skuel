@@ -2,19 +2,37 @@
 # =====================================
 # Scrapes metrics from SKUEL application every 15 seconds.
 #
-# Scrape endpoint: http://skuel-app:8000/metrics
+# Scrape endpoint: http://skuel-app:8000/metrics (Docker) or http://host.docker.internal:8000 (local dev)
 # Prometheus UI: http://localhost:9090
 #
-# See: /docs/observability/PROMETHEUS_METRICS.md (to be created in Phase 5)
+# See: .claude/skills/prometheus-grafana/SKILL.md
 
 global:
   scrape_interval: 15s       # How often to scrape targets
   evaluation_interval: 15s   # How often to evaluate recording/alerting rules
 
+# Load alerting rules (Phase 1 - January 2026)
+rule_files:
+  - '/etc/prometheus/alerts.yml'
+
+# Alert routing (optional - requires Alertmanager)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
 scrape_configs:
   - job_name: 'skuel-app'
     static_configs:
-      - targets: ['192.168.1.26:8000']  # Host machine (app running outside Docker)
+      # Docker deployment: Use service name
+      - targets: ['skuel-app:8000']
+
+      # Local development fallback: If skuel-app service not available,
+      # Prometheus will use host.docker.internal (Mac/Windows) or 172.17.0.1 (Linux)
+      # To use local dev mode, comment out skuel-app:8000 and uncomment below:
+      # - targets: ['host.docker.internal:8000']  # Mac/Windows
+      # - targets: ['172.17.0.1:8000']           # Linux alternative
+
     metrics_path: '/metrics'
     scrape_interval: 15s
     scrape_timeout: 10s
