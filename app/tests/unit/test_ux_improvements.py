@@ -48,7 +48,7 @@ def test_input_without_error():
     html_str = str(input_no_error)
 
     # Should not show error message
-    assert "role=\"alert\"" not in html_str or 'style=""' not in html_str
+    assert 'role="alert"' not in html_str or 'style=""' not in html_str
 
 
 def test_textarea_with_aria_attributes():

@@ -90,7 +90,7 @@ class TestCurriculumRichContext:
             intent="First step in Python learning",
             description="First step in Python learning",
         )
-        await services.learning_steps.core.backend.create(prereq_step)
+        await services.ls.core.backend.create(prereq_step)
 
         # Create main learning step
         main_step = LearningStepDTO(
@@ -99,7 +99,7 @@ class TestCurriculumRichContext:
             intent="Deep dive into function concepts",
             description="Deep dive into function concepts",
         )
-        await services.learning_steps.core.backend.create(main_step)
+        await services.ls.core.backend.create(main_step)
 
         # Create learning path for context
         learning_path = LpDTO(
@@ -108,7 +108,7 @@ class TestCurriculumRichContext:
             goal="Complete Python learning journey",
             domain=Domain.TECH,
         )
-        await services.learning_paths.core.backend.create(learning_path)
+        await services.lp.core.backend.create(learning_path)
 
         # Wait for persistence
         await asyncio.sleep(0.1)
@@ -118,7 +118,7 @@ class TestCurriculumRichContext:
         print(f"DEBUG: learning_path.uid = {learning_path.uid}")
 
         # Create all relationships
-        await services.learning_steps.core.backend.driver.execute_query(
+        await services.ls.core.backend.driver.execute_query(
             """
             // Primary knowledge
             MATCH (ls:Ls {uid: $step_uid})
@@ -168,7 +168,7 @@ class TestCurriculumRichContext:
         )
 
         # Debug: Verify learning path exists and has relationship
-        check_result = await services.learning_steps.core.backend.driver.execute_query(
+        check_result = await services.ls.core.backend.driver.execute_query(
             """
             MATCH (lp:Lp {uid: $lp_uid})
             OPTIONAL MATCH (lp)-[r:HAS_STEP|CONTAINS_STEP]->(ls:Ls {uid: $ls_uid})
@@ -186,7 +186,7 @@ class TestCurriculumRichContext:
             print(f"DEBUG: LS connected: {check_records[0]['ls_uid']}")
 
         # TEST: Get with context (single query)
-        result = await services.learning_steps.core.get_with_context(main_step.uid)
+        result = await services.ls.core.get_with_context(main_step.uid)
 
         assert result.is_ok, f"Failed to get step with context: {result.error}"
 
@@ -298,7 +298,7 @@ class TestCurriculumRichContext:
             intent="Learn Python fundamentals",
             description="Learn Python fundamentals",
         )
-        await services.learning_steps.core.backend.create(step1)
+        await services.ls.core.backend.create(step1)
 
         step2 = LearningStepDTO(
             uid=UIDGenerator.generate_random_uid("ls"),
@@ -306,7 +306,7 @@ class TestCurriculumRichContext:
             intent="Master advanced concepts",
             description="Master advanced concepts",
         )
-        await services.learning_steps.core.backend.create(step2)
+        await services.ls.core.backend.create(step2)
 
         # Create learning path
         learning_path = LpDTO(
@@ -315,13 +315,13 @@ class TestCurriculumRichContext:
             goal="Complete path to Python mastery",
             domain=Domain.TECH,
         )
-        await services.learning_paths.core.backend.create(learning_path)
+        await services.lp.core.backend.create(learning_path)
 
         # Wait for persistence
         await asyncio.sleep(0.1)
 
         # Create all relationships
-        await services.learning_paths.core.backend.driver.execute_query(
+        await services.lp.core.backend.driver.execute_query(
             """
             // Prerequisite knowledge
             MATCH (lp:Lp {uid: $lp_uid})
@@ -366,7 +366,7 @@ class TestCurriculumRichContext:
         )
 
         # TEST: Get with context (single query)
-        result = await services.learning_paths.core.get_with_context(learning_path.uid)
+        result = await services.lp.core.get_with_context(learning_path.uid)
 
         assert result.is_ok, f"Failed to get path with context: {result.error}"
 
@@ -445,7 +445,7 @@ class TestCurriculumRichContext:
             goal="Complete Python curriculum",
             domain=Domain.TECH,
         )
-        await services.learning_paths.core.backend.create(learning_path)
+        await services.lp.core.backend.create(learning_path)
 
         # Create learning step
         learning_step = LearningStepDTO(
@@ -454,7 +454,7 @@ class TestCurriculumRichContext:
             intent="Master Python functions",
             description="Master Python functions",
         )
-        await services.learning_steps.core.backend.create(learning_step)
+        await services.ls.core.backend.create(learning_step)
 
         # Create goal for alignment
         goal = GoalDTO.create(
@@ -476,7 +476,7 @@ class TestCurriculumRichContext:
         await asyncio.sleep(0.1)
 
         # Create relationships
-        await services.learning_paths.core.backend.driver.execute_query(
+        await services.lp.core.backend.driver.execute_query(
             """
             // Enroll user in path
             MATCH (user:User {uid: $user_uid})

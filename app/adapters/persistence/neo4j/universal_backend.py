@@ -72,6 +72,7 @@ See Also:
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -208,6 +209,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         graph_intelligence_service: Any | None = None,
         *,
         validate_label: bool = True,
+        prometheus_metrics: Any | None = None,
     ) -> None:
         """
         Initialize universal backend for any entity type.
@@ -218,6 +220,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             entity_class: Entity class for serialization (e.g., TaskPure, EventPure)
             graph_intelligence_service: Optional GraphIntelligenceService for Phase 1-4 queries
             validate_label: If True, validates label against NeoLabel enum (default: True)
+            prometheus_metrics: PrometheusMetrics instance for database instrumentation (Phase 2 - January 2026)
 
         Raises:
             ValueError: If validate_label=True and label is not a valid NeoLabel
@@ -249,15 +252,43 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         self.label = label_str
         self.entity_class = entity_class
         self.graph_intel = graph_intelligence_service
+        self.prometheus_metrics = prometheus_metrics
         self.logger = get_logger(f"skuel.universal.{label_str.lower()}")
 
         # Phase 2: UnifiedQueryBuilder for all query building
         self.query_builder = UnifiedQueryBuilder(driver)
 
         intel_status = "with Phase 1-4" if graph_intelligence_service else "basic"
+        metrics_status = "metrics-enabled" if prometheus_metrics else "no-metrics"
         self.logger.info(
-            f"{label_str} universal backend initialized ({intel_status}) [UnifiedQueryBuilder]"
+            f"{label_str} universal backend initialized ({intel_status}, {metrics_status}) [UnifiedQueryBuilder]"
         )
+
+    def _track_db_metrics(self, operation: str, duration: float, is_error: bool = False) -> None:
+        """
+        Track database operation metrics (Phase 2 - January 2026).
+
+        Args:
+            operation: Operation type (create/read/update/delete)
+            duration: Operation duration in seconds
+            is_error: Whether the operation resulted in an error
+        """
+        if not self.prometheus_metrics:
+            return
+
+        # Track query count
+        self.prometheus_metrics.db.queries_total.labels(
+            operation=operation, label=self.label
+        ).inc()
+
+        # Track latency
+        self.prometheus_metrics.db.query_duration.labels(
+            operation=operation, label=self.label
+        ).observe(duration)
+
+        # Track errors
+        if is_error:
+            self.prometheus_metrics.db.query_errors.labels(operation=operation).inc()
 
     # ============================================================================
     # UNIVERSAL CRUD - WORKS FOR ANY ENTITY TYPE
@@ -271,6 +302,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         AUTO-CREATES USER RELATIONSHIP: If entity has user_uid field,
         automatically creates (User)-[:HAS_{LABEL}]->(Entity) relationship.
         """
+        start_time = time.time()
         node_data = to_neo4j_node(entity)
 
         # Extract user_uid if present (for auto-relationship creation)
@@ -287,6 +319,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             record = await result.single()
 
             if not record:
+                # Track error metrics (Phase 2 - January 2026)
+                self._track_db_metrics("create", time.time() - start_time, is_error=True)
                 return Result.fail(Errors.database("create", f"Failed to create {self.label}"))
 
             created = from_neo4j_node(dict(record["n"]), self.entity_class)
@@ -307,6 +341,9 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                     self.logger.debug(
                         f"Auto-created user relationship for {self.label} {created.uid}"
                     )
+
+            # Track metrics (Phase 2 - January 2026)
+            self._track_db_metrics("create", time.time() - start_time, is_error=False)
 
             return Result.ok(created)
 
@@ -464,7 +501,10 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             - Returns error if entity doesn't exist (use get() first to check)
             - Empty updates dictionary returns validation error
         """
+        start_time = time.time()
+
         if not updates:
+            self._track_db_metrics("update", time.time() - start_time, is_error=True)
             return Result.fail(Errors.validation("No updates provided", field="updates"))
 
         # Add updated_at timestamp
@@ -481,9 +521,14 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             record = await result.single()
 
             if not record:
+                self._track_db_metrics("update", time.time() - start_time, is_error=True)
                 return Result.fail(Errors.not_found("resource", f"{self.label} {uid} not found"))
 
             updated = from_neo4j_node(dict(record["n"]), self.entity_class)
+
+            # Track metrics (Phase 2 - January 2026)
+            self._track_db_metrics("update", time.time() - start_time, is_error=False)
+
             return Result.ok(updated)
 
     @safe_backend_operation("delete")
@@ -527,6 +572,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             - Returns True even if entity didn't exist (idempotent)
             - Use cascade=True for most deletions to avoid orphaned relationships
         """
+        start_time = time.time()
+
         if cascade:
             # DETACH DELETE removes entity AND all relationships
             query = f"""
@@ -548,11 +595,16 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                 summary = await result.consume()
 
                 deleted = summary.counters.nodes_deleted > 0
+
+                # Track metrics (Phase 2 - January 2026)
+                self._track_db_metrics("delete", time.time() - start_time, is_error=False)
+
                 return Result.ok(deleted)
             except Exception as e:
                 error_msg = str(e)
                 # Neo4j constraint error when trying to delete node with relationships
                 if "Cannot delete" in error_msg and "relationship" in error_msg.lower():
+                    self._track_db_metrics("delete", time.time() - start_time, is_error=True)
                     return Result.fail(
                         Errors.business(
                             rule="delete_with_relationships",
@@ -560,6 +612,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                             "Use cascade=True to delete with relationships.",
                         )
                     )
+                # Track error for other exceptions
+                self._track_db_metrics("delete", time.time() - start_time, is_error=True)
                 raise
 
     @safe_backend_operation("list")
@@ -1008,6 +1062,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             - sort_by: Field name to sort by
             - sort_order: 'asc' or 'desc' (default 'asc')
         """
+        start_time = time.time()
+
         # Extract pagination and sorting parameters
         offset_val = filters.pop("offset", 0)
         sort_by = filters.pop("sort_by", None)
@@ -1038,6 +1094,10 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             records = await result.data()
 
             entities = [from_neo4j_node(r["n"], self.entity_class) for r in records]
+
+            # Track metrics (Phase 2 - January 2026)
+            self._track_db_metrics("read", time.time() - start_time, is_error=False)
+
             return Result.ok(entities)
 
     @safe_backend_operation("count")

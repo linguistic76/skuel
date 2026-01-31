@@ -113,7 +113,9 @@ class TestProtocolComplianceExplanation:
 
     ```python
     if TYPE_CHECKING:
-        from core.services.protocols.base_service_interface import ConversionOperations
+        from core.services.protocols.base_service_interface import (
+            ConversionOperations,
+        )
 
         # This assignment verifies structural compatibility
         _protocol_check: type[ConversionOperations[Any]] = ConversionHelpersMixin

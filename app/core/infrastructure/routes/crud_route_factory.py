@@ -183,6 +183,7 @@ class CRUDRouteFactory[T]:
         user_service_getter: Callable | None = None,
         entity_converter: Callable[[BaseModel, str, str], Any] | None = None,
         allow_dict_fallback: bool = False,
+        prometheus_metrics: Any | None = None,
     ) -> None:
         """
         Initialize CRUD route factory.
@@ -221,6 +222,8 @@ class CRUDRouteFactory[T]:
             allow_dict_fallback: If True, fall back to dict when no converter found (default: False).
                                When False (fail-fast), returns error if no converter exists.
                                Only set to True for rapid prototyping or entities with flexible schemas.
+            prometheus_metrics: PrometheusMetrics instance for HTTP instrumentation (Phase 2 - January 2026).
+                              If provided, all routes will be instrumented with request count, latency, and error metrics.
         """
         self.service = service
         self.domain = domain_name
@@ -237,6 +240,7 @@ class CRUDRouteFactory[T]:
         self.user_service_getter = user_service_getter
         self.entity_converter = entity_converter
         self.allow_dict_fallback = allow_dict_fallback
+        self.prometheus_metrics = prometheus_metrics
 
         # Validate require_role configuration
         if require_role and not user_service_getter:
@@ -248,7 +252,8 @@ class CRUDRouteFactory[T]:
 
         logger.info(
             f"CRUDRouteFactory initialized for {domain_name} "
-            f"(scope={scope.value}, role={require_role.value if require_role else 'None'})"
+            f"(scope={scope.value}, role={require_role.value if require_role else 'None'}, "
+            f"instrumentation={'enabled' if prometheus_metrics else 'disabled'})"
         )
 
     async def _check_role(self, request) -> Result[None]:
@@ -301,6 +306,39 @@ class CRUDRouteFactory[T]:
             )
 
         return Result.ok(None)
+
+    def _instrument_handler(
+        self, handler: Callable, endpoint: str, success_status: int = 200
+    ) -> Callable:
+        """
+        Wrap handler with Prometheus instrumentation AND boundary handling.
+
+        This method combines:
+        - HTTP request instrumentation (request count, latency, errors)
+        - Result[T] to JSONResponse conversion (boundary handler pattern)
+
+        Args:
+            handler: Original route handler function (returns Result[T])
+            endpoint: Endpoint path for metrics labeling
+            success_status: HTTP status code for successful results (default 200)
+
+        Returns:
+            Wrapped handler that tracks metrics and converts Result[T] to JSONResponse
+
+        Phase 2 (January 2026): Integrated HTTP instrumentation + boundary handling
+        """
+        if not self.prometheus_metrics:
+            # No metrics - just apply boundary handler
+            from core.utils.error_boundary import boundary_handler
+
+            return boundary_handler(success_status=success_status)(handler)
+
+        # Apply combined instrumentation + boundary handling
+        from core.infrastructure.monitoring import instrument_with_boundary_handler
+
+        return instrument_with_boundary_handler(
+            self.prometheus_metrics, endpoint, success_status=success_status
+        )(handler)
 
     def register_routes(self, _app, rt):
         """
@@ -358,8 +396,6 @@ class CRUDRouteFactory[T]:
         allow_dict_fallback = self.allow_dict_fallback
         factory = self  # Capture self for nested function
 
-        @rt(f"{self.base_path}/create")
-        @boundary_handler(success_status=201)
         async def create(request) -> Result[T]:
             """Create new entity"""
             # Role check (returns Result.fail on authorization failure)
@@ -427,7 +463,9 @@ class CRUDRouteFactory[T]:
             logger.info(f"Created {domain}: {uid} for user {user_uid}")
             return result
 
-        return create
+        # Apply instrumentation + boundary handling, then register route (Phase 2 - January 2026)
+        instrumented = self._instrument_handler(create, f"{self.base_path}/create", success_status=201)
+        return rt(f"{self.base_path}/create")(instrumented)
 
     def _register_get_route(self, rt) -> Any:
         """
@@ -444,8 +482,6 @@ class CRUDRouteFactory[T]:
         verify_ownership = self.verify_ownership
         factory = self  # Capture self for nested function
 
-        @rt(f"{self.base_path}/get")
-        @boundary_handler()
         async def get(request, uid: str) -> Result[T | None]:
             """Get entity by UID (query param) with ownership verification"""
             # Role check (returns Result.fail on authorization failure)
@@ -465,7 +501,9 @@ class CRUDRouteFactory[T]:
 
             return result
 
-        return get
+        # Apply instrumentation + boundary handling, then register route (Phase 2 - January 2026)
+        instrumented = self._instrument_handler(get, f"{self.base_path}/get")
+        return rt(f"{self.base_path}/get")(instrumented)
 
     def _register_update_route(self, rt) -> Any:
         """
@@ -484,8 +522,6 @@ class CRUDRouteFactory[T]:
         verify_ownership = self.verify_ownership
         factory = self  # Capture self for nested function
 
-        @rt(f"{self.base_path}/update")
-        @boundary_handler()
         async def update(request, uid: str) -> Result[T]:
             """Update entity with partial data and ownership verification"""
             # Role check (returns Result.fail on authorization failure)
@@ -520,7 +556,9 @@ class CRUDRouteFactory[T]:
 
             return result
 
-        return update
+        # Apply instrumentation if metrics enabled, then register route (Phase 2 - January 2026)
+        instrumented = self._instrument_handler(update, f"{self.base_path}/update")
+        return rt(f"{self.base_path}/update")(instrumented)
 
     def _register_delete_route(self, rt) -> Any:
         """
@@ -537,8 +575,6 @@ class CRUDRouteFactory[T]:
         verify_ownership = self.verify_ownership
         factory = self  # Capture self for nested function
 
-        @rt(f"{self.base_path}/delete")
-        @boundary_handler()
         async def delete(request, uid: str) -> Result[bool]:
             """Delete entity by UID (query param) with ownership verification"""
             # Role check (returns Result.fail on authorization failure)
@@ -556,7 +592,9 @@ class CRUDRouteFactory[T]:
 
             return result
 
-        return delete
+        # Apply instrumentation if metrics enabled, then register route (Phase 2 - January 2026)
+        instrumented = self._instrument_handler(delete, f"{self.base_path}/delete")
+        return rt(f"{self.base_path}/delete")(instrumented)
 
     def _register_list_route(self, rt) -> Any:
         """
@@ -594,8 +632,6 @@ class CRUDRouteFactory[T]:
         verify_ownership = self.verify_ownership
         factory = self  # Capture self for nested function
 
-        @rt(f"{self.base_path}/list")
-        @boundary_handler()
         async def list_entities(
             request,
             limit: int = 100,
@@ -633,7 +669,9 @@ class CRUDRouteFactory[T]:
             logger.debug(f"Listed {domain}: user={user_uid}, limit={limit}, offset={offset}")
             return result
 
-        return list_entities
+        # Apply instrumentation if metrics enabled, then register route (Phase 2 - January 2026)
+        instrumented = self._instrument_handler(list_entities, f"{self.base_path}/list")
+        return rt(f"{self.base_path}/list")(instrumented)
 
     def _register_search_route(self, rt) -> Any:
         """
@@ -655,8 +693,6 @@ class CRUDRouteFactory[T]:
         domain = self.domain
         factory = self  # Capture self for nested function
 
-        @rt(f"{self.base_path}/search")
-        @boundary_handler()
         async def search(request, query: str, limit: int = 50, offset: int = 0) -> Result[list[T]]:
             """Search entities"""
             # Role check (returns Result.fail on authorization failure)
@@ -678,7 +714,9 @@ class CRUDRouteFactory[T]:
             logger.debug(f"Searched {domain}: query='{query}', limit={limit}")
             return result
 
-        return search
+        # Apply instrumentation if metrics enabled, then register route (Phase 2 - January 2026)
+        instrumented = self._instrument_handler(search, f"{self.base_path}/search")
+        return rt(f"{self.base_path}/search")(instrumented)
 
 
 # ============================================================================

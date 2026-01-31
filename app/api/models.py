@@ -9,7 +9,6 @@ Response models removed - use Result[T] pattern instead.
 __version__ = "1.0"
 
 
-
 from pydantic import BaseModel
 
 

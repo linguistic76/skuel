@@ -309,9 +309,9 @@ class TestEmbeddingWorkerBatchProcessing:
                 record = await result.single()
 
                 assert record["total_tasks"] == 10, "Not all tasks found"
-                assert (
-                    record["with_embeddings"] == 10
-                ), f"Only {record['with_embeddings']}/10 embeddings generated"
+                assert record["with_embeddings"] == 10, (
+                    f"Only {record['with_embeddings']}/10 embeddings generated"
+                )
 
         finally:
             # Cleanup

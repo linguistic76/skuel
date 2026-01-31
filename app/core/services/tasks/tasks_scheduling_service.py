@@ -475,8 +475,10 @@ class TasksSchedulingService(BaseService[TasksOperations, Task]):
             Result containing created task (without knowledge relationships yet)
         """
         # Create task with curriculum linkage
+        from core.utils.uid_generator import UIDGenerator
+
         task_dto = TaskDTO(
-            uid=f"task:{self._generate_uid()}",
+            uid=UIDGenerator.generate_random_uid("task"),
             user_uid=_user_uid,
             title=task_title,
             source_learning_step_uid=step_uid,
@@ -496,7 +498,3 @@ class TasksSchedulingService(BaseService[TasksOperations, Task]):
 
         self.logger.info(f"Created curriculum task {task.uid} for step {step_uid}")
         return Result.ok(task)
-
-    def _generate_uid(self) -> str:
-        """Generate unique task ID."""
-        return f"{datetime.now().timestamp()}"

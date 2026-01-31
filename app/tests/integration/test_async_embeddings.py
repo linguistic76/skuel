@@ -327,6 +327,7 @@ class TestGoalEmbeddingTextExtraction:
         THEN: Returns all three fields combined
         """
         from core.models.goal.goal import Goal
+
         goal = Goal(
             uid="goal.test",
             user_uid="user.test",
@@ -417,7 +418,9 @@ class TestEventEmbeddingEvents:
     """Test embedding event publishing for events."""
 
     @pytest.mark.asyncio
-    async def test_event_creation_publishes_embedding_event(self, events_service, event_bus, user_uid):
+    async def test_event_creation_publishes_embedding_event(
+        self, events_service, event_bus, user_uid
+    ):
         """
         GIVEN: Event service with event bus
         WHEN: Creating an event

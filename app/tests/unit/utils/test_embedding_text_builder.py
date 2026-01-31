@@ -193,9 +193,7 @@ class TestBuildEmbeddingTextFromModel:
         assert result == "Morning run\nExercise\nStay fit\nWake up\nEnergy"
 
     def test_event_model_with_all_fields(self):
-        event = MockEvent(
-            title="Team meeting", description="Sprint planning", location="Office"
-        )
+        event = MockEvent(title="Team meeting", description="Sprint planning", location="Office")
         result = build_embedding_text(EntityType.EVENT, event)
         assert result == "Team meeting\nSprint planning\nOffice"
 
@@ -217,9 +215,7 @@ class TestBuildEmbeddingTextFromModel:
         assert result == "Integrity\nBe honest\nAlways tell truth"
 
     def test_ku_model_with_all_fields_uses_double_newlines(self):
-        ku = MockKU(
-            title="Python", content="Programming language", summary="High-level"
-        )
+        ku = MockKU(title="Python", content="Programming language", summary="High-level")
         result = build_embedding_text(EntityType.KU, ku)
         assert result == "Python\n\nProgramming language\n\nHigh-level"
 

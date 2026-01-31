@@ -46,9 +46,9 @@ class DebouncedContextInvalidator:
         )
 
         # These will be collapsed into a single invalidation
-        await invalidator.invalidate("user.mike", "task_completed")
-        await invalidator.invalidate("user.mike", "goal_progress_updated")
-        await invalidator.invalidate("user.mike", "knowledge_applied")
+        await invalidator.invalidate("user_mike", "task_completed")
+        await invalidator.invalidate("user_mike", "goal_progress_updated")
+        await invalidator.invalidate("user_mike", "knowledge_applied")
         # Result: Only one _do_invalidate call after 100ms
 
     Thread Safety:

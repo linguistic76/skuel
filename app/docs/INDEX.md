@@ -216,6 +216,7 @@ related: []
 | [Shared UI Components Guide](guides/SHARED_UI_COMPONENTS_GUIDE.md) | 2026-01-15 | 674 |
 | [Simple Search - Quick Reference](guides/SIMPLE_SEARCH_QUICK_REFERENCE.md) | 2025-11-27 | 611 |
 | [Simple Search - Setup Guide](guides/SIMPLE_SEARCH_SETUP_GUIDE.md) | 2025-11-27 | 499 |
+| **[Troubleshooting Guide](TROUBLESHOOTING.md)** | **2026-01-31** | **650** |
 
 ## Reference
 

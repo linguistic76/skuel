@@ -201,7 +201,7 @@ class CommonQueryRouteFactory:
         Requires authentication. Returns only the authenticated user's entities.
 
         Calls: service.find_{domain}(filters={"status": ..., "user_uid": ...})
-        Example: tasks_service.find_tasks(filters={"status": "active", "user_uid": "user.mike"})
+        Example: tasks_service.find_tasks(filters={"status": "active", "user_uid": "user_mike"})
         """
         service = self.service
         domain = self.domain

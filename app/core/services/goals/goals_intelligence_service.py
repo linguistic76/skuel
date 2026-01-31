@@ -1337,7 +1337,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             >>> from core.models.enums.activity_enums import ProgressLevel
             >>> result = await service.assess_progress_dual_track(
             ...     goal_uid="goal.learn-python",
-            ...     user_uid="user.mike",
+            ...     user_uid="user_mike",
             ...     user_progress_level=ProgressLevel.ON_TRACK,
             ...     user_evidence="I've completed most milestones",
             ...     user_reflection="Feeling good about this goal",

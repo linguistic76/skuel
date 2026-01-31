@@ -495,7 +495,7 @@ class Query:
         """
         context: GraphQLContext = info.context
 
-        if not context.services.learning_paths:
+        if not context.services.lp:
             return []
 
         safe_limit = validate_list_limit(limit)
@@ -503,7 +503,7 @@ class Query:
         # Get user-specific or all paths
         if all_paths:
             # Discovery mode - list all paths
-            result = await context.services.learning_paths.list_all_paths(limit=safe_limit)
+            result = await context.services.lp.list_all_paths(limit=safe_limit)
         else:
             # User mode - require authentication
             if not context.user_uid:
@@ -511,7 +511,7 @@ class Query:
                     "Authentication required. Please log in to view your learning paths."
                 )
 
-            result = await context.services.learning_paths.list_user_paths(
+            result = await context.services.lp.list_user_paths(
                 user_uid=context.user_uid, limit=safe_limit
             )
 
@@ -554,7 +554,7 @@ class Query:
         if not target_user_uid:
             raise Exception("Authentication required or user_uid parameter needed")
 
-        if not context.services.learning_paths:
+        if not context.services.lp:
             return None
 
         # Load the learning path
@@ -563,7 +563,7 @@ class Query:
             return None
 
         # Get path steps with type safety
-        steps_result: Result[list[Ls]] = await context.services.learning_paths.get_steps(path_uid)
+        steps_result: Result[list[Ls]] = await context.services.lp.get_steps(path_uid)
         steps: list[Ls] = steps_result.value if steps_result.is_ok else []
 
         # Calculate progress from steps
@@ -960,7 +960,7 @@ class Query:
         # Use authenticated user or provided user_uid
         target_user_uid = user_uid or context.user_uid
 
-        if not context.services.learning_paths or not context.services.ku:
+        if not context.services.lp or not context.services.ku:
             return []
 
         # Load the learning path
@@ -969,7 +969,7 @@ class Query:
             return []
 
         # Get path steps
-        steps_result = await context.services.learning_paths.get_steps(path_uid)
+        steps_result = await context.services.lp.get_steps(path_uid)
         if steps_result.is_error:
             return []
 
@@ -1144,8 +1144,8 @@ class Query:
                 tasks_count = len(tasks)
 
         # Get learning paths (limit 5)
-        if context.services.learning_paths:
-            paths_result = await context.services.learning_paths.list_user_paths(
+        if context.services.lp:
+            paths_result = await context.services.lp.list_user_paths(
                 user_uid=target_user_uid, limit=QueryLimit.PREVIEW
             )
             if paths_result.is_ok:

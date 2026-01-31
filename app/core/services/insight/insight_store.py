@@ -502,3 +502,55 @@ class InsightStore:
                     operation="get_insight_stats",
                 )
             )
+
+    async def get_insight_counts_by_domain(
+        self,
+        user_uid: str,
+    ) -> Result[dict[str, int]]:
+        """
+        Get count of active insights grouped by domain.
+
+        Used for Profile Hub integration to show insight badges on domain cards.
+
+        Args:
+            user_uid: User identifier
+
+        Returns:
+            Result with dict mapping domain -> count (e.g., {"habits": 3, "tasks": 5})
+
+        Example:
+            counts = await store.get_insight_counts_by_domain("user_mike")
+            # {"habits": 3, "tasks": 5, "goals": 1}
+        """
+        try:
+            query = """
+            MATCH (u:User {uid: $user_uid})-[:HAS_INSIGHT]->(i:Insight)
+            WHERE i.dismissed = false
+              AND i.actioned = false
+              AND (i.expires_at IS NULL OR i.expires_at > datetime())
+            RETURN i.domain as domain, count(i) as count
+            ORDER BY count DESC
+            """
+
+            result = await self.driver.execute_query(query, {"user_uid": user_uid})
+
+            # Build domain -> count dict
+            domain_counts: dict[str, int] = {}
+            for record in result.records:
+                domain = record["domain"]
+                count = record["count"]
+                domain_counts[domain] = count
+
+            self.logger.debug(
+                f"Retrieved insight counts for user {user_uid}: {domain_counts}"
+            )
+            return Result.ok(domain_counts)
+
+        except Exception as e:
+            self.logger.error(f"Error getting insight counts by domain: {e}", exc_info=True)
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to get insight counts by domain: {e}",
+                    operation="get_insight_counts_by_domain",
+                )
+            )

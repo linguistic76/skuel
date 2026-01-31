@@ -17,7 +17,21 @@ __version__ = "4.0"
 
 from typing import Any
 
-from fasthtml.common import H1, H2, Body, Form, Head, Html, Label, Link, Meta, NotStr, P, Script, Title
+from fasthtml.common import (
+    H1,
+    H2,
+    Body,
+    Form,
+    Head,
+    Html,
+    Label,
+    Link,
+    Meta,
+    NotStr,
+    P,
+    Script,
+    Title,
+)
 from starlette.requests import Request
 
 from core.auth import get_current_user
@@ -627,7 +641,10 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                 Card(
                     Div(
                         H2("Coming Soon", cls="text-xl font-semibold mb-2"),
-                        P("AI analytics and insights will be available here.", cls="text-base-content/60"),
+                        P(
+                            "AI analytics and insights will be available here.",
+                            cls="text-base-content/60",
+                        ),
                         cls="text-center py-12",
                     ),
                     cls="bg-base-200",

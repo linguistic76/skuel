@@ -206,8 +206,6 @@ def _should_generate_embedding(entity_type: EntityType) -> bool:
     return entity_type == EntityType.KU or entity_type in activity_domains
 
 
-
-
 def prepare_entity_data_sync(
     entity_type: EntityType,
     data: dict[str, Any],

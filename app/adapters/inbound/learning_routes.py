@@ -58,8 +58,8 @@ def create_learning_routes(app, rt, services, _sync_service=None):
     routes = register_domain_routes(app, rt, services, LEARNING_CONFIG)
 
     # Handle LS routes separately (optional - skipped if learning_steps service missing)
-    if services and services.learning_steps:
-        ls_routes = create_learning_steps_api_routes(app, rt, services.learning_steps)
+    if services and services.ls:
+        ls_routes = create_learning_steps_api_routes(app, rt, services.ls)
         logger.info(f"  ✅ Learning Steps (LS) API routes registered: {len(ls_routes)} endpoints")
         routes.extend(ls_routes)
 

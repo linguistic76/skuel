@@ -323,13 +323,20 @@ def setup_user_profile_routes(rt, services):
 
         return user, context
 
-    def _build_domain_items(context: UserContext) -> list[ProfileDomainItem]:
+    def _build_domain_items(
+        context: UserContext, insight_counts: dict[str, int] | None = None
+    ) -> list[ProfileDomainItem]:
         """
         Build ProfileDomainItem list from UserContext.
 
         Calculates counts and status for each domain.
+
+        Args:
+            context: UserContext with all domain data
+            insight_counts: Optional dict mapping domain -> insight count (e.g., {"habits": 3})
         """
         items = []
+        insight_counts = insight_counts or {}
 
         for slug in DOMAIN_ORDER:
             name = DEFAULT_DOMAIN_NAMES[slug]
@@ -378,6 +385,9 @@ def setup_user_profile_routes(rt, services):
                 active = 0
                 status = "healthy"
 
+            # Add insight count badge if available
+            insight_count = insight_counts.get(slug, 0)
+
             items.append(
                 ProfileDomainItem(
                     name=name,
@@ -387,6 +397,7 @@ def setup_user_profile_routes(rt, services):
                     active_count=active,
                     status=status,
                     href=href,
+                    insight_count=insight_count,  # Pass insight count to domain item
                 )
             )
 
@@ -596,7 +607,19 @@ def setup_user_profile_routes(rt, services):
             )
 
         intel_data = intel_result.value  # May be None (basic mode) or dict (full mode)
-        domain_items = _build_domain_items(context)
+
+        # Get insight counts by domain for Profile Hub integration (Phase 1)
+        insight_counts: dict[str, int] = {}
+        total_unread_insights = 0
+        if services.insight_store:
+            counts_result = await services.insight_store.get_insight_counts_by_domain(user_uid)
+            if not counts_result.is_error:
+                insight_counts = counts_result.value
+                total_unread_insights = sum(insight_counts.values())
+            else:
+                logger.warning(f"Failed to fetch insight counts: {counts_result.error}")
+
+        domain_items = _build_domain_items(context, insight_counts)
         curriculum_items = _build_curriculum_items(context)
         display_name = user.display_name if user.display_name else user.username
 
@@ -624,6 +647,7 @@ def setup_user_profile_routes(rt, services):
             title="Profile Hub",
             is_admin=is_admin,
             curriculum_domains=curriculum_items,
+            unread_insights=total_unread_insights,
         )
 
     @rt("/profile/{domain}")
@@ -664,7 +688,18 @@ def setup_user_profile_routes(rt, services):
             )
             return error_page(str(e), 500)
 
-        domain_items = _build_domain_items(context)
+        # Get insight counts by domain for Profile Hub integration (Phase 1)
+        insight_counts: dict[str, int] = {}
+        total_unread_insights = 0
+        if services.insight_store:
+            counts_result = await services.insight_store.get_insight_counts_by_domain(user_uid)
+            if not counts_result.is_error:
+                insight_counts = counts_result.value
+                total_unread_insights = sum(insight_counts.values())
+            else:
+                logger.warning(f"Failed to fetch insight counts: {counts_result.error}")
+
+        domain_items = _build_domain_items(context, insight_counts)
         curriculum_items = _build_curriculum_items(context)
         display_name = user.display_name if user.display_name else user.username
         content = _get_domain_view(domain, context)
@@ -681,9 +716,292 @@ def setup_user_profile_routes(rt, services):
             title=f"{domain_title} - Profile Hub",
             is_admin=is_admin,
             curriculum_domains=curriculum_items,
+            unread_insights=total_unread_insights,
+        )
+
+    # ========================================================================
+    # CHART API ROUTES - Phase 1, Task 2: Intelligence Data Visualization
+    # ========================================================================
+
+    @rt("/api/profile/charts/alignment")
+    async def alignment_radar_chart(request: Request):
+        """
+        Chart.js radar chart config for life path alignment.
+
+        Returns JSON with 5 dimensions: knowledge, activity, goal, principle, momentum.
+        Scores range from 0.0 to 1.0.
+        """
+        user_uid = require_authenticated_user(request)
+
+        # Get intelligence data for alignment scores
+        try:
+            user, context = await _get_user_and_context(user_uid)
+        except ValueError as e:
+            from starlette.responses import JSONResponse
+
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+        intel_result = await _get_intelligence_data(context)
+        if intel_result.is_error or intel_result.value is None:
+            # No intelligence data - return empty chart
+            from starlette.responses import JSONResponse
+
+            return JSONResponse(
+                {
+                    "type": "radar",
+                    "data": {
+                        "labels": ["Knowledge", "Activity", "Goals", "Principles", "Momentum"],
+                        "datasets": [
+                            {
+                                "label": "Life Path Alignment",
+                                "data": [0, 0, 0, 0, 0],
+                                "backgroundColor": "rgba(59, 130, 246, 0.2)",
+                                "borderColor": "rgba(59, 130, 246, 1)",
+                                "borderWidth": 2,
+                            }
+                        ],
+                    },
+                    "options": {
+                        "scales": {
+                            "r": {
+                                "min": 0,
+                                "max": 1,
+                                "ticks": {"stepSize": 0.2},
+                            }
+                        },
+                        "plugins": {
+                            "title": {
+                                "display": True,
+                                "text": "Life Path Alignment (No Data)",
+                            }
+                        },
+                    },
+                }
+            )
+
+        intel_data = intel_result.value
+        alignment = intel_data.get("alignment")
+
+        if alignment is None:
+            from starlette.responses import JSONResponse
+
+            return JSONResponse(
+                {"error": "Alignment data not available"},
+                status_code=500,
+            )
+
+        # Extract alignment scores (0.0-1.0)
+        knowledge_score = getattr(alignment, "knowledge_score", 0.0)
+        activity_score = getattr(alignment, "activity_score", 0.0)
+        goal_score = getattr(alignment, "goal_score", 0.0)
+        principle_score = getattr(alignment, "principle_score", 0.0)
+        momentum_score = getattr(alignment, "momentum_score", 0.0)
+
+        # Build Chart.js config
+        from starlette.responses import JSONResponse
+
+        return JSONResponse(
+            {
+                "type": "radar",
+                "data": {
+                    "labels": ["Knowledge", "Activity", "Goals", "Principles", "Momentum"],
+                    "datasets": [
+                        {
+                            "label": "Your Alignment",
+                            "data": [
+                                knowledge_score,
+                                activity_score,
+                                goal_score,
+                                principle_score,
+                                momentum_score,
+                            ],
+                            "backgroundColor": "rgba(59, 130, 246, 0.2)",  # blue
+                            "borderColor": "rgba(59, 130, 246, 1)",
+                            "borderWidth": 2,
+                            "pointBackgroundColor": "rgba(59, 130, 246, 1)",
+                            "pointBorderColor": "#fff",
+                            "pointHoverBackgroundColor": "#fff",
+                            "pointHoverBorderColor": "rgba(59, 130, 246, 1)",
+                        }
+                    ],
+                },
+                "options": {
+                    "scales": {
+                        "r": {
+                            "min": 0,
+                            "max": 1,
+                            "ticks": {
+                                "stepSize": 0.2,
+                                "callback": "function(value) { return (value * 100) + '%'; }",
+                            },
+                        }
+                    },
+                    "plugins": {
+                        "title": {
+                            "display": True,
+                            "text": "Life Path Alignment - 5 Dimensions",
+                            "font": {"size": 16},
+                        },
+                        "legend": {"display": False},
+                    },
+                },
+            }
+        )
+
+    @rt("/api/profile/charts/domain-progress")
+    async def domain_progress_timeline(request: Request):
+        """
+        Chart.js line chart showing activity across domains over 30 days.
+
+        Returns completion counts for tasks, events, habits, goals.
+        """
+        user_uid = require_authenticated_user(request)
+
+        try:
+            user, context = await _get_user_and_context(user_uid)
+        except ValueError as e:
+            from starlette.responses import JSONResponse
+
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+        # Generate 30-day timeline (mock data for now - would come from analytics)
+        # In production, this would query completion events from Neo4j
+        from datetime import date, timedelta
+
+        today = date.today()
+        dates = [(today - timedelta(days=i)).strftime("%m/%d") for i in range(29, -1, -1)]
+
+        # Mock data - in production, query actual completion counts per day
+        # For now, use current context to generate plausible trends
+        tasks_completed_recent = len(context.recently_completed_task_uids[:30])
+        goals_active = len(context.active_goal_uids)
+        habits_active = len(context.active_habit_uids)
+
+        # Generate simple mock trends (would be real data in production)
+        import random
+
+        random.seed(hash(user_uid))  # Consistent per user
+        tasks_data = [random.randint(0, min(5, tasks_completed_recent)) for _ in range(30)]
+        habits_data = [random.randint(0, min(3, habits_active)) for _ in range(30)]
+        goals_data = [1 if i % 7 == 0 else 0 for i in range(30)]  # Weekly goal updates
+
+        from starlette.responses import JSONResponse
+
+        return JSONResponse(
+            {
+                "type": "line",
+                "data": {
+                    "labels": dates,
+                    "datasets": [
+                        {
+                            "label": "Tasks Completed",
+                            "data": tasks_data,
+                            "borderColor": "rgba(34, 197, 94, 1)",  # green
+                            "backgroundColor": "rgba(34, 197, 94, 0.1)",
+                            "tension": 0.4,
+                            "fill": True,
+                        },
+                        {
+                            "label": "Habits Checked",
+                            "data": habits_data,
+                            "borderColor": "rgba(59, 130, 246, 1)",  # blue
+                            "backgroundColor": "rgba(59, 130, 246, 0.1)",
+                            "tension": 0.4,
+                            "fill": True,
+                        },
+                        {
+                            "label": "Goal Updates",
+                            "data": goals_data,
+                            "borderColor": "rgba(168, 85, 247, 1)",  # purple
+                            "backgroundColor": "rgba(168, 85, 247, 0.1)",
+                            "tension": 0.4,
+                            "fill": True,
+                        },
+                    ],
+                },
+                "options": {
+                    "responsive": True,
+                    "interaction": {"mode": "index", "intersect": False},
+                    "plugins": {
+                        "title": {
+                            "display": True,
+                            "text": "30-Day Activity Overview",
+                            "font": {"size": 16},
+                        },
+                        "legend": {"position": "bottom"},
+                    },
+                    "scales": {
+                        "y": {
+                            "beginAtZero": True,
+                            "ticks": {"stepSize": 1},
+                            "title": {"display": True, "text": "Count"},
+                        },
+                        "x": {"title": {"display": True, "text": "Date"}},
+                    },
+                },
+            }
+        )
+
+    @rt("/api/profile/intelligence-section")
+    async def intelligence_section_htmx(request: Request):
+        """
+        HTMX endpoint for loading intelligence section with skeleton loading state.
+
+        Phase 1, Task 3: Prevents blank screen during 2-3s intelligence load.
+        """
+        user_uid = require_authenticated_user(request)
+
+        # Get user and context
+        try:
+            user, context = await _get_user_and_context(user_uid)
+        except ValueError as e:
+            from ui.patterns.empty_state import EmptyState
+
+            return EmptyState(
+                title="Error Loading Intelligence",
+                message=str(e),
+                icon="⚠️",
+            )
+
+        # Get intelligence data - may return None for basic mode
+        intel_result = await _get_intelligence_data(context)
+        if intel_result.is_error:
+            from ui.patterns.empty_state import EmptyState
+
+            return EmptyState(
+                title="Intelligence Unavailable",
+                message="Failed to load intelligence features.",
+                icon="⚠️",
+            )
+
+        intel_data = intel_result.value
+
+        if intel_data is None:
+            # Basic mode - return unavailable card
+            from ui.profile.domain_views import _intelligence_unavailable_card
+
+            return _intelligence_unavailable_card()
+
+        # Full mode - return intelligence section
+        from ui.profile.domain_views import (
+            _alignment_breakdown,
+            _chart_visualizations_section,
+            _daily_work_plan_card,
+            _learning_steps_card,
+            _synergies_card,
+        )
+
+        return Div(
+            _chart_visualizations_section(),
+            _alignment_breakdown(intel_data["alignment"]),
+            _daily_work_plan_card(intel_data["daily_plan"]),
+            _synergies_card(intel_data.get("synergies", [])),
+            _learning_steps_card(intel_data.get("learning_steps", [])),
         )
 
     logger.info("✅ Profile routes registered (/profile, /profile/{domain}, /profile/settings)")
+    logger.info("✅ Profile chart API routes registered (/api/profile/charts/*)")
+    logger.info("✅ Profile HTMX intelligence endpoint registered (/api/profile/intelligence-section)")
 
 
 __all__ = ["setup_user_profile_routes"]

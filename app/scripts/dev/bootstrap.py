@@ -27,7 +27,7 @@ from fasthtml.common import Script, StaticFiles, fast_app
 
 from core.config import UnifiedConfig
 from core.services.protocols.infrastructure_protocols import EventBusOperations
-from core.ui.theme import daisy_headers
+from core.ui.theme import chartjs_headers, daisy_headers
 from core.utils.logging import RequestIDMiddleware, get_logger
 from core.utils.services_bootstrap import Services, compose_services
 
@@ -401,6 +401,8 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
         hdrs=(
             # SKUEL DaisyUI theme headers (includes HTMX, Alpine.js, custom CSS/JS)
             *daisy_headers(),
+            # Chart.js for data visualization (Phase 1, Task 2)
+            *chartjs_headers(),
             # Disable HTMX boost completely - intercept and cancel boosted requests
             # This is a bootstrap-level fix - element-level patches don't work
             Script("""
@@ -578,6 +580,7 @@ async def _wire_all_routes(
     # Core domain routes
     if services.tasks:
         from adapters.inbound.tasks_api import create_tasks_api_routes
+        from adapters.inbound.tasks_ui import create_tasks_ui_routes
 
         # Note: Switched to direct API route creation to pass prometheus_metrics
         # TODO: Update DomainRouteConfig pattern to support prometheus_metrics
@@ -590,7 +593,13 @@ async def _wire_all_routes(
             habits_service=services.habits,
             prometheus_metrics=prometheus_metrics,
         )
-        logger.info("✅ Tasks routes registered (includes intelligence API)")
+        create_tasks_ui_routes(
+            app,
+            rt,
+            services.tasks,
+            services=services,
+        )
+        logger.info("✅ Tasks routes registered (API + UI, includes intelligence API)")
 
     if services.events:
         from adapters.inbound.events_routes import create_events_routes

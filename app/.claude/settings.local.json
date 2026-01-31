@@ -167,7 +167,31 @@
       "Bash(crontab:*)",
       "Bash(docker inspect:*)",
       "Bash(journalctl:*)",
-      "Bash(/dev/null -exec grep -l skuel0 {})"
+      "Bash(/dev/null -exec grep -l skuel0 {})",
+      "Bash(./scripts/verify_monitoring_setup.sh)",
+      "Bash(head -n 30 echo \"\" echo \"... \\(36 total lines\\)\" echo \"\" echo \"🎯 Key Metrics Available:\" curl -s http://localhost:5001/metrics)",
+      "Bash(do curl -s http://localhost:5001/api/tasks/list)",
+      "Bash(done sleep 2 curl -s http://localhost:5001/metrics)",
+      "Bash(docker restart:*)",
+      "Bash(docker logs:*)",
+      "Bash(tee:*)",
+      "Bash(git rm:*)",
+      "Bash(if ! grep -q \"_config = create_activity_domain_config\" \"$file\")",
+      "Bash(/home/mike/skuel/.git/hooks/post-commit)",
+      "Bash(.git/hooks/post-commit)",
+      "Bash(readlink:*)",
+      "Bash(./scripts/validate_prometheus_config.sh:*)",
+      "Bash(test:*)",
+      "Bash(docker exec:*)",
+      "Bash(ln:*)",
+      "Bash(git reset:*)",
+      "Bash(jq:*)",
+      "Bash(PYTHONPATH=/home/mike/skuel/app timeout 5 poetry run python:*)",
+      "Bash(PYTHONPATH=. timeout 5 poetry run python:*)",
+      "Bash(timeout:*)",
+      "Bash(while read pid)",
+      "Bash(do kill -9 $pid)",
+      "Bash(done sleep 2 echo \"Port cleared\")"
     ]
   }
 }

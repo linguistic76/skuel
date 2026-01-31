@@ -95,11 +95,11 @@ async def batch_load_learning_paths(keys: list[str], context: GraphQLContext) ->
     """
     logger.info(f"📊 DataLoader batching {len(keys)} learning paths")
 
-    if not context.services.learning_paths:
+    if not context.services.lp:
         logger.warning("⚠️ Learning paths service not available for batch load")
         return [None] * len(keys)
 
-    result = await context.services.learning_paths.get_learning_paths_batch(list(keys))
+    result = await context.services.lp.get_learning_paths_batch(list(keys))
 
     if result.is_error:
         logger.error(f"❌ Batch load failed: {result.error}")
@@ -124,14 +124,14 @@ async def batch_load_learning_steps(keys: list[str], context: GraphQLContext) ->
     """
     logger.info(f"📊 DataLoader batching {len(keys)} learning steps")
 
-    if not context.services.learning_steps:
+    if not context.services.ls:
         logger.warning("⚠️ Learning steps service not available for batch load")
         return [None] * len(keys)
 
     # Try to batch load if service supports it
     # If not, fall back to individual loads
     try:
-        result = await context.services.learning_steps.get_learning_steps_batch(list(keys))
+        result = await context.services.ls.get_learning_steps_batch(list(keys))
 
         if result.is_error:
             logger.error(f"❌ Batch load failed: {result.error}")
@@ -145,7 +145,7 @@ async def batch_load_learning_steps(keys: list[str], context: GraphQLContext) ->
         logger.warning("⚠️ Batch method not available, loading steps individually")
         steps = []
         for key in keys:
-            result = await context.services.learning_steps.get(key)
+            result = await context.services.ls.get(key)
             # Type-safe value extraction
             if result.is_ok:
                 steps.append(result.value)

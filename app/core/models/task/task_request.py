@@ -52,7 +52,16 @@ class TaskCreateRequest(CreateRequestBase):
     project: str | None = Field(None, description="Associated project")
     assignee: str | None = Field(None, description="Person assigned to this task")
     tags: list[str] = Field(default_factory=list, description="Task tags")
-    parent_uid: str | None = Field(None, description="Parent task UID")
+
+    # Hierarchical Relationships (2026-01-30 - Hierarchical Pattern)
+    parent_task_uid: str | None = Field(
+        None, description="Parent task UID for subtask decomposition"
+    )
+    progress_weight: float = Field(
+        default=1.0,
+        ge=0.0,
+        description="Contribution weight to parent progress (default: 1.0 = equal weight)",
+    )
 
     # Recurrence
     recurrence_pattern: RecurrencePattern | None = Field(None, description="Recurrence pattern")

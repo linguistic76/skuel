@@ -7,7 +7,7 @@ The main app's bootstrap.py provides Theme headers, HTMX, and Alpine.js.
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from fasthtml.common import A as Anchor
 from fasthtml.common import (
@@ -38,6 +38,7 @@ class ProfileDomainItem:
     active_count: int  # Active/pending items
     status: str  # "healthy", "warning", "critical"
     href: str  # "/profile/tasks"
+    insight_count: int = 0  # NEW: Active insights for this domain (Phase 1 integration)
 
 
 # Default domain configuration
@@ -89,17 +90,49 @@ def _count_badge(count: int, active: int | None = None) -> "FT":
     return Span(text, cls="badge badge-sm badge-ghost")
 
 
+def _insight_badge(insight_count: int) -> Optional["FT"]:
+    """Insight count badge (bell icon + count) for Profile Hub integration."""
+    if insight_count <= 0:
+        return None
+
+    from fasthtml.common import NotStr
+
+    # Bell icon SVG
+    bell_svg = NotStr(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">'
+        '<path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>'
+        "</svg>"
+    )
+
+    return Span(
+        bell_svg,
+        Span(str(insight_count), cls="text-xs font-bold"),
+        cls="badge badge-xs badge-warning gap-1",
+        title=f"{insight_count} active insight{'s' if insight_count != 1 else ''}",
+    )
+
+
 def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
     """Single domain navigation item."""
     active_cls = "menu-active" if is_active else ""
+
+    # Build badges - include insight badge if available
+    badges = [
+        _count_badge(domain.count, domain.active_count),
+        _status_badge(domain.status),
+    ]
+
+    # Add insight badge if there are insights (Phase 1 integration)
+    insight_badge = _insight_badge(domain.insight_count)
+    if insight_badge:
+        badges.append(insight_badge)
 
     return Li(
         Anchor(
             Span(domain.icon, cls="text-lg"),
             Span(domain.name, cls="flex-1"),
             Div(
-                _count_badge(domain.count, domain.active_count),
-                _status_badge(domain.status),
+                *badges,
                 cls="flex items-center gap-2",
             ),
             href=domain.href,
@@ -129,6 +162,7 @@ class ProfileLayout:
     is_authenticated: bool = True  # Profile hub requires auth
     is_admin: bool = False
     curriculum_domains: list[ProfileDomainItem] | None = None  # Curriculum domains
+    unread_insights: int = 0  # NEW: Unread insight count for navbar badge (Phase 1 integration)
 
     def render(self, content: Any) -> "FT":
         """Render the profile layout with sidebar.
@@ -147,6 +181,7 @@ class ProfileLayout:
                 is_authenticated=self.is_authenticated,
                 active_page="profile/hub",
                 is_admin=self.is_admin,
+                unread_insights=self.unread_insights,  # Pass unread count (Phase 1 integration)
             ),
             # Mobile drawer (checkbox + overlay + sidebar)
             Input(
@@ -270,6 +305,7 @@ def create_profile_page(
     is_authenticated: bool = True,
     is_admin: bool = False,
     curriculum_domains: list[ProfileDomainItem] | None = None,
+    unread_insights: int = 0,
 ) -> "FT":
     """Convenience function to create a profile page.
 
@@ -282,6 +318,7 @@ def create_profile_page(
         is_authenticated: Whether user is authenticated (for navbar)
         is_admin: Whether user has admin role (shows Admin Dashboard in navbar)
         curriculum_domains: List of ProfileDomainItem for curriculum section
+        unread_insights: Number of unread insights for navbar badge (Phase 1 integration)
 
     Returns:
         FastHTML content (navbar + drawer + content)
@@ -295,6 +332,7 @@ def create_profile_page(
         is_authenticated=is_authenticated,
         is_admin=is_admin,
         curriculum_domains=curriculum_domains,
+        unread_insights=unread_insights,
     )
     return layout.render(content)
 

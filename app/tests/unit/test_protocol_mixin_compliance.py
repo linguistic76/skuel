@@ -71,8 +71,7 @@ def test_mixin_has_all_protocol_methods(name, mixin, protocol, filename):
     protocol_methods = [
         method_name
         for method_name in dir(protocol)
-        if not method_name.startswith("__")
-        and callable(getattr(protocol, method_name, None))
+        if not method_name.startswith("__") and callable(getattr(protocol, method_name, None))
     ]
 
     # Verify mixin has each method
@@ -104,8 +103,7 @@ def test_mixin_method_signatures_match_protocol(name, mixin, protocol, filename)
     protocol_methods = [
         method_name
         for method_name in dir(protocol)
-        if not method_name.startswith("__")
-        and callable(getattr(protocol, method_name, None))
+        if not method_name.startswith("__") and callable(getattr(protocol, method_name, None))
     ]
 
     mismatches = []
@@ -134,9 +132,7 @@ def test_mixin_method_signatures_match_protocol(name, mixin, protocol, filename)
 
         if protocol_params != mixin_params:
             mismatches.append(
-                f"  {method_name}:\n"
-                f"    Protocol: {protocol_params}\n"
-                f"    Mixin:    {mixin_params}"
+                f"  {method_name}:\n    Protocol: {protocol_params}\n    Mixin:    {mixin_params}"
             )
 
     assert not mismatches, (
@@ -215,9 +211,8 @@ def test_all_mixin_files_exist():
         if not file_path.exists():
             missing_files.append(f"{name}: {filename}")
 
-    assert not missing_files, (
-        "Mixin files referenced in tests don't exist:\n"
-        + "\n".join(f"  - {f}" for f in missing_files)
+    assert not missing_files, "Mixin files referenced in tests don't exist:\n" + "\n".join(
+        f"  - {f}" for f in missing_files
     )
 
 
@@ -324,7 +319,9 @@ class TestProtocolComplianceExamples:
 
         ```python
         if TYPE_CHECKING:
-            from core.services.protocols.base_service_interface import ConversionOperations
+            from core.services.protocols.base_service_interface import (
+                ConversionOperations,
+            )
 
             _protocol_check: type[ConversionOperations[Any]] = ConversionHelpersMixin
         ```

@@ -329,7 +329,9 @@ class Neo4jContentAdapter:
                         "chunk_uid": getattr(chunk, "chunk_id", f"{uid}_chunk_{i}"),
                         "chunk_type": chunk_type,
                         "text": getattr(chunk, "text", str(chunk)),
-                        "context_window": getattr(chunk, "context_window", getattr(chunk, "text", str(chunk))),
+                        "context_window": getattr(
+                            chunk, "context_window", getattr(chunk, "text", str(chunk))
+                        ),
                         "start_index": getattr(chunk, "chunk_index", i),
                         "end_index": getattr(
                             chunk, "word_count", len(getattr(chunk, "text", "").split())

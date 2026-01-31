@@ -154,7 +154,9 @@ class KuChunkingService:
         except Exception as e:
             self.logger.error(f"Failed to process content: {e}")
             return Result.fail(
-                Errors.system(f"Content processing failed: {e!s}", operation="process_content_for_ingestion")
+                Errors.system(
+                    f"Content processing failed: {e!s}", operation="process_content_for_ingestion"
+                )
             )
 
     async def process_ku_content(

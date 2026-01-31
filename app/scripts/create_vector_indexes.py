@@ -92,7 +92,8 @@ async def create_vector_indexes(
 
     # Connect to Neo4j
     driver = AsyncGraphDatabase.driver(
-        config.database.neo4j_uri, auth=(config.database.neo4j_username, config.database.neo4j_password)
+        config.database.neo4j_uri,
+        auth=(config.database.neo4j_username, config.database.neo4j_password),
     )
 
     try:
@@ -164,7 +165,8 @@ async def verify_vector_indexes() -> None:
 
     # Connect to Neo4j
     driver = AsyncGraphDatabase.driver(
-        config.database.neo4j_uri, auth=(config.database.neo4j_username, config.database.neo4j_password)
+        config.database.neo4j_uri,
+        auth=(config.database.neo4j_username, config.database.neo4j_password),
     )
 
     try:

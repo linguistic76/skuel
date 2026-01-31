@@ -452,9 +452,9 @@ def create_ai_routes(app, rt, services):
     async def ls_ai_similar(request, uid: str, limit: int = 5):
         """Find semantically similar learning steps."""
         require_authenticated_user(request)
-        if not services.learning_steps.ai:
+        if not services.ls.ai:
             return _ai_unavailable_response("Learning Steps")
-        result = await services.learning_steps.ai.find_similar_steps(uid, limit)
+        result = await services.ls.ai.find_similar_steps(uid, limit)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return {"similar_steps": result.value}
@@ -465,9 +465,9 @@ def create_ai_routes(app, rt, services):
     async def ls_ai_insight(request, uid: str):
         """Generate AI insight about a learning step."""
         require_authenticated_user(request)
-        if not services.learning_steps.ai:
+        if not services.ls.ai:
             return _ai_unavailable_response("Learning Steps")
-        result = await services.learning_steps.ai.generate_step_insight(uid)
+        result = await services.ls.ai.generate_step_insight(uid)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return {"insight": result.value}
@@ -478,9 +478,9 @@ def create_ai_routes(app, rt, services):
     async def ls_ai_explain(request, uid: str, level: str = "intermediate"):
         """Explain a learning step at a specified level."""
         require_authenticated_user(request)
-        if not services.learning_steps.ai:
+        if not services.ls.ai:
             return _ai_unavailable_response("Learning Steps")
-        result = await services.learning_steps.ai.explain_step(uid, level)
+        result = await services.ls.ai.explain_step(uid, level)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return result.value
@@ -491,9 +491,9 @@ def create_ai_routes(app, rt, services):
     async def ls_ai_practice(request, uid: str):
         """Suggest practice activities for a learning step."""
         require_authenticated_user(request)
-        if not services.learning_steps.ai:
+        if not services.ls.ai:
             return _ai_unavailable_response("Learning Steps")
-        result = await services.learning_steps.ai.suggest_practice_activities(uid)
+        result = await services.ls.ai.suggest_practice_activities(uid)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return result.value
@@ -508,9 +508,9 @@ def create_ai_routes(app, rt, services):
     async def lp_ai_similar(request, uid: str, limit: int = 5):
         """Find semantically similar learning paths."""
         require_authenticated_user(request)
-        if not services.learning_paths.ai:
+        if not services.lp.ai:
             return _ai_unavailable_response("Learning Paths")
-        result = await services.learning_paths.ai.find_similar_paths(uid, limit)
+        result = await services.lp.ai.find_similar_paths(uid, limit)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return {"similar_paths": result.value}
@@ -521,9 +521,9 @@ def create_ai_routes(app, rt, services):
     async def lp_ai_insight(request, uid: str):
         """Generate AI insight about a learning path."""
         require_authenticated_user(request)
-        if not services.learning_paths.ai:
+        if not services.lp.ai:
             return _ai_unavailable_response("Learning Paths")
-        result = await services.learning_paths.ai.generate_path_insight(uid)
+        result = await services.lp.ai.generate_path_insight(uid)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return {"insight": result.value}
@@ -534,9 +534,9 @@ def create_ai_routes(app, rt, services):
     async def lp_ai_overview(request, uid: str):
         """Generate an engaging overview of a learning path."""
         require_authenticated_user(request)
-        if not services.learning_paths.ai:
+        if not services.lp.ai:
             return _ai_unavailable_response("Learning Paths")
-        result = await services.learning_paths.ai.generate_path_overview(uid)
+        result = await services.lp.ai.generate_path_overview(uid)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return result.value
@@ -547,9 +547,9 @@ def create_ai_routes(app, rt, services):
     async def lp_ai_strategy(request, uid: str):
         """Suggest a completion strategy for a learning path."""
         require_authenticated_user(request)
-        if not services.learning_paths.ai:
+        if not services.lp.ai:
             return _ai_unavailable_response("Learning Paths")
-        result = await services.learning_paths.ai.suggest_completion_strategy(uid)
+        result = await services.lp.ai.suggest_completion_strategy(uid)
         if result.is_error:
             return JSONResponse(status_code=400, content={"error": str(result.error)})
         return result.value
@@ -629,8 +629,8 @@ def create_ai_routes(app, rt, services):
                 "choices": services.choices.ai is not None,
                 "principles": services.principles.ai is not None,
                 "knowledge": services.ku.ai is not None,
-                "learning_steps": services.learning_steps.ai is not None,
-                "learning_paths": services.learning_paths.ai is not None,
+                "learning_steps": services.ls.ai is not None,
+                "learning_paths": services.lp.ai is not None,
                 "moc": services.moc.ai is not None,
             }
         }

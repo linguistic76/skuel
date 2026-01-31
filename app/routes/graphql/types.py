@@ -97,11 +97,11 @@ class LearningPath:
         """
         context: GraphQLContext = info.context
 
-        if not context.services.learning_paths:
+        if not context.services.lp:
             return []
 
         # Get steps with type safety
-        result: Result[list[Ls]] = await context.services.learning_paths.get_steps(self.uid)
+        result: Result[list[Ls]] = await context.services.lp.get_steps(self.uid)
 
         if result.is_error or not result.value:
             return []

@@ -18,6 +18,8 @@ Usage:
     navbar = create_navbar_for_request(request, active_page="calendar")
 """
 
+from typing import Any
+
 from fasthtml.common import A, Button, Div, Nav, NotStr, Span
 from starlette.requests import Request
 
@@ -82,13 +84,39 @@ def _close_icon() -> NotStr:
     )
 
 
-def _notification_button() -> Button:
-    """Create notification bell button."""
-    return Button(
+def _notification_button(unread_count: int = 0) -> Button:
+    """Create notification bell button with optional badge.
+
+    Args:
+        unread_count: Number of unread insights/notifications
+
+    Returns:
+        Button with bell icon and optional count badge
+    """
+    # Build button content
+    button_content = [
         Span("View notifications", cls="sr-only"),
         _bell_icon(),
+    ]
+
+    # Add badge if there are unread items (Phase 1 integration)
+    if unread_count > 0:
+        from fasthtml.common import NotStr
+
+        badge = Div(
+            Span(
+                str(unread_count) if unread_count < 100 else "99+",
+                cls="text-xs font-bold text-white",
+            ),
+            cls="absolute -top-1 -right-1 size-5 rounded-full bg-warning flex items-center justify-center",
+        )
+        button_content.append(badge)
+
+    return Button(
+        *button_content,
         type="button",
-        cls="btn btn-ghost btn-circle text-base-content/70 hover:text-base-content",
+        cls="btn btn-ghost btn-circle text-base-content/70 hover:text-base-content relative",
+        **{"hx-get": "/insights", "hx-boost": "false"},  # Navigate to insights on click
     )
 
 
@@ -158,6 +186,7 @@ def create_navbar(
     is_authenticated: bool = False,
     active_page: str = "",
     is_admin: bool = False,
+    unread_insights: int = 0,
 ) -> Nav:
     """
     Create the navigation bar using SKUEL patterns.
@@ -167,6 +196,7 @@ def create_navbar(
         is_authenticated: Whether user is logged in
         active_page: Current page slug for highlighting (e.g., "profile/hub", "calendar")
         is_admin: Whether user has admin role (shows Admin Dashboard link)
+        unread_insights: Number of unread insights (Phase 1 integration)
 
     Returns:
         FastHTML Nav element with Alpine.js state management
@@ -195,7 +225,7 @@ def create_navbar(
     # Profile section (authenticated vs not)
     if is_authenticated and current_user:
         profile_section = Div(
-            _notification_button(),
+            _notification_button(unread_insights),  # Pass unread count (Phase 1 integration)
             _profile_dropdown(current_user),
             cls="flex items-center gap-2",
         )
@@ -240,7 +270,9 @@ def create_navbar(
     )
 
 
-def create_navbar_for_request(request: Request, active_page: str = "") -> Nav:
+async def create_navbar_for_request(
+    request: Request, active_page: str = "", insight_store: Any = None
+) -> Nav:
     """
     Create navbar with automatic user/admin detection from session.
 
@@ -250,17 +282,35 @@ def create_navbar_for_request(request: Request, active_page: str = "") -> Nav:
     Args:
         request: Starlette/FastHTML request object
         active_page: Current page slug for highlighting (e.g., "calendar", "search")
+        insight_store: Optional InsightStore for fetching unread insight count (Phase 1)
 
     Returns:
         FastHTML Nav element with proper authentication state
     """
+    from typing import Any
+
     from core.auth import get_current_user, get_is_admin, is_authenticated
+
+    # Get unread insight count (Phase 1 integration)
+    unread_insights = 0
+    if is_authenticated(request) and insight_store:
+        try:
+            from core.auth import require_authenticated_user
+
+            user_uid = require_authenticated_user(request)
+            # Get total active insights count
+            stats_result = await insight_store.get_insight_stats(user_uid)
+            if not stats_result.is_error:
+                unread_insights = stats_result.value.get("active_insights", 0)
+        except Exception:
+            pass  # Silently fail - navbar should always render
 
     return create_navbar(
         current_user=get_current_user(request),
         is_authenticated=is_authenticated(request),
         active_page=active_page,
         is_admin=get_is_admin(request),
+        unread_insights=unread_insights,
     )
 
 

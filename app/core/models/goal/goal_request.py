@@ -55,7 +55,16 @@ class GoalCreateRequest(BaseModel):
     required_knowledge_uids: list[str] = Field(default_factory=list)
     supporting_habit_uids: list[str] = Field(default_factory=list)
     guiding_principle_uids: list[str] = Field(default_factory=list)
-    parent_goal_uid: str | None = Field(None, description="Parent goal if sub-goal")
+
+    # Hierarchical Relationships (2026-01-30 - Hierarchical Pattern)
+    parent_goal_uid: str | None = Field(
+        None, description="Parent goal UID for subgoal decomposition"
+    )
+    progress_weight: float = Field(
+        default=1.0,
+        ge=0.0,
+        description="Contribution weight to parent goal progress (default: 1.0 = equal weight)",
+    )
 
     # Relationship Context (Phase 1: Making Connections Comprehensible)
     # Capture HOW principles guide and WHY choices create

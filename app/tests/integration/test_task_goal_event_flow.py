@@ -43,7 +43,7 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def event_bus(self):
         """Create event bus with history capture and performance monitoring disabled."""
-        return InMemoryEventBus(capture_history=True, enable_performance_monitoring=False)
+        return InMemoryEventBus(capture_history=True)
 
     @pytest_asyncio.fixture
     async def tasks_backend(self, neo4j_driver, clean_neo4j):

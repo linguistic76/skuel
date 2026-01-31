@@ -33,7 +33,8 @@ from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.shared_enums import ActivityStatus, Priority
 from core.models.task.task_request import TaskCreateRequest
 from core.services.protocols.facade_protocols import TasksFacadeProtocol
-from core.ui.daisy_components import Button, ButtonT, Card, Div, H1, H2, H3, P, Progress, Span
+from fasthtml.common import Div, H1, H2, H3, P, Span
+from core.ui.daisy_components import Button, ButtonT, Card, Progress
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType

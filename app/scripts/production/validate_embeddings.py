@@ -158,7 +158,9 @@ async def main():
                 print("  ❌ Embedding was NOT generated")
                 print("\n  Troubleshooting:")
                 print("    1. Check app is running: poetry run python main.py")
-                print("    2. Check worker metrics: curl http://localhost:8000/api/monitoring/embedding-worker")
+                print(
+                    "    2. Check worker metrics: curl http://localhost:8000/api/monitoring/embedding-worker"
+                )
                 print("    3. Check logs: tail -f logs/skuel.log | grep embedding")
                 print("    4. Verify event published: Check for TaskEmbeddingRequested in logs")
                 sys.exit(1)

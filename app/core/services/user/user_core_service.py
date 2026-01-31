@@ -134,6 +134,41 @@ class UserCoreService:
 
         return result
 
+    @with_error_handling("ensure_system_user", error_type="database")
+    async def ensure_system_user(self) -> Result[User]:
+        """
+        Ensure system user exists for infrastructure operations.
+
+        Creates a system user with UID "user_system" if it doesn't exist.
+        This user is used for system-owned entities like default journal projects.
+
+        Returns:
+            Result[User]: System user or error
+
+        Error cases:
+            - Database operation fails → DATABASE
+        """
+        # Note: create_user() generates UID as "user_{username}", so "system" becomes "user_system"
+        system_uid = "user_system"
+
+        # Check if system user exists
+        result = await self.get_user(system_uid)
+        if result.is_ok and result.value:
+            logger.debug(f"System user already exists: {system_uid}")
+            return Result.ok(result.value)
+
+        # Create system user
+        logger.info(f"Creating system user: {system_uid}")
+        from core.models.enums import UserRole
+
+        return await self.create_user(
+            username="system",
+            email="system@skuel.local",
+            display_name="System User",
+            role=UserRole.ADMIN,  # System user needs admin privileges
+            is_verified=True,  # System user is always verified
+        )
+
     async def get_user(self, user_uid: str) -> Result[User | None]:
         """
         Get user by UID.

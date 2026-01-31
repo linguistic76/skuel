@@ -70,7 +70,9 @@ Python is easy to learn and powerful.
         result = await ingestion_service.ingest_file(temp_path)
 
         # Then: Ingestion succeeds
-        assert result.is_ok, f"Ingestion failed: {result.expect_error() if result.is_error else 'unknown'}"
+        assert result.is_ok, (
+            f"Ingestion failed: {result.expect_error() if result.is_error else 'unknown'}"
+        )
         ingestion_data = result.value
 
         # Then: Chunks were generated
@@ -211,7 +213,9 @@ Python is a programming language.
         ingestion_data = result.value
 
         # Then: Chunks were generated even for minimal content
-        assert ingestion_data["chunks_generated"] is True, "Should generate chunks for minimal content"
+        assert ingestion_data["chunks_generated"] is True, (
+            "Should generate chunks for minimal content"
+        )
 
         # Verify at least one chunk exists
         ku_uid = ingestion_data["uid"]

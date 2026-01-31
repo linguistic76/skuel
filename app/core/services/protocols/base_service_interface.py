@@ -353,9 +353,7 @@ class CrudOperations(Protocol[T]):
         """
         ...
 
-    async def update_for_user(
-        self, uid: str, updates: dict[str, Any], user_uid: str
-    ) -> Result[T]:
+    async def update_for_user(self, uid: str, updates: dict[str, Any], user_uid: str) -> Result[T]:
         """
         Update entity, but only if owned by the specified user.
 

@@ -117,4 +117,128 @@ def SkeletonTable(rows: int = 5) -> Div:
     )
 
 
-__all__ = ["SkeletonCard", "SkeletonList", "SkeletonStats", "SkeletonTable"]
+def SkeletonSidebarItem() -> Div:
+    """Skeleton for profile sidebar domain item.
+
+    Returns:
+        A div with skeleton animation representing a sidebar domain item
+    """
+    return Div(
+        # Icon + Name
+        Div(
+            Div(cls="size-5 bg-base-300 rounded-full animate-pulse"),
+            Div(cls="h-4 bg-base-300 rounded w-24 animate-pulse"),
+            cls="flex items-center gap-3",
+        ),
+        # Badges (count, status)
+        Div(
+            Div(cls="h-6 w-12 bg-base-300 rounded-full animate-pulse"),
+            Div(cls="h-6 w-16 bg-base-300 rounded-full animate-pulse"),
+            cls="flex items-center gap-2",
+        ),
+        cls="flex items-center justify-between p-3 rounded-lg bg-base-200/50",
+    )
+
+
+def SkeletonSidebar(domain_count: int = 7) -> Div:
+    """Skeleton for profile sidebar with multiple domain items.
+
+    Args:
+        domain_count: Number of domain skeleton items (default 7 for Activity Domains)
+
+    Returns:
+        A div with skeleton animation representing the full sidebar
+    """
+    return Div(
+        # Header
+        Div(
+            Div(cls="h-6 bg-base-300 rounded w-32 animate-pulse mb-4"),
+            cls="mb-6",
+        ),
+        # Domain items
+        Div(
+            *[SkeletonSidebarItem() for _ in range(domain_count)],
+            cls="space-y-2",
+        ),
+        cls="p-4",
+    )
+
+
+def SkeletonIntelligence() -> Div:
+    """Skeleton for intelligence section (alignment, daily plan, etc).
+
+    Returns:
+        A div with skeleton animation representing intelligence cards
+    """
+    return Div(
+        # Alignment breakdown card
+        Div(
+            Div(cls="h-5 bg-base-300 rounded w-48 animate-pulse mb-4"),
+            Div(
+                *[
+                    Div(
+                        Div(cls="h-4 bg-base-300 rounded w-24 animate-pulse"),
+                        Div(cls="h-8 bg-base-300 rounded w-16 animate-pulse mt-2"),
+                        cls="text-center",
+                    )
+                    for _ in range(5)
+                ],
+                cls="grid grid-cols-5 gap-4",
+            ),
+            cls="card bg-base-100 shadow-sm p-6 mb-6",
+        ),
+        # Daily plan card
+        Div(
+            Div(cls="h-5 bg-base-300 rounded w-40 animate-pulse mb-4"),
+            Div(*[Div(cls="h-4 bg-base-300 rounded w-full animate-pulse") for _ in range(4)], cls="space-y-2"),
+            cls="card bg-base-100 shadow-sm p-6 mb-6",
+        ),
+        # Synergies card
+        Div(
+            Div(cls="h-5 bg-base-300 rounded w-56 animate-pulse mb-4"),
+            Div(*[Div(cls="h-4 bg-base-300 rounded w-full animate-pulse") for _ in range(3)], cls="space-y-2"),
+            cls="card bg-base-100 shadow-sm p-6",
+        ),
+    )
+
+
+def SkeletonDomainView() -> Div:
+    """Skeleton for domain-specific view (stats + item list).
+
+    Returns:
+        A div with skeleton animation representing a domain view
+    """
+    return Div(
+        # Summary card
+        Div(
+            Div(cls="h-6 bg-base-300 rounded w-32 animate-pulse mb-4"),
+            Div(
+                *[
+                    Div(
+                        Div(cls="h-8 bg-base-300 rounded w-12 animate-pulse"),
+                        Div(cls="h-4 bg-base-300 rounded w-16 animate-pulse mt-2"),
+                        cls="text-center",
+                    )
+                    for _ in range(3)
+                ],
+                cls="grid grid-cols-3 gap-4",
+            ),
+            cls="p-6 rounded-xl border-2 border-base-300 bg-base-200/50 mb-6",
+        ),
+        # Items list header
+        Div(cls="h-5 bg-base-300 rounded w-40 animate-pulse mb-4"),
+        # Item list
+        SkeletonList(count=5),
+    )
+
+
+__all__ = [
+    "SkeletonCard",
+    "SkeletonList",
+    "SkeletonStats",
+    "SkeletonTable",
+    "SkeletonSidebarItem",
+    "SkeletonSidebar",
+    "SkeletonIntelligence",
+    "SkeletonDomainView",
+]

@@ -102,17 +102,17 @@ class KuRetrieval:
     def __init__(
         self,
         knowledge_repo: KuOperations,
-        embeddings_service: Neo4jGenAIEmbeddingsService,
-        unified_query_builder,  # Use the unified query builder service
+        embeddings_service: Neo4jGenAIEmbeddingsService | None = None,
+        unified_query_builder=None,  # Use the unified query builder service
         user_progress_service=None,  # Optional progress service for intelligent ranking
         chunking_service=None,  # Optional chunking service for RAG
     ) -> None:
         """
-        Initialize with required services. No fallbacks.
+        Initialize with required services. Embeddings service is optional.
 
         Args:
             knowledge_repo: Repository for knowledge operations (required),
-            embeddings_service: Service for vector operations (required),
+            embeddings_service: Service for vector operations (optional - falls back to keyword search),
             unified_query_builder: THE query builder service (required),
             user_progress_service: Optional UserProgressService for progress-aware ranking,
             chunking_service: Optional chunking service for chunk-based RAG retrieval
@@ -122,29 +122,28 @@ class KuRetrieval:
         """
         if not knowledge_repo:
             raise ValueError("Knowledge repository is required - no fallback")
-        if not embeddings_service:
-            raise ValueError("Embeddings service is required - vector search is not optional")
         if not unified_query_builder:
             raise ValueError(
                 "Unified query builder is required - graph operations are not optional"
             )
 
         self.repo = knowledge_repo
-        self.embeddings = embeddings_service
+        self.embeddings = embeddings_service  # Can be None - graceful degradation
         self.query_builder = unified_query_builder
         self.user_progress = user_progress_service
         self.chunking_service = chunking_service
 
         features = []
+        if embeddings_service:
+            features.append("vector search")
+        else:
+            features.append("keyword search fallback (no embeddings)")
         if chunking_service:
             features.append("chunk-based RAG")
         if user_progress_service:
             features.append("progress-aware ranking")
 
-        if features:
-            logger.info(f"✅ KuRetrieval initialized with {', '.join(features)}")
-        else:
-            logger.info("✅ KuRetrieval initialized - standard retrieval mode")
+        logger.info(f"✅ KuRetrieval initialized with {', '.join(features)}")
 
     async def retrieve(
         self, query: str, context: UnifiedUserContextDTO | None = None, limit: int = 10
@@ -383,8 +382,16 @@ class KuRetrieval:
     ) -> list[EnhancedResult]:
         """
         Add vector similarity scores using embeddings service.
-        This is always done - vector search is not optional.
+        Falls back to keyword search if embeddings unavailable (GENAI_FALLBACK_TO_KEYWORD_SEARCH=true).
         """
+        # Check if embeddings service is available
+        if not self.embeddings:
+            logger.info("Embeddings service unavailable - skipping vector similarity scoring")
+            # Set all vector scores to 0.0 (keyword search will be used)
+            for result in results:
+                result.vector_score = 0.0
+            return results
+
         # Get query embedding
         query_embedding = await self.embeddings.create_embedding(query)
 

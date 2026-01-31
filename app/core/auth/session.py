@@ -47,8 +47,8 @@ SESSION_SECRET_KEY_ENV = "SESSION_SECRET_KEY"  # Environment variable name
 
 # Default user for development (when no session exists)
 # Security: Controlled via environment variable (January 2026 hardening)
-# If SKUEL_DEFAULT_DEV_USER is not set, defaults to "user.mike" for backwards compatibility
-DEFAULT_DEV_USER = os.getenv("SKUEL_DEFAULT_DEV_USER", "user.mike")
+# If SKUEL_DEFAULT_DEV_USER is not set, defaults to "user_mike" (underscore convention)
+DEFAULT_DEV_USER = os.getenv("SKUEL_DEFAULT_DEV_USER", "user_mike")
 
 
 # ============================================================================

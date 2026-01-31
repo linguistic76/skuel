@@ -39,6 +39,7 @@ def create_tasks_api_routes(
     user_service: Any = None,
     goals_service: Any = None,
     habits_service: Any = None,
+    prometheus_metrics: Any = None,
 ) -> list[Any]:
     """
     Create task API routes using factory pattern.
@@ -50,6 +51,7 @@ def create_tasks_api_routes(
         user_service: UserService for admin role verification
         goals_service: GoalsService for goal ownership verification
         habits_service: HabitsService for habit ownership verification
+        prometheus_metrics: PrometheusMetrics for HTTP instrumentation (Phase 2 - January 2026)
     """
 
     # Service getter for ownership decorator (SKUEL012: named function, not lambda)
@@ -69,6 +71,7 @@ def create_tasks_api_routes(
         update_schema=TaskUpdateRequest,
         uid_prefix="task",
         scope=ContentScope.USER_OWNED,
+        prometheus_metrics=prometheus_metrics,  # Phase 2 - HTTP instrumentation
     )
 
     # Register all standard CRUD routes:

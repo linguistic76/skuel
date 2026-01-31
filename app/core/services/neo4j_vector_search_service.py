@@ -820,7 +820,7 @@ class Neo4jVectorSearchService:
             >>> result = await service.learning_aware_search(
             ...     label="Ku",
             ...     text="python programming",
-            ...     user_uid="user.alice",
+            ...     user_uid="user_alice",
             ...     prefer_unmastered=True,
             ...     limit=10,
             ... )

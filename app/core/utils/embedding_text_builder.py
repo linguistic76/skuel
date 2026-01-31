@@ -73,7 +73,11 @@ def build_embedding_text(
         'Learn Python\nMaster the basics'
 
         >>> # KU uses double newlines
-        >>> ku_data = {"title": "Python", "content": "A programming language", "summary": "High-level"}
+        >>> ku_data = {
+        ...     "title": "Python",
+        ...     "content": "A programming language",
+        ...     "summary": "High-level",
+        ... }
         >>> build_embedding_text(EntityType.KU, ku_data)
         'Python\n\nA programming language\n\nHigh-level'
 

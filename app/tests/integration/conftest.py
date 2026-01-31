@@ -983,9 +983,7 @@ async def choices_backend(neo4j_driver):
     """Create choices backend for testing."""
     from core.models.choice.choice import Choice
 
-    return UniversalNeo4jBackend[Choice](
-        driver=neo4j_driver, label="Choice", model_class=Choice
-    )
+    return UniversalNeo4jBackend[Choice](driver=neo4j_driver, label="Choice", model_class=Choice)
 
 
 @pytest_asyncio.fixture
