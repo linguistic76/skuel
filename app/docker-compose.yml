@@ -62,6 +62,58 @@ services:
     # Note: Requires Neo4j running in /infra (cd ~/infra && docker compose up -d)
     command: python skuel.py
 
+  # --------------------------------------------------------------------------
+  # Prometheus - Metrics Collection
+  # --------------------------------------------------------------------------
+  # Scrapes /metrics endpoint from skuel-app every 15 seconds
+  # Prometheus UI: http://localhost:9090
+  # --------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    container_name: skuel-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'  # 7 days retention for development
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Allows Prometheus to reach host machine (Linux)
+    restart: unless-stopped
+    networks:
+      - skuel-network
+
+  # --------------------------------------------------------------------------
+  # Grafana - Metrics Visualization
+  # --------------------------------------------------------------------------
+  # Dashboards for system health, domain activity, graph health, search quality
+  # Grafana UI: http://localhost:3000 (default: admin/admin)
+  # --------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.3.0
+    container_name: skuel-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    restart: unless-stopped
+    networks:
+      - skuel-network
+    depends_on:
+      - prometheus
+
 networks:
   skuel-network:
     driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:

@@ -51,6 +51,7 @@ class AppContainer:
     rt: Any  # FastHTML router
     services: Services  # Business services (includes SearchRouter)
     config: UnifiedConfig  # Application configuration
+    prometheus_metrics: Any  # Prometheus metrics (Phase 2 - January 2026)
 
 
 async def bootstrap_skuel() -> AppContainer:
@@ -72,10 +73,12 @@ async def bootstrap_skuel() -> AppContainer:
         config = _load_config()
 
         # Step 2: Build infrastructure
-        neo4j_adapter, event_bus = await _build_infrastructure()
+        neo4j_adapter, event_bus, prometheus_metrics = await _build_infrastructure()
 
         # Step 3: Compose business services
-        services, knowledge_backend = await _compose_services(neo4j_adapter, event_bus, config)
+        services, knowledge_backend = await _compose_services(
+            neo4j_adapter, event_bus, config, prometheus_metrics
+        )
 
         # Step 4: Wire routes
         static_dir = getattr(config.application, "static_directory", None)
@@ -84,9 +87,11 @@ async def bootstrap_skuel() -> AppContainer:
         # Store neo4j driver on app state (still needed for some routes)
         app.state.neo4j_driver = neo4j_adapter.driver
 
-        await _wire_routes(app, rt, services, knowledge_backend, config)
+        await _wire_routes(app, rt, services, knowledge_backend, config, prometheus_metrics)
 
-        container = AppContainer(app=app, rt=rt, services=services, config=config)
+        container = AppContainer(
+            app=app, rt=rt, services=services, config=config, prometheus_metrics=prometheus_metrics
+        )
 
         # Store container on app state for lifespan access
         app.state.container = container
@@ -116,10 +121,17 @@ def _load_config() -> UnifiedConfig:
     return config
 
 
-async def _build_infrastructure() -> tuple[Any, EventBusOperations]:
-    """Step 2: Build core infrastructure (database, event bus)"""
+async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any]:
+    """Step 2: Build core infrastructure (database, event bus, metrics)"""
     from adapters.infrastructure.event_bus import InMemoryEventBus
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
+    from core.infrastructure.monitoring import (
+        PrometheusMetrics,
+        PrometheusPerformanceBridge,
+        get_performance_monitor,
+    )
+    # Import MetricsEventHandler here to avoid circular dependency
+    from core.infrastructure.monitoring.metrics_event_handler import MetricsEventHandler
 
     # Create Neo4j adapter and connect
     neo4j_adapter = Neo4jAdapter()
@@ -130,11 +142,208 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations]:
     event_bus = InMemoryEventBus()
     logger.info("✅ Event bus initialized")
 
-    return neo4j_adapter, event_bus
+    # Initialize Prometheus metrics (Phase 2 - January 2026)
+    prometheus_metrics = PrometheusMetrics()
+    logger.info("✅ Prometheus metrics initialized")
+
+    # Initialize metrics event handler (Phase 3 - January 2026)
+    # Subscribes to domain events and tracks entity creation/completion
+    metrics_handler = MetricsEventHandler(event_bus, prometheus_metrics)
+    logger.info("✅ MetricsEventHandler initialized and subscribed to domain events")
+
+    # Initialize Prometheus bridge for PerformanceMonitor (Phase 3 - January 2026)
+    # Exports in-memory event bus metrics to Prometheus
+    performance_monitor = get_performance_monitor()
+    prometheus_bridge = PrometheusPerformanceBridge(performance_monitor, prometheus_metrics)
+    logger.info("✅ PrometheusPerformanceBridge initialized")
+
+    # Start background task to periodically export performance metrics
+    import asyncio
+
+    async def export_performance_metrics():
+        """Background task to export PerformanceMonitor metrics to Prometheus."""
+        while True:
+            try:
+                await asyncio.sleep(30)  # Export every 30 seconds
+                await prometheus_bridge.export_to_prometheus()
+            except Exception as e:
+                logger.error(f"Error exporting performance metrics: {e}")
+
+    asyncio.create_task(export_performance_metrics())
+    logger.info("✅ Performance metrics export task started (30s interval)")
+
+    # Start background task to periodically update graph health metrics
+    async def update_graph_health_metrics():
+        """
+        Background task to query Neo4j for graph health statistics.
+
+        Runs every 5 minutes to track:
+        - Graph density (avg relationships per entity)
+        - Relationship counts by layer
+        - Lateral relationship breakdown
+        - Blocking/dependency chains
+        - Orphaned entities
+        """
+        while True:
+            try:
+                await asyncio.sleep(300)  # Update every 5 minutes
+
+                # Query 1: Overall graph stats (entities, relationships, density)
+                query_stats = """
+                MATCH (n)
+                WITH count(n) as total_nodes
+                MATCH ()-[r]->()
+                WITH total_nodes, count(r) as total_rels
+                RETURN
+                    total_nodes,
+                    total_rels,
+                    CASE WHEN total_nodes > 0
+                         THEN toFloat(total_rels) / total_nodes
+                         ELSE 0.0
+                    END as density
+                """
+                result_stats = await neo4j_adapter.driver.execute_query(query_stats)
+                if result_stats.records:
+                    record = result_stats.records[0]
+                    prometheus_metrics.relationships.total_entities.labels(user_uid="system").set(
+                        record["total_nodes"]
+                    )
+                    prometheus_metrics.relationships.total_relationships.labels(user_uid="system").set(
+                        record["total_rels"]
+                    )
+                    prometheus_metrics.relationships.graph_density.labels(user_uid="system").set(
+                        record["density"]
+                    )
+
+                # Query 2: Orphaned entities (nodes with no relationships)
+                query_orphaned = """
+                MATCH (n)
+                WHERE NOT (n)-[]-()
+                RETURN count(n) as orphaned_count
+                """
+                result_orphaned = await neo4j_adapter.driver.execute_query(query_orphaned)
+                if result_orphaned.records:
+                    orphaned_count = result_orphaned.records[0]["orphaned_count"]
+                    prometheus_metrics.relationships.orphaned_entities.labels(user_uid="system").set(
+                        orphaned_count
+                    )
+
+                # Query 3: Specific relationship type counts
+                query_rel_types = """
+                MATCH ()-[r]->()
+                RETURN type(r) as rel_type, count(*) as count
+                """
+                result_rel_types = await neo4j_adapter.driver.execute_query(query_rel_types)
+
+                # Track specific relationship types
+                blocks_count = 0
+                enables_count = 0
+                contains_count = 0
+                organizes_count = 0
+
+                # Layer counts
+                hierarchical_count = 0
+                lateral_count = 0
+                semantic_count = 0
+                cross_domain_count = 0
+
+                # Lateral category counts
+                structural_count = 0  # SIBLING, COUSIN
+                dependency_count = 0  # BLOCKS, ENABLES
+                semantic_lateral_count = 0  # RELATED_TO, SIMILAR_TO
+                associative_count = 0  # ALTERNATIVE_TO, STACKS_WITH
+
+                for record in result_rel_types.records:
+                    rel_type = record["rel_type"]
+                    count = record["count"]
+
+                    # Specific types
+                    if rel_type == "BLOCKS":
+                        blocks_count = count
+                        dependency_count += count
+                        lateral_count += count
+                    elif rel_type == "ENABLES":
+                        enables_count = count
+                        dependency_count += count
+                        lateral_count += count
+                    elif rel_type == "CONTAINS":
+                        contains_count = count
+                        hierarchical_count += count
+                    elif rel_type == "ORGANIZES":
+                        organizes_count = count
+                        hierarchical_count += count
+                    elif rel_type in ("SIBLING", "COUSIN"):
+                        structural_count += count
+                        lateral_count += count
+                    elif rel_type in ("RELATED_TO", "SIMILAR_TO"):
+                        semantic_lateral_count += count
+                        lateral_count += count
+                    elif rel_type in ("ALTERNATIVE_TO", "STACKS_WITH"):
+                        associative_count += count
+                        lateral_count += count
+                    elif rel_type == "SERVES_LIFE_PATH":
+                        cross_domain_count += count
+                    elif ":" in rel_type:  # Semantic relationships (namespace:type)
+                        semantic_count += count
+
+                # Update specific relationship counts
+                prometheus_metrics.relationships.blocking_relationships.labels(user_uid="system").set(
+                    blocks_count
+                )
+                prometheus_metrics.relationships.enables_relationships.labels(user_uid="system").set(
+                    enables_count
+                )
+                prometheus_metrics.relationships.contains_relationships.labels(user_uid="system").set(
+                    contains_count
+                )
+                prometheus_metrics.relationships.organizes_relationships.labels(user_uid="system").set(
+                    organizes_count
+                )
+
+                # Update layer counts
+                prometheus_metrics.relationships.relationships_by_layer.labels(
+                    layer="hierarchical", user_uid="system"
+                ).set(hierarchical_count)
+                prometheus_metrics.relationships.relationships_by_layer.labels(
+                    layer="lateral", user_uid="system"
+                ).set(lateral_count)
+                prometheus_metrics.relationships.relationships_by_layer.labels(
+                    layer="semantic", user_uid="system"
+                ).set(semantic_count)
+                prometheus_metrics.relationships.relationships_by_layer.labels(
+                    layer="cross_domain", user_uid="system"
+                ).set(cross_domain_count)
+
+                # Update lateral category counts
+                prometheus_metrics.relationships.lateral_by_category.labels(
+                    category="structural", user_uid="system"
+                ).set(structural_count)
+                prometheus_metrics.relationships.lateral_by_category.labels(
+                    category="dependency", user_uid="system"
+                ).set(dependency_count)
+                prometheus_metrics.relationships.lateral_by_category.labels(
+                    category="semantic", user_uid="system"
+                ).set(semantic_lateral_count)
+                prometheus_metrics.relationships.lateral_by_category.labels(
+                    category="associative", user_uid="system"
+                ).set(associative_count)
+
+                logger.debug("✅ Graph health metrics updated")
+
+            except Exception as e:
+                logger.error(f"Error updating graph health metrics: {e}")
+
+    asyncio.create_task(update_graph_health_metrics())
+    logger.info("✅ Graph health metrics update task started (5 min interval)")
+
+    return neo4j_adapter, event_bus, prometheus_metrics
 
 
 async def _compose_services(
-    neo4j_adapter: Any, event_bus: EventBusOperations, config: UnifiedConfig
+    neo4j_adapter: Any,
+    event_bus: EventBusOperations,
+    config: UnifiedConfig,
+    prometheus_metrics: Any,
 ) -> tuple[Services, Any]:
     """
     Step 3: Compose all business services with dependency injection.
@@ -146,7 +355,7 @@ async def _compose_services(
         Tuple of (Services, KnowledgeUniversalBackend)
     """
     # Call compose_services which returns Result[tuple[Services, knowledge_backend]]
-    services_result = await compose_services(neo4j_adapter, event_bus, config)
+    services_result = await compose_services(neo4j_adapter, event_bus, config, prometheus_metrics)
 
     # Convert Result to exception at boundary
     if services_result.is_error:
@@ -166,9 +375,10 @@ async def _wire_routes(
     services: Services,
     knowledge_backend: Any,
     config: UnifiedConfig,
+    prometheus_metrics: Any,
 ) -> None:
     """Step 4: Wire all routes with explicit service dependencies"""
-    await _wire_all_routes(app, rt, services, knowledge_backend, config)
+    await _wire_all_routes(app, rt, services, knowledge_backend, config, prometheus_metrics)
     logger.info("✅ Routes wired with explicit dependencies")
 
 
@@ -267,6 +477,7 @@ async def _wire_all_routes(
     services: Services,
     knowledge_backend: Any,
     _config: UnifiedConfig,
+    prometheus_metrics: Any,
 ) -> None:
     """
     Wire all routes with explicit service dependencies using consolidated route files.
@@ -357,11 +568,27 @@ async def _wire_all_routes(
     create_monitoring_routes(app, rt, services)
     logger.info("✅ Monitoring routes registered (/api/monitoring/*)")
 
+    # Prometheus metrics endpoint (Phase 1 - Prometheus + Grafana Integration)
+    from adapters.inbound.metrics_routes import create_metrics_routes
+
+    create_metrics_routes(app, rt)
+    logger.info("✅ Prometheus metrics endpoint registered (/metrics)")
+
     # Core domain routes
     if services.tasks:
-        from adapters.inbound.tasks_routes import create_tasks_routes
+        from adapters.inbound.tasks_api import create_tasks_api_routes
 
-        create_tasks_routes(app, rt, services)
+        # Note: Switched to direct API route creation to pass prometheus_metrics
+        # TODO: Update DomainRouteConfig pattern to support prometheus_metrics
+        create_tasks_api_routes(
+            app,
+            rt,
+            services.tasks,
+            user_service=services.user_service,
+            goals_service=services.goals,
+            habits_service=services.habits,
+            prometheus_metrics=prometheus_metrics,
+        )
         logger.info("✅ Tasks routes registered (includes intelligence API)")
 
     if services.events:

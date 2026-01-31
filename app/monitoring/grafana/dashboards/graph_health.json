@@ -1,0 +1,440 @@
+{
+  "uid": "skuel-graph-health",
+  "title": "SKUEL Graph Health",
+  "description": "Graph density, relationship patterns, and lateral relationship tracking (Phase 4 - PRIMARY FOCUS)",
+  "tags": ["skuel", "graph", "relationships", "health"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "30m", "1h"]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "user_uid",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(skuel_graph_density, user_uid)",
+        "current": {
+          "text": "system",
+          "value": "system"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tagsQuery": "",
+        "type": "query"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Overall Graph Health",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "collapsed": false
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "Graph Density Score",
+      "description": "Average relationships per entity (higher = better connected)",
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 1},
+      "targets": [
+        {
+          "expr": "skuel_graph_density{user_uid=\"$user_uid\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "yellow", "value": 1.0},
+              {"color": "green", "value": 2.0},
+              {"color": "blue", "value": 3.0}
+            ]
+          },
+          "unit": "short",
+          "min": 0,
+          "max": 10
+        }
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total Entities",
+      "description": "Total nodes in the knowledge graph",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+      "targets": [
+        {
+          "expr": "skuel_total_entities{user_uid=\"$user_uid\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Total Relationships",
+      "description": "Total edges in the knowledge graph",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+      "targets": [
+        {
+          "expr": "skuel_total_relationships{user_uid=\"$user_uid\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Orphaned Entities",
+      "description": "Entities with NO relationships (isolated nodes)",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "targets": [
+        {
+          "expr": "skuel_orphaned_entities_count{user_uid=\"$user_uid\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "yellow", "value": 1},
+              {"color": "red", "value": 10}
+            ]
+          }
+        }
+      },
+      "options": {
+        "graphMode": "none",
+        "colorMode": "background",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Connectivity Ratio",
+      "description": "Relationships per entity (alternative view)",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 5},
+      "targets": [
+        {
+          "expr": "skuel_total_relationships{user_uid=\"$user_uid\"} / skuel_total_entities{user_uid=\"$user_uid\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "yellow", "value": 0.5},
+              {"color": "green", "value": 1.5}
+            ]
+          }
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Relationship Layers",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 9},
+      "collapsed": false
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Relationships by Layer (Stacked)",
+      "description": "Four relationship layers: Hierarchical, Lateral (FOCUS), Semantic, Cross-Domain",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 10},
+      "targets": [
+        {
+          "expr": "skuel_relationships_count{user_uid=\"$user_uid\", layer=\"hierarchical\"}",
+          "refId": "A",
+          "legendFormat": "Hierarchical (CONTAINS, ORGANIZES)"
+        },
+        {
+          "expr": "skuel_relationships_count{user_uid=\"$user_uid\", layer=\"lateral\"}",
+          "refId": "B",
+          "legendFormat": "Lateral (BLOCKS, ENABLES) ← FOCUS"
+        },
+        {
+          "expr": "skuel_relationships_count{user_uid=\"$user_uid\", layer=\"semantic\"}",
+          "refId": "C",
+          "legendFormat": "Semantic (80+ namespaced types)"
+        },
+        {
+          "expr": "skuel_relationships_count{user_uid=\"$user_uid\", layer=\"cross_domain\"}",
+          "refId": "D",
+          "legendFormat": "Cross-Domain (SERVES_LIFE_PATH)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 50,
+            "stacking": {"mode": "normal"}
+          },
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Hierarchical (CONTAINS, ORGANIZES)"}, "properties": [{"id": "color", "value": {"fixedColor": "blue", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "Lateral (BLOCKS, ENABLES) ← FOCUS"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "Semantic (80+ namespaced types)"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "Cross-Domain (SERVES_LIFE_PATH)"}, "properties": [{"id": "color", "value": {"fixedColor": "purple", "mode": "fixed"}}]}
+        ]
+      },
+      "options": {
+        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["last", "max"]}
+      }
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Lateral Relationships (PRIMARY FOCUS)",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 18},
+      "collapsed": false
+    },
+    {
+      "id": 10,
+      "type": "piechart",
+      "title": "Lateral Relationships by Category",
+      "description": "Breakdown: Structural (SIBLING), Dependency (BLOCKS/ENABLES), Semantic (RELATED_TO), Associative",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 19},
+      "targets": [
+        {
+          "expr": "skuel_lateral_relationships_by_category{user_uid=\"$user_uid\", category=\"structural\"}",
+          "refId": "A",
+          "legendFormat": "Structural"
+        },
+        {
+          "expr": "skuel_lateral_relationships_by_category{user_uid=\"$user_uid\", category=\"dependency\"}",
+          "refId": "B",
+          "legendFormat": "Dependency (BLOCKS/ENABLES)"
+        },
+        {
+          "expr": "skuel_lateral_relationships_by_category{user_uid=\"$user_uid\", category=\"semantic\"}",
+          "refId": "C",
+          "legendFormat": "Semantic"
+        },
+        {
+          "expr": "skuel_lateral_relationships_by_category{user_uid=\"$user_uid\", category=\"associative\"}",
+          "refId": "D",
+          "legendFormat": "Associative"
+        }
+      ],
+      "options": {
+        "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]},
+        "pieType": "pie",
+        "displayLabels": ["name", "percent"]
+      }
+    },
+    {
+      "id": 11,
+      "type": "gauge",
+      "title": "BLOCKS Relationships",
+      "description": "Active dependency blocks (Task A blocks Task B)",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 19},
+      "targets": [
+        {
+          "expr": "skuel_blocking_relationships_count{user_uid=\"$user_uid\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "yellow", "value": 20},
+              {"color": "orange", "value": 50},
+              {"color": "red", "value": 100}
+            ]
+          },
+          "min": 0
+        }
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 12,
+      "type": "gauge",
+      "title": "ENABLES Relationships",
+      "description": "Enablement relationships (completing A enables B)",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 19},
+      "targets": [
+        {
+          "expr": "skuel_enables_relationships_count{user_uid=\"$user_uid\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "blue", "value": 0},
+              {"color": "green", "value": 10},
+              {"color": "yellow", "value": 30}
+            ]
+          },
+          "min": 0
+        }
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 13,
+      "type": "row",
+      "title": "Hierarchical Patterns",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 27},
+      "collapsed": false
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "CONTAINS Relationships",
+      "description": "Parent → child containment",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 28},
+      "targets": [
+        {
+          "expr": "skuel_contains_relationships_count{user_uid=\"$user_uid\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "ORGANIZES Relationships",
+      "description": "MOC → KU organization (Montessori-style exploration)",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 28},
+      "targets": [
+        {
+          "expr": "skuel_organizes_relationships_count{user_uid=\"$user_uid\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Hierarchical Relationship Growth",
+      "description": "CONTAINS + ORGANIZES over time",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+      "targets": [
+        {
+          "expr": "skuel_contains_relationships_count{user_uid=\"$user_uid\"}",
+          "refId": "A",
+          "legendFormat": "CONTAINS"
+        },
+        {
+          "expr": "skuel_organizes_relationships_count{user_uid=\"$user_uid\"}",
+          "refId": "B",
+          "legendFormat": "ORGANIZES (MOC)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "legend": {"displayMode": "table", "placement": "bottom"}
+      }
+    }
+  ]
+}

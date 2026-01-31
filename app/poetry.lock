@@ -4492,19 +4492,17 @@ yarl = ">=1.20.1"
 
 [[package]]
 name = "prometheus-client"
-version = "0.24.1"
+version = "0.21.1"
 description = "Python client for the Prometheus monitoring system."
 optional = false
-python-versions = ">=3.9"
-groups = ["dev"]
+python-versions = ">=3.8"
+groups = ["main", "dev"]
 files = [
-    {file = "prometheus_client-0.24.1-py3-none-any.whl", hash = "sha256:150db128af71a5c2482b36e588fc8a6b95e498750da4b17065947c16070f4055"},
-    {file = "prometheus_client-0.24.1.tar.gz", hash = "sha256:7e0ced7fbbd40f7b84962d5d2ab6f17ef88a72504dcf7c0b40737b43b2a461f9"},
+    {file = "prometheus_client-0.21.1-py3-none-any.whl", hash = "sha256:594b45c410d6f4f8888940fe80b5cc2521b305a1fafe1c58609ef715a001f301"},
+    {file = "prometheus_client-0.21.1.tar.gz", hash = "sha256:252505a722ac04b0456be05c05f75f45d760c2911ffc45f2a06bcaed9f3ae3fb"},
 ]
 
 [package.extras]
-aiohttp = ["aiohttp"]
-django = ["django"]
 twisted = ["twisted"]
 
 [[package]]
@@ -7928,4 +7926,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "73896206771111a4c2469a35088b4a79d64e2dd2440de0dbf862dfae81752c07"
+content-hash = "63fdaa3f703019ffa01af05879c2f482c15d4077ce0430c6f7604abb77e4ef92"

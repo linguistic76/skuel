@@ -61,6 +61,7 @@ bcrypt = "^5.0.0"
 strawberry-graphql = "^0.289.0"  # GraphQL server with type safety (Pydantic 2.12+ compatible)
 supabase = "^2.23.0"
 weasyprint = "^67.0"
+prometheus-client = "^0.21.0"
 
 [tool.poetry.group.dev.dependencies]
 # Testing

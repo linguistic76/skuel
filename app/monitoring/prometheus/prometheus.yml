@@ -1,0 +1,20 @@
+# Prometheus Configuration for SKUEL
+# =====================================
+# Scrapes metrics from SKUEL application every 15 seconds.
+#
+# Scrape endpoint: http://skuel-app:8000/metrics
+# Prometheus UI: http://localhost:9090
+#
+# See: /docs/observability/PROMETHEUS_METRICS.md (to be created in Phase 5)
+
+global:
+  scrape_interval: 15s       # How often to scrape targets
+  evaluation_interval: 15s   # How often to evaluate recording/alerting rules
+
+scrape_configs:
+  - job_name: 'skuel-app'
+    static_configs:
+      - targets: ['192.168.1.26:8000']  # Host machine (app running outside Docker)
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
