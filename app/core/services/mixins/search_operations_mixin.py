@@ -90,12 +90,12 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         logger: Logger - For debug logging
         entity_label: str - Neo4j node label
         service_name: str - For error messages
-        _search_fields: list[str] - Fields to search
+        _search_fields: tuple[str, ...] - Fields to search
         _search_order_by: str - Default sort field
         _category_field: str - Field for categorization
         _dto_class: type[DTOProtocol] - DTO class
         _model_class: type[T] - Domain model class
-        _graph_enrichment_patterns: list - Graph enrichment config
+        _graph_enrichment_patterns: tuple - Graph enrichment config
         _user_ownership_relationship: str | None - Ownership relationship
         _to_domain_models: Conversion method
         _get_config_value: Config accessor method
@@ -105,12 +105,12 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     backend: B
     logger: Logger
     service_name: str
-    _search_fields: ClassVar[list[str]]
+    _search_fields: ClassVar[tuple[str, ...]]
     _search_order_by: str
     _category_field: str
     _dto_class: type[DTOProtocol] | None
     _model_class: type[T] | None
-    _graph_enrichment_patterns: ClassVar[list[tuple[str, str, str] | tuple[str, str, str, str]]]
+    _graph_enrichment_patterns: ClassVar[tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]]
     _user_ownership_relationship: ClassVar[str | None]
 
     @property
@@ -166,7 +166,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         with OR semantics across multiple fields (case-insensitive CONTAINS).
 
         **Class Attributes Used:**
-        - _search_fields: Fields to search (default: ["title", "description"])
+        - _search_fields: Fields to search (default: ("title", "description"))
         - _search_order_by: Field to order results by (default: "created_at")
         - _dto_class: DTO class for conversion
         - _model_class: Domain model class for conversion

@@ -242,6 +242,8 @@ def create_activity_domain_config(
 
     Uses centralized relationship registry for graph patterns.
 
+    **FAIL-FAST (2026-01-31):** Validates entity exists in all registries at configuration time.
+
     Args:
         dto_class: The DTO class
         model_class: The domain model class
@@ -254,6 +256,9 @@ def create_activity_domain_config(
 
     Returns:
         Configured DomainConfig for the activity domain
+
+    Raises:
+        ValueError: If entity not found in required registries
     """
     # Import here to avoid circular imports
     from core.models.relationship_registry import (
@@ -263,6 +268,23 @@ def create_activity_domain_config(
     )
 
     entity_label = model_class.__name__
+
+    # FAIL-FAST: Validate entity exists in all registries
+    if entity_label not in GRAPH_ENRICHMENT_REGISTRY:
+        raise ValueError(
+            f"Entity '{entity_label}' not found in GRAPH_ENRICHMENT_REGISTRY. "
+            f"Add to /core/models/relationship_registry.py before creating DomainConfig."
+        )
+    if entity_label not in PREREQUISITE_REGISTRY:
+        raise ValueError(
+            f"Entity '{entity_label}' not found in PREREQUISITE_REGISTRY. "
+            f"Add to /core/models/relationship_registry.py before creating DomainConfig."
+        )
+    if entity_label not in ENABLES_REGISTRY:
+        raise ValueError(
+            f"Entity '{entity_label}' not found in ENABLES_REGISTRY. "
+            f"Add to /core/models/relationship_registry.py before creating DomainConfig."
+        )
 
     return DomainConfig(
         dto_class=dto_class,
@@ -274,9 +296,9 @@ def create_activity_domain_config(
         category_field=category_field,
         search_fields=search_fields or ("title", "description"),
         search_order_by=search_order_by or "created_at",
-        graph_enrichment_patterns=tuple(GRAPH_ENRICHMENT_REGISTRY.get(entity_label, [])),
-        prerequisite_relationships=tuple(PREREQUISITE_REGISTRY.get(entity_label, [])),
-        enables_relationships=tuple(ENABLES_REGISTRY.get(entity_label, [])),
+        graph_enrichment_patterns=tuple(GRAPH_ENRICHMENT_REGISTRY[entity_label]),
+        prerequisite_relationships=tuple(PREREQUISITE_REGISTRY[entity_label]),
+        enables_relationships=tuple(ENABLES_REGISTRY[entity_label]),
         user_ownership_relationship="OWNS",
         supports_user_progress=True,
     )
@@ -290,11 +312,17 @@ def create_curriculum_domain_config(
     search_order_by: str = "updated_at",
     category_field: str = "domain",
     content_field: str = "content",
+    supports_user_progress: bool = True,
+    user_ownership_relationship: str | None = None,
+    prerequisite_relationships: tuple[str, ...] | None = None,
+    enables_relationships: tuple[str, ...] | None = None,
 ) -> DomainConfig:
     """
     Factory for creating Curriculum Domain configurations.
 
     Curriculum domains (KU, LS, LP, MOC) are shared content without user ownership.
+
+    **FAIL-FAST (2026-01-31):** Validates entity exists in registries when using defaults.
 
     Args:
         dto_class: The DTO class
@@ -304,9 +332,16 @@ def create_curriculum_domain_config(
         search_order_by: Default sort field (default: "updated_at" for curriculum)
         category_field: Field for category filtering (default: "domain")
         content_field: Field containing main content (default: "content")
+        supports_user_progress: Whether domain supports mastery tracking (default: True)
+        user_ownership_relationship: Ownership relationship type (default: None for shared)
+        prerequisite_relationships: Override relationship types for prerequisites (default: from registry)
+        enables_relationships: Override relationship types for enables (default: from registry)
 
     Returns:
         Configured DomainConfig for the curriculum domain
+
+    Raises:
+        ValueError: If entity not found in registries when using defaults
     """
     from core.models.relationship_registry import (
         ENABLES_REGISTRY,
@@ -315,6 +350,37 @@ def create_curriculum_domain_config(
     )
 
     entity_label = model_class.__name__
+
+    # FAIL-FAST: Validate entity exists in registries when using defaults
+    if prerequisite_relationships is None and entity_label not in PREREQUISITE_REGISTRY:
+        raise ValueError(
+            f"Entity '{entity_label}' not found in PREREQUISITE_REGISTRY. "
+            f"Either provide prerequisite_relationships explicitly or add to "
+            f"/core/models/relationship_registry.py"
+        )
+    if enables_relationships is None and entity_label not in ENABLES_REGISTRY:
+        raise ValueError(
+            f"Entity '{entity_label}' not found in ENABLES_REGISTRY. "
+            f"Either provide enables_relationships explicitly or add to "
+            f"/core/models/relationship_registry.py"
+        )
+    if entity_label not in GRAPH_ENRICHMENT_REGISTRY:
+        raise ValueError(
+            f"Entity '{entity_label}' not found in GRAPH_ENRICHMENT_REGISTRY. "
+            f"Add to /core/models/relationship_registry.py before creating DomainConfig."
+        )
+
+    # Use provided relationships or fall back to registry
+    final_prerequisite_relationships = (
+        prerequisite_relationships
+        if prerequisite_relationships is not None
+        else tuple(PREREQUISITE_REGISTRY[entity_label])
+    )
+    final_enables_relationships = (
+        enables_relationships
+        if enables_relationships is not None
+        else tuple(ENABLES_REGISTRY[entity_label])
+    )
 
     return DomainConfig(
         dto_class=dto_class,
@@ -325,9 +391,9 @@ def create_curriculum_domain_config(
         search_order_by=search_order_by,
         category_field=category_field,
         content_field=content_field,
-        graph_enrichment_patterns=tuple(GRAPH_ENRICHMENT_REGISTRY.get(entity_label, [])),
-        prerequisite_relationships=tuple(PREREQUISITE_REGISTRY.get(entity_label, [])),
-        enables_relationships=tuple(ENABLES_REGISTRY.get(entity_label, [])),
-        user_ownership_relationship=None,  # Shared content
-        supports_user_progress=True,  # Curriculum supports mastery tracking
+        graph_enrichment_patterns=tuple(GRAPH_ENRICHMENT_REGISTRY[entity_label]),
+        prerequisite_relationships=final_prerequisite_relationships,
+        enables_relationships=final_enables_relationships,
+        user_ownership_relationship=user_ownership_relationship,
+        supports_user_progress=supports_user_progress,
     )

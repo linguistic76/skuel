@@ -160,7 +160,7 @@ def build_search_query(
 def build_text_search_query(
     entity_class: type[T],
     query: str,
-    search_fields: list[str] | None = None,
+    search_fields: tuple[str, ...] | list[str] | None = None,
     label: str | None = None,
     limit: int = 50,
     order_by: str = "created_at",
@@ -175,7 +175,7 @@ def build_text_search_query(
     Args:
         entity_class: Domain model class (must be dataclass)
         query: Search text (case-insensitive)
-        search_fields: Fields to search (default: ["title", "description"])
+        search_fields: Fields to search (default: ("title", "description"))
         label: Neo4j label (defaults to class name)
         limit: Maximum results (default 50)
         order_by: Field to sort by (default "created_at")
@@ -189,7 +189,7 @@ def build_text_search_query(
         query, params = build_text_search_query(
             Goal,
             "health improvement",
-            search_fields=["title", "description"],
+            search_fields=("title", "description"),
             limit=20
         )
     """
@@ -200,7 +200,7 @@ def build_text_search_query(
 
     # Default to title and description if not specified
     if search_fields is None:
-        search_fields = ["title", "description"]
+        search_fields = ("title", "description")
 
     # Validate search fields exist in model
     valid_fields = {f.name for f in fields(entity_class)}
@@ -299,7 +299,7 @@ def build_graph_aware_search_query(
     query: str,
     source_uid: str,
     relationship_type: str,
-    search_fields: list[str] | None = None,
+    search_fields: tuple[str, ...] | list[str] | None = None,
     label: str | None = None,
     direction: str = "outgoing",
     limit: int = 50,
@@ -319,7 +319,7 @@ def build_graph_aware_search_query(
         query: Search text (case-insensitive)
         source_uid: UID of the related entity to traverse from
         relationship_type: Relationship type name (e.g., "ENABLES", "FULFILLS_GOAL")
-        search_fields: Fields to search (default: ["title", "description"])
+        search_fields: Fields to search (default: ("title", "description"))
         label: Neo4j label (defaults to class name)
         direction: "outgoing", "incoming", or "both" (default "outgoing")
         limit: Maximum results (default 50)
@@ -336,7 +336,7 @@ def build_graph_aware_search_query(
             query="machine learning",
             source_uid="ku.python-basics",
             relationship_type="ENABLES",
-            search_fields=["title", "content"],
+            search_fields=("title", "content"),
             direction="incoming",  # KUs that are enabled BY python-basics
         )
 
@@ -356,7 +356,7 @@ def build_graph_aware_search_query(
 
     # Default to title and description if not specified
     if search_fields is None:
-        search_fields = ["title", "description"]
+        search_fields = ("title", "description")
 
     # Validate search fields exist in model
     valid_fields = {f.name for f in fields(entity_class)}
