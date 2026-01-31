@@ -320,7 +320,9 @@ class InsightStore:
                 )
             )
 
-    async def dismiss_insight(self, uid: str, user_uid: str) -> Result[None]:
+    async def dismiss_insight(
+        self, uid: str, user_uid: str, notes: str = ""
+    ) -> Result[None]:
         """
         Mark an insight as dismissed by the user.
 
@@ -329,6 +331,7 @@ class InsightStore:
         Args:
             uid: Insight UID
             user_uid: User who owns the insight
+            notes: Optional notes explaining why dismissed (Phase 4, Task 17)
 
         Returns:
             Result indicating success
@@ -336,11 +339,15 @@ class InsightStore:
         try:
             query = """
             MATCH (i:Insight {uid: $uid, user_uid: $user_uid})
-            SET i.dismissed = true, i.dismissed_at = datetime()
+            SET i.dismissed = true,
+                i.dismissed_at = datetime(),
+                i.dismissed_notes = $notes
             RETURN i.uid as uid
             """
 
-            result = await self.driver.execute_query(query, {"uid": uid, "user_uid": user_uid})
+            result = await self.driver.execute_query(
+                query, {"uid": uid, "user_uid": user_uid, "notes": notes}
+            )
 
             if result.records:
                 self.logger.info(
@@ -360,7 +367,9 @@ class InsightStore:
                 )
             )
 
-    async def mark_actioned(self, uid: str, user_uid: str) -> Result[None]:
+    async def mark_actioned(
+        self, uid: str, user_uid: str, notes: str = ""
+    ) -> Result[None]:
         """
         Mark an insight as actioned by the user.
 
@@ -369,6 +378,7 @@ class InsightStore:
         Args:
             uid: Insight UID
             user_uid: User who owns the insight
+            notes: Optional notes describing action taken (Phase 4, Task 17)
 
         Returns:
             Result indicating success
@@ -376,11 +386,15 @@ class InsightStore:
         try:
             query = """
             MATCH (i:Insight {uid: $uid, user_uid: $user_uid})
-            SET i.actioned = true, i.actioned_at = datetime()
+            SET i.actioned = true,
+                i.actioned_at = datetime(),
+                i.actioned_notes = $notes
             RETURN i.uid as uid
             """
 
-            result = await self.driver.execute_query(query, {"uid": uid, "user_uid": user_uid})
+            result = await self.driver.execute_query(
+                query, {"uid": uid, "user_uid": user_uid, "notes": notes}
+            )
 
             if result.records:
                 self.logger.info(
@@ -432,6 +446,68 @@ class InsightStore:
                 Errors.database(
                     message=f"Failed to cleanup expired insights: {e}",
                     operation="cleanup_expired",
+                )
+            )
+
+    async def get_insight_history(
+        self,
+        user_uid: str,
+        history_type: str = "all",
+        limit: int = 50,
+    ) -> Result[list[PersistedInsight]]:
+        """
+        Get dismissed or actioned insights for history page.
+
+        Phase 4, Task 17: Action tracking and audit trail.
+
+        Args:
+            user_uid: User's UID
+            history_type: Filter type - "dismissed", "actioned", or "all"
+            limit: Maximum number of insights to return
+
+        Returns:
+            Result containing list of historical insights
+        """
+        try:
+            # Build WHERE clause based on history type
+            if history_type == "dismissed":
+                where_clause = "AND i.dismissed = true"
+            elif history_type == "actioned":
+                where_clause = "AND i.actioned = true"
+            else:  # "all"
+                where_clause = "AND (i.dismissed = true OR i.actioned = true)"
+
+            query = f"""
+            MATCH (i:Insight {{user_uid: $user_uid}})
+            WHERE true {where_clause}
+            RETURN i
+            ORDER BY coalesce(i.dismissed_at, i.actioned_at) DESC
+            LIMIT $limit
+            """
+
+            result = await self.driver.execute_query(
+                query,
+                {"user_uid": user_uid, "limit": limit},
+            )
+
+            insights = []
+            for record in result.records:
+                node_data = dict(record["i"])
+                insight = PersistedInsight.from_dict(node_data)
+                insights.append(insight)
+
+            self.logger.debug(
+                f"Retrieved {len(insights)} historical insights",
+                extra={"user_uid": user_uid, "history_type": history_type},
+            )
+            return Result.ok(insights)
+
+        except Exception as e:
+            self.logger.error(f"Error getting insight history: {e}", exc_info=True)
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to get insight history: {e}",
+                    operation="get_insight_history",
                 )
             )
 
@@ -541,9 +617,7 @@ class InsightStore:
                 count = record["count"]
                 domain_counts[domain] = count
 
-            self.logger.debug(
-                f"Retrieved insight counts for user {user_uid}: {domain_counts}"
-            )
+            self.logger.debug(f"Retrieved insight counts for user {user_uid}: {domain_counts}")
             return Result.ok(domain_counts)
 
         except Exception as e:

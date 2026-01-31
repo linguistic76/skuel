@@ -113,7 +113,10 @@ def _insight_badge(insight_count: int) -> Optional["FT"]:
 
 
 def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
-    """Single domain navigation item."""
+    """Single domain navigation item.
+
+    Phase 3, Task 14: Added closeOnMobile() to auto-close drawer on mobile after navigation.
+    """
     active_cls = "menu-active" if is_active else ""
 
     # Build badges - include insight badge if available
@@ -137,6 +140,7 @@ def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
             ),
             href=domain.href,
             cls=f"flex items-center gap-2 {active_cls}",
+            x_on_click="closeOnMobile()",  # Close drawer on mobile after click
             **{"hx-boost": "false"},  # Ensure standard navigation
         )
     )
@@ -174,6 +178,7 @@ class ProfileLayout:
             FastHTML content (Div with navbar + sidebar layout)
             NOT a full HTML document - FastHTML wraps this automatically
         """
+        # Phase 3, Task 14: Profile drawer with swipe gestures and smart persistence
         return Div(
             # Top Navbar
             create_navbar(
@@ -188,33 +193,38 @@ class ProfileLayout:
                 type="checkbox",
                 id="profile-drawer",
                 cls="peer hidden",
+                x_model="isOpen",  # Sync with Alpine state
             ),
             # Mobile overlay (appears when drawer is open)
             Label(
                 htmlFor="profile-drawer",
                 cls="fixed inset-0 z-30 bg-black/50 hidden peer-checked:block lg:hidden",
+                x_on_click="close()",  # Close via Alpine method
                 **{"aria-label": "close sidebar"},
             ),
-            # Mobile sidebar (slides in from left)
+            # Mobile sidebar (slides in from left) with touch handlers
             Div(
                 self._build_sidebar_menu(),
                 cls="fixed left-0 top-0 z-40 h-full w-64 -translate-x-full transform bg-base-200 transition-transform duration-300 peer-checked:translate-x-0 lg:hidden",
+                x_on_touchstart="handleTouchStart",
+                x_on_touchmove="handleTouchMove",
+                x_on_touchend="handleTouchEnd",
             ),
             # Main layout (desktop sidebar + content)
             Div(
-                # Desktop sidebar (always visible on lg+)
+                # Desktop sidebar (always visible on lg+, smart persistence on md)
                 Div(
                     self._build_sidebar_menu(),
                     cls="hidden lg:block w-64 shrink-0 bg-base-200 min-h-[calc(100vh-64px)] sticky top-16",
                 ),
-                # Main content area
+                # Main content area with touch handlers
                 Div(
                     # Mobile menu button
-                    Label(
+                    Div(
                         Span("☰", cls="text-xl"),
                         Span("Menu", cls="ml-2"),
-                        htmlFor="profile-drawer",
                         cls="btn btn-ghost lg:hidden mb-4",
+                        x_on_click="toggle()",  # Toggle via Alpine method
                     ),
                     # Page content
                     Main(
@@ -222,10 +232,15 @@ class ProfileLayout:
                         cls="p-6 lg:p-8",
                     ),
                     cls="flex-1 min-w-0",
+                    x_on_touchstart="handleTouchStart",
+                    x_on_touchmove="handleTouchMove",
+                    x_on_touchend="handleTouchEnd",
                 ),
                 cls="flex",
             ),
             cls="min-h-screen bg-base-100",
+            x_data="profileDrawer()",  # Initialize Alpine component
+            x_init="$nextTick(() => init())",  # Initialize on mount
             **{"data-theme": "light"},
         )
 

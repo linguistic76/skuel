@@ -145,9 +145,15 @@ class PersistedInsight:
     # Expiration (None = never expires)
     expires_at: datetime | None = None
 
-    # Lifecycle flags
+    # Lifecycle flags (Phase 4, Task 17: Action tracking)
     dismissed: bool = False
     actioned: bool = False
+
+    # Action tracking (Phase 4, Task 17: Audit trail)
+    dismissed_at: datetime | None = None
+    dismissed_notes: str = ""
+    actioned_at: datetime | None = None
+    actioned_notes: str = ""
 
     def __post_init__(self) -> None:
         """Validate insight on creation."""
@@ -236,6 +242,10 @@ class PersistedInsight:
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "dismissed": self.dismissed,
             "actioned": self.actioned,
+            "dismissed_at": self.dismissed_at.isoformat() if self.dismissed_at else None,
+            "dismissed_notes": self.dismissed_notes,
+            "actioned_at": self.actioned_at.isoformat() if self.actioned_at else None,
+            "actioned_notes": self.actioned_notes,
             "is_active": self.is_active(),
             "priority_score": self.priority_score(),
         }
@@ -253,6 +263,15 @@ class PersistedInsight:
         expires_at = data.get("expires_at")
         if isinstance(expires_at, str):
             expires_at = datetime.fromisoformat(expires_at)
+
+        # Parse action tracking timestamps (Phase 4, Task 17)
+        dismissed_at = data.get("dismissed_at")
+        if isinstance(dismissed_at, str):
+            dismissed_at = datetime.fromisoformat(dismissed_at)
+
+        actioned_at = data.get("actioned_at")
+        if isinstance(actioned_at, str):
+            actioned_at = datetime.fromisoformat(actioned_at)
 
         # Parse enum fields
         insight_type = data.get("insight_type")
@@ -280,4 +299,8 @@ class PersistedInsight:
             expires_at=expires_at,
             dismissed=data.get("dismissed", False),
             actioned=data.get("actioned", False),
+            dismissed_at=dismissed_at,
+            dismissed_notes=data.get("dismissed_notes", ""),
+            actioned_at=actioned_at,
+            actioned_notes=data.get("actioned_notes", ""),
         )

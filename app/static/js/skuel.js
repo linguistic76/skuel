@@ -1913,6 +1913,590 @@
             };
         });
 
+        // ---------------------------------------------------------------------
+        // Profile Domain Filter Component (Phase 3, Task 12)
+        // ---------------------------------------------------------------------
+        /**
+         * Manages sorting and filtering for profile domain views.
+         * Used in Tasks, Goals, Habits, Events, Choices, Principles domain views.
+         *
+         * @returns {Object} Alpine.js component
+         *
+         * @example
+         * <div x-data="domainFilter()">
+         *   <select x-model="sortBy">
+         *     <option value="priority">Priority</option>
+         *     <option value="due_date">Due Date</option>
+         *   </select>
+         *   <div x-show="matchesFilter(item)">...</div>
+         * </div>
+         */
+        Alpine.data('domainFilter', function() {
+            return {
+                sortBy: 'priority',  // priority, due_date, created, title
+                filterPreset: 'all', // all, overdue, high_priority, this_week
+                showAll: false,      // Show all items vs limited view
+
+                // Sort options by domain type
+                getSortOptions: function(domainType) {
+                    var common = [
+                        { value: 'title', label: 'Alphabetical' },
+                        { value: 'created', label: 'Recently Created' }
+                    ];
+
+                    if (domainType === 'tasks') {
+                        return [
+                            { value: 'priority', label: 'Priority' },
+                            { value: 'due_date', label: 'Due Date' }
+                        ].concat(common);
+                    } else if (domainType === 'goals') {
+                        return [
+                            { value: 'priority', label: 'Priority' },
+                            { value: 'target_date', label: 'Target Date' },
+                            { value: 'progress', label: 'Progress' }
+                        ].concat(common);
+                    } else if (domainType === 'habits') {
+                        return [
+                            { value: 'streak', label: 'Streak' },
+                            { value: 'frequency', label: 'Frequency' }
+                        ].concat(common);
+                    } else if (domainType === 'events') {
+                        return [
+                            { value: 'start_date', label: 'Start Date' }
+                        ].concat(common);
+                    } else {
+                        return common;
+                    }
+                },
+
+                // Filter presets by domain type
+                getFilterPresets: function(domainType) {
+                    if (domainType === 'tasks') {
+                        return [
+                            { value: 'all', label: 'All Tasks' },
+                            { value: 'overdue', label: 'Overdue' },
+                            { value: 'high_priority', label: 'High Priority' },
+                            { value: 'this_week', label: 'Due This Week' }
+                        ];
+                    } else if (domainType === 'goals') {
+                        return [
+                            { value: 'all', label: 'All Goals' },
+                            { value: 'at_risk', label: 'At Risk' },
+                            { value: 'near_complete', label: 'Almost Done' }
+                        ];
+                    } else if (domainType === 'habits') {
+                        return [
+                            { value: 'all', label: 'All Habits' },
+                            { value: 'at_risk', label: 'At Risk' },
+                            { value: 'keystone', label: 'Keystone Habits' }
+                        ];
+                    } else if (domainType === 'events') {
+                        return [
+                            { value: 'all', label: 'All Events' },
+                            { value: 'today', label: 'Today' },
+                            { value: 'this_week', label: 'This Week' }
+                        ];
+                    } else {
+                        return [
+                            { value: 'all', label: 'All' }
+                        ];
+                    }
+                },
+
+                // Check if item matches current filter
+                matchesFilter: function(status, isOverdue, isHighPriority, isThisWeek) {
+                    if (this.filterPreset === 'all') return true;
+                    if (this.filterPreset === 'overdue') return isOverdue === true;
+                    if (this.filterPreset === 'high_priority') return isHighPriority === true;
+                    if (this.filterPreset === 'this_week') return isThisWeek === true;
+                    if (this.filterPreset === 'at_risk') return status === 'warning' || status === 'at_risk';
+                    if (this.filterPreset === 'keystone') return status === 'keystone';
+                    if (this.filterPreset === 'today') return status === 'today';
+                    if (this.filterPreset === 'near_complete') return status === 'near_complete';
+                    return true;
+                },
+
+                // Toggle show all
+                toggleShowAll: function() {
+                    this.showAll = !this.showAll;
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
+        // Insight Detail Modal Component (Phase 3, Task 13)
+        // ---------------------------------------------------------------------
+        /**
+         * Modal for displaying detailed insight information with transparency.
+         * Shows full description, supporting data, confidence breakdown, and snooze options.
+         *
+         * @param {string} insightUid - Insight UID to load details for
+         * @returns {Object} Alpine.js component
+         *
+         * @example
+         * <div x-data="insightDetailModal('insight.difficulty_pattern.habit_abc123.20260131')">
+         *   <button @click="open()">View Details</button>
+         *   <div x-show="isOpen" class="modal">...</div>
+         * </div>
+         */
+        Alpine.data('insightDetailModal', function(insightUid) {
+            return {
+                isOpen: false,
+                loading: false,
+                error: null,
+                insight: null,
+                insightUid: insightUid,
+
+                open: function() {
+                    this.isOpen = true;
+                    if (!this.insight) {
+                        this.loadDetails();
+                    }
+                },
+
+                close: function() {
+                    this.isOpen = false;
+                },
+
+                loadDetails: function() {
+                    var self = this;
+                    self.loading = true;
+                    self.error = null;
+
+                    fetch('/api/insights/' + this.insightUid + '/details')
+                        .then(function(response) {
+                            if (!response.ok) {
+                                throw new Error('Failed to load insight details');
+                            }
+                            return response.json();
+                        })
+                        .then(function(data) {
+                            self.insight = data;
+                            self.loading = false;
+                        })
+                        .catch(function(err) {
+                            self.error = err.message;
+                            self.loading = false;
+                            SKUEL.debug('Failed to load insight details', err);
+                        });
+                },
+
+                snooze: function(days) {
+                    var self = this;
+                    if (!confirm('Snooze this insight for ' + days + ' day(s)?')) {
+                        return;
+                    }
+
+                    fetch('/api/insights/' + this.insightUid + '/snooze', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({days: days})
+                    })
+                        .then(function(response) {
+                            if (!response.ok) {
+                                throw new Error('Failed to snooze insight');
+                            }
+                            self.close();
+                            // Reload page or remove card
+                            window.location.reload();
+                        })
+                        .catch(function(err) {
+                            alert('Failed to snooze insight: ' + err.message);
+                        });
+                },
+
+                // Get color class for confidence level
+                getConfidenceColor: function(confidence) {
+                    if (confidence >= 0.8) return 'text-success';
+                    if (confidence >= 0.6) return 'text-warning';
+                    return 'text-error';
+                },
+
+                // Get label for confidence level
+                getConfidenceLabel: function(confidence) {
+                    if (confidence >= 0.8) return 'High Confidence';
+                    if (confidence >= 0.6) return 'Medium Confidence';
+                    return 'Low Confidence';
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
+        // Profile Drawer Component (Phase 3, Task 14)
+        // ---------------------------------------------------------------------
+        /**
+         * Manages profile sidebar drawer with swipe gestures and smart persistence.
+         * Handles mobile drawer state, swipe-to-open/close, and localStorage persistence.
+         *
+         * @returns {Object} Alpine.js component
+         *
+         * @example
+         * <div x-data="profileDrawer()">
+         *   <input type="checkbox" id="profile-drawer" x-model="isOpen">
+         *   <div @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
+         *     <!-- Content -->
+         *   </div>
+         * </div>
+         */
+        Alpine.data('profileDrawer', function() {
+            return {
+                isOpen: false,
+                touchStartX: 0,
+                touchCurrentX: 0,
+                isSwiping: false,
+
+                init: function() {
+                    // Restore drawer state from localStorage
+                    var stored = localStorage.getItem('profile-drawer-open');
+                    if (stored !== null) {
+                        this.isOpen = stored === 'true';
+                    }
+
+                    // On tablet/desktop (≥768px), keep drawer open by default
+                    if (window.innerWidth >= 768 && stored === null) {
+                        this.isOpen = true;
+                    }
+
+                    // Sync with checkbox
+                    var checkbox = document.getElementById('profile-drawer');
+                    if (checkbox) {
+                        checkbox.checked = this.isOpen;
+                    }
+
+                    // Watch for window resize
+                    var self = this;
+                    window.addEventListener('resize', function() {
+                        // Auto-open on tablet+ if not explicitly closed
+                        if (window.innerWidth >= 768 && localStorage.getItem('profile-drawer-open') !== 'false') {
+                            self.isOpen = true;
+                            if (checkbox) checkbox.checked = true;
+                        }
+                    });
+                },
+
+                toggle: function() {
+                    this.isOpen = !this.isOpen;
+                    this.saveState();
+                },
+
+                open: function() {
+                    this.isOpen = true;
+                    this.saveState();
+                },
+
+                close: function() {
+                    this.isOpen = false;
+                    this.saveState();
+                },
+
+                saveState: function() {
+                    localStorage.setItem('profile-drawer-open', this.isOpen.toString());
+                    // Sync with checkbox
+                    var checkbox = document.getElementById('profile-drawer');
+                    if (checkbox) {
+                        checkbox.checked = this.isOpen;
+                    }
+                },
+
+                // Touch event handlers for swipe gestures
+                handleTouchStart: function(event) {
+                    this.touchStartX = event.touches[0].clientX;
+                    this.isSwiping = true;
+                },
+
+                handleTouchMove: function(event) {
+                    if (!this.isSwiping) return;
+                    this.touchCurrentX = event.touches[0].clientX;
+                },
+
+                handleTouchEnd: function(event) {
+                    if (!this.isSwiping) return;
+                    this.isSwiping = false;
+
+                    var deltaX = this.touchCurrentX - this.touchStartX;
+                    var threshold = 50; // Minimum swipe distance in pixels
+
+                    // Swipe right to open (only if starting from left edge)
+                    if (deltaX > threshold && this.touchStartX < 50 && !this.isOpen) {
+                        this.open();
+                    }
+                    // Swipe left to close
+                    else if (deltaX < -threshold && this.isOpen) {
+                        this.close();
+                    }
+
+                    // Reset
+                    this.touchStartX = 0;
+                    this.touchCurrentX = 0;
+                },
+
+                // Close drawer on mobile after navigation (optional)
+                closeOnMobile: function() {
+                    if (window.innerWidth < 768) {
+                        this.close();
+                    }
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
+        // Profile Intelligence Cache Component (Phase 4, Task 15)
+        // ---------------------------------------------------------------------
+        /**
+         * Caches profile intelligence data with background refresh.
+         * Uses localStorage to persist data and reduce 2-3s load times.
+         *
+         * @returns {Object} Alpine.js component
+         *
+         * @example
+         * <div x-data="intelligenceCache()">
+         *   <div x-show="loading && !hasCache">Loading...</div>
+         *   <div x-show="hasCache" x-html="intelligenceHtml"></div>
+         *   <span x-text="lastUpdatedText"></span>
+         * </div>
+         */
+        Alpine.data('intelligenceCache', function() {
+            return {
+                intelligenceHtml: '',
+                lastUpdated: null,
+                loading: false,
+                error: null,
+                refreshInterval: null,
+
+                // Computed: has cached data
+                get hasCache() {
+                    return this.intelligenceHtml !== '';
+                },
+
+                // Computed: last updated text
+                get lastUpdatedText() {
+                    if (!this.lastUpdated) return '';
+
+                    var now = new Date();
+                    var updated = new Date(this.lastUpdated);
+                    var diffMinutes = Math.floor((now - updated) / 60000);
+
+                    if (diffMinutes < 1) return 'Updated just now';
+                    if (diffMinutes === 1) return 'Updated 1 minute ago';
+                    if (diffMinutes < 60) return 'Updated ' + diffMinutes + ' minutes ago';
+
+                    var diffHours = Math.floor(diffMinutes / 60);
+                    if (diffHours === 1) return 'Updated 1 hour ago';
+                    return 'Updated ' + diffHours + ' hours ago';
+                },
+
+                init: function() {
+                    var self = this;
+
+                    // Load from localStorage
+                    this.loadFromCache();
+
+                    // Fetch fresh data (optimistic - show cache while loading)
+                    this.refresh();
+
+                    // Set up auto-refresh every 5 minutes
+                    this.refreshInterval = setInterval(function() {
+                        self.refresh();
+                    }, 5 * 60 * 1000); // 5 minutes
+
+                    // Clean up interval on component destroy
+                    this.$cleanup = function() {
+                        if (self.refreshInterval) {
+                            clearInterval(self.refreshInterval);
+                        }
+                    };
+                },
+
+                loadFromCache: function() {
+                    try {
+                        var cached = localStorage.getItem('profile-intelligence-cache');
+                        if (cached) {
+                            var data = JSON.parse(cached);
+                            this.intelligenceHtml = data.html || '';
+                            this.lastUpdated = data.timestamp || null;
+
+                            // Check if cache is stale (> 5 minutes)
+                            if (this.lastUpdated) {
+                                var age = Date.now() - new Date(this.lastUpdated).getTime();
+                                if (age > 5 * 60 * 1000) {
+                                    SKUEL.debug('Intelligence cache is stale, will refresh');
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        SKUEL.debug('Failed to load intelligence from cache', e);
+                    }
+                },
+
+                saveToCache: function() {
+                    try {
+                        var data = {
+                            html: this.intelligenceHtml,
+                            timestamp: this.lastUpdated
+                        };
+                        localStorage.setItem('profile-intelligence-cache', JSON.stringify(data));
+                    } catch (e) {
+                        SKUEL.debug('Failed to save intelligence to cache', e);
+                    }
+                },
+
+                refresh: function() {
+                    var self = this;
+                    self.loading = true;
+                    self.error = null;
+
+                    fetch('/api/profile/intelligence-section')
+                        .then(function(response) {
+                            if (!response.ok) {
+                                throw new Error('Failed to load intelligence data');
+                            }
+                            return response.text();
+                        })
+                        .then(function(html) {
+                            self.intelligenceHtml = html;
+                            self.lastUpdated = new Date().toISOString();
+                            self.saveToCache();
+                            self.loading = false;
+                        })
+                        .catch(function(err) {
+                            self.error = err.message;
+                            self.loading = false;
+                            SKUEL.debug('Failed to refresh intelligence', err);
+                        });
+                },
+
+                invalidate: function() {
+                    // Clear cache and force refresh
+                    this.intelligenceHtml = '';
+                    this.lastUpdated = null;
+                    localStorage.removeItem('profile-intelligence-cache');
+                    this.refresh();
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
+        // Profile Focus Handler Component (Phase 3, Task 11)
+        // ---------------------------------------------------------------------
+        /**
+         * Handles deep linking from insights to profile with scroll and highlight.
+         * Used in profile domain views when ?focus={entity_uid} query param is present.
+         *
+         * @param {string} focusUid - Entity UID to scroll to and highlight
+         * @returns {Object} Alpine.js component
+         *
+         * @example
+         * <div x-data="profileFocusHandler('habit_meditation_abc123')"
+         *      x-init="$nextTick(() => scrollToFocused())">
+         *   <!-- entity list items with data-uid attributes -->
+         * </div>
+         */
+        Alpine.data('profileFocusHandler', function(focusUid) {
+            return {
+                focusUid: focusUid,
+
+                scrollToFocused: function() {
+                    if (!this.focusUid) return;
+
+                    var self = this;
+                    // Find element with matching data-uid attribute
+                    var targetElement = this.$el.querySelector('[data-uid="' + this.focusUid + '"]');
+
+                    if (targetElement) {
+                        // Scroll to element with smooth behavior
+                        setTimeout(function() {
+                            targetElement.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'center',
+                                inline: 'nearest'
+                            });
+
+                            // Apply yellow border flash animation
+                            targetElement.classList.add('border-2', 'border-warning', 'transition-all', 'duration-1000');
+
+                            // Remove highlight after 2 seconds
+                            setTimeout(function() {
+                                targetElement.classList.remove('border-2', 'border-warning');
+                            }, 2000);
+                        }, 300); // Small delay to ensure DOM is ready
+                    } else {
+                        SKUEL.debug('Focus target not found', self.focusUid);
+                    }
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
+        // Phase 4, Task 16: Debounced Insight Filters
+        // ---------------------------------------------------------------------
+        /**
+         * Manages debounced filter updates for insights dashboard.
+         * Prevents rapid filter changes from triggering multiple server requests.
+         *
+         * Features:
+         * - 300ms debounce on search input
+         * - Immediate updates for select dropdowns
+         * - Cancels in-flight requests when new filter changes arrive
+         * - Shows loading indicator during filter application
+         *
+         * @param {Object} initialFilters - Initial filter values {search, domain, impact, type, status}
+         * @returns {Object} Alpine.js component
+         *
+         * @example
+         * <div x-data="insightFiltersDebounced({search: '', domain: '', impact: '', type: '', status: 'all'})">
+         *   <input x-model="filters.search" @input.debounce.300ms="applyFilters()">
+         *   <select x-model="filters.domain" @change="applyFilters()">
+         * </div>
+         */
+        Alpine.data('insightFiltersDebounced', function(initialFilters) {
+            return {
+                filters: initialFilters || {
+                    search: '',
+                    domain: '',
+                    impact: '',
+                    type: '',
+                    status: 'all'
+                },
+                loading: false,
+
+                /**
+                 * Apply filters by constructing URL and navigating.
+                 * Uses window.location to ensure proper browser history.
+                 */
+                applyFilters: function() {
+                    var self = this;
+                    self.loading = true;
+
+                    // Build query params
+                    var params = [];
+                    if (self.filters.search) params.push('search=' + encodeURIComponent(self.filters.search));
+                    if (self.filters.domain) params.push('domain=' + encodeURIComponent(self.filters.domain));
+                    if (self.filters.impact) params.push('impact=' + encodeURIComponent(self.filters.impact));
+                    if (self.filters.type) params.push('type=' + encodeURIComponent(self.filters.type));
+                    if (self.filters.status && self.filters.status !== 'all') {
+                        params.push('status=' + encodeURIComponent(self.filters.status));
+                    }
+
+                    var queryString = params.length > 0 ? '?' + params.join('&') : '';
+                    window.location.href = '/insights' + queryString;
+                },
+
+                /**
+                 * Clear all filters and reload page.
+                 */
+                clearFilters: function() {
+                    this.filters = {
+                        search: '',
+                        domain: '',
+                        impact: '',
+                        type: '',
+                        status: 'all'
+                    };
+                    window.location.href = '/insights';
+                }
+            };
+        });
+
     });
 
 })();

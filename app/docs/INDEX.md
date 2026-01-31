@@ -15,7 +15,7 @@ related: []
 
 *Generated: 2025-12-07*
 *Updated: 2026-01-31*
-*Total: 165 documents*
+*Total: 168 documents* (3 new: 1 feature, 1 pattern, 1 migration)
 
 > **📝 Documentation Standards:**
 > - **File Naming:** UPPERCASE for major reference docs/guides, lowercase for specific patterns
@@ -30,6 +30,8 @@ related: []
 - [Decisions](#decisions) - Architecture Decision Records
 - [Guides](#guides) - Step-by-step implementation guides
 - [Reference](#reference) - Templates and checklists
+- [Features](#features) - Implemented features with complete documentation
+- [Migrations](#migrations) - Database and code migration guides
 
 ---
 
@@ -110,6 +112,7 @@ related: []
 | [UnifiedRelationshipService - Configuration-Driven](patterns/UNIFIED_RELATIONSHIP_SERVICE.md) | 2025-12-03 | 550 |
 | [Graph Access Patterns Guide](patterns/GRAPH_ACCESS_PATTERNS.md) | 2025-11-27 | 999 |
 | [HTTP Status Codes - REST Best Practices](patterns/http_status_codes.md) | 2025-10-17 | 167 |
+| **[Insight Action Tracking Pattern](patterns/INSIGHT_ACTION_TRACKING.md)** | **2026-01-31** | **420** |
 | [Knowledge Unit → Learning Path Integration Pattern](patterns/KU_LP_INTEGRATION_PATTERN.md) | 2025-11-05 | 835 |
 | [Logging Patterns](patterns/LOGGING_PATTERNS.md) | 2026-01-03 | 130 |
 | [MetadataManagerMixin - Consistent Timestamp & Meta...](patterns/metadata_manager_mixin.md) | 2025-11-28 | 247 |
@@ -245,6 +248,14 @@ related: []
 | [Semantic Analysis Implementation Roadmap](intelligence/SEMANTIC_ANALYSIS_ROADMAP.md) | 2025-11-27 | 153 |
 | [Ultimate Search Intelligence - Aspirational Vision](intelligence/ULTIMATE_VISION.md) | 2025-11-27 | 226 |
 
+## Features
+
+*Implemented features with complete documentation*
+
+| Document | Updated | Lines |
+|----------|---------|-------|
+| **[Profile Hub & Insights Integration](features/PROFILE_INSIGHTS_INTEGRATION.md)** | **2026-01-31** | **1100** |
+
 ## Migrations
 
 *Database and code migration guides*
@@ -267,6 +278,7 @@ related: []
 | **[Lateral Relationships Phase 1 Complete](migrations/LATERAL_RELATIONSHIPS_PHASE1_COMPLETE_2026-01-31.md)** | **2026-01-31** | **280** |
 | **[Lateral Relationships Phase 3 Complete](migrations/LATERAL_RELATIONSHIPS_PHASE3_COMPLETE_2026-01-31.md)** | **2026-01-31** | **240** |
 | **[Lateral Relationships Phase 4 Complete](migrations/LATERAL_RELATIONSHIPS_PHASE4_COMPLETE_2026-01-31.md)** | **2026-01-31** | **320** |
+| **[Profile Insights Phase 3 & 4 Complete](migrations/PROFILE_INSIGHTS_PHASE3_4_COMPLETE.md)** | **2026-01-31** | **780** |
 
 ## Roadmap
 

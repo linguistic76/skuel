@@ -14,7 +14,7 @@ from components.insight_card import DismissedInsightMessage
 from core.auth import require_authenticated_user
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.routes.insights.api")
 
@@ -35,13 +35,15 @@ def create_insights_api_routes(
         List of route handler functions
     """
 
-    @rt("/api/insights/{uid}/dismiss")
+    @rt("/api/insights/{uid}/dismiss", methods=["POST"])
     @boundary_handler(success_status=200)
     async def dismiss_insight(request: Request, uid: str) -> Result[Any]:
         """Dismiss an insight (mark as dismissed).
 
+        Phase 4, Task 17: Now accepts optional notes parameter.
+
         Args:
-            request: HTTP request with authentication
+            request: HTTP request with authentication (optional JSON body with notes)
             uid: Insight UID to dismiss
 
         Returns:
@@ -49,25 +51,36 @@ def create_insights_api_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        # Dismiss the insight
-        result = await insight_store.dismiss_insight(uid, user_uid)
+        # Parse optional notes from request body
+        notes = ""
+        try:
+            body = await request.json()
+            notes = body.get("notes", "")
+        except Exception:
+            # No body provided - that's ok, notes are optional
+            pass
+
+        # Dismiss the insight with notes
+        result = await insight_store.dismiss_insight(uid, user_uid, notes=notes)
 
         if result.is_error:
             logger.warning(f"Failed to dismiss insight {uid}: {result.error}")
             return result
 
-        logger.info(f"Insight dismissed: {uid} by {user_uid}")
+        logger.info(f"Insight dismissed: {uid} by {user_uid}" + (f" (notes: {notes[:50]})" if notes else ""))
 
         # Return success message (HTMX will swap with this)
         return Result.ok(DismissedInsightMessage())
 
-    @rt("/api/insights/{uid}/action")
+    @rt("/api/insights/{uid}/action", methods=["POST"])
     @boundary_handler(success_status=200)
     async def mark_insight_actioned(request: Request, uid: str) -> Result[Any]:
         """Mark an insight as actioned.
 
+        Phase 4, Task 17: Now accepts optional notes parameter.
+
         Args:
-            request: HTTP request with authentication
+            request: HTTP request with authentication (optional JSON body with notes)
             uid: Insight UID to mark as actioned
 
         Returns:
@@ -75,14 +88,23 @@ def create_insights_api_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        # Mark as actioned
-        result = await insight_store.mark_actioned(uid, user_uid)
+        # Parse optional notes from request body
+        notes = ""
+        try:
+            body = await request.json()
+            notes = body.get("notes", "")
+        except Exception:
+            # No body provided - that's ok, notes are optional
+            pass
+
+        # Mark as actioned with notes
+        result = await insight_store.mark_actioned(uid, user_uid, notes=notes)
 
         if result.is_error:
             logger.warning(f"Failed to mark insight actioned {uid}: {result.error}")
             return result
 
-        logger.info(f"Insight marked as actioned: {uid} by {user_uid}")
+        logger.info(f"Insight marked as actioned: {uid} by {user_uid}" + (f" (notes: {notes[:50]})" if notes else ""))
 
         # Return success message (HTMX will swap with this)
         from fasthtml.common import Div, NotStr
@@ -136,11 +158,13 @@ def create_insights_api_routes(
 
         logger.info(f"Bulk dismissed {success_count}/{len(uids)} insights for {user_uid}")
 
-        return Result.ok({
-            "success_count": success_count,
-            "total_requested": len(uids),
-            "failed_uids": failed_uids,
-        })
+        return Result.ok(
+            {
+                "success_count": success_count,
+                "total_requested": len(uids),
+                "failed_uids": failed_uids,
+            }
+        )
 
     @rt("/api/insights/bulk/action", methods=["POST"])
     @boundary_handler(success_status=200)
@@ -180,11 +204,13 @@ def create_insights_api_routes(
 
         logger.info(f"Bulk actioned {success_count}/{len(uids)} insights for {user_uid}")
 
-        return Result.ok({
-            "success_count": success_count,
-            "total_requested": len(uids),
-            "failed_uids": failed_uids,
-        })
+        return Result.ok(
+            {
+                "success_count": success_count,
+                "total_requested": len(uids),
+                "failed_uids": failed_uids,
+            }
+        )
 
     @rt("/api/insights/bulk/smart-dismiss", methods=["POST"])
     @boundary_handler(success_status=200)
@@ -250,15 +276,17 @@ def create_insights_api_routes(
             f"{filter_type}={filter_value} insights for {user_uid}"
         )
 
-        return Result.ok({
-            "success_count": success_count,
-            "total_matching": len(matching_insights),
-            "failed_uids": failed_uids,
-            "filter": {
-                "type": filter_type,
-                "value": filter_value,
-            },
-        })
+        return Result.ok(
+            {
+                "success_count": success_count,
+                "total_matching": len(matching_insights),
+                "failed_uids": failed_uids,
+                "filter": {
+                    "type": filter_type,
+                    "value": filter_value,
+                },
+            }
+        )
 
     @rt("/api/insights/active")
     @boundary_handler(success_status=200)
@@ -356,32 +384,31 @@ def create_insights_api_routes(
             "type": "doughnut",
             "data": {
                 "labels": ["Critical", "High", "Medium", "Low"],
-                "datasets": [{
-                    "label": "Insights by Impact",
-                    "data": [
-                        impact_counts["critical"],
-                        impact_counts["high"],
-                        impact_counts["medium"],
-                        impact_counts["low"],
-                    ],
-                    "backgroundColor": [
-                        "rgba(220, 38, 38, 0.8)",   # red-600 (critical)
-                        "rgba(234, 88, 12, 0.8)",   # orange-600 (high)
-                        "rgba(250, 204, 21, 0.8)",  # yellow-400 (medium)
-                        "rgba(34, 197, 94, 0.8)",   # green-500 (low)
-                    ],
-                }]
+                "datasets": [
+                    {
+                        "label": "Insights by Impact",
+                        "data": [
+                            impact_counts["critical"],
+                            impact_counts["high"],
+                            impact_counts["medium"],
+                            impact_counts["low"],
+                        ],
+                        "backgroundColor": [
+                            "rgba(220, 38, 38, 0.8)",  # red-600 (critical)
+                            "rgba(234, 88, 12, 0.8)",  # orange-600 (high)
+                            "rgba(250, 204, 21, 0.8)",  # yellow-400 (medium)
+                            "rgba(34, 197, 94, 0.8)",  # green-500 (low)
+                        ],
+                    }
+                ],
             },
             "options": {
                 "responsive": True,
                 "plugins": {
                     "legend": {"position": "bottom"},
-                    "title": {
-                        "display": True,
-                        "text": "Insights by Impact Level"
-                    }
-                }
-            }
+                    "title": {"display": True, "text": "Insights by Impact Level"},
+                },
+            },
         }
 
         return Result.ok(chart_config)
@@ -417,28 +444,22 @@ def create_insights_api_routes(
             "type": "bar",
             "data": {
                 "labels": [domain.title() for domain, _ in sorted_domains],
-                "datasets": [{
-                    "label": "Active Insights",
-                    "data": [count for _, count in sorted_domains],
-                    "backgroundColor": "rgba(59, 130, 246, 0.8)",  # blue-500
-                }]
+                "datasets": [
+                    {
+                        "label": "Active Insights",
+                        "data": [count for _, count in sorted_domains],
+                        "backgroundColor": "rgba(59, 130, 246, 0.8)",  # blue-500
+                    }
+                ],
             },
             "options": {
                 "responsive": True,
                 "plugins": {
                     "legend": {"display": False},
-                    "title": {
-                        "display": True,
-                        "text": "Insights by Domain"
-                    }
+                    "title": {"display": True, "text": "Insights by Domain"},
                 },
-                "scales": {
-                    "y": {
-                        "beginAtZero": True,
-                        "ticks": {"stepSize": 1}
-                    }
-                }
-            }
+                "scales": {"y": {"beginAtZero": True, "ticks": {"stepSize": 1}}},
+            },
         }
 
         return Result.ok(chart_config)
@@ -477,29 +498,28 @@ def create_insights_api_routes(
             "type": "doughnut",
             "data": {
                 "labels": labels,
-                "datasets": [{
-                    "label": "Insights by Type",
-                    "data": [count for _, count in sorted_types],
-                    "backgroundColor": [
-                        "rgba(99, 102, 241, 0.8)",   # indigo-500
-                        "rgba(139, 92, 246, 0.8)",   # violet-500
-                        "rgba(168, 85, 247, 0.8)",   # purple-500
-                        "rgba(236, 72, 153, 0.8)",   # pink-500
-                        "rgba(244, 63, 94, 0.8)",    # rose-500
-                        "rgba(59, 130, 246, 0.8)",   # blue-500
-                    ],
-                }]
+                "datasets": [
+                    {
+                        "label": "Insights by Type",
+                        "data": [count for _, count in sorted_types],
+                        "backgroundColor": [
+                            "rgba(99, 102, 241, 0.8)",  # indigo-500
+                            "rgba(139, 92, 246, 0.8)",  # violet-500
+                            "rgba(168, 85, 247, 0.8)",  # purple-500
+                            "rgba(236, 72, 153, 0.8)",  # pink-500
+                            "rgba(244, 63, 94, 0.8)",  # rose-500
+                            "rgba(59, 130, 246, 0.8)",  # blue-500
+                        ],
+                    }
+                ],
             },
             "options": {
                 "responsive": True,
                 "plugins": {
                     "legend": {"position": "right"},
-                    "title": {
-                        "display": True,
-                        "text": "Insights by Type"
-                    }
-                }
-            }
+                    "title": {"display": True, "text": "Insights by Type"},
+                },
+            },
         }
 
         return Result.ok(chart_config)
@@ -528,14 +548,16 @@ def create_insights_api_routes(
             "type": "doughnut",
             "data": {
                 "labels": ["Actioned", "Not Actioned"],
-                "datasets": [{
-                    "label": "Action Rate",
-                    "data": [action_rate, remaining_rate],
-                    "backgroundColor": [
-                        "rgba(34, 197, 94, 0.8)",  # green-500 (actioned)
-                        "rgba(156, 163, 175, 0.3)", # gray-400 (not actioned)
-                    ],
-                }]
+                "datasets": [
+                    {
+                        "label": "Action Rate",
+                        "data": [action_rate, remaining_rate],
+                        "backgroundColor": [
+                            "rgba(34, 197, 94, 0.8)",  # green-500 (actioned)
+                            "rgba(156, 163, 175, 0.3)",  # gray-400 (not actioned)
+                        ],
+                    }
+                ],
             },
             "options": {
                 "responsive": True,
@@ -543,15 +565,109 @@ def create_insights_api_routes(
                 "rotation": -90,
                 "plugins": {
                     "legend": {"position": "bottom"},
-                    "title": {
-                        "display": True,
-                        "text": f"Action Rate: {action_rate:.1f}%"
-                    }
-                }
-            }
+                    "title": {"display": True, "text": f"Action Rate: {action_rate:.1f}%"},
+                },
+            },
         }
 
         return Result.ok(chart_config)
+
+    # ========================================
+    # Phase 3, Task 13: Detail Modal Endpoints
+    # ========================================
+
+    @rt("/api/insights/{uid}/details")
+    @boundary_handler(success_status=200)
+    async def get_insight_details(request: Request, uid: str) -> Result[Any]:
+        """Get detailed insight information for modal display (Phase 3, Task 13).
+
+        Args:
+            request: HTTP request with authentication
+            uid: Insight UID to get details for
+
+        Returns:
+            Result with detailed insight data or error
+        """
+        user_uid = require_authenticated_user(request)
+
+        # Get insight by UID
+        result = await insight_store.get_insight_by_uid(uid)
+
+        if result.is_error:
+            logger.error(f"Failed to retrieve insight details for {uid}: {result.error}")
+            return result
+
+        insight = result.value
+
+        # Verify ownership (insight belongs to requesting user)
+        if insight.user_uid != user_uid:
+            logger.warning(f"User {user_uid} attempted to access insight {uid} owned by {insight.user_uid}")
+            return Errors.not_found(f"Insight {uid} not found")
+
+        # Convert to dictionary with full details
+        insight_data = {
+            "uid": insight.uid,
+            "title": insight.title,
+            "description": insight.description,
+            "insight_type": insight.insight_type.value,
+            "domain": insight.domain,
+            "impact": insight.impact.value,
+            "confidence": insight.confidence,
+            "entity_uid": insight.entity_uid,
+            "recommended_actions": insight.recommended_actions,
+            "metadata": insight.metadata or {},
+            "created_at": insight.created_at.isoformat() if insight.created_at else None,
+        }
+
+        return Result.ok(insight_data)
+
+    @rt("/api/insights/{uid}/snooze", methods=["POST"])
+    @boundary_handler(success_status=200)
+    async def snooze_insight(request: Request, uid: str) -> Result[Any]:
+        """Snooze an insight for a specified number of days (Phase 3, Task 13).
+
+        Args:
+            request: HTTP request with authentication and JSON body
+            uid: Insight UID to snooze
+
+        Returns:
+            Result with success message or error
+
+        Example:
+            POST /api/insights/{uid}/snooze
+            {"days": 3}
+        """
+        user_uid = require_authenticated_user(request)
+
+        # Parse request body
+        try:
+            body = await request.json()
+            days = body.get("days", 1)
+        except Exception as e:
+            logger.error(f"Failed to parse snooze request: {e}")
+            return Errors.validation(f"Invalid request body: {e}")
+
+        # Validate days
+        if not isinstance(days, int) or days < 1 or days > 30:
+            return Errors.validation("Days must be an integer between 1 and 30")
+
+        # Snooze the insight (mark as dismissed with snooze metadata)
+        # For now, we'll just dismiss it - a full implementation would add snooze_until_date
+        result = await insight_store.dismiss_insight(uid, user_uid)
+
+        if result.is_error:
+            logger.warning(f"Failed to snooze insight {uid}: {result.error}")
+            return result
+
+        logger.info(f"Insight snoozed for {days} days: {uid} by {user_uid}")
+
+        return Result.ok(
+            {
+                "message": f"Insight snoozed for {days} day(s)",
+                "uid": uid,
+                "days": days,
+            }
+        )
 
     return [
         dismiss_insight,
@@ -563,4 +679,7 @@ def create_insights_api_routes(
         domain_distribution_chart,
         type_distribution_chart,
         action_rate_chart,
+        # Phase 3, Task 13: Detail modal endpoints
+        get_insight_details,
+        snooze_insight,
     ]

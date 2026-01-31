@@ -7,7 +7,7 @@ Each view shows a combined layout:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H2, H3, A, Div, P, Span, Ul, Li
+from fasthtml.common import Button, H2, H3, A, Div, Label, Li, Option, P, Select, Span, Ul
 
 from core.models.enums.entity_enums import Domain
 from core.services.user.unified_user_context import UserContext
@@ -19,6 +19,130 @@ if TYPE_CHECKING:
         DailyWorkPlan,
         LearningStep,
         LifePathAlignment,
+    )
+
+
+def DomainFilterControls(domain: str, total_count: int) -> Div:
+    """Filter and sort controls for domain views (Phase 3, Task 12).
+
+    Args:
+        domain: Domain name (tasks, goals, habits, etc.)
+        total_count: Total number of items in the domain
+
+    Returns:
+        Div with filter/sort controls
+    """
+    # Domain-specific filter presets
+    filter_presets = {
+        "tasks": [
+            ("all", "All Tasks"),
+            ("overdue", "Overdue"),
+            ("high_priority", "High Priority"),
+            ("this_week", "This Week"),
+        ],
+        "goals": [
+            ("all", "All Goals"),
+            ("at_risk", "At Risk"),
+            ("near_complete", "Almost Done"),
+        ],
+        "habits": [
+            ("all", "All Habits"),
+            ("at_risk", "At Risk"),
+            ("keystone", "Keystone"),
+        ],
+        "events": [
+            ("all", "All Events"),
+            ("today", "Today"),
+            ("this_week", "This Week"),
+        ],
+        "choices": [("all", "All Choices")],
+        "principles": [("all", "All Principles")],
+    }
+
+    # Domain-specific sort options
+    sort_options = {
+        "tasks": [
+            ("priority", "Priority"),
+            ("due_date", "Due Date"),
+            ("title", "Alphabetical"),
+        ],
+        "goals": [
+            ("priority", "Priority"),
+            ("target_date", "Target Date"),
+            ("progress", "Progress"),
+            ("title", "Alphabetical"),
+        ],
+        "habits": [
+            ("streak", "Streak"),
+            ("title", "Alphabetical"),
+        ],
+        "events": [
+            ("start_date", "Date"),
+            ("title", "Alphabetical"),
+        ],
+        "choices": [
+            ("created", "Recent"),
+            ("title", "Alphabetical"),
+        ],
+        "principles": [
+            ("strength", "Strength"),
+            ("title", "Alphabetical"),
+        ],
+    }
+
+    presets = filter_presets.get(domain, [("all", "All")])
+    sorts = sort_options.get(domain, [("title", "Alphabetical")])
+
+    # Filter preset buttons
+    filter_buttons = []
+    for value, label in presets:
+        filter_buttons.append(
+            Button(
+                label,
+                cls="btn btn-sm",
+                x_bind_class=f"{{'btn-primary': filterPreset === '{value}', 'btn-ghost': filterPreset !== '{value}'}}",
+                x_on_click=f"filterPreset = '{value}'",
+            )
+        )
+
+    return Div(
+        Div(
+            # Sort dropdown
+            Div(
+                Label("Sort by:", cls="text-sm font-medium text-base-content mr-2"),
+                Select(
+                    *[Option(label, value=value) for value, label in sorts],
+                    cls="select select-sm select-bordered",
+                    x_model="sortBy",
+                ),
+                cls="flex items-center gap-2",
+            ),
+            # Filter buttons
+            Div(
+                Label("Filter:", cls="text-sm font-medium text-base-content mr-2"),
+                Div(*filter_buttons, cls="flex gap-2 flex-wrap"),
+                cls="flex items-center gap-2",
+            ),
+            # Show all toggle
+            Div(
+                Button(
+                    Span(
+                        "Show All",
+                        x_show="!showAll",
+                    ),
+                    Span(
+                        f"Show Less (showing {total_count})",
+                        x_show="showAll",
+                    ),
+                    cls="btn btn-sm btn-ghost",
+                    x_on_click="toggleShowAll()",
+                ),
+                cls="ml-auto",
+            ),
+            cls="flex items-center gap-4 flex-wrap",
+        ),
+        cls="p-4 bg-base-200 rounded-lg mb-4",
+        x_data="domainFilter()",
     )
 
 
@@ -109,7 +233,7 @@ def DomainSummaryCard(
     )
 
 
-def _empty_state_for_domain(domain: str, message: str) -> Div:
+def EmptyState_for_domain(domain: str, message: str) -> Div:
     """Actionable empty state for a domain (Phase 1, Task 5).
 
     Args:
@@ -173,12 +297,26 @@ def _item_list(
     empty_message: str,
     item_href_prefix: str = "",
     domain: str = "",
+    focus_uid: str | None = None,
+    limit: int = 50,
 ) -> Div:
-    """Generic item list component."""
+    """Generic item list component.
+
+    Phase 3, Task 11: Added focus_uid support for deep linking with highlight.
+    Phase 3, Task 12: Added limit parameter and filter data attributes.
+
+    Args:
+        items: List of item dictionaries with title, uid, status
+        empty_message: Message to show when no items
+        item_href_prefix: URL prefix for item links (e.g., "/tasks")
+        domain: Domain name for actionable empty states
+        focus_uid: Optional entity UID to highlight
+        limit: Maximum number of items to render (default 50)
+    """
     if not items:
         # Use actionable empty state if domain is provided (Phase 1, Task 5)
         if domain:
-            return _empty_state_for_domain(domain, empty_message)
+            return EmptyState_for_domain(domain, empty_message)
         # Fallback to basic empty state
         return Div(
             P(empty_message, cls="text-base-content/50 italic text-center py-8"),
@@ -186,11 +324,16 @@ def _item_list(
         )
 
     list_items = []
-    for item in items[:10]:  # Limit to 10 items
+    for idx, item in enumerate(items[:limit]):  # Limit to specified count
         title = item.get("title", "Untitled")
         uid = item.get("uid", "")
         status = item.get("status", "")
         href = f"{item_href_prefix}/{uid}" if item_href_prefix and uid else None
+
+        # Phase 3, Task 12: Extract filter metadata
+        is_overdue = item.get("is_overdue", False)
+        is_high_priority = item.get("is_high_priority", False)
+        is_this_week = item.get("is_this_week", False)
 
         status_badge = ""
         if status:
@@ -199,6 +342,9 @@ def _item_list(
                 "in_progress": "text-warning",
                 "pending": "text-base-content/50",
                 "overdue": "text-error",
+                "at_risk": "text-error",
+                "keystone": "text-success",
+                "near_complete": "text-primary",
             }
             status_color = status_colors.get(status, "text-base-content/50")
             status_badge = Span(
@@ -212,12 +358,23 @@ def _item_list(
             cls="flex items-center justify-between",
         )
 
+        # Phase 3, Task 12: Build x-show expression for filtering
+        # Show if: matches filter AND (showAll OR index < 10)
+        x_show_expr = f"matchesFilter('{status}', {str(is_overdue).lower()}, {str(is_high_priority).lower()}, {str(is_this_week).lower()}) && (showAll || {idx} < 10)"
+
+        # Phase 3, Task 11 & 12: Add data attributes and x-show for filtering
+        item_attrs = {
+            "data_uid": uid,  # For focus targeting
+            "x_show": x_show_expr,  # For filtering
+        }
+
         if href:
             list_items.append(
                 A(
                     item_content,
                     href=href,
                     cls="block p-3 hover:bg-base-200 rounded-lg transition-colors",
+                    **item_attrs,
                 )
             )
         else:
@@ -225,14 +382,26 @@ def _item_list(
                 Div(
                     item_content,
                     cls="p-3 rounded-lg",
+                    **item_attrs,
                 )
             )
 
-    return Div(*list_items, cls="space-y-1")
+    # Phase 3, Task 11: Wrap in Alpine component for focus handling
+    # Phase 3, Task 12: Always wrap in domainFilter for filtering
+    wrapper_attrs = {"x_data": "domainFilter()"}
+
+    # Phase 3, Task 11: Add focus handler if focus_uid present
+    if focus_uid:
+        wrapper_attrs["x_init"] = f"$nextTick(() => {{ if (window.profileFocusHandler) {{ var handler = profileFocusHandler('{focus_uid}'); handler.scrollToFocused.call({{ $el: $el, focusUid: '{focus_uid}' }}); }} }})"
+
+    return Div(*list_items, cls="space-y-1", **wrapper_attrs)
 
 
-def TasksDomainView(context: UserContext) -> Div:
-    """Tasks domain: stats + task list from context."""
+def TasksDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
+    """Tasks domain: stats + task list from context.
+
+    Phase 3, Task 11: Added focus_uid parameter for deep linking.
+    """
     # Calculate stats
     total = len(context.active_task_uids) + len(context.completed_task_uids)
     active = len(context.active_task_uids)
@@ -253,45 +422,86 @@ def TasksDomainView(context: UserContext) -> Div:
     ]
 
     # Build items list from rich data if available
+    # Phase 3, Task 12: Increased limit to 50 for filtering/sorting
     items = []
-    for task_data in context.active_tasks_rich[:10]:
+    for task_data in context.active_tasks_rich[:50]:
         task = task_data.get("task", {})
+        uid = task.get("uid", "")
+        # Phase 3, Task 12: Add filter metadata
+        is_overdue = uid in context.overdue_task_uids
+        is_high_priority = uid in context.high_priority_task_uids
+        # Note: is_this_week would require due_date field - placeholder for now
+        is_this_week = False  # TODO: Calculate based on task.due_date
+
         items.append(
             {
                 "title": task.get("title", "Untitled Task"),
-                "uid": task.get("uid", ""),
-                "status": "overdue"
-                if task.get("uid") in context.overdue_task_uids
-                else "in_progress",
+                "uid": uid,
+                "status": "overdue" if is_overdue else "in_progress",
+                "is_overdue": is_overdue,
+                "is_high_priority": is_high_priority,
+                "is_this_week": is_this_week,
             }
         )
 
     # Fallback if no rich data
     if not items and context.active_task_uids:
         items = [
-            {"title": f"Task {uid[:8]}...", "uid": uid, "status": "in_progress"}
-            for uid in context.active_task_uids[:10]
+            {
+                "title": f"Task {uid[:8]}...",
+                "uid": uid,
+                "status": "in_progress",
+                "is_overdue": uid in context.overdue_task_uids,
+                "is_high_priority": uid in context.high_priority_task_uids,
+                "is_this_week": False,
+            }
+            for uid in context.active_task_uids[:50]
         ]
 
     # Phase 2, Task 7: Domain-specific intelligence
     recommendations = []
     if overdue > 0:
-        recommendations.append((f"{overdue} task{'s' if overdue != 1 else ''} overdue - prioritize today", "warning"))
+        recommendations.append(
+            (f"{overdue} task{'s' if overdue != 1 else ''} overdue - prioritize today", "warning")
+        )
     if context.high_priority_task_uids:
         high_pri_count = min(len(context.high_priority_task_uids), 3)
-        recommendations.append((f"{high_pri_count} high-priority task{'s' if high_pri_count != 1 else ''} need attention", "priority"))
+        recommendations.append(
+            (
+                f"{high_pri_count} high-priority task{'s' if high_pri_count != 1 else ''} need attention",
+                "priority",
+            )
+        )
     if context.goal_aligned_tasks_count > 0:
-        recommendations.append((f"{context.goal_aligned_tasks_count} tasks aligned with active goals", "success"))
+        recommendations.append(
+            (f"{context.goal_aligned_tasks_count} tasks aligned with active goals", "success")
+        )
     if not recommendations and active > 0:
         recommendations.append(("Tasks are on track - keep up the momentum!", "success"))
 
-    intelligence_card = DomainIntelligenceCard("Today's Focus", recommendations) if recommendations else Div()
+    intelligence_card = (
+        DomainIntelligenceCard("Today's Focus", recommendations) if recommendations else Div()
+    )
+
+    # Phase 3, Task 11: Add "Back to Insights" link if coming from insights
+    back_link = Div()
+    if focus_uid:
+        back_link = Div(
+            A(
+                "← Back to Insights",
+                href="/insights",
+                cls="inline-block mb-4 text-sm text-primary hover:text-primary-hover",
+            ),
+            cls="mb-2",
+        )
 
     return Div(
+        back_link,  # Phase 3, Task 11
         DomainSummaryCard("Tasks", "✅", stats, status),
         intelligence_card,  # NEW: Contextual intelligence
         H3("Active Tasks", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No active tasks", "/tasks", domain="tasks"),
+        DomainFilterControls("tasks", len(items)),  # Phase 3, Task 12: Filter controls
+        _item_list(items, "No active tasks", "/tasks", domain="tasks", focus_uid=focus_uid, limit=50),
         A(
             "View All Tasks →",
             href="/tasks",
@@ -300,8 +510,11 @@ def TasksDomainView(context: UserContext) -> Div:
     )
 
 
-def HabitsDomainView(context: UserContext) -> Div:
-    """Habits domain: stats + habit list with streaks."""
+def HabitsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
+    """Habits domain: stats + habit list with streaks.
+
+    Phase 3, Task 11: Added focus_uid parameter for deep linking.
+    """
     total = len(context.active_habit_uids)
     at_risk = len(context.at_risk_habits)
     keystone = len(context.keystone_habits)
@@ -319,16 +532,23 @@ def HabitsDomainView(context: UserContext) -> Div:
         ("Keystone", keystone),
     ]
 
+    # Phase 3, Task 12: Increased limit to 50, added filter metadata
     items = []
-    for habit_data in context.active_habits_rich[:10]:
+    for habit_data in context.active_habits_rich[:50]:
         habit = habit_data.get("habit", {})
         uid = habit.get("uid", "")
         streak = context.habit_streaks.get(uid, 0)
+        is_at_risk = uid in context.at_risk_habits
+        is_keystone = uid in context.keystone_habits
+
         items.append(
             {
                 "title": f"{habit.get('title', 'Habit')} ({streak} day streak)",
                 "uid": uid,
-                "status": "warning" if uid in context.at_risk_habits else "in_progress",
+                "status": "keystone" if is_keystone else ("at_risk" if is_at_risk else "in_progress"),
+                "is_overdue": is_at_risk,  # For filter compatibility
+                "is_high_priority": is_keystone,  # For filter compatibility
+                "is_this_week": False,
             }
         )
 
@@ -337,17 +557,30 @@ def HabitsDomainView(context: UserContext) -> Div:
             {
                 "title": f"Habit ({context.habit_streaks.get(uid, 0)} days)",
                 "uid": uid,
-                "status": "warning" if uid in context.at_risk_habits else "in_progress",
+                "status": "at_risk" if uid in context.at_risk_habits else "in_progress",
+                "is_overdue": uid in context.at_risk_habits,
+                "is_high_priority": uid in context.keystone_habits,
+                "is_this_week": False,
             }
-            for uid in context.active_habit_uids[:10]
+            for uid in context.active_habit_uids[:50]
         ]
 
     # Phase 2, Task 7: Domain-specific intelligence
     recommendations = []
     if at_risk > 0:
-        recommendations.append((f"{at_risk} habit{'s' if at_risk != 1 else ''} at risk of breaking - check in today", "warning"))
+        recommendations.append(
+            (
+                f"{at_risk} habit{'s' if at_risk != 1 else ''} at risk of breaking - check in today",
+                "warning",
+            )
+        )
     if keystone > 0:
-        recommendations.append((f"{keystone} keystone habit{'s' if keystone != 1 else ''} driving your success", "success"))
+        recommendations.append(
+            (
+                f"{keystone} keystone habit{'s' if keystone != 1 else ''} driving your success",
+                "success",
+            )
+        )
     # Check for strong streaks
     strong_streaks = [s for s in context.habit_streaks.values() if s >= 7]
     if strong_streaks:
@@ -356,13 +589,29 @@ def HabitsDomainView(context: UserContext) -> Div:
     if not recommendations and total > 0:
         recommendations.append(("All habits are healthy - consistent progress!", "success"))
 
-    intelligence_card = DomainIntelligenceCard("Habit Intelligence", recommendations) if recommendations else Div()
+    intelligence_card = (
+        DomainIntelligenceCard("Habit Intelligence", recommendations) if recommendations else Div()
+    )
+
+    # Phase 3, Task 11: Add "Back to Insights" link if coming from insights
+    back_link = Div()
+    if focus_uid:
+        back_link = Div(
+            A(
+                "← Back to Insights",
+                href="/insights",
+                cls="inline-block mb-4 text-sm text-primary hover:text-primary-hover",
+            ),
+            cls="mb-2",
+        )
 
     return Div(
+        back_link,  # Phase 3, Task 11
         DomainSummaryCard("Habits", "🔄", stats, status),
         intelligence_card,  # NEW: Contextual intelligence
         H3("Active Habits", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No active habits", "/habits", domain="habits"),
+        DomainFilterControls("habits", len(items)),  # Phase 3, Task 12
+        _item_list(items, "No active habits", "/habits", domain="habits", focus_uid=focus_uid, limit=50),
         A(
             "View All Habits →",
             href="/habits",
@@ -371,8 +620,11 @@ def HabitsDomainView(context: UserContext) -> Div:
     )
 
 
-def GoalsDomainView(context: UserContext) -> Div:
-    """Goals domain: stats + goal progress list."""
+def GoalsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
+    """Goals domain: stats + goal progress list.
+
+    Phase 3, Task 11: Added focus_uid parameter for deep linking.
+    """
     total = len(context.active_goal_uids)
     at_risk = len(context.at_risk_goals)
     completed = len(context.completed_goal_uids)
@@ -391,15 +643,22 @@ def GoalsDomainView(context: UserContext) -> Div:
     ]
 
     items = []
-    for goal_data in context.active_goals_rich[:10]:
+    # Phase 3, Task 12: Increased limit, added filter metadata
+    for goal_data in context.active_goals_rich[:50]:
         goal = goal_data.get("goal", {})
         uid = goal.get("uid", "")
         progress = context.goal_progress.get(uid, 0)
+        is_at_risk = uid in context.at_risk_goals
+        is_near_complete = progress >= 0.8
+
         items.append(
             {
                 "title": f"{goal.get('title', 'Goal')} ({int(progress * 100)}%)",
                 "uid": uid,
-                "status": "warning" if uid in context.at_risk_goals else "in_progress",
+                "status": "near_complete" if is_near_complete else ("at_risk" if is_at_risk else "in_progress"),
+                "is_overdue": is_at_risk,
+                "is_high_priority": is_near_complete,
+                "is_this_week": False,
             }
         )
 
@@ -408,35 +667,68 @@ def GoalsDomainView(context: UserContext) -> Div:
             {
                 "title": f"Goal ({int(context.goal_progress.get(uid, 0) * 100)}%)",
                 "uid": uid,
-                "status": "warning" if uid in context.at_risk_goals else "in_progress",
+                "status": "at_risk" if uid in context.at_risk_goals else "in_progress",
+                "is_overdue": uid in context.at_risk_goals,
+                "is_high_priority": context.goal_progress.get(uid, 0) >= 0.8,
+                "is_this_week": False,
             }
-            for uid in context.active_goal_uids[:10]
+            for uid in context.active_goal_uids[:50]
         ]
 
     # Phase 2, Task 7: Domain-specific intelligence
     recommendations = []
     if at_risk > 0:
-        recommendations.append((f"{at_risk} goal{'s' if at_risk != 1 else ''} at risk - needs attention", "warning"))
+        recommendations.append(
+            (f"{at_risk} goal{'s' if at_risk != 1 else ''} at risk - needs attention", "warning")
+        )
 
     stalled = len(context.get_stalled_goals())
     if stalled > 0:
-        recommendations.append((f"{stalled} goal{'s' if stalled != 1 else ''} stalled - review progress", "warning"))
+        recommendations.append(
+            (f"{stalled} goal{'s' if stalled != 1 else ''} stalled - review progress", "warning")
+        )
 
     # Check for near-completion goals
     near_complete = [p for p in context.goal_progress.values() if p >= 0.8]
     if near_complete:
-        recommendations.append((f"{len(near_complete)} goal{'s' if len(near_complete) != 1 else ''} almost complete - push to finish!", "priority"))
+        recommendations.append(
+            (
+                f"{len(near_complete)} goal{'s' if len(near_complete) != 1 else ''} almost complete - push to finish!",
+                "priority",
+            )
+        )
 
     if completed > 0 and len(recommendations) == 0:
-        recommendations.append((f"{completed} goal{'s' if completed != 1 else ''} achieved - celebrate wins!", "success"))
+        recommendations.append(
+            (
+                f"{completed} goal{'s' if completed != 1 else ''} achieved - celebrate wins!",
+                "success",
+            )
+        )
 
-    intelligence_card = DomainIntelligenceCard("Goal Progress", recommendations) if recommendations else Div()
+    intelligence_card = (
+        DomainIntelligenceCard("Goal Progress", recommendations) if recommendations else Div()
+    )
+
+    # Phase 3, Task 11: Add "Back to Insights" link if coming from insights
+    back_link = Div()
+    if focus_uid:
+        back_link = Div(
+            A(
+                "← Back to Insights",
+                href="/insights",
+                cls="inline-block mb-4 text-sm text-primary hover:text-primary-hover",
+            ),
+            cls="mb-2",
+        )
 
     return Div(
+        back_link,  # Phase 3, Task 11
         DomainSummaryCard("Goals", "🎯", stats, status),
         intelligence_card,  # NEW: Contextual intelligence
         H3("Active Goals", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No active goals", "/goals", domain="goals"),
+        DomainFilterControls("goals", len(items)),  # Phase 3, Task 12
+        _item_list(items, "No active goals", "/goals", domain="goals", focus_uid=focus_uid, limit=50),
         A(
             "View All Goals →",
             href="/goals",
@@ -445,8 +737,11 @@ def GoalsDomainView(context: UserContext) -> Div:
     )
 
 
-def EventsDomainView(context: UserContext) -> Div:
-    """Events domain: stats + upcoming events."""
+def EventsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
+    """Events domain: stats + upcoming events.
+
+    Phase 3, Task 11: Added focus_uid parameter for deep linking.
+    """
     total_today = len(context.today_event_uids)
     upcoming = len(context.upcoming_event_uids)
     missed = len(context.missed_event_uids)
@@ -485,21 +780,42 @@ def EventsDomainView(context: UserContext) -> Div:
     # Phase 2, Task 7: Domain-specific intelligence
     recommendations = []
     if missed > 0:
-        recommendations.append((f"{missed} event{'s' if missed != 1 else ''} missed - reschedule today", "warning"))
+        recommendations.append(
+            (f"{missed} event{'s' if missed != 1 else ''} missed - reschedule today", "warning")
+        )
     if total_today > 0:
-        recommendations.append((f"{total_today} event{'s' if total_today != 1 else ''} scheduled today", "info"))
+        recommendations.append(
+            (f"{total_today} event{'s' if total_today != 1 else ''} scheduled today", "info")
+        )
     if total_today > 5:
         recommendations.append(("Heavy schedule today - prioritize key events", "warning"))
     if upcoming > 0:
-        recommendations.append((f"{upcoming} upcoming event{'s' if upcoming != 1 else ''} this week", "info"))
+        recommendations.append(
+            (f"{upcoming} upcoming event{'s' if upcoming != 1 else ''} this week", "info")
+        )
 
-    intelligence_card = DomainIntelligenceCard("Schedule Overview", recommendations) if recommendations else Div()
+    intelligence_card = (
+        DomainIntelligenceCard("Schedule Overview", recommendations) if recommendations else Div()
+    )
+
+    # Phase 3, Task 11: Add "Back to Insights" link if coming from insights
+    back_link = Div()
+    if focus_uid:
+        back_link = Div(
+            A(
+                "← Back to Insights",
+                href="/insights",
+                cls="inline-block mb-4 text-sm text-primary hover:text-primary-hover",
+            ),
+            cls="mb-2",
+        )
 
     return Div(
+        back_link,  # Phase 3, Task 11
         DomainSummaryCard("Events", "📅", stats, status),
         intelligence_card,  # NEW: Contextual intelligence
         H3("Upcoming Events", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No upcoming events", "/calendar", domain="events"),
+        _item_list(items, "No upcoming events", "/calendar", domain="events", focus_uid=focus_uid),
         A(
             "View Calendar →",
             href="/calendar",
@@ -508,8 +824,11 @@ def EventsDomainView(context: UserContext) -> Div:
     )
 
 
-def PrinciplesDomainView(context: UserContext) -> Div:
-    """Principles domain: stats + alignment view."""
+def PrinciplesDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
+    """Principles domain: stats + alignment view.
+
+    Phase 3, Task 11: Added focus_uid parameter for deep linking.
+    """
     total = len(context.core_principle_uids)
     aligned = context.decisions_aligned_with_principles
     against = context.decisions_against_principles
@@ -553,21 +872,43 @@ def PrinciplesDomainView(context: UserContext) -> Div:
     # Phase 2, Task 7: Domain-specific intelligence
     recommendations = []
     if against > aligned:
-        recommendations.append((f"{against} recent decisions went against your principles", "warning"))
+        recommendations.append(
+            (f"{against} recent decisions went against your principles", "warning")
+        )
     if aligned > 0:
-        recommendations.append((f"{aligned} decision{'s' if aligned != 1 else ''} aligned with principles - strong integrity!", "success"))
+        recommendations.append(
+            (
+                f"{aligned} decision{'s' if aligned != 1 else ''} aligned with principles - strong integrity!",
+                "success",
+            )
+        )
     if total == 0:
         recommendations.append(("Define your core principles to guide decisions", "info"))
     elif aligned == 0 and against == 0:
         recommendations.append(("Track choices to see principle alignment", "info"))
 
-    intelligence_card = DomainIntelligenceCard("Principle Alignment", recommendations) if recommendations else Div()
+    intelligence_card = (
+        DomainIntelligenceCard("Principle Alignment", recommendations) if recommendations else Div()
+    )
+
+    # Phase 3, Task 11: Add "Back to Insights" link if coming from insights
+    back_link = Div()
+    if focus_uid:
+        back_link = Div(
+            A(
+                "← Back to Insights",
+                href="/insights",
+                cls="inline-block mb-4 text-sm text-primary hover:text-primary-hover",
+            ),
+            cls="mb-2",
+        )
 
     return Div(
+        back_link,  # Phase 3, Task 11
         DomainSummaryCard("Principles", "⚖️", stats, status),
         intelligence_card,  # NEW: Contextual intelligence
         H3("Core Principles", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No principles defined", "/principles", domain="principles"),
+        _item_list(items, "No principles defined", "/principles", domain="principles", focus_uid=focus_uid),
         A(
             "View All Principles →",
             href="/principles",
@@ -576,8 +917,11 @@ def PrinciplesDomainView(context: UserContext) -> Div:
     )
 
 
-def ChoicesDomainView(context: UserContext) -> Div:
-    """Choices domain: stats + pending/resolved."""
+def ChoicesDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
+    """Choices domain: stats + pending/resolved.
+
+    Phase 3, Task 11: Added focus_uid parameter for deep linking.
+    """
     pending = len(context.pending_choice_uids)
     resolved = len(context.resolved_choice_uids)
     total = pending + resolved
@@ -616,21 +960,48 @@ def ChoicesDomainView(context: UserContext) -> Div:
     # Phase 2, Task 7: Domain-specific intelligence
     recommendations = []
     if pending > 5:
-        recommendations.append((f"{pending} choices awaiting decision - address high-priority ones first", "warning"))
+        recommendations.append(
+            (f"{pending} choices awaiting decision - address high-priority ones first", "warning")
+        )
     elif pending > 0:
-        recommendations.append((f"{pending} choice{'s' if pending != 1 else ''} pending - make time for reflection", "info"))
+        recommendations.append(
+            (
+                f"{pending} choice{'s' if pending != 1 else ''} pending - make time for reflection",
+                "info",
+            )
+        )
     if resolved > 0:
-        recommendations.append((f"{resolved} choice{'s' if resolved != 1 else ''} resolved - review outcomes", "success"))
+        recommendations.append(
+            (
+                f"{resolved} choice{'s' if resolved != 1 else ''} resolved - review outcomes",
+                "success",
+            )
+        )
     if total == 0:
         recommendations.append(("Track important decisions to improve decision-making", "info"))
 
-    intelligence_card = DomainIntelligenceCard("Decision Status", recommendations) if recommendations else Div()
+    intelligence_card = (
+        DomainIntelligenceCard("Decision Status", recommendations) if recommendations else Div()
+    )
+
+    # Phase 3, Task 11: Add "Back to Insights" link if coming from insights
+    back_link = Div()
+    if focus_uid:
+        back_link = Div(
+            A(
+                "← Back to Insights",
+                href="/insights",
+                cls="inline-block mb-4 text-sm text-primary hover:text-primary-hover",
+            ),
+            cls="mb-2",
+        )
 
     return Div(
+        back_link,  # Phase 3, Task 11
         DomainSummaryCard("Choices", "🔀", stats, status),
         intelligence_card,  # NEW: Contextual intelligence
         H3("Pending Choices", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No pending choices", "/choices", domain="choices"),
+        _item_list(items, "No pending choices", "/choices", domain="choices", focus_uid=focus_uid),
         A(
             "View All Choices →",
             href="/choices",
@@ -639,8 +1010,10 @@ def ChoicesDomainView(context: UserContext) -> Div:
     )
 
 
-def LearningDomainView(context: UserContext) -> Div:
+def LearningDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
     """Learning/Curriculum domain: unified view of knowledge, paths, and progress.
+
+    Phase 3, Task 11: Added focus_uid parameter for deep linking.
 
     Shows:
     - Summary stats (mastered, in progress, ready to learn)
@@ -668,7 +1041,20 @@ def LearningDomainView(context: UserContext) -> Div:
         ("Ready", ready),
     ]
 
+    # Phase 3, Task 11: Add "Back to Insights" link if coming from insights
+    back_link = Div()
+    if focus_uid:
+        back_link = Div(
+            A(
+                "← Back to Insights",
+                href="/insights",
+                cls="inline-block mb-4 text-sm text-primary hover:text-primary-hover",
+            ),
+            cls="mb-2",
+        )
+
     return Div(
+        back_link,  # Phase 3, Task 11
         DomainSummaryCard("Learning", "📚", stats, status),
         # Learning Paths section
         H3("Learning Paths", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
@@ -689,7 +1075,7 @@ def _learning_paths_list(context: UserContext) -> Div:
     """List of enrolled learning paths with progress."""
     if not context.enrolled_paths_rich:
         if not context.enrolled_path_uids:
-            return _empty_state("No learning paths enrolled")
+            return EmptyState("No learning paths enrolled")
         # Fallback if no rich data
         items = [
             Div(
@@ -748,7 +1134,7 @@ def _learning_paths_list(context: UserContext) -> Div:
             )
         )
 
-    return Div(*items, cls="space-y-2") if items else _empty_state("No learning paths enrolled")
+    return Div(*items, cls="space-y-2") if items else EmptyState("No learning paths enrolled")
 
 
 def _ready_to_learn_list(context: UserContext) -> Div:
@@ -770,7 +1156,7 @@ def _ready_to_learn_list(context: UserContext) -> Div:
                 ),
                 cls="bg-base-200 rounded-lg p-4",
             )
-        return _empty_state("No knowledge ready to learn")
+        return EmptyState("No knowledge ready to learn")
 
     # Try to get titles from knowledge_units_rich if available
     items = []
@@ -798,7 +1184,7 @@ def _chart_visualizations_section() -> Div:
     - Alignment radar chart (5 dimensions)
     - 30-day domain progress timeline
     """
-    from fasthtml.common import Canvas, Script
+    from fasthtml.common import Canvas
 
     return Div(
         H3("Visual Analytics", cls="text-xl font-semibold text-base-content mb-4"),
@@ -852,9 +1238,7 @@ def _chart_visualizations_section() -> Div:
                         cls="text-error text-center py-8",
                         **{"x-show": "error"},
                     ),
-                    **{
-                        "x-data": "chartVis('/api/profile/charts/domain-progress', 'line')"
-                    },
+                    **{"x-data": "chartVis('/api/profile/charts/domain-progress', 'line')"},
                 ),
                 cls="card bg-base-100 shadow-sm p-6",
             ),
@@ -898,29 +1282,61 @@ def OverviewView(
         learning_steps: list of LearningStep from intelligence service (optional)
     """
     # Check if intelligence is available (all params provided = full mode)
-    has_intelligence = daily_plan is not None and alignment is not None
+    _has_intelligence = daily_plan is not None and alignment is not None
 
     # Phase 1, Task 3: Use HTMX to load intelligence section with skeleton loading state
-    # This prevents blank screen during 2-3s intelligence load
+    # Phase 4, Task 15: Added caching with Alpine.js to reduce 2-3s load times
     from ui.patterns.skeleton import SkeletonIntelligence
 
     header = Div(
         H2("Activity Overview", cls="text-2xl font-bold text-base-content"),
         P(
-            "Loading intelligence data...",
-            cls="text-lg text-base-content/70 mt-1",
+            Span("Intelligence data ", cls="text-base-content/70"),
+            Span(
+                **{"x-text": "lastUpdatedText", "x-show": "hasCache"},
+                cls="text-sm text-base-content/50",
+            ),
+            cls="text-lg mt-1",
             id="intelligence-status",
         ),
         cls="mb-6",
     )
 
-    # Intelligence section loads via HTMX - skeleton shown initially
+    # Intelligence section with caching (Phase 4, Task 15)
+    # Shows cached data immediately, fetches fresh data in background
     intelligence_section = Div(
-        SkeletonIntelligence(),  # Initial skeleton state
+        # Skeleton shown only when loading with no cache
+        Div(
+            SkeletonIntelligence(),
+            **{"x-show": "loading && !hasCache"},
+        ),
+        # Cached/fresh content
+        Div(
+            **{
+                "x-html": "intelligenceHtml",
+                "x-show": "hasCache",
+            },
+        ),
+        # Error state
+        Div(
+            Div(
+                Span("⚠️ ", cls="text-2xl mr-2"),
+                Span("Failed to load intelligence data", cls="font-medium"),
+                cls="flex items-center",
+            ),
+            P(
+                "Using cached data. Will retry in 5 minutes.",
+                cls="text-sm text-base-content/60 mt-2",
+                **{"x-show": "hasCache"},
+            ),
+            cls="alert alert-warning",
+            **{"x-show": "error"},
+        ),
         id="intelligence-container",
-        hx_get="/api/profile/intelligence-section",
-        hx_trigger="load",  # Load immediately when page renders
-        hx_swap="innerHTML",  # Replace skeleton with real content
+        **{
+            "x-data": "intelligenceCache()",
+            "x-init": "$nextTick(() => init())",
+        },
     )
 
     return Div(

@@ -453,9 +453,16 @@ def setup_user_profile_routes(rt, services):
 
         return items
 
-    def _get_domain_view(domain: str, context: UserContext) -> Any:
+    def _get_domain_view(domain: str, context: UserContext, focus_uid: str | None = None) -> Any:
         """
         Get the appropriate view component for a domain.
+
+        Phase 3, Task 11: Supports focus_uid for deep linking to specific entities.
+
+        Args:
+            domain: Domain name (tasks, events, goals, etc.)
+            context: UserContext with all user data
+            focus_uid: Optional entity UID to highlight/scroll to
 
         Raises ValueError if domain is invalid (fail-fast).
         Note: Route validates domains, so this should never be reached.
@@ -474,7 +481,7 @@ def setup_user_profile_routes(rt, services):
 
         view_fn = views.get(domain)
         if view_fn:
-            return view_fn(context)
+            return view_fn(context, focus_uid)
 
         # Fail-fast: Route should validate domains, so this is a bug
         raise ValueError(f"Unknown domain: {domain}")
@@ -658,6 +665,8 @@ def setup_user_profile_routes(rt, services):
         Shows combined stats + item list for the selected domain.
         Valid domains: tasks, events, goals, habits, principles, choices, learning
 
+        Phase 3, Task 11: Supports ?focus={entity_uid} query param for deep linking from insights.
+
         Requires authentication.
         One path forward: Service succeeds or fails with clear error.
         """
@@ -677,6 +686,9 @@ def setup_user_profile_routes(rt, services):
             return RedirectResponse("/profile", status_code=302)
 
         user_uid = require_authenticated_user(request)
+
+        # Extract focus parameter for deep linking (Phase 3, Task 11)
+        focus_uid = request.query_params.get("focus")
 
         # Get user and context - ONE PATH (no fallback)
         try:
@@ -702,7 +714,7 @@ def setup_user_profile_routes(rt, services):
         domain_items = _build_domain_items(context, insight_counts)
         curriculum_items = _build_curriculum_items(context)
         display_name = user.display_name if user.display_name else user.username
-        content = _get_domain_view(domain, context)
+        content = _get_domain_view(domain, context, focus_uid)
         domain_title = DEFAULT_DOMAIN_NAMES.get(domain, domain.title())
 
         # Check if user is admin (shows Admin Dashboard in navbar instead of Profile Hub)
@@ -874,7 +886,6 @@ def setup_user_profile_routes(rt, services):
         # Mock data - in production, query actual completion counts per day
         # For now, use current context to generate plausible trends
         tasks_completed_recent = len(context.recently_completed_task_uids[:30])
-        goals_active = len(context.active_goal_uids)
         habits_active = len(context.active_habit_uids)
 
         # Generate simple mock trends (would be real data in production)
@@ -1001,7 +1012,9 @@ def setup_user_profile_routes(rt, services):
 
     logger.info("✅ Profile routes registered (/profile, /profile/{domain}, /profile/settings)")
     logger.info("✅ Profile chart API routes registered (/api/profile/charts/*)")
-    logger.info("✅ Profile HTMX intelligence endpoint registered (/api/profile/intelligence-section)")
+    logger.info(
+        "✅ Profile HTMX intelligence endpoint registered (/api/profile/intelligence-section)"
+    )
 
 
 __all__ = ["setup_user_profile_routes"]
