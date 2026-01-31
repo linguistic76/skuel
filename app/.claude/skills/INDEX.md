@@ -58,6 +58,12 @@ updated: 2026-01-17
 | [base-ai-service](base-ai-service/SKILL.md) | AI-powered features (optional LLM/embeddings) | base-analytics-service |
 | [user-context-intelligence](user-context-intelligence/SKILL.md) | Central cross-domain intelligence hub (8 methods) | base-analytics-service, activity-domains, curriculum-domains |
 
+### Observability
+
+| Skill | Purpose | Foundation |
+|-------|---------|------------|
+| [prometheus-grafana](prometheus-grafana/SKILL.md) | Metrics collection & visualization | python, result-pattern |
+
 ### Visualization
 
 | Skill | Purpose | Foundation |
@@ -83,6 +89,7 @@ updated: 2026-01-17
 | monsterui | 3 | MonsterUI FastHTML components |
 | neo4j-cypher-patterns | 3 | Cypher query patterns for graph database |
 | neo4j-genai-plugin | 3 | Neo4j GenAI plugin integration (embeddings, vector search, RAG) |
+| prometheus-grafana | 4 | Prometheus metrics + Grafana dashboards |
 | pydantic | 3 | Pydantic validation & three-tier types |
 | pytest | 4 | Testing patterns with Result[T] |
 | python | 4 | Python development patterns |
