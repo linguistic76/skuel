@@ -125,11 +125,12 @@ def InsightCard(insight: PersistedInsight) -> Div:
             )
 
     # Action buttons (Dismiss and Mark as Actioned)
+    # Phase 2, Task 10: Responsive button sizing - btn-md on mobile, btn-sm on desktop
     action_buttons = Div(
         Form(
             Button(
                 "Dismiss",
-                cls="btn btn-sm btn-ghost",
+                cls="btn btn-md md:btn-sm btn-ghost",  # btn-md on mobile (<768px), btn-sm on desktop
                 hx_post=f"/api/insights/{insight.uid}/dismiss",
                 hx_target=f"#insight-{insight.uid}",
                 hx_swap="outerHTML swap:1s",
@@ -139,14 +140,14 @@ def InsightCard(insight: PersistedInsight) -> Div:
         Form(
             Button(
                 "I've Acted on This",
-                cls="btn btn-sm btn-primary",
+                cls="btn btn-md md:btn-sm btn-primary",  # btn-md on mobile, btn-sm on desktop
                 hx_post=f"/api/insights/{insight.uid}/action",
                 hx_target=f"#insight-{insight.uid}",
                 hx_swap="outerHTML swap:1s",
             ),
             hx_confirm="Mark this insight as actioned?",
         ),
-        cls="flex gap-2",
+        cls="flex flex-col md:flex-row gap-2",  # Stack vertically on mobile, horizontal on desktop
     )
 
     content.append(Div(action_buttons, cls="mt-4 pt-3 border-t border-base-200"))
@@ -156,6 +157,85 @@ def InsightCard(insight: PersistedInsight) -> Div:
         *content,
         cls=f"border-l-4 {border_cls}",
         id=f"insight-{insight.uid}",  # For HTMX targeting
+    )
+
+
+def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div:
+    """Render a compact insight card for embedding in profile views.
+
+    Args:
+        insight: PersistedInsight model
+        show_domain: Whether to show domain badge (useful when embedding in overview)
+
+    Returns:
+        Compact card component for profile hub integration
+
+    Example:
+        # In profile habits view
+        InsightMiniCard(habit_insight, show_domain=False)
+
+        # In profile overview
+        InsightMiniCard(insight, show_domain=True)
+    """
+    # Impact indicator dot
+    impact_colors = {
+        "critical": "bg-error",
+        "high": "bg-error",
+        "medium": "bg-warning",
+        "low": "bg-success",
+    }
+    dot_color = impact_colors.get(insight.impact.value, "bg-base-300")
+
+    # Build badge
+    badges = []
+    impact_badge = Badge(
+        insight.impact.value.upper(),
+        variant="error"
+        if insight.impact.value in ("critical", "high")
+        else "warning"
+        if insight.impact.value == "medium"
+        else "success",
+    )
+    badges.append(impact_badge)
+
+    if show_domain:
+        domain_badge = Badge(insight.domain, variant="neutral")
+        badges.append(domain_badge)
+
+    # Compact layout - single row with title, badges, and link
+    return Div(
+        Div(
+            # Impact dot indicator
+            Div(cls=f"size-2 rounded-full {dot_color} flex-shrink-0"),
+            # Title (truncated)
+            TruncatedText(
+                insight.title,
+                lines=1,
+                cls="text-sm font-medium text-base-content flex-grow",
+            ),
+            # Badges
+            Row(*badges, gap=1),
+            cls="flex items-center gap-3",
+        ),
+        # Description (truncated to 1 line)
+        TruncatedText(
+            insight.description or "",
+            lines=1,
+            cls="text-xs text-base-content/60 mt-1 block",
+        ),
+        # Link to full insights page
+        Div(
+            Button(
+                "View Details",
+                cls="btn btn-xs btn-ghost",
+                hx_get=f"/insights?domain={insight.domain}",
+                hx_boost="false",
+            ),
+            cls="mt-2",
+        ),
+        cls="p-3 bg-base-200 rounded-lg border-l-2 border-l-warning cursor-pointer hover:bg-base-300 transition-colors",
+        hx_get=f"/insights?domain={insight.domain}",
+        hx_boost="false",
     )
 
 

@@ -7,10 +7,11 @@ Each view shows a combined layout:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H2, H3, A, Div, P, Span
+from fasthtml.common import H2, H3, A, Div, P, Span, Ul, Li
 
 from core.models.enums.entity_enums import Domain
 from core.services.user.unified_user_context import UserContext
+from ui.patterns.empty_state import EmptyState
 
 if TYPE_CHECKING:
     from core.services.user.intelligence.types import (
@@ -18,6 +19,47 @@ if TYPE_CHECKING:
         DailyWorkPlan,
         LearningStep,
         LifePathAlignment,
+    )
+
+
+def DomainIntelligenceCard(
+    title: str,
+    recommendations: list[tuple[str, str]],
+) -> Div:
+    """Contextual intelligence card for domain-specific recommendations (Phase 2, Task 7).
+
+    Args:
+        title: Card title (e.g., "Today's Focus", "Habit Synergies")
+        recommendations: List of (text, type) tuples where type is "info", "warning", or "success"
+
+    Returns:
+        Intelligence card with recommendations
+    """
+    if not recommendations:
+        return Div()  # No recommendations, return empty
+
+    type_icons = {
+        "info": "💡",
+        "warning": "⚠️",
+        "success": "✓",
+        "priority": "⭐",
+    }
+
+    items = []
+    for text, rec_type in recommendations:
+        icon = type_icons.get(rec_type, "•")
+        items.append(
+            Li(
+                Span(icon, cls="mr-2"),
+                Span(text, cls="text-sm text-base-content"),
+                cls="flex items-start py-2",
+            )
+        )
+
+    return Div(
+        H3(title, cls="text-md font-semibold text-base-content mb-3"),
+        Ul(*items, cls="space-y-1"),
+        cls="p-4 bg-primary/5 rounded-lg border border-primary/20 mb-6",
     )
 
 
@@ -67,11 +109,62 @@ def DomainSummaryCard(
     )
 
 
-def _empty_state(message: str) -> Div:
-    """Empty state placeholder."""
-    return Div(
-        P(message, cls="text-base-content/50 italic text-center py-8"),
-        cls="bg-base-200 rounded-lg",
+def _empty_state_for_domain(domain: str, message: str) -> Div:
+    """Actionable empty state for a domain (Phase 1, Task 5).
+
+    Args:
+        domain: Domain name (tasks, habits, goals, etc.)
+        message: Empty state message
+
+    Returns:
+        EmptyState with CTA button
+    """
+    domain_config = {
+        "tasks": {
+            "icon": "✅",
+            "action_text": "Create your first task →",
+            "action_href": "/tasks/create",
+            "description": "Tasks help you track what needs to be done",
+        },
+        "habits": {
+            "icon": "🔄",
+            "action_text": "Create your first habit →",
+            "action_href": "/habits/create",
+            "description": "Habits build consistency over time",
+        },
+        "goals": {
+            "icon": "🎯",
+            "action_text": "Create your first goal →",
+            "action_href": "/goals/create",
+            "description": "Goals give you direction and purpose",
+        },
+        "events": {
+            "icon": "📅",
+            "action_text": "Create your first event →",
+            "action_href": "/events/create",
+            "description": "Events help you plan your time",
+        },
+        "choices": {
+            "icon": "🤔",
+            "action_text": "Record your first choice →",
+            "action_href": "/choices/create",
+            "description": "Choices track your decision-making patterns",
+        },
+        "principles": {
+            "icon": "⚖️",
+            "action_text": "Define your first principle →",
+            "action_href": "/principles/create",
+            "description": "Principles guide your decisions",
+        },
+    }
+
+    config = domain_config.get(domain, {})
+    return EmptyState(
+        title=message,
+        description=config.get("description", ""),
+        action_text=config.get("action_text"),
+        action_href=config.get("action_href"),
+        icon=config.get("icon"),
     )
 
 
@@ -79,10 +172,18 @@ def _item_list(
     items: list[dict[str, Any]],
     empty_message: str,
     item_href_prefix: str = "",
+    domain: str = "",
 ) -> Div:
     """Generic item list component."""
     if not items:
-        return _empty_state(empty_message)
+        # Use actionable empty state if domain is provided (Phase 1, Task 5)
+        if domain:
+            return _empty_state_for_domain(domain, empty_message)
+        # Fallback to basic empty state
+        return Div(
+            P(empty_message, cls="text-base-content/50 italic text-center py-8"),
+            cls="bg-base-200 rounded-lg",
+        )
 
     list_items = []
     for item in items[:10]:  # Limit to 10 items
@@ -172,10 +273,25 @@ def TasksDomainView(context: UserContext) -> Div:
             for uid in context.active_task_uids[:10]
         ]
 
+    # Phase 2, Task 7: Domain-specific intelligence
+    recommendations = []
+    if overdue > 0:
+        recommendations.append((f"{overdue} task{'s' if overdue != 1 else ''} overdue - prioritize today", "warning"))
+    if context.high_priority_task_uids:
+        high_pri_count = min(len(context.high_priority_task_uids), 3)
+        recommendations.append((f"{high_pri_count} high-priority task{'s' if high_pri_count != 1 else ''} need attention", "priority"))
+    if context.goal_aligned_tasks_count > 0:
+        recommendations.append((f"{context.goal_aligned_tasks_count} tasks aligned with active goals", "success"))
+    if not recommendations and active > 0:
+        recommendations.append(("Tasks are on track - keep up the momentum!", "success"))
+
+    intelligence_card = DomainIntelligenceCard("Today's Focus", recommendations) if recommendations else Div()
+
     return Div(
         DomainSummaryCard("Tasks", "✅", stats, status),
+        intelligence_card,  # NEW: Contextual intelligence
         H3("Active Tasks", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No active tasks", "/tasks"),
+        _item_list(items, "No active tasks", "/tasks", domain="tasks"),
         A(
             "View All Tasks →",
             href="/tasks",
@@ -226,10 +342,27 @@ def HabitsDomainView(context: UserContext) -> Div:
             for uid in context.active_habit_uids[:10]
         ]
 
+    # Phase 2, Task 7: Domain-specific intelligence
+    recommendations = []
+    if at_risk > 0:
+        recommendations.append((f"{at_risk} habit{'s' if at_risk != 1 else ''} at risk of breaking - check in today", "warning"))
+    if keystone > 0:
+        recommendations.append((f"{keystone} keystone habit{'s' if keystone != 1 else ''} driving your success", "success"))
+    # Check for strong streaks
+    strong_streaks = [s for s in context.habit_streaks.values() if s >= 7]
+    if strong_streaks:
+        best_streak = max(strong_streaks)
+        recommendations.append((f"Best streak: {best_streak} days - maintain momentum!", "success"))
+    if not recommendations and total > 0:
+        recommendations.append(("All habits are healthy - consistent progress!", "success"))
+
+    intelligence_card = DomainIntelligenceCard("Habit Intelligence", recommendations) if recommendations else Div()
+
     return Div(
         DomainSummaryCard("Habits", "🔄", stats, status),
+        intelligence_card,  # NEW: Contextual intelligence
         H3("Active Habits", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No active habits", "/habits"),
+        _item_list(items, "No active habits", "/habits", domain="habits"),
         A(
             "View All Habits →",
             href="/habits",
@@ -280,10 +413,30 @@ def GoalsDomainView(context: UserContext) -> Div:
             for uid in context.active_goal_uids[:10]
         ]
 
+    # Phase 2, Task 7: Domain-specific intelligence
+    recommendations = []
+    if at_risk > 0:
+        recommendations.append((f"{at_risk} goal{'s' if at_risk != 1 else ''} at risk - needs attention", "warning"))
+
+    stalled = len(context.get_stalled_goals())
+    if stalled > 0:
+        recommendations.append((f"{stalled} goal{'s' if stalled != 1 else ''} stalled - review progress", "warning"))
+
+    # Check for near-completion goals
+    near_complete = [p for p in context.goal_progress.values() if p >= 0.8]
+    if near_complete:
+        recommendations.append((f"{len(near_complete)} goal{'s' if len(near_complete) != 1 else ''} almost complete - push to finish!", "priority"))
+
+    if completed > 0 and len(recommendations) == 0:
+        recommendations.append((f"{completed} goal{'s' if completed != 1 else ''} achieved - celebrate wins!", "success"))
+
+    intelligence_card = DomainIntelligenceCard("Goal Progress", recommendations) if recommendations else Div()
+
     return Div(
         DomainSummaryCard("Goals", "🎯", stats, status),
+        intelligence_card,  # NEW: Contextual intelligence
         H3("Active Goals", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No active goals", "/goals"),
+        _item_list(items, "No active goals", "/goals", domain="goals"),
         A(
             "View All Goals →",
             href="/goals",
@@ -329,10 +482,24 @@ def EventsDomainView(context: UserContext) -> Div:
             for uid in context.today_event_uids[:10]
         ]
 
+    # Phase 2, Task 7: Domain-specific intelligence
+    recommendations = []
+    if missed > 0:
+        recommendations.append((f"{missed} event{'s' if missed != 1 else ''} missed - reschedule today", "warning"))
+    if total_today > 0:
+        recommendations.append((f"{total_today} event{'s' if total_today != 1 else ''} scheduled today", "info"))
+    if total_today > 5:
+        recommendations.append(("Heavy schedule today - prioritize key events", "warning"))
+    if upcoming > 0:
+        recommendations.append((f"{upcoming} upcoming event{'s' if upcoming != 1 else ''} this week", "info"))
+
+    intelligence_card = DomainIntelligenceCard("Schedule Overview", recommendations) if recommendations else Div()
+
     return Div(
         DomainSummaryCard("Events", "📅", stats, status),
+        intelligence_card,  # NEW: Contextual intelligence
         H3("Upcoming Events", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No upcoming events", "/calendar"),
+        _item_list(items, "No upcoming events", "/calendar", domain="events"),
         A(
             "View Calendar →",
             href="/calendar",
@@ -383,10 +550,24 @@ def PrinciplesDomainView(context: UserContext) -> Div:
             for uid in context.core_principle_uids[:10]
         ]
 
+    # Phase 2, Task 7: Domain-specific intelligence
+    recommendations = []
+    if against > aligned:
+        recommendations.append((f"{against} recent decisions went against your principles", "warning"))
+    if aligned > 0:
+        recommendations.append((f"{aligned} decision{'s' if aligned != 1 else ''} aligned with principles - strong integrity!", "success"))
+    if total == 0:
+        recommendations.append(("Define your core principles to guide decisions", "info"))
+    elif aligned == 0 and against == 0:
+        recommendations.append(("Track choices to see principle alignment", "info"))
+
+    intelligence_card = DomainIntelligenceCard("Principle Alignment", recommendations) if recommendations else Div()
+
     return Div(
         DomainSummaryCard("Principles", "⚖️", stats, status),
+        intelligence_card,  # NEW: Contextual intelligence
         H3("Core Principles", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No principles defined", "/principles"),
+        _item_list(items, "No principles defined", "/principles", domain="principles"),
         A(
             "View All Principles →",
             href="/principles",
@@ -432,10 +613,24 @@ def ChoicesDomainView(context: UserContext) -> Div:
             for uid in context.pending_choice_uids[:10]
         ]
 
+    # Phase 2, Task 7: Domain-specific intelligence
+    recommendations = []
+    if pending > 5:
+        recommendations.append((f"{pending} choices awaiting decision - address high-priority ones first", "warning"))
+    elif pending > 0:
+        recommendations.append((f"{pending} choice{'s' if pending != 1 else ''} pending - make time for reflection", "info"))
+    if resolved > 0:
+        recommendations.append((f"{resolved} choice{'s' if resolved != 1 else ''} resolved - review outcomes", "success"))
+    if total == 0:
+        recommendations.append(("Track important decisions to improve decision-making", "info"))
+
+    intelligence_card = DomainIntelligenceCard("Decision Status", recommendations) if recommendations else Div()
+
     return Div(
         DomainSummaryCard("Choices", "🔀", stats, status),
+        intelligence_card,  # NEW: Contextual intelligence
         H3("Pending Choices", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No pending choices", "/choices"),
+        _item_list(items, "No pending choices", "/choices", domain="choices"),
         A(
             "View All Choices →",
             href="/choices",
@@ -596,6 +791,79 @@ def _ready_to_learn_list(context: UserContext) -> Div:
     return Div(*items, cls="space-y-2")
 
 
+def _chart_visualizations_section() -> Div:
+    """Chart.js visualizations section (Phase 1, Task 2).
+
+    Displays:
+    - Alignment radar chart (5 dimensions)
+    - 30-day domain progress timeline
+    """
+    from fasthtml.common import Canvas, Script
+
+    return Div(
+        H3("Visual Analytics", cls="text-xl font-semibold text-base-content mb-4"),
+        # Two-column grid for charts
+        Div(
+            # Alignment Radar Chart
+            Div(
+                Div(
+                    Canvas(
+                        **{
+                            "x-ref": "canvas",
+                            "width": "400",
+                            "height": "400",
+                            "class": "max-w-full",
+                        }
+                    ),
+                    Div(
+                        "Loading chart...",
+                        cls="text-center text-base-content/50 py-8",
+                        **{"x-show": "loading"},
+                    ),
+                    Div(
+                        Span("Error: ", cls="font-bold"),
+                        Span(**{"x-text": "error"}),
+                        cls="text-error text-center py-8",
+                        **{"x-show": "error"},
+                    ),
+                    **{"x-data": "chartVis('/api/profile/charts/alignment', 'radar')"},
+                ),
+                cls="card bg-base-100 shadow-sm p-6",
+            ),
+            # Domain Progress Timeline
+            Div(
+                Div(
+                    Canvas(
+                        **{
+                            "x-ref": "canvas",
+                            "width": "600",
+                            "height": "300",
+                            "class": "max-w-full",
+                        }
+                    ),
+                    Div(
+                        "Loading chart...",
+                        cls="text-center text-base-content/50 py-8",
+                        **{"x-show": "loading"},
+                    ),
+                    Div(
+                        Span("Error: ", cls="font-bold"),
+                        Span(**{"x-text": "error"}),
+                        cls="text-error text-center py-8",
+                        **{"x-show": "error"},
+                    ),
+                    **{
+                        "x-data": "chartVis('/api/profile/charts/domain-progress', 'line')"
+                    },
+                ),
+                cls="card bg-base-100 shadow-sm p-6",
+            ),
+            cls="grid grid-cols-1 lg:grid-cols-2 gap-6",
+        ),
+        cls="mb-8",
+    )
+
+
 def OverviewView(
     context: UserContext,
     daily_plan: "DailyWorkPlan | None" = None,
@@ -610,6 +878,7 @@ def OverviewView(
     - Full mode (all intelligence params provided): Full intelligence features
 
     Displays (Full mode):
+    - Chart visualizations (Phase 1, Task 2): Alignment radar + domain progress timeline
     - Life path alignment breakdown (5 dimensions) - from intelligence
     - Daily work plan (today's optimal focus) - from intelligence
     - High-leverage actions (cross-domain synergies) - from intelligence
@@ -631,37 +900,28 @@ def OverviewView(
     # Check if intelligence is available (all params provided = full mode)
     has_intelligence = daily_plan is not None and alignment is not None
 
-    # Build intelligence section based on mode
-    if has_intelligence:
-        # Full mode - show intelligence components
-        assert alignment is not None  # Guaranteed by has_intelligence check
-        alignment_score = alignment.overall_score
-        alignment_percent = int(alignment_score * 100)
-        header = Div(
-            H2("Activity Overview", cls="text-2xl font-bold text-base-content"),
-            P(
-                f"Life Path Alignment: {alignment_percent}%",
-                cls="text-lg text-base-content/70 mt-1",
-            ),
-            cls="mb-6",
-        )
-        intelligence_section = Div(
-            _alignment_breakdown(alignment),
-            _daily_work_plan_card(daily_plan),
-            _synergies_card(synergies or []),
-            _learning_steps_card(learning_steps or []),
-        )
-    else:
-        # Basic mode - show profile without intelligence
-        header = Div(
-            H2("Activity Overview", cls="text-2xl font-bold text-base-content"),
-            P(
-                "Profile Hub - Basic Mode",
-                cls="text-lg text-base-content/70 mt-1",
-            ),
-            cls="mb-6",
-        )
-        intelligence_section = _intelligence_unavailable_card()
+    # Phase 1, Task 3: Use HTMX to load intelligence section with skeleton loading state
+    # This prevents blank screen during 2-3s intelligence load
+    from ui.patterns.skeleton import SkeletonIntelligence
+
+    header = Div(
+        H2("Activity Overview", cls="text-2xl font-bold text-base-content"),
+        P(
+            "Loading intelligence data...",
+            cls="text-lg text-base-content/70 mt-1",
+            id="intelligence-status",
+        ),
+        cls="mb-6",
+    )
+
+    # Intelligence section loads via HTMX - skeleton shown initially
+    intelligence_section = Div(
+        SkeletonIntelligence(),  # Initial skeleton state
+        id="intelligence-container",
+        hx_get="/api/profile/intelligence-section",
+        hx_trigger="load",  # Load immediately when page renders
+        hx_swap="innerHTML",  # Replace skeleton with real content
+    )
 
     return Div(
         header,

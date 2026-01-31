@@ -1478,6 +1478,305 @@
         });
 
         // ---------------------------------------------------------------------
+        // Insight Swipe Actions Component - Phase 2 Task 10
+        // ---------------------------------------------------------------------
+        /**
+         * Touch-friendly swipe and long-press actions for insight cards.
+         * Supports swipe-to-dismiss and long-press action menu.
+         *
+         * @param {string} insight_uid - Insight UID
+         * @returns {Object} Alpine.js component
+         *
+         * @example
+         * <div x-data="insightSwipeActions('insight_abc')" @touchstart="handleTouchStart($event)" @touchend="handleTouchEnd($event)">
+         *   <div x-show="showDismissButton">Swipe left to dismiss</div>
+         * </div>
+         */
+        Alpine.data('insightSwipeActions', function(insight_uid) {
+            return {
+                insight_uid: insight_uid,
+                touchStartX: 0,
+                touchStartY: 0,
+                touchStartTime: 0,
+                longPressTimer: null,
+                showActionMenu: false,
+                showDismissButton: false,
+                translateX: 0,
+
+                handleTouchStart: function(event) {
+                    this.touchStartX = event.changedTouches[0].screenX;
+                    this.touchStartY = event.changedTouches[0].screenY;
+                    this.touchStartTime = Date.now();
+
+                    // Start long-press timer (800ms)
+                    var self = this;
+                    this.longPressTimer = setTimeout(function() {
+                        self.showActionMenu = true;
+                        // Haptic feedback (if supported)
+                        if (navigator.vibrate) {
+                            navigator.vibrate(50);
+                        }
+                    }, 800);
+                },
+
+                handleTouchMove: function(event) {
+                    var touchX = event.changedTouches[0].screenX;
+                    var deltaX = touchX - this.touchStartX;
+
+                    // Only allow left swipe
+                    if (deltaX < 0) {
+                        this.translateX = Math.max(deltaX, -100); // Max 100px left
+                    }
+
+                    // Cancel long-press if moved
+                    if (Math.abs(deltaX) > 10) {
+                        clearTimeout(this.longPressTimer);
+                    }
+                },
+
+                handleTouchEnd: function(event) {
+                    clearTimeout(this.longPressTimer);
+
+                    var touchEndX = event.changedTouches[0].screenX;
+                    var deltaX = touchEndX - this.touchStartX;
+
+                    // Swipe left threshold: -80px
+                    if (deltaX < -80) {
+                        this.showDismissButton = true;
+                        this.translateX = -100;
+                    } else {
+                        // Reset position
+                        this.translateX = 0;
+                        this.showDismissButton = false;
+                    }
+                },
+
+                dismissCard: async function() {
+                    var self = this;
+                    try {
+                        var response = await fetch('/api/insights/' + this.insight_uid + '/dismiss', {
+                            method: 'POST'
+                        });
+
+                        if (response.ok) {
+                            // Hide card with animation
+                            var card = document.getElementById('insight-' + this.insight_uid);
+                            if (card) {
+                                card.style.opacity = '0';
+                                card.style.transform = 'translateX(-100%)';
+                                card.style.transition = 'all 0.3s ease';
+
+                                // Remove after animation
+                                setTimeout(function() {
+                                    card.remove();
+                                }, 300);
+                            }
+                        } else {
+                            alert('Failed to dismiss insight');
+                        }
+                    } catch (err) {
+                        console.error('Dismiss failed:', err);
+                        alert('Failed to dismiss insight');
+                    }
+                },
+
+                actionCard: async function() {
+                    var self = this;
+                    this.showActionMenu = false;
+
+                    try {
+                        var response = await fetch('/api/insights/' + this.insight_uid + '/action', {
+                            method: 'POST'
+                        });
+
+                        if (response.ok) {
+                            // Reload page to show updated state
+                            window.location.reload();
+                        } else {
+                            alert('Failed to mark insight as actioned');
+                        }
+                    } catch (err) {
+                        console.error('Action failed:', err);
+                        alert('Failed to mark insight as actioned');
+                    }
+                },
+
+                closeActionMenu: function() {
+                    this.showActionMenu = false;
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
+        // Bulk Insight Manager Component - Phase 2 Task 9
+        // ---------------------------------------------------------------------
+        /**
+         * Manages bulk selection and actions for insights dashboard.
+         * Allows selecting multiple insights and performing batch operations.
+         *
+         * @returns {Object} Alpine.js component
+         * @property {Set} selectedUids - Set of selected insight UIDs
+         * @property {boolean} selectAllChecked - Select all checkbox state
+         * @property {boolean} showBulkActions - Computed: show bulk action bar
+         * @property {number} selectedCount - Computed: count of selected insights
+         *
+         * @example
+         * <div x-data="bulkInsightManager()">
+         *   <input type="checkbox" @change="toggleSelection(insight.uid)">
+         *   <button @click="bulkDismiss()">Dismiss Selected</button>
+         * </div>
+         */
+        Alpine.data('bulkInsightManager', function() {
+            return {
+                selectedUids: new Set(),
+                selectAllChecked: false,
+
+                // Computed: show bulk action bar when insights selected
+                get showBulkActions() {
+                    return this.selectedUids.size > 0;
+                },
+
+                // Computed: selected count
+                get selectedCount() {
+                    return this.selectedUids.size;
+                },
+
+                // Toggle individual insight selection
+                toggleSelection: function(uid) {
+                    if (this.selectedUids.has(uid)) {
+                        this.selectedUids.delete(uid);
+                    } else {
+                        this.selectedUids.add(uid);
+                    }
+                    // Update select-all checkbox state
+                    this.updateSelectAllState();
+                },
+
+                // Check if insight is selected
+                isSelected: function(uid) {
+                    return this.selectedUids.has(uid);
+                },
+
+                // Select all visible insights
+                selectAll: function() {
+                    var self = this;
+                    var checkboxes = document.querySelectorAll('input[name="insight-checkbox"]');
+                    checkboxes.forEach(function(checkbox) {
+                        self.selectedUids.add(checkbox.value);
+                    });
+                    this.selectAllChecked = true;
+                },
+
+                // Deselect all insights
+                deselectAll: function() {
+                    this.selectedUids.clear();
+                    this.selectAllChecked = false;
+                },
+
+                // Toggle select all
+                toggleSelectAll: function() {
+                    if (this.selectAllChecked) {
+                        this.selectAll();
+                    } else {
+                        this.deselectAll();
+                    }
+                },
+
+                // Update select-all checkbox state based on selections
+                updateSelectAllState: function() {
+                    var checkboxes = document.querySelectorAll('input[name="insight-checkbox"]');
+                    var totalCount = checkboxes.length;
+                    this.selectAllChecked = totalCount > 0 && this.selectedUids.size === totalCount;
+                },
+
+                // Bulk dismiss selected insights
+                bulkDismiss: async function() {
+                    var self = this;
+                    if (this.selectedUids.size === 0) return;
+
+                    var uids = Array.from(this.selectedUids);
+
+                    try {
+                        var response = await fetch('/api/insights/bulk/dismiss', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ uids: uids })
+                        });
+
+                        if (response.ok) {
+                            // Reload page to show updated insights
+                            window.location.reload();
+                        } else {
+                            var error = await response.json();
+                            alert('Failed to dismiss insights: ' + (error.detail || 'Unknown error'));
+                        }
+                    } catch (err) {
+                        console.error('Bulk dismiss failed:', err);
+                        alert('Failed to dismiss insights. Please try again.');
+                    }
+                },
+
+                // Bulk mark as actioned
+                bulkMarkActioned: async function() {
+                    var self = this;
+                    if (this.selectedUids.size === 0) return;
+
+                    var uids = Array.from(this.selectedUids);
+
+                    try {
+                        var response = await fetch('/api/insights/bulk/action', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ uids: uids })
+                        });
+
+                        if (response.ok) {
+                            // Reload page to show updated insights
+                            window.location.reload();
+                        } else {
+                            var error = await response.json();
+                            alert('Failed to mark insights as actioned: ' + (error.detail || 'Unknown error'));
+                        }
+                    } catch (err) {
+                        console.error('Bulk action failed:', err);
+                        alert('Failed to mark insights as actioned. Please try again.');
+                    }
+                },
+
+                // Smart bulk dismiss (dismiss all of a certain type/impact)
+                smartDismiss: async function(filter_type, filter_value) {
+                    try {
+                        var response = await fetch('/api/insights/bulk/smart-dismiss', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                filter_type: filter_type,
+                                filter_value: filter_value
+                            })
+                        });
+
+                        if (response.ok) {
+                            // Reload page to show updated insights
+                            window.location.reload();
+                        } else {
+                            var error = await response.json();
+                            alert('Failed to dismiss insights: ' + (error.detail || 'Unknown error'));
+                        }
+                    } catch (err) {
+                        console.error('Smart dismiss failed:', err);
+                        alert('Failed to dismiss insights. Please try again.');
+                    }
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
         // Relationship Graph Component (Vis.js Network) - Phase 5
         // ---------------------------------------------------------------------
         /**

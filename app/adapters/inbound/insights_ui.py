@@ -8,7 +8,7 @@ Phase 1 (January 2026): Insight dashboard with dismiss/action functionality.
 
 from typing import Any
 
-from fasthtml.common import Div, Form, H1, H2, NotStr, P, Select
+from fasthtml.common import Button, Div, Form, H1, H2, H3, Input, Label, NotStr, P, Select, Span
 
 from components.insight_card import DismissedInsightMessage, InsightCard
 from core.auth import require_authenticated_user
@@ -48,12 +48,16 @@ def create_insights_ui_routes(
         params = request.query_params
         domain_filter = params.get("domain")
         impact_filter = params.get("impact")
+        search_query = params.get("search", "")
+        insight_type_filter = params.get("type")
+        action_status = params.get("status")  # 'all', 'unactioned', 'actioned'
 
-        # Get active insights from store
+        # Phase 2, Task 8: Progressive loading - load 10 initially for fast page load
+        page_size = 10
         result = await insight_store.get_active_insights(
             user_uid=user_uid,
             domain=domain_filter,
-            limit=50,
+            limit=page_size,  # Initial load: 10 insights only
         )
 
         if result.is_error:
@@ -62,46 +66,133 @@ def create_insights_ui_routes(
         else:
             insights = result.value
 
-            # Apply impact filter (client-side for now)
+            # Apply filters (client-side for now - would be server-side in production)
             if impact_filter:
                 insights = [i for i in insights if i.impact.value == impact_filter]
 
-        # Build filter form
+            if insight_type_filter:
+                insights = [i for i in insights if i.insight_type.value == insight_type_filter]
+
+            if action_status == "unactioned":
+                insights = [i for i in insights if not i.actioned]
+            elif action_status == "actioned":
+                insights = [i for i in insights if i.actioned]
+
+            if search_query:
+                search_lower = search_query.lower()
+                insights = [
+                    i
+                    for i in insights
+                    if search_lower in i.title.lower() or search_lower in (i.description or "").lower()
+                ]
+
+        # Build advanced filter form (Phase 1, Task 4)
         filter_form = Div(
             Form(
+                # Row 1: Search + Domain
                 Div(
-                    Select(
-                        NotStr(
-                            '<option value="">All Domains</option>'
-                            '<option value="habits">Habits</option>'
-                            '<option value="choices">Choices</option>'
-                            '<option value="principles">Principles</option>'
-                            '<option value="tasks">Tasks</option>'
-                            '<option value="goals">Goals</option>'
-                            '<option value="events">Events</option>'
+                    # Full-text search
+                    Div(
+                        Label("Search", cls="label label-text text-xs"),
+                        Input(
+                            type="text",
+                            name="search",
+                            placeholder="Search insights...",
+                            value=search_query,
+                            cls="input input-bordered input-sm w-full",
                         ),
-                        name="domain",
-                        cls="select select-bordered select-sm",
-                        value=domain_filter or "",
+                        cls="form-control flex-1",
                     ),
-                    Select(
-                        NotStr(
-                            '<option value="">All Impact Levels</option>'
-                            '<option value="critical">Critical</option>'
-                            '<option value="high">High</option>'
-                            '<option value="medium">Medium</option>'
-                            '<option value="low">Low</option>'
+                    # Domain filter
+                    Div(
+                        Label("Domain", cls="label label-text text-xs"),
+                        Select(
+                            NotStr(
+                                '<option value="">All Domains</option>'
+                                '<option value="tasks">Tasks</option>'
+                                '<option value="goals">Goals</option>'
+                                '<option value="habits">Habits</option>'
+                                '<option value="events">Events</option>'
+                                '<option value="choices">Choices</option>'
+                                '<option value="principles">Principles</option>'
+                            ),
+                            name="domain",
+                            cls="select select-bordered select-sm",
+                            value=domain_filter or "",
                         ),
-                        name="impact",
-                        cls="select select-bordered select-sm",
-                        value=impact_filter or "",
+                        cls="form-control",
                     ),
+                    cls="flex gap-3",
+                ),
+                # Row 2: Impact + Type + Status
+                Div(
+                    # Impact filter
+                    Div(
+                        Label("Impact", cls="label label-text text-xs"),
+                        Select(
+                            NotStr(
+                                '<option value="">All Impact</option>'
+                                '<option value="critical">Critical</option>'
+                                '<option value="high">High</option>'
+                                '<option value="medium">Medium</option>'
+                                '<option value="low">Low</option>'
+                            ),
+                            name="impact",
+                            cls="select select-bordered select-sm",
+                            value=impact_filter or "",
+                        ),
+                        cls="form-control",
+                    ),
+                    # Insight type filter
+                    Div(
+                        Label("Type", cls="label label-text text-xs"),
+                        Select(
+                            NotStr(
+                                '<option value="">All Types</option>'
+                                '<option value="difficulty_pattern">Difficulty Pattern</option>'
+                                '<option value="completion_streak">Completion Streak</option>'
+                                '<option value="habit_synergy">Habit Synergy</option>'
+                                '<option value="goal_alignment">Goal Alignment</option>'
+                                '<option value="principle_violation">Principle Violation</option>'
+                                '<option value="learning_opportunity">Learning Opportunity</option>'
+                            ),
+                            name="type",
+                            cls="select select-bordered select-sm",
+                            value=insight_type_filter or "",
+                        ),
+                        cls="form-control",
+                    ),
+                    # Action status filter
+                    Div(
+                        Label("Status", cls="label label-text text-xs"),
+                        Select(
+                            NotStr(
+                                '<option value="all">All</option>'
+                                '<option value="unactioned">Not Acted On</option>'
+                                '<option value="actioned">Acted On</option>'
+                            ),
+                            name="status",
+                            cls="select select-bordered select-sm",
+                            value=action_status or "all",
+                        ),
+                        cls="form-control",
+                    ),
+                    cls="flex gap-3 mt-3",
+                ),
+                # Action buttons
+                Div(
                     Button(
-                        "Filter",
+                        "Apply Filters",
                         type="submit",
                         cls="btn btn-sm btn-primary",
                     ),
-                    cls="flex gap-3",
+                    Button(
+                        "Clear",
+                        type="button",
+                        cls="btn btn-sm btn-ghost",
+                        onclick="window.location.href='/insights'",
+                    ),
+                    cls="flex gap-2 mt-3",
                 ),
                 method="GET",
                 action="/insights",
@@ -109,11 +200,132 @@ def create_insights_ui_routes(
             cls="mb-6 p-4 bg-base-200 rounded-lg",
         )
 
-        # Build insight cards
+        # Phase 2, Task 9: Bulk actions bar (only shown when insights selected)
+        bulk_action_bar = Div(
+            Div(
+                # Selection count
+                Div(
+                    Span(
+                        NotStr("<span x-text='selectedCount'></span>"),
+                        " insight",
+                        NotStr("<span x-show='selectedCount !== 1'>s</span>"),
+                        " selected",
+                        cls="text-sm font-medium",
+                    ),
+                    cls="flex-1",
+                ),
+                # Action buttons
+                Div(
+                    Button(
+                        "Dismiss Selected",
+                        cls="btn btn-sm btn-ghost",
+                        **{"@click": "bulkDismiss()"},
+                    ),
+                    Button(
+                        "Mark as Actioned",
+                        cls="btn btn-sm btn-primary",
+                        **{"@click": "bulkMarkActioned()"},
+                    ),
+                    Button(
+                        "Deselect All",
+                        cls="btn btn-sm btn-ghost",
+                        **{"@click": "deselectAll()"},
+                    ),
+                    cls="flex gap-2",
+                ),
+                cls="flex items-center justify-between",
+            ),
+            cls="mb-4 p-4 bg-primary/10 border border-primary/30 rounded-lg",
+            **{"x-show": "showBulkActions"},
+            **{"x-transition": ""},
+        )
+
+        # Phase 2, Task 9: Select-all header (only shown when insights present)
+        select_all_header = None
         if insights:
+            select_all_header = Div(
+                Label(
+                    Input(
+                        type="checkbox",
+                        cls="checkbox checkbox-sm",
+                        **{"x-model": "selectAllChecked"},
+                        **{"@change": "toggleSelectAll()"},
+                    ),
+                    Span("Select All", cls="ml-2 text-sm font-medium"),
+                    cls="label cursor-pointer justify-start gap-2",
+                ),
+                cls="mb-4 p-3 bg-base-200 rounded-lg",
+            )
+
+        # Phase 2, Task 8: Progressive loading with HTMX infinite scroll
+        # Build insight cards with load-more trigger
+        if insights:
+            # Encode filters for load-more URL
+            filter_params = []
+            if domain_filter:
+                filter_params.append(f"domain={domain_filter}")
+            if impact_filter:
+                filter_params.append(f"impact={impact_filter}")
+            if search_query:
+                filter_params.append(f"search={search_query}")
+            if insight_type_filter:
+                filter_params.append(f"type={insight_type_filter}")
+            if action_status:
+                filter_params.append(f"status={action_status}")
+
+            filter_query = "&".join(filter_params)
+            load_more_url = f"/insights/load-more?offset={page_size}&{filter_query}" if filter_query else f"/insights/load-more?offset={page_size}"
+
+            # Phase 2, Task 9: Wrap each insight card with checkbox
+            insight_card_items = []
+            for insight in insights:
+                card_with_checkbox = Div(
+                    # Checkbox (left side)
+                    Label(
+                        Input(
+                            type="checkbox",
+                            name="insight-checkbox",
+                            value=insight.uid,
+                            cls="checkbox checkbox-sm",
+                            **{"@change": f"toggleSelection('{insight.uid}')"},
+                            **{":checked": f"isSelected('{insight.uid}')"},
+                        ),
+                        cls="mr-3 flex-shrink-0 mt-1",
+                    ),
+                    # Insight card (right side)
+                    Div(
+                        InsightCard(insight),
+                        cls="flex-1",
+                    ),
+                    cls="flex items-start gap-2",
+                )
+                insight_card_items.append(card_with_checkbox)
+
+            # Container for insights with HTMX infinite scroll
             insight_cards = Div(
-                *[InsightCard(insight) for insight in insights],
-                cls="space-y-4",
+                # Initial batch of insights
+                Div(
+                    *insight_card_items,
+                    id="insights-list",
+                    cls="space-y-4",
+                ),
+                # Load more trigger (revealed when scrolled into view)
+                Div(
+                    id="load-more-trigger",
+                    hx_get=load_more_url,
+                    hx_trigger="revealed",
+                    hx_swap="outerHTML",
+                    hx_indicator="#loading-indicator",
+                ),
+                # Loading indicator
+                Div(
+                    Div(
+                        Span("Loading more insights...", cls="loading loading-spinner loading-md"),
+                        cls="flex justify-center items-center py-8",
+                    ),
+                    id="loading-indicator",
+                    cls="htmx-indicator",
+                ),
             )
         else:
             # Empty state
@@ -124,15 +336,58 @@ def create_insights_ui_routes(
                 icon="💡",
             )
 
-        # Build page content
+        # Phase 2: Charts visualization section (only show if there are insights)
+        charts_section = None
+        if len(insights) >= 3:  # Only show charts if meaningful data (3+ insights)
+            charts_section = Div(
+                H3("Visual Analytics", cls="text-xl font-bold mb-4"),
+                Div(
+                    # Impact distribution (doughnut)
+                    Div(
+                        **{
+                            "x-data": "chartVis('/api/insights/charts/impact-distribution', 'doughnut')",
+                            "class": "bg-base-100 p-4 rounded-lg shadow"
+                        }
+                    ),
+                    # Domain distribution (bar)
+                    Div(
+                        **{
+                            "x-data": "chartVis('/api/insights/charts/domain-distribution', 'bar')",
+                            "class": "bg-base-100 p-4 rounded-lg shadow"
+                        }
+                    ),
+                    # Type distribution (doughnut)
+                    Div(
+                        **{
+                            "x-data": "chartVis('/api/insights/charts/type-distribution', 'doughnut')",
+                            "class": "bg-base-100 p-4 rounded-lg shadow"
+                        }
+                    ),
+                    # Action rate (gauge)
+                    Div(
+                        **{
+                            "x-data": "chartVis('/api/insights/charts/action-rate', 'doughnut')",
+                            "class": "bg-base-100 p-4 rounded-lg shadow"
+                        }
+                    ),
+                    cls="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6"
+                ),
+                cls="mb-8"
+            )
+
+        # Build page content (Phase 2, Task 9: wrapped in bulkInsightManager)
         content = Div(
             PageHeader(
                 title="💡 Insights",
                 subtitle=f"{len(insights)} active insight{'s' if len(insights) != 1 else ''} from your behavior patterns",
             ),
             filter_form,
+            charts_section if charts_section else Div(),  # Add charts section if available
+            bulk_action_bar,  # Phase 2, Task 9: bulk action bar (shown when insights selected)
+            select_all_header if select_all_header else Div(),  # Phase 2, Task 9: select-all checkbox
             insight_cards,
             cls="space-y-6",
+            **{"x-data": "bulkInsightManager()"},  # Phase 2, Task 9: Alpine component for bulk selection
         )
 
         return BasePage(
@@ -210,4 +465,119 @@ def create_insights_ui_routes(
             page_type=PageType.STANDARD,
         )
 
-    return [insights_dashboard, insights_stats]
+    @rt("/insights/load-more")
+    async def load_more_insights(request):
+        """HTMX endpoint for progressive loading (Phase 2, Task 8).
+
+        Loads next batch of insights for infinite scroll.
+        Returns insight cards + new load-more trigger (or end marker).
+        """
+        user_uid = require_authenticated_user(request)
+
+        # Get query params
+        params = request.query_params
+        offset = int(params.get("offset", 0))
+        page_size = 10
+
+        domain_filter = params.get("domain")
+        impact_filter = params.get("impact")
+        search_query = params.get("search", "")
+        insight_type_filter = params.get("type")
+        action_status = params.get("status")
+
+        # Get next batch of insights
+        result = await insight_store.get_active_insights(
+            user_uid=user_uid,
+            domain=domain_filter,
+            limit=page_size + offset,  # Get all up to this point
+        )
+
+        if result.is_error:
+            logger.error(f"Failed to retrieve insights: {result.error}")
+            return Div(P("Failed to load more insights", cls="text-error"))
+
+        all_insights = result.value
+
+        # Apply same filters as main dashboard
+        if impact_filter:
+            all_insights = [i for i in all_insights if i.impact.value == impact_filter]
+        if insight_type_filter:
+            all_insights = [i for i in all_insights if i.insight_type.value == insight_type_filter]
+        if action_status == "unactioned":
+            all_insights = [i for i in all_insights if not i.actioned]
+        elif action_status == "actioned":
+            all_insights = [i for i in all_insights if i.actioned]
+        if search_query:
+            search_lower = search_query.lower()
+            all_insights = [
+                i for i in all_insights
+                if search_lower in i.title.lower() or search_lower in (i.description or "").lower()
+            ]
+
+        # Get only the new batch (slice from offset)
+        new_insights = all_insights[offset:offset + page_size]
+
+        if not new_insights:
+            # No more insights - return end marker
+            return Div(
+                P("No more insights to load", cls="text-center text-base-content/50 py-4"),
+                id="load-more-trigger",
+            )
+
+        # Encode filters for next load-more URL
+        filter_params = []
+        if domain_filter:
+            filter_params.append(f"domain={domain_filter}")
+        if impact_filter:
+            filter_params.append(f"impact={impact_filter}")
+        if search_query:
+            filter_params.append(f"search={search_query}")
+        if insight_type_filter:
+            filter_params.append(f"type={insight_type_filter}")
+        if action_status:
+            filter_params.append(f"status={action_status}")
+
+        filter_query = "&".join(filter_params)
+        next_offset = offset + page_size
+        next_url = f"/insights/load-more?offset={next_offset}&{filter_query}" if filter_query else f"/insights/load-more?offset={next_offset}"
+
+        # Phase 2, Task 9: Wrap each loaded insight with checkbox
+        loaded_card_items = []
+        for insight in new_insights:
+            card_with_checkbox = Div(
+                # Checkbox (left side)
+                Label(
+                    Input(
+                        type="checkbox",
+                        name="insight-checkbox",
+                        value=insight.uid,
+                        cls="checkbox checkbox-sm",
+                        **{"@change": f"toggleSelection('{insight.uid}')"},
+                        **{":checked": f"isSelected('{insight.uid}')"},
+                    ),
+                    cls="mr-3 flex-shrink-0 mt-1",
+                ),
+                # Insight card (right side)
+                Div(
+                    InsightCard(insight),
+                    cls="flex-1",
+                ),
+                cls="flex items-start gap-2",
+            )
+            loaded_card_items.append(card_with_checkbox)
+
+        # Return new insight cards + new load-more trigger
+        return Div(
+            # New batch of insights (append to existing list)
+            *loaded_card_items,
+            # New load-more trigger for next batch
+            Div(
+                id="load-more-trigger",
+                hx_get=next_url,
+                hx_trigger="revealed",
+                hx_swap="outerHTML",
+                hx_indicator="#loading-indicator",
+            ),
+        )
+
+    return [insights_dashboard, insights_stats, load_more_insights]
