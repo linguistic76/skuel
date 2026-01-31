@@ -922,6 +922,109 @@ sorted(items, key=by_score)
 
 **See:** `/docs/patterns/linter_rules.md`
 
+## Observability & Monitoring
+
+**Core Principle:** "Measure what matters - real-time operational intelligence"
+
+SKUEL uses **Prometheus + Grafana** for metrics collection and visualization, following the Prometheus-primary architecture pattern (ADR-036).
+
+### Quick Access
+
+- **Prometheus UI**: http://localhost:9090
+- **Grafana Dashboards**: http://localhost:3000
+- **Metrics Endpoint**: http://localhost:5001/metrics
+- **Skill Guide**: `@prometheus-grafana` - Expert guide for instrumentation
+
+### The Stack
+
+**Metrics**: 43 across 9 categories (System, HTTP, Database, Events, Domains, Relationships, Search, Queries, AI Services)
+**Alerts**: 14 production alerts (2 critical, 11 warning) with runbooks
+**Dashboards**: 4 Grafana dashboards (System Health, Domain Activity, Graph Health, User Journey)
+
+### Key Metrics Categories
+
+| Category | Count | Examples |
+|----------|-------|----------|
+| System | 3 | CPU, memory, Neo4j health |
+| HTTP | 3 | Requests, latency, errors |
+| Database | 3 | Query performance, errors |
+| Events | 6 | Event bus health, handler performance |
+| Domains | 3 | Entity creation/completion |
+| Relationships | 15 | Graph density, dependencies |
+| Search | 3 | Search performance, similarity |
+| Queries | 3 | Operation timing |
+| **AI Services** | 8 | OpenAI costs, embedding pipeline |
+
+### AI/LLM Cost Tracking (Phase 1 - January 2026)
+
+**8 new metrics** for monitoring expensive AI operations:
+
+**OpenAI API Metrics** (4):
+- `skuel_openai_requests_total` - Request count by model
+- `skuel_openai_duration_seconds` - API latency (p50/p95/p99)
+- `skuel_openai_tokens_total` - Token consumption (cost tracking)
+- `skuel_openai_errors_total` - Error classification (rate_limit, timeout, auth)
+
+**Embedding Pipeline** (3):
+- `skuel_embedding_queue_size` - Queue backlog by type (entity/chunk)
+- `skuel_embeddings_processed_total` - Success/failure rates by entity type
+- `skuel_embedding_batch_size` - Batch size distribution
+
+**Deepgram Transcription** (1):
+- `skuel_transcription_requests_total` - Request tracking
+
+### Production Alerts
+
+**14 alerts** with severity levels and runbooks:
+
+**Critical (2)**:
+- HighErrorRate - HTTP error rate >5% for 5m
+- Neo4jDown - Database unavailable for 1m
+
+**Warning (11)**:
+- SlowHttpRequests, SlowDatabaseQueries, HighDatabaseErrorRate
+- HighEventHandlerErrorRate, SlowEventHandlers
+- HighOrphanedEntityCount, LongDependencyChains
+- HighOpenAIErrorRate, EmbeddingQueueBacklog, HighEmbeddingFailureRate, SlowOpenAICalls
+
+**Alert UI**: http://localhost:9090/alerts
+
+### Common Tasks
+
+```bash
+# Start monitoring stack
+docker compose up -d prometheus grafana
+
+# View metrics
+curl http://localhost:5001/metrics | grep skuel_
+
+# Validate configuration
+./scripts/validate_prometheus_config.sh
+
+# Run test suite
+./scripts/test_observability_phase1.sh
+```
+
+### Documentation
+
+**Primary Docs**:
+- `monitoring/README.md` - Quick start guide
+- `.claude/skills/prometheus-grafana/SKILL.md` - Complete metrics reference (43 metrics)
+- `.claude/skills/prometheus-grafana/ALERTING.md` - Alert runbooks and patterns
+- `.claude/skills/prometheus-grafana/INSTRUMENTATION.md` - How to add metrics
+
+**Implementation Docs**:
+- `OBSERVABILITY_PHASE1_COMPLETE.md` - Full implementation guide
+- `OBSERVABILITY_CHANGES_SUMMARY.md` - Quick changes reference
+
+**Architecture**:
+- Prometheus as single source of truth (no export lag)
+- Optional in-memory cache for debugging (last 100 items, lossy)
+- Zero runtime overhead (~1-2 microseconds per operation)
+- Real-time AI cost tracking enables optimization
+
+**See**: `/.claude/skills/prometheus-grafana/` for complete observability documentation
+
 ## Logging Patterns
 
 **Core Principle:** "Right tool for each context"
