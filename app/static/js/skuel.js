@@ -1477,6 +1477,143 @@
             };
         });
 
+        // ---------------------------------------------------------------------
+        // Relationship Graph Component (Vis.js Network) - Phase 5
+        // ---------------------------------------------------------------------
+        /**
+         * Interactive force-directed graph for lateral relationships.
+         * Uses Vis.js Network library for visualization.
+         *
+         * @param {string} entity_uid - Center entity UID
+         * @param {string} entity_type - Entity type (tasks, goals, etc.)
+         * @param {number} initial_depth - Initial graph depth (1-3)
+         * @returns {Object} Alpine.js component
+         *
+         * @example
+         * <div x-data="relationshipGraph('task_abc', 'tasks', 2)" x-init="init()">
+         *   <div id="network-task_abc"></div>
+         * </div>
+         */
+        Alpine.data('relationshipGraph', function(entity_uid, entity_type, initial_depth) {
+            return {
+                entity_uid: entity_uid,
+                entity_type: entity_type,
+                depth: initial_depth || 2,
+                network: null,
+                loading: false,
+                error: null,
+
+                init: function() {
+                    this.loadGraph(this.depth);
+                },
+
+                loadGraph: async function(depth) {
+                    var self = this;
+                    self.loading = true;
+                    self.error = null;
+
+                    try {
+                        var response = await fetch(
+                            '/api/' + self.entity_type + '/' + self.entity_uid + '/lateral/graph?depth=' + depth
+                        );
+
+                        if (!response.ok) {
+                            throw new Error('HTTP ' + response.status);
+                        }
+
+                        var data = await response.json();
+                        self.renderNetwork(data);
+
+                    } catch (err) {
+                        console.error('Failed to load relationship graph:', err);
+                        self.error = 'Failed to load graph. Please try again.';
+                    } finally {
+                        self.loading = false;
+                    }
+                },
+
+                renderNetwork: function(data) {
+                    var container = document.getElementById('network-' + this.entity_uid);
+
+                    if (!container) {
+                        console.error('Network container not found:', 'network-' + this.entity_uid);
+                        return;
+                    }
+
+                    // Destroy existing network
+                    if (this.network) {
+                        this.network.destroy();
+                    }
+
+                    // Check if vis.Network is available
+                    if (typeof vis === 'undefined' || !vis.Network) {
+                        console.error('Vis.js Network library not loaded');
+                        this.error = 'Graph library not loaded';
+                        return;
+                    }
+
+                    // Vis.js options
+                    var options = {
+                        nodes: {
+                            shape: 'dot',
+                            size: 16,
+                            font: {
+                                size: 14,
+                                color: '#333'
+                            },
+                            borderWidth: 2,
+                            shadow: true
+                        },
+                        edges: {
+                            width: 2,
+                            shadow: true,
+                            smooth: {
+                                type: 'continuous'
+                            }
+                        },
+                        physics: {
+                            forceAtlas2Based: {
+                                gravitationalConstant: -50,
+                                centralGravity: 0.01,
+                                springLength: 100,
+                                springConstant: 0.08
+                            },
+                            maxVelocity: 50,
+                            solver: 'forceAtlas2Based',
+                            timestep: 0.35,
+                            stabilization: {
+                                iterations: 150
+                            }
+                        },
+                        interaction: {
+                            hover: true,
+                            tooltipDelay: 200
+                        }
+                    };
+
+                    // Create network
+                    this.network = new vis.Network(container, data, options);
+
+                    // Click handler - navigate to entity
+                    var self = this;
+                    this.network.on('click', function(params) {
+                        if (params.nodes.length > 0) {
+                            var nodeId = params.nodes[0];
+                            var node = data.nodes.find(function(n) { return n.id === nodeId; });
+                            if (node && node.id !== self.entity_uid) {
+                                window.location.href = '/' + node.type + '/' + node.id;
+                            }
+                        }
+                    });
+                },
+
+                changeDepth: function(newDepth) {
+                    this.depth = parseInt(newDepth);
+                    this.loadGraph(this.depth);
+                }
+            };
+        });
+
     });
 
 })();

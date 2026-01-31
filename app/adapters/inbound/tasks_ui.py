@@ -27,13 +27,16 @@ from components.error_components import ErrorComponents
 from components.tasks_views import TasksViewComponents
 from components.todoist_task_components import TodoistTaskComponents
 from core.auth import require_authenticated_user
+from ui.patterns.relationships import EntityRelationshipsSection
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.shared_enums import ActivityStatus, Priority
 from core.models.task.task_request import TaskCreateRequest
 from core.services.protocols.facade_protocols import TasksFacadeProtocol
-from core.ui.daisy_components import Div
+from core.ui.daisy_components import Button, ButtonT, Card, Div, H1, H2, H3, P, Progress, Span
 from core.utils.logging import get_logger
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
     get_created_at_attr,
@@ -1061,6 +1064,133 @@ def create_tasks_ui_routes(
                 exc_info=True,
             )
             return Response("Error updating task", status_code=500)
+
+    # ========================================================================
+    # TASK DETAIL PAGE (Phase 5)
+    # ========================================================================
+
+    @rt("/tasks/{uid}")
+    async def task_detail_view(request: Request, uid: str) -> Any:
+        """
+        Task detail view with full context and relationships.
+
+        Phase 5: Shows task details plus lateral relationships visualization.
+        """
+        user_uid = require_authenticated_user(request)
+
+        # Fetch task with ownership verification
+        result = await tasks_service.get_for_user(uid, user_uid)
+
+        if result.is_error:
+            logger.error(f"Failed to get task {uid}: {result.error}")
+            return BasePage(
+                content=Card(
+                    H2("Task Not Found", cls="text-xl font-bold text-error mb-4"),
+                    P(f"Could not find task: {uid}", cls="text-base-content/70"),
+                    Button(
+                        "← Back to Tasks",
+                        **{"hx-get": "/tasks", "hx-target": "body"},
+                        variant=ButtonT.primary,
+                        cls="mt-4",
+                    ),
+                    cls="p-6",
+                ),
+                title="Task Not Found",
+                page_type=PageType.STANDARD,
+                request=request,
+                active_page="tasks",
+            )
+
+        task = result.value
+
+        # Render detail page
+        content = Div(
+            # Header Card
+            Card(
+                H1(f"✓ {task.title}", cls="text-2xl font-bold mb-2"),
+                P(task.description or "No description provided", cls="text-base-content/70 mb-4"),
+                # Status and Priority badges
+                Div(
+                    Span(f"Status: {task.status.value}", cls="badge badge-info mr-2"),
+                    Span(f"Priority: {task.priority.value}", cls="badge badge-warning mr-2"),
+                    Span(f"Project: {task.project or 'None'}", cls="badge badge-ghost") if task.project else "",
+                    cls="flex gap-2 flex-wrap",
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Details Card
+            Card(
+                H2("📋 Task Details", cls="text-xl font-semibold mb-4"),
+                Div(
+                    # Due Date
+                    (
+                        Div(
+                            P("Due Date:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                            P(str(task.due_date), cls="text-base-content mb-3"),
+                            cls="mb-4",
+                        )
+                        if task.due_date
+                        else Div()
+                    ),
+                    # Assignee
+                    (
+                        Div(
+                            P("Assignee:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                            P(task.assignee or "Unassigned", cls="text-base-content mb-3"),
+                            cls="mb-4",
+                        )
+                        if task.assignee
+                        else Div()
+                    ),
+                    # Created Date
+                    Div(
+                        P("Created:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                        P(str(task.created_at)[:10], cls="text-base-content/60 text-sm"),
+                        cls="mb-4",
+                    ),
+                    cls="space-y-2",
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Actions Card
+            Card(
+                Div(
+                    Button(
+                        "← Back to Tasks",
+                        **{"hx-get": "/tasks", "hx-target": "body"},
+                        variant=ButtonT.ghost,
+                        cls="mr-2",
+                    ),
+                    Button(
+                        "✏️ Edit Task",
+                        **{"hx-get": f"/tasks/{task.uid}/edit", "hx-target": "#modal"},
+                        variant=ButtonT.primary,
+                        cls="mr-2",
+                    ),
+                    Button(
+                        "✓ Toggle Complete",
+                        **{"hx-post": f"/tasks/{task.uid}/toggle", "hx-target": "body"},
+                        variant=ButtonT.success if task.status != ActivityStatus.COMPLETED else ButtonT.ghost,
+                    ),
+                    cls="flex gap-2 flex-wrap",
+                ),
+                cls="p-4 mb-4",
+            ),
+            # Phase 5: Lateral Relationships Section
+            EntityRelationshipsSection(
+                entity_uid=task.uid,
+                entity_type="tasks",
+            ),
+            cls=f"{Container.STANDARD} {Spacing.PAGE_PADDING}",
+        )
+
+        return BasePage(
+            content=content,
+            title=task.title,
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="tasks",
+        )
 
     logger.info("Three-view task routes registered (standalone)")
 

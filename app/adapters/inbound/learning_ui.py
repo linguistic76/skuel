@@ -40,8 +40,12 @@ from fasthtml.common import (
 from starlette.responses import HTMLResponse
 
 from components.form_generator import FormGenerator
+from core.auth import require_authenticated_user
 from core.models.lp.lp_request import LpFilterRequest
 from core.ui.daisy_components import Button, ButtonT, Card, Div, Label, Option, Select, Span
+from ui.patterns.relationships import EntityRelationshipsSection
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 from core.ui.ui_types import (
     AchievementData,
     ActivePathData,
@@ -892,6 +896,131 @@ def create_learning_ui_routes(_app, rt, _learning_service):
         return HTMLResponse(_render_learning_page("Learning Analytics", content))
 
     routes.append(learning_analytics)
+
+    # ========================================================================
+    # KNOWLEDGE UNIT DETAIL PAGE (Phase 5)
+    # ========================================================================
+
+    @rt("/ku/{uid}")
+    async def ku_detail_view(request: Any, uid: str) -> Any:
+        """
+        Knowledge Unit detail view with full context and relationships.
+
+        Phase 5: Shows KU details plus lateral relationships visualization.
+        """
+        # Note: This is a placeholder. Needs ku_service to be passed in
+        # For now, returning a basic page structure
+        content = Div(
+            Card(
+                H1(f"📚 Knowledge Unit: {uid}", cls="text-2xl font-bold mb-4"),
+                P("Knowledge Unit detail page", cls="text-base-content/70 mb-4"),
+                Button(
+                    "← Back to Learning",
+                    **{"hx-get": "/learning", "hx-target": "body"},
+                    variant=ButtonT.ghost,
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Phase 5: Lateral Relationships Section
+            EntityRelationshipsSection(
+                entity_uid=uid,
+                entity_type="ku",
+            ),
+            cls="container mx-auto p-6 max-w-4xl",
+        )
+
+        return BasePage(
+            content=content,
+            title=f"KU: {uid}",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="learning",
+        )
+
+    routes.append(ku_detail_view)
+
+    # ========================================================================
+    # LEARNING STEP DETAIL PAGE (Phase 5)
+    # ========================================================================
+
+    @rt("/ls/{uid}")
+    async def ls_detail_view(request: Any, uid: str) -> Any:
+        """
+        Learning Step detail view with full context and relationships.
+
+        Phase 5: Shows LS details plus lateral relationships visualization.
+        """
+        # Note: This is a placeholder. Needs ls_service to be passed in
+        content = Div(
+            Card(
+                H1(f"📖 Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
+                P("Learning Step detail page", cls="text-base-content/70 mb-4"),
+                Button(
+                    "← Back to Learning",
+                    **{"hx-get": "/learning", "hx-target": "body"},
+                    variant=ButtonT.ghost,
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Phase 5: Lateral Relationships Section
+            EntityRelationshipsSection(
+                entity_uid=uid,
+                entity_type="ls",
+            ),
+            cls="container mx-auto p-6 max-w-4xl",
+        )
+
+        return BasePage(
+            content=content,
+            title=f"LS: {uid}",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="learning",
+        )
+
+    routes.append(ls_detail_view)
+
+    # ========================================================================
+    # LEARNING PATH DETAIL PAGE (Phase 5)
+    # ========================================================================
+
+    @rt("/lp/{uid}")
+    async def lp_detail_view(request: Any, uid: str) -> Any:
+        """
+        Learning Path detail view with full context and relationships.
+
+        Phase 5: Shows LP details plus lateral relationships visualization.
+        Note: This complements the existing /learning/path/{path_uid} route.
+        """
+        # Note: This is a placeholder. Needs lp_service to be passed in
+        content = Div(
+            Card(
+                H1(f"🎓 Learning Path: {uid}", cls="text-2xl font-bold mb-4"),
+                P("Learning Path detail page", cls="text-base-content/70 mb-4"),
+                Button(
+                    "← Back to Learning",
+                    **{"hx-get": "/learning", "hx-target": "body"},
+                    variant=ButtonT.ghost,
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Phase 5: Lateral Relationships Section
+            EntityRelationshipsSection(
+                entity_uid=uid,
+                entity_type="lp",
+            ),
+            cls="container mx-auto p-6 max-w-4xl",
+        )
+
+        return BasePage(
+            content=content,
+            title=f"LP: {uid}",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="learning",
+        )
+
+    routes.append(lp_detail_view)
 
     logger.info(f"✅ Learning UI routes registered: {len(routes)} endpoints")
     return routes

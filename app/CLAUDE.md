@@ -1,7 +1,7 @@
 - We use poetry for package management and for running files.
 
 ## One Path Forward - Core Development Philosophy
-*Last updated: 2026-01-08*
+*Last updated: 2026-01-31*
 
 **SKUEL does NOT maintain backward compatibility.** When a better pattern emerges, the old pattern is removed entirely.
 
@@ -49,6 +49,7 @@ async def get_learning_opportunities(
 | Alpine.js | `/.claude/skills/js-alpine/` | Context7 MCP |
 | Neo4j | `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md` | Context7 MCP |
 | Pydantic | `/docs/patterns/three_tier_type_system.md` | Context7 MCP |
+| Vis.js Network | `/PHASE5_FULL_DEPLOYMENT_COMPLETE.md` | https://visjs.github.io/vis-network/docs/network/ |
 
 ## Documentation Architecture
 
@@ -134,6 +135,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - All created via `create_common_sub_services()` factory in `activity_domain_config.py`
 - User-owned content with ownership verification
 - Protocol-typed: `TasksOperations`, `GoalsOperations`, etc.
+- **Detail pages:** All 6 domains have `/{domain}/{uid}` routes with lateral relationships visualization (Phase 5)
 
 **Finance Domain (1)** - Standalone bookkeeping, NOT an Activity Domain:
 - Admin-only access (no ownership checks, ADMIN role required)
@@ -147,6 +149,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - KU (point), LS (edge), LP (path) - three grouping patterns
 - Core + search services extend `BaseService`
 - **NOT admin-only** - differs from Finance which requires ADMIN role
+- **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
 
 **Content/Processing Domains (2)**:
 - `/journals` - Voice + text submission (type=JOURNAL hardcoded)
@@ -218,6 +221,20 @@ LifePath <--> All Domains
 - `link_to_life_path(entity_uid, life_path_uid, contribution_type, score)`
 - `get_life_path_contributors(life_path_uid, entity_types, min_score)`
 - `get_related_uids(entity_type, uid, relationship_type, direction)`
+
+**Lateral Relationship Types** (Phase 5 - within-domain relationships):
+- `BLOCKS` / `BLOCKED_BY` - Dependency blocking (asymmetric)
+- `PREREQUISITE_FOR` / `DEPENDS_ON` - Knowledge prerequisites (asymmetric)
+- `ALTERNATIVE_TO` - Mutually exclusive options (symmetric)
+- `COMPLEMENTARY_TO` - Synergistic pairing (symmetric)
+- `SIBLING` - Same parent in hierarchy (symmetric)
+- `RELATED_TO` - General association (symmetric)
+
+**Lateral Service Methods** (`LateralRelationshipService`):
+- `create_lateral_relationship(source_uid, target_uid, type, metadata)`
+- `get_blocking_chain(entity_uid)` - Transitive blocking dependencies (Phase 5)
+- `get_alternatives_with_comparison(entity_uid)` - Side-by-side comparison (Phase 5)
+- `get_relationship_graph(entity_uid, depth)` - Vis.js network format (Phase 5)
 
 ### Key Implementation Files
 
@@ -651,6 +668,52 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 - `/static/vendor/alpinejs/alpine.3.14.8.min.js` - Self-hosted, version-pinned
 
 **See:** `/.claude/skills/js-alpine/`
+
+## Lateral Relationships & Vis.js Graph Visualization
+
+**Core Principle:** "Interactive relationship visualization across all domains"
+
+**Status:** ✅ Phase 5 Complete (2026-01-31) - All 9 domains deployed
+
+**Three Components:**
+1. **BlockingChainView** - Vertical flow chart with depth-based layout
+2. **AlternativesComparisonGrid** - Side-by-side comparison table
+3. **RelationshipGraphView** - Interactive Vis.js force-directed graph
+
+**Usage:**
+```python
+from ui.patterns.relationships import EntityRelationshipsSection
+
+# Add to any detail page
+EntityRelationshipsSection(
+    entity_uid=entity.uid,
+    entity_type="tasks",  # or goals, habits, events, choices, principles, ku, ls, lp
+)
+```
+
+**Integrated Domains (9):** Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP
+
+**Detail Page Routes:** `/{domain}/{uid}` for all domains
+
+**Graph Features:**
+- Force-directed layout with physics simulation
+- Drag nodes, zoom, pan
+- Click node to navigate
+- Color-coded edges (BLOCKS=red, PREREQUISITES=orange, ALTERNATIVES=blue, COMPLEMENTARY=green)
+- Depth control (1-3 levels)
+
+**Key Files:**
+- `/ui/patterns/relationships/` - 4 UI components
+- `/core/services/lateral_relationships/lateral_relationship_service.py` - 3 graph query methods
+- `/static/vendor/vis-network/` - Vis.js library (v9.1.9)
+- `/static/js/skuel.js` - relationshipGraph Alpine component
+
+**API Endpoints (per domain):**
+- `GET /api/{domain}/{uid}/lateral/chain` - Blocking chain data
+- `GET /api/{domain}/{uid}/lateral/alternatives/compare` - Comparison data
+- `GET /api/{domain}/{uid}/lateral/graph` - Vis.js format (nodes + edges)
+
+**See:** `/PHASE5_FULL_DEPLOYMENT_COMPLETE.md`, `/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md`
 
 ## Event-Driven Architecture
 

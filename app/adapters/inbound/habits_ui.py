@@ -36,6 +36,9 @@ from components.habits_views import HabitsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
+from ui.patterns.relationships import EntityRelationshipsSection
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 from core.models.habit.habit import HabitStatus
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.shared_enums import Priority
@@ -2070,6 +2073,132 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
         """
 
         return Response(js_content, media_type="application/javascript")
+
+    # ========================================================================
+    # HABIT DETAIL PAGE (Phase 5)
+    # ========================================================================
+
+    @rt("/habits/{uid}")
+    async def habit_detail_view(request: Any, uid: str) -> Any:
+        """
+        Habit detail view with full context and relationships.
+
+        Phase 5: Shows habit details plus lateral relationships visualization.
+        """
+        user_uid = require_authenticated_user(request)
+
+        # Fetch habit with ownership verification
+        result = await habits_service.get_for_user(uid, user_uid)
+
+        if result.is_error:
+            logger.error(f"Failed to get habit {uid}: {result.error}")
+            return BasePage(
+                content=Card(
+                    H2("Habit Not Found", cls="text-xl font-bold text-error mb-4"),
+                    P(f"Could not find habit: {uid}", cls="text-base-content/70"),
+                    Button(
+                        "← Back to Habits",
+                        **{"hx-get": "/habits", "hx-target": "body"},
+                        variant=ButtonT.primary,
+                        cls="mt-4",
+                    ),
+                    cls="p-6",
+                ),
+                title="Habit Not Found",
+                page_type=PageType.STANDARD,
+                request=request,
+                active_page="habits",
+            )
+
+        habit = result.value
+
+        # Render detail page
+        content = Div(
+            # Header Card
+            Card(
+                H1(f"🎯 {habit.name}", cls="text-2xl font-bold mb-2"),
+                P(habit.description or "No description provided", cls="text-base-content/70 mb-4"),
+                # Status and Frequency badges
+                Div(
+                    Span(f"Status: {habit.status.value}", cls="badge badge-info mr-2"),
+                    Span(f"Frequency: {habit.frequency.value if habit.frequency else 'Not set'}", cls="badge badge-success mr-2"),
+                    Span(f"Streak: {habit.current_streak or 0} days", cls="badge badge-warning"),
+                    cls="flex gap-2 flex-wrap",
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Details Card
+            Card(
+                H2("📋 Habit Details", cls="text-xl font-semibold mb-4"),
+                Div(
+                    # Why Important
+                    (
+                        Div(
+                            P("Why Important:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                            P(habit.why_important or "Not specified", cls="text-base-content mb-3"),
+                            cls="mb-4",
+                        )
+                        if habit.why_important
+                        else Div()
+                    ),
+                    # Cue and Response
+                    (
+                        Div(
+                            P("Cue:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                            P(habit.cue or "Not specified", cls="text-base-content mb-3"),
+                            cls="mb-4",
+                        )
+                        if habit.cue
+                        else Div()
+                    ),
+                    # Created Date
+                    Div(
+                        P("Created:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                        P(str(habit.created_at)[:10], cls="text-base-content/60 text-sm"),
+                    ),
+                    cls="space-y-2",
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Actions Card
+            Card(
+                Div(
+                    Button(
+                        "← Back to Habits",
+                        **{"hx-get": "/habits", "hx-target": "body"},
+                        variant=ButtonT.ghost,
+                        cls="mr-2",
+                    ),
+                    Button(
+                        "✏️ Edit Habit",
+                        **{"hx-get": f"/habits/{habit.uid}/edit", "hx-target": "#modal"},
+                        variant=ButtonT.primary,
+                        cls="mr-2",
+                    ),
+                    Button(
+                        "✓ Track Today",
+                        **{"hx-post": f"/api/habits/{habit.uid}/track", "hx-target": "body"},
+                        variant=ButtonT.success,
+                    ),
+                    cls="flex gap-2 flex-wrap",
+                ),
+                cls="p-4 mb-4",
+            ),
+            # Phase 5: Lateral Relationships Section
+            EntityRelationshipsSection(
+                entity_uid=habit.uid,
+                entity_type="habits",
+            ),
+            cls="container mx-auto p-6 max-w-4xl",
+        )
+
+        return BasePage(
+            content=content,
+            title=habit.name,
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="habits",
+        )
 
     return []  # Routes registered via @rt() decorators (no objects returned)
 

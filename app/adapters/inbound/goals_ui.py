@@ -30,6 +30,7 @@ from components.form_generator import FormGenerator
 from components.goals_views import GoalsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
+from ui.patterns.relationships import EntityRelationshipsSection
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
@@ -640,6 +641,11 @@ class GoalUIComponents:
                     cls="flex gap-2",
                 ),
                 cls="p-4",
+            ),
+            # Phase 5: Lateral Relationships Section
+            EntityRelationshipsSection(
+                entity_uid=goal.uid,
+                entity_type="goals",
             ),
             cls="container mx-auto p-6 max-w-4xl",
         )

@@ -632,5 +632,446 @@ class LateralRelationshipService:
         except Exception as e:
             logger.error(f"❌ Failed to delete inverse relationship: {e}")
 
+    # ========================================================================
+    # Enhanced UX Methods (Phase 5)
+    # ========================================================================
+
+    async def get_blocking_chain(
+        self,
+        entity_uid: str,
+        max_depth: int = 10,
+    ) -> Result[dict[str, Any]]:
+        """
+        Get transitive blocking chain with depth levels.
+
+        Returns all entities that block the given entity, organized by depth
+        from the root blockers to the immediate blockers.
+
+        Args:
+            entity_uid: Entity UID to get blockers for
+            max_depth: Maximum depth to traverse (default 10)
+
+        Returns:
+            Result with blocking chain data:
+            ```python
+            {
+                "root_uid": "task_deploy",
+                "total_blockers": 3,
+                "chain_depth": 2,
+                "levels": [
+                    {
+                        "depth": 0,
+                        "entities": [
+                            {
+                                "uid": "task_setup_env",
+                                "title": "Setup Environment",
+                                "entity_type": "task",
+                                "status": "completed",
+                                "blocks_count": 1
+                            }
+                        ]
+                    },
+                    ...
+                ],
+                "critical_path": ["task_setup_env", "task_install_deps", "task_deploy"]
+            }
+            ```
+
+        Example:
+            ```python
+            result = await service.get_blocking_chain("task_deploy_app", max_depth=5)
+            if not result.is_error:
+                print(f"Chain depth: {result.value['chain_depth']}")
+                for level in result.value['levels']:
+                    print(f"Depth {level['depth']}: {len(level['entities'])} blockers")
+            ```
+        """
+        try:
+            result = await self.driver.execute_query(
+                """
+                MATCH path = (blocker)-[:BLOCKS*1..10]->(entity {uid: $uid})
+                WITH blocker, path, length(path) as depth
+                RETURN
+                    blocker.uid as uid,
+                    blocker.title as title,
+                    blocker.status as status,
+                    labels(blocker)[0] as entity_type,
+                    depth,
+                    size((blocker)-[:BLOCKS]->()) as blocks_count
+                ORDER BY depth DESC
+                """,
+                {"uid": entity_uid},
+            )
+
+            if not result.records:
+                return Result.ok({
+                    "root_uid": entity_uid,
+                    "total_blockers": 0,
+                    "chain_depth": 0,
+                    "levels": [],
+                    "critical_path": [entity_uid],
+                })
+
+            # Group by depth
+            levels_dict: dict[int, list[dict[str, Any]]] = {}
+            all_blockers = []
+
+            for record in result.records:
+                depth_val = record["depth"]
+                blocker_data = {
+                    "uid": record["uid"],
+                    "title": record["title"],
+                    "entity_type": record["entity_type"],
+                    "status": record["status"],
+                    "blocks_count": record["blocks_count"],
+                }
+
+                if depth_val not in levels_dict:
+                    levels_dict[depth_val] = []
+                levels_dict[depth_val].append(blocker_data)
+                all_blockers.append(record["uid"])
+
+            # Convert to sorted list
+            levels = [
+                {"depth": depth, "entities": entities}
+                for depth, entities in sorted(levels_dict.items(), reverse=True)
+            ]
+
+            # Build critical path (longest chain)
+            max_depth_val = max(levels_dict.keys()) if levels_dict else 0
+            critical_path = []
+            if levels:
+                # Take first entity from each depth level + the target
+                for depth in sorted(levels_dict.keys(), reverse=True):
+                    critical_path.append(levels_dict[depth][0]["uid"])
+                critical_path.append(entity_uid)
+
+            chain_data = {
+                "root_uid": entity_uid,
+                "total_blockers": len(all_blockers),
+                "chain_depth": max_depth_val,
+                "levels": levels,
+                "critical_path": critical_path,
+            }
+
+            logger.info(
+                f"✅ Retrieved blocking chain for {entity_uid}: "
+                f"{len(all_blockers)} blockers across {max_depth_val} levels"
+            )
+            return Result.ok(chain_data)
+
+        except Exception as e:
+            logger.error(f"❌ Failed to get blocking chain: {e}")
+            return Errors.database(f"Blocking chain query failed: {str(e)}")
+
+    async def get_alternatives_with_comparison(
+        self,
+        entity_uid: str,
+        comparison_fields: list[str] | None = None,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get alternative entities with side-by-side comparison data.
+
+        Args:
+            entity_uid: Entity UID to get alternatives for
+            comparison_fields: Specific fields to include in comparison
+                              (None = all available fields)
+
+        Returns:
+            Result with list of alternatives with comparison data:
+            ```python
+            [
+                {
+                    "uid": "goal_career_a",
+                    "title": "Corporate Leadership",
+                    "entity_type": "goal",
+                    "status": "active",
+                    "priority": "high",
+                    "description": "...",
+                    "comparison_data": {
+                        "timeframe": "5 years",
+                        "difficulty": "high",
+                        "resources": "company sponsored"
+                    },
+                    "metadata": {
+                        "tradeoffs": "Less flexibility, higher pay",
+                        "comparison_criteria": "career growth vs autonomy"
+                    }
+                },
+                ...
+            ]
+            ```
+
+        Example:
+            ```python
+            result = await service.get_alternatives_with_comparison(
+                "goal_corporate_leadership",
+                comparison_fields=["timeframe", "difficulty", "resources"]
+            )
+            if not result.is_error:
+                for alt in result.value:
+                    print(f"Alternative: {alt['title']}")
+                    print(f"Tradeoffs: {alt['metadata']['tradeoffs']}")
+            ```
+        """
+        try:
+            result = await self.driver.execute_query(
+                """
+                MATCH (entity {uid: $uid})-[r:ALTERNATIVE_TO]-(alternative)
+                RETURN
+                    alternative.uid as uid,
+                    alternative.title as title,
+                    alternative.description as description,
+                    alternative.status as status,
+                    alternative.priority as priority,
+                    labels(alternative)[0] as entity_type,
+                    r.comparison_criteria as comparison_criteria,
+                    r.tradeoffs as tradeoffs,
+                    r.timeframe as timeframe,
+                    r.difficulty as difficulty,
+                    r.resources as resources,
+                    properties(alternative) as all_properties,
+                    properties(r) as rel_properties
+                """,
+                {"uid": entity_uid},
+            )
+
+            if not result.records:
+                return Result.ok([])
+
+            alternatives = []
+            for record in result.records:
+                # Build comparison data from relationship properties
+                comparison_data = {}
+                if record["timeframe"]:
+                    comparison_data["timeframe"] = record["timeframe"]
+                if record["difficulty"]:
+                    comparison_data["difficulty"] = record["difficulty"]
+                if record["resources"]:
+                    comparison_data["resources"] = record["resources"]
+
+                # Add any custom comparison fields from relationship
+                rel_props = record["rel_properties"] or {}
+                for key, value in rel_props.items():
+                    if key not in ["comparison_criteria", "tradeoffs", "created_at", "relationship_category", "is_symmetric"]:
+                        if comparison_fields is None or key in comparison_fields:
+                            comparison_data[key] = value
+
+                alternative_data = {
+                    "uid": record["uid"],
+                    "title": record["title"],
+                    "entity_type": record["entity_type"],
+                    "status": record["status"],
+                    "priority": record["priority"],
+                    "description": record["description"],
+                    "comparison_data": comparison_data,
+                    "metadata": {
+                        "tradeoffs": record["tradeoffs"] or "",
+                        "comparison_criteria": record["comparison_criteria"] or "",
+                    },
+                }
+
+                alternatives.append(alternative_data)
+
+            logger.info(
+                f"✅ Retrieved {len(alternatives)} alternatives for {entity_uid}"
+            )
+            return Result.ok(alternatives)
+
+        except Exception as e:
+            logger.error(f"❌ Failed to get alternatives with comparison: {e}")
+            return Errors.database(f"Alternatives query failed: {str(e)}")
+
+    async def get_relationship_graph(
+        self,
+        entity_uid: str,
+        depth: int = 2,
+        relationship_types: list[LateralRelationType] | None = None,
+    ) -> Result[dict[str, Any]]:
+        """
+        Get relationship graph in Vis.js Network format.
+
+        Returns nodes and edges for interactive force-directed graph visualization.
+
+        Args:
+            entity_uid: Center entity UID
+            depth: Graph traversal depth (1-3 recommended)
+            relationship_types: Filter by specific relationship types
+                               (None = all lateral relationships)
+
+        Returns:
+            Result with Vis.js Network format:
+            ```python
+            {
+                "nodes": [
+                    {
+                        "id": "task_abc",
+                        "label": "Setup Environment",
+                        "type": "task",
+                        "status": "completed",
+                        "group": "blocker",
+                        "level": 0
+                    },
+                    ...
+                ],
+                "edges": [
+                    {
+                        "from": "task_abc",
+                        "to": "task_xyz",
+                        "label": "blocks",
+                        "arrows": "to",
+                        "color": {"color": "#EF4444"},
+                        "relationship_type": "BLOCKS"
+                    },
+                    ...
+                ]
+            }
+            ```
+
+        Color Scheme:
+            - BLOCKS → Red (#EF4444)
+            - PREREQUISITE_FOR → Orange (#F59E0B)
+            - ALTERNATIVE_TO → Blue (#3B82F6)
+            - COMPLEMENTARY_TO → Green (#10B981)
+            - RELATED_TO → Gray (#6B7280)
+
+        Example:
+            ```python
+            result = await service.get_relationship_graph(
+                "task_deploy",
+                depth=2,
+                relationship_types=[LateralRelationType.BLOCKS, LateralRelationType.PREREQUISITE_FOR]
+            )
+            if not result.is_error:
+                graph_data = result.value
+                print(f"Nodes: {len(graph_data['nodes'])}, Edges: {len(graph_data['edges'])}")
+            ```
+        """
+        # Build type filter
+        if relationship_types:
+            type_filter = "|".join([rt.value for rt in relationship_types])
+        else:
+            all_types = [rt.value for rt in LateralRelationType]
+            type_filter = "|".join(all_types)
+
+        # Color mapping for relationship types
+        def get_relationship_color(rel_type: str) -> str:
+            """Map relationship type to color."""
+            color_map = {
+                "BLOCKS": "#EF4444",  # Red
+                "PREREQUISITE_FOR": "#F59E0B",  # Orange
+                "ALTERNATIVE_TO": "#3B82F6",  # Blue
+                "COMPLEMENTARY_TO": "#10B981",  # Green
+                "RELATED_TO": "#6B7280",  # Gray
+                "SIBLING": "#8B5CF6",  # Purple
+            }
+            return color_map.get(rel_type, "#6B7280")
+
+        try:
+            # Query graph with depth limit
+            result = await self.driver.execute_query(
+                f"""
+                MATCH path = (center {{uid: $uid}})-[r:{type_filter}*1..{depth}]-(related)
+                WITH center, r, related, length(path) as depth_level
+                RETURN DISTINCT
+                    center.uid as center_uid,
+                    center.title as center_title,
+                    labels(center)[0] as center_type,
+                    center.status as center_status,
+                    related.uid as related_uid,
+                    related.title as related_title,
+                    labels(related)[0] as related_type,
+                    related.status as related_status,
+                    [rel in r | {{
+                        type: type(rel),
+                        from: startNode(rel).uid,
+                        to: endNode(rel).uid
+                    }}] as relationships,
+                    depth_level
+                """,
+                {"uid": entity_uid},
+            )
+
+            if not result.records:
+                # Return just the center node
+                return Result.ok({
+                    "nodes": [
+                        {
+                            "id": entity_uid,
+                            "label": entity_uid,
+                            "type": "unknown",
+                            "status": "unknown",
+                            "group": "center",
+                            "level": 0,
+                        }
+                    ],
+                    "edges": [],
+                })
+
+            # Build nodes and edges
+            nodes_dict: dict[str, dict[str, Any]] = {}
+            edges_list = []
+
+            # Add center node
+            center_record = result.records[0]
+            nodes_dict[entity_uid] = {
+                "id": entity_uid,
+                "label": center_record["center_title"] or entity_uid,
+                "type": center_record["center_type"] or "unknown",
+                "status": center_record["center_status"] or "unknown",
+                "group": "center",
+                "level": 0,
+            }
+
+            # Process all records
+            for record in result.records:
+                related_uid = record["related_uid"]
+                depth_level = record["depth_level"]
+
+                # Add related node
+                if related_uid not in nodes_dict:
+                    # Determine group based on relationship
+                    group = "related"
+                    nodes_dict[related_uid] = {
+                        "id": related_uid,
+                        "label": record["related_title"] or related_uid,
+                        "type": record["related_type"] or "unknown",
+                        "status": record["related_status"] or "unknown",
+                        "group": group,
+                        "level": depth_level,
+                    }
+
+                # Add edges from relationships
+                relationships = record["relationships"] or []
+                for rel in relationships:
+                    rel_type = rel["type"]
+                    edge = {
+                        "from": rel["from"],
+                        "to": rel["to"],
+                        "label": rel_type.lower().replace("_", " "),
+                        "arrows": "to",
+                        "color": {"color": get_relationship_color(rel_type)},
+                        "relationship_type": rel_type,
+                    }
+                    # Avoid duplicates
+                    edge_key = f"{edge['from']}-{edge['to']}-{rel_type}"
+                    if edge_key not in {f"{e['from']}-{e['to']}-{e['relationship_type']}" for e in edges_list}:
+                        edges_list.append(edge)
+
+            graph_data = {
+                "nodes": list(nodes_dict.values()),
+                "edges": edges_list,
+            }
+
+            logger.info(
+                f"✅ Generated relationship graph for {entity_uid}: "
+                f"{len(nodes_dict)} nodes, {len(edges_list)} edges"
+            )
+            return Result.ok(graph_data)
+
+        except Exception as e:
+            logger.error(f"❌ Failed to get relationship graph: {e}")
+            return Errors.database(f"Relationship graph query failed: {str(e)}")
+
 
 __all__ = ["LateralRelationshipService"]

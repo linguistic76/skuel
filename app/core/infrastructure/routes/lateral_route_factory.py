@@ -71,6 +71,10 @@ class LateralRouteFactory:
             self._create_complementary_routes(),
             self._create_sibling_route(),
             self._create_delete_route(),
+            # Phase 5: Enhanced UX routes
+            self._create_chain_route(),
+            self._create_comparison_route(),
+            self._create_graph_route(),
         ]
 
     def _create_blocking_routes(self) -> list[Any]:
@@ -438,6 +442,139 @@ class LateralRouteFactory:
             }
 
         return delete_lateral_relationship
+
+    # ========================================================================
+    # Phase 5: Enhanced UX Routes
+    # ========================================================================
+
+    def _create_chain_route(self) -> Any:
+        """Create route to get blocking chain with depth levels."""
+
+        # GET /api/{domain}/{uid}/lateral/chain - Get transitive blocking chain
+        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/chain", methods=["GET"])
+        async def get_chain(
+            request: Request,
+            uid: str,
+            max_depth: int = 10,
+        ) -> dict[str, Any]:
+            """
+            Get transitive blocking chain organized by depth.
+
+            Args:
+                uid: Entity UID
+                max_depth: Maximum depth to traverse (default 10)
+
+            Returns:
+                Chain data with levels, depth, and critical path
+            """
+            user_uid = require_authenticated_user(request)
+
+            # Access the core lateral service through the domain lateral service
+            result = await self.lateral_service.lateral_service.get_blocking_chain(
+                uid, max_depth
+            )
+
+            if result.is_error:
+                return {"success": False, "error": str(result.error)}, 400
+
+            return {"success": True, **result.value}
+
+        return get_chain
+
+    def _create_comparison_route(self) -> Any:
+        """Create route to get alternatives with comparison data."""
+
+        # GET /api/{domain}/{uid}/lateral/alternatives/compare - Get alternatives with comparison
+        @self.rt(
+            f"/api/{self.domain}/{{uid}}/lateral/alternatives/compare",
+            methods=["GET"],
+        )
+        async def get_comparison(
+            request: Request,
+            uid: str,
+            fields: str | None = None,
+        ) -> dict[str, Any]:
+            """
+            Get alternative entities with side-by-side comparison data.
+
+            Args:
+                uid: Entity UID
+                fields: Comma-separated list of comparison fields (optional)
+
+            Returns:
+                List of alternatives with comparison data
+            """
+            user_uid = require_authenticated_user(request)
+
+            comparison_fields = fields.split(",") if fields else None
+
+            result = await self.lateral_service.lateral_service.get_alternatives_with_comparison(
+                uid, comparison_fields
+            )
+
+            if result.is_error:
+                return {"success": False, "error": str(result.error)}, 400
+
+            return {
+                "success": True,
+                "alternatives": result.value,
+                "count": len(result.value),
+            }
+
+        return get_comparison
+
+    def _create_graph_route(self) -> Any:
+        """Create route to get relationship graph in Vis.js format."""
+
+        # GET /api/{domain}/{uid}/lateral/graph - Get relationship graph
+        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/graph", methods=["GET"])
+        async def get_graph(
+            request: Request,
+            uid: str,
+            depth: int = 2,
+            types: str | None = None,
+        ) -> dict[str, Any]:
+            """
+            Get relationship graph in Vis.js Network format.
+
+            Args:
+                uid: Center entity UID
+                depth: Graph traversal depth (1-3 recommended)
+                types: Comma-separated relationship types to include (optional)
+
+            Returns:
+                Vis.js Network format (nodes and edges)
+            """
+            user_uid = require_authenticated_user(request)
+
+            # Parse relationship types if provided
+            from core.models.enums.lateral_relationship_types import (
+                LateralRelationType,
+            )
+
+            relationship_types = None
+            if types:
+                try:
+                    relationship_types = [
+                        LateralRelationType(t.strip()) for t in types.split(",")
+                    ]
+                except ValueError as e:
+                    return {
+                        "success": False,
+                        "error": f"Invalid relationship type: {str(e)}",
+                    }, 400
+
+            result = await self.lateral_service.lateral_service.get_relationship_graph(
+                uid, depth, relationship_types
+            )
+
+            if result.is_error:
+                return {"success": False, "error": str(result.error)}, 400
+
+            # Return Vis.js format directly (includes nodes and edges)
+            return result.value
+
+        return get_graph
 
 
 __all__ = ["LateralRouteFactory"]

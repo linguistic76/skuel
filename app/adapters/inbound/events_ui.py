@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 from typing import Any
 
-from fasthtml.common import H1, H2, Form, P
+from fasthtml.common import H1, H2, H3, Form, P
 from starlette.responses import RedirectResponse, Response
 
 from components.error_components import ErrorComponents
@@ -29,6 +29,9 @@ from components.events_views import EventsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
+from ui.patterns.relationships import EntityRelationshipsSection
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.services.protocols.facade_protocols import EventsFacadeProtocol
@@ -924,6 +927,122 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
         except Exception as e:
             logger.error(f"Error updating event: {e}")
             return Response("Error updating event", status_code=500)
+
+    # ========================================================================
+    # EVENT DETAIL PAGE (Phase 5)
+    # ========================================================================
+
+    @rt("/events/{uid}")
+    async def event_detail_view(request: Any, uid: str) -> Any:
+        """
+        Event detail view with full context and relationships.
+
+        Phase 5: Shows event details plus lateral relationships visualization.
+        """
+        user_uid = require_authenticated_user(request)
+
+        # Fetch event with ownership verification
+        result = await events_service.get_for_user(uid, user_uid)
+
+        if result.is_error:
+            logger.error(f"Failed to get event {uid}: {result.error}")
+            return BasePage(
+                content=Card(
+                    H2("Event Not Found", cls="text-xl font-bold text-error mb-4"),
+                    P(f"Could not find event: {uid}", cls="text-base-content/70"),
+                    Button(
+                        "← Back to Events",
+                        **{"hx-get": "/events", "hx-target": "body"},
+                        variant=ButtonT.primary,
+                        cls="mt-4",
+                    ),
+                    cls="p-6",
+                ),
+                title="Event Not Found",
+                page_type=PageType.STANDARD,
+                request=request,
+                active_page="events",
+            )
+
+        event = result.value
+
+        # Render detail page
+        content = Div(
+            # Header Card
+            Card(
+                H1(f"📅 {event.title}", cls="text-2xl font-bold mb-2"),
+                P(event.description or "No description provided", cls="text-base-content/70 mb-4"),
+                # Status and Type badges
+                Div(
+                    Span(f"Status: {event.status.value}", cls="badge badge-info mr-2"),
+                    Span(f"Type: {event.event_type.value if event.event_type else 'Not set'}", cls="badge badge-success mr-2"),
+                    Span(f"Priority: {event.priority.value if event.priority else 'Not set'}", cls="badge badge-warning"),
+                    cls="flex gap-2 flex-wrap",
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Details Card
+            Card(
+                H2("📋 Event Details", cls="text-xl font-semibold mb-4"),
+                Div(
+                    # Start and End Time
+                    Div(
+                        P("When:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                        P(f"{event.start_time} to {event.end_time}" if event.start_time and event.end_time else "Time not set", cls="text-base-content mb-3"),
+                        cls="mb-4",
+                    ),
+                    # Location
+                    (
+                        Div(
+                            P("Location:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                            P(event.location or "Not specified", cls="text-base-content mb-3"),
+                            cls="mb-4",
+                        )
+                        if event.location
+                        else Div()
+                    ),
+                    # Created Date
+                    Div(
+                        P("Created:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                        P(str(event.created_at)[:10], cls="text-base-content/60 text-sm"),
+                    ),
+                    cls="space-y-2",
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Actions Card
+            Card(
+                Div(
+                    Button(
+                        "← Back to Events",
+                        **{"hx-get": "/events", "hx-target": "body"},
+                        variant=ButtonT.ghost,
+                        cls="mr-2",
+                    ),
+                    Button(
+                        "✏️ Edit Event",
+                        **{"hx-get": f"/events/{event.uid}/edit", "hx-target": "#modal"},
+                        variant=ButtonT.primary,
+                    ),
+                    cls="flex gap-2 flex-wrap",
+                ),
+                cls="p-4 mb-4",
+            ),
+            # Phase 5: Lateral Relationships Section
+            EntityRelationshipsSection(
+                entity_uid=event.uid,
+                entity_type="events",
+            ),
+            cls="container mx-auto p-6 max-w-4xl",
+        )
+
+        return BasePage(
+            content=content,
+            title=event.title,
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="events",
+        )
 
     return []  # Routes registered via @rt() decorators (no objects returned)
 

@@ -33,6 +33,7 @@ from core.ui.daisy_components import (
     Textarea,
 )
 from core.utils.logging import get_logger
+from ui.patterns.relationships import EntityRelationshipsSection
 
 logger = get_logger("skuel.components.principles_views")
 
@@ -713,6 +714,11 @@ class PrinciplesViewComponents:
             ),
             # Recent reflections section
             reflection_section,
+            # Phase 5: Lateral Relationships Section
+            EntityRelationshipsSection(
+                entity_uid=uid,
+                entity_type="principles",
+            ),
             id="principle-detail",
         )
 
