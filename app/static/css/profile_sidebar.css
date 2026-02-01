@@ -58,12 +58,12 @@
     background: oklch(var(--color-base-100));
     border: 1px solid oklch(var(--color-base-300));
     cursor: pointer;
-    padding: 8px;
+    padding: 10px;
     border-radius: 6px;
     transition: background 0.2s, transform 0.3s;
     z-index: 5;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -130,5 +130,44 @@
 @media (min-width: 1025px) {
     .mobile-menu-button {
         display: none !important;
+    }
+}
+
+/* P0: Touch target compliance - 44×44px minimum for WCAG 2.1 Level AA */
+.mobile-menu-button {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 10px 16px;
+}
+
+.sidebar-nav li a {
+    min-height: 44px;
+    padding: 12px 16px;
+}
+
+/* P1: Landscape optimization - reduce width from 85% to 60% */
+@media (max-width: 1024px) and (orientation: landscape) {
+    .profile-sidebar {
+        width: 60%;
+        max-width: 280px;
+    }
+}
+
+/* P2: Badge responsiveness on small screens */
+@media (max-width: 375px) {
+    .sidebar-nav li a > div:last-child {
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-end;
+    }
+
+    .sidebar-nav .w-2.h-2 {
+        display: none;  /* Hide status dot on very small screens */
+    }
+}
+
+@media (max-width: 320px) {
+    .sidebar-nav .badge-warning {
+        display: none;  /* Hide insight badge on smallest screens */
     }
 }

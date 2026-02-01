@@ -153,6 +153,12 @@ def build_profile_sidebar(
 ) -> "FT":
     """Build the profile sidebar navigation using /nous-style pattern.
 
+    Enhanced with WCAG 2.1 Level AA accessibility:
+    - role="dialog" for mobile drawer context
+    - aria-modal for focus management
+    - aria-labelledby linking to sidebar heading
+    - aria-expanded on toggle button
+
     Args:
         domains: Activity domain items for sidebar navigation
         active_domain: Currently active domain slug (empty = overview)
@@ -195,12 +201,13 @@ def build_profile_sidebar(
 
     # Build sidebar menu content
     sidebar_menu = Ul(
-        # Profile header
+        # Profile header (P0: Add ID for aria-labelledby)
         Li(
             Anchor(
                 display_name,
                 href="/profile",
                 cls="text-xl font-bold text-primary hover:text-primary-focus",
+                id="profile-sidebar-heading",
                 **{"hx-boost": "false"},
             ),
             P("Profile", cls="text-xs opacity-60 mt-1"),
@@ -231,17 +238,21 @@ def build_profile_sidebar(
         # Curriculum section (if provided)
         *curriculum_section,
         cls="menu bg-base-200 min-h-full w-full p-4 sidebar-nav",
+        id="profile-sidebar-nav",
     )
 
     return Div(
         Div(
-            # Toggle button (chevron icon, right side)
+            # P0: Enhanced toggle button with ARIA
             Button(
                 chevron_svg,
                 onclick="toggleProfileSidebar()",
                 cls="sidebar-toggle",
                 title="Toggle Sidebar",
                 type="button",
+                aria_label="Toggle profile sidebar",
+                aria_expanded="false",
+                aria_controls="profile-sidebar-nav",
             ),
             # Sidebar navigation
             sidebar_menu,
@@ -249,6 +260,9 @@ def build_profile_sidebar(
         ),
         cls="profile-sidebar",
         id="profile-sidebar",
+        role="dialog",
+        aria_modal="false",
+        aria_labelledby="profile-sidebar-heading",
     )
 
 
@@ -265,6 +279,11 @@ def create_profile_page(
     request: "Request | None" = None,
 ) -> "FT":
     """Create profile page using BasePage with /nous-style sidebar.
+
+    Enhanced with mobile accessibility:
+    - Screen reader live region for state announcements
+    - ARIA attributes on mobile menu button
+    - Focus management on drawer open/close
 
     Args:
         content: Main content HTML
@@ -296,18 +315,31 @@ def create_profile_page(
         onclick="toggleProfileSidebar()",
     )
 
-    # Mobile menu button
+    # P0: Enhanced mobile menu button with ARIA
     mobile_menu = Div(
-        Span("☰", cls="text-xl"),
+        Span("☰", cls="text-xl", aria_hidden="true"),
         Span("Menu", cls="ml-2"),
         cls="btn btn-ghost mobile-menu-button mb-4",
         onclick="toggleProfileSidebar()",
+        aria_label="Open profile navigation",
+        aria_expanded="false",
+        aria_controls="profile-sidebar",
+        role="button",
+        tabindex="0",
     )
 
     # Wrap content with sidebar + overlay (like /nous DocsLayout)
     wrapped_content = Div(
         overlay,
         sidebar,
+        # P1: Screen reader live region for announcements
+        Div(
+            id="sidebar-sr-announcements",
+            role="status",
+            aria_live="polite",
+            aria_atomic="true",
+            cls="sr-only",
+        ),
         Div(
             mobile_menu,
             Main(
