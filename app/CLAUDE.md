@@ -268,6 +268,9 @@ LifePath <--> All Domains
 | Transfer | DTOs | Mutable | Data movement between layers |
 | Core | Domain Models | **Frozen** | Immutable business entities |
 
+**Infrastructure Field Filtering (ADR-037):**
+Embeddings (`embedding`, `embedding_version`, etc.) are automatically filtered out from DTOs. Embeddings are search infrastructure stored in Neo4j, not domain data. Application code doesn't need raw 1536-dimensional vectors.
+
 ### Pattern Selection (Two Patterns)
 
 SKUEL uses two approved patterns: **Pattern A (Three-Tier)** for most domains, **Pattern B (Two-Tier)** for simple bookkeeping.

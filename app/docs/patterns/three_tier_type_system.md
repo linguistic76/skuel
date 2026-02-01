@@ -66,9 +66,11 @@ User Client
 ```
 [Neo4j]
      │ Query node properties + relationships
+     │ (includes infrastructure: embedding, embedding_version, etc.)
      ▼
 [Tier 2: DTO]
      │ Reconstitute from database (strings → enums/dates)
+     │ ⚠️  Infrastructure fields (embeddings) filtered out
      ▼
 [Tier 3: Domain Model]
      │ Apply business logic (is_overdue, urgency_score, etc.)
@@ -78,6 +80,18 @@ User Client
      ▼
 User Client (receives JSON)
 ```
+
+**Infrastructure Field Filtering (ADR-037):**
+
+Neo4j nodes contain infrastructure fields (`embedding`, `embedding_version`, etc.) that are automatically filtered when converting to DTOs. Embeddings are search infrastructure, not domain data.
+
+**Filtered fields:**
+- `embedding` - 1536-dimensional vector for semantic search
+- `embedding_version` - OpenAI model version
+- `embedding_model` - Model name
+- `embedding_updated_at` - Generation timestamp
+
+**See:** `/docs/decisions/ADR-037-embedding-infrastructure-separation.md`
 
 ### When to Use Each Tier
 

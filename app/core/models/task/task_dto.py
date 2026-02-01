@@ -239,7 +239,15 @@ class TaskDTO(ActivityDTOMixin):
 
     @classmethod
     def from_dict(cls, data: dict) -> "TaskDTO":
-        """Create DTO from dictionary."""
+        """
+        Create DTO from dictionary.
+
+        Infrastructure fields (e.g., 'embedding', 'embedding_version') are
+        automatically filtered out by dto_from_dict. Embeddings are search
+        infrastructure stored in Neo4j for vector search, not domain data.
+
+        See: /docs/patterns/three_tier_type_system.md
+        """
         from core.models.dto_helpers import dto_from_dict
 
         return dto_from_dict(

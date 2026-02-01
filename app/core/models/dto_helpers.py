@@ -566,6 +566,9 @@ def dto_from_dict[T](
             dict_fields=["metadata", "knowledge_confidence_scores"],
         )
     """
+    from dataclasses import fields as dataclass_fields
+    from dataclasses import is_dataclass
+
     # Filter deprecated fields first
     if deprecated_fields:
         filter_deprecated_fields(data, deprecated_fields)
@@ -587,5 +590,28 @@ def dto_from_dict[T](
         ensure_list_fields(data, list_fields)
     if dict_fields:
         ensure_dict_fields(data, dict_fields)
+
+    # Filter out fields that don't exist in the dataclass
+    #
+    # ARCHITECTURAL DECISION (2026-02-01):
+    # Infrastructure fields (embeddings, indexes) are filtered out from DTOs.
+    # Embeddings are stored in Neo4j for vector search but are NOT part of
+    # the domain model. Application code doesn't need raw 1536-dim vectors.
+    #
+    # This handles cases where Neo4j returns extra properties that aren't
+    # defined in the DTO:
+    # - embedding: 1536-dimensional vector for semantic search
+    # - embedding_version: OpenAI model version (e.g., "text-embedding-3-small")
+    # - embedding_model: Model name
+    # - embedding_updated_at: When embedding was last generated
+    #
+    # All Activity domains (Task, Goal, Habit, Event, Choice, Principle) have
+    # embeddings stored in Neo4j but excluded from DTOs for consistency.
+    #
+    # See: /docs/patterns/three_tier_type_system.md
+    if is_dataclass(cls):
+        valid_field_names = {f.name for f in dataclass_fields(cls)}
+        filtered_data = {k: v for k, v in data.items() if k in valid_field_names}
+        return cls(**filtered_data)
 
     return cls(**data)

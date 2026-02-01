@@ -161,29 +161,25 @@ class KuDTO:
         """
         Create DTO from dictionary (from database).
 
+        Infrastructure fields (e.g., 'embedding', 'embedding_version') are
+        automatically filtered out by dto_from_dict. Embeddings are search
+        infrastructure stored in Neo4j for vector search, not domain data.
+
         Phase 3: Relationship fields removed - not loaded from database.
         Use backend methods to fetch relationships after loading.
+
+        See: /docs/decisions/ADR-037-embedding-infrastructure-separation.md
         """
-        from core.models.dto_helpers import (
-            ensure_list_fields,
-            parse_datetime_fields,
-            parse_enum_field,
+        from core.models.dto_helpers import dto_from_dict
+
+        return dto_from_dict(
+            cls,
+            data,
+            enum_fields={"domain": Domain},
+            datetime_fields=["created_at", "updated_at"],
+            list_fields=["tags", "semantic_links"],
+            deprecated_fields=["prerequisites", "enables", "related_to"],
         )
-
-        # Parse datetimes
-        parse_datetime_fields(data, ["created_at", "updated_at"])
-
-        # Parse domain enum
-        parse_enum_field(data, "domain", Domain)
-
-        # Ensure lists
-        ensure_list_fields(data, ["tags", "semantic_links"])
-
-        # Phase 3: Remove relationship fields if present in old data
-        for old_field in ["prerequisites", "enables", "related_to"]:
-            data.pop(old_field, None)
-
-        return cls(**data)
 
     def __eq__(self, other) -> bool:
         """Equality based on UID."""

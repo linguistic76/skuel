@@ -159,11 +159,17 @@ class GoalDTO(ActivityDTOMixin):
         """
         Create DTO from dictionary.
 
+        Infrastructure fields (e.g., 'embedding', 'embedding_version') are
+        automatically filtered out by dto_from_dict. Embeddings are search
+        infrastructure stored in Neo4j for vector search, not domain data.
+
         Args:
             data: Dictionary with goal data
 
         Returns:
             GoalDTO instance
+
+        See: /docs/patterns/three_tier_type_system.md
         """
         from core.models.dto_helpers import dto_from_dict
 

@@ -156,6 +156,9 @@ class ChoiceDTO(ActivityDTOMixin):
         """
         Create DTO from dictionary (typically from database/API).
 
+        Infrastructure fields (e.g., 'embedding') are automatically filtered out
+        by dto_from_dict. Embeddings are search infrastructure, not domain data.
+
         Args:
             data: Dictionary with choice data
 
@@ -163,20 +166,12 @@ class ChoiceDTO(ActivityDTOMixin):
             ChoiceDTO instance
         """
         from core.models.dto_helpers import (
+            dto_from_dict,
             ensure_list_fields,
-            parse_datetime_fields,
         )
 
         # Make a copy to avoid mutating the original
         data = dict(data)
-
-        # Parse datetimes
-        parse_datetime_fields(data, ["decision_deadline", "created_at", "updated_at", "decided_at"])
-
-        # Ensure list fields are lists (not None)
-        ensure_list_fields(
-            data, ["decision_criteria", "constraints", "stakeholders", "lessons_learned"]
-        )
 
         # Handle options list (convert dicts to ChoiceOptionDTO if needed)
         if data.get("options"):
@@ -193,45 +188,16 @@ class ChoiceDTO(ActivityDTOMixin):
                     options.append(opt)
             data["options"] = options
 
-        # Handle metadata
-        if "metadata" not in data or data["metadata"] is None:
-            data["metadata"] = {}
-
-        # Filter to only known fields
-        known_fields = {
-            "uid",
-            "title",
-            "description",
-            "user_uid",
-            "choice_type",
-            "status",
-            "priority",
-            "domain",
-            "options",
-            "selected_option_uid",
-            "decision_rationale",
-            "decision_criteria",
-            "constraints",
-            "stakeholders",
-            "decision_deadline",
-            "created_at",
-            "updated_at",
-            "decided_at",
-            "satisfaction_score",
-            "actual_outcome",
-            "lessons_learned",
-            "inspiration_type",
-            "expands_possibilities",
-            "vision_statement",
-            "complexity_score",
-            "time_until_deadline_minutes",
-            "is_overdue",
-            "inspiration_strength",
-            "metadata",
-        }
-        filtered_data = {k: v for k, v in data.items() if k in known_fields}
-
-        return cls(**filtered_data)
+        # Use generic dto_from_dict with automatic field filtering
+        # This filters out infrastructure fields like 'embedding' automatically
+        return dto_from_dict(
+            cls,
+            data,
+            enum_fields={},  # Enums stored as strings in ChoiceDTO
+            datetime_fields=["decision_deadline", "created_at", "updated_at", "decided_at"],
+            list_fields=["decision_criteria", "constraints", "stakeholders", "lessons_learned"],
+            dict_fields=["metadata"],
+        )
 
     @classmethod
     def create(
