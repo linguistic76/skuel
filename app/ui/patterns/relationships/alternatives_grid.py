@@ -25,7 +25,7 @@ Layout (2 alternatives):
 
 from typing import Any
 
-from fasthtml.common import Div, H3, Table, Tbody, Td, Th, Thead, Tr
+from fasthtml.common import H3, Div, Table, Tbody, Td, Th, Thead, Tr
 
 from ui.primitives.card import Card
 
@@ -111,9 +111,7 @@ def render_alternatives_fragment(alternatives: list[dict[str, Any]]) -> Div:
         else:
             status_badge_cls += " badge-ghost"
 
-        status_cells.append(
-            Td(Div(status.replace("_", " ").title(), cls=status_badge_cls))
-        )
+        status_cells.append(Td(Div(status.replace("_", " ").title(), cls=status_badge_cls)))
     rows.append(Tr(*status_cells))
 
     # Priority row

@@ -37,7 +37,7 @@ from core.services.protocols import get_enum_value
 from core.services.protocols.domain_protocols import EventsOperations
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 class EventsCoreService(BaseService[EventsOperations, Event]):
@@ -714,7 +714,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             rel_props["time_offset_minutes"] = time_offset_minutes
 
         # Build property assignments for Cypher
-        prop_assignments = ", ".join([f"{k}: ${k}" for k in rel_props.keys()])
+        prop_assignments = ", ".join([f"{k}: ${k}" for k in rel_props])
 
         query = f"""
         MATCH (parent:Event {{uid: $parent_uid}})

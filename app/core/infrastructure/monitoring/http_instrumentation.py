@@ -80,7 +80,7 @@ def instrument_handler(
 
                 return result
 
-            except Exception as e:
+            except Exception:
                 # Track failed request
                 status_code = 500
                 prometheus_metrics.http.requests_total.labels(
@@ -195,7 +195,7 @@ def instrument_with_boundary_handler(
 
                 return response
 
-            except Exception as e:
+            except Exception:
                 # Track failed request
                 status_code = 500
                 if prometheus_metrics:

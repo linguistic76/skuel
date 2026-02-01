@@ -16,7 +16,6 @@ Phase 3.5 - January 2026 (Option D Implementation)
 
 from __future__ import annotations
 
-import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -197,9 +196,7 @@ class CachedContextMetrics:
     user_uid: str
 
     # Recent invalidations (last 50)
-    recent_invalidations: deque[dict[str, Any]] = field(
-        default_factory=lambda: deque(maxlen=50)
-    )
+    recent_invalidations: deque[dict[str, Any]] = field(default_factory=lambda: deque(maxlen=50))
 
     # Timestamps
     first_invalidation_at: datetime | None = None
@@ -345,9 +342,7 @@ class MetricsCache:
             handlers_called: Number of handlers invoked
         """
         # Write to Prometheus (source of truth)
-        self.prometheus_metrics.events.events_published_total.labels(
-            event_type=event_type
-        ).inc()
+        self.prometheus_metrics.events.events_published_total.labels(event_type=event_type).inc()
 
         self.prometheus_metrics.events.event_publish_duration_seconds.labels(
             event_type=event_type
@@ -374,9 +369,7 @@ class MetricsCache:
             affected_contexts: Which contexts were affected
         """
         # Write to Prometheus (source of truth)
-        self.prometheus_metrics.events.context_invalidations_total.labels(
-            user_uid=user_uid
-        ).inc()
+        self.prometheus_metrics.events.context_invalidations_total.labels(user_uid=user_uid).inc()
 
         # Update cache (debugging only)
         if self.enabled:
@@ -493,9 +486,7 @@ class MetricsCache:
         total_handler_calls = sum(m.total_calls for m in self._handler_cache.values())
         total_handler_errors = sum(m.error_count for m in self._handler_cache.values())
         total_events_published = sum(m.total_published for m in self._event_cache.values())
-        total_invalidations = sum(
-            m.total_invalidations for m in self._context_cache.values()
-        )
+        total_invalidations = sum(m.total_invalidations for m in self._context_cache.values())
 
         return {
             "enabled": True,

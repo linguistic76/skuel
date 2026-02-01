@@ -14,13 +14,9 @@ class SystemMetrics:
     """System-level health metrics."""
 
     def __init__(self) -> None:
-        self.cpu_usage = Gauge(
-            "skuel_cpu_usage_percent", "CPU usage percentage", ["user_uid"]
-        )
+        self.cpu_usage = Gauge("skuel_cpu_usage_percent", "CPU usage percentage", ["user_uid"])
 
-        self.memory_usage = Gauge(
-            "skuel_memory_usage_bytes", "Memory usage in bytes", ["user_uid"]
-        )
+        self.memory_usage = Gauge("skuel_memory_usage_bytes", "Memory usage in bytes", ["user_uid"])
 
         self.neo4j_connected = Gauge(
             "skuel_neo4j_connected", "Neo4j connection status (1=up, 0=down)"

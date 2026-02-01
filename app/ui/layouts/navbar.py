@@ -101,8 +101,6 @@ def _notification_button(unread_count: int = 0) -> Button:
 
     # Add badge if there are unread items (Phase 1 integration)
     if unread_count > 0:
-        from fasthtml.common import NotStr
-
         badge = Div(
             Span(
                 str(unread_count) if unread_count < 100 else "99+",
@@ -287,7 +285,6 @@ async def create_navbar_for_request(
     Returns:
         FastHTML Nav element with proper authentication state
     """
-    from typing import Any
 
     from core.auth import get_current_user, get_is_admin, is_authenticated
 

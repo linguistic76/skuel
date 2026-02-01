@@ -110,7 +110,9 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     _category_field: str
     _dto_class: type[DTOProtocol] | None
     _model_class: type[T] | None
-    _graph_enrichment_patterns: ClassVar[tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]]
+    _graph_enrichment_patterns: ClassVar[
+        tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]
+    ]
     _user_ownership_relationship: ClassVar[str | None]
 
     @property

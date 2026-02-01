@@ -102,7 +102,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         backend: PrinciplesOperations,
         graph_intelligence_service=None,
         relationship_service: PrinciplesRelationshipOperations | None = None,
-        insight_store: "InsightStore | None" = None,
+        insight_store: InsightStore | None = None,
     ) -> None:
         """
         Initialize principles intelligence service.

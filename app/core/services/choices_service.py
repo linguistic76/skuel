@@ -29,11 +29,11 @@ from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.shared_enums import ActivityStatus
 from core.services.base_service import BaseService
-from core.services.domain_config import create_activity_domain_config
 
 # Import sub-services and mixins
 from core.services.choices import ChoicesLearningService
 from core.services.choices.choices_ai_service import ChoicesAIService
+from core.services.domain_config import create_activity_domain_config
 
 # Unified relationship service (replaces ChoicesRelationshipService)
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService

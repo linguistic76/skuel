@@ -12,7 +12,6 @@ Usage in route factories:
         ).inc()
 """
 
-import time
 from typing import Any
 
 
@@ -23,7 +22,7 @@ class HttpMetricsTracker:
     This provides a cleaner interface than directly calling prometheus metrics.
     """
 
-    def __init__(self, prometheus_metrics: Any):
+    def __init__(self, prometheus_metrics: Any) -> None:
         """
         Initialize tracker with PrometheusMetrics instance.
 
@@ -32,9 +31,7 @@ class HttpMetricsTracker:
         """
         self.metrics = prometheus_metrics
 
-    def track_request(
-        self, method: str, endpoint: str, status: int, duration: float
-    ) -> None:
+    def track_request(self, method: str, endpoint: str, status: int, duration: float) -> None:
         """
         Track a completed HTTP request.
 

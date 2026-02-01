@@ -18,7 +18,6 @@ Phase 3.6 - January 2026 (Option D Pattern for Query Metrics)
 
 from __future__ import annotations
 
-import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime

@@ -96,16 +96,14 @@ class GoalsLateralService:
                 blocker_uid="goal_python_basics",
                 blocked_uid="goal_advanced_python",
                 reason="Must master basics before advanced topics",
-                severity="required"
+                severity="required",
             )
             ```
         """
         # Verify ownership if user_uid provided
         if user_uid:
             for goal_uid in [blocker_uid, blocked_uid]:
-                ownership_result = await self.goals_service.verify_ownership(
-                    goal_uid, user_uid
-                )
+                ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Goal {goal_uid} not found or access denied")
 
@@ -153,17 +151,15 @@ class GoalsLateralService:
                 comparison_criteria="Career path selection",
                 tradeoffs=[
                     "Medicine: longer training, direct patient impact",
-                    "Engineering: faster career start, broader application"
-                ]
+                    "Engineering: faster career start, broader application",
+                ],
             )
             ```
         """
         # Verify ownership
         if user_uid:
             for goal_uid in [goal_a_uid, goal_b_uid]:
-                ownership_result = await self.goals_service.verify_ownership(
-                    goal_uid, user_uid
-                )
+                ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Goal {goal_uid} not found or access denied")
 
@@ -209,7 +205,7 @@ class GoalsLateralService:
                 goal_a_uid="goal_improve_public_speaking",
                 goal_b_uid="goal_advance_career",
                 synergy_description="Public speaking skills directly support career advancement",
-                synergy_score=0.85
+                synergy_score=0.85,
             )
             ```
         """
@@ -219,9 +215,7 @@ class GoalsLateralService:
         # Verify ownership
         if user_uid:
             for goal_uid in [goal_a_uid, goal_b_uid]:
-                ownership_result = await self.goals_service.verify_ownership(
-                    goal_uid, user_uid
-                )
+                ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Goal {goal_uid} not found or access denied")
 
@@ -380,9 +374,7 @@ class GoalsLateralService:
         # Verify ownership
         if user_uid:
             for goal_uid in [blocker_uid, blocked_uid]:
-                ownership_result = await self.goals_service.verify_ownership(
-                    goal_uid, user_uid
-                )
+                ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Goal {goal_uid} not found or access denied")
 

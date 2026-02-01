@@ -15,15 +15,11 @@ Usage:
 """
 
 import argparse
-import json
-import os
 import re
 import subprocess
 import sys
-from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Set
 
 # ANSI color codes
 RED = "\033[91m"
@@ -38,6 +34,7 @@ DIM = "\033[2m"
 @dataclass
 class DocSuggestion:
     """A suggestion to update a documentation file."""
+
     doc_path: str
     reason: str
     confidence: str  # "low", "medium", "high", "critical"
@@ -45,7 +42,7 @@ class DocSuggestion:
     action: str = ""  # Specific action to take
 
 
-def get_changed_files(since: str = "HEAD") -> List[str]:
+def get_changed_files(since: str = "HEAD") -> list[str]:
     """Get files changed in the specified commit."""
     try:
         result = subprocess.run(
@@ -60,7 +57,7 @@ def get_changed_files(since: str = "HEAD") -> List[str]:
         return []
 
 
-def detect_new_documentation_files(changed_files: List[str]) -> List[DocSuggestion]:
+def detect_new_documentation_files(changed_files: list[str]) -> list[DocSuggestion]:
     """
     Detect when new documentation files are added.
 
@@ -76,7 +73,16 @@ def detect_new_documentation_files(changed_files: List[str]) -> List[DocSuggesti
         # Check if file is new (added, not modified)
         try:
             result = subprocess.run(
-                ["git", "diff-tree", "--no-commit-id", "--diff-filter=A", "-r", "HEAD", "--", file_path],
+                [
+                    "git",
+                    "diff-tree",
+                    "--no-commit-id",
+                    "--diff-filter=A",
+                    "-r",
+                    "HEAD",
+                    "--",
+                    file_path,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=2,
@@ -101,7 +107,7 @@ def detect_new_documentation_files(changed_files: List[str]) -> List[DocSuggesti
                 reason=f"Added {len(new_docs)} new doc(s): {', '.join(Path(d).name for d in new_docs[:3])}",
                 confidence="critical",
                 source="new_file_detection",
-                action="Add new documentation files to INDEX.md with descriptions"
+                action="Add new documentation files to INDEX.md with descriptions",
             )
         )
 
@@ -113,14 +119,16 @@ def detect_new_documentation_files(changed_files: List[str]) -> List[DocSuggesti
                 reason=f"Added new skill documentation: {', '.join(Path(d).name for d in new_skill_docs)}",
                 confidence="high",
                 source="new_file_detection",
-                action="Update skill descriptions in CLAUDE.md if needed"
+                action="Update skill descriptions in CLAUDE.md if needed",
             )
         )
 
     return suggestions
 
 
-def detect_numerical_references(changed_files: List[str], project_root: Path) -> List[DocSuggestion]:
+def detect_numerical_references(
+    changed_files: list[str], project_root: Path
+) -> list[DocSuggestion]:
     """
     Detect when code changes might make numerical references stale.
 
@@ -133,26 +141,26 @@ def detect_numerical_references(changed_files: List[str], project_root: Path) ->
 
     # Patterns that indicate numerical tracking
     numerical_patterns = [
-        (r'(\d+)\s+metrics?', 'metrics'),
-        (r'(\d+)\s+alerts?', 'alerts'),
-        (r'(\d+)\s+domains?', 'domains'),
-        (r'(\d+)\s+services?', 'services'),
-        (r'(\d+)\s+of\s+(\d+)', 'progress tracking'),
-        (r'(\d+)%', 'percentage'),
-        (r'Phase\s+(\d+)', 'phase number'),
+        (r"(\d+)\s+metrics?", "metrics"),
+        (r"(\d+)\s+alerts?", "alerts"),
+        (r"(\d+)\s+domains?", "domains"),
+        (r"(\d+)\s+services?", "services"),
+        (r"(\d+)\s+of\s+(\d+)", "progress tracking"),
+        (r"(\d+)%", "percentage"),
+        (r"Phase\s+(\d+)", "phase number"),
     ]
 
     # Check if code changes relate to these concepts
     code_keywords = set()
     for file_path in changed_files:
-        if file_path.endswith('.py'):
+        if file_path.endswith(".py"):
             # Extract key concepts from code files
-            if 'metrics' in file_path.lower():
-                code_keywords.add('metrics')
-            if 'service' in file_path.lower():
-                code_keywords.add('services')
-            if 'domain' in file_path.lower():
-                code_keywords.add('domains')
+            if "metrics" in file_path.lower():
+                code_keywords.add("metrics")
+            if "service" in file_path.lower():
+                code_keywords.add("services")
+            if "domain" in file_path.lower():
+                code_keywords.add("domains")
 
     if not code_keywords:
         return suggestions
@@ -163,14 +171,15 @@ def detect_numerical_references(changed_files: List[str], project_root: Path) ->
         "docs/INDEX.md",
         "docs/architecture/*.md",
         "docs/migrations/*COMPLETE*.md",
-        ".claude/skills/*/SKILL.md"
+        ".claude/skills/*/SKILL.md",
     ]
 
     for doc_pattern in docs_to_check:
         try:
             # Find matching docs
-            if '*' in doc_pattern:
+            if "*" in doc_pattern:
                 import glob
+
                 matching_docs = glob.glob(str(project_root / doc_pattern))
             else:
                 doc_path = project_root / doc_pattern
@@ -178,11 +187,11 @@ def detect_numerical_references(changed_files: List[str], project_root: Path) ->
 
             for doc_file in matching_docs:
                 try:
-                    content = Path(doc_file).read_text(encoding='utf-8')
+                    content = Path(doc_file).read_text(encoding="utf-8")
 
                     # Check each pattern
                     for pattern, concept in numerical_patterns:
-                        if concept not in code_keywords and concept != 'progress tracking':
+                        if concept not in code_keywords and concept != "progress tracking":
                             continue
 
                         matches = re.findall(pattern, content, re.IGNORECASE)
@@ -194,7 +203,7 @@ def detect_numerical_references(changed_files: List[str], project_root: Path) ->
                                     reason=f"Contains {len(matches)} numerical reference(s) to '{concept}' - verify accuracy",
                                     confidence="medium",
                                     source="numerical_analysis",
-                                    action=f"Search for pattern '{pattern}' and verify counts are current"
+                                    action=f"Search for pattern '{pattern}' and verify counts are current",
                                 )
                             )
                             break  # One suggestion per doc
@@ -208,15 +217,21 @@ def detect_numerical_references(changed_files: List[str], project_root: Path) ->
     return suggestions
 
 
-def detect_advanced_patterns(changed_files: List[str]) -> List[DocSuggestion]:
+def detect_advanced_patterns(changed_files: list[str]) -> list[DocSuggestion]:
     """
     Enhanced pattern detection with more nuanced rules.
     """
     suggestions = []
 
     # Pattern: Monitoring/observability changes
-    monitoring_files = [f for f in changed_files if any(x in f.lower() for x in
-                       ['prometheus', 'metrics', 'monitoring', 'observability', 'alert'])]
+    monitoring_files = [
+        f
+        for f in changed_files
+        if any(
+            x in f.lower()
+            for x in ["prometheus", "metrics", "monitoring", "observability", "alert"]
+        )
+    ]
     if monitoring_files:
         suggestions.append(
             DocSuggestion(
@@ -224,7 +239,7 @@ def detect_advanced_patterns(changed_files: List[str]) -> List[DocSuggestion]:
                 reason=f"Monitoring infrastructure changed ({len(monitoring_files)} files)",
                 confidence="high",
                 source="pattern:monitoring",
-                action="Update monitoring/observability section with new metrics/alerts"
+                action="Update monitoring/observability section with new metrics/alerts",
             )
         )
         suggestions.append(
@@ -233,12 +248,12 @@ def detect_advanced_patterns(changed_files: List[str]) -> List[DocSuggestion]:
                 reason="Monitoring code changes may affect metrics documentation",
                 confidence="medium",
                 source="pattern:monitoring",
-                action="Verify metrics catalog is up to date"
+                action="Verify metrics catalog is up to date",
             )
         )
 
     # Pattern: DomainConfig changes
-    domainconfig_files = [f for f in changed_files if 'domain_config' in f.lower()]
+    domainconfig_files = [f for f in changed_files if "domain_config" in f.lower()]
     if domainconfig_files:
         suggestions.append(
             DocSuggestion(
@@ -246,12 +261,12 @@ def detect_advanced_patterns(changed_files: List[str]) -> List[DocSuggestion]:
                 reason=f"DomainConfig changes in {len(domainconfig_files)} file(s)",
                 confidence="high",
                 source="pattern:domainconfig",
-                action="Update migration progress if new services were migrated"
+                action="Update migration progress if new services were migrated",
             )
         )
 
     # Pattern: Protocol changes
-    protocol_files = [f for f in changed_files if 'protocol' in f.lower()]
+    protocol_files = [f for f in changed_files if "protocol" in f.lower()]
     if protocol_files:
         suggestions.append(
             DocSuggestion(
@@ -259,12 +274,12 @@ def detect_advanced_patterns(changed_files: List[str]) -> List[DocSuggestion]:
                 reason=f"Protocol changes in {len(protocol_files)} file(s)",
                 confidence="medium",
                 source="pattern:protocol",
-                action="Update protocol documentation with new interfaces"
+                action="Update protocol documentation with new interfaces",
             )
         )
 
     # Pattern: Service changes (large scale)
-    service_files = [f for f in changed_files if '/services/' in f and f.endswith('.py')]
+    service_files = [f for f in changed_files if "/services/" in f and f.endswith(".py")]
     if len(service_files) >= 5:
         suggestions.append(
             DocSuggestion(
@@ -272,12 +287,12 @@ def detect_advanced_patterns(changed_files: List[str]) -> List[DocSuggestion]:
                 reason=f"Large-scale service changes ({len(service_files)} files)",
                 confidence="medium",
                 source="pattern:services",
-                action="Review if service patterns or examples need updating"
+                action="Review if service patterns or examples need updating",
             )
         )
 
     # Pattern: Migration docs updated
-    migration_files = [f for f in changed_files if 'migrations/' in f and f.endswith('.md')]
+    migration_files = [f for f in changed_files if "migrations/" in f and f.endswith(".md")]
     if migration_files:
         suggestions.append(
             DocSuggestion(
@@ -285,13 +300,16 @@ def detect_advanced_patterns(changed_files: List[str]) -> List[DocSuggestion]:
                 reason="Migration documentation updated - CLAUDE.md may need status sync",
                 confidence="high",
                 source="pattern:migration",
-                action="Update migration status in CLAUDE.md ## Documentation Architecture section"
+                action="Update migration status in CLAUDE.md ## Documentation Architecture section",
             )
         )
 
     # Pattern: Embedding/AI service changes
-    ai_files = [f for f in changed_files if any(x in f.lower() for x in
-                ['embedding', 'openai', 'genai', 'llm', 'ai_'])]
+    ai_files = [
+        f
+        for f in changed_files
+        if any(x in f.lower() for x in ["embedding", "openai", "genai", "llm", "ai_"])
+    ]
     if ai_files:
         suggestions.append(
             DocSuggestion(
@@ -299,14 +317,14 @@ def detect_advanced_patterns(changed_files: List[str]) -> List[DocSuggestion]:
                 reason=f"AI/embedding service changes ({len(ai_files)} files)",
                 confidence="medium",
                 source="pattern:ai",
-                action="Verify GenAI architecture docs reflect current implementation"
+                action="Verify GenAI architecture docs reflect current implementation",
             )
         )
 
     return suggestions
 
 
-def analyze_cross_references(changed_files: List[str], project_root: Path) -> List[DocSuggestion]:
+def analyze_cross_references(changed_files: list[str], project_root: Path) -> list[DocSuggestion]:
     """
     Find docs that directly reference changed file paths.
 
@@ -317,7 +335,7 @@ def analyze_cross_references(changed_files: List[str], project_root: Path) -> Li
     # Build search patterns from file paths
     file_patterns = []
     for file_path in changed_files:
-        if file_path.endswith('.py'):
+        if file_path.endswith(".py"):
             # Add the full path
             file_patterns.append(file_path)
             # Add just the filename
@@ -352,7 +370,7 @@ def analyze_cross_references(changed_files: List[str], project_root: Path) -> Li
                             reason="Contains explicit reference to modified file path",
                             confidence="high",
                             source="cross_reference",
-                            action="Verify file path references and examples are still accurate"
+                            action="Verify file path references and examples are still accurate",
                         )
                     )
 
@@ -362,11 +380,11 @@ def analyze_cross_references(changed_files: List[str], project_root: Path) -> Li
     return suggestions
 
 
-def merge_and_deduplicate(all_suggestions: List[DocSuggestion]) -> List[DocSuggestion]:
+def merge_and_deduplicate(all_suggestions: list[DocSuggestion]) -> list[DocSuggestion]:
     """
     Merge suggestions for same doc, keeping highest confidence.
     """
-    by_doc: Dict[str, DocSuggestion] = {}
+    by_doc: dict[str, DocSuggestion] = {}
 
     confidence_order = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
@@ -387,18 +405,16 @@ def merge_and_deduplicate(all_suggestions: List[DocSuggestion]) -> List[DocSugge
                     reason=f"{suggestion.reason}; {existing.reason}",
                     confidence=suggestion.confidence,
                     source=f"{suggestion.source}+{existing.source}",
-                    action=suggestion.action or existing.action
+                    action=suggestion.action or existing.action,
                 )
 
     # Sort by confidence
     return sorted(
-        by_doc.values(),
-        key=lambda s: confidence_order.get(s.confidence, 0),
-        reverse=True
+        by_doc.values(), key=lambda s: confidence_order.get(s.confidence, 0), reverse=True
     )
 
 
-def print_suggestions(suggestions: List[DocSuggestion], changed_files: List[str]) -> None:
+def print_suggestions(suggestions: list[DocSuggestion], changed_files: list[str]) -> None:
     """Print formatted suggestions."""
     if not suggestions:
         print(f"{GREEN}✓ No documentation updates needed{RESET}")
@@ -411,7 +427,7 @@ def print_suggestions(suggestions: List[DocSuggestion], changed_files: List[str]
     critical = [s for s in suggestions if s.confidence == "critical"]
     high = [s for s in suggestions if s.confidence == "high"]
     medium = [s for s in suggestions if s.confidence == "medium"]
-    low = [s for s in suggestions if s.confidence == "low"]
+    _low = [s for s in suggestions if s.confidence == "low"]  # Reserved for future use
 
     if critical:
         print(f"{RED}{BOLD}🔴 CRITICAL - ACTION REQUIRED ({len(critical)}){RESET}")
@@ -444,9 +460,9 @@ def print_suggestions(suggestions: List[DocSuggestion], changed_files: List[str]
             print()
 
     print(f"{CYAN}Next steps:{RESET}")
-    print(f"  1. Review each suggested doc")
-    print(f"  2. Make necessary updates")
-    print(f"  3. Commit doc updates separately")
+    print("  1. Review each suggested doc")
+    print("  2. Make necessary updates")
+    print("  3. Commit doc updates separately")
     print()
     print(f"{DIM}To disable: git config skuel.docs-check false{RESET}")
 
@@ -471,7 +487,7 @@ def main() -> int:
         return 0
 
     # Run all detection methods
-    all_suggestions: List[DocSuggestion] = []
+    all_suggestions: list[DocSuggestion] = []
 
     # 1. Detect new documentation files (CRITICAL)
     all_suggestions.extend(detect_new_documentation_files(changed_files))
@@ -516,5 +532,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"{RED}Error: {e}{RESET}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         sys.exit(2)

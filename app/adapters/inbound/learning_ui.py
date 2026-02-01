@@ -40,12 +40,8 @@ from fasthtml.common import (
 from starlette.responses import HTMLResponse
 
 from components.form_generator import FormGenerator
-from core.auth import require_authenticated_user
 from core.models.lp.lp_request import LpFilterRequest
 from core.ui.daisy_components import Button, ButtonT, Card, Div, Label, Option, Select, Span
-from ui.patterns.relationships import EntityRelationshipsSection
-from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from core.ui.ui_types import (
     AchievementData,
     ActivePathData,
@@ -57,6 +53,9 @@ from core.ui.ui_types import (
 )
 from core.utils.logging import get_logger
 from core.utils.uid_generator import UIDGenerator
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
+from ui.patterns.relationships import EntityRelationshipsSection
 
 logger = get_logger("skuel.ui.learning")
 

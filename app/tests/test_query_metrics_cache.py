@@ -16,12 +16,10 @@ Tests verify:
 
 import asyncio
 import time
-from typing import TYPE_CHECKING
 
 import pytest
 
 from core.infrastructure.monitoring import PrometheusMetrics, QueryMetricsCache
-from core.utils.result_simplified import Result
 from core.utils.metrics import (
     MetricsTimer,
     disable_metrics,
@@ -32,10 +30,7 @@ from core.utils.metrics import (
     set_query_metrics_cache,
     track_query_metrics,
 )
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
-
+from core.utils.result_simplified import Result
 
 # ============================================================================
 # FIXTURES
@@ -364,7 +359,7 @@ def test_metrics_timer_with_exception():
 def test_get_metrics_api():
     """Test backward-compatible get_metrics() API."""
     # Record some metrics manually
-    cache = get_metrics("")  # Get cache via internal access
+    _cache = get_metrics("")  # Get cache via internal access
 
     # Use decorator to populate metrics
     @track_query_metrics("api_test")
@@ -384,6 +379,7 @@ def test_get_metrics_api():
 
 def test_get_metrics_summary_api():
     """Test backward-compatible get_metrics_summary() API."""
+
     # Use decorator to populate metrics
     @track_query_metrics("summary_test")
     def test_func():
@@ -401,6 +397,7 @@ def test_get_metrics_summary_api():
 
 def test_reset_metrics_api():
     """Test backward-compatible reset_metrics() API."""
+
     # Populate metrics
     @track_query_metrics("reset_test")
     def test_func():
@@ -432,7 +429,7 @@ def test_enable_disable_metrics_api():
     test_func()
 
     # Metrics should not be recorded (cache disabled)
-    summary = get_metrics_summary()
+    _summary = get_metrics_summary()
     # The function will still work but cache is disabled
     # Note: Prometheus still gets data, only cache is disabled
 

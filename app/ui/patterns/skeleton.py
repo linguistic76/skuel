@@ -190,13 +190,19 @@ def SkeletonIntelligence() -> Div:
         # Daily plan card
         Div(
             Div(cls="h-5 bg-base-300 rounded w-40 animate-pulse mb-4"),
-            Div(*[Div(cls="h-4 bg-base-300 rounded w-full animate-pulse") for _ in range(4)], cls="space-y-2"),
+            Div(
+                *[Div(cls="h-4 bg-base-300 rounded w-full animate-pulse") for _ in range(4)],
+                cls="space-y-2",
+            ),
             cls="card bg-base-100 shadow-sm p-6 mb-6",
         ),
         # Synergies card
         Div(
             Div(cls="h-5 bg-base-300 rounded w-56 animate-pulse mb-4"),
-            Div(*[Div(cls="h-4 bg-base-300 rounded w-full animate-pulse") for _ in range(3)], cls="space-y-2"),
+            Div(
+                *[Div(cls="h-4 bg-base-300 rounded w-full animate-pulse") for _ in range(3)],
+                cls="space-y-2",
+            ),
             cls="card bg-base-100 shadow-sm p-6",
         ),
     )

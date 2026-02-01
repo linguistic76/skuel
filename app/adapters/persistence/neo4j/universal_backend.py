@@ -277,9 +277,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             return
 
         # Track query count
-        self.prometheus_metrics.db.queries_total.labels(
-            operation=operation, label=self.label
-        ).inc()
+        self.prometheus_metrics.db.queries_total.labels(operation=operation, label=self.label).inc()
 
         # Track latency
         self.prometheus_metrics.db.query_duration.labels(

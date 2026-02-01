@@ -99,9 +99,7 @@ class HabitsLateralService:
         # Verify ownership
         if user_uid:
             for habit_uid in [first_habit_uid, second_habit_uid]:
-                ownership_result = await self.habits_service.verify_ownership(
-                    habit_uid, user_uid
-                )
+                ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Habit {habit_uid} not found or access denied")
 
@@ -150,9 +148,7 @@ class HabitsLateralService:
         # Verify ownership
         if user_uid:
             for habit_uid in [habit_a_uid, habit_b_uid]:
-                ownership_result = await self.habits_service.verify_ownership(
-                    habit_uid, user_uid
-                )
+                ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Habit {habit_uid} not found or access denied")
 
@@ -198,9 +194,7 @@ class HabitsLateralService:
         # Verify ownership
         if user_uid:
             for habit_uid in [habit_a_uid, habit_b_uid]:
-                ownership_result = await self.habits_service.verify_ownership(
-                    habit_uid, user_uid
-                )
+                ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Habit {habit_uid} not found or access denied")
 

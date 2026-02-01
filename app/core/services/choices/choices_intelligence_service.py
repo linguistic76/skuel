@@ -95,7 +95,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
         backend: ChoicesOperations,
         graph_intelligence_service=None,
         relationship_service: ChoicesRelationshipOperations | None = None,
-        insight_store: "InsightStore | None" = None,
+        insight_store: InsightStore | None = None,
     ) -> None:
         """
         Initialize choices intelligence service.
@@ -1498,7 +1498,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
                         user_uid=event.user_uid,
                         insight_type=InsightType.DECISION_PATTERN,
                         domain="choices",
-                        title=f"Strong Principle-Aligned Decision",
+                        title="Strong Principle-Aligned Decision",
                         description=f"You made a high-confidence decision aligned with {len(aligned_principles)} principle(s).",
                         confidence=0.9,
                         impact=InsightImpact.LOW,  # Positive pattern, not urgent

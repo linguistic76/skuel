@@ -92,9 +92,7 @@ class ChoicesLateralService:
         # Verify ownership
         if user_uid:
             for choice_uid in [choice_a_uid, choice_b_uid]:
-                ownership_result = await self.choices_service.verify_ownership(
-                    choice_uid, user_uid
-                )
+                ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Choice {choice_uid} not found or access denied")
 
@@ -140,9 +138,7 @@ class ChoicesLateralService:
         # Verify ownership
         if user_uid:
             for choice_uid in [blocker_uid, blocked_uid]:
-                ownership_result = await self.choices_service.verify_ownership(
-                    choice_uid, user_uid
-                )
+                ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Choice {choice_uid} not found or access denied")
 
@@ -188,9 +184,7 @@ class ChoicesLateralService:
         # Verify ownership
         if user_uid:
             for choice_uid in [choice_a_uid, choice_b_uid]:
-                ownership_result = await self.choices_service.verify_ownership(
-                    choice_uid, user_uid
-                )
+                ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Choice {choice_uid} not found or access denied")
 
@@ -236,9 +230,7 @@ class ChoicesLateralService:
         # Verify ownership
         if user_uid:
             for choice_uid in [choice_a_uid, choice_b_uid]:
-                ownership_result = await self.choices_service.verify_ownership(
-                    choice_uid, user_uid
-                )
+                ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Choice {choice_uid} not found or access denied")
 

@@ -24,7 +24,6 @@ __version__ = "1.0"
 
 import re
 import uuid
-from typing import Any
 
 
 class UIDGenerator:

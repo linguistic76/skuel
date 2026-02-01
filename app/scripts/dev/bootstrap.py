@@ -73,7 +73,13 @@ async def bootstrap_skuel() -> AppContainer:
         config = _load_config()
 
         # Step 2: Build infrastructure
-        neo4j_adapter, event_bus, prometheus_metrics, metrics_cache, query_metrics_cache = await _build_infrastructure()
+        (
+            neo4j_adapter,
+            event_bus,
+            prometheus_metrics,
+            metrics_cache,
+            query_metrics_cache,
+        ) = await _build_infrastructure()
 
         # Step 3: Compose business services
         services, knowledge_backend = await _compose_services(
@@ -160,7 +166,7 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
 
     # Initialize metrics event handler (Phase 3 - January 2026)
     # Subscribes to domain events and tracks entity creation/completion
-    metrics_handler = MetricsEventHandler(event_bus, prometheus_metrics)
+    _metrics_handler = MetricsEventHandler(event_bus, prometheus_metrics)
     logger.info("✅ MetricsEventHandler initialized and subscribed to domain events")
 
     # Start background task to periodically update graph health metrics
@@ -199,9 +205,9 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                     prometheus_metrics.relationships.total_entities.labels(user_uid="system").set(
                         record["total_nodes"]
                     )
-                    prometheus_metrics.relationships.total_relationships.labels(user_uid="system").set(
-                        record["total_rels"]
-                    )
+                    prometheus_metrics.relationships.total_relationships.labels(
+                        user_uid="system"
+                    ).set(record["total_rels"])
                     prometheus_metrics.relationships.graph_density.labels(user_uid="system").set(
                         record["density"]
                     )
@@ -215,9 +221,9 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                 result_orphaned = await neo4j_adapter.driver.execute_query(query_orphaned)
                 if result_orphaned.records:
                     orphaned_count = result_orphaned.records[0]["orphaned_count"]
-                    prometheus_metrics.relationships.orphaned_entities.labels(user_uid="system").set(
-                        orphaned_count
-                    )
+                    prometheus_metrics.relationships.orphaned_entities.labels(
+                        user_uid="system"
+                    ).set(orphaned_count)
 
                 # Query 3: Specific relationship type counts
                 query_rel_types = """
@@ -278,18 +284,18 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                         semantic_count += count
 
                 # Update specific relationship counts
-                prometheus_metrics.relationships.blocking_relationships.labels(user_uid="system").set(
-                    blocks_count
-                )
-                prometheus_metrics.relationships.enables_relationships.labels(user_uid="system").set(
-                    enables_count
-                )
-                prometheus_metrics.relationships.contains_relationships.labels(user_uid="system").set(
-                    contains_count
-                )
-                prometheus_metrics.relationships.organizes_relationships.labels(user_uid="system").set(
-                    organizes_count
-                )
+                prometheus_metrics.relationships.blocking_relationships.labels(
+                    user_uid="system"
+                ).set(blocks_count)
+                prometheus_metrics.relationships.enables_relationships.labels(
+                    user_uid="system"
+                ).set(enables_count)
+                prometheus_metrics.relationships.contains_relationships.labels(
+                    user_uid="system"
+                ).set(contains_count)
+                prometheus_metrics.relationships.organizes_relationships.labels(
+                    user_uid="system"
+                ).set(organizes_count)
 
                 # Update layer counts
                 prometheus_metrics.relationships.relationships_by_layer.labels(

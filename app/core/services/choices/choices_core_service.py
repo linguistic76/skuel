@@ -1251,7 +1251,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             rel_props["depends_on_outcome"] = depends_on_outcome
 
         # Build property assignments for Cypher
-        prop_assignments = ", ".join([f"{k}: ${k}" for k in rel_props.keys()])
+        prop_assignments = ", ".join([f"{k}: ${k}" for k in rel_props])
 
         query = f"""
         MATCH (parent:Choice {{uid: $parent_uid}})

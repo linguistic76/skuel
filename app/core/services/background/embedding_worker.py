@@ -34,8 +34,8 @@ from core.events import (
     HabitEmbeddingRequested,
     PrincipleEmbeddingRequested,
     TaskEmbeddingRequested,
+    publish_event,
 )
-from core.events import publish_event
 from core.events.embedding_events import EmbeddingRequested
 from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
@@ -167,13 +167,13 @@ class EmbeddingBackgroundWorker:
 
             # Update Prometheus queue size gauges
             if self.prometheus_metrics:
-                self.prometheus_metrics.ai.embedding_queue_size.labels(
-                    queue_type="entity"
-                ).set(len(self._pending_requests))
+                self.prometheus_metrics.ai.embedding_queue_size.labels(queue_type="entity").set(
+                    len(self._pending_requests)
+                )
 
-                self.prometheus_metrics.ai.embedding_queue_size.labels(
-                    queue_type="chunk"
-                ).set(len(self._pending_chunk_requests))
+                self.prometheus_metrics.ai.embedding_queue_size.labels(queue_type="chunk").set(
+                    len(self._pending_chunk_requests)
+                )
 
             # Process entity embeddings
             if self._pending_requests:

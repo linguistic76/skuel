@@ -34,7 +34,6 @@ from core.infrastructure.relationships.semantic_relationships import SemanticRel
 from core.models.lp import Lp
 from core.models.lp.lp_dto import LpDTO
 from core.models.ls import Ls
-from core.models.relationship_names import RelationshipName
 from core.models.shared_enums import Domain
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
@@ -919,8 +918,8 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         for record in result.records:
             ls_data = dict(record["ls"])
             # Convert to Ls model using the LS adapter
-            from core.models.learning_step.learning_step_dto import LsDTO
             from core.models.learning_step.learning_step import Ls
+            from core.models.learning_step.learning_step_dto import LsDTO
 
             ls = self._to_domain_model(ls_data, LsDTO, Ls)
             steps.append(ls)

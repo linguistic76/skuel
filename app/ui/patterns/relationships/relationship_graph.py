@@ -1,4 +1,4 @@
-"""RelationshipGraphView Component - Interactive Force-Directed Graph.
+r"""RelationshipGraphView Component - Interactive Force-Directed Graph.
 
 Displays lateral relationships using Vis.js Network library with interactive features.
 Supports drag, zoom, pan, and click-to-navigate.
@@ -31,7 +31,7 @@ Color Scheme:
 - RELATED_TO → Gray (#6B7280)
 """
 
-from fasthtml.common import Div, H3, Option, Select
+from fasthtml.common import H3, Div, Option, Select
 
 from ui.primitives.card import Card
 

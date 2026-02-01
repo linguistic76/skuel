@@ -342,7 +342,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         topic_domain: str | None = None,
     ) -> dict[str, Any]:
         """Create ENABLES relationship (learning A unlocks B)."""
-        user_uid = require_authenticated_user(request)
+        require_authenticated_user(request)
 
         result = await services.ku_lateral.create_enables_relationship(
             enabler_uid=uid,
@@ -364,7 +364,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     @rt("/api/ku/{uid}/lateral/enables", methods=["GET"])
     async def get_ku_enables(request: Request, uid: str) -> dict[str, Any]:
         """Get knowledge units that this KU enables."""
-        user_uid = require_authenticated_user(request)
+        require_authenticated_user(request)
 
         result = await services.ku_lateral.get_enables(uid)
 
@@ -380,7 +380,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     @rt("/api/ku/{uid}/lateral/enabled-by", methods=["GET"])
     async def get_ku_enabled_by(request: Request, uid: str) -> dict[str, Any]:
         """Get knowledge units that enable this KU."""
-        user_uid = require_authenticated_user(request)
+        require_authenticated_user(request)
 
         result = await services.ku_lateral.get_enabled_by(uid)
 

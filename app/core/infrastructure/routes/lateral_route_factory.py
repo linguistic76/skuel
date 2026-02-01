@@ -40,7 +40,6 @@ from fasthtml.common import Request
 
 from core.auth import require_authenticated_user
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)
 
@@ -55,7 +54,7 @@ class LateralRouteFactory:
         domain: str,  # "goals", "tasks", "habits", etc.
         lateral_service: Any,  # Domain lateral service (e.g., GoalsLateralService)
         entity_name: str,  # "Goal", "Task", "Habit", etc.
-    ):
+    ) -> None:
         self.app = app
         self.rt = rt
         self.domain = domain
@@ -426,8 +425,8 @@ class LateralRouteFactory:
 
             delete_method = getattr(self.lateral_service, method_name)
             result = await delete_method(
-                blocker_uid=uid if relationship_type == "blocks" else uid,
-                blocked_uid=target_uid if relationship_type == "blocks" else target_uid,
+                blocker_uid=uid,
+                blocked_uid=target_uid,
                 user_uid=user_uid,
             )
 
@@ -467,12 +466,10 @@ class LateralRouteFactory:
             Returns:
                 Chain data with levels, depth, and critical path
             """
-            user_uid = require_authenticated_user(request)
+            require_authenticated_user(request)
 
             # Access the core lateral service through the domain lateral service
-            result = await self.lateral_service.lateral_service.get_blocking_chain(
-                uid, max_depth
-            )
+            result = await self.lateral_service.lateral_service.get_blocking_chain(uid, max_depth)
 
             if result.is_error:
                 return {"success": False, "error": str(result.error)}, 400
@@ -504,7 +501,7 @@ class LateralRouteFactory:
             Returns:
                 List of alternatives with comparison data
             """
-            user_uid = require_authenticated_user(request)
+            require_authenticated_user(request)
 
             comparison_fields = fields.split(",") if fields else None
 
@@ -545,7 +542,7 @@ class LateralRouteFactory:
             Returns:
                 Vis.js Network format (nodes and edges)
             """
-            user_uid = require_authenticated_user(request)
+            require_authenticated_user(request)
 
             # Parse relationship types if provided
             from core.models.enums.lateral_relationship_types import (
@@ -555,13 +552,11 @@ class LateralRouteFactory:
             relationship_types = None
             if types:
                 try:
-                    relationship_types = [
-                        LateralRelationType(t.strip()) for t in types.split(",")
-                    ]
+                    relationship_types = [LateralRelationType(t.strip()) for t in types.split(",")]
                 except ValueError as e:
                     return {
                         "success": False,
-                        "error": f"Invalid relationship type: {str(e)}",
+                        "error": f"Invalid relationship type: {e!s}",
                     }, 400
 
             result = await self.lateral_service.lateral_service.get_relationship_graph(

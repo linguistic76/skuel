@@ -36,7 +36,6 @@ from core.events.curriculum_events import (
 )
 from core.models.ls import Ls
 from core.models.ls.ls_dto import LearningStepDTO
-from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.services.protocols import get_enum_value

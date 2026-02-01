@@ -16,18 +16,12 @@ Tests verify:
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock
 
 import pytest
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from core.events.base import BaseEvent
 from core.infrastructure.monitoring import MetricsCache, PrometheusMetrics
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
-
 
 # ============================================================================
 # TEST EVENTS
@@ -64,6 +58,7 @@ def metrics_cache(prometheus_metrics) -> MetricsCache:
     yield cache
     # Reset cache after each test
     import asyncio
+
     asyncio.run(cache.reset())
 
 

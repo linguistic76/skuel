@@ -191,7 +191,11 @@
       "Bash(timeout:*)",
       "Bash(while read pid)",
       "Bash(do kill -9 $pid)",
-      "Bash(done sleep 2 echo \"Port cleared\")"
+      "Bash(done sleep 2 echo \"Port cleared\")",
+      "Bash(./scripts/verify_phase5_complete.sh:*)",
+      "Bash(do:*)",
+      "Bash(then echo \"✓ $domain_dto.py\")",
+      "Bash(else echo \"✗ $domain_dto.py NOT FOUND\")"
     ]
   }
 }

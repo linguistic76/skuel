@@ -8,8 +8,9 @@ Tests the three new service methods:
 These methods provide data for the Enhanced UX components.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
@@ -254,9 +255,7 @@ class TestGetRelationshipGraph:
             "related_title": "Task B",
             "related_type": "Task",
             "related_status": "completed",
-            "relationships": [
-                {"type": "BLOCKS", "from": "task_b", "to": "task_a"}
-            ],
+            "relationships": [{"type": "BLOCKS", "from": "task_b", "to": "task_a"}],
             "depth_level": 1,
         }
         mock_result = MagicMock()
@@ -293,9 +292,7 @@ class TestGetRelationshipGraph:
                 "related_title": "Goal B",
                 "related_type": "Goal",
                 "related_status": "completed",
-                "relationships": [
-                    {"type": "PREREQUISITE_FOR", "from": "goal_b", "to": "goal_a"}
-                ],
+                "relationships": [{"type": "PREREQUISITE_FOR", "from": "goal_b", "to": "goal_a"}],
                 "depth_level": 1,
             },
             {
@@ -307,9 +304,7 @@ class TestGetRelationshipGraph:
                 "related_title": "Goal C",
                 "related_type": "Goal",
                 "related_status": "active",
-                "relationships": [
-                    {"type": "ALTERNATIVE_TO", "from": "goal_a", "to": "goal_c"}
-                ],
+                "relationships": [{"type": "ALTERNATIVE_TO", "from": "goal_a", "to": "goal_c"}],
                 "depth_level": 1,
             },
         ]

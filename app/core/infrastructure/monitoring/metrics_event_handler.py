@@ -17,14 +17,13 @@ Phase 3 - January 2026
 
 from typing import Any
 
-from core.events.base import BaseEvent
 from core.events.calendar_event_events import CalendarEventCreated
 from core.events.choice_events import ChoiceCreated
 from core.events.goal_events import GoalCreated
 from core.events.habit_events import HabitCompleted, HabitCreated
 from core.events.principle_events import PrincipleCreated
-from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.events.task_events import TaskCompleted, TaskCreated, TasksBulkCompleted
+from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -140,7 +139,6 @@ class MetricsEventHandler:
 
     async def _on_expense_created(self, event) -> None:
         """Track expense creation."""
-        from core.events.finance_events import ExpenseCreated
 
         self.prometheus_metrics.domains.entities_created.labels(
             entity_type="expense", user_uid=event.user_uid
@@ -148,7 +146,6 @@ class MetricsEventHandler:
 
     async def _on_journal_created(self, event) -> None:
         """Track journal creation."""
-        from core.events.journal_events import JournalCreated
 
         self.prometheus_metrics.domains.entities_created.labels(
             entity_type="journal", user_uid=event.user_uid
@@ -156,7 +153,6 @@ class MetricsEventHandler:
 
     async def _on_transcription_created(self, event) -> None:
         """Track transcription creation."""
-        from core.events.transcription_events import TranscriptionCreated
 
         self.prometheus_metrics.domains.entities_created.labels(
             entity_type="transcription", user_uid=event.user_uid
@@ -164,19 +160,15 @@ class MetricsEventHandler:
 
     async def _on_knowledge_created(self, event) -> None:
         """Track KU creation."""
-        from core.events.learning_events import KnowledgeCreated
 
         # KU is shared content - may not have user_uid, use "system" as fallback
-        user_uid = getattr(event, "user_uid", None) or getattr(
-            event, "created_by_user", "system"
-        )
+        user_uid = getattr(event, "user_uid", None) or getattr(event, "created_by_user", "system")
         self.prometheus_metrics.domains.entities_created.labels(
             entity_type="ku", user_uid=user_uid
         ).inc()
 
     async def _on_ls_created(self, event) -> None:
         """Track LS creation."""
-        from core.events.curriculum_events import LearningStepCreated
 
         # LS is shared content - may not have user_uid, use "system" as fallback
         user_uid = getattr(event, "user_uid", "system")
@@ -186,7 +178,6 @@ class MetricsEventHandler:
 
     async def _on_lp_started(self, event) -> None:
         """Track LP start (proxy for creation tracking)."""
-        from core.events.learning_events import LearningPathStarted
 
         self.prometheus_metrics.domains.entities_created.labels(
             entity_type="lp", user_uid=event.user_uid
@@ -194,7 +185,6 @@ class MetricsEventHandler:
 
     async def _on_assignment_submitted(self, event) -> None:
         """Track assignment submission (proxy for creation)."""
-        from core.events.assignment_events import AssignmentSubmitted
 
         self.prometheus_metrics.domains.entities_created.labels(
             entity_type="assignment", user_uid=event.user_uid

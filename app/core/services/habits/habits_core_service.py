@@ -31,7 +31,7 @@ from core.services.protocols import get_enum_value
 from core.services.protocols.domain_protocols import HabitsOperations
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 

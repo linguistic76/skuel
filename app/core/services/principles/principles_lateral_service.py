@@ -290,7 +290,9 @@ class PrinciplesLateralService:
         """
         # Verify ownership
         if user_uid:
-            ownership_result = await self.principles_service.verify_ownership(principle_uid, user_uid)
+            ownership_result = await self.principles_service.verify_ownership(
+                principle_uid, user_uid
+            )
             if ownership_result.is_error:
                 return Errors.not_found(f"Principle {principle_uid} not found or access denied")
 
@@ -332,7 +334,9 @@ class PrinciplesLateralService:
         """
         # Verify ownership
         if user_uid:
-            ownership_result = await self.principles_service.verify_ownership(principle_uid, user_uid)
+            ownership_result = await self.principles_service.verify_ownership(
+                principle_uid, user_uid
+            )
             if ownership_result.is_error:
                 return Errors.not_found(f"Principle {principle_uid} not found or access denied")
 
@@ -372,7 +376,9 @@ class PrinciplesLateralService:
         """
         # Verify ownership
         if user_uid:
-            ownership_result = await self.principles_service.verify_ownership(principle_uid, user_uid)
+            ownership_result = await self.principles_service.verify_ownership(
+                principle_uid, user_uid
+            )
             if ownership_result.is_error:
                 return Errors.not_found(f"Principle {principle_uid} not found or access denied")
 
@@ -400,7 +406,9 @@ class PrinciplesLateralService:
         """
         # Verify ownership
         if user_uid:
-            ownership_result = await self.principles_service.verify_ownership(principle_uid, user_uid)
+            ownership_result = await self.principles_service.verify_ownership(
+                principle_uid, user_uid
+            )
             if ownership_result.is_error:
                 return Errors.not_found(f"Principle {principle_uid} not found or access denied")
 
@@ -428,7 +436,9 @@ class PrinciplesLateralService:
         """
         # Verify ownership
         if user_uid:
-            ownership_result = await self.principles_service.verify_ownership(principle_uid, user_uid)
+            ownership_result = await self.principles_service.verify_ownership(
+                principle_uid, user_uid
+            )
             if ownership_result.is_error:
                 return Errors.not_found(f"Principle {principle_uid} not found or access denied")
 
@@ -456,7 +466,9 @@ class PrinciplesLateralService:
         """
         # Verify ownership
         if user_uid:
-            ownership_result = await self.principles_service.verify_ownership(principle_uid, user_uid)
+            ownership_result = await self.principles_service.verify_ownership(
+                principle_uid, user_uid
+            )
             if ownership_result.is_error:
                 return Errors.not_found(f"Principle {principle_uid} not found or access denied")
 

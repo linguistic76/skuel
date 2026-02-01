@@ -67,6 +67,7 @@ async def embeddings_service(neo4j_driver):
 async def embedding_worker(event_bus, embeddings_service, neo4j_driver):
     """Create embedding background worker for e2e tests."""
     from unittest.mock import Mock
+
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 
     # Mock config for embedding version

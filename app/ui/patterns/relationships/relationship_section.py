@@ -20,7 +20,7 @@ Usage:
     )
 """
 
-from fasthtml.common import Div, H2, H3
+from fasthtml.common import H2, H3, Div
 
 from ui.patterns.relationships.alternatives_grid import AlternativesComparisonGrid
 from ui.patterns.relationships.blocking_chain import BlockingChainView

@@ -21,23 +21,19 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Protocol
 
-from fasthtml.common import JSONResponse, Response
+from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span
 
 from components.error_components import ErrorComponents
 from components.tasks_views import TasksViewComponents
 from components.todoist_task_components import TodoistTaskComponents
 from core.auth import require_authenticated_user
-from ui.patterns.relationships import EntityRelationshipsSection
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.shared_enums import ActivityStatus, Priority
 from core.models.task.task_request import TaskCreateRequest
 from core.services.protocols.facade_protocols import TasksFacadeProtocol
-from fasthtml.common import Div, H1, H2, H3, P, Span
-from core.ui.daisy_components import Button, ButtonT, Card, Progress
+from core.ui.daisy_components import Button, ButtonT, Card
 from core.utils.logging import get_logger
-from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
     get_created_at_attr,
@@ -45,6 +41,9 @@ from core.utils.sort_functions import (
     get_task_due_date_sort_key,
     make_priority_order_getter,
 )
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
+from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tasks.layout import create_tasks_page
 from ui.tokens import Container, Spacing
 
@@ -1114,7 +1113,9 @@ def create_tasks_ui_routes(
                 Div(
                     Span(f"Status: {task.status.value}", cls="badge badge-info mr-2"),
                     Span(f"Priority: {task.priority.value}", cls="badge badge-warning mr-2"),
-                    Span(f"Project: {task.project or 'None'}", cls="badge badge-ghost") if task.project else "",
+                    Span(f"Project: {task.project or 'None'}", cls="badge badge-ghost")
+                    if task.project
+                    else "",
                     cls="flex gap-2 flex-wrap",
                 ),
                 cls="p-6 mb-4",
@@ -1171,7 +1172,9 @@ def create_tasks_ui_routes(
                     Button(
                         "✓ Toggle Complete",
                         **{"hx-post": f"/tasks/{task.uid}/toggle", "hx-target": "body"},
-                        variant=ButtonT.success if task.status != ActivityStatus.COMPLETED else ButtonT.ghost,
+                        variant=ButtonT.success
+                        if task.status != ActivityStatus.COMPLETED
+                        else ButtonT.ghost,
                     ),
                     cls="flex gap-2 flex-wrap",
                 ),

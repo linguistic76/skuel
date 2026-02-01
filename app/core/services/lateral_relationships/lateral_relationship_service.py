@@ -101,8 +101,8 @@ class LateralRelationshipService:
                 metadata={
                     "reason": "Must learn language before building",
                     "severity": "required",
-                    "created_by": user_uid
-                }
+                    "created_by": user_uid,
+                },
             )
             ```
         """
@@ -140,9 +140,7 @@ class LateralRelationshipService:
             )
 
             if not result.records:
-                return Errors.database(
-                    f"Failed to create {relationship_type.value} relationship"
-                )
+                return Errors.database(f"Failed to create {relationship_type.value} relationship")
 
             logger.info(
                 f"✅ Created lateral relationship: {source_uid} -[{relationship_type.value}]-> {target_uid}"
@@ -163,7 +161,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to create lateral relationship: {e}")
-            return Errors.database(f"Relationship creation failed: {str(e)}")
+            return Errors.database(f"Relationship creation failed: {e!s}")
 
     async def delete_lateral_relationship(
         self,
@@ -219,7 +217,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to delete lateral relationship: {e}")
-            return Errors.database(f"Relationship deletion failed: {str(e)}")
+            return Errors.database(f"Relationship deletion failed: {e!s}")
 
     async def get_lateral_relationships(
         self,
@@ -246,9 +244,9 @@ class LateralRelationshipService:
                     "target_uid": "goal_xyz",
                     "target_title": "Advanced Topics",
                     "metadata": {"reason": "...", "severity": "required"},
-                    "direction": "outgoing"
+                    "direction": "outgoing",
                 },
-                ...
+                ...,
             ]
             ```
         """
@@ -298,14 +296,12 @@ class LateralRelationshipService:
                 for record in result.records
             ]
 
-            logger.info(
-                f"✅ Retrieved {len(relationships)} lateral relationships for {entity_uid}"
-            )
+            logger.info(f"✅ Retrieved {len(relationships)} lateral relationships for {entity_uid}")
             return Result.ok(relationships)
 
         except Exception as e:
             logger.error(f"❌ Failed to get lateral relationships: {e}")
-            return Errors.database(f"Query failed: {str(e)}")
+            return Errors.database(f"Query failed: {e!s}")
 
     async def get_siblings(
         self,
@@ -365,7 +361,7 @@ class LateralRelationshipService:
 
             except Exception as e:
                 logger.error(f"❌ Failed to get siblings: {e}")
-                return Errors.database(f"Sibling query failed: {str(e)}")
+                return Errors.database(f"Sibling query failed: {e!s}")
 
     async def get_cousins(
         self,
@@ -424,7 +420,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to get cousins: {e}")
-            return Errors.database(f"Cousin query failed: {str(e)}")
+            return Errors.database(f"Cousin query failed: {e!s}")
 
     # ========================================================================
     # Private Helper Methods
@@ -473,9 +469,7 @@ class LateralRelationshipService:
 
         return Result.ok(True)
 
-    async def _check_entities_exist(
-        self, source_uid: str, target_uid: str
-    ) -> Result[bool]:
+    async def _check_entities_exist(self, source_uid: str, target_uid: str) -> Result[bool]:
         """Verify both entities exist in the graph."""
         try:
             result = await self.driver.execute_query(
@@ -499,7 +493,7 @@ class LateralRelationshipService:
             return Result.ok(True)
 
         except Exception as e:
-            return Errors.database(f"Entity existence check failed: {str(e)}")
+            return Errors.database(f"Entity existence check failed: {e!s}")
 
     async def _check_same_parent(self, source_uid: str, target_uid: str) -> Result[bool]:
         """Verify entities share the same parent."""
@@ -521,7 +515,7 @@ class LateralRelationshipService:
             return Result.ok(True)
 
         except Exception as e:
-            return Errors.database(f"Same parent check failed: {str(e)}")
+            return Errors.database(f"Same parent check failed: {e!s}")
 
     async def _check_same_depth(self, source_uid: str, target_uid: str) -> Result[bool]:
         """Verify entities are at the same hierarchical depth."""
@@ -555,7 +549,7 @@ class LateralRelationshipService:
             return Result.ok(True)
 
         except Exception as e:
-            return Errors.database(f"Same depth check failed: {str(e)}")
+            return Errors.database(f"Same depth check failed: {e!s}")
 
     async def _check_no_cycles(
         self,
@@ -586,7 +580,7 @@ class LateralRelationshipService:
             return Result.ok(True)
 
         except Exception as e:
-            return Errors.database(f"Cycle check failed: {str(e)}")
+            return Errors.database(f"Cycle check failed: {e!s}")
 
     async def _create_inverse_relationship(
         self,
@@ -667,13 +661,13 @@ class LateralRelationshipService:
                                 "title": "Setup Environment",
                                 "entity_type": "task",
                                 "status": "completed",
-                                "blocks_count": 1
+                                "blocks_count": 1,
                             }
-                        ]
+                        ],
                     },
-                    ...
+                    ...,
                 ],
-                "critical_path": ["task_setup_env", "task_install_deps", "task_deploy"]
+                "critical_path": ["task_setup_env", "task_install_deps", "task_deploy"],
             }
             ```
 
@@ -682,7 +676,7 @@ class LateralRelationshipService:
             result = await service.get_blocking_chain("task_deploy_app", max_depth=5)
             if not result.is_error:
                 print(f"Chain depth: {result.value['chain_depth']}")
-                for level in result.value['levels']:
+                for level in result.value["levels"]:
                     print(f"Depth {level['depth']}: {len(level['entities'])} blockers")
             ```
         """
@@ -704,13 +698,15 @@ class LateralRelationshipService:
             )
 
             if not result.records:
-                return Result.ok({
-                    "root_uid": entity_uid,
-                    "total_blockers": 0,
-                    "chain_depth": 0,
-                    "levels": [],
-                    "critical_path": [entity_uid],
-                })
+                return Result.ok(
+                    {
+                        "root_uid": entity_uid,
+                        "total_blockers": 0,
+                        "chain_depth": 0,
+                        "levels": [],
+                        "critical_path": [entity_uid],
+                    }
+                )
 
             # Group by depth
             levels_dict: dict[int, list[dict[str, Any]]] = {}
@@ -762,7 +758,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to get blocking chain: {e}")
-            return Errors.database(f"Blocking chain query failed: {str(e)}")
+            return Errors.database(f"Blocking chain query failed: {e!s}")
 
     async def get_alternatives_with_comparison(
         self,
@@ -791,14 +787,14 @@ class LateralRelationshipService:
                     "comparison_data": {
                         "timeframe": "5 years",
                         "difficulty": "high",
-                        "resources": "company sponsored"
+                        "resources": "company sponsored",
                     },
                     "metadata": {
                         "tradeoffs": "Less flexibility, higher pay",
-                        "comparison_criteria": "career growth vs autonomy"
-                    }
+                        "comparison_criteria": "career growth vs autonomy",
+                    },
                 },
-                ...
+                ...,
             ]
             ```
 
@@ -806,7 +802,7 @@ class LateralRelationshipService:
             ```python
             result = await service.get_alternatives_with_comparison(
                 "goal_corporate_leadership",
-                comparison_fields=["timeframe", "difficulty", "resources"]
+                comparison_fields=["timeframe", "difficulty", "resources"],
             )
             if not result.is_error:
                 for alt in result.value:
@@ -853,7 +849,13 @@ class LateralRelationshipService:
                 # Add any custom comparison fields from relationship
                 rel_props = record["rel_properties"] or {}
                 for key, value in rel_props.items():
-                    if key not in ["comparison_criteria", "tradeoffs", "created_at", "relationship_category", "is_symmetric"]:
+                    if key not in [
+                        "comparison_criteria",
+                        "tradeoffs",
+                        "created_at",
+                        "relationship_category",
+                        "is_symmetric",
+                    ]:
                         if comparison_fields is None or key in comparison_fields:
                             comparison_data[key] = value
 
@@ -873,14 +875,12 @@ class LateralRelationshipService:
 
                 alternatives.append(alternative_data)
 
-            logger.info(
-                f"✅ Retrieved {len(alternatives)} alternatives for {entity_uid}"
-            )
+            logger.info(f"✅ Retrieved {len(alternatives)} alternatives for {entity_uid}")
             return Result.ok(alternatives)
 
         except Exception as e:
             logger.error(f"❌ Failed to get alternatives with comparison: {e}")
-            return Errors.database(f"Alternatives query failed: {str(e)}")
+            return Errors.database(f"Alternatives query failed: {e!s}")
 
     async def get_relationship_graph(
         self,
@@ -910,9 +910,9 @@ class LateralRelationshipService:
                         "type": "task",
                         "status": "completed",
                         "group": "blocker",
-                        "level": 0
+                        "level": 0,
                     },
-                    ...
+                    ...,
                 ],
                 "edges": [
                     {
@@ -921,10 +921,10 @@ class LateralRelationshipService:
                         "label": "blocks",
                         "arrows": "to",
                         "color": {"color": "#EF4444"},
-                        "relationship_type": "BLOCKS"
+                        "relationship_type": "BLOCKS",
                     },
-                    ...
-                ]
+                    ...,
+                ],
             }
             ```
 
@@ -940,11 +940,16 @@ class LateralRelationshipService:
             result = await service.get_relationship_graph(
                 "task_deploy",
                 depth=2,
-                relationship_types=[LateralRelationType.BLOCKS, LateralRelationType.PREREQUISITE_FOR]
+                relationship_types=[
+                    LateralRelationType.BLOCKS,
+                    LateralRelationType.PREREQUISITE_FOR,
+                ],
             )
             if not result.is_error:
                 graph_data = result.value
-                print(f"Nodes: {len(graph_data['nodes'])}, Edges: {len(graph_data['edges'])}")
+                print(
+                    f"Nodes: {len(graph_data['nodes'])}, Edges: {len(graph_data['edges'])}"
+                )
             ```
         """
         # Build type filter
@@ -994,19 +999,21 @@ class LateralRelationshipService:
 
             if not result.records:
                 # Return just the center node
-                return Result.ok({
-                    "nodes": [
-                        {
-                            "id": entity_uid,
-                            "label": entity_uid,
-                            "type": "unknown",
-                            "status": "unknown",
-                            "group": "center",
-                            "level": 0,
-                        }
-                    ],
-                    "edges": [],
-                })
+                return Result.ok(
+                    {
+                        "nodes": [
+                            {
+                                "id": entity_uid,
+                                "label": entity_uid,
+                                "type": "unknown",
+                                "status": "unknown",
+                                "group": "center",
+                                "level": 0,
+                            }
+                        ],
+                        "edges": [],
+                    }
+                )
 
             # Build nodes and edges
             nodes_dict: dict[str, dict[str, Any]] = {}
@@ -1055,7 +1062,9 @@ class LateralRelationshipService:
                     }
                     # Avoid duplicates
                     edge_key = f"{edge['from']}-{edge['to']}-{rel_type}"
-                    if edge_key not in {f"{e['from']}-{e['to']}-{e['relationship_type']}" for e in edges_list}:
+                    if edge_key not in {
+                        f"{e['from']}-{e['to']}-{e['relationship_type']}" for e in edges_list
+                    }:
                         edges_list.append(edge)
 
             graph_data = {
@@ -1071,7 +1080,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to get relationship graph: {e}")
-            return Errors.database(f"Relationship graph query failed: {str(e)}")
+            return Errors.database(f"Relationship graph query failed: {e!s}")
 
 
 __all__ = ["LateralRelationshipService"]

@@ -25,7 +25,7 @@ Layout:
 
 from typing import Any
 
-from fasthtml.common import A, Div, H3, Span
+from fasthtml.common import H3, A, Div, Span
 
 from ui.primitives.card import Card
 

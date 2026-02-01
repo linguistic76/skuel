@@ -242,9 +242,7 @@ class Services:
     )
     user_progress: Any = None  # UserProgressService - User knowledge profile and mastery tracking
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
-    lp: LpOperations | None = (
-        None  # LpService - All path management (Protocol-typed for GraphQL)
-    )
+    lp: LpOperations | None = None  # LpService - All path management (Protocol-typed for GraphQL)
     ls: LsOperations | None = (
         None  # LsService - Dedicated learning step management (NEW: October 24, 2025)
     )
@@ -560,6 +558,7 @@ def _create_learning_services(
     _goals_service: Any = None,  # Placeholder: GoalsService for entity extraction (Phase 2.5)
     _events_service: Any = None,  # Placeholder: EventsService for entity extraction (Phase 2.5)
     event_bus: Any = None,
+    prometheus_metrics: Any = None,
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
     from adapters.personalized_knowledge_discovery_adapter import (
@@ -589,7 +588,8 @@ def _create_learning_services(
 
         # Create GenAI embeddings service (uses ai.text.embed())
         embeddings_service = Neo4jGenAIEmbeddingsService(
-            driver=driver, prometheus_metrics=prometheus_metrics  # Phase 1 - Track OpenAI calls
+            driver=driver,
+            prometheus_metrics=prometheus_metrics,  # Phase 1 - Track OpenAI calls
         )
         logger.info("✅ Neo4j GenAI embeddings service created (with Prometheus instrumentation)")
 
@@ -1010,7 +1010,10 @@ async def compose_services(
             driver, NeoLabel.HABIT, Habit, prometheus_metrics=prometheus_metrics
         )
         habit_completions_backend = UniversalNeo4jBackend[HabitCompletion](
-            driver, NeoLabel.HABIT_COMPLETION, HabitCompletion, prometheus_metrics=prometheus_metrics
+            driver,
+            NeoLabel.HABIT_COMPLETION,
+            HabitCompletion,
+            prometheus_metrics=prometheus_metrics,
         )
         goals_backend = UniversalNeo4jBackend[Goal](
             driver, NeoLabel.GOAL, Goal, prometheus_metrics=prometheus_metrics
@@ -1041,7 +1044,10 @@ async def compose_services(
             driver, NeoLabel.PRINCIPLE, Principle, prometheus_metrics=prometheus_metrics
         )
         reflection_backend = UniversalNeo4jBackend[PrincipleReflection](
-            driver, NeoLabel.PRINCIPLE_REFLECTION, PrincipleReflection, prometheus_metrics=prometheus_metrics
+            driver,
+            NeoLabel.PRINCIPLE_REFLECTION,
+            PrincipleReflection,
+            prometheus_metrics=prometheus_metrics,
         )
         choice_backend = UniversalNeo4jBackend[Choice](
             driver, NeoLabel.CHOICE, Choice, prometheus_metrics=prometheus_metrics
@@ -1259,6 +1265,7 @@ async def compose_services(
             _goals_service=activity_services["goals"],  # Placeholder: Phase 2.5 entity extraction
             _events_service=activity_services["events"],  # Placeholder: Phase 2.5 entity extraction
             event_bus=event_bus,  # Event-driven architecture
+            prometheus_metrics=prometheus_metrics,  # Phase 1 - Metrics instrumentation
         )
         logger.info("✅ Learning services created")
 
@@ -1303,16 +1310,16 @@ async def compose_services(
         # Enables explicit modeling of sibling, cousin, dependency, and semantic relationships
         # across all 8 hierarchical domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP)
 
-        from core.services.lateral_relationships import LateralRelationshipService
-        from core.services.tasks.tasks_lateral_service import TasksLateralService
+        from core.services.choices.choices_lateral_service import ChoicesLateralService
+        from core.services.events.events_lateral_service import EventsLateralService
         from core.services.goals.goals_lateral_service import GoalsLateralService
         from core.services.habits.habits_lateral_service import HabitsLateralService
-        from core.services.events.events_lateral_service import EventsLateralService
-        from core.services.choices.choices_lateral_service import ChoicesLateralService
-        from core.services.principles.principles_lateral_service import PrinciplesLateralService
         from core.services.ku.ku_lateral_service import KuLateralService
-        from core.services.ls.ls_lateral_service import LsLateralService
+        from core.services.lateral_relationships import LateralRelationshipService
         from core.services.lp.lp_lateral_service import LpLateralService
+        from core.services.ls.ls_lateral_service import LsLateralService
+        from core.services.principles.principles_lateral_service import PrinciplesLateralService
+        from core.services.tasks.tasks_lateral_service import TasksLateralService
 
         # Create core lateral relationship service (domain-agnostic)
         lateral_service = LateralRelationshipService(driver)
@@ -1367,8 +1374,12 @@ async def compose_services(
         logger.info("✅ Domain lateral services created (8 domains):")
         logger.info("   - Activity Domains: Tasks, Goals, Habits, Events, Choices, Principles")
         logger.info("   - Curriculum Domains: KU, LS, LP")
-        logger.info("   Lateral relationships: BLOCKS, PREREQUISITE_FOR, ALTERNATIVE_TO, COMPLEMENTARY_TO,")
-        logger.info("                         CONFLICTS_WITH, STACKS_WITH, RELATED_TO, SIMILAR_TO, ENABLES")
+        logger.info(
+            "   Lateral relationships: BLOCKS, PREREQUISITE_FOR, ALTERNATIVE_TO, COMPLEMENTARY_TO,"
+        )
+        logger.info(
+            "                         CONFLICTS_WITH, STACKS_WITH, RELATED_TO, SIMILAR_TO, ENABLES"
+        )
 
         # Create Askesis core service (CRUD operations for AI assistant instances)
         from core.services.askesis.askesis_core_service import AskesisCoreService
@@ -2247,8 +2258,12 @@ async def compose_services(
             ],  # LpService facade (routes access .intelligence)
             user_progress=learning_services["user_progress"],
             # unified_progress DELETED (January 2026) - use user_progress
-            lp=learning_services["learning_paths"],  # Renamed from learning_paths (consistency: ku, ls, lp)
-            ls=learning_services["learning_steps"],  # Renamed from learning_steps (consistency: ku, ls, lp)
+            lp=learning_services[
+                "learning_paths"
+            ],  # Renamed from learning_paths (consistency: ku, ls, lp)
+            ls=learning_services[
+                "learning_steps"
+            ],  # Renamed from learning_steps (consistency: ku, ls, lp)
             learning_intelligence=learning_services["learning_intelligence"],
             askesis=None,  # Created in PHASE 4 after intelligence_factory (January 2026)
             askesis_core=askesis_core_service,  # Priority 1.1: CRUD operations for Askesis AI
@@ -2340,7 +2355,9 @@ async def compose_services(
             ls=learning_services[
                 "learning_steps"
             ].relationships,  # Factory expects 'ls' parameter name
-            lp=learning_services["learning_paths"].relationships,  # Factory expects 'lp' parameter name
+            lp=learning_services[
+                "learning_paths"
+            ].relationships,  # Factory expects 'lp' parameter name
             # Processing Domains (3)
             assignments=assignment_relationship_service,
             journals=journal_relationship_service,

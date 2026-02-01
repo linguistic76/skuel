@@ -28,9 +28,6 @@ from components.choices_views import ChoicesViewComponents
 from components.error_components import ErrorComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
-from ui.patterns.relationships import EntityRelationshipsSection
-from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from core.services.protocols.facade_protocols import ChoicesFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
 from core.ui.daisy_components import (
@@ -53,6 +50,9 @@ from core.utils.sort_functions import (
     make_priority_string_getter,
 )
 from ui.choices.layout import create_choices_page
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
+from ui.patterns.relationships import EntityRelationshipsSection
 
 logger = get_logger("skuel.routes.choice.ui")
 
@@ -1327,7 +1327,10 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                 # Status and Urgency badges
                 Div(
                     Span(f"Status: {choice.status.value}", cls="badge badge-info mr-2"),
-                    Span(f"Urgency: {choice.urgency.value if choice.urgency else 'Not set'}", cls="badge badge-warning"),
+                    Span(
+                        f"Urgency: {choice.urgency.value if choice.urgency else 'Not set'}",
+                        cls="badge badge-warning",
+                    ),
                     cls="flex gap-2 flex-wrap",
                 ),
                 cls="p-6 mb-4",
@@ -1339,8 +1342,16 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                     # Decision Deadline
                     (
                         Div(
-                            P("Decision Deadline:", cls="text-sm font-semibold text-base-content/70 mb-1"),
-                            P(str(choice.decision_deadline) if choice.decision_deadline else "Not set", cls="text-base-content mb-3"),
+                            P(
+                                "Decision Deadline:",
+                                cls="text-sm font-semibold text-base-content/70 mb-1",
+                            ),
+                            P(
+                                str(choice.decision_deadline)
+                                if choice.decision_deadline
+                                else "Not set",
+                                cls="text-base-content mb-3",
+                            ),
                             cls="mb-4",
                         )
                         if choice.decision_deadline
@@ -1349,8 +1360,14 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                     # Why Important
                     (
                         Div(
-                            P("Why Important:", cls="text-sm font-semibold text-base-content/70 mb-1"),
-                            P(choice.why_important or "Not specified", cls="text-base-content mb-3"),
+                            P(
+                                "Why Important:",
+                                cls="text-sm font-semibold text-base-content/70 mb-1",
+                            ),
+                            P(
+                                choice.why_important or "Not specified",
+                                cls="text-base-content mb-3",
+                            ),
                             cls="mb-4",
                         )
                         if choice.why_important

@@ -87,9 +87,7 @@ class TasksLateralService:
         # Verify ownership if user_uid provided
         if user_uid:
             for task_uid in [blocker_uid, blocked_uid]:
-                ownership_result = await self.tasks_service.verify_ownership(
-                    task_uid, user_uid
-                )
+                ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Task {task_uid} not found or access denied")
 
@@ -137,9 +135,7 @@ class TasksLateralService:
         # Verify ownership
         if user_uid:
             for task_uid in [prerequisite_uid, dependent_uid]:
-                ownership_result = await self.tasks_service.verify_ownership(
-                    task_uid, user_uid
-                )
+                ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Task {task_uid} not found or access denied")
 
@@ -181,9 +177,7 @@ class TasksLateralService:
         # Verify ownership
         if user_uid:
             for task_uid in [task_a_uid, task_b_uid]:
-                ownership_result = await self.tasks_service.verify_ownership(
-                    task_uid, user_uid
-                )
+                ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Task {task_uid} not found or access denied")
 
@@ -333,9 +327,7 @@ class TasksLateralService:
         # Verify ownership
         if user_uid:
             for task_uid in [blocker_uid, blocked_uid]:
-                ownership_result = await self.tasks_service.verify_ownership(
-                    task_uid, user_uid
-                )
+                ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Task {task_uid} not found or access denied")
 

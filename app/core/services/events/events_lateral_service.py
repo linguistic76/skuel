@@ -92,9 +92,7 @@ class EventsLateralService:
         # Verify ownership
         if user_uid:
             for event_uid in [event_a_uid, event_b_uid]:
-                ownership_result = await self.events_service.verify_ownership(
-                    event_uid, user_uid
-                )
+                ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Event {event_uid} not found or access denied")
 
@@ -140,9 +138,7 @@ class EventsLateralService:
         # Verify ownership
         if user_uid:
             for event_uid in [event_a_uid, event_b_uid]:
-                ownership_result = await self.events_service.verify_ownership(
-                    event_uid, user_uid
-                )
+                ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Event {event_uid} not found or access denied")
 
@@ -190,9 +186,7 @@ class EventsLateralService:
         # Verify ownership
         if user_uid:
             for event_uid in [prerequisite_uid, dependent_uid]:
-                ownership_result = await self.events_service.verify_ownership(
-                    event_uid, user_uid
-                )
+                ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Event {event_uid} not found or access denied")
 
@@ -243,9 +237,7 @@ class EventsLateralService:
         # Verify ownership
         if user_uid:
             for event_uid in [event_a_uid, event_b_uid]:
-                ownership_result = await self.events_service.verify_ownership(
-                    event_uid, user_uid
-                )
+                ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
                 if ownership_result.is_error:
                     return Errors.not_found(f"Event {event_uid} not found or access denied")
 

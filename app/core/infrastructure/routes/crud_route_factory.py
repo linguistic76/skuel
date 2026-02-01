@@ -64,7 +64,6 @@ from pydantic import BaseModel
 
 from core.auth.session import get_current_user, require_authenticated_user
 from core.models.enums import ContentScope, UserRole
-from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -464,7 +463,9 @@ class CRUDRouteFactory[T]:
             return result
 
         # Apply instrumentation + boundary handling, then register route (Phase 2 - January 2026)
-        instrumented = self._instrument_handler(create, f"{self.base_path}/create", success_status=201)
+        instrumented = self._instrument_handler(
+            create, f"{self.base_path}/create", success_status=201
+        )
         return rt(f"{self.base_path}/create")(instrumented)
 
     def _register_get_route(self, rt) -> Any:
