@@ -864,7 +864,7 @@ class TodoistTaskComponents:
         """
         Render task dashboard content (without page wrapper).
 
-        Used by create_profile_page() for ProfileLayout integration.
+        Used by create_profile_page() for Profile Hub integration.
 
         Args:
             tasks: List of task entities

@@ -1,6 +1,6 @@
 """Admin Dashboard page layout with sidebar navigation.
 
-Similar to ProfileLayout but specifically for the admin dashboard
+Uses similar pattern to Profile Hub but specifically for the admin dashboard
 with Users, Analytics, System, and Finance navigation.
 """
 

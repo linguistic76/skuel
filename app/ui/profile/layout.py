@@ -1,9 +1,7 @@
-"""Profile Hub page layout with DaisyUI drawer sidebar.
+"""Profile Hub page layout using BasePage with /nous-style sidebar.
 
-Uses DaisyUI drawer for responsive sidebar navigation across the 6 Activity Domains.
-
-Version: 2.0 - Returns content only (no full HTML wrapper)
-The main app's bootstrap.py provides Theme headers, HTMX, and Alpine.js.
+Modern implementation using BasePage architecture for consistent UX.
+Sidebar collapses smoothly on desktop, slides in as drawer on mobile.
 """
 
 from dataclasses import dataclass
@@ -11,9 +9,8 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from fasthtml.common import A as Anchor
 from fasthtml.common import (
+    Button,
     Div,
-    Input,
-    Label,
     Li,
     Main,
     P,
@@ -21,10 +18,12 @@ from fasthtml.common import (
     Ul,
 )
 
-from ui.layouts.navbar import create_navbar
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
+    from starlette.requests import Request
 
 
 @dataclass
@@ -146,169 +145,111 @@ def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
     )
 
 
-@dataclass
-class ProfileLayout:
-    """Profile page layout with DaisyUI drawer sidebar.
+def build_profile_sidebar(
+    domains: list[ProfileDomainItem],
+    active_domain: str = "",
+    user_display_name: str = "",
+    curriculum_domains: list[ProfileDomainItem] | None = None,
+) -> "FT":
+    """Build the profile sidebar navigation using /nous-style pattern.
 
-    Features:
-    - Left sidebar: 6 Activity Domain + Curriculum navigation with counts and status
-    - Center: Main content (overview or domain-specific view)
-    - Responsive: Always open on lg+, drawer toggle on mobile
+    Args:
+        domains: Activity domain items for sidebar navigation
+        active_domain: Currently active domain slug (empty = overview)
+        user_display_name: User's display name for header
+        curriculum_domains: Optional curriculum domain items
 
-    Note: Returns content only (no full HTML wrapper).
-    The main app's bootstrap.py provides Theme headers, HTMX, and Alpine.js.
+    Returns:
+        Sidebar component with toggle button and navigation
     """
+    from fasthtml.common import NotStr
 
-    title: str
-    domains: list[ProfileDomainItem]  # Activity domains
-    active_domain: str = ""  # Empty = overview
-    user_display_name: str = ""
-    is_authenticated: bool = True  # Profile hub requires auth
-    is_admin: bool = False
-    curriculum_domains: list[ProfileDomainItem] | None = None  # Curriculum domains
-    unread_insights: int = 0  # NEW: Unread insight count for navbar badge (Phase 1 integration)
+    display_name = user_display_name or "Your Profile"
+    is_overview_active = active_domain == ""
 
-    def render(self, content: Any) -> "FT":
-        """Render the profile layout with sidebar.
+    # Build activity domain items
+    activity_items = [_domain_menu_item(d, d.slug == active_domain) for d in domains]
 
-        Args:
-            content: Main content (HTML component)
-
-        Returns:
-            FastHTML content (Div with navbar + sidebar layout)
-            NOT a full HTML document - FastHTML wraps this automatically
-        """
-        # Phase 3, Task 14: Profile drawer with swipe gestures and smart persistence
-        return Div(
-            # Top Navbar
-            create_navbar(
-                current_user=self.user_display_name,
-                is_authenticated=self.is_authenticated,
-                active_page="profile/hub",
-                is_admin=self.is_admin,
-                unread_insights=self.unread_insights,  # Pass unread count (Phase 1 integration)
-            ),
-            # Mobile drawer (checkbox + overlay + sidebar)
-            Input(
-                type="checkbox",
-                id="profile-drawer",
-                cls="peer hidden",
-                x_model="isOpen",  # Sync with Alpine state
-            ),
-            # Mobile overlay (appears when drawer is open)
-            Label(
-                htmlFor="profile-drawer",
-                cls="fixed inset-0 z-30 bg-black/50 hidden peer-checked:block lg:hidden",
-                x_on_click="close()",  # Close via Alpine method
-                **{"aria-label": "close sidebar"},
-            ),
-            # Mobile sidebar (slides in from left) with touch handlers
-            Div(
-                self._build_sidebar_menu(),
-                cls="fixed left-0 top-0 z-40 h-full w-64 -translate-x-full transform bg-base-200 transition-transform duration-300 peer-checked:translate-x-0 lg:hidden",
-                x_on_touchstart="handleTouchStart",
-                x_on_touchmove="handleTouchMove",
-                x_on_touchend="handleTouchEnd",
-            ),
-            # Main layout (desktop sidebar + content)
-            Div(
-                # Desktop sidebar (always visible on lg+, smart persistence on md)
-                Div(
-                    self._build_sidebar_menu(),
-                    cls="hidden lg:block w-64 shrink-0 bg-base-200 min-h-[calc(100vh-64px)] sticky top-16",
-                ),
-                # Main content area with touch handlers
-                Div(
-                    # Mobile menu button
-                    Div(
-                        Span("☰", cls="text-xl"),
-                        Span("Menu", cls="ml-2"),
-                        cls="btn btn-ghost lg:hidden mb-4",
-                        x_on_click="toggle()",  # Toggle via Alpine method
-                    ),
-                    # Page content
-                    Main(
-                        Div(content, cls="max-w-6xl mx-auto"),
-                        cls="p-6 lg:p-8",
-                    ),
-                    cls="flex-1 min-w-0",
-                    x_on_touchstart="handleTouchStart",
-                    x_on_touchmove="handleTouchMove",
-                    x_on_touchend="handleTouchEnd",
-                ),
-                cls="flex",
-            ),
-            cls="min-h-screen bg-base-100",
-            x_data="profileDrawer()",  # Initialize Alpine component
-            x_init="$nextTick(() => init())",  # Initialize on mount
-            **{"data-theme": "light"},
-        )
-
-    def _build_sidebar_menu(self) -> "FT":
-        """Build the sidebar navigation menu."""
-        display_name = self.user_display_name or "Your Profile"
-        is_overview_active = self.active_domain == ""
-
-        # Build activity domain items
-        activity_items = [_domain_menu_item(d, d.slug == self.active_domain) for d in self.domains]
-
-        # Build curriculum section if provided
-        curriculum_section = []
-        if self.curriculum_domains:
-            curriculum_section = [
-                # Curriculum section header
-                Li(
-                    Span(
-                        "Curriculum",
-                        cls="text-xs font-semibold uppercase tracking-wider opacity-60",
-                    ),
-                    cls="menu-title",
-                ),
-                # Curriculum navigation items
-                *[
-                    _domain_menu_item(d, d.slug == self.active_domain)
-                    for d in self.curriculum_domains
-                ],
-            ]
-
-        return Ul(
-            # Profile header
-            Li(
-                Anchor(
-                    display_name,
-                    href="/profile",
-                    cls="text-xl font-bold text-primary hover:text-primary-focus",
-                    **{"hx-boost": "false"},
-                ),
-                P("Profile", cls="text-xs opacity-60 mt-1"),
-                cls="px-4 py-4",
-            ),
-            # Divider
-            Li(cls="divider my-0"),
-            # Overview link
-            Li(
-                Anchor(
-                    Span("📊", cls="text-lg"),
-                    "Overview",
-                    href="/profile",
-                    cls=f"flex items-center gap-2 {'menu-active' if is_overview_active else ''}",
-                    **{"hx-boost": "false"},
-                )
-            ),
-            # Activity Domains section header
+    # Build curriculum section if provided
+    curriculum_section = []
+    if curriculum_domains:
+        curriculum_section = [
+            # Curriculum section header
             Li(
                 Span(
-                    "Activity Domains",
+                    "Curriculum",
                     cls="text-xs font-semibold uppercase tracking-wider opacity-60",
                 ),
                 cls="menu-title",
             ),
-            # Activity domain navigation items
-            *activity_items,
-            # Curriculum section (if provided)
-            *curriculum_section,
-            cls="menu bg-base-200 min-h-full w-72 p-4",
-        )
+            # Curriculum navigation items
+            *[_domain_menu_item(d, d.slug == active_domain) for d in curriculum_domains],
+        ]
+
+    # Chevron icon for toggle button
+    chevron_svg = NotStr(
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
+        '<path d="M15 18l-6-6 6-6"></path>'
+        "</svg>"
+    )
+
+    # Build sidebar menu content
+    sidebar_menu = Ul(
+        # Profile header
+        Li(
+            Anchor(
+                display_name,
+                href="/profile",
+                cls="text-xl font-bold text-primary hover:text-primary-focus",
+                **{"hx-boost": "false"},
+            ),
+            P("Profile", cls="text-xs opacity-60 mt-1"),
+            cls="px-4 py-4 sidebar-header-text",
+        ),
+        # Divider
+        Li(cls="divider my-0"),
+        # Overview link
+        Li(
+            Anchor(
+                Span("📊", cls="text-lg"),
+                "Overview",
+                href="/profile",
+                cls=f"flex items-center gap-2 {'menu-active' if is_overview_active else ''}",
+                **{"hx-boost": "false"},
+            )
+        ),
+        # Activity Domains section header
+        Li(
+            Span(
+                "Activity Domains",
+                cls="text-xs font-semibold uppercase tracking-wider opacity-60",
+            ),
+            cls="menu-title",
+        ),
+        # Activity domain navigation items
+        *activity_items,
+        # Curriculum section (if provided)
+        *curriculum_section,
+        cls="menu bg-base-200 min-h-full w-full p-4 sidebar-nav",
+    )
+
+    return Div(
+        Div(
+            # Toggle button (chevron icon, right side)
+            Button(
+                chevron_svg,
+                onclick="toggleProfileSidebar()",
+                cls="sidebar-toggle",
+                title="Toggle Sidebar",
+                type="button",
+            ),
+            # Sidebar navigation
+            sidebar_menu,
+            cls="sidebar-inner",
+        ),
+        cls="profile-sidebar",
+        id="profile-sidebar",
+    )
 
 
 def create_profile_page(
@@ -321,8 +262,9 @@ def create_profile_page(
     is_admin: bool = False,
     curriculum_domains: list[ProfileDomainItem] | None = None,
     unread_insights: int = 0,
+    request: "Request | None" = None,
 ) -> "FT":
-    """Convenience function to create a profile page.
+    """Create profile page using BasePage with /nous-style sidebar.
 
     Args:
         content: Main content HTML
@@ -334,30 +276,70 @@ def create_profile_page(
         is_admin: Whether user has admin role (shows Admin Dashboard in navbar)
         curriculum_domains: List of ProfileDomainItem for curriculum section
         unread_insights: Number of unread insights for navbar badge (Phase 1 integration)
+        request: Starlette request (enables BasePage auto-detection of auth/admin)
 
     Returns:
-        FastHTML content (navbar + drawer + content)
-        NOT a full HTML document - FastHTML wraps this automatically
+        Complete HTML page using BasePage with custom sidebar layout
     """
-    layout = ProfileLayout(
-        title=title,
+    # Build sidebar navigation
+    sidebar = build_profile_sidebar(
         domains=domains,
         active_domain=active_domain,
         user_display_name=user_display_name,
+        curriculum_domains=curriculum_domains,
+    )
+
+    # Build mobile overlay (like /nous)
+    overlay = Div(
+        cls="profile-overlay",
+        id="profile-overlay",
+        onclick="toggleProfileSidebar()",
+    )
+
+    # Mobile menu button
+    mobile_menu = Div(
+        Span("☰", cls="text-xl"),
+        Span("Menu", cls="ml-2"),
+        cls="btn btn-ghost mobile-menu-button mb-4",
+        onclick="toggleProfileSidebar()",
+    )
+
+    # Wrap content with sidebar + overlay (like /nous DocsLayout)
+    wrapped_content = Div(
+        overlay,
+        sidebar,
+        Div(
+            mobile_menu,
+            Main(
+                Div(content, cls="max-w-6xl mx-auto"),
+                cls="p-6 lg:p-8",
+            ),
+            cls="profile-content",
+            id="profile-content",
+        ),
+        cls="profile-container",
+    )
+
+    # Use BasePage with STANDARD type (we handle layout ourselves)
+    return BasePage(
+        content=wrapped_content,
+        title=title,
+        page_type=PageType.STANDARD,
+        request=request,
+        active_page="profile/hub",
+        extra_css=["/static/css/profile_sidebar.css"],
+        user_display_name=user_display_name,
         is_authenticated=is_authenticated,
         is_admin=is_admin,
-        curriculum_domains=curriculum_domains,
-        unread_insights=unread_insights,
     )
-    return layout.render(content)
 
 
 __all__ = [
+    "build_profile_sidebar",
+    "create_profile_page",
     "CURRICULUM_ORDER",
     "DEFAULT_DOMAIN_ICONS",
     "DEFAULT_DOMAIN_NAMES",
     "DOMAIN_ORDER",
     "ProfileDomainItem",
-    "ProfileLayout",
-    "create_profile_page",
 ]

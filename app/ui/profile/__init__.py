@@ -4,7 +4,7 @@ This module provides the profile page layout and domain-specific views
 following the UserContext-driven architecture pattern.
 
 Components:
-- ProfileLayout: Sidebar layout similar to DocsLayout
+- create_profile_page: Modern BasePage-based profile layout
 - Domain views: TasksDomainView, HabitsDomainView, etc.
 - Badges: StatusBadge, CountBadge for sidebar indicators
 """
@@ -21,27 +21,27 @@ from ui.profile.domain_views import (
     TasksDomainView,
 )
 from ui.profile.layout import (
-    ProfileDomainItem,
-    ProfileLayout,
+    build_profile_sidebar,
     create_profile_page,
+    ProfileDomainItem,
 )
 
 __all__ = [
-    "ChoicesDomainView",
-    "CountBadge",
-    "DomainSidebarItem",
+    # Layout
+    "build_profile_sidebar",
+    "create_profile_page",
+    "ProfileDomainItem",
     # Domain views
+    "ChoicesDomainView",
     "DomainSummaryCard",
     "EventsDomainView",
     "GoalsDomainView",
     "HabitsDomainView",
     "OverviewView",
     "PrinciplesDomainView",
-    "ProfileDomainItem",
-    # Layout
-    "ProfileLayout",
-    # Badges
-    "StatusBadge",
     "TasksDomainView",
-    "create_profile_page",
+    # Badges
+    "CountBadge",
+    "DomainSidebarItem",
+    "StatusBadge",
 ]

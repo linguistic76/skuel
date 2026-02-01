@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, Form, P
+from fasthtml.common import H1, H2, Form, P
 from starlette.responses import RedirectResponse, Response
 
 from components.error_components import ErrorComponents
@@ -29,9 +29,6 @@ from components.events_views import EventsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
-from ui.patterns.relationships import EntityRelationshipsSection
-from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.services.protocols.facade_protocols import EventsFacadeProtocol
@@ -52,6 +49,9 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
 from ui.events.layout import create_events_page
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
+from ui.patterns.relationships import EntityRelationshipsSection
 
 logger = get_logger("skuel.routes.events.ui")
 
@@ -69,7 +69,7 @@ class EventUIComponents:
         """
         Events dashboard content (without page wrapper).
 
-        Used by create_profile_page() for ProfileLayout integration.
+        Used by create_profile_page() for Profile Hub integration.
         """
         events = events or []
         stats = stats or {}
@@ -975,8 +975,14 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                 # Status and Type badges
                 Div(
                     Span(f"Status: {event.status.value}", cls="badge badge-info mr-2"),
-                    Span(f"Type: {event.event_type.value if event.event_type else 'Not set'}", cls="badge badge-success mr-2"),
-                    Span(f"Priority: {event.priority.value if event.priority else 'Not set'}", cls="badge badge-warning"),
+                    Span(
+                        f"Type: {event.event_type.value if event.event_type else 'Not set'}",
+                        cls="badge badge-success mr-2",
+                    ),
+                    Span(
+                        f"Priority: {event.priority.value if event.priority else 'Not set'}",
+                        cls="badge badge-warning",
+                    ),
                     cls="flex gap-2 flex-wrap",
                 ),
                 cls="p-6 mb-4",
@@ -988,7 +994,12 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                     # Start and End Time
                     Div(
                         P("When:", cls="text-sm font-semibold text-base-content/70 mb-1"),
-                        P(f"{event.start_time} to {event.end_time}" if event.start_time and event.end_time else "Time not set", cls="text-base-content mb-3"),
+                        P(
+                            f"{event.start_time} to {event.end_time}"
+                            if event.start_time and event.end_time
+                            else "Time not set",
+                            cls="text-base-content mb-3",
+                        ),
                         cls="mb-4",
                     ),
                     # Location

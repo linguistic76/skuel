@@ -30,9 +30,6 @@ from components.form_generator import FormGenerator
 from components.goals_views import GoalsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
-from ui.patterns.relationships import EntityRelationshipsSection
-from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.shared_enums import Priority
@@ -59,6 +56,9 @@ from core.utils.sort_functions import (
     make_priority_string_getter,
 )
 from ui.goals.layout import create_goals_page
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
+from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.goals.ui")
@@ -96,7 +96,7 @@ class GoalUIComponents:
         """
         Goals dashboard content (without page wrapper).
 
-        Used by create_profile_page() for ProfileLayout integration.
+        Used by create_profile_page() for Profile Hub integration.
         """
         goals = goals or []
         stats = stats or {}

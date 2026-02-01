@@ -79,6 +79,7 @@ def _build_head(
         *css_links,
         # SKUEL JavaScript (Alpine components)
         Script(src="/static/js/skuel.js"),
+        Script(src="/static/js/profile_sidebar.js"),
     )
 
 

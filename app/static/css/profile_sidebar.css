@@ -1,0 +1,134 @@
+/* Profile Sidebar Styles - Inspired by /nous pattern */
+
+.profile-container {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+}
+
+.profile-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 35;
+    display: none;
+}
+
+.profile-overlay.active {
+    display: block;
+}
+
+.profile-sidebar {
+    width: 256px;
+    background-color: oklch(var(--color-base-200));
+    border-right: 1px solid oklch(var(--color-base-300));
+    transition: transform 0.3s ease;
+    position: fixed;
+    top: 64px;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    transform: translateX(0);
+    overflow-y: auto;
+}
+
+.profile-sidebar.collapsed {
+    transform: translateX(-208px);
+}
+
+.profile-content {
+    flex: 1;
+    margin-left: 256px;
+    transition: margin-left 0.3s ease;
+    min-height: calc(100vh - 64px);
+    margin-top: 64px;
+}
+
+.profile-content.expanded {
+    margin-left: 48px;
+}
+
+.sidebar-toggle {
+    position: absolute;
+    right: 8px;
+    top: 16px;
+    background: oklch(var(--color-base-100));
+    border: 1px solid oklch(var(--color-base-300));
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background 0.2s, transform 0.3s;
+    z-index: 5;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-toggle:hover {
+    background: oklch(var(--color-base-200));
+}
+
+.sidebar-toggle svg {
+    transition: transform 0.3s ease;
+}
+
+.profile-sidebar.collapsed .sidebar-toggle svg {
+    transform: rotate(180deg);
+}
+
+.profile-sidebar.collapsed .sidebar-nav,
+.profile-sidebar.collapsed .sidebar-header-text {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.sidebar-inner {
+    height: 100%;
+    position: relative;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 1024px) {
+    .profile-sidebar {
+        width: 85%;
+        max-width: 320px;
+        top: 0;
+        transform: translateX(-100%);
+    }
+
+    .profile-sidebar:not(.collapsed) {
+        transform: translateX(0);
+    }
+
+    .profile-content {
+        margin-left: 0;
+        margin-top: 64px;
+    }
+
+    .profile-content.expanded {
+        margin-left: 0;
+    }
+
+    .sidebar-toggle {
+        display: none; /* Hide desktop toggle on mobile */
+    }
+
+    .mobile-menu-button {
+        display: flex !important;
+    }
+
+    .profile-overlay {
+        top: 0;
+    }
+}
+
+@media (min-width: 1025px) {
+    .mobile-menu-button {
+        display: none !important;
+    }
+}

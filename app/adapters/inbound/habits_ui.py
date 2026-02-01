@@ -36,9 +36,6 @@ from components.habits_views import HabitsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
-from ui.patterns.relationships import EntityRelationshipsSection
-from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from core.models.habit.habit import HabitStatus
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.shared_enums import Priority
@@ -54,7 +51,10 @@ from core.utils.sort_functions import (
     get_recurrence_pattern,
 )
 from ui.habits.layout import create_habits_page
+from ui.layouts.base_page import BasePage
 from ui.layouts.navbar import create_navbar_for_request
+from ui.layouts.page_types import PageType
+from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.habits.ui")
@@ -96,7 +96,7 @@ class HabitUIComponents:
         """
         Habits dashboard content (without page wrapper).
 
-        Used by create_profile_page() for ProfileLayout integration.
+        Used by create_profile_page() for Profile Hub integration.
         """
         habits = habits or []
         stats = stats or {}
@@ -2121,7 +2121,10 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                 # Status and Frequency badges
                 Div(
                     Span(f"Status: {habit.status.value}", cls="badge badge-info mr-2"),
-                    Span(f"Frequency: {habit.frequency.value if habit.frequency else 'Not set'}", cls="badge badge-success mr-2"),
+                    Span(
+                        f"Frequency: {habit.frequency.value if habit.frequency else 'Not set'}",
+                        cls="badge badge-success mr-2",
+                    ),
                     Span(f"Streak: {habit.current_streak or 0} days", cls="badge badge-warning"),
                     cls="flex gap-2 flex-wrap",
                 ),
@@ -2134,7 +2137,10 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                     # Why Important
                     (
                         Div(
-                            P("Why Important:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                            P(
+                                "Why Important:",
+                                cls="text-sm font-semibold text-base-content/70 mb-1",
+                            ),
                             P(habit.why_important or "Not specified", cls="text-base-content mb-3"),
                             cls="mb-4",
                         )

@@ -1,13 +1,13 @@
 # SKUEL UX Migration Plan: FrankenUI → DaisyUI + Tailwind
-*Last updated: 2026-01-22*
+*Last updated: 2026-02-01*
 
 ## Executive Summary
 
 Migrate SKUEL's UI from **FrankenUI component DSL** to **semantic HTML + DaisyUI + Tailwind CSS**, following the successful pattern established in `/docs/` and `/components/drawer_layout.py`.
 
-**Status:** MIGRATION COMPLETE (January 2026)
-**Current State:** All 5 phases complete. SKUEL uses DaisyUI 5 + Tailwind CSS via Python wrappers.
-**Architecture:** `core/ui/daisy_components.py` provides type-safe wrappers, `core/ui/theme.py` provides `daisy_headers()`
+**Status:** MIGRATION COMPLETE + HARMONIZATION COMPLETE (February 2026)
+**Current State:** All 6 phases complete. SKUEL uses BasePage for consistency with custom layouts for special cases.
+**Architecture:** `ui/layouts/base_page.py` provides unified page wrapper, domain-specific layouts use custom patterns
 
 ### Phase 1 Status: COMPLETE
 
@@ -190,6 +190,57 @@ Phase 5 finalized the MonsterUI → DaisyUI migration:
 - Type-safe enums: `ButtonT`, `AlertT`, `BadgeT`, `ProgressT`, `Size`
 
 **One Path Forward:** MonsterUI is fully removed. SKUEL uses DaisyUI directly via type-safe Python wrappers
+
+### Phase 6 Status: COMPLETE
+
+**Completed: February 2026**
+
+Phase 6 harmonized Profile Hub with the modern BasePage architecture:
+
+| Action | Result |
+|--------|--------|
+| Remove ProfileLayout class | Deleted 175 lines of legacy drawer code |
+| Create build_profile_sidebar() | Modern sidebar builder function |
+| Refactor create_profile_page() | Now uses BasePage + custom layout |
+| Adopt /nous sidebar pattern | Pure CSS + vanilla JS toggle |
+| Remove unused imports | Input, Label, create_navbar |
+| Update all references (8 files) | "Profile Hub integration" terminology |
+
+**Key Changes:**
+- `/ui/profile/layout.py`: ProfileLayout class removed (520 → 345 lines)
+- `/static/css/profile_sidebar.css`: New - collapsible sidebar styles
+- `/static/js/profile_sidebar.js`: New - toggle with localStorage persistence
+- `/adapters/inbound/user_profile_ui.py`: Added `request` parameter for auto-detection
+
+**Architecture Evolution:**
+```python
+# Before (Legacy - Two Paths)
+layout = ProfileLayout(...)
+return layout.render(content)  # Returns Div only
+
+# Also Before (Newer but inconsistent)
+return create_profile_page(...)  # Wrapped ProfileLayout
+
+# After (One Path Forward)
+return create_profile_page(
+    content, domains, request=request
+)  # Returns full Html via BasePage
+```
+
+**Benefits:**
+- **Consistency**: Profile Hub now uses BasePage like all modern pages
+- **Control**: Full HTML document, explicit CSS/JS includes
+- **UX**: Smoother animations, /nous-style toggle pattern
+- **Simplicity**: One path forward, zero technical debt
+- **Codebase**: 175 lines removed, no deprecation warnings
+
+**Design Pattern:**
+- **PageType.STANDARD** with custom layout (not HUB)
+- Custom sidebar: Fixed 256px, collapses to 48px, localStorage state
+- Mobile: Full-width drawer with overlay
+- Desktop: Chevron toggle button, smooth CSS transitions
+
+**One Path Forward Applied:** No deprecation period, no backward compatibility, just clean removal and migration to modern pattern.
 
 ---
 

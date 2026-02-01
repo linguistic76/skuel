@@ -631,7 +631,7 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 
 ## UI Component Pattern
 
-**Core Principle:** "Routes handle HTTP, components handle presentation"
+**Core Principle:** "BasePage for consistency, custom layouts for special cases"
 
 - Routes (`/adapters/inbound/*_routes.py`) - HTTP handling
 - Components (`/components/*.py`) - Pure presentation
@@ -643,13 +643,28 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 | Page Type | Sidebar | Container | Use Case |
 |-----------|---------|-----------|----------|
 | STANDARD | None | `max-w-6xl` | Most pages |
-| HUB | Left (w-64) | Flexible | Profile Hub |
+| HUB | Left (w-64) | Flexible | Admin Dashboard |
+| CUSTOM | STANDARD + custom | Flexible | Profile Hub (/nous-style sidebar) |
+
+**Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `BasePage` with custom `/nous`-style sidebar. This provides explicit control while maintaining consistency.
 
 **Key Files:**
 - `/ui/layouts/base_page.py` - Unified page wrapper (`BasePage`)
 - `/ui/layouts/page_types.py` - Page type enum and config
+- `/ui/profile/layout.py` - Profile Hub custom sidebar (`build_profile_sidebar`, `create_profile_page`)
 - `/ui/tokens.py` - Spacing, container, card tokens
 - `/ui/patterns/` - PageHeader, SectionHeader components
+
+**Profile Hub Pattern:**
+```python
+from ui.profile.layout import create_profile_page
+
+return create_profile_page(
+    content=main_content,
+    domains=domain_items,
+    request=request,  # Auto-detects auth/admin
+)
+```
 
 **See:** `/docs/patterns/UI_COMPONENT_PATTERNS.md`
 

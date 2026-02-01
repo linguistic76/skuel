@@ -8,9 +8,9 @@ related_skills:
 ---
 # UI Component Patterns
 
-*Last updated: 2026-01-24*
+*Last updated: 2026-02-01*
 
-**Core Principle:** "FT Components → SKUEL Wrappers → DaisyUI Classes"
+**Core Principle:** "BasePage for consistency, custom layouts for special cases"
 
 ## Overview
 
@@ -34,7 +34,10 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 | Type | Sidebar | Container | Use Case |
 |------|---------|-----------|----------|
 | `STANDARD` | None | `max-w-6xl` centered | Most pages (search, activity domains, forms) |
-| `HUB` | Left (w-64) | Flexible | Multi-domain dashboards (Profile Hub) |
+| `HUB` | Left (w-64) | Flexible | Multi-domain dashboards (Admin Dashboard) |
+| `CUSTOM` | STANDARD + custom layout | Flexible | Complex layouts (Profile Hub with /nous-style sidebar) |
+
+**Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `STANDARD` page type with custom sidebar implementation. This provides more control while maintaining BasePage consistency.
 
 ### BasePage Usage
 
@@ -50,15 +53,81 @@ return BasePage(
     active_page="tasks",
 )
 
-# Hub page with sidebar
+# Hub page with sidebar (Admin Dashboard)
 return BasePage(
     content,
     page_type=PageType.HUB,
     sidebar=sidebar_menu,
-    title="Profile Hub",
+    title="Admin Dashboard",
     request=request,
 )
+
+# Custom sidebar layout (Profile Hub pattern)
+from ui.profile.layout import build_profile_sidebar, create_profile_page
+
+sidebar = build_profile_sidebar(domains, active_domain, user_display_name)
+return create_profile_page(
+    content,
+    domains=domain_items,
+    request=request,  # Auto-detects auth/admin state
+    extra_css=["/static/css/profile_sidebar.css"],
+)
 ```
+
+### Profile Hub Custom Sidebar Pattern
+
+**Added:** 2026-02-01
+
+The Profile Hub uses a custom `/nous`-style sidebar implementation that provides more control than the standard `PageType.HUB` pattern.
+
+**Key Features:**
+- Fixed sidebar (256px) with smooth collapse animation
+- Pure CSS + vanilla JavaScript (no Alpine.js complexity)
+- localStorage persistence of collapsed state
+- Mobile: Full-width drawer with overlay
+- Desktop: Collapses to 48px edge, chevron toggle button
+
+**Implementation:**
+```python
+from ui.profile.layout import build_profile_sidebar, create_profile_page
+from ui.profile.layout import ProfileDomainItem
+
+# Build domain items for sidebar
+domains = [
+    ProfileDomainItem(
+        name="Tasks",
+        slug="tasks",
+        icon="✅",
+        count=10,
+        active_count=3,
+        status="healthy",
+        href="/profile/tasks",
+        insight_count=2,
+    ),
+    # ... more domains
+]
+
+# Create page with custom sidebar
+return create_profile_page(
+    content=main_content,
+    domains=domains,
+    active_domain="tasks",  # Highlight active
+    user_display_name="John Doe",
+    title="Profile Hub",
+    request=request,  # Enables auto-detection
+)
+```
+
+**Files:**
+- `/ui/profile/layout.py` - `build_profile_sidebar()`, `create_profile_page()`
+- `/static/css/profile_sidebar.css` - Sidebar animations and responsive behavior
+- `/static/js/profile_sidebar.js` - Toggle function with localStorage
+
+**Why Custom vs HUB:**
+- More control over sidebar collapse behavior
+- `/nous`-style toggle pattern (cleaner UX)
+- Sidebar state persistence across sessions
+- Matches documentation (/nous, /docs) patterns
 
 ### Design Tokens
 
@@ -1127,6 +1196,48 @@ def test_validate_task_form_data_missing_title():
 **Complete implementations:**
 - `/adapters/inbound/tasks_ui.py` - Reference (all patterns)
 - All 6 Activity domain files - See `/docs/migrations/ACTIVITY_UI_CODE_QUALITY_IMPROVEMENTS_2026-01-24.md`
+
+---
+
+## Legacy Pattern Removal (One Path Forward)
+
+**Completed:** 2026-02-01
+
+Following SKUEL's "One Path Forward" philosophy, the legacy `ProfileLayout` class was completely removed with zero deprecation period.
+
+### What Was Removed
+
+- **ProfileLayout class** (175 lines) - Legacy DaisyUI drawer implementation
+- **ProfileLayout.render()** method - Returned Div only (not full HTML document)
+- **ProfileLayout._build_sidebar_menu()** - Duplicate sidebar logic
+- **Unused imports** - `Input`, `Label`, `create_navbar` (no longer needed)
+
+### What Replaced It
+
+**One Path:** `create_profile_page()` using BasePage + custom sidebar
+
+```python
+# THE way (no alternatives)
+from ui.profile import create_profile_page
+
+return create_profile_page(
+    content,
+    domains=domain_items,
+    request=request,
+)
+```
+
+### Philosophy Applied
+
+SKUEL does NOT maintain backward compatibility. When a better pattern emerges:
+- ❌ No deprecation warnings
+- ❌ No compatibility shims
+- ❌ No "use X instead" comments
+- ✅ Clean removal
+- ✅ Update all call sites
+- ✅ One canonical way
+
+**Result:** Codebase reduced by 175 lines, zero technical debt, one clear path forward.
 
 ---
 

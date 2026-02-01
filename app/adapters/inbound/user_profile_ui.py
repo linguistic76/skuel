@@ -12,7 +12,7 @@ Key Routes:
 Architecture:
 - /profile is THE main entry point with domain sidebar navigation
 - Uses UserContext (~240 fields) as the authoritative source for user state
-- ProfileLayout provides sidebar navigation similar to /docs
+- Uses BasePage with /nous-style sidebar for modern, consistent UX
 """
 
 __version__ = "4.0"  # Merged dashboard sidebar into profile/hub
@@ -655,6 +655,7 @@ def setup_user_profile_routes(rt, services):
             is_admin=is_admin,
             curriculum_domains=curriculum_items,
             unread_insights=total_unread_insights,
+            request=request,
         )
 
     @rt("/profile/{domain}")
@@ -729,6 +730,7 @@ def setup_user_profile_routes(rt, services):
             is_admin=is_admin,
             curriculum_domains=curriculum_items,
             unread_insights=total_unread_insights,
+            request=request,
         )
 
     # ========================================================================
