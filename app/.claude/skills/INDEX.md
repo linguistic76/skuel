@@ -1,11 +1,11 @@
 ---
 title: Claude Skills Index
-updated: 2026-01-17
+updated: 2026-02-01
 ---
 
 # SKUEL Claude Skills Index
 
-> Quick navigation for all 21 project-specific Claude skills.
+> Quick navigation for all 27 project-specific Claude skills.
 
 ## Skill Stacks
 
@@ -34,6 +34,17 @@ updated: 2026-01-17
 | [js-alpine](js-alpine/SKILL.md) | Client-side reactivity | html-htmx |
 | [html-navigation](html-navigation/SKILL.md) | Navigation components (navbar, sidebar, mobile) | html-htmx, js-alpine |
 | [fasthtml](fasthtml/SKILL.md) | Python server-rendered framework | html-htmx, monsterui |
+
+### UX Patterns (SKUEL-Specific)
+
+| Skill | Purpose | Foundation |
+|-------|---------|------------|
+| [base-page-architecture](base-page-architecture/SKILL.md) | Consistent page layouts (STANDARD, HUB, CUSTOM) | fasthtml, daisyui, html-navigation |
+| [ui-error-handling](ui-error-handling/SKILL.md) | Result[T] propagation to UI, error banners | result-pattern, fasthtml |
+| [custom-sidebar-patterns](custom-sidebar-patterns/SKILL.md) | Collapsible sidebars (Profile Hub pattern) | base-page-architecture, js-alpine |
+| [skuel-form-patterns](skuel-form-patterns/SKILL.md) | Three-tier validation, HTMX forms | daisyui, html-htmx, ui-error-handling |
+| [accessibility-guide](accessibility-guide/SKILL.md) | WCAG 2.1 Level AA standards | All UX skills |
+| [skuel-component-composition](skuel-component-composition/SKILL.md) | Reusable component composition | daisyui, tailwind-css, fasthtml |
 
 ### Database & Search
 
@@ -76,11 +87,14 @@ updated: 2026-01-17
 
 | Skill | Files | Description |
 |-------|-------|-------------|
+| accessibility-guide | 1 | WCAG 2.1 Level AA accessibility standards (keyboard nav, ARIA, screen readers) |
 | activity-domains | 4 | 6 Activity Domains: Tasks, Goals, Habits, Events, Choices, Principles |
 | base-ai-service | 3 | BaseAIService pattern for optional AI features (LLM, embeddings) |
 | base-analytics-service | 4 | BaseAnalyticsService pattern for 10 domain analytics services (no AI) |
+| base-page-architecture | 1 | Consistent page layouts (STANDARD, HUB, CUSTOM) using BasePage |
 | chartjs | 4 | Chart.js data visualization with Alpine.js state |
 | curriculum-domains | 4 | 4 Curriculum Domains: KU, LS, LP, MOC (shared knowledge) |
+| custom-sidebar-patterns | 1 | Collapsible sidebars, drawer navigation (Profile Hub pattern) |
 | daisyui | 3 | DaisyUI semantic component library |
 | fasthtml | 4 | FastHTML Python framework patterns |
 | html-htmx | 4 | Semantic HTML + HTMX hypermedia |
@@ -94,8 +108,11 @@ updated: 2026-01-17
 | pytest | 4 | Testing patterns with Result[T] |
 | python | 4 | Python development patterns |
 | result-pattern | 2 | Result[T] error handling pattern |
+| skuel-component-composition | 1 | Reusable component composition (entity cards, stats grids, layouts) |
+| skuel-form-patterns | 1 | Three-tier validation, accessible forms, HTMX submission |
 | skuel-search-architecture | 1 | SearchRouter unified search |
 | tailwind-css | 5 | Tailwind CSS utilities |
+| ui-error-handling | 1 | Result[T] propagation to UI, error banners, pure computation helpers |
 | user-context-intelligence | 4 | Central cross-domain intelligence hub (8 flagship methods) |
 
 ---
@@ -109,6 +126,7 @@ Key documentation links by topic:
 | Activity Domains | `/docs/domains/tasks.md`, `goals.md`, `habits.md`, `events.md`, `choices.md`, `principles.md` |
 | Curriculum Domains | `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/intelligence/KU_INTELLIGENCE.md`, `LS_INTELLIGENCE.md`, `LP_INTELLIGENCE.md`, `MOC_INTELLIGENCE.md` |
 | Intelligence Services | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md`, `/docs/decisions/ADR-030-analytics-vs-ai-separation.md` |
+| UI/UX Patterns | `/docs/patterns/UI_COMPONENT_PATTERNS.md`, `/docs/migrations/PROFILE_HUB_MODERNIZATION_2026-02-01.md`, `/ui/layouts/base_page.py`, `/ui/profile/layout.py` |
 | Error Handling | `/docs/patterns/ERROR_HANDLING.md` |
 | Type System | `/docs/patterns/three_tier_type_system.md` |
 | Query Architecture | `/docs/patterns/query_architecture.md` |
@@ -151,6 +169,23 @@ Frontend/Web:
          |
          v
     fasthtml (Python framework) <--- monsterui
+         |
+         v
+    +------------------------------------------+
+    |         UX Patterns (SKUEL-Specific)     |
+    +------------------------------------------+
+         |
+         +---> base-page-architecture (layouts)
+         |           |
+         |           +---> custom-sidebar-patterns (Profile Hub)
+         |
+         +---> ui-error-handling (Result[T] to UI)
+         |
+         +---> skuel-form-patterns (validation)
+         |
+         +---> skuel-component-composition (reusable)
+         |
+         +---> accessibility-guide (WCAG 2.1 AA)
 
 Database/Search:
     neo4j-cypher-patterns

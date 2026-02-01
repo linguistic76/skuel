@@ -43,13 +43,22 @@ async def get_learning_opportunities(
 
 **Core Principle:** "Local curated docs first, external lookup only when missing"
 
-| Library | Local Documentation | Fallback |
-|---------|---------------------|----------|
-| FastHTML | `/docs/fasthtml-llms.txt` | Context7 MCP |
+| Library/Pattern | Local Documentation | Fallback |
+|-----------------|---------------------|----------|
+| **Technology Libraries** | | |
+| FastHTML | `/docs/fasthtml-llms.txt`, `/.claude/skills/fasthtml/` | Context7 MCP |
 | Alpine.js | `/.claude/skills/js-alpine/` | Context7 MCP |
-| Neo4j | `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md` | Context7 MCP |
-| Pydantic | `/docs/patterns/three_tier_type_system.md` | Context7 MCP |
+| DaisyUI | `/.claude/skills/daisyui/` | Context7 MCP |
+| Neo4j | `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md`, `/.claude/skills/neo4j-cypher-patterns/` | Context7 MCP |
+| Pydantic | `/docs/patterns/three_tier_type_system.md`, `/.claude/skills/pydantic/` | Context7 MCP |
 | Vis.js Network | `/PHASE5_FULL_DEPLOYMENT_COMPLETE.md` | https://visjs.github.io/vis-network/docs/network/ |
+| **SKUEL UX Patterns** | | |
+| Page Architecture | `/.claude/skills/base-page-architecture/` | `/docs/patterns/UI_COMPONENT_PATTERNS.md` |
+| Error Handling UI | `/.claude/skills/ui-error-handling/` | `/docs/patterns/UI_COMPONENT_PATTERNS.md` (lines 751-1199) |
+| Custom Sidebars | `/.claude/skills/custom-sidebar-patterns/` | `/ui/profile/layout.py` |
+| Form Patterns | `/.claude/skills/skuel-form-patterns/` | `/docs/patterns/UI_COMPONENT_PATTERNS.md` (lines 1079-1145) |
+| Component Composition | `/.claude/skills/skuel-component-composition/` | `/docs/patterns/UI_COMPONENT_PATTERNS.md` |
+| Accessibility | `/.claude/skills/accessibility-guide/` | WCAG 2.1 Level AA |
 
 ## Documentation Architecture
 
