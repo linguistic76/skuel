@@ -18,9 +18,9 @@ SKUEL uses Prometheus for metrics collection and Grafana for visualization, foll
 **Grafana**: Visualization platform with 4 production dashboards for operational intelligence
 **Architecture**: Direct writes to Prometheus (zero lag), optional in-memory cache for debugging
 
-### The 43 Metrics (Phase 1 - January 2026)
+### The 47 Metrics (Phase 1 - January 2026)
 
-SKUEL tracks 43 metrics across 9 categories:
+SKUEL tracks 47 metrics across 9 categories:
 
 | Category | Metrics | Purpose | Examples |
 |----------|---------|---------|----------|
@@ -29,10 +29,10 @@ SKUEL tracks 43 metrics across 9 categories:
 | **Database** (3) | Queries, duration, errors | Neo4j performance | `skuel_neo4j_queries_total`, `skuel_neo4j_query_duration_seconds` |
 | **Events** (6) | Publications, handlers, invalidations | Event bus health | `skuel_events_published_total`, `skuel_event_handler_duration_seconds` |
 | **Domains** (3) | Creation, completion, active count | Business activity | `skuel_entities_created_total`, `skuel_entities_completed_total` |
-| **Relationships** (15) | Graph density, layers, dependencies | Graph health | `skuel_graph_density`, `skuel_blocking_relationships_count` |
+| **Relationships** (14) | Graph density, layers, dependencies | Graph health | `skuel_graph_density`, `skuel_blocking_relationships_count` |
 | **Search** (3) | Searches, duration, similarity | Search performance | `skuel_searches_total`, `skuel_search_similarity_score` |
 | **Queries** (3) | Operations, duration, errors | Granular performance | `skuel_operation_calls_total`, `skuel_operation_duration_seconds` |
-| **AI Services** (8) | OpenAI calls, embeddings, transcription | AI cost & performance | `skuel_openai_requests_total`, `skuel_embedding_queue_size` |
+| **AI Services** (9) | OpenAI calls, embeddings, transcription | AI cost & performance | `skuel_openai_requests_total`, `skuel_embedding_queue_size` |
 
 ### The 4 Grafana Dashboards
 

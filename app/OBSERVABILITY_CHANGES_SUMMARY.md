@@ -205,13 +205,13 @@ watch -n 10 'curl -s http://localhost:9090/api/v1/alerts | jq ".data.alerts[] | 
 ### Before (35 metrics, 8 categories)
 ```
 System (3) | HTTP (3) | Database (3) | Events (6) | Domains (3)
-Relationships (15) | Search (3) | Queries (3)
+Relationships (14) | Search (3) | Queries (3)
 ```
 
-### After (43 metrics, 9 categories)
+### After (47 metrics, 9 categories)
 ```
 System (3) | HTTP (3) | Database (3) | Events (6) | Domains (3)
-Relationships (15) | Search (3) | Queries (3) | AI Services (8) ← NEW
+Relationships (14) | Search (3) | Queries (3) | AI Services (9) ← NEW
 ```
 
 ### Metrics Flow
@@ -296,7 +296,7 @@ Prometheus
   - Runbook templates
 
 - **SKILL.md** - Updated metrics reference
-  - 43 metrics documented
+  - 47 metrics documented
   - AI Services category added
   - Example PromQL queries
 

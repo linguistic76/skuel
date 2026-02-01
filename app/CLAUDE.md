@@ -1032,7 +1032,7 @@ SKUEL uses **Prometheus + Grafana** for metrics collection and visualization, fo
 
 ### The Stack
 
-**Metrics**: 43 across 9 categories (System, HTTP, Database, Events, Domains, Relationships, Search, Queries, AI Services)
+**Metrics**: 47 across 9 categories (System, HTTP, Database, Events, Domains, Relationships, Search, Queries, AI Services)
 **Alerts**: 14 production alerts (2 critical, 11 warning) with runbooks
 **Dashboards**: 4 Grafana dashboards (System Health, Domain Activity, Graph Health, User Journey)
 
@@ -1045,10 +1045,10 @@ SKUEL uses **Prometheus + Grafana** for metrics collection and visualization, fo
 | Database | 3 | Query performance, errors |
 | Events | 6 | Event bus health, handler performance |
 | Domains | 3 | Entity creation/completion |
-| Relationships | 15 | Graph density, dependencies |
+| Relationships | 14 | Graph density, dependencies |
 | Search | 3 | Search performance, similarity |
 | Queries | 3 | Operation timing |
-| **AI Services** | 8 | OpenAI costs, embedding pipeline |
+| **AI Services** | 9 | OpenAI costs, embedding pipeline |
 
 ### AI/LLM Cost Tracking (Phase 1 - January 2026)
 
