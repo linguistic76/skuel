@@ -3,20 +3,24 @@ Neo4j GenAI Plugin Embeddings Service
 ======================================
 
 Uses Neo4j's native GenAI plugin for embedding generation via Cypher.
-API keys configured at database level (not per-query).
 
-ARCHITECTURE:
-- API keys configured at AuraDB database level
-- No per-query credential passing
+ARCHITECTURE (Docker Development):
+- Plugin enabled via NEO4J_PLUGINS='["genai"]' in docker-compose.yml
+- API keys passed per-query via token parameter (Docker)
+- OpenAI API key from OPENAI_API_KEY environment variable
 - Uses native Neo4j vector operations
 - Graceful degradation when plugin unavailable
 
-SECURITY:
-- Credentials stored at database layer (not in app)
-- No sensitive data in Cypher queries
-- AuraDB manages plugin authentication
+PRODUCTION (AuraDB):
+- API keys configured at database level (no per-query passing)
+- See: /docs/deployment/AURADB_MIGRATION_GUIDE.md
 
-See: /docs/architecture/NEO4J_GENAI_ARCHITECTURE.md
+SECURITY:
+- Docker: API key from environment variable, passed per-query
+- AuraDB: API key stored at database layer (managed by Neo4j)
+- No sensitive data in Cypher queries (token is parameter)
+
+See: /docs/development/GENAI_SETUP.md
 """
 
 from typing import Any
@@ -35,8 +39,17 @@ class Neo4jGenAIEmbeddingsService:
     """
     Embeddings service using Neo4j GenAI plugin.
 
-    Uses ai.text.embed() and ai.text.embedBatch() for embedding generation.
-    Plugin must be enabled in AuraDB with OpenAI API key configured at database level.
+    Uses genai.vector.encode() and genai.vector.encodeBatch() for embedding generation.
+
+    Docker Setup (Development):
+    - Plugin enabled via docker-compose.yml: NEO4J_PLUGINS='["genai"]'
+    - API key passed per-query via token parameter
+    - Requires OPENAI_API_KEY environment variable
+
+    AuraDB Setup (Production):
+    - Plugin enabled via console
+    - API key configured at database level
+    - See: /docs/deployment/AURADB_MIGRATION_GUIDE.md
     """
 
     def __init__(
@@ -60,6 +73,12 @@ class Neo4jGenAIEmbeddingsService:
         self.dimension = dimension
         self.logger = logger
         self.prometheus_metrics = prometheus_metrics
+
+        # Get OpenAI API key from environment
+        import os
+        self.openai_api_key = os.getenv("OPENAI_API_KEY", "")
+        if not self.openai_api_key:
+            self.logger.warning("⚠️ OPENAI_API_KEY not set - embeddings will fail")
 
         # Check plugin availability (async, done lazily on first use)
         self._plugin_available: bool | None = None
@@ -103,9 +122,14 @@ class Neo4jGenAIEmbeddingsService:
         """
         Create embedding using Neo4j GenAI plugin.
 
-        SECURITY NOTE:
-        - API key configured at database level (AuraDB console)
-        - No credentials passed in this query
+        SECURITY NOTE (Docker Development):
+        - API key from OPENAI_API_KEY environment variable
+        - Passed per-query as token parameter
+        - Required for Docker setup (no database-level config)
+
+        SECURITY NOTE (AuraDB Production):
+        - API key configured at database level
+        - No per-query credential passing needed
         - Plugin reads key from database configuration
 
         Args:
@@ -135,13 +159,25 @@ class Neo4jGenAIEmbeddingsService:
             self.logger.warning(f"Text truncated to {max_chars} chars")
 
         query = """
-        // GenAI plugin embedding generation
-        // Note: API key configured at database level, not passed here
-        WITH ai.text.embed($text, $model) as embedding
-        RETURN embedding
+        // GenAI plugin embedding generation using genai.vector.encode()
+        // Note: Local Neo4j requires passing token explicitly
+        RETURN genai.vector.encode(
+            $text,
+            'OpenAI',
+            {
+                token: $token,
+                model: $model,
+                dimensions: $dimensions
+            }
+        ) AS embedding
         """
 
-        params = {"text": text, "model": self.model}
+        params = {
+            "text": text,
+            "model": self.model,
+            "token": self.openai_api_key,
+            "dimensions": self.dimension,
+        }
 
         # Track OpenAI API call metrics (Phase 1 - January 2026)
         import time
@@ -149,7 +185,8 @@ class Neo4jGenAIEmbeddingsService:
         start_time = time.time()
 
         try:
-            result = await self.driver.execute_query(query, params)
+            # Unpack the result tuple (records, summary, keys)
+            records, summary, keys = await self.driver.execute_query(query, params)
 
             # Track successful request
             duration = time.time() - start_time
@@ -168,14 +205,14 @@ class Neo4jGenAIEmbeddingsService:
                     operation="embeddings", model=self.model, token_type="prompt"
                 ).inc(estimated_tokens)
 
-            if not result or not result[0].get("embedding"):
+            if not records or not records[0].get("embedding"):
                 return Result.fail(
                     Errors.integration(
                         service="GenAI", message="No embedding returned from GenAI plugin"
                     )
                 )
 
-            embedding = result[0]["embedding"]
+            embedding = records[0]["embedding"]
 
             # Validate dimension
             if len(embedding) != self.dimension:
@@ -234,14 +271,28 @@ class Neo4jGenAIEmbeddingsService:
         truncated_texts = [t[:max_chars] if len(t) > max_chars else t for t in texts]
 
         query = """
-        // Batch embedding generation
-        CALL ai.text.embedBatch($texts, $model)
+        // Batch embedding generation using genai.vector.encodeBatch()
+        // Note: Local Neo4j requires passing token explicitly
+        CALL genai.vector.encodeBatch(
+            $texts,
+            'OpenAI',
+            {
+                token: $token,
+                model: $model,
+                dimensions: $dimensions
+            }
+        )
         YIELD index, embedding
         RETURN index, embedding
         ORDER BY index
         """
 
-        params = {"texts": truncated_texts, "model": self.model}
+        params = {
+            "texts": truncated_texts,
+            "model": self.model,
+            "token": self.openai_api_key,
+            "dimensions": self.dimension,
+        }
 
         # Track OpenAI batch API call metrics (Phase 1 - January 2026)
         import time
@@ -249,7 +300,8 @@ class Neo4jGenAIEmbeddingsService:
         start_time = time.time()
 
         try:
-            result = await self.driver.execute_query(query, params)
+            # Unpack the result tuple (records, summary, keys)
+            records, summary, keys = await self.driver.execute_query(query, params)
 
             # Track successful batch request
             duration = time.time() - start_time
@@ -271,7 +323,7 @@ class Neo4jGenAIEmbeddingsService:
 
             # Extract embeddings in order
             embeddings = [
-                record["embedding"] for record in sorted(result, key=lambda r: r["index"])
+                record["embedding"] for record in sorted(records, key=lambda r: r["index"])
             ]
 
             # Validate all dimensions

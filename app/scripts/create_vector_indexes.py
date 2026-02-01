@@ -3,12 +3,12 @@ Create Vector Indexes for Neo4j GenAI Plugin
 =============================================
 
 This script creates vector indexes for all embedding-enabled entities in SKUEL.
-Run this after enabling the Neo4j GenAI plugin in AuraDB or local Neo4j.
+Run this after starting Neo4j with GenAI plugin enabled (via docker-compose).
 
 Prerequisites:
-- Neo4j 5.x+ with GenAI plugin installed
-- OpenAI API key configured at database level (AuraDB console)
-- Entities with embedding fields already populated
+- Docker Neo4j running with GenAI plugin enabled (NEO4J_PLUGINS='["genai"]')
+- OPENAI_API_KEY environment variable set
+- Connection to Neo4j (bolt://localhost:7687)
 
 Usage:
     # Create indexes for all priority entities
@@ -21,8 +21,8 @@ Usage:
     poetry run python scripts/create_vector_indexes.py --dimension 3072
 
 See also:
-- /docs/development/GENAI_SETUP.md - GenAI plugin setup guide
-- /docs/migrations/NEO4J_GENAI_MIGRATION.md - Migration guide
+- /docs/development/GENAI_SETUP.md - Docker GenAI setup guide
+- /docs/deployment/AURADB_MIGRATION_GUIDE.md - AuraDB production migration
 """
 
 import asyncio
@@ -32,6 +32,10 @@ from pathlib import Path
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+# Load .env file before importing config
+from dotenv import load_dotenv
+load_dotenv()
 
 from neo4j import AsyncGraphDatabase
 

@@ -1,13 +1,15 @@
-# Neo4j GenAI Plugin Setup Guide
+# Neo4j GenAI Plugin Setup (Docker)
 
-**Last Updated:** 2026-01-28
+**Last Updated:** 2026-02-01
 **Status:** Production Ready
 
 ---
 
 ## Overview
 
-SKUEL uses Neo4j's GenAI plugin for embeddings generation and vector similarity search. This guide covers setup for both local development and production environments.
+SKUEL uses Neo4j's GenAI plugin for embeddings generation and vector similarity search in development. This guide covers Docker-based setup only.
+
+**For production AuraDB deployment:** See [`/docs/deployment/AURADB_MIGRATION_GUIDE.md`](../deployment/AURADB_MIGRATION_GUIDE.md)
 
 ### Key Features
 
@@ -15,6 +17,7 @@ SKUEL uses Neo4j's GenAI plugin for embeddings generation and vector similarity 
 - **Vector Similarity Search:** Find semantically similar content across domains
 - **Graceful Degradation:** Application works without GenAI features
 - **Cost Effective:** ~$0.02 per 1M tokens with OpenAI
+- **Docker-Native:** Zero infrastructure setup needed
 
 ### Architecture
 
@@ -30,51 +33,68 @@ User Query → Neo4j GenAI Plugin → OpenAI API → Embeddings
 
 ### Required
 
-- **Neo4j AuraDB** (Professional tier or higher)
-  - OR Neo4j 5.26+ with GenAI plugin installed
+- **Docker & Docker Compose** (20.10+ and 2.0+)
 - **OpenAI API Key** for embedding generation
-- **SKUEL Master Key** for credential encryption
+- **Poetry** (for dependency management)
 
-### Optional
+### Verify Prerequisites
 
-- Docker (for local testing with testcontainers)
-- Poetry (for dependency management)
+```bash
+docker --version       # Should be 20.10+
+docker compose version # Should be 2.0+
+poetry --version       # Should be 1.7+
+python --version       # Should be 3.12+
+```
 
 ---
 
-## Quick Start (AuraDB - Recommended)
+## Quick Start (10 Minutes)
 
-### 1. Connect to Shared Development Instance
-
-The fastest way to get started is using the shared development AuraDB instance with GenAI plugin pre-configured.
-
-**Add to your `.env`:**
+### 1. Start Neo4j with GenAI Plugin
 
 ```bash
-# Neo4j Connection
-NEO4J_URI=neo4j+s://xxxxx.databases.neo4j.io
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=<get-from-team-lead>
-NEO4J_DATABASE=neo4j
+# Navigate to infrastructure directory
+cd /home/mike/skuel/infrastructure
 
-# GenAI Features
-GENAI_ENABLED=true
-GENAI_VECTOR_SEARCH_ENABLED=true
-GENAI_EMBEDDING_MODEL=text-embedding-3-small
-GENAI_EMBEDDING_DIMENSION=1536
+# Start Neo4j (GenAI plugin auto-loaded)
+docker compose up -d neo4j
+
+# Verify plugin loaded
+docker logs skuel-neo4j | grep -i genai
+# Expected: "Loaded plugin: genai" or similar
 ```
 
-### 2. Configure OpenAI API Key
+**What's Happening:**
+- Docker pulls Neo4j 2025.12.1 image
+- GenAI plugin automatically loaded via `NEO4J_PLUGINS='["genai"]'`
+- Neo4j starts on `bolt://localhost:7687`
 
-Store securely in SKUEL's credential store:
+### 2. Configure Environment Variables
+
+**Add to `/home/mike/skuel/app/.env`:**
 
 ```bash
-poetry run python -m core.config.credential_setup
+# ============================================================================
+# Neo4j Connection (Docker)
+# ============================================================================
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=<your-password>  # From infrastructure .env
+NEO4J_DATABASE=neo4j
 
-# Interactive prompts:
-# Select: "2. Set up single credential"
-# Credential key: OPENAI_API_KEY
-# Credential value: sk-proj-... (your OpenAI API key)
+# ============================================================================
+# GenAI Configuration
+# ============================================================================
+# Enable GenAI features
+GENAI_ENABLED=true
+GENAI_VECTOR_SEARCH_ENABLED=true
+
+# Embedding configuration
+GENAI_EMBEDDING_MODEL=text-embedding-3-small
+GENAI_EMBEDDING_DIMENSION=1536
+
+# OpenAI API key (used per-query in Docker setup)
+OPENAI_API_KEY=sk-proj-...  # Your OpenAI API key
 ```
 
 **Get OpenAI API Key:**
@@ -85,12 +105,15 @@ poetry run python -m core.config.credential_setup
 ### 3. Verify Setup
 
 ```bash
+cd /home/mike/skuel/app
+
+# Run verification script
 poetry run python scripts/verify_genai_setup.py
 ```
 
 **Expected Output:**
 ```
-✅ Neo4j connection successful
+✅ Neo4j connection successful (bolt://localhost:7687)
 ✅ GenAI plugin available
 ✅ OpenAI API key configured
 ✅ Vector indexes exist (or will be created on first use)
@@ -99,92 +122,82 @@ poetry run python scripts/verify_genai_setup.py
 Setup complete! GenAI features ready to use.
 ```
 
-### 4. Test Semantic Search
+### 4. Create Vector Indexes
+
+```bash
+# Create vector indexes for all supported entities
+poetry run python scripts/create_vector_indexes.py
+```
+
+**Expected Output:**
+```
+Creating vector indexes...
+✅ Created: ku_embedding_idx (1536d, cosine)
+✅ Created: task_embedding_idx (1536d, cosine)
+✅ Created: goal_embedding_idx (1536d, cosine)
+✅ Created: habit_embedding_idx (1536d, cosine)
+
+Total: 4 indexes created
+```
+
+### 5. Test Semantic Search
 
 ```bash
 # Run integration tests
 poetry run pytest tests/integration/test_vector_search.py -v
-
-# Run E2E tests
-poetry run pytest tests/e2e/test_semantic_search_flow.py -v
 ```
+
+**Expected:** All tests passing
 
 ---
 
-## AuraDB Configuration
+## Docker Setup Details
 
-### Database-Level API Key Setup
+### GenAI Plugin Configuration
 
-Neo4j GenAI plugin uses database-level API key configuration (more secure than per-query passing).
+The GenAI plugin is configured via `docker-compose.yml`:
 
-**Steps:**
+```yaml
+# /home/mike/skuel/infrastructure/docker-compose.yml
+services:
+  neo4j:
+    image: neo4j:2025.12.1
+    environment:
+      # Enable GenAI plugin (auto-loads from /products to /plugins)
+      NEO4J_PLUGINS: '["genai"]'
 
-1. Log in to [Neo4j Aura Console](https://console.neo4j.io/)
-2. Select your database instance
-3. Navigate to **Settings** → **GenAI Integration**
-4. Click **Add API Key**
-5. Select **OpenAI** as provider
-6. Enter your OpenAI API key
-7. Click **Save**
+      # OpenAI API key (accessible via procedures)
+      OPENAI_API_KEY: "${NEO4J_OPENAI_API_KEY}"
 
-**Benefits:**
-- ✅ Centralized key management
-- ✅ No per-query credential passing
-- ✅ Automatic key rotation support
-- ✅ Team access control
-
-**Note:** API key is encrypted and stored securely by Neo4j. SKUEL does not store or handle the OpenAI key directly.
-
-### Choosing AuraDB Tier
-
-| Tier | GenAI Plugin | Vector Indexes | Recommended For |
-|------|--------------|----------------|-----------------|
-| Free | ❌ Not available | ❌ | Learning/testing |
-| Professional | ✅ Available | ✅ | Development |
-| Enterprise | ✅ Available | ✅ | Production |
-
-**Recommendation:** Professional tier (~$65/month) for development and staging.
-
----
-
-## Local Development (Alternative)
-
-For developers who prefer local Neo4j instances:
-
-### Option 1: Use Testcontainers (Testing Only)
-
-```bash
-# Testcontainers automatically start Neo4j for tests
-poetry run pytest tests/integration/ -v
-
-# Note: GenAI plugin NOT available in testcontainers
-# Tests use mock embeddings services
+      # Allow GenAI plugin procedures
+      NEO4J_dbms_security_procedures_unrestricted: "genai.*"
+      NEO4J_dbms_security_procedures_allowlist: "genai.*"
 ```
 
-### Option 2: Local Neo4j with Plugin
+**Key Differences from AuraDB:**
+- Plugin loaded via `NEO4J_PLUGINS` environment variable
+- API key passed **per-query** via `token` parameter
+- No database-level API key configuration
 
-```bash
-# 1. Install Neo4j 5.26+
-# Download from: https://neo4j.com/download/
+### Per-Query Token Passing
 
-# 2. Install GenAI plugin
-# Follow: https://neo4j.com/docs/genai/plugin/current/installation/
+In Docker setup, OpenAI API key is passed with each query:
 
-# 3. Configure plugin in neo4j.conf
-dbms.genai.enabled=true
-dbms.genai.openai.api_key=${OPENAI_API_KEY}
-
-# 4. Start Neo4j
-neo4j start
-
-# 5. Update .env
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=<your-password>
-GENAI_ENABLED=true
+```python
+# Example: Generate embedding with per-query token
+result = await driver.execute_query('''
+    RETURN genai.vector.encode($text, "OpenAI", {
+        token: $api_key,
+        model: "text-embedding-3-small",
+        dimensions: 1536
+    }) AS embedding
+''', {
+    'text': 'Hello world',
+    'api_key': os.getenv('OPENAI_API_KEY')
+})
 ```
 
-**Note:** Local setup requires more configuration. Shared AuraDB is recommended for most developers.
+**SKUEL handles this automatically** - you don't need to modify code.
 
 ---
 
@@ -271,54 +284,6 @@ curl http://localhost:8000/api/knowledge/search?q=python
 
 ---
 
-## Cost Estimation
-
-### OpenAI Embeddings
-
-**Model:** `text-embedding-3-small`
-- **Pricing:** $0.02 per 1 million tokens
-- **Typical Entity:** ~200 tokens (title + content)
-- **1,000 Entities:** ~$0.004 USD
-- **10,000 Entities:** ~$0.04 USD
-
-**Example Calculation:**
-```
-Scenario: Ingest 5,000 knowledge units
-Average length: 300 tokens per KU
-Total tokens: 5,000 × 300 = 1,500,000 tokens
-Cost: 1.5M × $0.02 / 1M = $0.03 USD
-```
-
-### AuraDB Costs
-
-| Tier | Monthly Cost | Storage | GenAI Plugin |
-|------|-------------|---------|--------------|
-| Free | $0 | 50k nodes | ❌ Not available |
-| Professional | ~$65 | 1M nodes | ✅ Included |
-| Enterprise | Custom | Unlimited | ✅ Included |
-
-**Note:** GenAI plugin has no additional fees beyond AuraDB subscription.
-
-### Development Usage Estimates
-
-**Typical Developer:**
-- 100-500 entities created/modified per month
-- ~$0.01-0.05 per month in OpenAI costs
-- AuraDB: $65/month (shared among team)
-
-**Team Estimate (5 developers):**
-- Shared AuraDB instance: $65/month
-- Combined OpenAI usage: $5-15/month
-- **Total: ~$80/month** for team
-
-**Production Estimate:**
-- 50,000+ entities
-- Initial backfill: ~$2-5 one-time
-- Ongoing: ~$5-20/month
-- AuraDB: $65-250/month (based on tier)
-
----
-
 ## Troubleshooting
 
 ### "GenAI plugin not available"
@@ -329,28 +294,38 @@ Cost: 1.5M × $0.02 / 1M = $0.03 USD
 - Vector search unavailable
 
 **Check:**
-1. ✅ Connected to AuraDB (not local Neo4j)
+
+1. ✅ GenAI plugin loaded in Docker
    ```bash
-   echo $NEO4J_URI  # Should be neo4j+s://...databases.neo4j.io
+   docker logs skuel-neo4j | grep -i genai
+   # Should show: "Loaded plugin: genai"
    ```
 
-2. ✅ Using Professional tier or higher
-   - Log in to Aura console
-   - Check database tier
-
-3. ✅ Plugin enabled in Aura console
-   - Settings → GenAI Integration
-   - Verify API key configured
-
-4. ✅ Environment variable set
+2. ✅ Plugin environment variable set
    ```bash
-   echo $GENAI_ENABLED  # Should be 'true'
+   docker exec skuel-neo4j env | grep NEO4J_PLUGINS
+   # Should show: NEO4J_PLUGINS=["genai"]
+   ```
+
+3. ✅ Plugin procedures allowed
+   ```bash
+   docker exec skuel-neo4j env | grep unrestricted
+   # Should show: genai.* in allowlist
    ```
 
 **Solution:**
-- Upgrade to Professional tier, OR
-- Enable GenAI plugin in Aura console, OR
-- Use shared development instance
+
+```bash
+# Restart Neo4j to reload plugin
+cd /home/mike/skuel/infrastructure
+docker compose restart neo4j
+
+# Wait 30 seconds for startup
+sleep 30
+
+# Verify plugin loaded
+docker logs skuel-neo4j | tail -20
+```
 
 ### "Embeddings unavailable"
 
@@ -360,27 +335,30 @@ Cost: 1.5M × $0.02 / 1M = $0.03 USD
 - Warning: "Embeddings service unavailable"
 
 **Check:**
+
 1. ✅ OpenAI API key configured
    ```bash
-   poetry run python -c "from core.config.credential_store import get_credential; print('Key exists:', get_credential('OPENAI_API_KEY') is not None)"
+   grep OPENAI_API_KEY /home/mike/skuel/app/.env
+   # Should show: OPENAI_API_KEY=sk-proj-...
    ```
 
 2. ✅ GENAI_ENABLED flag set
    ```bash
-   grep GENAI_ENABLED .env
+   grep GENAI_ENABLED /home/mike/skuel/app/.env
+   # Should show: GENAI_ENABLED=true
    ```
 
-3. ✅ Services bootstrapped correctly
-   ```python
-   from core.utils.services_bootstrap import bootstrap
-   services = await bootstrap()
-   print("Embeddings:", services.get("embeddings"))
+3. ✅ Neo4j running
+   ```bash
+   docker ps | grep neo4j
+   # Should show: skuel-neo4j (running)
    ```
 
 **Solutions:**
-- Run credential setup: `poetry run python -m core.config.credential_setup`
-- Verify API key in `.env`: `GENAI_ENABLED=true`
-- Check OpenAI key is valid and has credits
+- Set `OPENAI_API_KEY` in `.env`
+- Verify API key is valid: https://platform.openai.com/api-keys
+- Check OpenAI key has credits: https://platform.openai.com/usage
+- Restart application: `systemctl restart skuel`
 
 ### "Vector index not found"
 
@@ -393,9 +371,6 @@ Cost: 1.5M × $0.02 / 1M = $0.03 USD
 Vector indexes are created automatically on first use, but you can create them manually:
 
 ```bash
-# Check if indexes exist
-poetry run python scripts/check_vector_indexes.py
-
 # Create missing indexes
 poetry run python scripts/create_vector_indexes.py
 ```
@@ -403,6 +378,8 @@ poetry run python scripts/create_vector_indexes.py
 **Manual Index Creation (if needed):**
 
 ```cypher
+// Open Neo4j Browser: http://localhost:7474
+
 // Create vector index for KU entities
 CREATE VECTOR INDEX ku_embedding_idx IF NOT EXISTS
 FOR (n:Ku)
@@ -453,7 +430,7 @@ OPTIONS {
 **Check:**
 ```bash
 # Verify embedding model configuration
-grep GENAI_EMBEDDING /env
+grep GENAI_EMBEDDING /home/mike/skuel/app/.env
 ```
 
 **Solution:**
@@ -469,6 +446,8 @@ GENAI_EMBEDDING_DIMENSION=1536
 **If you previously used different model:**
 
 ```cypher
+// Open Neo4j Browser: http://localhost:7474
+
 // Remove old embeddings
 MATCH (n)
 WHERE n.embedding IS NOT NULL
@@ -478,69 +457,83 @@ REMOVE n.embedding, n.embedding_model, n.embedding_updated_at
 
 Then regenerate with correct model.
 
+### Docker Container Issues
+
+**Symptoms:**
+- Neo4j container won't start
+- Container crashes on startup
+- Permission errors
+
+**Check:**
+
+1. ✅ Docker daemon running
+   ```bash
+   docker info
+   # Should show system info
+   ```
+
+2. ✅ Port 7687 not in use
+   ```bash
+   lsof -i:7687
+   # Should be empty or show neo4j only
+   ```
+
+3. ✅ Volume permissions correct
+   ```bash
+   ls -la /home/mike/skuel/infrastructure/neo4j/data
+   # Should be readable by Docker
+   ```
+
+**Solutions:**
+
+```bash
+# Stop and remove container
+docker compose down neo4j
+
+# Fix permissions (if needed)
+sudo chown -R $USER:$USER /home/mike/skuel/infrastructure/neo4j/
+
+# Restart with fresh logs
+docker compose up -d neo4j
+docker logs -f skuel-neo4j
+```
+
 ---
 
 ## Best Practices
 
-### 1. Use Shared AuraDB for Development
+### 1. Use Docker for Development
 
 **Why:**
-- Zero setup overhead
-- GenAI plugin pre-configured
-- Team collaboration easy
-- No local infrastructure needed
+- Fast iteration cycle
+- No external dependencies
+- Complete control over configuration
+- Easy to reset/recreate
+- Free (no cloud costs)
 
 **How:**
 ```bash
-# Get credentials from team lead
-NEO4J_URI=neo4j+s://xxxxx.databases.neo4j.io
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=<team-password>
+# Start/stop as needed
+docker compose up -d neo4j     # Start
+docker compose stop neo4j      # Stop
+docker compose restart neo4j   # Restart
 ```
 
-### 2. Configure API Key at Database Level
+### 2. Monitor OpenAI Usage
 
 **Why:**
-- More secure (no key in code)
-- Centralized management
-- Team access control
-- Automatic rotation support
-
-**How:**
-- Aura Console → Settings → GenAI Integration → Add API Key
-
-### 3. Enable Graceful Degradation
-
-**Why:**
-- App works without embeddings
-- Easier onboarding for new developers
-- Resilient to API outages
-- Lower costs during development
-
-**How:**
-```python
-# Services automatically check for embeddings
-if embeddings_service:
-    # Use semantic search
-else:
-    # Fall back to keyword search
-```
-
-### 4. Monitor API Usage
-
-**Why:**
-- Control costs
+- Control costs during development
 - Detect issues early
 - Optimize batch sizes
-- Plan scaling
+- Understand usage patterns
 
 **How:**
 1. OpenAI Dashboard → Usage
-2. Set billing alerts
+2. Set billing alerts at $10/month (development threshold)
 3. Monitor daily usage
-4. Review cost reports monthly
+4. Review cost reports weekly
 
-### 5. Use Batch Operations
+### 3. Use Batch Operations
 
 **Why:**
 - Faster processing
@@ -550,16 +543,16 @@ else:
 
 **How:**
 ```bash
-# Generate embeddings in batches of 25-100
-poetry run python scripts/generate_embeddings_batch.py --batch-size 50
+# Generate embeddings in batches of 25-50
+poetry run python scripts/generate_embeddings_batch.py --batch-size 25
 ```
 
 **Optimal Batch Sizes:**
-- Small entities (~100 tokens): batch_size=100
-- Medium entities (~200 tokens): batch_size=50
-- Large entities (~500 tokens): batch_size=25
+- Small entities (~100 tokens): batch_size=50
+- Medium entities (~200 tokens): batch_size=25
+- Large entities (~500 tokens): batch_size=10
 
-### 6. Cache Embeddings
+### 4. Cache Embeddings
 
 **Why:**
 - Avoid regenerating unchanged content
@@ -577,7 +570,7 @@ else:
     embedding = entity.embedding
 ```
 
-### 7. Test Without API Calls
+### 5. Test Without API Calls
 
 **Why:**
 - Fast test execution
@@ -587,10 +580,29 @@ else:
 
 **How:**
 ```bash
-# Use mock fixtures (Phase 6.1)
+# Use mock fixtures
 poetry run pytest tests/ -v
 
 # All tests use mock embeddings - no API calls
+```
+
+### 6. Backup Regularly
+
+**Why:**
+- Protect against data loss
+- Enable easy rollback
+- Test restore procedures
+
+**How:**
+```bash
+# Create backup
+docker compose exec neo4j \
+  neo4j-admin database dump neo4j \
+  --to-path=/backups/backup_$(date +%Y%m%d).dump
+
+# Copy to host
+docker cp skuel-neo4j:/backups/backup_*.dump \
+  /home/mike/skuel/infrastructure/neo4j/backups/
 ```
 
 ---
@@ -614,7 +626,7 @@ time poetry run python scripts/generate_embeddings_batch.py --batch-size 50
 
 **Recommended:**
 - Development: batch_size=25
-- Production: batch_size=50
+- CI/CD: batch_size=10 (conservative)
 
 ### Vector Index Configuration
 
@@ -641,21 +653,26 @@ OPTIONS {
 }
 ```
 
-### Caching Strategy
+### Docker Resource Tuning
 
-```python
-# Cache embeddings in Redis (optional)
-async def get_or_create_embedding(text: str, cache_key: str):
-    # Check cache
-    cached = await redis.get(f"embedding:{cache_key}")
-    if cached:
-        return json.loads(cached)
+**Increase memory for large datasets:**
 
-    # Generate new
-    result = await embeddings_service.create_embedding(text)
-    if result.is_ok:
-        await redis.setex(f"embedding:{cache_key}", 3600, json.dumps(result.value))
-        return result.value
+```yaml
+# docker-compose.yml
+services:
+  neo4j:
+    environment:
+      # Increase heap size
+      NEO4J_server_memory_heap_initial__size: "1G"
+      NEO4J_server_memory_heap_max__size: "4G"
+
+      # Increase page cache
+      NEO4J_server_memory_pagecache_size: "2G"
+```
+
+**After changing configuration:**
+```bash
+docker compose restart neo4j
 ```
 
 ---
@@ -665,27 +682,31 @@ async def get_or_create_embedding(text: str, cache_key: str):
 ### API Key Management
 
 **✅ DO:**
-- Store keys in SKUEL credential store (encrypted)
-- Use database-level key configuration in AuraDB
-- Rotate keys regularly (every 90 days)
+- Store keys in `.env` (never commit to git)
 - Use separate keys for dev/staging/prod
+- Rotate keys regularly (every 90 days)
 - Set spending limits in OpenAI dashboard
 
 **❌ DON'T:**
 - Commit keys to git
 - Share keys in plaintext
 - Use same key across environments
-- Store keys in `.env` files (use credential store)
+- Hardcode keys in source code
 
-### Access Control
+### Docker Network Security
 
-```bash
-# Restrict who can modify GenAI configuration
-# In Aura console:
-# 1. Settings → Access Control
-# 2. Limit "Admin" role to select users
-# 3. Use "Read-only" for most developers
+**Best Practices:**
+
+```yaml
+# docker-compose.yml - Localhost-only binding
+services:
+  neo4j:
+    ports:
+      - "127.0.0.1:7474:7474"  # HTTP (Neo4j Browser)
+      - "127.0.0.1:7687:7687"  # Bolt (Application)
 ```
+
+This prevents external access to Neo4j.
 
 ### Audit Logging
 
@@ -705,13 +726,29 @@ logger.info(
 
 ---
 
+## Production Deployment
+
+**When ready for production, migrate to AuraDB:**
+
+See complete guide: [`/docs/deployment/AURADB_MIGRATION_GUIDE.md`](../deployment/AURADB_MIGRATION_GUIDE.md)
+
+**Migration provides:**
+- Automated backups and monitoring
+- 99.95% uptime SLA
+- Database-level API key configuration
+- Managed infrastructure
+- Professional support
+
+**Estimated migration time:** 4-6 hours
+
+---
+
 ## See Also
 
 ### Related Documentation
 
-- [Migration Guide](../migrations/NEO4J_GENAI_MIGRATION.md) - Migrating existing systems
+- [AuraDB Migration Guide](../deployment/AURADB_MIGRATION_GUIDE.md) - Production deployment
 - [Vector Search Architecture](../architecture/SEARCH_ARCHITECTURE.md) - Technical details
-- [Credential Management](./CREDENTIAL_MANAGEMENT.md) - Secure key storage
 - [Testing Guide](./TESTING.md) - Running tests with mock services
 
 ### External Resources
@@ -719,6 +756,7 @@ logger.info(
 - [Neo4j GenAI Plugin Documentation](https://neo4j.com/docs/genai/plugin/current/)
 - [OpenAI Embeddings Guide](https://platform.openai.com/docs/guides/embeddings)
 - [Vector Indexes in Neo4j](https://neo4j.com/docs/cypher-manual/current/indexes/semantic-indexes/vector-indexes/)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
 
 ### Scripts Reference
 
@@ -734,12 +772,12 @@ logger.info(
 **Questions or Issues?**
 
 - Check [Troubleshooting](#troubleshooting) section above
-- Review [Migration Guide](../migrations/NEO4J_GENAI_MIGRATION.md)
-- Check logs: `tail -f logs/skuel.log`
-- Contact team lead for shared credentials
+- Review [AuraDB Migration Guide](../deployment/AURADB_MIGRATION_GUIDE.md) for production
+- Check logs: `docker logs -f skuel-neo4j`
+- Check application logs: `tail -f logs/skuel.log`
 
 ---
 
-**Last Updated:** 2026-01-28
+**Last Updated:** 2026-02-01
 **Maintained By:** SKUEL Core Team
-**Status:** Production Ready
+**Status:** Production Ready (Docker Development)

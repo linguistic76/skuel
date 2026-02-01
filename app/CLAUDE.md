@@ -39,6 +39,30 @@ async def get_learning_opportunities(
 ) -> Result[list[dict[str, Any]]]:
 ```
 
+## Neo4j Infrastructure
+
+**Core Principle:** "One Path Forward - Docker for development, AuraDB for production"
+
+**Current Setup (Development):** Docker-based Neo4j
+- Connection: `bolt://localhost:7687`
+- GenAI plugin: Enabled via `NEO4J_PLUGINS='["genai"]'` in docker-compose.yml
+- API keys: Per-query token passing (OPENAI_API_KEY environment variable)
+- Setup guide: `/docs/development/GENAI_SETUP.md`
+
+**Production Migration:** AuraDB
+- Migration guide: `/docs/deployment/AURADB_MIGRATION_GUIDE.md`
+- Database-level API keys (no per-query passing)
+- Connection: `neo4j+s://xxx.databases.neo4j.io`
+- Automated backups, 99.95% uptime SLA
+
+**Key Difference:**
+- Docker: Per-query `token` parameter with OpenAI API key
+- AuraDB: API key configured at database level via console
+
+**Code is environment-agnostic** - only `.env` configuration changes for Docker vs AuraDB.
+
+**See:** `.claude/skills/neo4j-genai-plugin/` for GenAI plugin patterns
+
 ## External Library Documentation
 
 **Core Principle:** "Local curated docs first, external lookup only when missing"

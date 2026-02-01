@@ -1,6 +1,6 @@
 ---
 name: neo4j-genai-plugin
-description: Expert guide to Neo4j GenAI plugin integration for AI-powered graph features. Use when working with embeddings, vector search, RAG workflows, semantic relationships, text generation, or when the user mentions GenAI plugin, ai.text.embed, vector indexes, hybrid search, or LLM integration with Neo4j.
+description: Expert guide to Neo4j GenAI plugin integration for AI-powered graph features. Use when working with embeddings, vector search, RAG workflows, semantic relationships, text generation, or when the user mentions GenAI plugin, genai.vector.encode, ai.text.embed, vector indexes, hybrid search, local Neo4j Docker setup, or LLM integration with Neo4j.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -8,15 +8,20 @@ allowed-tools: Read, Grep, Glob
 
 Database-native AI capabilities for embeddings, vector search, RAG workflows, and semantic relationships.
 
+**Current Setup:** Docker-based Neo4j (development)
+**Production Migration:** See `/docs/deployment/AURADB_MIGRATION_GUIDE.md`
+
 ## Core Philosophy
 
 ### Database-Native Embeddings
 
 Neo4j GenAI plugin brings AI capabilities directly into the database via Cypher functions:
-- **`ai.text.embed()`** - Single text → vector embedding
-- **`ai.text.embedBatch()`** - Multiple texts → vectors (50 optimal batch size)
+- **`genai.vector.encode()`** - Single text → vector embedding (requires token parameter)
+- **`genai.vector.encodeBatch()`** - Multiple texts → vectors (50 optimal batch size, requires token parameter)
 - **`ai.text.completion()`** - Text generation with context
 - **`ai.text.chat()`** - Multi-turn conversations with chat IDs
+
+**IMPORTANT:** Local Neo4j requires passing OpenAI API key as `token` parameter per-query. AuraDB configures it at database level.
 
 Embeddings are stored as graph properties (`embedding: List[Float]`), not external state. This enables:
 - Vector similarity search via `db.index.vector.queryNodes()`
@@ -66,11 +71,48 @@ SKUEL separates analytics (graph-only, always available) from AI (LLM-dependent,
 
 | Function | Purpose | Returns | Example |
 |----------|---------|---------|---------|
-| `ai.text.embed(text, model)` | Single embedding | `List[Float]` (1536-dim) | `ai.text.embed(ku.content, 'text-embedding-3-small')` |
-| `ai.text.embedBatch(texts, model)` | Batch embeddings | `List[List[Float]]` | `ai.text.embedBatch([t1, t2, t3], 'text-embedding-3-small')` |
+| `genai.vector.encode(text, provider, config)` | Single embedding | `List[Float]` (1536-dim) | `genai.vector.encode(ku.content, 'OpenAI', {token: $key, model: 'text-embedding-3-small'})` |
+| `genai.vector.encodeBatch(texts, provider, config)` | Batch embeddings | `List[List[Float]]` | `genai.vector.encodeBatch([t1, t2, t3], 'OpenAI', {token: $key, model: 'text-embedding-3-small'})` |
 | `db.index.vector.queryNodes(index, k, vector)` | Vector search | Nodes + scores | `db.index.vector.queryNodes('ku_embeddings', 10, $vector)` |
 | `ai.text.completion(prompt, config)` | Text generation | String | `ai.text.completion("Explain: " + text, {model: "gpt-4o-mini"})` |
 | `ai.text.chat(messages, config)` | Multi-turn chat | String | `ai.text.chat([{role: "user", content: q}], {chatId: "session1"})` |
+
+### Docker (Current) vs AuraDB (Production) Configuration
+
+**Critical Difference:** API key configuration differs between Docker development and AuraDB production.
+
+| Configuration | Docker (Development) | AuraDB (Production) |
+|---------------|---------------------|---------------------|
+| **Plugin Installation** | Auto-loaded via `NEO4J_PLUGINS='["genai"]'` | Enabled via console |
+| **API Key Location** | Passed per-query as `token` parameter | Configured at database level |
+| **Connection** | `bolt://localhost:7687` | `neo4j+s://xxx.databases.neo4j.io` |
+| **Neo4j Version** | 2025.12.1+ (calendar versioning) | Managed by Neo4j |
+| **Function Syntax** | `genai.vector.encode(text, 'OpenAI', {token: $key, ...})` | Same, but token optional if configured |
+
+**Local Docker Setup (for development):**
+
+```yaml
+# docker-compose.yml
+services:
+  neo4j:
+    image: neo4j:2025.12.1
+    environment:
+      NEO4J_PLUGINS: '["genai"]'  # Auto-loads GenAI plugin
+      NEO4J_AUTH: "neo4j/your-password"
+      NEO4J_genai_openai_api__key: "${OPENAI_API_KEY}"  # Optional, for convenience
+      NEO4J_dbms_security_procedures_unrestricted: "genai.*"
+      NEO4J_dbms_security_procedures_allowlist: "genai.*"
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - ./neo4j/data:/data
+      - ./neo4j/logs:/logs
+```
+
+**Important:** Even with environment variable set, local setups typically require passing `token` explicitly in Cypher queries.
+
+**AuraDB Setup:** No manual configuration needed - GenAI plugin comes pre-configured with API key management.
 
 ### Configuration Checklist
 
@@ -91,10 +133,10 @@ VECTOR_SEARCH_MIN_SIMILARITY=0.7
 VECTOR_SEARCH_HYBRID_WEIGHT=0.7  # 70% vector, 30% fulltext
 ```
 
-**Neo4j Setup (Aura - pre-enabled):**
-- GenAI plugin pre-installed on Neo4j Aura
-- No manual installation required
-- For self-hosted: Install from Neo4j Plugin Gallery
+**Neo4j Setup:**
+- **Local Docker:** Set `NEO4J_PLUGINS='["genai"]'` to auto-load (Neo4j 2025.12.1+)
+- **AuraDB Professional:** GenAI plugin pre-installed
+- **Self-hosted:** Plugin bundled with Neo4j 5.26+ in `/products` directory
 
 **Verification Command:**
 ```bash
@@ -111,13 +153,23 @@ Expected output:
 
 ### First Embedding Example
 
-**Generate and store embedding (3 lines):**
+**Generate and store embedding (local Neo4j with token parameter):**
 ```cypher
 MATCH (ku:KnowledgeUnit {uid: 'ku.python-basics'})
-SET ku.embedding = ai.text.embed(ku.content, 'text-embedding-3-small'),
+SET ku.embedding = genai.vector.encode(
+    ku.content,
+    'OpenAI',
+    {
+        token: $openai_api_key,
+        model: 'text-embedding-3-small',
+        dimensions: 1536
+    }
+),
     ku.embedding_version = 'v2'
 RETURN ku.uid, size(ku.embedding) AS dimensions
 ```
+
+**Note:** `$openai_api_key` parameter must be passed from application code. AuraDB can omit `token` if configured at database level.
 
 **Search similar KUs:**
 ```cypher
@@ -149,7 +201,7 @@ ORDER BY score DESC
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ Layer 1: Neo4j GenAI Plugin (Database-Native)               │
-│ - ai.text.embed() / ai.text.embedBatch()                    │
+│ - genai.vector.encode() / genai.vector.encodeBatch()        │
 │ - db.index.vector.queryNodes()                              │
 │ - ai.text.completion() / ai.text.chat()                     │
 └─────────────────────────────────────────────────────────────┘
@@ -206,10 +258,18 @@ SKUEL uses defaults - only tune if benchmarks show issues.
 
 ### Single Embedding Generation
 
-**Basic pattern:**
+**Basic pattern (local Neo4j):**
 ```cypher
 MATCH (ku:KnowledgeUnit {uid: $uid})
-SET ku.embedding = ai.text.embed(ku.content, 'text-embedding-3-small')
+SET ku.embedding = genai.vector.encode(
+    ku.content,
+    'OpenAI',
+    {
+        token: $openai_api_key,
+        model: 'text-embedding-3-small',
+        dimensions: 1536
+    }
+)
 RETURN ku.uid, size(ku.embedding) AS dimensions
 ```
 
@@ -217,7 +277,15 @@ RETURN ku.uid, size(ku.embedding) AS dimensions
 ```cypher
 MATCH (ku:KnowledgeUnit {uid: $uid})
 WHERE ku.embedding IS NULL OR ku.embedding_version <> 'v2'
-SET ku.embedding = ai.text.embed(ku.content, 'text-embedding-3-small'),
+SET ku.embedding = genai.vector.encode(
+    ku.content,
+    'OpenAI',
+    {
+        token: $openai_api_key,
+        model: $model,
+        dimensions: $dimensions
+    }
+),
     ku.embedding_version = 'v2',
     ku.embedding_updated_at = datetime()
 RETURN ku.uid
@@ -231,7 +299,15 @@ WITH ku,
           WHEN ku.embedding_version <> $current_version THEN true
           ELSE false END AS needs_update
 WHERE needs_update = true
-SET ku.embedding = ai.text.embed(ku.content, $model),
+SET ku.embedding = genai.vector.encode(
+    ku.content,
+    'OpenAI',
+    {
+        token: $openai_api_key,
+        model: $model,
+        dimensions: $dimensions
+    }
+),
     ku.embedding_version = $current_version
 RETURN ku.uid
 ```
@@ -240,18 +316,31 @@ RETURN ku.uid
 
 **Optimal batch size: 50 items** (balance between API limits and throughput)
 
+**Important:** `genai.vector.encodeBatch()` requires passing texts and configuration in specific format.
+
 ```cypher
-MATCH (ku:KnowledgeUnit)
-WHERE ku.embedding IS NULL
-WITH collect(ku) AS kus LIMIT 50
-UNWIND kus AS ku
-WITH ku, ai.text.embedBatch([k.content | k IN kus], 'text-embedding-3-small') AS embeddings
-SET ku.embedding = embeddings[apoc.coll.indexOf(kus, ku)],
-    ku.embedding_version = 'v2'
-RETURN count(ku) AS embedded_count
+// Batch embedding pattern (simplified - use from Python driver)
+CALL genai.vector.encodeBatch(
+    $texts,  // List of texts from Python
+    'OpenAI',
+    {
+        token: $openai_api_key,
+        model: 'text-embedding-3-small',
+        dimensions: 1536
+    }
+)
+YIELD index, embedding
+RETURN index, embedding
+ORDER BY index
 ```
 
-**Resilient batch with fallback:**
+**Python driver pattern (recommended for batch operations):**
+```python
+# See Python Integration section below for complete batch embedding pattern
+# Batch operations are better handled in Python with proper error isolation
+```
+
+**Resilient batch with fallback (individual embeddings):**
 ```cypher
 MATCH (ku:KnowledgeUnit)
 WHERE ku.embedding IS NULL
@@ -259,7 +348,15 @@ WITH collect(ku) AS batch LIMIT 50
 CALL {
   WITH batch
   UNWIND batch AS ku
-  SET ku.embedding = ai.text.embed(ku.content, 'text-embedding-3-small'),
+  SET ku.embedding = genai.vector.encode(
+      ku.content,
+      'OpenAI',
+      {
+          token: $openai_api_key,
+          model: 'text-embedding-3-small',
+          dimensions: 1536
+      }
+  ),
       ku.embedding_version = 'v2'
   RETURN count(ku) AS success_count
 }
@@ -271,7 +368,15 @@ RETURN success_count
 **Full metadata pattern:**
 ```cypher
 MATCH (ku:KnowledgeUnit {uid: $uid})
-SET ku.embedding = ai.text.embed(ku.content, $model),
+SET ku.embedding = genai.vector.encode(
+    ku.content,
+    'OpenAI',
+    {
+        token: $openai_api_key,
+        model: $model,
+        dimensions: $dimensions
+    }
+),
     ku.embedding_version = $version,          // 'v2' = text-embedding-3-small
     ku.embedding_model = $model,              // 'text-embedding-3-small'
     ku.embedding_dimensions = $dimensions,    // 1536
@@ -393,12 +498,12 @@ RETURN sum(links) AS total_relationships
 ❌ **Embedding without version tracking:**
 ```cypher
 // BAD - no way to know if re-embedding needed
-SET ku.embedding = ai.text.embed(ku.content, 'text-embedding-3-small')
+SET ku.embedding = genai.vector.encode(ku.content, 'OpenAI', {token: $key, model: 'text-embedding-3-small'})
 ```
 
 ✅ **Good - version tracked:**
 ```cypher
-SET ku.embedding = ai.text.embed(ku.content, 'text-embedding-3-small'),
+SET ku.embedding = genai.vector.encode(ku.content, 'OpenAI', {token: $key, model: 'text-embedding-3-small'}),
     ku.embedding_version = 'v2'
 ```
 
@@ -433,14 +538,14 @@ RETURN node, score
 ```cypher
 // BAD - wastes money
 MATCH (ku:KnowledgeUnit)
-SET ku.embedding = ai.text.embed(ku.content, ...)
+SET ku.embedding = genai.vector.encode(ku.content, 'OpenAI', {...})
 ```
 
 ✅ **Good - conditional update:**
 ```cypher
 MATCH (ku:KnowledgeUnit)
 WHERE ku.embedding IS NULL OR ku.embedding_version <> 'v2'
-SET ku.embedding = ai.text.embed(ku.content, ...)
+SET ku.embedding = genai.vector.encode(ku.content, 'OpenAI', {token: $key, ...})
 ```
 
 ## Python Integration
@@ -1500,14 +1605,14 @@ await embeddings_service.generate_embeddings_batch(texts)
 ```
 
 ❌ **Ignoring version tracking:**
-```python
+```cypher
 # BAD - no way to know when to re-embed
-SET ku.embedding = ai.text.embed(ku.content, 'text-embedding-3-small')
+SET ku.embedding = genai.vector.encode(ku.content, 'OpenAI', {token: $key, model: 'text-embedding-3-small'})
 ```
 
 ✅ **Good - version metadata:**
-```python
-SET ku.embedding = ai.text.embed(ku.content, 'text-embedding-3-small'),
+```cypher
+SET ku.embedding = genai.vector.encode(ku.content, 'OpenAI', {token: $key, model: 'text-embedding-3-small'}),
     ku.embedding_version = 'v2',
     ku.embedding_updated_at = datetime()
 ```
@@ -1522,6 +1627,114 @@ min_similarity=0.5  # Too low!
 ```python
 min_similarity=0.7  # Good balance
 # Or 0.85 for semantic relationships
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+**Issue: "Unknown function 'ai.text.embed'"**
+- **Cause:** Using outdated function names from older documentation
+- **Solution:** Use `genai.vector.encode()` instead of `ai.text.embed()`, and `genai.vector.encodeBatch()` instead of `ai.text.embedBatch()`
+- **Context:** Neo4j 2025.12.1+ uses the `genai.*` namespace
+
+**Issue: "'token' is expected to have been set"**
+- **Cause:** Missing OpenAI API key in function call
+- **Solution:** Pass API key as `token` parameter in configuration object:
+```python
+query = """
+RETURN genai.vector.encode(
+    $text,
+    'OpenAI',
+    {
+        token: $openai_api_key,  # REQUIRED for local Neo4j
+        model: $model,
+        dimensions: $dimensions
+    }
+) AS embedding
+"""
+```
+
+**Issue: "'list' object has no attribute 'get'"**
+- **Cause:** Incorrect result unpacking from `execute_query()`
+- **Solution:** Unpack the tuple returned by `execute_query()`:
+```python
+# Wrong:
+result = await driver.execute_query(query, params)
+embedding = result[0]["embedding"]  # ❌ Fails
+
+# Correct:
+records, summary, keys = await driver.execute_query(query, params)
+embedding = records[0]["embedding"]  # ✅ Works
+```
+
+**Issue: GenAI plugin not found**
+- **Cause:** Plugin not enabled in Docker container
+- **Solution:** Add to `docker-compose.yml`:
+```yaml
+environment:
+  NEO4J_PLUGINS: '["genai"]'  # Auto-loads plugin
+  NEO4J_dbms_security_procedures_unrestricted: "genai.*"
+  NEO4J_dbms_security_procedures_allowlist: "genai.*"
+```
+
+**Issue: Neo4j authentication failure after password change**
+- **Cause:** Old data directory still exists (bind-mount volumes persist)
+- **Solution:** Delete Neo4j data directory and restart:
+```bash
+cd /path/to/infrastructure
+rm -rf neo4j/data/*
+docker compose up -d
+```
+
+**Issue: "OPENAI_API_KEY not set" warning in Python**
+- **Cause:** .env file not loaded before importing services
+- **Solution:** Add at top of script:
+```python
+from dotenv import load_dotenv
+load_dotenv()  # BEFORE importing services
+```
+
+**Issue: Embeddings work in Neo4j Browser but fail in Python**
+- **Cause:** Parameter name mismatch or missing configuration
+- **Solution:** Verify parameter names match between Python and Cypher:
+```python
+params = {
+    "text": text,
+    "openai_api_key": self.openai_api_key,  # Match $openai_api_key in Cypher
+    "model": self.model,
+    "dimensions": self.dimension,
+}
+```
+
+### Verification Commands
+
+**Check GenAI plugin is loaded:**
+```cypher
+CALL dbms.procedures() YIELD name
+WHERE name STARTS WITH 'genai'
+RETURN name
+ORDER BY name
+```
+
+**Test embedding generation:**
+```cypher
+RETURN genai.vector.encode(
+    'test text',
+    'OpenAI',
+    {
+        token: 'your-openai-api-key-here',
+        model: 'text-embedding-3-small',
+        dimensions: 1536
+    }
+) AS embedding
+```
+
+**Check vector indexes:**
+```cypher
+SHOW VECTOR INDEXES
 ```
 
 ---

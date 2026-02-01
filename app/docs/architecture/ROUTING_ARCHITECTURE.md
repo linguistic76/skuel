@@ -765,7 +765,7 @@ class TasksService:
 **Philosophy Change (January 2026):**
 - **REQUIRED**: Neo4j (graph database), Deepgram (audio transcription) - fail fast if missing
 - **OPTIONAL**: OpenAI API (AI features) - graceful degradation with basic features if missing
-- Neo4j GenAI embeddings and vector search services enabled via Neo4j AuraDB GenAI Plugin
+- Neo4j GenAI embeddings and vector search services enabled via Neo4j GenAI Plugin (Docker/AuraDB)
 
 ```python
 # File: /core/utils/services_bootstrap.py
@@ -813,7 +813,8 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
 
     # 4. Create Neo4j GenAI services (January 2026 - Vector Search Integration)
     # Uses Neo4j's native GenAI plugin for embeddings and vector search
-    # API keys configured at database level (AuraDB console)
+    # Docker: API key via environment variable (per-query token)
+    # AuraDB: API key at database level (see /docs/deployment/AURADB_MIGRATION_GUIDE.md)
     try:
         genai_embeddings_service = Neo4jGenAIEmbeddingsService(driver)
         vector_search_service = Neo4jVectorSearchService(driver, genai_embeddings_service)
