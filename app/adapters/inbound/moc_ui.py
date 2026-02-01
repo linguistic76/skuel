@@ -437,6 +437,37 @@ class MOCUIComponents:
 
 
 # ============================================================================
+# TYPED QUERY PARAMETERS
+# ============================================================================
+
+
+from dataclasses import dataclass
+from starlette.requests import Request
+
+
+@dataclass
+class MocFilters:
+    """Typed filters for MOC list queries."""
+
+    domain: str
+
+
+def parse_moc_filters(request: Request) -> MocFilters:
+    """
+    Extract MOC filter parameters from request query params.
+
+    Args:
+        request: Starlette request object
+
+    Returns:
+        Typed MocFilters with defaults applied
+    """
+    return MocFilters(
+        domain=request.query_params.get("domain", "all"),
+    )
+
+
+# ============================================================================
 # ROUTE FACTORY
 # ============================================================================
 
@@ -665,10 +696,10 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
     @rt("/moc/filter")
     async def moc_filter_fragment(request) -> Any:
         """Filter MOCs by domain (HTMX fragment)."""
-        params = dict(request.query_params)
-        params.get("domain", "all")
+        # Parse typed filters
+        filters = parse_moc_filters(request)
 
-        # Would filter from service
+        # Would filter from service using filters.domain
         return P("Filtered MOCs will appear here", cls="text-gray-500")
 
     # ========================================================================

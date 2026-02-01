@@ -22,6 +22,53 @@ from ui.primitives.button import Button
 logger = get_logger("skuel.routes.insights.ui")
 
 
+# ============================================================================
+# TYPED QUERY PARAMETERS
+# ============================================================================
+
+
+from dataclasses import dataclass
+from starlette.requests import Request
+
+
+@dataclass
+class InsightsFilters:
+    """Typed filters for insights list queries."""
+
+    domain: str | None
+    impact: str | None
+    search: str
+    insight_type: str | None
+    action_status: str | None
+    offset: int
+
+
+def parse_insights_filters(request: Request) -> InsightsFilters:
+    """
+    Extract insights filter parameters from request query params.
+
+    Args:
+        request: Starlette request object
+
+    Returns:
+        Typed InsightsFilters with defaults applied
+    """
+    # Parse offset as integer
+    try:
+        offset = int(request.query_params.get("offset", 0))
+    except (ValueError, TypeError):
+        offset = 0
+
+    return InsightsFilters(
+        domain=request.query_params.get("domain"),
+        impact=request.query_params.get("impact"),
+        search=request.query_params.get("search", ""),
+        insight_type=request.query_params.get("type"),
+        action_status=request.query_params.get("status"),
+        offset=offset,
+    )
+
+
 def create_insights_ui_routes(
     app: Any,
     rt: Any,
@@ -43,19 +90,14 @@ def create_insights_ui_routes(
         """Display active insights dashboard with filtering."""
         user_uid = require_authenticated_user(request)
 
-        # Get query params for filtering
-        params = request.query_params
-        domain_filter = params.get("domain")
-        impact_filter = params.get("impact")
-        search_query = params.get("search", "")
-        insight_type_filter = params.get("type")
-        action_status = params.get("status")  # 'all', 'unactioned', 'actioned'
+        # Parse typed filter parameters
+        filters = parse_insights_filters(request)
 
         # Phase 2, Task 8: Progressive loading - load 10 initially for fast page load
         page_size = 10
         result = await insight_store.get_active_insights(
             user_uid=user_uid,
-            domain=domain_filter,
+            domain=filters.domain,
             limit=page_size,  # Initial load: 10 insights only
         )
 
@@ -66,19 +108,19 @@ def create_insights_ui_routes(
             insights = result.value
 
             # Apply filters (client-side for now - would be server-side in production)
-            if impact_filter:
-                insights = [i for i in insights if i.impact.value == impact_filter]
+            if filters.impact:
+                insights = [i for i in insights if i.impact.value == filters.impact]
 
-            if insight_type_filter:
-                insights = [i for i in insights if i.insight_type.value == insight_type_filter]
+            if filters.insight_type:
+                insights = [i for i in insights if i.insight_type.value == filters.insight_type]
 
-            if action_status == "unactioned":
+            if filters.action_status == "unactioned":
                 insights = [i for i in insights if not i.actioned]
-            elif action_status == "actioned":
+            elif filters.action_status == "actioned":
                 insights = [i for i in insights if i.actioned]
 
-            if search_query:
-                search_lower = search_query.lower()
+            if filters.search:
+                search_lower = filters.search.lower()
                 insights = [
                     i
                     for i in insights
@@ -262,16 +304,16 @@ def create_insights_ui_routes(
         if insights:
             # Encode filters for load-more URL
             filter_params = []
-            if domain_filter:
-                filter_params.append(f"domain={domain_filter}")
-            if impact_filter:
-                filter_params.append(f"impact={impact_filter}")
-            if search_query:
-                filter_params.append(f"search={search_query}")
-            if insight_type_filter:
-                filter_params.append(f"type={insight_type_filter}")
-            if action_status:
-                filter_params.append(f"status={action_status}")
+            if filters.domain:
+                filter_params.append(f"domain={filters.domain}")
+            if filters.impact:
+                filter_params.append(f"impact={filters.impact}")
+            if filters.search:
+                filter_params.append(f"search={filters.search}")
+            if filters.insight_type:
+                filter_params.append(f"type={filters.insight_type}")
+            if filters.action_status:
+                filter_params.append(f"status={filters.action_status}")
 
             filter_query = "&".join(filter_params)
             load_more_url = (
@@ -495,21 +537,14 @@ def create_insights_ui_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        # Get query params
-        params = request.query_params
-        offset = int(params.get("offset", 0))
+        # Parse typed filter parameters
+        filters = parse_insights_filters(request)
         page_size = 10
-
-        domain_filter = params.get("domain")
-        impact_filter = params.get("impact")
-        search_query = params.get("search", "")
-        insight_type_filter = params.get("type")
-        action_status = params.get("status")
 
         # Get next batch of insights
         result = await insight_store.get_active_insights(
             user_uid=user_uid,
-            domain=domain_filter,
+            domain=filters.domain,
             limit=page_size + offset,  # Get all up to this point
         )
 
@@ -520,16 +555,16 @@ def create_insights_ui_routes(
         all_insights = result.value
 
         # Apply same filters as main dashboard
-        if impact_filter:
-            all_insights = [i for i in all_insights if i.impact.value == impact_filter]
-        if insight_type_filter:
-            all_insights = [i for i in all_insights if i.insight_type.value == insight_type_filter]
-        if action_status == "unactioned":
+        if filters.impact:
+            all_insights = [i for i in all_insights if i.impact.value == filters.impact]
+        if filters.insight_type:
+            all_insights = [i for i in all_insights if i.insight_type.value == filters.insight_type]
+        if filters.action_status == "unactioned":
             all_insights = [i for i in all_insights if not i.actioned]
-        elif action_status == "actioned":
+        elif filters.action_status == "actioned":
             all_insights = [i for i in all_insights if i.actioned]
-        if search_query:
-            search_lower = search_query.lower()
+        if filters.search:
+            search_lower = filters.search.lower()
             all_insights = [
                 i
                 for i in all_insights
@@ -537,30 +572,30 @@ def create_insights_ui_routes(
             ]
 
         # Get only the new batch (slice from offset)
-        new_insights = all_insights[offset : offset + page_size]
+        new_insights = all_insights[filters.offset : filters.offset + page_size]
 
         if not new_insights:
             # No more insights - return end marker
             return Div(
-                P("No more insights to load", cls="text-center text-base-content/50 py-4"),
+                P("No more insights to load", cls="text-center text-base-content/60 py-4"),
                 id="load-more-trigger",
             )
 
         # Encode filters for next load-more URL
         filter_params = []
-        if domain_filter:
-            filter_params.append(f"domain={domain_filter}")
-        if impact_filter:
-            filter_params.append(f"impact={impact_filter}")
-        if search_query:
-            filter_params.append(f"search={search_query}")
-        if insight_type_filter:
-            filter_params.append(f"type={insight_type_filter}")
-        if action_status:
-            filter_params.append(f"status={action_status}")
+        if filters.domain:
+            filter_params.append(f"domain={filters.domain}")
+        if filters.impact:
+            filter_params.append(f"impact={filters.impact}")
+        if filters.search:
+            filter_params.append(f"search={filters.search}")
+        if filters.insight_type:
+            filter_params.append(f"type={filters.insight_type}")
+        if filters.action_status:
+            filter_params.append(f"status={filters.action_status}")
 
         filter_query = "&".join(filter_params)
-        next_offset = offset + page_size
+        next_offset = filters.offset + page_size
         next_url = (
             f"/insights/load-more?offset={next_offset}&{filter_query}"
             if filter_query

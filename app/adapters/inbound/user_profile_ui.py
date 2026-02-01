@@ -158,6 +158,37 @@ def error_page(message: str, status_code: int, user_display_name: str = "User") 
 
 
 # ============================================================================
+# TYPED QUERY PARAMETERS
+# ============================================================================
+
+
+from dataclasses import dataclass
+from starlette.requests import Request
+
+
+@dataclass
+class ProfileParams:
+    """Typed parameters for profile page deep linking."""
+
+    focus: str | None
+
+
+def parse_profile_params(request: Request) -> ProfileParams:
+    """
+    Extract profile parameters from request query params.
+
+    Args:
+        request: Starlette request object
+
+    Returns:
+        Typed ProfileParams with defaults applied
+    """
+    return ProfileParams(
+        focus=request.query_params.get("focus"),
+    )
+
+
+# ============================================================================
 # ROUTE SETUP
 # ============================================================================
 
@@ -279,7 +310,7 @@ def setup_user_profile_routes(rt, services):
                 P("Failed to save preferences. Please try again.", cls="text-error"),
                 P(
                     "If this problem persists, contact support.",
-                    cls="text-sm text-base-content/50 mt-2",
+                    cls="text-sm text-base-content/60 mt-2",
                 ),
                 cls="p-4",
             )
@@ -688,8 +719,9 @@ def setup_user_profile_routes(rt, services):
 
         user_uid = require_authenticated_user(request)
 
-        # Extract focus parameter for deep linking (Phase 3, Task 11)
-        focus_uid = request.query_params.get("focus")
+        # Parse typed parameters for deep linking (Phase 3, Task 11)
+        params = parse_profile_params(request)
+        focus_uid = params.focus
 
         # Get user and context - ONE PATH (no fallback)
         try:

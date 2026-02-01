@@ -281,6 +281,93 @@ class KnowledgeUIComponents:
 
 
 # ============================================================================
+# PURE COMPUTATION HELPERS (Testable without mocks)
+# ============================================================================
+
+
+def validate_ku_form_data(form_data: dict[str, Any]) -> "Result[None]":
+    """
+    Validate knowledge unit form data early.
+
+    Pure function: returns clear error messages for UI.
+
+    Args:
+        form_data: Raw form data from request
+
+    Returns:
+        Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
+    """
+    from core.models.shared_enums import Domain
+    from core.utils.result_simplified import Errors, Result
+
+    # Required: title
+    title = form_data.get("title", "").strip()
+    if not title:
+        return Result.fail(Errors.validation("Knowledge title is required"))
+    if len(title) > 200:
+        return Result.fail(Errors.validation("Title must be 200 characters or less"))
+
+    # Required: content
+    content = form_data.get("content", "").strip()
+    if not content:
+        return Result.fail(Errors.validation("Knowledge content is required"))
+
+    # Required: domain
+    domain = form_data.get("domain", "").strip()
+    if not domain:
+        return Result.fail(Errors.validation("Knowledge domain is required"))
+
+    # Validate domain is valid enum value
+    try:
+        Domain(domain)
+    except ValueError:
+        valid_domains = [d.value for d in Domain]
+        return Result.fail(
+            Errors.validation(f"Invalid domain. Must be one of: {', '.join(valid_domains)}")
+        )
+
+    # Optional: complexity (if provided, must be valid)
+    complexity = form_data.get("complexity", "").strip()
+    if complexity and complexity not in ["basic", "medium", "advanced"]:
+        return Result.fail(
+            Errors.validation("Complexity must be 'basic', 'medium', or 'advanced'")
+        )
+
+    return Result.ok(None)
+
+
+# ============================================================================
+# TYPED QUERY PARAMETERS
+# ============================================================================
+
+
+from dataclasses import dataclass
+from starlette.requests import Request
+
+
+@dataclass
+class KnowledgeFilters:
+    """Typed filters for knowledge unit list queries."""
+
+    domain: str
+
+
+def parse_knowledge_filters(request: Request) -> KnowledgeFilters:
+    """
+    Extract knowledge filter parameters from request query params.
+
+    Args:
+        request: Starlette request object
+
+    Returns:
+        Typed KnowledgeFilters with defaults applied
+    """
+    return KnowledgeFilters(
+        domain=request.query_params.get("domain", "all"),
+    )
+
+
+# ============================================================================
 # CLEAN UI ROUTES - Component-based rendering only
 # ============================================================================
 
@@ -301,13 +388,28 @@ def create_knowledge_ui_routes(_app, rt, ku_service):
     @rt("/knowledge")
     async def knowledge_dashboard(request) -> Any:
         """Main knowledge dashboard - pure component rendering"""
+        from ui.layouts.base_page import BasePage
+        from ui.patterns.error_banner import render_error_banner
+
         # Fetch real knowledge units from service
         # KU is shared curriculum content (not user-owned)
-        knowledge = []
         if ku_service and hasattr(ku_service, "core") and hasattr(ku_service.core, "backend"):
             result = await ku_service.core.list(limit=50)
-            if not result.is_error:
-                knowledge = result.value if result.value else []
+
+            # Check for errors FIRST, show user-friendly message
+            if result.is_error:
+                return BasePage(
+                    content=render_error_banner(
+                        "Unable to load knowledge units. Please try again later.",
+                        result.error.message
+                    ),
+                    title="Knowledge",
+                    request=request
+                )
+
+            knowledge = result.value if result.value else []
+        else:
+            knowledge = []
 
         # Calculate stats from real data
         domains = set(getattr(k, "domain", None) for k in knowledge if getattr(k, "domain", None))
@@ -356,22 +458,33 @@ def create_knowledge_ui_routes(_app, rt, ku_service):
     @rt("/knowledge/filter")
     async def knowledge_filter_fragment(request) -> Any:
         """Return filtered knowledge fragment for HTMX updates"""
-        params = dict(request.query_params)
-        domain_filter = params.get("domain", "all")
+        from ui.patterns.error_banner import render_error_banner
+
+        # Parse typed filters
+        filters = parse_knowledge_filters(request)
 
         # Fetch real knowledge from service
-        knowledge = []
         if ku_service and hasattr(ku_service, "core") and hasattr(ku_service.core, "backend"):
             result = await ku_service.core.list(limit=50)
-            if not result.is_error and result.value:
-                knowledge = result.value
-                # Apply domain filter if specified
-                if domain_filter and domain_filter != "all":
-                    knowledge = [
-                        k
-                        for k in knowledge
-                        if str(getattr(k, "domain", "")).upper() == domain_filter.upper()
-                    ]
+
+            # Check for errors FIRST, show user-friendly message
+            if result.is_error:
+                return render_error_banner(
+                    "Unable to load knowledge units. Please try again later.",
+                    result.error.message
+                )
+
+            knowledge = result.value if result.value else []
+
+            # Apply domain filter if specified
+            if filters.domain and filters.domain != "all":
+                knowledge = [
+                    k
+                    for k in knowledge
+                    if str(getattr(k, "domain", "")).upper() == filters.domain.upper()
+                ]
+        else:
+            knowledge = []
 
         return (
             Div(

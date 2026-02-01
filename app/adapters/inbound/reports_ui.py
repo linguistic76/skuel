@@ -156,7 +156,7 @@ class ReportsUIComponents:
                 H2(report.title, cls="text-xl font-bold mb-2"),
                 P(
                     f"{report.format_period()} • Generated {report.generated_at.strftime('%Y-%m-%d %H:%M')}",
-                    cls="text-base-content/50 text-sm",
+                    cls="text-base-content/60 text-sm",
                 ),
                 cls="card bg-base-100 shadow-sm p-6 mb-4",
             ),
@@ -394,7 +394,7 @@ class ReportsUIComponents:
         if not alignment_data or not alignment_data.get("life_path_uid"):
             return Div(
                 P("No Life Path designated yet. Set your Life Path to track alignment."),
-                cls="text-base-content/50 p-4",
+                cls="text-base-content/60 p-4",
             )
 
         life_path_title = alignment_data.get("life_path_title", "Unknown")
@@ -510,7 +510,7 @@ class ReportsUIComponents:
         - Cross-layer insights
         """
         if not summary_data:
-            return Div(P("No data available for this period."), cls="text-base-content/50 p-4")
+            return Div(P("No data available for this period."), cls="text-base-content/60 p-4")
 
         period = summary_data.get("period", {})
         start_date = period.get("start", "")
@@ -635,6 +635,63 @@ class ReportsUIComponents:
 
 
 # ============================================================================
+# TYPED QUERY PARAMETERS
+# ============================================================================
+
+
+from dataclasses import dataclass
+from starlette.requests import Request
+
+
+@dataclass
+class PeriodParams:
+    """Typed parameters for period selection."""
+
+    period: str
+
+
+@dataclass
+class ReportViewParams:
+    """Typed parameters for report viewing."""
+
+    user_uid: str
+    report_type: str
+    period: str
+
+
+@dataclass
+class UserReportParams:
+    """Typed parameters for user-specific reports."""
+
+    user_uid: str
+    start_date: str | None
+
+
+def parse_period_params(request: Request) -> PeriodParams:
+    """Extract period parameters from request query params."""
+    return PeriodParams(
+        period=request.query_params.get("period", ""),
+    )
+
+
+def parse_report_view_params(request: Request) -> ReportViewParams:
+    """Extract report view parameters from request query params."""
+    return ReportViewParams(
+        user_uid=request.query_params.get("user_uid", "user.default"),
+        report_type=request.query_params.get("report_type", "tasks"),
+        period=request.query_params.get("period", "month_current"),
+    )
+
+
+def parse_user_report_params(request: Request) -> UserReportParams:
+    """Extract user report parameters from request query params."""
+    return UserReportParams(
+        user_uid=request.query_params.get("user_uid", "user.default"),
+        start_date=request.query_params.get("start_date"),
+    )
+
+
+# ============================================================================
 # ROUTE HANDLERS
 # ============================================================================
 
@@ -660,39 +717,37 @@ def create_reports_ui_routes(app, rt, reports_service):
     @app.get("/ui/reports/period-fields")
     async def get_period_fields(request) -> Any:
         """Get dynamic period input fields"""
-        params = dict(request.query_params)
-        period = params.get("period", "")
+        # Parse typed parameters
+        params = parse_period_params(request)
 
-        return ReportsUIComponents.render_period_fields(period)
+        return ReportsUIComponents.render_period_fields(params.period)
 
     @app.get("/ui/reports/view")
     async def view_report(request) -> Any:
         """Generate and view a report"""
         try:
-            params = dict(request.query_params)
-            user_uid = params.get("user_uid", "user.default")
-            report_type_str = params.get("report_type", "tasks")
-            period = params.get("period", "month_current")
+            # Parse typed parameters
+            params = parse_report_view_params(request)
 
             # Parse report type
-            report_type = ReportType(report_type_str)
+            report_type = ReportType(params.report_type)
 
             # Calculate dates based on period
-            if period == "week_current":
+            if params.period == "week_current":
                 today = date.today()
                 week_start = today - timedelta(days=today.weekday())
                 result = await reports_service.generate_weekly_report(
-                    user_uid, report_type, week_start
+                    params.user_uid, report_type, week_start
                 )
-            elif period == "month_current":
+            elif params.period == "month_current":
                 today = date.today()
                 result = await reports_service.generate_monthly_report(
-                    user_uid, report_type, today.year, today.month
+                    params.user_uid, report_type, today.year, today.month
                 )
-            elif period == "year_current":
+            elif params.period == "year_current":
                 today = date.today()
                 result = await reports_service.generate_yearly_report(
-                    user_uid, report_type, today.year
+                    params.user_uid, report_type, today.year
                 )
             # Add more period handling...
             else:
@@ -723,12 +778,12 @@ def create_reports_ui_routes(app, rt, reports_service):
     @app.get("/ui/reports/life-path-alignment")
     async def life_path_alignment_ui(request) -> Any:
         """Render Life Path alignment dashboard UI"""
-        params = dict(request.query_params)
-        user_uid = params.get("user_uid", "user.default")
+        # Parse typed parameters
+        params = parse_user_report_params(request)
 
         try:
             # Get alignment data from service
-            result = await reports_service.calculate_life_path_alignment(user_uid)
+            result = await reports_service.calculate_life_path_alignment(params.user_uid)
 
             if result.is_error:
                 return Div(P(f"Error: {result.expect_error().message}", cls="text-error p-4"))
@@ -747,24 +802,23 @@ def create_reports_ui_routes(app, rt, reports_service):
     @app.get("/ui/reports/weekly-life-summary")
     async def weekly_life_summary_ui(request) -> Any:
         """Render weekly life summary UI (ALL layers)"""
-        params = dict(request.query_params)
-        user_uid = params.get("user_uid", "user.default")
-        start_date_str = params.get("start_date")
+        # Parse typed parameters
+        params = parse_user_report_params(request)
 
         try:
             # Parse start date if provided
-            if start_date_str:
+            if params.start_date:
                 try:
-                    start_date = date.fromisoformat(start_date_str)
+                    start_date = date.fromisoformat(params.start_date)
                 except ValueError:
                     return Div(P("Invalid date format. Use YYYY-MM-DD.", cls="text-error p-4"))
 
                 result = await reports_service.generate_weekly_life_summary(
-                    user_uid, week_start=start_date
+                    params.user_uid, week_start=start_date
                 )
             else:
                 # Default to current week
-                result = await reports_service.generate_weekly_life_summary(user_uid)
+                result = await reports_service.generate_weekly_life_summary(params.user_uid)
 
             if result.is_error:
                 return Div(P(f"Error: {result.expect_error().message}", cls="text-error p-4"))

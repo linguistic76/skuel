@@ -163,11 +163,11 @@ def _render_assignment_detail(assignment: Any) -> Any:
     return Div(
         Div(
             Div(
-                P("Filename", cls="text-xs text-base-content/50 mb-0"),
+                P("Filename", cls="text-xs text-base-content/60 mb-0"),
                 P(assignment.original_filename, cls="mb-0 font-bold"),
             ),
             Div(
-                P("Status", cls="text-xs text-base-content/50 mb-0"),
+                P("Status", cls="text-xs text-base-content/60 mb-0"),
                 P(
                     Span(
                         assignment.status,
@@ -177,19 +177,19 @@ def _render_assignment_detail(assignment: Any) -> Any:
                 ),
             ),
             Div(
-                P("Type", cls="text-xs text-base-content/50 mb-0"),
+                P("Type", cls="text-xs text-base-content/60 mb-0"),
                 P(assignment.assignment_type, cls="mb-0"),
             ),
             Div(
-                P("File Size", cls="text-xs text-base-content/50 mb-0"),
+                P("File Size", cls="text-xs text-base-content/60 mb-0"),
                 P(f"{file_size_mb:.2f} MB", cls="mb-0"),
             ),
             Div(
-                P("Processing Duration", cls="text-xs text-base-content/50 mb-0"),
+                P("Processing Duration", cls="text-xs text-base-content/60 mb-0"),
                 P(f"{processing_duration or 'N/A'} seconds", cls="mb-0"),
             ),
             Div(
-                P("Created", cls="text-xs text-base-content/50 mb-0"),
+                P("Created", cls="text-xs text-base-content/60 mb-0"),
                 P(str(created_at) if created_at else "N/A", cls="mb-0"),
             ),
             cls="grid grid-cols-1 md:grid-cols-2 gap-4",
@@ -344,6 +344,39 @@ def _render_status_buttons(assignment: Any) -> Any:
         ),
         id=f"status-buttons-{assignment.uid}",
         cls="p-4 bg-base-200 rounded-lg",
+    )
+
+
+# ============================================================================
+# TYPED QUERY PARAMETERS
+# ============================================================================
+
+
+from dataclasses import dataclass
+from starlette.requests import Request
+
+
+@dataclass
+class AssignmentFilters:
+    """Typed filters for assignment list queries."""
+
+    assignment_type: str
+    status: str
+
+
+def parse_assignment_filters(request: Request) -> AssignmentFilters:
+    """
+    Extract assignment filter parameters from request query params.
+
+    Args:
+        request: Starlette request object
+
+    Returns:
+        Typed AssignmentFilters with defaults applied
+    """
+    return AssignmentFilters(
+        assignment_type=request.query_params.get("assignment_type", ""),
+        status=request.query_params.get("status", ""),
     )
 
 
@@ -735,16 +768,15 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
         try:
             user_uid = require_authenticated_user(request)  # Enforce authentication
 
-            # Get filter parameters from query string
-            assignment_type = request.query_params.get("assignment_type", "")
-            status = request.query_params.get("status", "")
+            # Parse typed filter parameters
+            filters = parse_assignment_filters(request)
 
             # Build filter kwargs
             kwargs = {"user_uid": user_uid, "limit": 50}
-            if assignment_type:
-                kwargs["assignment_type"] = assignment_type
-            if status:
-                kwargs["status"] = status
+            if filters.assignment_type:
+                kwargs["assignment_type"] = filters.assignment_type
+            if filters.status:
+                kwargs["status"] = filters.status
 
             result = await _assignment_service.list_assignments(**kwargs)
 

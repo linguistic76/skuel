@@ -305,28 +305,49 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
     @require_admin(get_user_service)
     async def finance_expenses(request: Request, current_user) -> Any:
         """Expense tracking page with list and create form."""
-        logger.info(f"Finance expenses accessed by {current_user.uid}")
+        from ui.layouts.base_page import BasePage
+        from ui.patterns.error_banner import render_error_banner
 
-        expenses = []
-        total_count = 0
+        logger.info(f"Finance expenses accessed by {current_user.uid}")
 
         try:
             expenses_result = await finance_service.list_expenses(limit=QueryLimit.COMPREHENSIVE)
-            if expenses_result and expenses_result.is_ok and expenses_result.value:
-                expenses_list, total_count = expenses_result.value
-                expenses = [
-                    {
-                        "uid": exp.uid,
-                        "description": exp.description,
-                        "amount": exp.amount,
-                        "category": getattr(exp, "category", ""),
-                        "expense_date": str(getattr(exp, "expense_date", "")),
-                        "status": getattr(exp, "status", "PENDING"),
-                    }
-                    for exp in expenses_list
-                ]
+
+            # Check for errors FIRST, show user-friendly message (main content failure)
+            if not expenses_result or expenses_result.is_error:
+                error_msg = expenses_result.error.message if expenses_result else "Service unavailable"
+                return BasePage(
+                    content=render_error_banner(
+                        "Unable to load expenses. Please try again later.",
+                        error_msg
+                    ),
+                    title="Expenses",
+                    request=request
+                )
+
+            # Safe to access value
+            expenses_list, total_count = expenses_result.value or ([], 0)
+            expenses = [
+                {
+                    "uid": exp.uid,
+                    "description": exp.description,
+                    "amount": exp.amount,
+                    "category": getattr(exp, "category", ""),
+                    "expense_date": str(getattr(exp, "expense_date", "")),
+                    "status": getattr(exp, "status", "PENDING"),
+                }
+                for exp in expenses_list
+            ]
         except Exception as e:
-            logger.warning(f"Could not fetch expenses: {e}")
+            logger.error(f"Unexpected error fetching expenses: {e}")
+            return BasePage(
+                content=render_error_banner(
+                    "An unexpected error occurred. Please try again later.",
+                    str(e)
+                ),
+                title="Expenses",
+                request=request
+            )
 
         # Categories for filter
         categories = [

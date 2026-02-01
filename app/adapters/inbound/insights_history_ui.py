@@ -22,6 +22,37 @@ from ui.primitives.badge import Badge
 logger = get_logger("skuel.routes.insights.history")
 
 
+# ============================================================================
+# TYPED QUERY PARAMETERS
+# ============================================================================
+
+
+from dataclasses import dataclass
+from starlette.requests import Request
+
+
+@dataclass
+class InsightsHistoryParams:
+    """Typed parameters for insights history queries."""
+
+    history_type: str
+
+
+def parse_insights_history_params(request: Request) -> InsightsHistoryParams:
+    """
+    Extract insights history parameters from request query params.
+
+    Args:
+        request: Starlette request object
+
+    Returns:
+        Typed InsightsHistoryParams with defaults applied
+    """
+    return InsightsHistoryParams(
+        history_type=request.query_params.get("type", "all"),
+    )
+
+
 def create_insights_history_routes(
     app: Any,
     rt: Any,
@@ -46,14 +77,13 @@ def create_insights_history_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        # Get query params for filtering
-        params = request.query_params
-        history_type = params.get("type", "all")  # all, dismissed, actioned
+        # Parse typed parameters for filtering
+        params = parse_insights_history_params(request)
 
         # Get historical insights
         result = await insight_store.get_insight_history(
             user_uid=user_uid,
-            history_type=history_type,
+            history_type=params.history_type,  # all, dismissed, actioned
             limit=100,
         )
 

@@ -328,6 +328,134 @@ class LearningUIComponents:
         )
 
 
+# ============================================================================
+# PURE COMPUTATION HELPERS (Testable without mocks)
+# ============================================================================
+
+
+def validate_ls_form_data(form_data: dict[str, Any]) -> "Result[None]":
+    """
+    Validate learning step form data early.
+
+    Pure function: returns clear error messages for UI.
+
+    Args:
+        form_data: Raw form data from request
+
+    Returns:
+        Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
+    """
+    from core.utils.result_simplified import Errors, Result
+
+    # Required: title
+    title = form_data.get("title", "").strip()
+    if not title:
+        return Result.fail(Errors.validation("Learning step title is required"))
+    if len(title) > 200:
+        return Result.fail(Errors.validation("Title must be 200 characters or less"))
+
+    # Required: intent
+    intent = form_data.get("intent", "").strip()
+    if not intent:
+        return Result.fail(Errors.validation("Learning objective (intent) is required"))
+
+    # Optional: estimated_hours (if provided, must be positive)
+    estimated_hours_str = form_data.get("estimated_hours", "")
+    if estimated_hours_str:
+        try:
+            estimated_hours = float(estimated_hours_str)
+            if estimated_hours <= 0:
+                return Result.fail(Errors.validation("Estimated hours must be greater than zero"))
+        except ValueError:
+            return Result.fail(Errors.validation("Invalid estimated hours format"))
+
+    # Optional: mastery_threshold (if provided, must be 0-1)
+    mastery_threshold_str = form_data.get("mastery_threshold", "")
+    if mastery_threshold_str:
+        try:
+            mastery_threshold = float(mastery_threshold_str)
+            if not 0.0 <= mastery_threshold <= 1.0:
+                return Result.fail(
+                    Errors.validation("Mastery threshold must be between 0 and 1")
+                )
+        except ValueError:
+            return Result.fail(Errors.validation("Invalid mastery threshold format"))
+
+    return Result.ok(None)
+
+
+def validate_lp_form_data(form_data: dict[str, Any]) -> "Result[None]":
+    """
+    Validate learning path form data early.
+
+    Pure function: returns clear error messages for UI.
+
+    Args:
+        form_data: Raw form data from request
+
+    Returns:
+        Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
+    """
+    from core.models.shared_enums import Domain
+    from core.utils.result_simplified import Errors, Result
+
+    # Required: name
+    name = form_data.get("name", "").strip()
+    if not name:
+        return Result.fail(Errors.validation("Learning path name is required"))
+    if len(name) > 200:
+        return Result.fail(Errors.validation("Name must be 200 characters or less"))
+
+    # Required: goal
+    goal = form_data.get("goal", "").strip()
+    if not goal:
+        return Result.fail(Errors.validation("Learning goal is required"))
+
+    # Required: domain
+    domain = form_data.get("domain", "").strip()
+    if not domain:
+        return Result.fail(Errors.validation("Domain is required"))
+
+    # Validate domain is valid enum value
+    try:
+        Domain(domain)
+    except ValueError:
+        valid_domains = [d.value for d in Domain]
+        return Result.fail(
+            Errors.validation(f"Invalid domain. Must be one of: {', '.join(valid_domains)}")
+        )
+
+    # Optional: path_type (if provided, must be valid)
+    path_type = form_data.get("path_type", "").strip()
+    if path_type:
+        valid_types = ["structured", "adaptive", "exploratory", "remedial", "accelerated"]
+        if path_type.lower() not in valid_types:
+            return Result.fail(
+                Errors.validation(f"Path type must be one of: {', '.join(valid_types)}")
+            )
+
+    # Optional: difficulty (if provided, must be valid)
+    difficulty = form_data.get("difficulty", "").strip()
+    if difficulty:
+        valid_levels = ["beginner", "intermediate", "advanced", "expert"]
+        if difficulty.lower() not in valid_levels:
+            return Result.fail(
+                Errors.validation(f"Difficulty must be one of: {', '.join(valid_levels)}")
+            )
+
+    # Optional: estimated_hours (if provided, must be positive)
+    estimated_hours_str = form_data.get("estimated_hours", "")
+    if estimated_hours_str:
+        try:
+            estimated_hours = float(estimated_hours_str)
+            if estimated_hours <= 0:
+                return Result.fail(Errors.validation("Estimated hours must be greater than zero"))
+        except ValueError:
+            return Result.fail(Errors.validation("Invalid estimated hours format"))
+
+    return Result.ok(None)
+
+
 def create_learning_ui_routes(_app, rt, _learning_service):
     """
     Create component-based UI routes for learning management.
@@ -417,7 +545,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                                 f"{user_learning_overview.learning_stats.total_hours}",
                                 cls="text-2xl font-bold text-primary",
                             ),
-                            P("Total time invested", cls="text-xs text-base-content/50"),
+                            P("Total time invested", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         Div(
@@ -426,7 +554,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                                 str(user_learning_overview.learning_stats.concepts_mastered),
                                 cls="text-2xl font-bold text-success",
                             ),
-                            P("Across all learning paths", cls="text-xs text-base-content/50"),
+                            P("Across all learning paths", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         Div(
@@ -435,7 +563,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                                 f"{user_learning_overview.learning_stats.active_streak} Days",
                                 cls="text-2xl font-bold text-primary",
                             ),
-                            P("Consistent practice", cls="text-xs text-base-content/50"),
+                            P("Consistent practice", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         Div(
@@ -444,7 +572,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                                 f"{user_learning_overview.learning_stats.completion_rate * 100:.0f}%",
                                 cls="text-2xl font-bold text-warning",
                             ),
-                            P("Started paths finished", cls="text-xs text-base-content/50"),
+                            P("Started paths finished", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         cls="stats stats-horizontal shadow w-full",
@@ -846,19 +974,19 @@ def create_learning_ui_routes(_app, rt, _learning_service):
                         Div(
                             Span("Learning Velocity", cls="text-sm text-base-content/70"),
                             Span("2.3", cls="text-2xl font-bold text-primary"),
-                            P("concepts/day", cls="text-xs text-base-content/50"),
+                            P("concepts/day", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         Div(
                             Span("Retention Rate", cls="text-sm text-base-content/70"),
                             Span("87%", cls="text-2xl font-bold text-success"),
-                            P("knowledge retained", cls="text-xs text-base-content/50"),
+                            P("knowledge retained", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         Div(
                             Span("Efficiency Score", cls="text-sm text-base-content/70"),
                             Span("94", cls="text-2xl font-bold text-primary"),
-                            P("out of 100", cls="text-xs text-base-content/50"),
+                            P("out of 100", cls="text-xs text-base-content/60"),
                             cls="stat text-center",
                         ),
                         cls="stats stats-horizontal shadow w-full",

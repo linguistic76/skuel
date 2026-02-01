@@ -199,7 +199,7 @@ class AskesisUI:
                     cls="mr-3",
                 ),
                 Div(
-                    P(sender, cls="text-xs text-base-content/50 mb-1"),
+                    P(sender, cls="text-xs text-base-content/60 mb-1"),
                     P(message, cls="text-base text-base-content"),
                     cls="flex-1",
                 ),
@@ -216,7 +216,7 @@ class AskesisUI:
                     cls="mr-3",
                 ),
                 Div(
-                    P(sender, cls="text-xs text-base-content/50 mb-1"),
+                    P(sender, cls="text-xs text-base-content/60 mb-1"),
                     P(message, cls="text-base text-base-content"),
                     cls="flex-1",
                 ),
@@ -603,7 +603,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
             P("Your past conversations will appear here.", cls="text-base-content/60 mb-4"),
             Div(
                 Card(
-                    P("No conversations yet", cls="text-center py-8 text-base-content/50"),
+                    P("No conversations yet", cls="text-center py-8 text-base-content/60"),
                     cls="bg-base-200",
                 ),
                 cls="max-w-4xl mx-auto",
@@ -757,10 +757,21 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                 result = await _askesis_service.answer_user_question(
                     user_uid or "demo_user", message
                 )
-                if result.is_ok:
+
+                # Check for errors FIRST, use error message if available
+                if result.is_error:
+                    logger.error(f"Askesis service error: {result.error}")
+                    # Use error message if available, otherwise fallback
+                    ai_response = (
+                        result.error.message
+                        if hasattr(result.error, "message") and result.error.message
+                        else "I'm having trouble right now. Please try again."
+                    )
+                else:
                     ai_response = result.value.get("answer", "No response generated.")
+
             except Exception as e:
-                logger.error(f"AI service error: {e}")
+                logger.error(f"Unexpected AI service error: {e}")
                 ai_response = "I'm having trouble right now. Please try again."
 
         # Return message bubbles

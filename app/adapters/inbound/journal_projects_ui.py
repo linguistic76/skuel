@@ -460,6 +460,37 @@ class JournalProjectUIComponents:
 
 
 # ============================================================================
+# TYPED QUERY PARAMETERS
+# ============================================================================
+
+
+from dataclasses import dataclass
+from starlette.requests import Request
+
+
+@dataclass
+class JournalProjectParams:
+    """Typed parameters for journal project queries."""
+
+    user_uid: str
+
+
+def parse_journal_project_params(request: Request) -> JournalProjectParams:
+    """
+    Extract journal project parameters from request query params.
+
+    Args:
+        request: Starlette request object
+
+    Returns:
+        Typed JournalProjectParams with defaults applied
+    """
+    return JournalProjectParams(
+        user_uid=request.query_params.get("user_uid", "user.default"),
+    )
+
+
+# ============================================================================
 # ROUTE HANDLERS
 # ============================================================================
 
@@ -485,12 +516,11 @@ def create_journal_projects_ui_routes(
     async def journal_projects_dashboard(request) -> Any:
         """Journal projects dashboard"""
         try:
-            # Get user_uid from session/query
-            params = dict(request.query_params)
-            user_uid = params.get("user_uid", "user.default")
+            # Parse typed parameters
+            params = parse_journal_project_params(request)
 
             # Get user's projects
-            result = await journal_projects_service.list_user_projects(user_uid)
+            result = await journal_projects_service.list_user_projects(params.user_uid)
 
             projects = [] if result.is_error else result.value
 
@@ -505,10 +535,10 @@ def create_journal_projects_ui_routes(
     @app.get("/ui/journal-projects/new")
     async def new_project_form(request) -> Any:
         """New project form"""
-        params = dict(request.query_params)
-        user_uid = params.get("user_uid", "user.default")
+        # Parse typed parameters
+        params = parse_journal_project_params(request)
 
-        return JournalProjectUIComponents.render_project_editor(user_uid=user_uid, mode="create")
+        return JournalProjectUIComponents.render_project_editor(user_uid=params.user_uid, mode="create")
 
     @app.get("/ui/journal-projects/{uid}/edit")
     async def edit_project_form(_request, uid: str) -> Any:
