@@ -526,7 +526,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
         # Build page with tabs + view content
         page_content = Div(
             ChoicesViewComponents.render_view_tabs(active_view=view),
-            Div(view_content, id="view-content"),
+            Div(view_content, id="view-content", role="tabpanel"),
             cls="p-4 lg:p-8 max-w-7xl mx-auto",
         )
 

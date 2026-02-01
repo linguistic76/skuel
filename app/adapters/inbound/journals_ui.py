@@ -679,17 +679,49 @@ def create_journals_ui_routes(_app, rt, journals_core_service, transcription_ser
         curated_list = JournalUIComponents.render_curated_journals_section()
 
         # Tab navigation (DaisyUI tabs)
+        # WCAG 2.1 Level AA accessible tabs with Alpine.js
         tabs = Div(
             Div(
-                A("Voice Journals", cls="tab tab-active", role="tab", **{"data-tab": "voice"}),
-                A("Curated Journals", cls="tab", role="tab", **{"data-tab": "curated"}),
+                A(
+                    "Voice Journals",
+                    cls="tab tab-active",
+                    role="tab",
+                    id="tab-voice-btn",
+                    **{
+                        "aria-controls": "tab-voice",
+                        "aria-selected": "true",
+                        "tabindex": 0,
+                        ":aria-selected": "activeTab === 'voice' ? 'true' : 'false'",
+                        ":tabindex": "activeTab === 'voice' ? 0 : -1",
+                        ":class": "{'tab-active': activeTab === 'voice'}",
+                        "@click.prevent": "setActiveTab('voice')",
+                        "@keydown": "handleTabKeydown($event, 'voice')",
+                    },
+                ),
+                A(
+                    "Curated Journals",
+                    cls="tab",
+                    role="tab",
+                    id="tab-curated-btn",
+                    **{
+                        "aria-controls": "tab-curated",
+                        "aria-selected": "false",
+                        "tabindex": -1,
+                        ":aria-selected": "activeTab === 'curated' ? 'true' : 'false'",
+                        ":tabindex": "activeTab === 'curated' ? 0 : -1",
+                        ":class": "{'tab-active': activeTab === 'curated'}",
+                        "@click.prevent": "setActiveTab('curated')",
+                        "@keydown": "handleTabKeydown($event, 'curated')",
+                    },
+                ),
                 cls="tabs tabs-bordered",
                 role="tablist",
+                **{"x-data": "accessibleTabs({ activeTab: 'voice' })"},
             ),
             cls="mb-4",
         )
 
-        # Tab content
+        # Tab content with role="tabpanel" for screen readers
         tab_content = Div(
             # Voice Journals Tab
             Div(
@@ -699,7 +731,11 @@ def create_journals_ui_routes(_app, rt, journals_core_service, transcription_ser
                 ),
                 voice_list,
                 id="tab-voice",
-                cls="tab-content block",
+                role="tabpanel",
+                **{
+                    "aria-labelledby": "tab-voice-btn",
+                    ":class": "activeTab === 'voice' ? 'block' : 'hidden'",
+                },
             ),
             # Curated Journals Tab
             Div(
@@ -709,9 +745,14 @@ def create_journals_ui_routes(_app, rt, journals_core_service, transcription_ser
                 ),
                 curated_list,
                 id="tab-curated",
-                cls="tab-content hidden",
+                role="tabpanel",
+                **{
+                    "aria-labelledby": "tab-curated-btn",
+                    ":class": "activeTab === 'curated' ? 'block' : 'hidden'",
+                },
             ),
             cls="mt-4",
+            **{"x-data": "{}"},  # Share Alpine.js scope with tabs above
         )
 
         # Main dashboard layout
@@ -728,26 +769,10 @@ def create_journals_ui_routes(_app, rt, journals_core_service, transcription_ser
             # Tabs
             tabs,
             tab_content,
-            # JavaScript for tab switching and HTMX handling
+            # HTMX handling for form submissions
             FTScript(
                 NotStr("""
-                // Tab switching logic
-                document.querySelectorAll('.tabs .tab').forEach(tab => {
-                    tab.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        // Remove active from all tabs
-                        document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('tab-active'));
-                        // Add active to clicked tab
-                        this.classList.add('tab-active');
-                        // Hide all tab content
-                        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.add('hidden'));
-                        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('block'));
-                        // Show selected tab content
-                        const tabId = 'tab-' + this.dataset.tab;
-                        document.getElementById(tabId).classList.remove('hidden');
-                        document.getElementById(tabId).classList.add('block');
-                    });
-                });
+                // Note: Tab switching now handled by Alpine.js accessibleTabs component (WCAG 2.1 Level AA)
 
                 // Add loading state to buttons during HTMX requests
                 document.body.addEventListener('htmx:beforeRequest', function(evt) {

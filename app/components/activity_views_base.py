@@ -55,38 +55,36 @@ class ActivityViewTabs:
             Div containing the tab navigation
         """
 
-        def tab_class(view: str) -> str:
-            # Full-width tab styling matching Tasks domain
-            # Each tab takes equal space with flex-1
-            base = "flex-1 py-3 px-6 text-center font-medium text-base cursor-pointer transition-colors"
-            if view == active_view:
-                return f"{base} bg-blue-600 text-white rounded-lg"
-            return f"{base} text-gray-700 hover:bg-gray-100 rounded-lg"
-
-        # JavaScript to toggle active tab styling on click
-        toggle_active = (
-            "document.querySelectorAll('[role=tablist] a').forEach(t => {"
-            "t.classList.remove('bg-blue-600', 'text-white');"
-            "t.classList.add('text-gray-700');"
-            "});"
-            "this.classList.remove('text-gray-700');"
-            "this.classList.add('bg-blue-600', 'text-white');"
-        )
+        def tab_class_base() -> str:
+            # Base tab styling (active state managed by Alpine.js)
+            return "flex-1 py-3 px-6 text-center font-medium text-base cursor-pointer transition-colors"
 
         tab_elements = []
         for view_id, desktop_label, mobile_label in tabs:
+            is_active = view_id == active_view
             tab_elements.append(
                 A(
                     Span(desktop_label, cls="hidden sm:inline"),
                     Span(mobile_label, cls="sm:hidden"),
                     href=f"/{domain}?view={view_id}",
                     role="tab",
-                    cls=tab_class(view_id),
+                    cls=tab_class_base(),
                     **{
+                        # HTMX attributes
                         "hx-get": f"/{domain}/view/{view_id}",
                         "hx-target": "#view-content",
                         "hx-push-url": f"/{domain}?view={view_id}",
-                        "hx-on::before-request": toggle_active,
+                        # Alpine.js bindings for WCAG 2.1 Level AA compliance
+                        ":aria-selected": f"activeTab === '{view_id}' ? 'true' : 'false'",
+                        ":tabindex": f"activeTab === '{view_id}' ? 0 : -1",
+                        # Dynamic classes for active state
+                        ":class": f"{{'bg-blue-600 text-white rounded-lg': activeTab === '{view_id}', 'text-gray-700 hover:bg-gray-100 rounded-lg': activeTab !== '{view_id}'}}",
+                        # Alpine.js event handlers
+                        "@click": f"setActiveTab('{view_id}')",
+                        "@keydown": f"handleTabKeydown($event, '{view_id}')",
+                        # Initial ARIA state (before Alpine.js hydration)
+                        "aria-selected": "true" if is_active else "false",
+                        "tabindex": 0 if is_active else -1,
                     },
                 )
             )
@@ -96,6 +94,8 @@ class ActivityViewTabs:
                 *tab_elements,
                 role="tablist",
                 cls="flex w-full",
+                # Alpine.js accessible tabs component
+                **{"x-data": f"accessibleTabs({{ activeTab: '{active_view}' }})"},
             ),
             cls="mb-6",
         )

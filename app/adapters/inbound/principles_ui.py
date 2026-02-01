@@ -555,7 +555,7 @@ def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadePr
         # Build page with tabs + view content
         page_content = Div(
             PrinciplesViewComponents.render_view_tabs(active_view=view),
-            Div(view_content, id="view-content"),
+            Div(view_content, id="view-content", role="tabpanel"),
             cls=f"{Spacing.PAGE} {Container.WIDE}",
         )
 

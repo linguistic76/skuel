@@ -377,21 +377,30 @@ def Input(
     variant: InputT = InputT.bordered,
     size: Size | None = None,
     full_width: bool = True,
+    help_text: str | None = None,
+    error_text: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Input wrapper.
+    DaisyUI Input wrapper with optional help text and error message.
 
     Args:
         cls: Additional CSS classes
         variant: Input style variant
         size: Input size (xs, sm, md, lg)
         full_width: If True, input takes full width
-        **kwargs: Additional HTML attributes (type, name, value, placeholder, etc.)
+        help_text: Optional help text displayed below the input (e.g., "Must be at least 8 characters")
+        error_text: Optional error message displayed below the input
+        **kwargs: Additional HTML attributes (type, name, value, placeholder, id, etc.)
+
+    Returns:
+        If help_text or error_text provided: Div wrapper with input + help/error text
+        Otherwise: Just the input element (backward compatible)
 
     Example:
         Input(type="text", name="email", placeholder="Enter email")
-        Input(variant=InputT.primary, size=Size.lg)
+        Input(type="password", name="password", help_text="Must be at least 8 characters")
+        Input(variant=InputT.error, error_text="Email is required")
     """
     classes = ["input", variant.value]
     if size:
@@ -400,7 +409,42 @@ def Input(
         classes.append("w-full")
     if cls:
         classes.append(cls)
-    return FTInput(cls=" ".join(classes), **kwargs)
+
+    # Build ARIA attributes if help or error text provided
+    input_name = kwargs.get("name", kwargs.get("id", "input"))
+    help_id = f"{input_name}-help"
+    error_id = f"{input_name}-error"
+    describedby_ids = []
+
+    if help_text:
+        describedby_ids.append(help_id)
+    if error_text:
+        describedby_ids.append(error_id)
+        kwargs["aria_invalid"] = "true"
+
+    if describedby_ids:
+        kwargs["aria_describedby"] = " ".join(describedby_ids)
+
+    input_element = FTInput(cls=" ".join(classes), **kwargs)
+
+    # If no help or error text, return just the input (backward compatible)
+    if not help_text and not error_text:
+        return input_element
+
+    # Otherwise, wrap with help/error text
+    elements = [input_element]
+
+    if help_text:
+        elements.append(
+            Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70")
+        )
+
+    if error_text:
+        elements.append(
+            Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error")
+        )
+
+    return Div(*elements, cls="w-full" if full_width else "")
 
 
 def Select(
@@ -409,10 +453,12 @@ def Select(
     variant: InputT = InputT.bordered,
     size: Size | None = None,
     full_width: bool = True,
+    help_text: str | None = None,
+    error_text: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Select wrapper.
+    DaisyUI Select wrapper with optional help text and error message.
 
     Args:
         *options: Option elements or (value, label) tuples
@@ -420,7 +466,13 @@ def Select(
         variant: Select style variant
         size: Select size (xs, sm, md, lg)
         full_width: If True, select takes full width
-        **kwargs: Additional HTML attributes (name, required, etc.)
+        help_text: Optional help text displayed below the select
+        error_text: Optional error message displayed below the select
+        **kwargs: Additional HTML attributes (name, required, id, etc.)
+
+    Returns:
+        If help_text or error_text provided: Div wrapper with select + help/error text
+        Otherwise: Just the select element (backward compatible)
 
     Example:
         Select(
@@ -429,6 +481,7 @@ def Select(
             Option("Option 2", value="2"),
             name="choice"
         )
+        Select(..., help_text="Select your preferred option")
     """
     classes = ["select", variant.value.replace("input-", "select-")]
     if size:
@@ -437,7 +490,42 @@ def Select(
         classes.append("w-full")
     if cls:
         classes.append(cls)
-    return FTSelect(*options, cls=" ".join(classes), **kwargs)
+
+    # Build ARIA attributes if help or error text provided
+    select_name = kwargs.get("name", kwargs.get("id", "select"))
+    help_id = f"{select_name}-help"
+    error_id = f"{select_name}-error"
+    describedby_ids = []
+
+    if help_text:
+        describedby_ids.append(help_id)
+    if error_text:
+        describedby_ids.append(error_id)
+        kwargs["aria_invalid"] = "true"
+
+    if describedby_ids:
+        kwargs["aria_describedby"] = " ".join(describedby_ids)
+
+    select_element = FTSelect(*options, cls=" ".join(classes), **kwargs)
+
+    # If no help or error text, return just the select (backward compatible)
+    if not help_text and not error_text:
+        return select_element
+
+    # Otherwise, wrap with help/error text
+    elements = [select_element]
+
+    if help_text:
+        elements.append(
+            Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70")
+        )
+
+    if error_text:
+        elements.append(
+            Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error")
+        )
+
+    return Div(*elements, cls="w-full" if full_width else "")
 
 
 def Textarea(
@@ -446,10 +534,12 @@ def Textarea(
     variant: InputT = InputT.bordered,
     size: Size | None = None,
     full_width: bool = True,
+    help_text: str | None = None,
+    error_text: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Textarea wrapper.
+    DaisyUI Textarea wrapper with optional help text and error message.
 
     Args:
         *c: Initial textarea content
@@ -457,10 +547,17 @@ def Textarea(
         variant: Textarea style variant
         size: Textarea size (xs, sm, md, lg)
         full_width: If True, textarea takes full width
-        **kwargs: Additional HTML attributes (name, rows, placeholder, etc.)
+        help_text: Optional help text displayed below the textarea
+        error_text: Optional error message displayed below the textarea
+        **kwargs: Additional HTML attributes (name, rows, placeholder, id, etc.)
+
+    Returns:
+        If help_text or error_text provided: Div wrapper with textarea + help/error text
+        Otherwise: Just the textarea element (backward compatible)
 
     Example:
         Textarea(name="description", rows="4", placeholder="Enter description...")
+        Textarea(name="bio", help_text="Tell us about yourself (max 500 characters)")
     """
     classes = ["textarea", variant.value.replace("input-", "textarea-")]
     if size:
@@ -469,7 +566,42 @@ def Textarea(
         classes.append("w-full")
     if cls:
         classes.append(cls)
-    return FTTextarea(*c, cls=" ".join(classes), **kwargs)
+
+    # Build ARIA attributes if help or error text provided
+    textarea_name = kwargs.get("name", kwargs.get("id", "textarea"))
+    help_id = f"{textarea_name}-help"
+    error_id = f"{textarea_name}-error"
+    describedby_ids = []
+
+    if help_text:
+        describedby_ids.append(help_id)
+    if error_text:
+        describedby_ids.append(error_id)
+        kwargs["aria_invalid"] = "true"
+
+    if describedby_ids:
+        kwargs["aria_describedby"] = " ".join(describedby_ids)
+
+    textarea_element = FTTextarea(*c, cls=" ".join(classes), **kwargs)
+
+    # If no help or error text, return just the textarea (backward compatible)
+    if not help_text and not error_text:
+        return textarea_element
+
+    # Otherwise, wrap with help/error text
+    elements = [textarea_element]
+
+    if help_text:
+        elements.append(
+            Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70")
+        )
+
+    if error_text:
+        elements.append(
+            Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error")
+        )
+
+    return Div(*elements, cls="w-full" if full_width else "")
 
 
 def FormControl(*c: Any, cls: str = "", **kwargs: Any) -> Any:
@@ -628,28 +760,36 @@ def Modal(
     *c: Any,
     cls: str = "",
     open_on_load: bool = False,
+    title_id: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Modal wrapper using dialog element.
+    DaisyUI Modal wrapper using dialog element with WCAG 2.1 Level AA compliance.
 
     Args:
         id: Modal ID (required for opening/closing)
         *c: Modal content (should include ModalBox)
         cls: Additional CSS classes
         open_on_load: If True, modal opens when page loads
+        title_id: ID of the modal title element for aria-labelledby (recommended)
         **kwargs: Additional HTML attributes
 
     Example:
         Modal("my-modal",
             ModalBox(
-                H2("Modal Title"),
+                H2("Modal Title", id="modal-title"),
                 P("Modal content here"),
                 ModalAction(
                     Button("Close", onclick="my-modal.close()")
                 )
-            )
+            ),
+            title_id="modal-title"
         )
+
+    ARIA Attributes:
+        - role="dialog" (implicit from <dialog> element)
+        - aria-modal="true" (automatically added)
+        - aria-labelledby (if title_id provided)
 
     To open: document.getElementById('my-modal').showModal()
     To close: document.getElementById('my-modal').close()
@@ -658,26 +798,46 @@ def Modal(
     if cls:
         classes.append(cls)
 
-    attrs = {"id": id, "cls": " ".join(classes)}
+    attrs = {
+        "id": id,
+        "cls": " ".join(classes),
+        "aria_modal": "true",  # WCAG 2.1 Level AA requirement
+    }
+
+    # Add aria-labelledby if title ID provided
+    if title_id:
+        attrs["aria_labelledby"] = title_id
+
     if open_on_load:
         attrs["open"] = True
 
     return Dialog(*c, **attrs, **kwargs)
 
 
-def ModalBox(*c: Any, cls: str = "", **kwargs: Any) -> Any:
+def ModalBox(*c: Any, cls: str = "", role: str = "document", **kwargs: Any) -> Any:
     """
-    DaisyUI Modal box wrapper (the content container).
+    DaisyUI Modal box wrapper (the content container) with accessibility support.
 
     Args:
         *c: Modal box content
         cls: Additional CSS classes
+        role: ARIA role (default: "document" for screen readers)
         **kwargs: Additional HTML attributes
+
+    Note:
+        The role="document" tells screen readers this is the main modal content,
+        allowing proper navigation within the dialog.
     """
     classes = ["modal-box"]
     if cls:
         classes.append(cls)
-    return Div(*c, cls=" ".join(classes), **kwargs)
+
+    # Add role for accessibility
+    attrs = {"cls": " ".join(classes)}
+    if role:
+        attrs["role"] = role
+
+    return Div(*c, **attrs, **kwargs)
 
 
 def ModalAction(*c: Any, cls: str = "", **kwargs: Any) -> Any:
@@ -1153,14 +1313,20 @@ def Tab(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Tab item.
+    DaisyUI Tab item with WCAG 2.1 Level AA compliance.
 
     Args:
         *c: Tab content
         cls: Additional CSS classes
         active: If True, marks as active tab
         disabled: If True, disables the tab
-        **kwargs: Additional HTML attributes
+        **kwargs: Additional HTML attributes (aria-controls, etc.)
+
+    Note:
+        For full accessibility, use with Alpine.js accessibleTabs component:
+        - Manages aria-selected toggling
+        - Handles tabindex (0 for active, -1 for inactive)
+        - Provides arrow key navigation
     """
     from fasthtml.common import A
 
@@ -1171,7 +1337,22 @@ def Tab(
         classes.append("tab-disabled")
     if cls:
         classes.append(cls)
-    return A(*c, cls=" ".join(classes), role="tab", **kwargs)
+
+    # WCAG 2.1 Level AA: Add ARIA attributes for accessibility
+    # role="tab" identifies this as a tab control
+    # aria-selected indicates current selection state
+    # tabindex controls keyboard focus (0 for active, -1 for inactive)
+    attrs = {
+        "cls": " ".join(classes),
+        "role": "tab",
+        "aria_selected": "true" if active else "false",
+        "tabindex": 0 if active else -1,
+    }
+
+    # Merge with user-provided kwargs (allows overriding)
+    attrs.update(kwargs)
+
+    return A(*c, **attrs)
 
 
 # ============================================================================

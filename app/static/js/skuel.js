@@ -277,6 +277,22 @@
             return {
                 open: false,
                 datetime: '',
+                focusTrap: null,
+
+                init: function() {
+                    var self = this;
+                    var modalElement = this.$refs.quickAddModal || this.$el.querySelector('[role="dialog"]');
+
+                    if (window.FocusTrap && modalElement) {
+                        this.focusTrap = new window.FocusTrap(modalElement, {
+                            initialFocus: 'input[name="title"]',
+                            restoreFocus: true,
+                            onEscape: function() {
+                                self.closeQuickAdd();
+                            }
+                        });
+                    }
+                },
 
                 openQuickAdd: function(defaultDate, defaultHour) {
                     this.open = true;
@@ -290,9 +306,22 @@
                         var local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
                         this.datetime = local.toISOString().slice(0, 16);
                     }
+
+                    // Activate focus trap
+                    var self = this;
+                    this.$nextTick(function() {
+                        if (self.focusTrap) {
+                            self.focusTrap.activate();
+                        }
+                    });
                 },
 
                 closeQuickAdd: function() {
+                    // Deactivate focus trap
+                    if (this.focusTrap && this.focusTrap.isActive()) {
+                        this.focusTrap.deactivate();
+                    }
+
                     this.open = false;
                     var status = document.getElementById('quick-add-status');
                     if (status) status.innerHTML = '';
@@ -335,19 +364,48 @@
         // ---------------------------------------------------------------------
         // Task Edit Modal Component
         // ---------------------------------------------------------------------
-        // Handles task edit modal state (open/close)
+        // Handles task edit modal state with focus trap
         Alpine.data('taskEditModal', function() {
             return {
                 open: false,
+                focusTrap: null,
 
                 init: function() {
+                    var self = this;
+                    var modalElement = this.$refs.modal || this.$el.querySelector('[role="dialog"]');
+
+                    // Create focus trap
+                    if (window.FocusTrap && modalElement) {
+                        this.focusTrap = new window.FocusTrap(modalElement, {
+                            initialFocus: 'input[name="title"], textarea[name="description"]',
+                            restoreFocus: true,
+                            onEscape: function() {
+                                self.closeModal();
+                            }
+                        });
+                    }
+
                     // Open modal immediately when component initializes
                     this.open = true;
+
+                    // Activate focus trap
+                    this.$nextTick(function() {
+                        if (self.focusTrap) {
+                            self.focusTrap.activate();
+                        }
+                    });
                 },
 
                 closeModal: function() {
                     var self = this;
+
+                    // Deactivate focus trap
+                    if (this.focusTrap && this.focusTrap.isActive()) {
+                        this.focusTrap.deactivate();
+                    }
+
                     this.open = false;
+
                     // Remove modal from DOM after close animation
                     setTimeout(function() {
                         var modal = document.getElementById('task-edit-modal');
@@ -557,26 +615,148 @@
         // ---------------------------------------------------------------------
         // Navbar Component
         // ---------------------------------------------------------------------
-        // Handles mobile menu and profile dropdown state
+        // Handles mobile menu and profile dropdown state with keyboard navigation
         Alpine.data('navbar', function() {
             return {
                 mobileMenuOpen: false,
                 profileMenuOpen: false,
+                currentProfileIndex: -1,
+                currentMobileIndex: -1,
 
                 toggleMobile: function() {
                     this.mobileMenuOpen = !this.mobileMenuOpen;
+                    if (this.mobileMenuOpen) {
+                        this.currentMobileIndex = -1;
+                        // Focus first item when opening
+                        this.$nextTick(() => this.focusMobileItem(0));
+                    }
                 },
 
                 toggleProfile: function() {
                     this.profileMenuOpen = !this.profileMenuOpen;
+                    if (this.profileMenuOpen) {
+                        this.currentProfileIndex = -1;
+                        // Focus first item when opening
+                        this.$nextTick(() => this.focusProfileItem(0));
+                    }
                 },
 
                 closeProfile: function() {
                     this.profileMenuOpen = false;
+                    this.currentProfileIndex = -1;
+                },
+
+                closeMobile: function() {
+                    this.mobileMenuOpen = false;
+                    this.currentMobileIndex = -1;
+                },
+
+                // Profile dropdown keyboard navigation
+                handleProfileKeydown: function(e) {
+                    if (!this.profileMenuOpen) return;
+
+                    var items = this.getProfileItems();
+                    if (!items.length) return;
+
+                    switch(e.key) {
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.focusProfileItem(Math.min(this.currentProfileIndex + 1, items.length - 1));
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            this.focusProfileItem(Math.max(this.currentProfileIndex - 1, 0));
+                            break;
+                        case 'Home':
+                            e.preventDefault();
+                            this.focusProfileItem(0);
+                            break;
+                        case 'End':
+                            e.preventDefault();
+                            this.focusProfileItem(items.length - 1);
+                            break;
+                        case 'Escape':
+                            e.preventDefault();
+                            this.closeProfile();
+                            // Return focus to trigger button
+                            var trigger = document.querySelector('[data-profile-trigger]');
+                            if (trigger) trigger.focus();
+                            break;
+                        case 'Tab':
+                            // Allow default tab behavior, but close menu when tabbing out
+                            this.closeProfile();
+                            break;
+                    }
+                },
+
+                // Mobile menu keyboard navigation
+                handleMobileKeydown: function(e) {
+                    if (!this.mobileMenuOpen) return;
+
+                    var items = this.getMobileItems();
+                    if (!items.length) return;
+
+                    switch(e.key) {
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.focusMobileItem(Math.min(this.currentMobileIndex + 1, items.length - 1));
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            this.focusMobileItem(Math.max(this.currentMobileIndex - 1, 0));
+                            break;
+                        case 'Home':
+                            e.preventDefault();
+                            this.focusMobileItem(0);
+                            break;
+                        case 'End':
+                            e.preventDefault();
+                            this.focusMobileItem(items.length - 1);
+                            break;
+                        case 'Escape':
+                            e.preventDefault();
+                            this.closeMobile();
+                            break;
+                        case 'Tab':
+                            // Allow default tab behavior, but close menu when tabbing out
+                            this.closeMobile();
+                            break;
+                    }
+                },
+
+                // Helper: Get profile dropdown items
+                getProfileItems: function() {
+                    var menu = document.getElementById('profile-dropdown');
+                    return menu ? Array.from(menu.querySelectorAll('a')) : [];
+                },
+
+                // Helper: Get mobile menu items
+                getMobileItems: function() {
+                    var mobileNav = document.querySelector('.sm\\:hidden[x-show]');
+                    return mobileNav ? Array.from(mobileNav.querySelectorAll('a')) : [];
+                },
+
+                // Helper: Focus specific profile menu item
+                focusProfileItem: function(index) {
+                    var items = this.getProfileItems();
+                    if (items[index]) {
+                        this.currentProfileIndex = index;
+                        items[index].focus();
+                    }
+                },
+
+                // Helper: Focus specific mobile menu item
+                focusMobileItem: function(index) {
+                    var items = this.getMobileItems();
+                    if (items[index]) {
+                        this.currentMobileIndex = index;
+                        items[index].focus();
+                    }
                 },
 
                 init: function() {
                     var self = this;
+
                     // Close profile menu when clicking outside
                     document.addEventListener('click', function(e) {
                         var profileButton = e.target.closest('[data-profile-trigger]');
@@ -584,6 +764,17 @@
 
                         if (!profileButton && profileMenu && !profileMenu.contains(e.target)) {
                             self.profileMenuOpen = false;
+                            self.currentProfileIndex = -1;
+                        }
+                    });
+
+                    // Global keyboard handler for dropdown navigation
+                    document.addEventListener('keydown', function(e) {
+                        // Only handle if a dropdown is open
+                        if (self.profileMenuOpen) {
+                            self.handleProfileKeydown(e);
+                        } else if (self.mobileMenuOpen) {
+                            self.handleMobileKeydown(e);
                         }
                     });
                 }
@@ -615,6 +806,104 @@
                             }
                         });
                     }
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
+        // Generic Dropdown Keyboard Navigation
+        // ---------------------------------------------------------------------
+        // Reusable component for adding keyboard navigation to any dropdown
+        // Usage: x-data="dropdownNav(menuSelector)"
+        Alpine.data('dropdownNav', function(menuSelector) {
+            return {
+                isOpen: false,
+                currentIndex: -1,
+
+                open: function() {
+                    this.isOpen = true;
+                    this.currentIndex = -1;
+                    // Focus first item when opening
+                    this.$nextTick(() => this.focusItem(0));
+                },
+
+                close: function() {
+                    this.isOpen = false;
+                    this.currentIndex = -1;
+                },
+
+                toggle: function() {
+                    if (this.isOpen) {
+                        this.close();
+                    } else {
+                        this.open();
+                    }
+                },
+
+                handleKeydown: function(e) {
+                    if (!this.isOpen) return;
+
+                    var items = this.getItems();
+                    if (!items.length) return;
+
+                    switch(e.key) {
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.focusItem(Math.min(this.currentIndex + 1, items.length - 1));
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            this.focusItem(Math.max(this.currentIndex - 1, 0));
+                            break;
+                        case 'Home':
+                            e.preventDefault();
+                            this.focusItem(0);
+                            break;
+                        case 'End':
+                            e.preventDefault();
+                            this.focusItem(items.length - 1);
+                            break;
+                        case 'Escape':
+                            e.preventDefault();
+                            this.close();
+                            // Return focus to trigger button
+                            var trigger = this.$el.querySelector('[role="button"]');
+                            if (trigger) trigger.focus();
+                            break;
+                        case 'Tab':
+                            // Close menu when tabbing out
+                            this.close();
+                            break;
+                    }
+                },
+
+                getItems: function() {
+                    var menu = this.$el.querySelector(menuSelector);
+                    return menu ? Array.from(menu.querySelectorAll('a, button:not([aria-hidden])')) : [];
+                },
+
+                focusItem: function(index) {
+                    var items = this.getItems();
+                    if (items[index]) {
+                        this.currentIndex = index;
+                        items[index].focus();
+                    }
+                },
+
+                init: function() {
+                    var self = this;
+
+                    // Close dropdown when clicking outside
+                    document.addEventListener('click', function(e) {
+                        if (!self.$el.contains(e.target)) {
+                            self.close();
+                        }
+                    });
+
+                    // Listen for keyboard events
+                    this.$el.addEventListener('keydown', function(e) {
+                        self.handleKeydown(e);
+                    });
                 }
             };
         });
@@ -926,69 +1215,81 @@
         });
 
         // ---------------------------------------------------------------------
-        // Focus Trap Modal Component
         // ---------------------------------------------------------------------
-        // Manages modal focus trapping and keyboard navigation
-        Alpine.data('focusTrapModal', function(isOpen) {
+        // Accessible Modal Component
+        // ---------------------------------------------------------------------
+        // WCAG 2.1 Level AA compliant modal with focus trap
+        // Uses FocusTrap utility for keyboard navigation
+        Alpine.data('accessibleModal', function(options) {
+            var defaults = {
+                isOpen: false,
+                initialFocus: null,
+                onClose: null
+            };
+            var config = Object.assign({}, defaults, options || {});
+
             return {
-                isOpen: isOpen || false,
-                previousFocus: null,
+                isOpen: config.isOpen,
+                focusTrap: null,
+                modalElement: null,
+
+                init: function() {
+                    var self = this;
+                    this.modalElement = this.$refs.modal || this.$el;
+
+                    // Create FocusTrap instance
+                    if (window.FocusTrap && this.modalElement) {
+                        this.focusTrap = new window.FocusTrap(this.modalElement, {
+                            initialFocus: config.initialFocus,
+                            restoreFocus: true,
+                            allowEscape: true,
+                            onEscape: function() {
+                                self.close();
+                            }
+                        });
+                    }
+                },
 
                 open: function() {
-                    this.previousFocus = document.activeElement;
                     this.isOpen = true;
 
+                    // Activate focus trap after DOM update
                     var self = this;
                     this.$nextTick(function() {
-                        var modal = self.$refs.modal;
-                        if (!modal) return;
-
-                        var focusable = modal.querySelectorAll(
-                            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-                        );
-                        if (focusable.length > 0) {
-                            focusable[0].focus();
+                        if (self.focusTrap) {
+                            self.focusTrap.activate();
                         }
                     });
                 },
 
                 close: function() {
+                    // Deactivate focus trap first
+                    if (this.focusTrap && this.focusTrap.isActive()) {
+                        this.focusTrap.deactivate();
+                    }
+
                     this.isOpen = false;
-                    if (this.previousFocus && this.previousFocus.focus) {
-                        this.previousFocus.focus();
+
+                    // Call onClose callback if provided
+                    if (typeof config.onClose === 'function') {
+                        config.onClose();
                     }
                 },
 
-                handleKeydown: function(e) {
-                    if (e.key === 'Escape') {
-                        this.close();
-                    } else if (e.key === 'Tab') {
-                        this.trapFocus(e);
-                    }
-                },
-
-                trapFocus: function(e) {
-                    var modal = this.$refs.modal;
-                    if (!modal) return;
-
-                    var focusable = Array.from(modal.querySelectorAll(
-                        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-                    ));
-
-                    if (focusable.length === 0) return;
-
-                    var firstFocusable = focusable[0];
-                    var lastFocusable = focusable[focusable.length - 1];
-
-                    if (e.shiftKey && document.activeElement === firstFocusable) {
-                        lastFocusable.focus();
-                        e.preventDefault();
-                    } else if (!e.shiftKey && document.activeElement === lastFocusable) {
-                        firstFocusable.focus();
-                        e.preventDefault();
+                destroy: function() {
+                    if (this.focusTrap) {
+                        this.focusTrap.destroy();
                     }
                 }
             };
+        });
+
+        // ---------------------------------------------------------------------
+        // Focus Trap Modal Component (Legacy - uses new accessibleModal)
+        // ---------------------------------------------------------------------
+        // Backward compatibility wrapper
+        Alpine.data('focusTrapModal', function(isOpen) {
+            return Alpine.raw(Alpine.data('accessibleModal')({ isOpen: isOpen || false }));
         });
 
         // ---------------------------------------------------------------------
@@ -2422,6 +2723,130 @@
                     } else {
                         SKUEL.debug('Focus target not found', self.focusUid);
                     }
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
+        // Phase 2, Task 8: Accessible Tabs
+        // ---------------------------------------------------------------------
+        /**
+         * Accessible Tabs Component
+         * ========================
+         *
+         * WCAG 2.1 Level AA compliant tab management.
+         *
+         * Features:
+         * - aria-selected="true/false" management
+         * - tabindex toggling (0 for active, -1 for inactive)
+         * - Arrow key navigation (Left/Right, Home/End)
+         * - Integration with HTMX tab switching
+         *
+         * Usage:
+         * <div x-data="accessibleTabs({ activeTab: 'list' })" role="tablist">
+         *     <a role="tab"
+         *        :aria-selected="activeTab === 'list'"
+         *        :tabindex="activeTab === 'list' ? 0 : -1"
+         *        @click="setActiveTab('list')"
+         *        @keydown="handleTabKeydown($event, 'list')">
+         *        List
+         *     </a>
+         * </div>
+         *
+         * WCAG Success Criteria:
+         * - 2.1.1 Keyboard (Level A): Full keyboard navigation
+         * - 2.4.3 Focus Order (Level A): Logical tab order
+         * - 4.1.2 Name, Role, Value (Level A): Proper ARIA attributes
+         */
+        Alpine.data('accessibleTabs', function(options) {
+            var defaults = {
+                activeTab: null,
+                onTabChange: null
+            };
+            var config = Object.assign({}, defaults, options || {});
+
+            return {
+                activeTab: config.activeTab,
+
+                /**
+                 * Set the active tab and update ARIA attributes.
+                 * @param {string} tabId - The ID of the tab to activate
+                 */
+                setActiveTab: function(tabId) {
+                    this.activeTab = tabId;
+
+                    // Call optional callback
+                    if (typeof config.onTabChange === 'function') {
+                        config.onTabChange(tabId);
+                    }
+                },
+
+                /**
+                 * Handle keyboard navigation within tabs.
+                 * @param {KeyboardEvent} e - Keyboard event
+                 * @param {string} currentTabId - ID of the current tab
+                 */
+                handleTabKeydown: function(e, currentTabId) {
+                    var self = this;
+                    var handled = false;
+
+                    // Get all tab elements
+                    var tablist = e.target.closest('[role="tablist"]');
+                    if (!tablist) return;
+
+                    var tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+                    var currentIndex = tabs.indexOf(e.target);
+
+                    if (currentIndex === -1) return;
+
+                    switch (e.key) {
+                        case 'ArrowLeft':
+                        case 'ArrowUp':
+                            // Move to previous tab (circular)
+                            var prevIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
+                            self.focusAndActivateTab(tabs[prevIndex]);
+                            handled = true;
+                            break;
+
+                        case 'ArrowRight':
+                        case 'ArrowDown':
+                            // Move to next tab (circular)
+                            var nextIndex = currentIndex === tabs.length - 1 ? 0 : currentIndex + 1;
+                            self.focusAndActivateTab(tabs[nextIndex]);
+                            handled = true;
+                            break;
+
+                        case 'Home':
+                            // Move to first tab
+                            self.focusAndActivateTab(tabs[0]);
+                            handled = true;
+                            break;
+
+                        case 'End':
+                            // Move to last tab
+                            self.focusAndActivateTab(tabs[tabs.length - 1]);
+                            handled = true;
+                            break;
+                    }
+
+                    if (handled) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                },
+
+                /**
+                 * Focus a tab and trigger its click to activate.
+                 * @param {HTMLElement} tab - Tab element to focus and activate
+                 */
+                focusAndActivateTab: function(tab) {
+                    if (!tab) return;
+
+                    // Focus the tab
+                    tab.focus();
+
+                    // Trigger click to activate (works with HTMX)
+                    tab.click();
                 }
             };
         });
