@@ -64,6 +64,9 @@ data/databases/
 data/dbms/
 data/transactions/
 
+# Screenshots and design assets
+data/*.png
+
 # Node
 node_modules/
 npm-debug.log*
