@@ -15,6 +15,11 @@ related_docs:
 **Last Updated:** 2026-01-17
 **Status:** Active
 **Location:** `/core/infrastructure/relationships/`
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+
 
 ## Overview
 

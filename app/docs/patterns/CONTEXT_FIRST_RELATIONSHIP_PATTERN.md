@@ -12,6 +12,11 @@ related_docs: []
 **Version:** 1.0.0
 **Date:** November 25, 2025
 **Status:** Design Document (Implemented 2026-11-26)
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+
 
 ## Executive Summary
 

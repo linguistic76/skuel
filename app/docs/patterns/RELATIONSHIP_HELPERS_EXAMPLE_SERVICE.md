@@ -12,6 +12,13 @@ related_docs: []
 # Relationship Helpers - Example Service Implementation
 **Date:** 2025-11-17
 **Status:** Reference Implementation
+## Related Skills
+
+For implementation guidance, see:
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+- [@pytest](../../.claude/skills/pytest/SKILL.md)
+
 
 ## Purpose
 

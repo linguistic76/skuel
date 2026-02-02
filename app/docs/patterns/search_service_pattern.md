@@ -13,6 +13,13 @@ related_docs:
 # SearchService Pattern for Activity Domains
 
 *Last updated: 2026-01-06*
+## Related Skills
+
+For implementation guidance, see:
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
+- [@neo4j-genai-plugin](../../.claude/skills/neo4j-genai-plugin/SKILL.md)
+- [@skuel-search-architecture](../../.claude/skills/skuel-search-architecture/SKILL.md)
+
 
 ## Overview
 

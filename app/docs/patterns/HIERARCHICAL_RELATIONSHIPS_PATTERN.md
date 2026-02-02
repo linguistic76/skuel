@@ -11,6 +11,11 @@ related_docs: []
 **Date:** 2026-01-30
 **Status:** Active
 **Applies To:** Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles)
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+
 
 ## Core Principle: "Flat Identity, Rich Structure"
 

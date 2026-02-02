@@ -13,6 +13,11 @@ related_docs: []
 **See Also:** [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@pytest](../../.claude/skills/pytest/SKILL.md)
+
 
 ## Overview
 

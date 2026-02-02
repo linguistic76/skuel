@@ -15,6 +15,11 @@ When to use a standalone service instead of extending `BaseService`.
 **Decision context:** See [ADR-019](/docs/decisions/ADR-019-transcription-service-standalone.md) for the transcription service case study.
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
+
 
 ## When to Use Standalone Services
 

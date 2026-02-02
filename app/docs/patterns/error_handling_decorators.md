@@ -9,6 +9,12 @@ related_docs: []
 ---
 # Error Handling Decorators - DRY Pattern Guide
 *Last updated: 2026-01-21* (Migration near-complete: 460+ decorator usages, ~250 preserved patterns)
+## Related Skills
+
+For implementation guidance, see:
+- [@result-pattern](../../.claude/skills/result-pattern/SKILL.md)
+- [@ui-error-handling](../../.claude/skills/ui-error-handling/SKILL.md)
+
 
 ## Overview
 

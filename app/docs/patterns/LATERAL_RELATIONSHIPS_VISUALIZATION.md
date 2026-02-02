@@ -13,6 +13,11 @@ related_docs: []
 **Pattern Type:** UI Component Architecture
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+
 
 ## Purpose
 

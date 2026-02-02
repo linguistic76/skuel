@@ -11,6 +11,11 @@ related_docs: []
 *Last updated: 2026-01-24*
 
 **January 2026 Update:** Replaced `verify_ownership` boolean parameter with explicit `ContentScope` enum for type-safe ownership patterns.
+## Related Skills
+
+For implementation guidance, see:
+- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
+
 
 ## Overview
 

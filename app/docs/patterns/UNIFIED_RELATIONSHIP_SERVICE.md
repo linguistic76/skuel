@@ -17,6 +17,12 @@ related_docs:
 **Type:** Architectural Pattern
 **Status:** ✅ IMPLEMENTED - All 10 Domains (6 Activity + 4 Curriculum)
 **One Path Forward:** THE single service for all relationship operations (ADR-029)
+## Related Skills
+
+For implementation guidance, see:
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+
 
 ## Executive Summary
 

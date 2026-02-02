@@ -11,6 +11,11 @@ related_docs: []
 **Goal:** Create a lateral relationship service for your domain in 30 minutes
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
+
 
 ## Step 1: Copy the Goals Example
 

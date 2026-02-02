@@ -9,6 +9,11 @@ related_docs: []
 # Domain Route Configuration Pattern
 
 **Status:** Active | **Last Updated:** 2026-01-24
+## Related Skills
+
+For implementation guidance, see:
+- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
+
 
 ## Overview
 

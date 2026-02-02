@@ -21,6 +21,11 @@ related: []
 **Principle**: "Pure Cypher for core graph logic, APOC as isolated adapter layer"
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+
 
 ## The Refined ChatGPT Insights
 

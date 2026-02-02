@@ -12,6 +12,11 @@ related_docs: []
 > **Core Principle**: "Docstrings describe implementation, patterns describe approach, architecture describes design"
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@python](../../.claude/skills/python/SKILL.md)
+
 
 ## Three-Layer Documentation Philosophy
 

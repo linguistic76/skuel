@@ -13,6 +13,11 @@ related_docs: []
 This document describes SKUEL's query architecture patterns and best practices.
 
 **See also:** [Search Architecture](../architecture/SEARCH_ARCHITECTURE.md) for how search uses these patterns.
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+
 
 ## Three-Tier Query Architecture
 

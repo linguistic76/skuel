@@ -11,6 +11,11 @@ related_docs:
 # Route Factory Patterns - Complete Guide
 **Date:** 2026-01-12
 **Status:** ✅ Production Ready
+## Related Skills
+
+For implementation guidance, see:
+- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
+
 
 ## Overview
 

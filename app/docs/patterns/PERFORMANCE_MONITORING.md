@@ -15,6 +15,12 @@ related_docs:
 **Status:** ⚠️ DEPRECATED (Removed January 31, 2026)
 **Replaced By:** MetricsCache + Prometheus
 **See:** `/docs/observability/PROMETHEUS_METRICS.md`, `/docs/decisions/ADR-036-prometheus-primary-cache-pattern.md`
+## Related Skills
+
+For implementation guidance, see:
+- [@pydantic](../../.claude/skills/pydantic/SKILL.md)
+- [@skuel-form-patterns](../../.claude/skills/skuel-form-patterns/SKILL.md)
+
 
 ## Migration Notice
 

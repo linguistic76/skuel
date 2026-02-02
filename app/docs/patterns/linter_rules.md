@@ -8,6 +8,11 @@ related_docs: []
 ---
 
 # Code Quality Enforcement - Linter Rules
+## Related Skills
+
+For implementation guidance, see:
+- [@python](../../.claude/skills/python/SKILL.md)
+
 
 ## Quick Reference
 

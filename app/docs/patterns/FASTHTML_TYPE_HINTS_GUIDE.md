@@ -12,6 +12,12 @@ related_docs: []
 **Date:** 2025-11-18
 **Status:** Active Reference
 **Version:** 1.0
+## Related Skills
+
+For implementation guidance, see:
+- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
+- [@html-htmx](../../.claude/skills/html-htmx/SKILL.md)
+
 
 ## Core Principle
 

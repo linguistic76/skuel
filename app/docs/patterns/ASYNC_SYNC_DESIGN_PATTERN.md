@@ -11,6 +11,11 @@ related_docs:
 ---
 
 # Async/Sync Design Pattern
+## Related Skills
+
+For implementation guidance, see:
+- [@python](../../.claude/skills/python/SKILL.md)
+
 
 ## Core Principle: "Async for I/O, Sync for Computation"
 

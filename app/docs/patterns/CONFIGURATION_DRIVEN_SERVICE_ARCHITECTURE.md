@@ -19,6 +19,11 @@ How SKUEL services use DomainConfig for unified, type-safe configuration.
 **Migration Status:** ✅ **100% Complete** (January 2026) - All services migrated to DomainConfig.
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
+
 
 ## Core Principle
 

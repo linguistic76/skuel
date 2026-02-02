@@ -14,6 +14,11 @@ related_docs: []
 **NOTE (January 2026):** MOC is now KU-based. The MOC protocol examples below
 are historical - they illustrate the LSP pattern but the actual MocOperations
 protocol has been removed. See `/docs/domains/moc.md` for current MOC architecture.
+## Related Skills
+
+For implementation guidance, see:
+- [@python](../../.claude/skills/python/SKILL.md)
+
 
 ## Core Principle
 

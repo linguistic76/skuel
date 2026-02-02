@@ -15,6 +15,12 @@ related_docs: []
 **Status**: Official Architecture Guide
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+- [@pytest](../../.claude/skills/pytest/SKILL.md)
+
 
 ## Overview
 

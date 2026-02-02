@@ -9,6 +9,11 @@ related_docs: []
 # Route File Naming Convention
 
 *Last updated: 2026-01-12*
+## Related Skills
+
+For implementation guidance, see:
+- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
+
 
 ## Overview
 

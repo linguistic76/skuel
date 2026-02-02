@@ -13,6 +13,12 @@ related_docs:
 # Domain Patterns Catalog
 
 *Last updated: 2026-01-29*
+## Related Skills
+
+For implementation guidance, see:
+- [@pydantic](../../.claude/skills/pydantic/SKILL.md)
+- [@python](../../.claude/skills/python/SKILL.md)
+
 
 ## Overview
 

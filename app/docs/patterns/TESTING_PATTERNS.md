@@ -19,6 +19,11 @@ related_docs:
 This document captures critical patterns for writing integration tests in SKUEL. These patterns emerged from real test failures that revealed the system's design - the failures were teachers, showing us where tests didn't align with architectural commitments.
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@pytest](../../.claude/skills/pytest/SKILL.md)
+
 
 ## Pattern 1: Cascade Deletion for Entity Cleanup
 

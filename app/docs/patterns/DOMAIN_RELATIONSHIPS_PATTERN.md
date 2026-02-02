@@ -26,6 +26,11 @@ related_docs:
 **January 2026 Update:** Added documentation for auto-created user relationships and cascade deletion requirements. See section "Auto-Created User Relationships".
 
 **December 2025 Update:** Activity Domains (6) now use `UnifiedRelationshipService` with domain configs instead of separate relationship services per domain. See `/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md`.
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+
 
 ## One Path Forward (ADR-029)
 
