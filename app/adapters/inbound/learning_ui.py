@@ -375,9 +375,7 @@ def validate_ls_form_data(form_data: dict[str, Any]) -> "Result[None]":
         try:
             mastery_threshold = float(mastery_threshold_str)
             if not 0.0 <= mastery_threshold <= 1.0:
-                return Result.fail(
-                    Errors.validation("Mastery threshold must be between 0 and 1")
-                )
+                return Result.fail(Errors.validation("Mastery threshold must be between 0 and 1"))
         except ValueError:
             return Result.fail(Errors.validation("Invalid mastery threshold format"))
 

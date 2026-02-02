@@ -538,7 +538,9 @@ def create_journal_projects_ui_routes(
         # Parse typed parameters
         params = parse_journal_project_params(request)
 
-        return JournalProjectUIComponents.render_project_editor(user_uid=params.user_uid, mode="create")
+        return JournalProjectUIComponents.render_project_editor(
+            user_uid=params.user_uid, mode="create"
+        )
 
     @app.get("/ui/journal-projects/{uid}/edit")
     async def edit_project_form(_request, uid: str) -> Any:

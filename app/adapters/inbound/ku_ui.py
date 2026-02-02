@@ -39,9 +39,7 @@ class KuUIComponents:
     """Centralized KU UI components - no more inline composition"""
 
     @staticmethod
-    def render_ku_dashboard(
-        knowledge_units=None, stats=None, domains=None, request=None
-    ) -> Any:
+    def render_ku_dashboard(knowledge_units=None, stats=None, domains=None, request=None) -> Any:
         """
         Main KU dashboard - REFACTORED to use SharedUIComponents.
 
@@ -329,9 +327,7 @@ def validate_ku_form_data(form_data: dict[str, Any]) -> "Result[None]":
     # Optional: complexity (if provided, must be valid)
     complexity = form_data.get("complexity", "").strip()
     if complexity and complexity not in ["basic", "medium", "advanced"]:
-        return Result.fail(
-            Errors.validation("Complexity must be 'basic', 'medium', or 'advanced'")
-        )
+        return Result.fail(Errors.validation("Complexity must be 'basic', 'medium', or 'advanced'"))
 
     return Result.ok(None)
 
@@ -400,11 +396,10 @@ def create_ku_ui_routes(_app, rt, ku_service):
             if result.is_error:
                 return await BasePage(
                     content=render_error_banner(
-                        "Unable to load KUs. Please try again later.",
-                        result.error.message
+                        "Unable to load KUs. Please try again later.", result.error.message
                     ),
                     title="Knowledge",
-                    request=request
+                    request=request,
                 )
 
             knowledge = result.value if result.value else []
@@ -470,8 +465,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
             # Check for errors FIRST, show user-friendly message
             if result.is_error:
                 return render_error_banner(
-                    "Unable to load knowledge units. Please try again later.",
-                    result.error.message
+                    "Unable to load knowledge units. Please try again later.", result.error.message
                 )
 
             knowledge = result.value if result.value else []

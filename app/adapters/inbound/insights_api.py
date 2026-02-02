@@ -67,7 +67,9 @@ def create_insights_api_routes(
             logger.warning(f"Failed to dismiss insight {uid}: {result.error}")
             return result
 
-        logger.info(f"Insight dismissed: {uid} by {user_uid}" + (f" (notes: {notes[:50]})" if notes else ""))
+        logger.info(
+            f"Insight dismissed: {uid} by {user_uid}" + (f" (notes: {notes[:50]})" if notes else "")
+        )
 
         # Return success message (HTMX will swap with this)
         return Result.ok(DismissedInsightMessage())
@@ -104,7 +106,10 @@ def create_insights_api_routes(
             logger.warning(f"Failed to mark insight actioned {uid}: {result.error}")
             return result
 
-        logger.info(f"Insight marked as actioned: {uid} by {user_uid}" + (f" (notes: {notes[:50]})" if notes else ""))
+        logger.info(
+            f"Insight marked as actioned: {uid} by {user_uid}"
+            + (f" (notes: {notes[:50]})" if notes else "")
+        )
 
         # Return success message (HTMX will swap with this)
         from fasthtml.common import Div, NotStr
@@ -601,7 +606,9 @@ def create_insights_api_routes(
 
         # Verify ownership (insight belongs to requesting user)
         if insight.user_uid != user_uid:
-            logger.warning(f"User {user_uid} attempted to access insight {uid} owned by {insight.user_uid}")
+            logger.warning(
+                f"User {user_uid} attempted to access insight {uid} owned by {insight.user_uid}"
+            )
             return Errors.not_found(f"Insight {uid} not found")
 
         # Convert to dictionary with full details

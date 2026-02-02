@@ -363,7 +363,9 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                         Div(
                             Span(rationale, cls="text-sm text-base-content/70"),
                             cls="ml-4",
-                        ) if rationale else Div(),
+                        )
+                        if rationale
+                        else Div(),
                         cls="mb-3",
                     )
                 )
@@ -393,8 +395,10 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                     Div(
                         Badge(
                             insight.impact.value.upper(),
-                            variant="error" if insight.impact.value in ("critical", "high")
-                            else "warning" if insight.impact.value == "medium"
+                            variant="error"
+                            if insight.impact.value in ("critical", "high")
+                            else "warning"
+                            if insight.impact.value == "medium"
                             else "success",
                         ),
                         Badge(insight.domain, variant="neutral"),
@@ -412,7 +416,10 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                 # Full description
                 Div(
                     H3("Details", cls="text-lg font-semibold text-base-content mb-3"),
-                    P(insight.description or "No additional details available.", cls="text-base-content/80"),
+                    P(
+                        insight.description or "No additional details available.",
+                        cls="text-base-content/80",
+                    ),
                     cls="mb-6",
                 ),
                 # Supporting data (if available)
@@ -422,9 +429,13 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                 # Entity info
                 Div(
                     Span("Related Entity: ", cls="font-semibold text-base-content"),
-                    Span(insight.entity_uid or "None", cls="text-sm text-base-content/60 font-mono"),
+                    Span(
+                        insight.entity_uid or "None", cls="text-sm text-base-content/60 font-mono"
+                    ),
                     cls="mb-6 text-sm",
-                ) if insight.entity_uid else Div(),
+                )
+                if insight.entity_uid
+                else Div(),
                 # Action buttons
                 Div(
                     # Snooze options

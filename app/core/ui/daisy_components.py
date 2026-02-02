@@ -435,14 +435,10 @@ def Input(
     elements = [input_element]
 
     if help_text:
-        elements.append(
-            Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70")
-        )
+        elements.append(Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70"))
 
     if error_text:
-        elements.append(
-            Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error")
-        )
+        elements.append(Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error"))
 
     return Div(*elements, cls="w-full" if full_width else "")
 
@@ -516,14 +512,10 @@ def Select(
     elements = [select_element]
 
     if help_text:
-        elements.append(
-            Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70")
-        )
+        elements.append(Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70"))
 
     if error_text:
-        elements.append(
-            Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error")
-        )
+        elements.append(Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error"))
 
     return Div(*elements, cls="w-full" if full_width else "")
 
@@ -592,14 +584,10 @@ def Textarea(
     elements = [textarea_element]
 
     if help_text:
-        elements.append(
-            Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70")
-        )
+        elements.append(Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70"))
 
     if error_text:
-        elements.append(
-            Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error")
-        )
+        elements.append(Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error"))
 
     return Div(*elements, cls="w-full" if full_width else "")
 

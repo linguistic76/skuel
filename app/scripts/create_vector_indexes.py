@@ -35,6 +35,7 @@ sys.path.insert(0, str(project_root))
 
 # Load .env file before importing config
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from neo4j import AsyncGraphDatabase

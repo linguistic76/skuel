@@ -314,5 +314,4 @@ def EntityCard(
     return Card(*content, cls=card_cls, **kwargs)
 
 
-
 __all__ = ["CardVariant", "CardConfig", "EntityCard"]

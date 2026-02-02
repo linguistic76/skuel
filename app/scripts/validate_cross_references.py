@@ -305,7 +305,9 @@ def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], C
     return issues, stats
 
 
-def print_report(issues: list[ValidationIssue], stats: CrossRefStats, verbose: bool = False) -> None:
+def print_report(
+    issues: list[ValidationIssue], stats: CrossRefStats, verbose: bool = False
+) -> None:
     """Print validation report."""
     print("\nCross-Reference Validation Report")
     print("=" * 80)
@@ -351,7 +353,7 @@ def print_report(issues: list[ValidationIssue], stats: CrossRefStats, verbose: b
     if warnings:
         print("🟡 WARNINGS (Should Fix):")
         print()
-        for issue in warnings[:10 if not verbose else None]:  # Limit to 10 unless verbose
+        for issue in warnings[: 10 if not verbose else None]:  # Limit to 10 unless verbose
             print(f"  [{issue.category.upper()}] {issue.source}")
             print(f"    {issue.message}")
             if issue.suggestion:
@@ -392,7 +394,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Validate cross-references between skills and documentation"
     )
-    parser.add_argument("--verbose", "-v", action="store_true", help="Show all issues including info")
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show all issues including info"
+    )
     parser.add_argument(
         "--errors-only",
         action="store_true",

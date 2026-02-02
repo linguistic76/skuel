@@ -114,10 +114,12 @@ def create_assignments_sharing_api_routes(
         if result.is_error:
             return result
 
-        return Result.ok({
-            "success": True,
-            "message": f"Assignment shared with {body.recipient_uid}",
-        })
+        return Result.ok(
+            {
+                "success": True,
+                "message": f"Assignment shared with {body.recipient_uid}",
+            }
+        )
 
     @rt("/api/assignments/unshare", methods=["POST"])
     @boundary_handler(success_status=200)
@@ -150,10 +152,12 @@ def create_assignments_sharing_api_routes(
         if result.is_error:
             return result
 
-        return Result.ok({
-            "success": True,
-            "message": f"Sharing revoked for {body.recipient_uid}",
-        })
+        return Result.ok(
+            {
+                "success": True,
+                "message": f"Sharing revoked for {body.recipient_uid}",
+            }
+        )
 
     @rt("/api/assignments/set-visibility", methods=["POST"])
     @boundary_handler(success_status=200)
@@ -181,10 +185,12 @@ def create_assignments_sharing_api_routes(
         try:
             visibility = Visibility(body.visibility)
         except ValueError:
-            return Result.fail({
-                "error": "validation",
-                "message": f"Invalid visibility value: {body.visibility}",
-            })
+            return Result.fail(
+                {
+                    "error": "validation",
+                    "message": f"Invalid visibility value: {body.visibility}",
+                }
+            )
 
         result = await sharing_service.set_visibility(
             assignment_uid=body.assignment_uid,
@@ -195,10 +201,12 @@ def create_assignments_sharing_api_routes(
         if result.is_error:
             return result
 
-        return Result.ok({
-            "success": True,
-            "visibility": body.visibility,
-        })
+        return Result.ok(
+            {
+                "success": True,
+                "visibility": body.visibility,
+            }
+        )
 
     @rt("/api/assignments/shared-with-me")
     @boundary_handler(success_status=200)
@@ -231,25 +239,27 @@ def create_assignments_sharing_api_routes(
 
         assignments = result.value
 
-        return Result.ok({
-            "assignments": [
-                {
-                    "uid": a.uid,
-                    "user_uid": a.user_uid,
-                    "original_filename": a.original_filename,
-                    "assignment_type": a.assignment_type,
-                    "status": a.status,
-                    "processed_content": a.processed_content,
-                    "created_at": a.created_at.isoformat() if a.created_at else None,
-                    "visibility": a.visibility,
-                    # Sharing metadata
-                    "shared_role": getattr(a, "shared_role", None),
-                    "shared_at": getattr(a, "shared_at", None),
-                }
-                for a in assignments
-            ],
-            "count": len(assignments),
-        })
+        return Result.ok(
+            {
+                "assignments": [
+                    {
+                        "uid": a.uid,
+                        "user_uid": a.user_uid,
+                        "original_filename": a.original_filename,
+                        "assignment_type": a.assignment_type,
+                        "status": a.status,
+                        "processed_content": a.processed_content,
+                        "created_at": a.created_at.isoformat() if a.created_at else None,
+                        "visibility": a.visibility,
+                        # Sharing metadata
+                        "shared_role": getattr(a, "shared_role", None),
+                        "shared_at": getattr(a, "shared_at", None),
+                    }
+                    for a in assignments
+                ],
+                "count": len(assignments),
+            }
+        )
 
     @rt("/api/assignments/shared-users")
     @boundary_handler(success_status=200)
@@ -281,10 +291,12 @@ def create_assignments_sharing_api_routes(
         assignment_uid = params.get("uid")
 
         if not assignment_uid:
-            return Result.fail({
-                "error": "validation",
-                "message": "Missing required parameter: uid",
-            })
+            return Result.fail(
+                {
+                    "error": "validation",
+                    "message": "Missing required parameter: uid",
+                }
+            )
 
         # Verify ownership (only owner can see who assignment is shared with)
         if core_service:
@@ -294,10 +306,12 @@ def create_assignments_sharing_api_routes(
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
-                return Result.fail({
-                    "error": "forbidden",
-                    "message": "You do not own this assignment",
-                })
+                return Result.fail(
+                    {
+                        "error": "forbidden",
+                        "message": "You do not own this assignment",
+                    }
+                )
 
         result = await sharing_service.get_shared_with_users(
             assignment_uid=assignment_uid,
@@ -308,10 +322,12 @@ def create_assignments_sharing_api_routes(
 
         users = result.value
 
-        return Result.ok({
-            "users": users,
-            "count": len(users),
-        })
+        return Result.ok(
+            {
+                "users": users,
+                "count": len(users),
+            }
+        )
 
     @rt("/api/assignments/public")
     @boundary_handler(success_status=200)
@@ -340,10 +356,12 @@ def create_assignments_sharing_api_routes(
         # Note: This uses the core service's search capabilities
         # We filter by visibility=public
         if not core_service:
-            return Result.fail({
-                "error": "system",
-                "message": "Core service not available",
-            })
+            return Result.fail(
+                {
+                    "error": "system",
+                    "message": "Core service not available",
+                }
+            )
 
         # Use BaseService search with visibility filter
         search_result = await core_service.search(
@@ -361,22 +379,24 @@ def create_assignments_sharing_api_routes(
         if filter_user_uid:
             assignments = [a for a in assignments if a.user_uid == filter_user_uid]
 
-        return Result.ok({
-            "assignments": [
-                {
-                    "uid": a.uid,
-                    "user_uid": a.user_uid,
-                    "original_filename": a.original_filename,
-                    "assignment_type": a.assignment_type,
-                    "status": a.status,
-                    "processed_content": a.processed_content,
-                    "created_at": a.created_at.isoformat() if a.created_at else None,
-                    "visibility": a.visibility,
-                }
-                for a in assignments
-            ],
-            "count": len(assignments),
-        })
+        return Result.ok(
+            {
+                "assignments": [
+                    {
+                        "uid": a.uid,
+                        "user_uid": a.user_uid,
+                        "original_filename": a.original_filename,
+                        "assignment_type": a.assignment_type,
+                        "status": a.status,
+                        "processed_content": a.processed_content,
+                        "created_at": a.created_at.isoformat() if a.created_at else None,
+                        "visibility": a.visibility,
+                    }
+                    for a in assignments
+                ],
+                "count": len(assignments),
+            }
+        )
 
     # Return route handlers
     return [

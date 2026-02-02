@@ -87,7 +87,7 @@ def render_error_banner(
         Div(
             Span(icon, cls="mr-2", **{"aria-hidden": "true"}),
             Span(user_message, cls="font-semibold"),
-            cls="flex items-center"
+            cls="flex items-center",
         )
     ]
 
@@ -95,6 +95,7 @@ def render_error_banner(
     # Check environment variable for DEBUG mode (common pattern in SKUEL)
     try:
         import os
+
         debug_mode = os.getenv("DEBUG", "false").lower() == "true"
     except Exception:
         debug_mode = False
@@ -103,11 +104,8 @@ def render_error_banner(
         content.append(
             Details(
                 Summary("Technical Details (Dev Mode)", cls="cursor-pointer text-sm mt-2"),
-                P(
-                    technical_details,
-                    cls="text-sm mt-2 font-mono bg-base-300 p-2 rounded"
-                ),
-                cls="mt-2"
+                P(technical_details, cls="text-sm mt-2 font-mono bg-base-300 p-2 rounded"),
+                cls="mt-2",
             )
         )
 
@@ -181,14 +179,11 @@ def render_empty_state_with_error(
             A(
                 Button(action_label, cls="btn btn-primary btn-sm"),
                 href=action_href,
-                cls="inline-block"
+                cls="inline-block",
             )
         )
 
-    return Div(
-        *content,
-        cls="text-center py-12 px-4"
-    )
+    return Div(*content, cls="text-center py-12 px-4")
 
 
 # Import Span for use in this module

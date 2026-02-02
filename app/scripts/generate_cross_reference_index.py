@@ -93,12 +93,7 @@ def generate_index_content(base_path: Path) -> str:
             other_docs = [
                 d
                 for d in primary_docs
-                if d
-                not in arch_docs
-                + pattern_docs
-                + guide_docs
-                + intel_docs
-                + domain_docs
+                if d not in arch_docs + pattern_docs + guide_docs + intel_docs + domain_docs
             ]
 
             if arch_docs:
@@ -166,9 +161,7 @@ def generate_index_content(base_path: Path) -> str:
     content.append("")
     content.append("## By Document Category")
     content.append("")
-    content.append(
-        "For each documentation category, this section shows which skills are relevant."
-    )
+    content.append("For each documentation category, this section shows which skills are relevant.")
     content.append("")
 
     # 2.1: Architecture Docs
@@ -271,12 +264,8 @@ def generate_index_content(base_path: Path) -> str:
     content.append("## Statistics")
     content.append("")
     content.append(f"- **Total skills:** {len(skills_data['skills'])}")
-    content.append(
-        f"- **Architecture docs:** {len(arch_to_skills)} docs linked to skills"
-    )
-    content.append(
-        f"- **Intelligence docs:** {len(intel_to_skills)} docs linked to skills"
-    )
+    content.append(f"- **Architecture docs:** {len(arch_to_skills)} docs linked to skills")
+    content.append(f"- **Intelligence docs:** {len(intel_to_skills)} docs linked to skills")
     content.append(
         f"- **Pattern docs:** {len([d for d in pattern_to_skills if pattern_to_skills[d]])} docs linked to skills"
     )
@@ -295,16 +284,12 @@ def generate_index_content(base_path: Path) -> str:
     content.append("- After updating skills_metadata.yaml")
     content.append("")
     content.append("**How to Update:**")
-    content.append(
-        "```bash\npoetry run python scripts/generate_cross_reference_index.py\n```"
-    )
+    content.append("```bash\npoetry run python scripts/generate_cross_reference_index.py\n```")
     content.append("")
     content.append("**Related Files:**")
     content.append("- `.claude/skills/skills_metadata.yaml` - Machine-readable metadata")
     content.append("- `docs/patterns/*.md` - Pattern doc frontmatter")
-    content.append(
-        "- `scripts/generate_cross_reference_index.py` - This generator script"
-    )
+    content.append("- `scripts/generate_cross_reference_index.py` - This generator script")
     content.append("")
 
     return "\n".join(content)

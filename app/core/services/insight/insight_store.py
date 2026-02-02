@@ -320,9 +320,7 @@ class InsightStore:
                 )
             )
 
-    async def dismiss_insight(
-        self, uid: str, user_uid: str, notes: str = ""
-    ) -> Result[None]:
+    async def dismiss_insight(self, uid: str, user_uid: str, notes: str = "") -> Result[None]:
         """
         Mark an insight as dismissed by the user.
 
@@ -367,9 +365,7 @@ class InsightStore:
                 )
             )
 
-    async def mark_actioned(
-        self, uid: str, user_uid: str, notes: str = ""
-    ) -> Result[None]:
+    async def mark_actioned(self, uid: str, user_uid: str, notes: str = "") -> Result[None]:
         """
         Mark an insight as actioned by the user.
 

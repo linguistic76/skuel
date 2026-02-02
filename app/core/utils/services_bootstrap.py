@@ -206,6 +206,9 @@ class Services:
     assignments_core: Any = (
         None  # AssignmentsCoreService - Content management (categories, tags, bulk operations)
     )
+    assignments_sharing: Any = (
+        None  # AssignmentSharingService - Content sharing and visibility control (Phase 1)
+    )
     assignment_processor: Any = (
         None  # AssignmentProcessorService - Orchestrates processing (LLM, human, hybrid)
     )

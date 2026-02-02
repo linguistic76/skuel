@@ -315,14 +315,15 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
 
             # Check for errors FIRST, show user-friendly message (main content failure)
             if not expenses_result or expenses_result.is_error:
-                error_msg = expenses_result.error.message if expenses_result else "Service unavailable"
+                error_msg = (
+                    expenses_result.error.message if expenses_result else "Service unavailable"
+                )
                 return await BasePage(
                     content=render_error_banner(
-                        "Unable to load expenses. Please try again later.",
-                        error_msg
+                        "Unable to load expenses. Please try again later.", error_msg
                     ),
                     title="Expenses",
-                    request=request
+                    request=request,
                 )
 
             # Safe to access value
@@ -342,11 +343,10 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             logger.error(f"Unexpected error fetching expenses: {e}")
             return await BasePage(
                 content=render_error_banner(
-                    "An unexpected error occurred. Please try again later.",
-                    str(e)
+                    "An unexpected error occurred. Please try again later.", str(e)
                 ),
                 title="Expenses",
-                request=request
+                request=request,
             )
 
         # Categories for filter

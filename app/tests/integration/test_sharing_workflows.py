@@ -232,9 +232,7 @@ async def test_public_visibility_allows_all_access(sharing_service, test_assignm
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_shared_visibility_requires_relationship(
-    sharing_service, test_assignment
-):
+async def test_shared_visibility_requires_relationship(sharing_service, test_assignment):
     """Test SHARED assignments require SHARES_WITH relationship."""
     assignment_uid = test_assignment["uid"]
     owner_uid = test_assignment["owner_uid"]

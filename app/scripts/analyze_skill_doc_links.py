@@ -124,9 +124,13 @@ def main() -> None:
     # Print summary statistics
     print("\n" + "=" * 80)
     print("SUMMARY:")
-    print(f"  Skills with pattern doc links: {len([s for s in skill_to_docs if skill_to_docs[s]['pattern_docs']])}")
+    print(
+        f"  Skills with pattern doc links: {len([s for s in skill_to_docs if skill_to_docs[s]['pattern_docs']])}"
+    )
     print(f"  Skills with ADR links: {len([s for s in skill_to_docs if skill_to_docs[s]['adrs']])}")
-    print(f"  Skills with architecture doc links: {len([s for s in skill_to_docs if skill_to_docs[s]['architecture_docs']])}")
+    print(
+        f"  Skills with architecture doc links: {len([s for s in skill_to_docs if skill_to_docs[s]['architecture_docs']])}"
+    )
     print(f"  Total unique skills referenced: {len(all_skills)}")
 
 

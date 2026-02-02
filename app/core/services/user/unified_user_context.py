@@ -249,7 +249,9 @@ class UserContext:
     estimated_time_to_mastery: dict[str, int] = field(default_factory=dict)  # uid -> hours
 
     # Learning focus tracking (aligns with other domain focus fields)
-    current_learning_focus: str | None = None  # Current learning/curriculum focus (KU, LS, or LP UID)
+    current_learning_focus: str | None = (
+        None  # Current learning/curriculum focus (KU, LS, or LP UID)
+    )
 
     # =========================================================================
     # GRAPH-SOURCED RELATIONSHIP METADATA - Data FROM graph edges

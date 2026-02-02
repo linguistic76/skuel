@@ -196,9 +196,7 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
 
         return Result.ok(assignment)
 
-    async def get_with_access_check(
-        self, uid: str, user_uid: str
-    ) -> Result[Assignment]:
+    async def get_with_access_check(self, uid: str, user_uid: str) -> Result[Assignment]:
         """
         Get an assignment with access control verification.
 
@@ -224,9 +222,7 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
             return Result.fail(access_result.expect_error())
 
         if not access_result.value:
-            return Result.fail(
-                Errors.not_found("resource", f"Assignment {uid} not found")
-            )
+            return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
 
         # User has access, fetch the assignment
         return await self.get_assignment(uid)

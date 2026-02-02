@@ -36,7 +36,9 @@ def _nav_link(item: NavItem, active_page: str, mobile: bool = False) -> A:
     is_active = item.page_key == active_page
 
     if mobile:
-        base_cls = "block rounded-md px-3 py-2 text-base font-medium focus:outline-none focus:bg-base-300"
+        base_cls = (
+            "block rounded-md px-3 py-2 text-base font-medium focus:outline-none focus:bg-base-300"
+        )
         active_cls = "bg-base-300 text-base-content"
         inactive_cls = "text-base-content/70 hover:bg-base-300 hover:text-base-content"
     else:

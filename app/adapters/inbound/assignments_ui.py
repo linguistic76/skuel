@@ -434,7 +434,10 @@ def _render_visibility_dropdown(assignment: Any) -> Any:
         ),
         Div(
             P(
-                next((desc for val, _lbl, desc in visibility_options if val == current_visibility), ""),
+                next(
+                    (desc for val, _lbl, desc in visibility_options if val == current_visibility),
+                    "",
+                ),
                 cls="text-xs text-base-content/60 mb-0",
             ),
             id="visibility-status",
@@ -511,7 +514,9 @@ def _render_share_modal(assignment_uid: str) -> Any:
                         hx_vals=f"js:{{assignment_uid: '{assignment_uid}', recipient_uid: document.querySelector('input[name=recipient_uid]').value, role: document.querySelector('select[name=role]').value}}",
                         hx_target="#shared-users-list",
                         hx_swap="innerHTML",
-                        **{"@submit.prevent": "$el.dispatchEvent(new Event('htmx:trigger')); shareModal = false"},
+                        **{
+                            "@submit.prevent": "$el.dispatchEvent(new Event('htmx:trigger')); shareModal = false"
+                        },
                     ),
                     cls="modal-box",
                 ),
@@ -1106,7 +1111,10 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
             # Note: This would ideally use the sharing service
             # For now, return placeholder UI that will be populated via API
             return Div(
-                P("Shared users list will appear here after sharing", cls="text-sm text-base-content/60"),
+                P(
+                    "Shared users list will appear here after sharing",
+                    cls="text-sm text-base-content/60",
+                ),
                 Span("No users yet", cls="badge badge-ghost"),
                 id="shared-users-content",
             )

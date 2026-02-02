@@ -392,7 +392,9 @@ def _item_list(
 
     # Phase 3, Task 11: Add focus handler if focus_uid present
     if focus_uid:
-        wrapper_attrs["x_init"] = f"$nextTick(() => {{ if (window.profileFocusHandler) {{ var handler = profileFocusHandler('{focus_uid}'); handler.scrollToFocused.call({{ $el: $el, focusUid: '{focus_uid}' }}); }} }})"
+        wrapper_attrs["x_init"] = (
+            f"$nextTick(() => {{ if (window.profileFocusHandler) {{ var handler = profileFocusHandler('{focus_uid}'); handler.scrollToFocused.call({{ $el: $el, focusUid: '{focus_uid}' }}); }} }})"
+        )
 
     return Div(*list_items, cls="space-y-1", **wrapper_attrs)
 
@@ -501,7 +503,9 @@ def TasksDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
         intelligence_card,  # NEW: Contextual intelligence
         H3("Active Tasks", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
         DomainFilterControls("tasks", len(items)),  # Phase 3, Task 12: Filter controls
-        _item_list(items, "No active tasks", "/tasks", domain="tasks", focus_uid=focus_uid, limit=50),
+        _item_list(
+            items, "No active tasks", "/tasks", domain="tasks", focus_uid=focus_uid, limit=50
+        ),
         A(
             "View All Tasks →",
             href="/tasks",
@@ -545,7 +549,9 @@ def HabitsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
             {
                 "title": f"{habit.get('title', 'Habit')} ({streak} day streak)",
                 "uid": uid,
-                "status": "keystone" if is_keystone else ("at_risk" if is_at_risk else "in_progress"),
+                "status": "keystone"
+                if is_keystone
+                else ("at_risk" if is_at_risk else "in_progress"),
                 "is_overdue": is_at_risk,  # For filter compatibility
                 "is_high_priority": is_keystone,  # For filter compatibility
                 "is_this_week": False,
@@ -611,7 +617,9 @@ def HabitsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
         intelligence_card,  # NEW: Contextual intelligence
         H3("Active Habits", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
         DomainFilterControls("habits", len(items)),  # Phase 3, Task 12
-        _item_list(items, "No active habits", "/habits", domain="habits", focus_uid=focus_uid, limit=50),
+        _item_list(
+            items, "No active habits", "/habits", domain="habits", focus_uid=focus_uid, limit=50
+        ),
         A(
             "View All Habits →",
             href="/habits",
@@ -655,7 +663,9 @@ def GoalsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
             {
                 "title": f"{goal.get('title', 'Goal')} ({int(progress * 100)}%)",
                 "uid": uid,
-                "status": "near_complete" if is_near_complete else ("at_risk" if is_at_risk else "in_progress"),
+                "status": "near_complete"
+                if is_near_complete
+                else ("at_risk" if is_at_risk else "in_progress"),
                 "is_overdue": is_at_risk,
                 "is_high_priority": is_near_complete,
                 "is_this_week": False,
@@ -728,7 +738,9 @@ def GoalsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
         intelligence_card,  # NEW: Contextual intelligence
         H3("Active Goals", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
         DomainFilterControls("goals", len(items)),  # Phase 3, Task 12
-        _item_list(items, "No active goals", "/goals", domain="goals", focus_uid=focus_uid, limit=50),
+        _item_list(
+            items, "No active goals", "/goals", domain="goals", focus_uid=focus_uid, limit=50
+        ),
         A(
             "View All Goals →",
             href="/goals",
@@ -908,7 +920,9 @@ def PrinciplesDomainView(context: UserContext, focus_uid: str | None = None) -> 
         DomainSummaryCard("Principles", "⚖️", stats, status),
         intelligence_card,  # NEW: Contextual intelligence
         H3("Core Principles", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No principles defined", "/principles", domain="principles", focus_uid=focus_uid),
+        _item_list(
+            items, "No principles defined", "/principles", domain="principles", focus_uid=focus_uid
+        ),
         A(
             "View All Principles →",
             href="/principles",

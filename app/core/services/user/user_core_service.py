@@ -220,7 +220,6 @@ class UserCoreService:
         """
         return await self.repo.get_user_by_username(username)
 
-
     @with_error_handling("update_user", error_type="database")
     async def update_user(self, user: User) -> Result[User]:
         """

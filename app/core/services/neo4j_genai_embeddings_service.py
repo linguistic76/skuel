@@ -76,6 +76,7 @@ class Neo4jGenAIEmbeddingsService:
 
         # Get OpenAI API key from environment
         import os
+
         self.openai_api_key = os.getenv("OPENAI_API_KEY", "")
         if not self.openai_api_key:
             self.logger.warning("⚠️ OPENAI_API_KEY not set - embeddings will fail")

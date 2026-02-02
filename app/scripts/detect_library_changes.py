@@ -80,9 +80,7 @@ def parse_poetry_lock_packages(lock_file_path: Path) -> dict[str, str]:
     # version = "2.12.5"
 
     package_blocks = re.findall(
-        r'\[\[package\]\]\s+name = "([^"]+)"\s+version = "([^"]+)"',
-        content,
-        re.MULTILINE
+        r'\[\[package\]\]\s+name = "([^"]+)"\s+version = "([^"]+)"', content, re.MULTILINE
     )
 
     for name, version in package_blocks:
@@ -91,7 +89,9 @@ def parse_poetry_lock_packages(lock_file_path: Path) -> dict[str, str]:
     return packages
 
 
-def get_git_diff_packages(base_path: Path, from_ref: str = "HEAD@{1}") -> dict[str, tuple[str, str]]:
+def get_git_diff_packages(
+    base_path: Path, from_ref: str = "HEAD@{1}"
+) -> dict[str, tuple[str, str]]:
     """
     Get package version changes from git diff.
 

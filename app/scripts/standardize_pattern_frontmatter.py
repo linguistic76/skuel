@@ -181,9 +181,7 @@ def standardize_frontmatter(
     }
 
     # Build new content
-    frontmatter_yaml = yaml.dump(
-        new_frontmatter, default_flow_style=False, sort_keys=False
-    )
+    frontmatter_yaml = yaml.dump(new_frontmatter, default_flow_style=False, sort_keys=False)
     new_content = f"---\n{frontmatter_yaml}---\n{body}"
 
     stats = {
@@ -204,17 +202,13 @@ def main() -> None:
     """Main entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Standardize frontmatter for pattern docs"
-    )
+    parser = argparse.ArgumentParser(description="Standardize frontmatter for pattern docs")
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Don't write files, just show what would change",
     )
-    parser.add_argument(
-        "--file", type=str, help="Process single file instead of all pattern docs"
-    )
+    parser.add_argument("--file", type=str, help="Process single file instead of all pattern docs")
     args = parser.parse_args()
 
     patterns_dir = Path(__file__).parent.parent / "docs" / "patterns"
@@ -247,7 +241,9 @@ def main() -> None:
         total_stats["total_docs"] += stats["docs_count"]
 
         status = "✓" if stats["had_frontmatter"] else "+"
-        skills_note = f"({stats['skills_count']} skills)" if stats["skills_count"] else "(no skills)"
+        skills_note = (
+            f"({stats['skills_count']} skills)" if stats["skills_count"] else "(no skills)"
+        )
 
         print(f"{status} {file_path.name:50} {skills_note}")
 

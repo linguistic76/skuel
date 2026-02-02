@@ -98,13 +98,13 @@ class AssignmentSharingService:
             )
 
             if not records:
-                return Result.fail(Errors.not_found(
-                    f"User {recipient_uid} or Assignment {assignment_uid} not found"
-                ))
+                return Result.fail(
+                    Errors.not_found(
+                        f"User {recipient_uid} or Assignment {assignment_uid} not found"
+                    )
+                )
 
-            logger.info(
-                f"Assignment {assignment_uid} shared with {recipient_uid} as {role}"
-            )
+            logger.info(f"Assignment {assignment_uid} shared with {recipient_uid} as {role}")
             return Result.ok(True)
 
         except Exception as e:
@@ -152,13 +152,13 @@ class AssignmentSharingService:
 
             deleted_count = records[0]["deleted_count"] if records else 0
             if deleted_count == 0:
-                return Result.fail(Errors.not_found(
-                    f"No sharing relationship found between {recipient_uid} and {assignment_uid}"
-                ))
+                return Result.fail(
+                    Errors.not_found(
+                        f"No sharing relationship found between {recipient_uid} and {assignment_uid}"
+                    )
+                )
 
-            logger.info(
-                f"Assignment {assignment_uid} unshared from {recipient_uid}"
-            )
+            logger.info(f"Assignment {assignment_uid} unshared from {recipient_uid}")
             return Result.ok(True)
 
         except Exception as e:
@@ -307,13 +307,13 @@ class AssignmentSharingService:
             )
 
             if not records:
-                return Result.fail(Errors.not_found(
-                    f"Assignment {assignment_uid} not found or not owned by {owner_uid}"
-                ))
+                return Result.fail(
+                    Errors.not_found(
+                        f"Assignment {assignment_uid} not found or not owned by {owner_uid}"
+                    )
+                )
 
-            logger.info(
-                f"Assignment {assignment_uid} visibility set to {visibility.value}"
-            )
+            logger.info(f"Assignment {assignment_uid} visibility set to {visibility.value}")
             return Result.ok(True)
 
         except Exception as e:
@@ -411,9 +411,7 @@ class AssignmentSharingService:
             actual_owner = records[0]["actual_owner"]
             if actual_owner != owner_uid:
                 return Result.fail(
-                    Errors.validation(
-                        f"User {owner_uid} does not own assignment {assignment_uid}"
-                    )
+                    Errors.validation(f"User {owner_uid} does not own assignment {assignment_uid}")
                 )
 
             return Result.ok(True)
@@ -453,9 +451,11 @@ class AssignmentSharingService:
 
             status = records[0]["status"]
             if status != "completed":
-                return Result.fail(Errors.validation(
-                    f"Only completed assignments can be shared. Current status: {status}"
-                ))
+                return Result.fail(
+                    Errors.validation(
+                        f"Only completed assignments can be shared. Current status: {status}"
+                    )
+                )
 
             return Result.ok(True)
 

@@ -118,7 +118,9 @@ def create_insights_history_routes(
                 # Add action metadata header
                 action_type = "Dismissed" if insight.dismissed else "Actioned"
                 action_date = insight.dismissed_at if insight.dismissed else insight.actioned_at
-                action_notes = insight.dismissed_notes if insight.dismissed else insight.actioned_notes
+                action_notes = (
+                    insight.dismissed_notes if insight.dismissed else insight.actioned_notes
+                )
 
                 metadata_header = Div(
                     Div(
@@ -127,7 +129,9 @@ def create_insights_history_routes(
                             variant="ghost" if insight.dismissed else "success",
                         ),
                         Span(
-                            f" on {action_date.strftime('%b %d, %Y at %I:%M %p')}" if action_date else "",
+                            f" on {action_date.strftime('%b %d, %Y at %I:%M %p')}"
+                            if action_date
+                            else "",
                             cls="text-xs text-base-content/60 ml-2",
                         ),
                         cls="flex items-center mb-2",
@@ -139,7 +143,9 @@ def create_insights_history_routes(
                             cls="text-xs text-base-content/60 italic",
                         ),
                         cls="mb-3",
-                    ) if action_notes or insight.dismissed or insight.actioned else Div(),
+                    )
+                    if action_notes or insight.dismissed or insight.actioned
+                    else Div(),
                     cls="mb-2 p-3 bg-base-100 rounded-md border-l-2 "
                     + ("border-l-base-300" if insight.dismissed else "border-l-success"),
                 )

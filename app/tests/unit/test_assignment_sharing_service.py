@@ -220,9 +220,7 @@ async def test_get_shared_with_users_success(sharing_service, mock_driver):
         None,
     )
 
-    result = await sharing_service.get_shared_with_users(
-        assignment_uid="assignment_123"
-    )
+    result = await sharing_service.get_shared_with_users(assignment_uid="assignment_123")
 
     assert not result.is_error
     assert len(result.value) == 2
@@ -236,9 +234,7 @@ async def test_get_shared_with_users_empty(sharing_service, mock_driver):
     """Test getting shared users when none exist."""
     mock_driver.execute_query.return_value = ([], None, None)
 
-    result = await sharing_service.get_shared_with_users(
-        assignment_uid="assignment_123"
-    )
+    result = await sharing_service.get_shared_with_users(assignment_uid="assignment_123")
 
     assert not result.is_error
     assert len(result.value) == 0
@@ -328,9 +324,7 @@ async def test_set_visibility_to_public_success(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_set_visibility_to_private_no_shareable_check(
-    sharing_service, mock_driver
-):
+async def test_set_visibility_to_private_no_shareable_check(sharing_service, mock_driver):
     """Test setting visibility to PRIVATE doesn't require shareability check."""
     mock_driver.execute_query.side_effect = [
         # _verify_ownership query
