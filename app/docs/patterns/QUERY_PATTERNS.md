@@ -1,3 +1,11 @@
+---
+title: Query Patterns
+updated: '2026-02-02'
+category: patterns
+related_skills:
+- neo4j-cypher-patterns
+related_docs: []
+---
 # Query Patterns
 
 *Last updated: 2025-12-07*

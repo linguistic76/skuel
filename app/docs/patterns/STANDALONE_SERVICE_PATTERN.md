@@ -1,10 +1,11 @@
 ---
 title: Standalone Service Pattern
 updated: 2026-01-07
-status: current
 category: patterns
-tags: [patterns, standalone, service, transcription, processing]
-related: [ADR-019-transcription-service-standalone.md]
+related_skills:
+- base-analytics-service
+related_docs:
+- /docs/decisions/ADR-019-transcription-service-standalone.md
 ---
 
 # Standalone Service Pattern

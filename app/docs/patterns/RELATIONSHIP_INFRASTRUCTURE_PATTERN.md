@@ -1,10 +1,13 @@
 ---
 title: Relationship Infrastructure Pattern
 updated: 2026-01-17
-status: current
 category: patterns
-tags: [relationships, infrastructure, mixins, validation, semantic]
-related: [DOMAIN_RELATIONSHIPS_PATTERN.md, RELATIONSHIPS_ARCHITECTURE.md, ADR-026]
+related_skills:
+- neo4j-cypher-patterns
+related_docs:
+- /docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md
+- /docs/patterns/RELATIONSHIPS_ARCHITECTURE.md
+- /docs/decisions/ADR-026
 ---
 
 # Relationship Infrastructure Pattern

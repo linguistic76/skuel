@@ -1,3 +1,10 @@
+---
+title: Clean Patterns Reference
+updated: '2026-02-02'
+category: patterns
+related_skills: []
+related_docs: []
+---
 # Clean Patterns Reference
 *Last updated: 2026-01-19*
 

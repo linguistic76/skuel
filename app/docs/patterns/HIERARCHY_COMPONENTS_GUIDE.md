@@ -1,3 +1,11 @@
+---
+title: Hierarchy Components Guide
+updated: '2026-02-02'
+category: patterns
+related_skills:
+- skuel-component-composition
+related_docs: []
+---
 # Hierarchy Components Guide
 
 **Date:** 2026-01-30

@@ -1,10 +1,12 @@
 ---
 title: Relationship Helpers - Example Service Implementation
 updated: 2025-11-18
-status: current
 category: patterns
-tags: [example, helpers, patterns, relationship, service]
-related: []
+related_skills:
+- base-analytics-service
+- pytest
+- neo4j-cypher-patterns
+related_docs: []
 ---
 
 # Relationship Helpers - Example Service Implementation

@@ -1,19 +1,13 @@
 ---
 title: Domain Patterns Catalog
 updated: 2026-01-29
-status: current
 category: patterns
-tags:
-- patterns
-- architecture
-- three-tier
-- domain-models
-related:
-- three_tier_type_system.md
-- ADR-035-tier-selection-guidelines.md
 related_skills:
 - python
 - pydantic
+related_docs:
+- /docs/patterns/three_tier_type_system.md
+- /docs/decisions/ADR-035-tier-selection-guidelines.md
 ---
 
 # Domain Patterns Catalog

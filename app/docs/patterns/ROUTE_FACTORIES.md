@@ -1,6 +1,10 @@
 ---
+title: Route Factory Pattern
+updated: '2026-02-02'
+category: patterns
 related_skills:
 - fasthtml
+related_docs: []
 ---
 # Route Factory Pattern
 

@@ -1,17 +1,11 @@
 ---
 title: Error Handling Architecture
 updated: 2026-01-25
-status: current
 category: patterns
-tags:
-- error
-- handling
-- patterns
-- form-validation
-- configuration-errors
-related: []
 related_skills:
 - result-pattern
+- ui-error-handling
+related_docs: []
 ---
 
 # Error Handling Architecture

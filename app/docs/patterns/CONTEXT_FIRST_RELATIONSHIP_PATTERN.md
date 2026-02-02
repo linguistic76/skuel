@@ -1,10 +1,10 @@
 ---
 title: Context-First Relationship Pattern
 updated: 2026-01-30
-status: current
 category: patterns
-tags: [context, first, pattern, patterns, relationship]
-related: []
+related_skills:
+- neo4j-cypher-patterns
+related_docs: []
 ---
 
 # Context-First Relationship Pattern

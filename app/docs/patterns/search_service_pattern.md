@@ -1,10 +1,13 @@
 ---
 title: SearchService Pattern for Activity Domains
 updated: 2026-01-07
-status: current
 category: patterns
-tags: [pattern, patterns, search, service]
-related: [search_config, unified_search, ADR-025-service-consolidation-patterns.md]
+related_skills:
+- base-analytics-service
+- skuel-search-architecture
+- neo4j-genai-plugin
+related_docs:
+- /docs/decisions/ADR-025-service-consolidation-patterns.md
 ---
 
 # SearchService Pattern for Activity Domains

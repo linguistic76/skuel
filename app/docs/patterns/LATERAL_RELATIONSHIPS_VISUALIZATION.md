@@ -1,3 +1,11 @@
+---
+title: Lateral Relationships Visualization Pattern
+updated: '2026-02-02'
+category: patterns
+related_skills:
+- neo4j-cypher-patterns
+related_docs: []
+---
 # Lateral Relationships Visualization Pattern
 
 **Date:** 2026-02-01

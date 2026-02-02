@@ -1,20 +1,11 @@
 ---
 title: Query Architecture
-created: 2025-10-17
 updated: 2026-01-21
-status: active
-audience: developers
-tags:
-- patterns
-- query
-- architecture
-- cypher
-- apoc
-- intent-based-traversal
-- typeddict
+category: patterns
 related_skills:
-- neo4j-cypher-patterns
 - skuel-search-architecture
+- neo4j-cypher-patterns
+related_docs: []
 ---
 
 # Query Architecture

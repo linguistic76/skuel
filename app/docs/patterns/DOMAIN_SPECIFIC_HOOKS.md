@@ -1,10 +1,9 @@
 ---
 title: Domain-Specific Hooks Pattern
 updated: 2026-01-17
-status: current
 category: patterns
-tags: [domain, hooks, patterns, specific]
-related: []
+related_skills: []
+related_docs: []
 ---
 
 # Domain-Specific Hooks Pattern

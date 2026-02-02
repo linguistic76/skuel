@@ -1,10 +1,10 @@
 ---
 title: MyPy Pragmatic Strategy - Making Peace with 2200 Errors
 updated: 2025-12-05
-status: current
 category: patterns
-tags: [mypy, patterns, pragmatic, strategy, type-narrowing]
-related: [RETURN_TYPE_ERROR_PROPAGATION.md]
+related_skills: []
+related_docs:
+- /docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md
 ---
 
 # MyPy Pragmatic Strategy - Making Peace with 2200 Errors

@@ -1,3 +1,10 @@
+---
+title: Universal Hierarchical Pattern
+updated: '2026-02-02'
+category: patterns
+related_skills: []
+related_docs: []
+---
 # Universal Hierarchical Pattern
 **Status:** Implemented (2026-01-30)
 **Scope:** All Domains (Activity, Curriculum, Infrastructure)

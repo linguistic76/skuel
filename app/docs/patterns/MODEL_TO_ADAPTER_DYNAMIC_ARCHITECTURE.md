@@ -1,10 +1,10 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
 updated: 2026-01-06
-status: current
 category: patterns
-tags: [adapter, architecture, dynamic, model, patterns]
-related: [BACKEND_OPERATIONS_ISP.md]
+related_skills: []
+related_docs:
+- /docs/patterns/BACKEND_OPERATIONS_ISP.md
 ---
 
 # Model-to-Adapter Dynamic Architecture

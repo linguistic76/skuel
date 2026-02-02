@@ -1,3 +1,11 @@
+---
+title: Route File Naming Convention
+updated: '2026-02-02'
+category: patterns
+related_skills:
+- fasthtml
+related_docs: []
+---
 # Route File Naming Convention
 
 *Last updated: 2026-01-12*

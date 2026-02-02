@@ -1,3 +1,10 @@
+---
+title: Enum Consolidation Pattern
+updated: '2026-02-02'
+category: patterns
+related_skills: []
+related_docs: []
+---
 # Enum Consolidation Pattern
 
 *Last updated: 2026-01-07*

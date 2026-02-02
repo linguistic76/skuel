@@ -1,20 +1,13 @@
 ---
 title: Async/Sync Design Pattern
 updated: 2026-01-03
-status: current
 category: patterns
-tags:
-- async
-- sync
-- patterns
-- architecture
-- performance
-related:
-- protocol_architecture.md
-- ERROR_HANDLING.md
-- event_driven_architecture.md
 related_skills:
 - python
+related_docs:
+- /docs/patterns/protocol_architecture.md
+- /docs/patterns/ERROR_HANDLING.md
+- /docs/patterns/event_driven_architecture.md
 ---
 
 # Async/Sync Design Pattern

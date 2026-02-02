@@ -1,3 +1,11 @@
+---
+title: Domain Route Configuration Pattern
+updated: '2026-02-02'
+category: patterns
+related_skills:
+- fasthtml
+related_docs: []
+---
 # Domain Route Configuration Pattern
 
 **Status:** Active | **Last Updated:** 2026-01-24

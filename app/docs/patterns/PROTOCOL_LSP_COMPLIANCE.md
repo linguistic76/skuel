@@ -1,10 +1,10 @@
 ---
 title: Protocol LSP Compliance Pattern
 updated: 2026-01-20
-status: current
 category: patterns
-tags: [compliance, lsp, patterns, protocol]
-related: []
+related_skills:
+- python
+related_docs: []
 ---
 
 # Protocol LSP Compliance Pattern

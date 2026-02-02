@@ -1,18 +1,12 @@
 ---
 title: Protocol-Based Architecture
-created: 2026-01-03
 updated: 2026-01-29
-status: active
-audience: developers
-tags:
-- patterns
-- protocols
-- architecture
-related:
-- ADR-017-relationship-service-unification.md
-- ADR-023-curriculum-baseservice-migration.md
+category: patterns
 related_skills:
 - python
+related_docs:
+- /docs/decisions/ADR-017-relationship-service-unification.md
+- /docs/decisions/ADR-023-curriculum-baseservice-migration.md
 ---
 
 # Protocol-Based Architecture

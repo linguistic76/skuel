@@ -1,11 +1,15 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
 updated: 2026-01-08
-status: current
 category: patterns
-tags: [generic, patterns, relationship, service, configuration-driven]
-related: [GENERIC_RELATIONSHIP_SERVICE.md, RELATIONSHIPS_ARCHITECTURE.md, ADR-026-unified-relationship-registry.md, ADR-029-graphnative-service-removal.md]
-supersedes: GENERIC_RELATIONSHIP_SERVICE.md (partially)
+related_skills:
+- base-analytics-service
+- neo4j-cypher-patterns
+related_docs:
+- /docs/patterns/GENERIC_RELATIONSHIP_SERVICE.md
+- /docs/patterns/RELATIONSHIPS_ARCHITECTURE.md
+- /docs/decisions/ADR-026-unified-relationship-registry.md
+- /docs/decisions/ADR-029-graphnative-service-removal.md
 ---
 
 # UnifiedRelationshipService Pattern

@@ -1,3 +1,12 @@
+---
+title: HTMX Accessibility Patterns
+updated: '2026-02-02'
+category: patterns
+related_skills:
+- html-htmx
+- accessibility-guide
+related_docs: []
+---
 # HTMX Accessibility Patterns
 
 **Date:** 2026-02-02

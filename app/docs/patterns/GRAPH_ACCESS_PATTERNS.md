@@ -1,15 +1,11 @@
 ---
 title: Graph Access Patterns Guide
 updated: 2025-11-27
-status: current
 category: patterns
-tags:
-- access
-- graph
-- patterns
-related: []
 related_skills:
+- pytest
 - neo4j-cypher-patterns
+related_docs: []
 ---
 
 # Graph Access Patterns Guide

@@ -1,10 +1,9 @@
 ---
 title: Constants Usage Guide
 updated: 2025-11-27
-status: current
 category: patterns
-tags: [constants, guide, patterns, usage]
-related: []
+related_skills: []
+related_docs: []
 ---
 
 # Constants Usage Guide

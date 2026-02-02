@@ -1,18 +1,12 @@
 ---
 title: FastHTML Route Registration Pattern
 updated: 2026-01-15
-status: current
 category: patterns
-tags:
-- patterns
-- fasthtml
-- routes
-- anti-pattern
-- critical
-related:
-- ADR-020-fasthtml-route-registration-pattern.md
 related_skills:
+- html-htmx
 - fasthtml
+related_docs:
+- /docs/decisions/ADR-020-fasthtml-route-registration-pattern.md
 ---
 
 # FastHTML Route Registration Pattern

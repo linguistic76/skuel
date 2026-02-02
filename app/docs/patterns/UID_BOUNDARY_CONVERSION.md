@@ -1,3 +1,10 @@
+---
+title: UID Boundary Conversion Pattern
+updated: '2026-02-02'
+category: patterns
+related_skills: []
+related_docs: []
+---
 # UID Boundary Conversion Pattern
 *Last updated: 2025-12-05*
 

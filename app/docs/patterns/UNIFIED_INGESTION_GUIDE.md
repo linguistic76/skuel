@@ -1,10 +1,10 @@
 ---
 title: Unified Ingestion Implementation Guide
 updated: 2026-01-20
-status: current
 category: patterns
-tags: [patterns, ingestion, markdown, yaml, content, sync]
-related: [ADR-014-unified-ingestion.md]
+related_skills: []
+related_docs:
+- /docs/decisions/ADR-014-unified-ingestion.md
 ---
 
 # Unified Ingestion Implementation Guide

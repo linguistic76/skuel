@@ -1,3 +1,11 @@
+---
+title: Domain Lateral Service - Quick Start Guide
+updated: '2026-02-02'
+category: patterns
+related_skills:
+- base-analytics-service
+related_docs: []
+---
 # Domain Lateral Service - Quick Start Guide
 
 **Goal:** Create a lateral relationship service for your domain in 30 minutes

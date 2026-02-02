@@ -1,3 +1,11 @@
+---
+title: Content Sharing Patterns
+updated: '2026-02-02'
+category: patterns
+related_skills:
+- pytest
+related_docs: []
+---
 # Content Sharing Patterns
 
 **Status:** Phase 1 Complete (Assignments)

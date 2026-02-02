@@ -1,10 +1,9 @@
 ---
 title: Intent-Based Graph Traversal
-created: 2025-12-03
 updated: 2025-12-03
-status: active
-audience: developers
-tags: [patterns, graph, intent, traversal, architecture, relationships]
+category: patterns
+related_skills: []
+related_docs: []
 ---
 
 # Intent-Based Graph Traversal Pattern

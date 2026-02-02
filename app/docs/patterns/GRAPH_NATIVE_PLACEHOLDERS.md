@@ -1,3 +1,10 @@
+---
+title: Graph-Native Placeholder Pattern
+updated: '2026-02-02'
+category: patterns
+related_skills: []
+related_docs: []
+---
 # Graph-Native Placeholder Pattern
 
 ## Overview

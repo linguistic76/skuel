@@ -1,10 +1,9 @@
 ---
 title: HTTP Status Codes - REST Best Practices
-created: 2025-10-17
 updated: 2025-10-17
-status: active
-audience: developers
-tags: [patterns, http, rest, api, status-codes]
+category: patterns
+related_skills: []
+related_docs: []
 ---
 
 # HTTP Status Codes - REST Best Practices

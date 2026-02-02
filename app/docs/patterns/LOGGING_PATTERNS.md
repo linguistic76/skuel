@@ -1,10 +1,9 @@
 ---
 title: Logging Patterns
-created: 2026-01-03
 updated: 2026-01-21
-status: active
-audience: developers
-tags: [patterns, logging, observability]
+category: patterns
+related_skills: []
+related_docs: []
 ---
 
 # Logging Patterns

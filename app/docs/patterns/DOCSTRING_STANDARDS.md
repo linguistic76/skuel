@@ -1,9 +1,10 @@
 ---
 title: Docstring Standards
 updated: 2026-01-29
-status: current
 category: patterns
-related_skills: [python]
+related_skills:
+- python
+related_docs: []
 ---
 
 # Docstring Standards

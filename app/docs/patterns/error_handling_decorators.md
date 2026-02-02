@@ -1,3 +1,12 @@
+---
+title: Error Handling Decorators - DRY Pattern Guide
+updated: '2026-02-02'
+category: patterns
+related_skills:
+- result-pattern
+- ui-error-handling
+related_docs: []
+---
 # Error Handling Decorators - DRY Pattern Guide
 *Last updated: 2026-01-21* (Migration near-complete: 460+ decorator usages, ~250 preserved patterns)
 

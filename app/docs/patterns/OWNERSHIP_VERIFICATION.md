@@ -1,3 +1,12 @@
+---
+title: Ownership Verification Pattern
+updated: '2026-02-02'
+category: patterns
+related_skills:
+- activity-domains
+- curriculum-domains
+related_docs: []
+---
 # Ownership Verification Pattern
 
 *Last updated: 2026-01-24*

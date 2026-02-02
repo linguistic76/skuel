@@ -1,10 +1,10 @@
 ---
 title: SKUEL Query Template Usage Guide
 updated: 2025-11-26
-status: current
-category: general
-tags: [guide, query, skuel, usage]
-related: []
+category: patterns
+related_skills:
+- neo4j-cypher-patterns
+related_docs: []
 ---
 
 # SKUEL Query Template Usage Guide

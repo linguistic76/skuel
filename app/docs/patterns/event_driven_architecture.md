@@ -1,10 +1,11 @@
 ---
 title: Event-Driven Architecture
-created: 2025-10-17
 updated: 2026-01-19
-status: active
-audience: developers
-tags: [patterns, events, architecture, decoupling]
+category: patterns
+related_skills:
+- python
+- result-pattern
+related_docs: []
 ---
 
 # Event-Driven Architecture

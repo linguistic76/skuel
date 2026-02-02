@@ -1,10 +1,11 @@
 ---
 title: Route Factory Patterns - Complete Guide
 updated: 2026-01-17
-status: current
 category: patterns
-tags: [factory, patterns, route, security]
-related: [OWNERSHIP_VERIFICATION.md]
+related_skills:
+- fasthtml
+related_docs:
+- /docs/patterns/OWNERSHIP_VERIFICATION.md
 ---
 
 # Route Factory Patterns - Complete Guide

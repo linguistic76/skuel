@@ -1,10 +1,9 @@
 ---
 title: MetadataManagerMixin - Consistent Timestamp & Metadata Handling
 updated: 2026-01-20
-status: current
 category: patterns
-tags: [manager, metadata, mixin, patterns]
-related: []
+related_skills: []
+related_docs: []
 ---
 
 # MetadataManagerMixin - Consistent Timestamp & Metadata Handling

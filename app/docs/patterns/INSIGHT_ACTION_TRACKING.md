@@ -1,3 +1,10 @@
+---
+title: Insight Action Tracking Pattern
+updated: '2026-02-02'
+category: patterns
+related_skills: []
+related_docs: []
+---
 # Insight Action Tracking Pattern
 
 **Status**: ✅ Implemented (January 2026)

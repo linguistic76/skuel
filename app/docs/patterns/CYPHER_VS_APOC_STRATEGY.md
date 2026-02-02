@@ -1,6 +1,10 @@
 ---
+title: 'Pure Cypher vs APOC: Strategic Decision Guide'
+updated: '2026-02-02'
+category: patterns
 related_skills:
 - neo4j-cypher-patterns
+related_docs: []
 ---
 ---
 title: Pure Cypher vs APOC: Strategic Decision Guide

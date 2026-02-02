@@ -1,10 +1,11 @@
 ---
 title: Secondary Entity Pattern
 updated: 2026-01-19
-status: current
 category: patterns
-tags: [patterns, secondary-entity, tracking, completion, reflection]
-related: [STANDALONE_SERVICE_PATTERN.md, SERVICE_CONSOLIDATION_PATTERNS.md]
+related_skills: []
+related_docs:
+- /docs/patterns/STANDALONE_SERVICE_PATTERN.md
+- /docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
 ---
 
 # Secondary Entity Pattern

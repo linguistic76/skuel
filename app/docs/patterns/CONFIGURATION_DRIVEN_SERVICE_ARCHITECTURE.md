@@ -1,10 +1,13 @@
 ---
 title: Configuration-Driven Service Architecture
 updated: 2026-01-29
-status: current
 category: patterns
-tags: [patterns, baseservice, configuration, domainconfig, unified-architecture]
-related: [ADR-023-curriculum-baseservice-migration.md, ADR-025-service-consolidation-patterns.md, DOMAINCONFIG_MIGRATION_COMPLETE.md]
+related_skills:
+- base-analytics-service
+related_docs:
+- /docs/decisions/ADR-023-curriculum-baseservice-migration.md
+- /docs/decisions/ADR-025-service-consolidation-patterns.md
+- /docs/patterns/DOMAINCONFIG_MIGRATION_COMPLETE.md
 ---
 
 # Configuration-Driven Service Architecture

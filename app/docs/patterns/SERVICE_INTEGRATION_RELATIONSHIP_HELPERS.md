@@ -1,10 +1,11 @@
 ---
 title: Service Integration Guide - Relationship Helpers
 updated: 2025-11-18
-status: current
 category: patterns
-tags: [helpers, integration, patterns, relationship, service]
-related: []
+related_skills:
+- base-analytics-service
+- neo4j-cypher-patterns
+related_docs: []
 ---
 
 # Service Integration Guide - Relationship Helpers

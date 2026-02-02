@@ -1,3 +1,11 @@
+---
+title: Hierarchical Relationships Pattern
+updated: '2026-02-02'
+category: patterns
+related_skills:
+- neo4j-cypher-patterns
+related_docs: []
+---
 # Hierarchical Relationships Pattern
 
 **Date:** 2026-01-30

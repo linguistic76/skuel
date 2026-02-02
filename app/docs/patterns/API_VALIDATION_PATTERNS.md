@@ -1,20 +1,14 @@
 ---
 title: API Validation Patterns
 updated: 2026-01-24
-status: current
 category: patterns
-tags:
-- patterns
-- api
-- validation
-- pydantic
-- routes
-related:
-- three_tier_type_system.md
-- ROUTE_FACTORIES.md
-- ERROR_HANDLING.md
 related_skills:
 - pydantic
+- skuel-form-patterns
+related_docs:
+- /docs/patterns/three_tier_type_system.md
+- /docs/patterns/ROUTE_FACTORIES.md
+- /docs/patterns/ERROR_HANDLING.md
 ---
 
 # API Validation Patterns

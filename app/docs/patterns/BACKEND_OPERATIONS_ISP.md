@@ -1,10 +1,12 @@
 ---
 title: BackendOperations Protocol Architecture
 updated: 2026-01-07
-status: current
 category: patterns
-tags: [backend, isp, operations, patterns, cascade, deletion]
-related: [MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md, DOMAIN_RELATIONSHIPS_PATTERN.md, TESTING_PATTERNS.md]
+related_skills: []
+related_docs:
+- /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
+- /docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md
+- /docs/patterns/TESTING_PATTERNS.md
 ---
 
 # BackendOperations Protocol Architecture

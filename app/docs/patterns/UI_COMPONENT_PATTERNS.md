@@ -1,10 +1,16 @@
 ---
+title: UI Component Patterns
+updated: '2026-02-02'
+category: patterns
 related_skills:
 - daisyui
 - html-htmx
-- html-navigation
-- js-alpine
+- base-page-architecture
 - tailwind-css
+- html-navigation
+- skuel-component-composition
+- js-alpine
+related_docs: []
 ---
 # UI Component Patterns
 

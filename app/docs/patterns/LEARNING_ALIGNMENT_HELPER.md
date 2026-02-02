@@ -1,3 +1,10 @@
+---
+title: LearningAlignmentHelper - Unified Learning Integration Pattern
+updated: '2026-02-02'
+category: patterns
+related_skills: []
+related_docs: []
+---
 # LearningAlignmentHelper - Unified Learning Integration Pattern
 
 **Location:** `/core/services/infrastructure/learning_alignment_helper.py`

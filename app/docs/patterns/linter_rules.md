@@ -1,10 +1,10 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-created: 2025-10-17
 updated: 2026-01-05
-status: active
-audience: developers
-tags: [patterns, linting, code-quality, ruff, mypy]
+category: patterns
+related_skills:
+- python
+related_docs: []
 ---
 
 # Code Quality Enforcement - Linter Rules

@@ -1,10 +1,13 @@
 ---
 title: Performance Monitoring System
 updated: 2026-01-31
-status: deprecated - see MetricsCache
 category: patterns
-tags: [monitoring, patterns, performance, deprecated]
-related: [PROMETHEUS_METRICS.md, ADR-036]
+related_skills:
+- pydantic
+- skuel-form-patterns
+related_docs:
+- /docs/patterns/PROMETHEUS_METRICS.md
+- /docs/decisions/ADR-036
 ---
 
 # Performance Monitoring System

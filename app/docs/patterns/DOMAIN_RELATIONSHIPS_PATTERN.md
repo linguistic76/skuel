@@ -1,10 +1,14 @@
 ---
 title: Domain Relationships Pattern (Graph-Native Architecture)
 updated: 2026-01-19
-status: current
 category: patterns
-tags: [domain, pattern, patterns, relationships, unified-relationship-service, cascade, auto-created]
-related: [UNIFIED_RELATIONSHIP_SERVICE.md, BACKEND_OPERATIONS_ISP.md, TESTING_PATTERNS.md, ADR-029]
+related_skills:
+- neo4j-cypher-patterns
+related_docs:
+- /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
+- /docs/patterns/BACKEND_OPERATIONS_ISP.md
+- /docs/patterns/TESTING_PATTERNS.md
+- /docs/decisions/ADR-029
 ---
 
 # Domain Relationships Pattern (Graph-Native Architecture)
