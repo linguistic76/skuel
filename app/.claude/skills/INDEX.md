@@ -138,6 +138,73 @@ Key documentation links by topic:
 
 ---
 
+## Using Skills with Documentation
+
+Skills provide **quick-start implementation guidance**. Documentation provides **architectural context and decision rationale**.
+
+### Recommended Workflow
+
+When working on a task, follow this pattern for maximum effectiveness:
+
+1. **Start with skill** - Get patterns and quick reference for immediate implementation
+   - Skills provide concrete code examples and decision trees
+   - Focus on "how" - practical implementation steps
+   - Example: `@fasthtml` shows route registration patterns
+
+2. **Consult docs** - Understand "why" and architectural context
+   - Architecture docs explain system design decisions
+   - Pattern docs show the broader approach
+   - Example: `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md` explains the pattern philosophy
+
+3. **Check ADRs** - Review historical decisions and alternatives considered
+   - ADRs document the "why not" - alternatives we rejected
+   - Shows evolution of patterns over time
+   - Example: `ADR-020` explains why we chose decorator-based routes
+
+4. **Return to skill** - Apply concrete implementation with full context
+   - Use skill's code examples with architectural understanding
+   - Make informed decisions about edge cases
+   - Adapt patterns to your specific use case
+
+### Finding Related Documentation
+
+**Each skill has "Deep Dive Resources" section:**
+- Links to architecture docs (system design)
+- Links to pattern docs (implementation approaches)
+- Links to ADRs (decision rationale)
+- Links to migration docs (evolution history)
+
+**Complete Cross-Reference Index:**
+- See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for comprehensive skill ↔ doc mapping
+- Organized by skill (find all docs for a skill)
+- Organized by category (find all skills for a doc type)
+
+**Quick Reference in CLAUDE.md:**
+- See [CLAUDE.md](/CLAUDE.md#skills--documentation-cross-reference) for quick lookup table
+- All 27 skills with primary documentation
+- Organized by architectural layer
+
+### Bidirectional Linking System
+
+The cross-reference system works in both directions:
+
+**Skills → Docs:**
+- Skills metadata (`skills_metadata.yaml`) contains `primary_docs`, `patterns`, `related_adrs`
+- Each skill's SKILL.md has "Deep Dive Resources" section
+- Machine-readable and human-readable
+
+**Docs → Skills:**
+- Pattern docs have `related_skills` in YAML frontmatter
+- Many docs have auto-generated "Related Skills" sections
+- Some docs have manually curated "Quick Start" sections with skill references
+
+**Validation:**
+- Pre-commit hook prevents broken cross-references
+- Validation script checks bidirectional consistency
+- Currently: 100% bidirectional linking (36/36), 0 broken links
+
+---
+
 ## Skill Relationships Diagram
 
 ```
