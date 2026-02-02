@@ -4,11 +4,6 @@
 # related documentation, and keywords.
 #
 # Skills are organized by foundation layer (base dependencies).
-#
-# New in Phase 2.2 (2026-02-02):
-# - Added 8 missing skills (accessibility-guide, base-page-architecture, custom-sidebar-patterns,
-#   neo4j-genai-plugin, prometheus-grafana, skuel-component-composition, skuel-form-patterns, ui-error-handling)
-# - Added related_adrs and patterns fields to all skills for bidirectional linking
 
 skills:
   # ============================================================================
@@ -23,15 +18,6 @@ skills:
       - /docs/patterns/three_tier_type_system.md
       - /docs/patterns/ASYNC_SYNC_DESIGN_PATTERN.md
       - /docs/patterns/protocol_architecture.md
-    related_adrs:
-      - ADR-022  # Graph-native authentication
-      - ADR-035  # Tier selection guidelines
-    patterns:
-      - /docs/patterns/DOCSTRING_STANDARDS.md
-      - /docs/patterns/DOMAIN_PATTERNS_CATALOG.md
-      - /docs/patterns/PROTOCOL_LSP_COMPLIANCE.md
-      - /docs/patterns/event_driven_architecture.md
-      - /docs/patterns/linter_rules.md
     keywords: [python, typing, protocols, dataclass, async, frozen]
 
   - name: pydantic
@@ -41,11 +27,6 @@ skills:
     primary_docs:
       - /docs/patterns/three_tier_type_system.md
       - /docs/patterns/API_VALIDATION_PATTERNS.md
-    related_adrs:
-      - ADR-035  # Tier selection guidelines
-    patterns:
-      - /docs/patterns/DOMAIN_PATTERNS_CATALOG.md
-      - /docs/patterns/PERFORMANCE_MONITORING.md
     keywords: [pydantic, validation, basemodel, serialization]
 
   - name: tailwind-css
@@ -54,8 +35,6 @@ skills:
     dependencies: []
     primary_docs:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
     keywords: [tailwind, css, styling, responsive, utility-first]
 
   - name: daisyui
@@ -64,8 +43,6 @@ skills:
     dependencies: [tailwind-css]
     primary_docs:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
     keywords: [daisyui, components, ui, semantic, accessible]
 
   - name: chartjs
@@ -74,8 +51,6 @@ skills:
     dependencies: []
     primary_docs:
       - /docs/architecture/ADMIN_DASHBOARD_ARCHITECTURE.md
-    related_adrs: []
-    patterns: []
     keywords: [chartjs, visualization, graphs, charts, analytics]
 
   # ============================================================================
@@ -90,12 +65,6 @@ skills:
       - /docs/patterns/FASTHTML_ROUTE_REGISTRATION.md
       - /docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md
       - /docs/patterns/ROUTE_FACTORIES.md
-    related_adrs:
-      - ADR-020  # FastHTML route registration pattern
-    patterns:
-      - /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
-      - /docs/patterns/ROUTE_FACTORY_PATTERNS.md
-      - /docs/patterns/ROUTE_NAMING_CONVENTION.md
     keywords: [fasthtml, routes, fast_app, FT, server-rendered]
 
   - name: html-htmx
@@ -105,10 +74,6 @@ skills:
     primary_docs:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
       - /docs/guides/HTMX_VERSION_STANDARDIZATION.md
-    related_adrs: []
-    patterns:
-      - /docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md
-      - /docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md
     keywords: [html, htmx, hypermedia, hx-*, ajax]
 
   - name: html-navigation
@@ -117,8 +82,6 @@ skills:
     dependencies: [fasthtml, html-htmx, js-alpine]
     primary_docs:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
     keywords: [navigation, navbar, sidebar, menu, breadcrumbs]
 
   - name: js-alpine
@@ -128,78 +91,7 @@ skills:
     primary_docs:
       - /docs/architecture/ALPINE_JS_ARCHITECTURE.md
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
     keywords: [alpine, javascript, reactivity, x-data, client-state]
-
-  # ============================================================================
-  # UX & ACCESSIBILITY LAYER
-  # ============================================================================
-
-  - name: accessibility-guide
-    description: Expert guide for building accessible web applications following WCAG standards
-    foundation: [html-htmx, daisyui]
-    dependencies: [html-htmx, daisyui]
-    primary_docs:
-      - /docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md
-      - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
-    keywords: [accessibility, a11y, wcag, screen-reader, aria, keyboard-navigation]
-
-  - name: base-page-architecture
-    description: Expert guide for BasePage layout system and page types
-    foundation: [fasthtml, html-htmx, daisyui, tailwind-css]
-    dependencies: [fasthtml, html-htmx, daisyui, tailwind-css]
-    primary_docs:
-      - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
-    keywords: [basepage, layout, page-types, hub, standard, custom]
-
-  - name: custom-sidebar-patterns
-    description: Expert guide for building custom sidebar navigation patterns
-    foundation: [base-page-architecture, html-htmx, js-alpine]
-    dependencies: [base-page-architecture, html-htmx, js-alpine]
-    primary_docs:
-      - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns: []
-    keywords: [sidebar, navigation, drawer, collapsible, persistent-state]
-
-  - name: skuel-component-composition
-    description: Expert guide for composing reusable UI components in SKUEL
-    foundation: [base-page-architecture, daisyui, tailwind-css]
-    dependencies: [base-page-architecture, daisyui, tailwind-css]
-    primary_docs:
-      - /docs/patterns/UI_COMPONENT_PATTERNS.md
-    related_adrs: []
-    patterns:
-      - /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
-    keywords: [component-composition, reusable-patterns, ui-primitives, design-system]
-
-  - name: skuel-form-patterns
-    description: Expert guide for building accessible, validated forms in SKUEL
-    foundation: [pydantic, html-htmx, daisyui]
-    dependencies: [pydantic, html-htmx, daisyui]
-    primary_docs:
-      - /docs/patterns/API_VALIDATION_PATTERNS.md
-    related_adrs: []
-    patterns:
-      - /docs/patterns/PERFORMANCE_MONITORING.md
-    keywords: [forms, validation, error-handling, input, submission]
-
-  - name: ui-error-handling
-    description: Expert guide for UI error handling patterns and user feedback
-    foundation: [result-pattern, daisyui]
-    dependencies: [result-pattern, daisyui]
-    primary_docs:
-      - /docs/patterns/ERROR_HANDLING.md
-    related_adrs: []
-    patterns:
-      - /docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md
-      - /docs/patterns/error_handling_decorators.md
-    keywords: [error-ui, toasts, alerts, feedback, boundary-handler]
 
   # ============================================================================
   # DATABASE & DATA LAYER
@@ -214,50 +106,7 @@ skills:
       - /docs/patterns/query_architecture.md
       - /docs/patterns/GRAPH_ACCESS_PATTERNS.md
       - /docs/patterns/CYPHER_VS_APOC_STRATEGY.md
-    related_adrs:
-      - ADR-037  # Lateral relationships visualization
-    patterns:
-      - /docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md
-      - /docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md
-      - /docs/patterns/HIERARCHICAL_RELATIONSHIPS_PATTERN.md
-      - /docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md
-      - /docs/patterns/QUERY_PATTERNS.md
-      - /docs/patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md
-      - /docs/patterns/RELATIONSHIP_INFRASTRUCTURE_PATTERN.md
-      - /docs/patterns/SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md
-      - /docs/patterns/SKUEL_QUERY_USAGE_GUIDE.md
-      - /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
     keywords: [neo4j, cypher, graph, relationships, traversal]
-
-  - name: neo4j-genai-plugin
-    description: Neo4j GenAI plugin integration for AI-powered graph features
-    foundation: [neo4j-cypher-patterns]
-    dependencies: [neo4j-cypher-patterns]
-    primary_docs:
-      - /docs/development/GENAI_SETUP.md
-      - /docs/deployment/AURADB_MIGRATION_GUIDE.md
-    related_adrs:
-      - ADR-034  # Semantic search phase 1 enhancement
-    patterns:
-      - /docs/patterns/search_service_pattern.md
-    keywords: [genai, embeddings, vector-search, rag, semantic, llm-integration]
-
-  # ============================================================================
-  # MONITORING & OBSERVABILITY LAYER
-  # ============================================================================
-
-  - name: prometheus-grafana
-    description: Prometheus metrics and Grafana dashboards in SKUEL
-    foundation: []
-    dependencies: []
-    primary_docs:
-      - /monitoring/README.md
-      - /OBSERVABILITY_PHASE1_COMPLETE.md
-    related_adrs:
-      - ADR-036  # Prometheus-primary cache pattern
-    patterns:
-      - /docs/patterns/PERFORMANCE_MONITORING.md
-    keywords: [prometheus, grafana, metrics, observability, monitoring, alerts]
 
   # ============================================================================
   # SKUEL ARCHITECTURE LAYER
@@ -270,11 +119,6 @@ skills:
     primary_docs:
       - /docs/patterns/ERROR_HANDLING.md
       - /docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md
-    related_adrs:
-      - ADR-022  # Graph-native authentication
-    patterns:
-      - /docs/patterns/error_handling_decorators.md
-      - /docs/patterns/event_driven_architecture.md
     keywords: [error, result, failure, success, Errors]
 
   - name: base-analytics-service
@@ -284,17 +128,6 @@ skills:
     primary_docs:
       - /docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md
       - /docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
-    related_adrs:
-      - ADR-024  # BaseIntelligence service migration
-      - ADR-031  # BaseService mixin decomposition
-    patterns:
-      - /docs/patterns/CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md
-      - /docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md
-      - /docs/patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md
-      - /docs/patterns/SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md
-      - /docs/patterns/STANDALONE_SERVICE_PATTERN.md
-      - /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
-      - /docs/patterns/search_service_pattern.md
     keywords: [analytics, intelligence, graph, IntelligenceOperations]
 
   - name: base-ai-service
@@ -303,9 +136,6 @@ skills:
     dependencies: [base-analytics-service, python, result-pattern]
     primary_docs:
       - /docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md
-    related_adrs:
-      - ADR-024  # BaseIntelligence service migration
-    patterns: []
     keywords: [ai, llm, openai, embeddings, semantic]
 
   - name: activity-domains
@@ -318,9 +148,6 @@ skills:
       - /docs/domains/tasks.md
       - /docs/domains/goals.md
       - /docs/domains/habits.md
-    related_adrs: []
-    patterns:
-      - /docs/patterns/OWNERSHIP_VERIFICATION.md
     keywords: [activity, domains, tasks, goals, habits, events, facade]
 
   - name: curriculum-domains
@@ -333,10 +160,6 @@ skills:
       - /docs/domains/ls.md
       - /docs/domains/lp.md
       - /docs/domains/moc.md
-    related_adrs:
-      - ADR-023  # Curriculum BaseService migration
-    patterns:
-      - /docs/patterns/OWNERSHIP_VERIFICATION.md
     keywords: [curriculum, knowledge, learning, ku, ls, lp, moc]
 
   - name: skuel-search-architecture
@@ -347,9 +170,6 @@ skills:
       - /docs/architecture/SEARCH_ARCHITECTURE.md
       - /docs/patterns/query_architecture.md
       - /docs/reference/SEARCH_SERVICE_METHODS.md
-    related_adrs: []
-    patterns:
-      - /docs/patterns/search_service_pattern.md
     keywords: [search, SearchRouter, faceted, unified, BaseService]
 
   - name: user-context-intelligence
@@ -359,9 +179,6 @@ skills:
     primary_docs:
       - /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
       - /docs/intelligence/USER_CONTEXT_INTELLIGENCE.md
-    related_adrs:
-      - ADR-030  # UserContext file consolidation
-    patterns: []
     keywords: [UserContext, intelligence, planning, alignment, recommendations]
 
   # ============================================================================
@@ -375,11 +192,6 @@ skills:
     primary_docs:
       - /docs/patterns/TESTING_PATTERNS.md
       - /TESTING.md
-    related_adrs: []
-    patterns:
-      - /docs/patterns/GRAPH_ACCESS_PATTERNS.md
-      - /docs/patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md
-      - /docs/patterns/SHARING_PATTERNS.md
     keywords: [pytest, testing, fixtures, async, integration, unit]
 
 # ============================================================================
@@ -387,22 +199,11 @@ skills:
 # ============================================================================
 #
 # Foundation (no dependencies):
-#   python, pydantic, tailwind-css, daisyui, chartjs, js-alpine, neo4j-cypher-patterns, prometheus-grafana
+#   python, pydantic, tailwind-css, daisyui, chartjs, js-alpine, neo4j-cypher-patterns
 #
 # Web Framework:
 #   fasthtml → html-htmx → html-navigation
 #   (html-navigation also depends on js-alpine)
-#
-# UX & Accessibility:
-#   accessibility-guide (depends on html-htmx, daisyui)
-#   base-page-architecture (depends on fasthtml, html-htmx, daisyui, tailwind-css)
-#   custom-sidebar-patterns (depends on base-page-architecture, html-htmx, js-alpine)
-#   skuel-component-composition (depends on base-page-architecture, daisyui, tailwind-css)
-#   skuel-form-patterns (depends on pydantic, html-htmx, daisyui)
-#   ui-error-handling (depends on result-pattern, daisyui)
-#
-# Database:
-#   neo4j-genai-plugin (depends on neo4j-cypher-patterns)
 #
 # SKUEL Architecture:
 #   result-pattern (depends on python)
@@ -416,5 +217,4 @@ skills:
 # Testing:
 #   pytest (depends on python, result-pattern)
 #
-# Total skills: 27
 # No cycles detected - graph is valid ✓
