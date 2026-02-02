@@ -302,7 +302,7 @@ def create_askesis_api_routes(
 
         askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return askesis_result
+            return Result.fail(askesis_result.expect_error())
 
         askesis = askesis_result.value
         user_uid = askesis.user_uid
@@ -357,7 +357,7 @@ def create_askesis_api_routes(
         # Get user UID from askesis instance
         askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return askesis_result
+            return Result.fail(askesis_result.expect_error())
 
         askesis = askesis_result.value
         user_uid = askesis.user_uid
@@ -421,7 +421,7 @@ def create_askesis_api_routes(
         # Get user UID from askesis instance
         askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return askesis_result
+            return Result.fail(askesis_result.expect_error())
 
         askesis = askesis_result.value
         user_uid = askesis.user_uid
@@ -480,7 +480,7 @@ def create_askesis_api_routes(
         # Get askesis instance
         askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return askesis_result
+            return Result.fail(askesis_result.expect_error())
 
         askesis = askesis_result.value
         user_uid = askesis.user_uid
@@ -681,7 +681,7 @@ def create_askesis_api_routes(
         # Get user UID from askesis instance
         askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return askesis_result
+            return Result.fail(askesis_result.expect_error())
 
         askesis = askesis_result.value
         user_uid = askesis.user_uid
@@ -787,7 +787,7 @@ def create_askesis_api_routes(
         # Get user UID from askesis instance
         askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return askesis_result
+            return Result.fail(askesis_result.expect_error())
 
         askesis = askesis_result.value
         user_uid = askesis.user_uid
@@ -872,7 +872,7 @@ def create_askesis_api_routes(
         # Get user UID from askesis instance
         askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return askesis_result
+            return Result.fail(askesis_result.expect_error())
 
         askesis = askesis_result.value
         user_uid = askesis.user_uid
@@ -938,7 +938,7 @@ def create_askesis_api_routes(
         # Get user UID from askesis instance
         askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return askesis_result
+            return Result.fail(askesis_result.expect_error())
 
         askesis = askesis_result.value
         user_uid = askesis.user_uid
@@ -1024,7 +1024,7 @@ def create_askesis_api_routes(
         # Get user UID from askesis instance
         askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return askesis_result
+            return Result.fail(askesis_result.expect_error())
 
         askesis = askesis_result.value
         user_uid = askesis.user_uid
@@ -1124,7 +1124,7 @@ def create_askesis_api_routes(
         # Get user UID from askesis instance
         askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return askesis_result
+            return Result.fail(askesis_result.expect_error())
 
         askesis = askesis_result.value
         user_uid = askesis.user_uid
@@ -1234,7 +1234,7 @@ def create_askesis_api_routes(
         # Get user UID from askesis instance
         askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return askesis_result
+            return Result.fail(askesis_result.expect_error())
 
         askesis = askesis_result.value
         user_uid = askesis.user_uid

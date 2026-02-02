@@ -363,12 +363,14 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         if embedding_text:
             from core.events import GoalEmbeddingRequested
 
+            now = datetime.now()
             embedding_event = GoalEmbeddingRequested(
                 entity_uid=goal.uid,
                 entity_type="goal",
                 embedding_text=embedding_text,
                 user_uid=goal.user_uid,
-                requested_at=datetime.now(),
+                requested_at=now,
+                occurred_at=now,
             )
             await publish_event(self.event_bus, embedding_event, self.logger)
 

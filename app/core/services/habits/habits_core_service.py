@@ -349,12 +349,14 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         if embedding_text:
             from core.events import HabitEmbeddingRequested
 
+            now = datetime.now()
             embedding_event = HabitEmbeddingRequested(
                 entity_uid=habit.uid,
                 entity_type="habit",
                 embedding_text=embedding_text,
                 user_uid=habit.user_uid,
-                requested_at=datetime.now(),
+                requested_at=now,
+                occurred_at=now,
             )
             await publish_event(self.event_bus, embedding_event, self.logger)
 

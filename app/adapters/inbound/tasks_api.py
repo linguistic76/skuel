@@ -294,7 +294,8 @@ def create_tasks_api_routes(
         query = params.get("query", "")
         limit = int(params.get("limit", 10))
 
-        return await tasks_service.search.search(query, limit)
+        result: Result[Any] = await tasks_service.search.search(query, limit)
+        return result
 
     # ========================================================================
     # TIME-BASED ROUTES (January 2026)
@@ -321,11 +322,12 @@ def create_tasks_api_routes(
         days_ahead = int(params.get("days_ahead", 7))
         limit = int(params.get("limit", 100))
 
-        return await tasks_service.search.get_due_soon(
+        result: Result[Any] = await tasks_service.search.get_due_soon(
             days_ahead=days_ahead,
             user_uid=user_uid,
             limit=limit,
         )
+        return result
 
     @rt("/api/tasks/overdue", methods=["GET"])
     @boundary_handler()
@@ -344,10 +346,11 @@ def create_tasks_api_routes(
 
         limit = int(params.get("limit", 100))
 
-        return await tasks_service.search.get_overdue(
+        result: Result[Any] = await tasks_service.search.get_overdue(
             user_uid=user_uid,
             limit=limit,
         )
+        return result
 
     # Return empty list since routes are registered directly on app
     return []

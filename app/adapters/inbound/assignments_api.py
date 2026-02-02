@@ -194,7 +194,7 @@ def create_assignments_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         assignment = result.value
 
@@ -287,7 +287,7 @@ def create_assignments_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         assignments = result.value
 
@@ -319,7 +319,7 @@ def create_assignments_api_routes(
         result = await assignment_service.get_assignment(uid)
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         assignment = result.value
         if not assignment:
@@ -402,7 +402,7 @@ def create_assignments_api_routes(
         result = await processing_service.process_assignment(uid, instructions)
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         assignment = result.value
 
@@ -554,7 +554,7 @@ def create_assignments_api_routes(
         result = await assignment_service.get_assignment_statistics(user_uid)
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(result.value)
 
@@ -585,7 +585,7 @@ def create_assignments_api_routes(
             # Verify ownership through get_assignment
             assignment_result = await assignment_service.get_assignment(assignment_uid)
             if assignment_result.is_error:
-                return assignment_result
+                return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
@@ -618,7 +618,7 @@ def create_assignments_api_routes(
             # Verify ownership
             assignment_result = await assignment_service.get_assignment(assignment_uid)
             if assignment_result.is_error:
-                return assignment_result
+                return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
@@ -649,7 +649,7 @@ def create_assignments_api_routes(
             # Verify ownership
             assignment_result = await assignment_service.get_assignment(assignment_uid)
             if assignment_result.is_error:
-                return assignment_result
+                return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
@@ -674,7 +674,7 @@ def create_assignments_api_routes(
             # Verify ownership
             assignment_result = await assignment_service.get_assignment(assignment_uid)
             if assignment_result.is_error:
-                return assignment_result
+                return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
@@ -699,7 +699,7 @@ def create_assignments_api_routes(
             # Verify ownership
             assignment_result = await assignment_service.get_assignment(assignment_uid)
             if assignment_result.is_error:
-                return assignment_result
+                return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
@@ -724,7 +724,7 @@ def create_assignments_api_routes(
             # Verify ownership
             assignment_result = await assignment_service.get_assignment(assignment_uid)
             if assignment_result.is_error:
-                return assignment_result
+                return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
@@ -754,7 +754,7 @@ def create_assignments_api_routes(
             for uid in req.assignment_uids:
                 assignment_result = await assignment_service.get_assignment(uid)
                 if assignment_result.is_error:
-                    return assignment_result
+                    return Result.fail(assignment_result.expect_error())
 
                 assignment = assignment_result.value
                 if assignment.user_uid != user_uid:
@@ -788,7 +788,7 @@ def create_assignments_api_routes(
             for uid in req.assignment_uids:
                 assignment_result = await assignment_service.get_assignment(uid)
                 if assignment_result.is_error:
-                    return assignment_result
+                    return Result.fail(assignment_result.expect_error())
 
                 assignment = assignment_result.value
                 if assignment.user_uid != user_uid:
@@ -820,7 +820,7 @@ def create_assignments_api_routes(
             for uid in req.assignment_uids:
                 assignment_result = await assignment_service.get_assignment(uid)
                 if assignment_result.is_error:
-                    return assignment_result
+                    return Result.fail(assignment_result.expect_error())
 
                 assignment = assignment_result.value
                 if assignment.user_uid != user_uid:

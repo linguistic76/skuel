@@ -294,12 +294,14 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         if embedding_text:
             from core.events import ChoiceEmbeddingRequested
 
+            now = datetime.now()
             embedding_event = ChoiceEmbeddingRequested(
                 entity_uid=choice.uid,
                 entity_type="choice",
                 embedding_text=embedding_text,
                 user_uid=choice.user_uid,
-                requested_at=datetime.now(),
+                requested_at=now,
+                occurred_at=now,
             )
             await publish_event(self.event_bus, embedding_event, self.logger)
 

@@ -512,6 +512,17 @@ class SearchOperations(Protocol[T]):
         """
         ...
 
+    async def list_all_categories(self) -> Result[list[str]]:
+        """
+        List all unique category values across all users.
+
+        WARNING: This is for admin/system use only.
+
+        Returns:
+            Result containing list of all category strings
+        """
+        ...
+
 
 @runtime_checkable
 class RelationshipOperations(Protocol[T]):

@@ -345,7 +345,8 @@ class InMemoryEventBus:
             return []
 
         threshold = threshold_ms if threshold_ms is not None else 100.0
-        return await self._metrics_cache.get_slow_handlers(threshold)
+        result: list[dict[str, Any]] = await self._metrics_cache.get_slow_handlers(threshold)
+        return result
 
     def get_pending_task_count(self) -> int:
         """

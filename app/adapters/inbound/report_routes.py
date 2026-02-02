@@ -103,7 +103,7 @@ def create_report_routes(app, rt, services):
 
         if result.is_error:
             logger.error(f"Failed to generate report: {result.error}")
-            return result
+            return Result.fail(result.expect_error())
 
         report = result.value
 
@@ -165,7 +165,7 @@ def create_report_routes(app, rt, services):
 
         if result.is_error:
             logger.error(f"Failed to generate monthly report: {result.error}")
-            return result
+            return Result.fail(result.expect_error())
 
         report = result.value
 
@@ -232,7 +232,7 @@ def create_report_routes(app, rt, services):
 
         if result.is_error:
             logger.error(f"Failed to generate weekly report: {result.error}")
-            return result
+            return Result.fail(result.expect_error())
 
         report = result.value
 
@@ -286,7 +286,7 @@ def create_report_routes(app, rt, services):
 
         if result.is_error:
             logger.error(f"Failed to generate yearly report: {result.error}")
-            return result
+            return Result.fail(result.expect_error())
 
         report = result.value
 

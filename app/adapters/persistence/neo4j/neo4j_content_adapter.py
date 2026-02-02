@@ -463,7 +463,7 @@ class Neo4jContentAdapter:
             )
 
             if result and len(result) > 0:
-                updated_count = result[0]["updated_count"]
+                updated_count: int = result[0]["updated_count"]
                 logger.info(
                     f"✅ Stored embeddings for {updated_count}/{len(chunk_uids)} chunks "
                     f"(version={version}, model={model})"

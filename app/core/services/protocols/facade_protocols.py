@@ -490,7 +490,13 @@ class GoalsFacadeProtocol(Protocol):
     # Additional Goal operations (Added 2026-02-02)
     # ========================================================================
 
-    async def link_goal_to_habit(self, goal_uid: str, habit_uid: str) -> Result[bool]:
+    async def link_goal_to_habit(
+        self,
+        goal_uid: str,
+        habit_uid: str,
+        weight: float = 1.0,
+        contribution_type: str = "consistency",
+    ) -> Result[bool]:
         """Link a goal to a supporting habit."""
         ...
 
@@ -925,7 +931,11 @@ class TasksFacadeProtocol(Protocol):
         ...
 
     async def create_task_dependency(
-        self, task_uid: str, depends_on_uid: str, dependency_type: str = "blocks"
+        self,
+        dependent_task_uid: str,
+        blocks_task_uid: str,
+        is_hard_dependency: bool = True,
+        dependency_type: str = "blocks",
     ) -> Result[bool]:
         """Create dependency between tasks."""
         ...
@@ -935,13 +945,13 @@ class TasksFacadeProtocol(Protocol):
         ...
 
     async def get_task_practice_opportunities(
-        self, task_uid: str
+        self, task_uid: str, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """Get practice opportunities related to a task."""
         ...
 
     async def get_user_assigned_tasks(
-        self, user_uid: str, limit: int = 100
+        self, user_uid: str, include_completed: bool = False, limit: int = 100
     ) -> Result[list[Any]]:
         """Get tasks assigned to a user."""
         ...
@@ -1705,7 +1715,13 @@ class KuFacadeProtocol(Protocol):
     # ========================================================================
 
     async def create_knowledge_relationship(
-        self, from_uid: str, to_uid: str, relationship_type: str, metadata: dict[str, Any] | None = None
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: Any,
+        confidence: float = 0.9,
+        strength: float = 1.0,
+        notes: str | None = None,
     ) -> Result[bool]:
         """Create relationship between two KUs."""
         ...

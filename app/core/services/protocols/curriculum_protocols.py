@@ -485,6 +485,19 @@ class LsOperations(CurriculumOperations["Ls"], Protocol):
         """
         ...
 
+    async def get_learning_steps_batch(self, uids: list[str]) -> Result[list[Ls | None]]:
+        """
+        Batch load learning steps by UIDs.
+
+        Args:
+            uids: List of LS UIDs to load
+
+        Returns:
+            Result[list[Ls | None]]: Learning steps in same order as input UIDs,
+                                     None for UIDs that don't exist
+        """
+        ...
+
     # =========================================================================
     # KNOWLEDGE AGGREGATION
     # =========================================================================

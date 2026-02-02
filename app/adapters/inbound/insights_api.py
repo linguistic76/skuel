@@ -65,7 +65,7 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.warning(f"Failed to dismiss insight {uid}: {result.error}")
-            return result
+            return Result.fail(result.expect_error())
 
         logger.info(
             f"Insight dismissed: {uid} by {user_uid}" + (f" (notes: {notes[:50]})" if notes else "")
@@ -104,7 +104,7 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.warning(f"Failed to mark insight actioned {uid}: {result.error}")
-            return result
+            return Result.fail(result.expect_error())
 
         logger.info(
             f"Insight marked as actioned: {uid} by {user_uid}"
@@ -249,7 +249,7 @@ def create_insights_api_routes(
         # Get all active insights
         result = await insight_store.get_active_insights(user_uid=user_uid, limit=200)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         insights = result.value
 
@@ -321,7 +321,7 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.error(f"Failed to retrieve active insights: {result.error}")
-            return result
+            return Result.fail(result.expect_error())
 
         insights = result.value
 
@@ -354,9 +354,10 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.error(f"Failed to retrieve insight stats: {result.error}")
-            return result
+            return Result.fail(result.expect_error())
 
-        return result
+        result_typed: Result[Any] = result
+        return result_typed
 
     # ========================================
     # Phase 2: Chart Visualization Endpoints
@@ -375,7 +376,7 @@ def create_insights_api_routes(
         result = await insight_store.get_active_insights(user_uid=user_uid, limit=200)
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         insights = result.value
 
@@ -431,7 +432,7 @@ def create_insights_api_routes(
         result = await insight_store.get_active_insights(user_uid=user_uid, limit=200)
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         insights = result.value
 
@@ -482,7 +483,7 @@ def create_insights_api_routes(
         result = await insight_store.get_active_insights(user_uid=user_uid, limit=200)
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         insights = result.value
 
@@ -600,7 +601,7 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.error(f"Failed to retrieve insight details for {uid}: {result.error}")
-            return result
+            return Result.fail(result.expect_error())
 
         insight = result.value
 
@@ -664,7 +665,7 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.warning(f"Failed to snooze insight {uid}: {result.error}")
-            return result
+            return Result.fail(result.expect_error())
 
         logger.info(f"Insight snoozed for {days} days: {uid} by {user_uid}")
 

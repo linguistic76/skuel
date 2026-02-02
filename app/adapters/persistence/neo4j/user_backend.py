@@ -470,6 +470,47 @@ class UserBackend(UserOperations):
                 Errors.database(operation="record_knowledge_progress", message=str(e))
             )
 
+    async def get_user_mastery(
+        self,
+        user_uid: str,
+        concept_uid: str,
+    ) -> Result[float]:
+        """
+        Get user's mastery level for a knowledge concept.
+
+        Args:
+            user_uid: User UID
+            concept_uid: Knowledge unit UID
+
+        Returns:
+            Result[float]: Mastery score (0.0-1.0), or 0.0 if not found
+        """
+        try:
+            query = """
+            MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Ku {uid: $concept_uid})
+            RETURN r.mastery_score as mastery_score
+            """
+
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query,
+                    {"user_uid": user_uid, "concept_uid": concept_uid},
+                )
+                record = await result.single()
+
+                if not record:
+                    # No mastery recorded means 0.0 mastery
+                    return Result.ok(0.0)
+
+                mastery_score: float = record["mastery_score"]
+                return Result.ok(mastery_score)
+
+        except Exception as e:
+            self.logger.error(f"Failed to get user mastery: {e}")
+            return Result.fail(
+                Errors.database(operation="get_user_mastery", message=str(e))
+            )
+
     async def enroll_in_learning_path(
         self,
         user_uid: str,

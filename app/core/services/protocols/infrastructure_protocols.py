@@ -122,6 +122,23 @@ class UserOperations(Protocol):
         """Record user's progress on a knowledge unit. Returns Result[bool]."""
         ...
 
+    async def get_user_mastery(
+        self,
+        user_uid: str,
+        concept_uid: str,
+    ) -> Result[float]:
+        """
+        Get user's mastery level for a knowledge concept.
+
+        Args:
+            user_uid: User UID
+            concept_uid: Knowledge unit UID
+
+        Returns:
+            Result[float]: Mastery score (0.0-1.0)
+        """
+        ...
+
     async def enroll_in_learning_path(
         self,
         user_uid: str,

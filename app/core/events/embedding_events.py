@@ -16,11 +16,11 @@ Architecture:
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.events.base import DomainEvent
+from core.events.base import BaseEvent
 
 
 @dataclass(frozen=True)
-class EmbeddingRequested(DomainEvent):
+class EmbeddingRequested(BaseEvent):
     """
     Base event for embedding generation requests.
 
@@ -32,6 +32,7 @@ class EmbeddingRequested(DomainEvent):
     embedding_text: str
     user_uid: str
     requested_at: datetime
+    occurred_at: datetime
 
     @property
     def event_type(self) -> str:

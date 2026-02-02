@@ -381,12 +381,14 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             if embedding_text:
                 from core.events import EventEmbeddingRequested
 
+                now = datetime.now()
                 embedding_event = EventEmbeddingRequested(
                     entity_uid=event.uid,
                     entity_type="event",
                     embedding_text=embedding_text,
                     user_uid=event.user_uid,
-                    requested_at=datetime.now(),
+                    requested_at=now,
+                    occurred_at=now,
                 )
                 await publish_event(self.event_bus, embedding_event, self.logger)
 

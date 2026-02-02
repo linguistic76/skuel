@@ -304,12 +304,14 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         if embedding_text:
             from core.events import PrincipleEmbeddingRequested
 
+            now = datetime.now()
             embedding_event = PrincipleEmbeddingRequested(
                 entity_uid=principle.uid,
                 entity_type="principle",
                 embedding_text=embedding_text,
                 user_uid=user_uid,
-                requested_at=datetime.now(),
+                requested_at=now,
+                occurred_at=now,
             )
             await publish_event(self.event_bus, embedding_event, logger)
 

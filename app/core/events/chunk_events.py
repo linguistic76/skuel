@@ -16,11 +16,11 @@ Architecture:
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.events.base import DomainEvent
+from core.events.base import BaseEvent
 
 
 @dataclass(frozen=True)
-class ChunkEmbeddingRequested(DomainEvent):
+class ChunkEmbeddingRequested(BaseEvent):
     """
     Published when KU chunks need embeddings.
 
@@ -32,6 +32,7 @@ class ChunkEmbeddingRequested(DomainEvent):
     chunk_uids: tuple[str, ...]  # ["ku.python:chunk:0", ...]
     chunk_texts: tuple[str, ...]  # Context window for each chunk
     requested_at: datetime
+    occurred_at: datetime
     user_uid: str | None = None
 
     @property
@@ -40,7 +41,7 @@ class ChunkEmbeddingRequested(DomainEvent):
 
 
 @dataclass(frozen=True)
-class ChunkEmbeddingsCompleted(DomainEvent):
+class ChunkEmbeddingsCompleted(BaseEvent):
     """
     Published when chunk embeddings have been generated and stored.
 
@@ -52,6 +53,7 @@ class ChunkEmbeddingsCompleted(DomainEvent):
     success_count: int
     failed_count: int
     completed_at: datetime
+    occurred_at: datetime
 
     @property
     def event_type(self) -> str:

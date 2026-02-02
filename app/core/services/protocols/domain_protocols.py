@@ -722,9 +722,12 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         ...
 
     async def bulk_categorize(
-        self, expense_uids: list[str], category: str
-    ) -> Result[int]:
-        """Bulk categorize multiple expenses. Returns count of updated expenses."""
+        self,
+        expense_uids: list[str],
+        category: Any,  # ExpenseCategory enum
+        subcategory: str | None = None,
+    ) -> Result[dict[str, Any]]:
+        """Bulk categorize multiple expenses. Returns dict with updated expenses."""
         ...
 
     async def recalculate_budget(self, budget_uid: str) -> Result[bool]:
@@ -1428,7 +1431,7 @@ class ChoicesRelationshipOperations(BaseRelationshipOperations, Protocol):
 
 @runtime_checkable
 class UserContextOperations(Protocol):
-    """User context operations for cache invalidation."""
+    """User context operations for cache invalidation and context-aware operations."""
 
     async def invalidate_context(self, user_uid: str) -> None:
         """
@@ -1437,4 +1440,64 @@ class UserContextOperations(Protocol):
         Args:
             user_uid: User whose context cache should be invalidated
         """
+        ...
+
+    async def get_context_dashboard(
+        self,
+        user_uid: str,
+        include_predictions: bool = True,
+        time_window: str = "7d",
+    ) -> Result[Any]:  # Result[ContextDashboard]
+        """Get unified context dashboard for user."""
+        ...
+
+    async def get_context_summary(
+        self,
+        user_uid: str,
+        include_insights: bool = True,
+    ) -> Result[Any]:  # Result[ContextSummary]
+        """Get concise context summary for user."""
+        ...
+
+    async def get_next_action(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Get AI-recommended next action based on context."""
+        ...
+
+    async def get_at_risk_habits(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Get habits at risk of breaking streaks."""
+        ...
+
+    async def get_adaptive_learning_path(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Get adaptive learning path recommendations."""
+        ...
+
+    async def get_context_health(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Get overall context health metrics."""
+        ...
+
+    async def complete_task_with_context(
+        self,
+        task_uid: str,
+        completion_context: dict[str, Any] | None = None,
+        reflection_notes: str = "",
+    ) -> Result[Any]:  # Result[Task]
+        """Complete task with context awareness."""
+        ...
+
+    async def create_tasks_from_goal_context(
+        self,
+        goal_uid: str,
+        context_preferences: dict[str, Any] | None = None,
+        auto_create: bool = True,
+    ) -> Result[list[Any]]:  # Result[list[Task]]
+        """Create contextually relevant tasks from goal."""
+        ...
+
+    async def complete_habit_with_context(
+        self,
+        habit_uid: str,
+        completion_quality: str = "good",
+        environmental_factors: dict[str, Any] | None = None,
+    ) -> Result[Any]:  # Result[Habit]
+        """Complete habit with context awareness."""
         ...

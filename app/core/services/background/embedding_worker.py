@@ -394,6 +394,7 @@ class EmbeddingBackgroundWorker:
                 if stored:
                     # Publish completion events for each KU
                     for ku_uid, req in request_map.items():
+                        now = datetime.now()
                         await publish_event(
                             self.event_bus,
                             ChunkEmbeddingsCompleted(
@@ -401,7 +402,8 @@ class EmbeddingBackgroundWorker:
                                 chunk_uids=req.chunk_uids,
                                 success_count=len(req.chunk_uids),
                                 failed_count=0,
-                                completed_at=datetime.now(),
+                                completed_at=now,
+                                occurred_at=now,
                             ),
                             self.logger,
                         )

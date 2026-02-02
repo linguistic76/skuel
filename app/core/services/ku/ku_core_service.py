@@ -293,11 +293,13 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
                         chunk_uids = tuple(chunk.chunk_id for chunk in chunks)
                         chunk_texts = tuple(chunk.context_window for chunk in chunks)
 
+                        now = datetime.now(UTC)
                         embedding_event = ChunkEmbeddingRequested(
                             ku_uid=uid,
                             chunk_uids=chunk_uids,
                             chunk_texts=chunk_texts,
-                            requested_at=datetime.now(UTC),
+                            requested_at=now,
+                            occurred_at=now,
                             user_uid=metadata.get("created_by_user"),
                         )
                         await publish_event(self.event_bus, embedding_event, self.logger)
