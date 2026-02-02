@@ -45,7 +45,7 @@ def create_advanced_routes(_app, rt, services):
     # CALENDAR OPTIMIZATION - Cognitive Load Balancing
     # ========================================================================
 
-    @rt("/calendar/optimize")
+    @rt("/events/calendar/optimize")
     @boundary_handler()
     async def optimize(
         user_uid: str = "default_user",
@@ -122,7 +122,7 @@ def create_advanced_routes(_app, rt, services):
             strategy=strat,
         )
 
-    @rt("/calendar/cognitive-load")
+    @rt("/events/calendar/cognitive-load")
     @boundary_handler()
     async def cognitive_load(
         _user_uid: str = "default_user", target_date: str | None = None

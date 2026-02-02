@@ -217,7 +217,7 @@ def DomainSummaryCard(
         stats_html.append(
             Div(
                 Div(str(value), cls="text-2xl font-bold text-base-content"),
-                Div(label, cls="text-sm text-base-content/50"),
+                Div(label, cls="text-sm text-base-content/60"),
                 cls="text-center",
             )
         )
@@ -319,7 +319,7 @@ def _item_list(
             return EmptyState_for_domain(domain, empty_message)
         # Fallback to basic empty state
         return Div(
-            P(empty_message, cls="text-base-content/50 italic text-center py-8"),
+            P(empty_message, cls="text-base-content/60 italic text-center py-8"),
             cls="bg-base-200 rounded-lg",
         )
 
@@ -340,13 +340,13 @@ def _item_list(
             status_colors = {
                 "completed": "text-success",
                 "in_progress": "text-warning",
-                "pending": "text-base-content/50",
+                "pending": "text-base-content/60",
                 "overdue": "text-error",
                 "at_risk": "text-error",
                 "keystone": "text-success",
                 "near_complete": "text-primary",
             }
-            status_color = status_colors.get(status, "text-base-content/50")
+            status_color = status_colors.get(status, "text-base-content/60")
             status_badge = Span(
                 status.replace("_", " ").title(),
                 cls=f"text-xs font-medium {status_color}",
@@ -815,10 +815,10 @@ def EventsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
         DomainSummaryCard("Events", "📅", stats, status),
         intelligence_card,  # NEW: Contextual intelligence
         H3("Upcoming Events", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
-        _item_list(items, "No upcoming events", "/calendar", domain="events", focus_uid=focus_uid),
+        _item_list(items, "No upcoming events", "/events", domain="events", focus_uid=focus_uid),
         A(
             "View Calendar →",
-            href="/calendar",
+            href="/events",
             cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
         ),
     )
@@ -1124,7 +1124,7 @@ def _learning_paths_list(context: UserContext) -> Div:
                         cls="h-2 bg-base-200 rounded-full w-full",
                     ),
                     Div(
-                        Span(f"{progress_percent}% complete", cls="text-xs text-base-content/50"),
+                        Span(f"{progress_percent}% complete", cls="text-xs text-base-content/60"),
                         cls="mt-1",
                     ),
                     cls="w-full",
@@ -1148,11 +1148,11 @@ def _ready_to_learn_list(context: UserContext) -> Div:
             return Div(
                 P(
                     f"{blocked_count} knowledge units blocked by prerequisites",
-                    cls="text-base-content/50 text-sm",
+                    cls="text-base-content/60 text-sm",
                 ),
                 P(
                     "Complete prerequisite knowledge to unlock more",
-                    cls="text-base-content/50 text-xs mt-1",
+                    cls="text-base-content/60 text-xs mt-1",
                 ),
                 cls="bg-base-200 rounded-lg p-4",
             )
@@ -1203,7 +1203,7 @@ def _chart_visualizations_section() -> Div:
                     ),
                     Div(
                         "Loading chart...",
-                        cls="text-center text-base-content/50 py-8",
+                        cls="text-center text-base-content/60 py-8",
                         **{"x-show": "loading"},
                     ),
                     Div(
@@ -1229,7 +1229,7 @@ def _chart_visualizations_section() -> Div:
                     ),
                     Div(
                         "Loading chart...",
-                        cls="text-center text-base-content/50 py-8",
+                        cls="text-center text-base-content/60 py-8",
                         **{"x-show": "loading"},
                     ),
                     Div(
@@ -1294,7 +1294,7 @@ def OverviewView(
             Span("Intelligence data ", cls="text-base-content/70"),
             Span(
                 **{"x-text": "lastUpdatedText", "x-show": "hasCache"},
-                cls="text-sm text-base-content/50",
+                cls="text-sm text-base-content/60",
             ),
             cls="text-lg mt-1",
             id="intelligence-status",
@@ -1368,7 +1368,7 @@ def _intelligence_unavailable_card() -> Div:
             Span(icon, cls="mr-2"),
             Div(
                 Span(name, cls="font-medium text-sm"),
-                P(desc, cls="text-xs text-base-content/50"),
+                P(desc, cls="text-xs text-base-content/60"),
                 cls="flex flex-col",
             ),
             cls="flex items-start py-2",
@@ -1388,7 +1388,7 @@ def _intelligence_unavailable_card() -> Div:
             ),
             P(
                 "Core profile features are available. Intelligence features include:",
-                cls="text-sm text-base-content/50 mb-4",
+                cls="text-sm text-base-content/60 mb-4",
             ),
             Div(*feature_items, cls="space-y-1"),
             cls="p-4 bg-base-200 rounded-lg border border-base-300",
@@ -1437,7 +1437,7 @@ def _overview_insights(context: UserContext) -> Div:
             _insight_item(
                 "info",
                 f"{len(context.today_event_uids)} events scheduled for today",
-                "/calendar",
+                "/events",
             )
         )
 
@@ -1445,7 +1445,7 @@ def _overview_insights(context: UserContext) -> Div:
         insights.append(
             Div(
                 "Everything looks good! You're on track. 🎉",
-                cls="text-center text-base-content/50 py-4",
+                cls="text-center text-base-content/60 py-4",
             )
         )
 
@@ -1480,10 +1480,10 @@ def _current_focus_card(context: UserContext) -> Div:
     """
     if not context.current_task_focus:
         return Div(
-            P("No current focus set", cls="text-base-content/50 text-sm"),
+            P("No current focus set", cls="text-base-content/60 text-sm"),
             P(
                 "Set a focus to see it highlighted here",
-                cls="text-base-content/50 text-xs mt-1",
+                cls="text-base-content/60 text-xs mt-1",
             ),
             cls="bg-base-200 rounded-lg p-4 mb-6",
         )
@@ -1497,7 +1497,7 @@ def _current_focus_card(context: UserContext) -> Div:
             break
 
     return Div(
-        H3("Current Focus", cls="text-sm font-semibold text-base-content/50 mb-2"),
+        H3("Current Focus", cls="text-sm font-semibold text-base-content/60 mb-2"),
         Div(
             Span("🎯", cls="text-2xl mr-3"),
             Span(task_title, cls="text-lg font-medium text-base-content"),
@@ -1526,7 +1526,7 @@ def _velocity_summary(context: UserContext) -> Div:
     elif total_velocity > 0:
         momentum = ("📈", "Building Momentum", "text-primary")
     elif total_velocity > -0.3:
-        momentum = ("➡️", "Steady", "text-base-content/50")
+        momentum = ("➡️", "Steady", "text-base-content/60")
     else:
         momentum = ("📉", "Losing Momentum", "text-warning")
 
@@ -1540,7 +1540,7 @@ def _velocity_summary(context: UserContext) -> Div:
         ),
         P(
             f"Total time invested: {total_time:.1f} hours",
-            cls="text-sm text-base-content/50 mt-1",
+            cls="text-sm text-base-content/60 mt-1",
         ),
         cls="bg-base-200 rounded-lg p-4 mb-6",
     )
@@ -1597,11 +1597,11 @@ def _domain_progress_grid(context: UserContext) -> Div:
                 ),
                 # Stats row
                 Div(
-                    Span(f"{int(progress * 100)}%", cls="text-xs text-base-content/50"),
+                    Span(f"{int(progress * 100)}%", cls="text-xs text-base-content/60"),
                     velocity_indicator,
                     Span(
                         f"{time_invested:.1f}h",
-                        cls="text-xs text-base-content/50 ml-auto",
+                        cls="text-xs text-base-content/60 ml-auto",
                     ),
                     cls="flex items-center mt-1",
                 ),
@@ -1645,7 +1645,7 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
                 Span(getattr(h, "title", "Habit"), cls="text-sm"),
                 Span(
                     f"({getattr(h, 'current_streak', 0)}-day streak)",
-                    cls="text-xs text-base-content/50 ml-2",
+                    cls="text-xs text-base-content/60 ml-2",
                 ),
                 cls="flex items-center py-1",
             )
@@ -1690,7 +1690,7 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
         if task_items:
             priority_sections.append(
                 Div(
-                    P("PRIORITY 2: Tasks", cls="text-xs font-bold text-base-content/50 mb-1"),
+                    P("PRIORITY 2: Tasks", cls="text-xs font-bold text-base-content/60 mb-1"),
                     *task_items,
                     cls="mb-3",
                 )
@@ -1704,7 +1704,7 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
                 Span(getattr(k, "title", "Knowledge"), cls="text-sm"),
                 Span(
                     f"({getattr(k, 'estimated_time_minutes', 30)} min)",
-                    cls="text-xs text-base-content/50 ml-2",
+                    cls="text-xs text-base-content/60 ml-2",
                 ),
                 cls="flex items-center py-1",
             )
@@ -1712,7 +1712,7 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
         ]
         priority_sections.append(
             Div(
-                P("PRIORITY 3: Learning", cls="text-xs font-bold text-base-content/50 mb-1"),
+                P("PRIORITY 3: Learning", cls="text-xs font-bold text-base-content/60 mb-1"),
                 *learning_items,
                 cls="mb-3",
             )
@@ -1722,11 +1722,11 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
     if not priority_sections:
         if plan.rationale:
             priority_sections.append(
-                Div(P(plan.rationale, cls="text-sm text-base-content/50 italic"))
+                Div(P(plan.rationale, cls="text-sm text-base-content/60 italic"))
             )
         else:
             priority_sections.append(
-                Div(P("No specific priorities for today", cls="text-sm text-base-content/50"))
+                Div(P("No specific priorities for today", cls="text-sm text-base-content/60"))
             )
 
     # Warnings
@@ -1753,7 +1753,7 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
         ),
         # Capacity bar
         Div(
-            P(f"Capacity: {capacity_percent}% utilized", cls="text-xs text-base-content/50 mb-1"),
+            P(f"Capacity: {capacity_percent}% utilized", cls="text-xs text-base-content/60 mb-1"),
             Div(
                 Div(
                     cls=f"h-2 {capacity_color} rounded-full transition-all",
@@ -1784,10 +1784,10 @@ def _alignment_breakdown(alignment: "LifePathAlignment") -> Div:
     level_colors = {
         "flourishing": "text-success",
         "aligned": "text-primary",
-        "exploring": "text-base-content/50",
+        "exploring": "text-base-content/60",
         "drifting": "text-warning",
     }
-    level_color = level_colors.get(alignment.alignment_level, "text-base-content/50")
+    level_color = level_colors.get(alignment.alignment_level, "text-base-content/60")
     level_icon = {"flourishing": "✓", "aligned": "✓", "exploring": "~", "drifting": "!"}.get(
         alignment.alignment_level, "~"
     )
@@ -1808,7 +1808,7 @@ def _alignment_breakdown(alignment: "LifePathAlignment") -> Div:
             Div(
                 Div(
                     Span(icon, cls="text-sm w-6"),
-                    Span(name, cls="text-xs text-base-content/50 w-20"),
+                    Span(name, cls="text-xs text-base-content/60 w-20"),
                     Div(
                         Div(
                             cls="h-2 bg-primary rounded-full",
@@ -1816,7 +1816,7 @@ def _alignment_breakdown(alignment: "LifePathAlignment") -> Div:
                         ),
                         cls="h-2 bg-base-200 rounded-full flex-1",
                     ),
-                    Span(f"{score_percent}%", cls="text-xs text-base-content/50 w-10 text-right"),
+                    Span(f"{score_percent}%", cls="text-xs text-base-content/60 w-10 text-right"),
                     cls="flex items-center gap-2",
                 ),
                 cls="py-1",
@@ -1829,7 +1829,7 @@ def _alignment_breakdown(alignment: "LifePathAlignment") -> Div:
         insights_section.append(
             Div(
                 P("Strengths:", cls="text-xs font-semibold text-success mb-1"),
-                P(alignment.strengths[0], cls="text-xs text-base-content/50"),
+                P(alignment.strengths[0], cls="text-xs text-base-content/60"),
                 cls="flex-1",
             )
         )
@@ -1837,7 +1837,7 @@ def _alignment_breakdown(alignment: "LifePathAlignment") -> Div:
         insights_section.append(
             Div(
                 P("Gaps:", cls="text-xs font-semibold text-warning mb-1"),
-                P(alignment.gaps[0], cls="text-xs text-base-content/50"),
+                P(alignment.gaps[0], cls="text-xs text-base-content/60"),
                 cls="flex-1",
             )
         )
@@ -1877,10 +1877,10 @@ def _synergies_card(synergies: "list[CrossDomainSynergy]") -> Div:
         return Div(
             Div(
                 Span("🚀", cls="text-xl mr-2"),
-                Span("HIGH-LEVERAGE ACTIONS", cls="font-bold text-base-content/50"),
+                Span("HIGH-LEVERAGE ACTIONS", cls="font-bold text-base-content/60"),
                 cls="flex items-center mb-2",
             ),
-            P("No synergies detected yet", cls="text-sm text-base-content/50"),
+            P("No synergies detected yet", cls="text-sm text-base-content/60"),
             cls="bg-base-200 rounded-lg p-4 mb-6",
         )
 
@@ -1896,7 +1896,7 @@ def _synergies_card(synergies: "list[CrossDomainSynergy]") -> Div:
                 # Header with score
                 Div(
                     Span(domain_arrow, cls="font-medium text-sm text-base-content"),
-                    Span(f"(score: {score_percent}%)", cls="text-xs text-base-content/50 ml-2"),
+                    Span(f"(score: {score_percent}%)", cls="text-xs text-base-content/60 ml-2"),
                     cls="flex items-center mb-1",
                 ),
                 # Rationale
@@ -1904,7 +1904,7 @@ def _synergies_card(synergies: "list[CrossDomainSynergy]") -> Div:
                     synergy.rationale[:80] + "..."
                     if len(synergy.rationale) > 80
                     else synergy.rationale,
-                    cls="text-xs text-base-content/50",
+                    cls="text-xs text-base-content/60",
                 ),
                 # Targets count
                 P(
@@ -1941,10 +1941,10 @@ def _learning_steps_card(steps: "list[LearningStep]") -> Div:
         return Div(
             Div(
                 Span("📚", cls="text-xl mr-2"),
-                Span("NEXT LEARNING STEPS", cls="font-bold text-base-content/50"),
+                Span("NEXT LEARNING STEPS", cls="font-bold text-base-content/60"),
                 cls="flex items-center mb-2",
             ),
-            P("No learning recommendations available", cls="text-sm text-base-content/50"),
+            P("No learning recommendations available", cls="text-sm text-base-content/60"),
             cls="bg-base-200 rounded-lg p-4 mb-6",
         )
 
@@ -1963,10 +1963,10 @@ def _learning_steps_card(steps: "list[LearningStep]") -> Div:
                     ),
                     # Stats row
                     Div(
-                        Span(f"Priority: {priority_percent}%", cls="text-xs text-base-content/50"),
-                        Span("|", cls="mx-2 text-base-content/50"),
+                        Span(f"Priority: {priority_percent}%", cls="text-xs text-base-content/60"),
+                        Span("|", cls="mx-2 text-base-content/60"),
                         Span(
-                            f"{step.estimated_time_minutes} min", cls="text-xs text-base-content/50"
+                            f"{step.estimated_time_minutes} min", cls="text-xs text-base-content/60"
                         ),
                         cls="flex items-center mb-1",
                     ),
@@ -1978,7 +1978,7 @@ def _learning_steps_card(steps: "list[LearningStep]") -> Div:
                         )
                         if step.aligns_with_goals
                         else None,
-                        Span("|", cls="mx-2 text-base-content/50")
+                        Span("|", cls="mx-2 text-base-content/60")
                         if step.aligns_with_goals and step.unlocks_count
                         else None,
                         Span(

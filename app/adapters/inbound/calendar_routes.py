@@ -275,7 +275,7 @@ def _render_item_details_modal(item: Any) -> Div:
                 "Mark Complete",
                 cls="btn btn-secondary mr-2",
                 **{
-                    "hx-post": f"/calendar/habit/{item.source_uid}/complete",
+                    "hx-post": f"/events/calendar/habit/{item.source_uid}/complete",
                     "hx-swap": "none",
                 },
             ),
@@ -346,24 +346,12 @@ def create_calendar_routes(app, rt, services):
     # =========================================================================
 
     @rt("/events")
-    async def redirect_events_to_calendar(_request: Request) -> Any:
-        """
-        Redirect /events to unified /calendar view (One Path Forward).
-
-        Events UI integrated into unified temporal calendar that shows
-        tasks + events + habits. Events API routes remain functional.
-        """
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse("/calendar", status_code=301)
-
-    @rt("/calendar")
     async def calendar_default(request: Request) -> Any:
         """Default calendar view - redirects to current month."""
         today = date.today()
         return await calendar_month(request, today.year, today.month)
 
-    @rt("/calendar/month/{year}/{month}")
+    @rt("/events/month/{year}/{month}")
     async def calendar_month(request: Request, year: int, month: int) -> Any:
         """Month view of the calendar."""
         user_uid = require_authenticated_user(request)  # Enforce authentication
@@ -385,7 +373,7 @@ def create_calendar_routes(app, rt, services):
 
         calendar_data = result.value
         month_name = cal.month_name[month]
-        navbar = await create_navbar_for_request(request, active_page="calendar")
+        navbar = await create_navbar_for_request(request, active_page="events")
 
         return _wrap_calendar_page(
             navbar,
@@ -399,17 +387,17 @@ def create_calendar_routes(app, rt, services):
                         Div(
                             A(
                                 "← Previous",
-                                href=f"/calendar/month/{_get_prev_month(year, month)[0]}/{_get_prev_month(year, month)[1]}",
+                                href=f"/events/month/{_get_prev_month(year, month)[0]}/{_get_prev_month(year, month)[1]}",
                                 cls="btn btn-ghost btn-sm",
                             ),
                             A(
                                 "Today",
-                                href="/calendar",
+                                href="/events",
                                 cls="btn btn-primary btn-sm mx-2",
                             ),
                             A(
                                 "Next →",
-                                href=f"/calendar/month/{_get_next_month(year, month)[0]}/{_get_next_month(year, month)[1]}",
+                                href=f"/events/month/{_get_next_month(year, month)[0]}/{_get_next_month(year, month)[1]}",
                                 cls="btn btn-ghost btn-sm",
                             ),
                             cls="flex justify-center mb-6",
@@ -426,7 +414,7 @@ def create_calendar_routes(app, rt, services):
             f"{month_name} {year}",
         )
 
-    @rt("/calendar/week/{date_str}")
+    @rt("/events/week/{date_str}")
     async def calendar_week(request: Request, date_str: str) -> Any:
         """Week view of the calendar."""
         user_uid = require_authenticated_user(request)  # Enforce authentication
@@ -454,7 +442,7 @@ def create_calendar_routes(app, rt, services):
 
         calendar_data = result.value
         week_start = calendar_data.start_date
-        navbar = await create_navbar_for_request(request, active_page="calendar")
+        navbar = await create_navbar_for_request(request, active_page="events")
 
         return _wrap_calendar_page(
             navbar,
@@ -471,17 +459,17 @@ def create_calendar_routes(app, rt, services):
                         Div(
                             A(
                                 "← Previous Week",
-                                href=f"/calendar/week/{_get_prev_week(week_start)}",
+                                href=f"/events/week/{_get_prev_week(week_start)}",
                                 cls="btn btn-ghost btn-sm",
                             ),
                             A(
                                 "This Week",
-                                href=f"/calendar/week/{date.today().isoformat()}",
+                                href=f"/events/week/{date.today().isoformat()}",
                                 cls="btn btn-primary btn-sm mx-2",
                             ),
                             A(
                                 "Next Week →",
-                                href=f"/calendar/week/{_get_next_week(week_start)}",
+                                href=f"/events/week/{_get_next_week(week_start)}",
                                 cls="btn btn-ghost btn-sm",
                             ),
                             cls="flex justify-center mb-6",
@@ -498,7 +486,7 @@ def create_calendar_routes(app, rt, services):
             f"Week of {week_start.strftime('%B %d, %Y')}",
         )
 
-    @rt("/calendar/day/{date_str}")
+    @rt("/events/day/{date_str}")
     async def calendar_day(request: Request, date_str: str) -> Any:
         """Day view of the calendar."""
         user_uid = require_authenticated_user(request)  # Enforce authentication
@@ -520,7 +508,7 @@ def create_calendar_routes(app, rt, services):
             return error_response(result.error)
 
         calendar_data = result.value
-        navbar = await create_navbar_for_request(request, active_page="calendar")
+        navbar = await create_navbar_for_request(request, active_page="events")
 
         return _wrap_calendar_page(
             navbar,
@@ -537,17 +525,17 @@ def create_calendar_routes(app, rt, services):
                         Div(
                             A(
                                 "← Previous Day",
-                                href=f"/calendar/day/{_get_prev_day(target_date)}",
+                                href=f"/events/day/{_get_prev_day(target_date)}",
                                 cls="btn btn-ghost btn-sm",
                             ),
                             A(
                                 "Today",
-                                href=f"/calendar/day/{date.today().isoformat()}",
+                                href=f"/events/day/{date.today().isoformat()}",
                                 cls="btn btn-primary btn-sm mx-2",
                             ),
                             A(
                                 "Next Day →",
-                                href=f"/calendar/day/{_get_next_day(target_date)}",
+                                href=f"/events/day/{_get_next_day(target_date)}",
                                 cls="btn btn-ghost btn-sm",
                             ),
                             cls="flex justify-center mb-6",
@@ -625,7 +613,7 @@ def create_calendar_routes(app, rt, services):
         else:
             return Result.fail(Errors.not_found(resource="CalendarItem", identifier=item_id))
 
-    @rt("/api/calendar/reschedule", methods=["PATCH"])
+    @rt("/api/events/calendar/reschedule", methods=["PATCH"])
     async def reschedule_item(request: Request) -> Any:
         """
         Reschedule a calendar item via HTMX drag-drop.
@@ -678,7 +666,7 @@ def create_calendar_routes(app, rt, services):
     # HTMX Fragment Routes
     # =========================================================================
 
-    @rt("/calendar/quick-create")
+    @rt("/events/calendar/quick-create")
     async def calendar_quick_create_htmx(request: Request) -> Any:
         """
         HTMX endpoint for quick create form.
@@ -753,7 +741,7 @@ def create_calendar_routes(app, rt, services):
                 cls="alert alert-error",
             )
 
-    @rt("/calendar/habit/{habit_uid}/record/{status}")
+    @rt("/events/calendar/habit/{habit_uid}/record/{status}")
     async def calendar_habit_record(request: Request, habit_uid: str, status: str) -> Any:
         """
         HTMX endpoint for recording habit occurrences.
@@ -825,7 +813,7 @@ def create_calendar_routes(app, rt, services):
                 cls="alert alert-error",
             )
 
-    @rt("/calendar/item-details/{item_id}")
+    @rt("/events/calendar/item-details/{item_id}")
     async def calendar_item_details_modal(_request: Request, item_id: str) -> Any:
         """
         HTMX endpoint for calendar item details modal.

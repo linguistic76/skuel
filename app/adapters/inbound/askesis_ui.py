@@ -281,8 +281,8 @@ class AskesisUI:
 
             .askesis-sidebar {{
                 width: 256px;
-                background-color: oklch(var(--color-base-200));
-                border-right: 1px solid oklch(var(--color-base-300));
+                background-color: oklch(var(--b2));
+                border-right: 1px solid oklch(var(--b3));
                 transition: transform 0.3s ease;
                 position: fixed;
                 top: 64px;
@@ -307,7 +307,7 @@ class AskesisUI:
                 margin-left: 256px;
                 padding: 2rem;
                 transition: margin-left 0.3s ease;
-                background: oklch(var(--color-base-100));
+                background: oklch(var(--b1));
                 min-height: calc(100vh - 64px);
             }}
 
@@ -319,8 +319,8 @@ class AskesisUI:
                 position: absolute;
                 right: 10px;
                 top: 20px;
-                background: oklch(var(--color-base-100));
-                border: 1px solid oklch(var(--color-base-300));
+                background: oklch(var(--b1));
+                border: 1px solid oklch(var(--b3));
                 cursor: pointer;
                 padding: 8px;
                 border-radius: 4px;
@@ -334,7 +334,7 @@ class AskesisUI:
             }}
 
             .sidebar-toggle:hover {{
-                background: oklch(var(--color-base-300));
+                background: oklch(var(--b3));
             }}
 
             .sidebar-header {{
@@ -343,7 +343,7 @@ class AskesisUI:
                 font-size: 1.125rem;
                 font-weight: 700;
                 color: oklch(var(--bc));
-                border-bottom: 1px solid oklch(var(--color-base-300));
+                border-bottom: 1px solid oklch(var(--b3));
             }}
 
             .askesis-sidebar.collapsed .sidebar-nav {{
@@ -376,7 +376,7 @@ class AskesisUI:
             }}
 
             .menu-item:hover {{
-                background-color: oklch(var(--color-base-100));
+                background-color: oklch(var(--b1));
                 border-left-color: oklch(var(--bc) / 0.4);
             }}
 
@@ -547,7 +547,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
         page_layout = AskesisUI.render_sidebar_layout("dashboard", content)
 
         # Add navbar at top (session-aware for admin detection)
-        navbar = _render_minimal_nav(request)
+        navbar = await _render_minimal_nav(request)
 
         # Return proper HTML document with data-theme for DaisyUI styling
         return Html(
@@ -574,7 +574,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
         """Start a new chat conversation."""
         content = AskesisUI.render_centered_welcome()
         page_layout = AskesisUI.render_sidebar_layout("new-chat", content)
-        navbar = _render_minimal_nav(request)
+        navbar = await _render_minimal_nav(request)
 
         return Html(
             Head(
@@ -610,7 +610,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
             ),
         )
         page_layout = AskesisUI.render_sidebar_layout("history", content)
-        navbar = _render_minimal_nav(request)
+        navbar = await _render_minimal_nav(request)
 
         return Html(
             Head(
@@ -653,7 +653,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
             ),
         )
         page_layout = AskesisUI.render_sidebar_layout("analytics", content)
-        navbar = _render_minimal_nav(request)
+        navbar = await _render_minimal_nav(request)
 
         return Html(
             Head(
@@ -714,7 +714,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
             ),
         )
         page_layout = AskesisUI.render_sidebar_layout("settings", content)
-        navbar = _render_minimal_nav(request)
+        navbar = await _render_minimal_nav(request)
 
         return Html(
             Head(
@@ -786,13 +786,13 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
     return routes
 
 
-def _render_minimal_nav(request) -> Any:
+async def _render_minimal_nav(request) -> Any:
     """
     Minimal bottom navigation (optional).
 
     Uses create_navbar_for_request for session-aware admin detection.
     """
-    return create_navbar_for_request(request)
+    return await create_navbar_for_request(request, active_page="askesis")
 
 
 # Export

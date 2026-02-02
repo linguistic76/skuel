@@ -147,7 +147,7 @@ def create_day_cell(
             style=f"background-color: {item.color}",
             data_item_id=item.uid,
             **{
-                "hx-get": f"/calendar/item-details/{item.uid}",
+                "hx-get": f"/events/calendar/item-details/{item.uid}",
                 "hx-target": "body",
                 "hx-swap": "beforeend",
             },
@@ -299,7 +299,7 @@ def create_week_item(item: CalendarItem) -> Div:
         **{
             "x-on:dragstart": f"handleDragStart($event, '{item.uid}')",
             # Use HTMX for modal loading instead of JavaScript
-            "hx-get": f"/calendar/item-details/{item.uid}",
+            "hx-get": f"/events/calendar/item-details/{item.uid}",
             "hx-target": "body",
             "hx-swap": "beforeend",
         },
@@ -391,7 +391,7 @@ def create_timeline_item(item: CalendarItem) -> Div:
         # Alpine.js: drag-and-drop handling + HTMX for modal loading
         **{
             "x-on:dragstart": f"handleDragStart($event, '{item.uid}')",
-            "hx-get": f"/calendar/item-details/{item.uid}",
+            "hx-get": f"/events/calendar/item-details/{item.uid}",
             "hx-target": "body",
             "hx-swap": "beforeend",
         },
@@ -431,7 +431,7 @@ def create_habit_check_in(item: CalendarItem) -> Div:
                 type="button",
                 cls="btn btn-success btn-sm",
                 **{
-                    "hx-post": f"/calendar/habit/{habit_uid}/record/done",
+                    "hx-post": f"/events/calendar/habit/{habit_uid}/record/done",
                     "hx-target": f"#habit-status-{habit_uid}",
                     "hx-swap": "innerHTML",
                     "hx-include": f"#{note_input_id}",
@@ -442,7 +442,7 @@ def create_habit_check_in(item: CalendarItem) -> Div:
                 type="button",
                 cls="btn btn-warning btn-sm",
                 **{
-                    "hx-post": f"/calendar/habit/{habit_uid}/record/skipped",
+                    "hx-post": f"/events/calendar/habit/{habit_uid}/record/skipped",
                     "hx-target": f"#habit-status-{habit_uid}",
                     "hx-swap": "innerHTML",
                     "hx-include": f"#{note_input_id}",
@@ -453,7 +453,7 @@ def create_habit_check_in(item: CalendarItem) -> Div:
                 type="button",
                 cls="btn btn-error btn-sm",
                 **{
-                    "hx-post": f"/calendar/habit/{habit_uid}/record/missed",
+                    "hx-post": f"/events/calendar/habit/{habit_uid}/record/missed",
                     "hx-target": f"#habit-status-{habit_uid}",
                     "hx-swap": "innerHTML",
                     "hx-include": f"#{note_input_id}",
@@ -549,7 +549,7 @@ def create_quick_add_modal() -> Div:
                 cls="bg-base-100 rounded-lg p-6 max-w-md w-full",
                 # HTMX form submission
                 **{
-                    "hx-post": "/calendar/quick-create",
+                    "hx-post": "/events/calendar/quick-create",
                     "hx-target": "#quick-add-status",
                     "hx-swap": "innerHTML",
                     "x-on:click.stop": "",  # Prevent click from bubbling to backdrop
@@ -604,9 +604,9 @@ def create_view_switcher(current_view: str, target_date: date) -> Div:
         Div containing the view switcher links
     """
     views = [
-        ("Day", "day", f"/calendar/day/{target_date.isoformat()}"),
-        ("Week", "week", f"/calendar/week/{target_date.isoformat()}"),
-        ("Month", "month", f"/calendar/month/{target_date.year}/{target_date.month}"),
+        ("Day", "day", f"/events/day/{target_date.isoformat()}"),
+        ("Week", "week", f"/events/week/{target_date.isoformat()}"),
+        ("Month", "month", f"/events/month/{target_date.year}/{target_date.month}"),
     ]
 
     buttons = []

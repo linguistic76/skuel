@@ -84,7 +84,7 @@ class DashboardComponents:
                 <p class="text-sm text-base-content/70">Create a new task to track</p>
             </div>
         </a>
-        <a href="/calendar" class="block no-underline">
+        <a href="/events" class="block no-underline">
             <div class="p-6 bg-base-100 border border-base-200 rounded-lg hover:border-primary hover:shadow-md transition-all">
                 <h3 class="text-lg font-semibold text-base-content mb-2">📆 View Calendar</h3>
                 <p class="text-sm text-base-content/70">See all your tasks, events, and habits</p>

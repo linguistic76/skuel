@@ -95,9 +95,9 @@ class EventUIComponents:
 
         # Define quick actions
         quick_actions = [
-            {"label": "New Event", "href": "/calendar/create", "class": "btn-primary"},
-            {"label": "View Calendar", "href": "/calendar", "class": "btn-secondary"},
-            {"label": "Upcoming", "href": "/calendar?view=upcoming", "class": "btn-outline"},
+            {"label": "New Event", "href": "/events/create", "class": "btn-primary"},
+            {"label": "View Calendar", "href": "/events", "class": "btn-secondary"},
+            {"label": "Upcoming", "href": "/events?view=upcoming", "class": "btn-outline"},
         ]
 
         # Render content
@@ -440,7 +440,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                 ErrorComponents.render_error_banner("Failed to load events"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
-            return create_events_page(error_content, request=request)
+            return await create_events_page(error_content, request=request)
 
         if event_types_result.is_error:
             error_content = Div(
@@ -448,7 +448,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                 ErrorComponents.render_error_banner("Failed to load event types"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
-            return create_events_page(error_content, request=request)
+            return await create_events_page(error_content, request=request)
 
         # Extract values
         events, stats = filtered_result.value
@@ -492,7 +492,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
             cls="p-4 lg:p-8 max-w-7xl mx-auto",
         )
 
-        return create_events_page(page_content, request=request)
+        return await create_events_page(page_content, request=request)
 
     # ========================================================================
     # HTMX VIEW FRAGMENTS
