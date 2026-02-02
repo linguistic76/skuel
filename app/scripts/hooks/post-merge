@@ -1,0 +1,25 @@
+#!/bin/bash
+#
+# SKUEL Post-Merge Hook - Library Change Detection
+#
+# This hook runs after git pull/merge completes.
+# It detects PyPI package version changes and suggests which skills may need review.
+#
+# See: @docs-skills-evolution for the Library Upgrade Workflow
+
+set -e
+
+# Colors
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Only run if poetry.lock changed
+if git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD | grep -q "poetry.lock"; then
+    echo ""
+    echo -e "${YELLOW}🔍 Detecting library changes...${NC}"
+
+    # Run detection script
+    poetry run python scripts/detect_library_changes.py --from-ref ORIG_HEAD || true
+fi
+
+exit 0

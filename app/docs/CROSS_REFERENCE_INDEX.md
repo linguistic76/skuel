@@ -117,6 +117,16 @@ For each skill, this section shows all related documentation (architecture docs,
 **Patterns (Primary):**
 - [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)
 
+### @docs-skills-evolution
+
+**Description:** How SKUEL's documentation and skills evolve in rhythm with the ecosystem
+
+**Patterns (Primary):**
+- [DOCSTRING_STANDARDS.md](/docs/patterns/DOCSTRING_STANDARDS.md)
+
+**Other:**
+- [ADR-TEMPLATE.md](/docs/decisions/ADR-TEMPLATE.md)
+
 ### @fasthtml
 
 **Description:** FastHTML - Python's server-rendered hypermedia framework
@@ -380,7 +390,7 @@ For each documentation category, this section shows which skills are relevant.
 - [CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md](/docs/patterns/CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md) → @base-analytics-service
 - [CONTEXT_FIRST_RELATIONSHIP_PATTERN.md](/docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md) → @neo4j-cypher-patterns
 - [CYPHER_VS_APOC_STRATEGY.md](/docs/patterns/CYPHER_VS_APOC_STRATEGY.md) → @neo4j-cypher-patterns
-- [DOCSTRING_STANDARDS.md](/docs/patterns/DOCSTRING_STANDARDS.md) → @python
+- [DOCSTRING_STANDARDS.md](/docs/patterns/DOCSTRING_STANDARDS.md) → @docs-skills-evolution, @python
 - [DOMAIN_LATERAL_SERVICE_QUICK_START.md](/docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md) → @base-analytics-service
 - [DOMAIN_PATTERNS_CATALOG.md](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) → @pydantic, @python
 - [DOMAIN_RELATIONSHIPS_PATTERN.md](/docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md) → @neo4j-cypher-patterns
@@ -436,7 +446,7 @@ For each documentation category, this section shows which skills are relevant.
 
 ## Statistics
 
-- **Total skills:** 26
+- **Total skills:** 27
 - **Architecture docs:** 7 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
 - **Pattern docs:** 43 docs linked to skills

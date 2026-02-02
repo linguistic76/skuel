@@ -9,8 +9,31 @@
 # - Added 8 missing skills (accessibility-guide, base-page-architecture, custom-sidebar-patterns,
 #   neo4j-genai-plugin, prometheus-grafana, skuel-component-composition, skuel-form-patterns, ui-error-handling)
 # - Added related_adrs and patterns fields to all skills for bidirectional linking
+#
+# New in Phase 2.3 (2026-02-02):
+# - Added library_package and library_version fields for library upgrade detection
+# - Added @docs-skills-evolution meta-skill for documentation/skills evolution workflow
+# - Implemented post-merge hook for library change detection
 
 skills:
+  # ============================================================================
+  # META LAYER - Documentation & Skills Evolution
+  # ============================================================================
+
+  - name: docs-skills-evolution
+    description: How SKUEL's documentation and skills evolve in rhythm with the ecosystem
+    foundation: []
+    dependencies: []
+    library_package: null  # Meta-skill, not tied to specific library
+    library_version: null
+    primary_docs:
+      - /docs/patterns/DOCSTRING_STANDARDS.md
+      - /docs/decisions/ADR-TEMPLATE.md
+    related_adrs: []
+    patterns: []
+    keywords: [documentation, skills, evolution, ecosystem, adr, cross-reference, validation]
+
+  # ============================================================================
   # ============================================================================
   # FOUNDATION LAYER - No dependencies
   # ============================================================================
@@ -19,6 +42,8 @@ skills:
     description: Python development patterns in SKUEL
     foundation: []
     dependencies: []
+    library_package: null  # Language, not a package
+    library_version: "3.12"  # Minimum version from pyproject.toml
     primary_docs:
       - /docs/patterns/three_tier_type_system.md
       - /docs/patterns/ASYNC_SYNC_DESIGN_PATTERN.md
@@ -38,6 +63,8 @@ skills:
     description: Pydantic V2 validation models
     foundation: []
     dependencies: []
+    library_package: pydantic
+    library_version: "2.12.5"
     primary_docs:
       - /docs/patterns/three_tier_type_system.md
       - /docs/patterns/API_VALIDATION_PATTERNS.md
@@ -52,6 +79,8 @@ skills:
     description: Utility-first CSS with Tailwind
     foundation: []
     dependencies: []
+    library_package: null  # CDN/static, not PyPI package
+    library_version: null
     primary_docs:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
     related_adrs: []
@@ -62,6 +91,8 @@ skills:
     description: DaisyUI component library
     foundation: []
     dependencies: [tailwind-css]
+    library_package: null  # CDN/static, not PyPI package
+    library_version: null
     primary_docs:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
     related_adrs: []
@@ -72,6 +103,8 @@ skills:
     description: Chart.js data visualization in SKUEL
     foundation: []
     dependencies: []
+    library_package: null  # Vendored static file
+    library_version: null
     primary_docs:
       - /docs/architecture/ADMIN_DASHBOARD_ARCHITECTURE.md
     related_adrs: []
@@ -86,6 +119,8 @@ skills:
     description: FastHTML - Python's server-rendered hypermedia framework
     foundation: [python]
     dependencies: [python]
+    library_package: python-fasthtml
+    library_version: "0.12.39"
     primary_docs:
       - /docs/patterns/FASTHTML_ROUTE_REGISTRATION.md
       - /docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md
@@ -102,6 +137,8 @@ skills:
     description: Semantic HTML and HTMX (HTTP-complete HTML)
     foundation: [fasthtml]
     dependencies: [fasthtml]
+    library_package: null  # Bundled with FastHTML, vendored static
+    library_version: null
     primary_docs:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
       - /docs/guides/HTMX_VERSION_STANDARDIZATION.md
@@ -115,6 +152,8 @@ skills:
     description: Building navigation components
     foundation: [fasthtml, html-htmx, js-alpine]
     dependencies: [fasthtml, html-htmx, js-alpine]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
     related_adrs: []
@@ -125,6 +164,8 @@ skills:
     description: Alpine.js - lightweight reactive JavaScript for HTML
     foundation: []
     dependencies: []
+    library_package: null  # Vendored static file
+    library_version: "3.14.8"  # From /static/vendor/alpinejs/
     primary_docs:
       - /docs/architecture/ALPINE_JS_ARCHITECTURE.md
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
@@ -140,6 +181,8 @@ skills:
     description: Expert guide for building accessible web applications following WCAG standards
     foundation: [html-htmx, daisyui]
     dependencies: [html-htmx, daisyui]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
@@ -151,6 +194,8 @@ skills:
     description: Expert guide for BasePage layout system and page types
     foundation: [fasthtml, html-htmx, daisyui, tailwind-css]
     dependencies: [fasthtml, html-htmx, daisyui, tailwind-css]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
     related_adrs: []
@@ -161,6 +206,8 @@ skills:
     description: Expert guide for building custom sidebar navigation patterns
     foundation: [base-page-architecture, html-htmx, js-alpine]
     dependencies: [base-page-architecture, html-htmx, js-alpine]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
     related_adrs: []
@@ -171,6 +218,8 @@ skills:
     description: Expert guide for composing reusable UI components in SKUEL
     foundation: [base-page-architecture, daisyui, tailwind-css]
     dependencies: [base-page-architecture, daisyui, tailwind-css]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
     related_adrs: []
@@ -182,6 +231,8 @@ skills:
     description: Expert guide for building accessible, validated forms in SKUEL
     foundation: [pydantic, html-htmx, daisyui]
     dependencies: [pydantic, html-htmx, daisyui]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/patterns/API_VALIDATION_PATTERNS.md
     related_adrs: []
@@ -193,6 +244,8 @@ skills:
     description: Expert guide for UI error handling patterns and user feedback
     foundation: [result-pattern, daisyui]
     dependencies: [result-pattern, daisyui]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/patterns/ERROR_HANDLING.md
     related_adrs: []
@@ -209,6 +262,8 @@ skills:
     description: Neo4j Cypher queries and SKUEL's graph patterns
     foundation: []
     dependencies: []
+    library_package: neo4j
+    library_version: "5.26.0"
     primary_docs:
       - /docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md
       - /docs/patterns/query_architecture.md
@@ -233,6 +288,8 @@ skills:
     description: Neo4j GenAI plugin integration for AI-powered graph features
     foundation: [neo4j-cypher-patterns]
     dependencies: [neo4j-cypher-patterns]
+    library_package: null  # Neo4j plugin, not PyPI package
+    library_version: null
     primary_docs:
       - /docs/development/GENAI_SETUP.md
       - /docs/deployment/AURADB_MIGRATION_GUIDE.md
@@ -250,6 +307,8 @@ skills:
     description: Prometheus metrics and Grafana dashboards in SKUEL
     foundation: []
     dependencies: []
+    library_package: prometheus-client
+    library_version: "0.21.1"
     primary_docs:
       - /monitoring/README.md
       - /OBSERVABILITY_PHASE1_COMPLETE.md
@@ -267,6 +326,8 @@ skills:
     description: Result[T] error handling pattern
     foundation: [python]
     dependencies: [python]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/patterns/ERROR_HANDLING.md
       - /docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md
@@ -281,6 +342,8 @@ skills:
     description: BaseAnalyticsService for domain analytics
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md
       - /docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
@@ -301,6 +364,8 @@ skills:
     description: BaseAIService for AI/LLM features (optional)
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern]
+    library_package: openai
+    library_version: "1.109.1"
     primary_docs:
       - /docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md
     related_adrs:
@@ -312,6 +377,8 @@ skills:
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
       - /docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
@@ -327,6 +394,8 @@ skills:
     description: Curriculum domain patterns (KU, LS, LP)
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
       - /docs/domains/ku.md
@@ -343,6 +412,8 @@ skills:
     description: SKUEL's unified search architecture and SearchRouter
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/architecture/SEARCH_ARCHITECTURE.md
       - /docs/patterns/query_architecture.md
@@ -356,6 +427,8 @@ skills:
     description: UserContextIntelligence - central cross-domain intelligence hub
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern, activity-domains]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
     primary_docs:
       - /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
       - /docs/intelligence/USER_CONTEXT_INTELLIGENCE.md
@@ -372,6 +445,8 @@ skills:
     description: SKUEL testing patterns - fixtures, async testing, mocking with Result[T]
     foundation: [python, result-pattern]
     dependencies: [python, result-pattern]
+    library_package: pytest
+    library_version: "7.4.4"
     primary_docs:
       - /docs/patterns/TESTING_PATTERNS.md
       - /TESTING.md

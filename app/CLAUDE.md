@@ -107,8 +107,10 @@ async def get_learning_opportunities(
 | user-context-intelligence | `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` | — |
 | **Testing** | | |
 | pytest | `/docs/patterns/TESTING_PATTERNS.md`, `/TESTING.md` | GRAPH_ACCESS_PATTERNS.md |
+| **Meta** | | |
+| docs-skills-evolution | `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/decisions/ADR-TEMPLATE.md` | Cross-reference validation |
 
-**Total:** 27 skills with comprehensive documentation mappings
+**Total:** 28 skills with comprehensive documentation mappings
 
 ## Documentation Architecture
 
@@ -121,6 +123,8 @@ async def get_learning_opportunities(
 **CLAUDE.md Purpose:** Quick-reference with pointers to detailed docs. Sections should be 10-20 lines max with `**See:**` pointers.
 
 **Content Location (different purpose):** `/home/mike/0bsidian/skuel/docs/` contains Knowledge Unit content for ingestion, NOT technical documentation.
+
+**Documentation Evolution:** See `@docs-skills-evolution` for how documentation and skills evolve with the tech stack. Includes library upgrade workflows, pattern deprecation process, and cross-reference validation.
 
 ## Docstring Philosophy
 
