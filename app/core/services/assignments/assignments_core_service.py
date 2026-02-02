@@ -142,6 +142,7 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
         self,
         backend: UniversalNeo4jBackend[Assignment] | None = None,
         event_bus: EventBusOperations | None = None,
+        sharing_service: Any | None = None,
     ) -> None:
         """
         Initialize assignments core service.
@@ -149,9 +150,11 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
         Args:
             backend: Backend for Assignment persistence
             event_bus: Optional event bus for publishing events
+            sharing_service: Optional sharing service for access control
         """
         super().__init__(backend, "AssignmentsCoreService")
         self.event_bus = event_bus
+        self.sharing_service = sharing_service
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -192,6 +195,41 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
             return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
 
         return Result.ok(assignment)
+
+    async def get_with_access_check(
+        self, uid: str, user_uid: str
+    ) -> Result[Assignment]:
+        """
+        Get an assignment with access control verification.
+
+        Checks if the user can view the assignment based on:
+        - Ownership (user owns the assignment)
+        - Visibility (PUBLIC assignments visible to all)
+        - Sharing (SHARED assignments with SHARES_WITH relationship)
+
+        Args:
+            uid: Assignment unique identifier
+            user_uid: User requesting access
+
+        Returns:
+            Result containing the assignment or an error if access denied
+        """
+        if not self.sharing_service:
+            # Fall back to simple get if no sharing service
+            return await self.get_assignment(uid)
+
+        # Check access
+        access_result = await self.sharing_service.check_access(uid, user_uid)
+        if access_result.is_error:
+            return Result.fail(access_result.expect_error())
+
+        if not access_result.value:
+            return Result.fail(
+                Errors.not_found("resource", f"Assignment {uid} not found")
+            )
+
+        # User has access, fetch the assignment
+        return await self.get_assignment(uid)
 
     async def get_assignment_for_date(
         self, target_date: date, user_uid: str | None = None

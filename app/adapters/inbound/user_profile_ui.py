@@ -765,6 +765,149 @@ def setup_user_profile_routes(rt, services):
             request=request,
         )
 
+    @rt("/profile/shared")
+    async def profile_shared(request: Request) -> Any:
+        """
+        Shared With Me tab - shows assignments and events shared with current user.
+
+        Phase 1: Assignments only
+        Phase 2: Will include events
+
+        Uses profile hub layout with custom content view.
+        """
+        user_uid = require_authenticated_user(request)
+
+        # Get user and context
+        try:
+            user, context = await _get_user_and_context(user_uid)
+        except ValueError as e:
+            logger.error(
+                "Failed to load user or context for shared content page",
+                extra={"user_uid": user_uid, "error": str(e)},
+            )
+            return await error_page(str(e), 500)
+
+        # Fetch shared assignments
+        from fasthtml.common import H2, H3, H4, A, Div, P, Span, Button
+
+        shared_assignments = []
+        if services.assignments_sharing:
+            assignments_result = await services.assignments_sharing.get_assignments_shared_with_me(
+                user_uid=user_uid,
+                limit=50,
+            )
+            if not assignments_result.is_error:
+                shared_assignments = assignments_result.value
+
+        # Build shared content view
+        def SharedContentCard(assignment: Any) -> Any:
+            """Render a shared assignment card."""
+            return Div(
+                Div(
+                    # Header with filename and status
+                    Div(
+                        H4(assignment.original_filename, cls="card-title text-sm"),
+                        Span(
+                            assignment.status,
+                            cls=f"badge badge-sm {_get_status_badge_class(assignment.status)}",
+                        ),
+                        cls="flex items-center justify-between",
+                    ),
+                    # Metadata
+                    Div(
+                        P(
+                            f"Shared by: {assignment.user_uid}",
+                            cls="text-xs text-base-content/60 mb-1",
+                        ),
+                        P(
+                            f"Type: {assignment.assignment_type}",
+                            cls="text-xs text-base-content/60 mb-0",
+                        ),
+                        cls="mt-2",
+                    ),
+                    # Actions
+                    Div(
+                        A(
+                            "View",
+                            href=f"/assignments/{assignment.uid}",
+                            cls="btn btn-xs btn-primary",
+                        ),
+                        cls="mt-3",
+                    ),
+                    cls="card-body p-4",
+                ),
+                cls="card bg-base-200 shadow-sm hover:shadow-md transition-shadow",
+            )
+
+        def _get_status_badge_class(status: str) -> str:
+            """Get DaisyUI badge class for assignment status."""
+            classes = {
+                "submitted": "badge-warning",
+                "queued": "badge-warning",
+                "processing": "badge-info",
+                "completed": "badge-success",
+                "failed": "badge-error",
+                "manual_review": "badge-ghost",
+            }
+            return classes.get(status, "badge-ghost")
+
+        # Content view
+        content = Div(
+            H2("📥 Shared With Me", cls="text-2xl font-bold mb-4"),
+            P(
+                "Assignments and events shared with you by teachers, peers, and mentors.",
+                cls="text-base-content/70 mb-6",
+            ),
+            # Filter tabs (Phase 1: only Assignments active)
+            Div(
+                Button("All", cls="btn btn-sm btn-ghost", disabled=True),
+                Button("Assignments", cls="btn btn-sm btn-primary"),
+                Button("Events", cls="btn btn-sm btn-ghost", disabled=True),
+                cls="flex gap-2 mb-6",
+            ),
+            # Shared content grid
+            (
+                Div(
+                    *[SharedContentCard(a) for a in shared_assignments],
+                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
+                )
+                if shared_assignments
+                else Div(
+                    P(
+                        "No content shared with you yet.",
+                        cls="text-center text-base-content/60 py-12",
+                    ),
+                    cls="card bg-base-200 p-8",
+                )
+            ),
+        )
+
+        # Build domain items for sidebar
+        insight_counts: dict[str, int] = {}
+        total_unread_insights = 0
+        if services.insight_store:
+            counts_result = await services.insight_store.get_insight_counts_by_domain(user_uid)
+            if not counts_result.is_error:
+                insight_counts = counts_result.value
+                total_unread_insights = sum(insight_counts.values())
+
+        domain_items = _build_domain_items(context, insight_counts)
+        curriculum_items = _build_curriculum_items(context)
+        display_name = user.display_name if user.display_name else user.username
+        is_admin = user.can_manage_users() if hasattr(user, "can_manage_users") else False
+
+        return await create_profile_page(
+            content=content,
+            domains=domain_items,
+            active_domain="shared",  # Custom domain for sidebar highlighting
+            user_display_name=display_name,
+            title="Shared With Me - Profile Hub",
+            is_admin=is_admin,
+            curriculum_domains=curriculum_items,
+            unread_insights=total_unread_insights,
+            request=request,
+        )
+
     # ========================================================================
     # CHART API ROUTES - Phase 1, Task 2: Intelligence Data Visualization
     # ========================================================================

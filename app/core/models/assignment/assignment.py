@@ -15,6 +15,8 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 
+from core.models.enums.metadata_enums import Visibility
+
 
 class AssignmentType(str, Enum):
     """
@@ -148,6 +150,9 @@ class Assignment:
     # Metadata
     metadata: dict[str, Any] | None = None
 
+    # Sharing
+    visibility: Visibility = None  # type: ignore[assignment]
+
     def __post_init__(self) -> None:
         """Initialize mutable fields with proper defaults."""
         now = datetime.now()
@@ -155,6 +160,8 @@ class Assignment:
             object.__setattr__(self, "created_at", now)
         if self.updated_at is None:
             object.__setattr__(self, "updated_at", now)
+        if self.visibility is None:
+            object.__setattr__(self, "visibility", Visibility.PRIVATE)
 
     @property
     def is_completed(self) -> bool:
@@ -207,6 +214,40 @@ class Assignment:
             except (TypeError, ValueError):
                 return None
 
+    def is_shareable(self) -> bool:
+        """
+        Check if assignment can be shared.
+
+        Only completed assignments can be shared to ensure quality control.
+        Failed or processing assignments should not be shared.
+        """
+        return self.status == AssignmentStatus.COMPLETED
+
+    def can_view(self, user_uid: str, owner_uid: str, shared_user_uids: set[str]) -> bool:
+        """
+        Check if a user can view this assignment.
+
+        Access is granted if:
+        - User is the owner
+        - Assignment is PUBLIC
+        - Assignment is SHARED and user is in shared_user_uids
+
+        Args:
+            user_uid: User requesting access
+            owner_uid: Assignment owner
+            shared_user_uids: Set of user UIDs with SHARES_WITH relationship
+
+        Returns:
+            True if user can view, False otherwise
+        """
+        if user_uid == owner_uid:
+            return True
+        if self.visibility == Visibility.PUBLIC:
+            return True
+        if self.visibility == Visibility.SHARED and user_uid in shared_user_uids:
+            return True
+        return False
+
 
 @dataclass
 class AssignmentDTO:
@@ -244,6 +285,9 @@ class AssignmentDTO:
     # Metadata
     metadata: dict[str, Any] | None = None
 
+    # Sharing
+    visibility: str = "private"  # Visibility enum value as string
+
 
 def assignment_pure_to_dto(assignment: Assignment) -> AssignmentDTO:
     """Convert Assignment (Tier 3) to AssignmentDTO (Tier 2)"""
@@ -265,6 +309,7 @@ def assignment_pure_to_dto(assignment: Assignment) -> AssignmentDTO:
         created_at=assignment.created_at,
         updated_at=assignment.updated_at,
         metadata=assignment.metadata,
+        visibility=assignment.visibility.value,
     )
 
 
@@ -288,4 +333,5 @@ def assignment_dto_to_pure(dto: AssignmentDTO) -> Assignment:
         created_at=dto.created_at or datetime.now(),
         updated_at=dto.updated_at or datetime.now(),
         metadata=dto.metadata,
+        visibility=Visibility(dto.visibility),
     )

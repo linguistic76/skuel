@@ -225,6 +225,16 @@ def build_profile_sidebar(
                 **{"hx-boost": "false"},
             )
         ),
+        # Shared With Me link (Phase 1: Assignment Portfolio)
+        Li(
+            Anchor(
+                Span("📥", cls="text-lg", aria_hidden="true"),  # Decorative emoji
+                "Shared With Me",
+                href="/profile/shared",
+                cls=f"flex items-center gap-2 {'menu-active' if active_domain == 'shared' else ''}",
+                **{"hx-boost": "false"},
+            )
+        ),
         # Activity Domains section header
         Li(
             Span(

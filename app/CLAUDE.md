@@ -620,6 +620,55 @@ await service.get_for_user(uid, user_uid)      # Get with ownership check
 
 **See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`
 
+## Content Sharing (Phase 1: Assignments)
+
+**Core Principle:** "Three-level visibility with relationship-based access control"
+
+**Visibility Model:**
+```
+PRIVATE (default) → Owner only
+SHARED            → Owner + users with SHARES_WITH relationship
+PUBLIC            → Anyone (portfolio showcase)
+```
+
+**Use Case:** Student completes assignment → shares with teacher → teacher views in "Shared With Me" inbox.
+
+**Service:**
+```python
+from core.services.assignments import AssignmentSharingService
+
+# Share assignment
+await sharing_service.share_assignment(
+    assignment_uid="assignment_123",
+    owner_uid="user_student",
+    recipient_uid="user_teacher",
+    role="teacher"  # teacher, peer, mentor, viewer
+)
+
+# Check access
+await sharing_service.check_access(assignment_uid, user_uid)  # Returns Result[bool]
+
+# Set visibility
+await sharing_service.set_visibility(assignment_uid, owner_uid, Visibility.PUBLIC)
+```
+
+**UI Routes:**
+- `/assignments/{uid}` - Sharing controls (owner only)
+- `/profile/shared` - "Shared With Me" inbox
+- `/api/assignments/share` - Share with user
+- `/api/assignments/shared-with-me` - Inbox API
+
+**Quality Control:** Only `COMPLETED` assignments can be shared (prevents sharing failed/processing work).
+
+**Graph Pattern:**
+```cypher
+(user:User)-[:SHARES_WITH {shared_at, role}]->(assignment:Assignment)
+```
+
+**Phase 2:** Extend to Events (same infrastructure, different entity type).
+
+**See:** `/docs/patterns/SHARING_PATTERNS.md`, `/docs/decisions/ADR-038-content-sharing-model.md`
+
 ## Generic Programming Patterns
 
 **Key Patterns:**

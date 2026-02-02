@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-02-01
+updated: 2026-02-02
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -14,8 +14,8 @@ related: []
 > `/home/mike/0bsidian/skuel/docs/` contains **content** (KU docs), NOT technical documentation.
 
 *Generated: 2025-12-07*
-*Updated: 2026-02-01*
-*Total: 173 documents* (5 new: 1 pattern, 4 ADRs - Phase 5 Lateral Relationships Visualization)
+*Updated: 2026-02-02*
+*Total: 175 documents* (2 new: 1 pattern, 1 ADR - Content Sharing System)
 
 > **📝 Documentation Standards:**
 > - **File Naming:** UPPERCASE for major reference docs/guides, lowercase for specific patterns
@@ -145,6 +145,7 @@ related: []
 | [Auth Patterns](patterns/AUTH_PATTERNS.md) | 2026-01-06 | 300 |
 | [Enum Consolidation Pattern](patterns/ENUM_CONSOLIDATION_PATTERN.md) | 2026-01-07 | 220 |
 | [Ownership Verification](patterns/OWNERSHIP_VERIFICATION.md) | 2025-12-05 | 180 |
+| **[Content Sharing Patterns](patterns/SHARING_PATTERNS.md)** | **2026-02-02** | **680** |
 | [Route Factories](patterns/ROUTE_FACTORIES.md) | 2025-12-05 | 200 |
 | [Route Naming Convention](patterns/ROUTE_NAMING_CONVENTION.md) | 2026-01-12 | 120 |
 | [Error Handling Decorators](patterns/error_handling_decorators.md) | 2025-11-27 | 180 |
@@ -205,6 +206,7 @@ related: []
 | [ADR-035: Tier Selection Guidelines](decisions/ADR-035-tier-selection-guidelines.md) | 2026-01-30 | 430 |
 | [ADR-036: Prometheus Primary Cache Pattern](decisions/ADR-036-prometheus-primary-cache-pattern.md) | 2026-01-31 | 230 |
 | **[ADR-037: Lateral Relationships Visualization (Phase 5)](decisions/ADR-037-lateral-relationships-visualization-phase5.md)** | **2026-02-01** | **1330** |
+| **[ADR-038: Content Sharing Model](decisions/ADR-038-content-sharing-model.md)** | **2026-02-02** | **480** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Guides
@@ -351,8 +353,8 @@ related: []
 
 ## Statistics
 
-- **Total documents:** 165 (146 core + 18 migrations + 1 roadmap + 1 example)
-- **Total lines:** ~66,000
+- **Total documents:** 167 (148 core + 18 migrations + 1 roadmap + 1 example)
+- **Total lines:** ~67,200
 - **Categories:** 14 (Domains, Architecture, Patterns, DSL, Decisions, Guides, Reference, Intelligence, Migrations, Roadmap, Examples, Technical Debt, Archive, Top-Level)
 
 **By status:**

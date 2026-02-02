@@ -1623,9 +1623,16 @@ async def compose_services(
             backend=assignments_backend, storage_path=storage_path, event_bus=event_bus
         )
 
+        # Create assignment sharing service (Phase 1: Assignment Portfolio)
+        from core.services.assignments import AssignmentSharingService
+
+        assignment_sharing_service = AssignmentSharingService(driver=driver)
+
         # Create assignments core service (content management: categories, tags, bulk operations)
         assignments_core_service = AssignmentsCoreService(
-            backend=assignments_backend, event_bus=event_bus
+            backend=assignments_backend,
+            event_bus=event_bus,
+            sharing_service=assignment_sharing_service,
         )
 
         assignment_processor = AssignmentProcessorService(
@@ -2236,6 +2243,7 @@ async def compose_services(
             # Assignments (Phase 1 - File submission pipeline)
             assignments=assignment_service,
             assignments_core=assignments_core_service,  # Content management (categories, tags, bulk ops)
+            assignments_sharing=assignment_sharing_service,  # Phase 1: Assignment portfolio sharing
             assignment_processor=assignment_processor,
             processing_pipeline=assignment_processor,  # Alias for assignment_processor
             assignments_query=assignments_query_service,  # Phase 3 - Unified assignment queries

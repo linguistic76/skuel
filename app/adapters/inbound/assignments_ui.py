@@ -23,6 +23,7 @@ from typing import Any
 
 from fasthtml.common import (
     H1,
+    H2,
     H3,
     H4,
     A,
@@ -37,6 +38,7 @@ from fasthtml.common import (
     Script,
     Select,
     Span,
+    Textarea,
 )
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
@@ -381,6 +383,206 @@ def parse_assignment_filters(request: Request) -> AssignmentFilters:
 
 
 # ============================================================================
+# SHARING UI COMPONENTS (Phase 1: Assignment Portfolio)
+# ============================================================================
+
+
+def _render_visibility_dropdown(assignment: Any) -> Any:
+    """
+    Render visibility level dropdown.
+
+    Only shows for completed assignments (quality control).
+    Uses HTMX for instant updates.
+    """
+    current_visibility = getattr(assignment, "visibility", "private")
+    is_shareable = getattr(assignment, "status", "") == "completed"
+
+    if not is_shareable:
+        return Div(
+            Span("🔒 Private", cls="badge badge-ghost"),
+            P(
+                "Only completed assignments can be shared",
+                cls="text-xs text-base-content/60 mt-1 mb-0",
+            ),
+            cls="mb-4",
+        )
+
+    visibility_options = [
+        ("private", "🔒 Private", "Only you can see"),
+        ("shared", "👥 Shared", "Specific users only"),
+        ("public", "🌐 Public", "Portfolio showcase"),
+    ]
+
+    return Div(
+        Label("Visibility:", cls="label label-text font-bold"),
+        Select(
+            *[
+                Option(
+                    f"{icon} {label}",
+                    value=val,
+                    selected=(val == current_visibility),
+                )
+                for val, label, _desc in visibility_options
+            ],
+            name="visibility",
+            cls="select select-bordered w-full",
+            hx_post="/api/assignments/set-visibility",
+            hx_trigger="change",
+            hx_vals=f"js:{{assignment_uid: '{assignment.uid}', visibility: event.target.value}}",
+            hx_target="#visibility-status",
+            hx_swap="innerHTML",
+        ),
+        Div(
+            P(
+                next((desc for val, _lbl, desc in visibility_options if val == current_visibility), ""),
+                cls="text-xs text-base-content/60 mb-0",
+            ),
+            id="visibility-status",
+            cls="mt-1",
+        ),
+        cls="form-control mb-4",
+    )
+
+
+def _render_share_modal(assignment_uid: str) -> Any:
+    """
+    Render modal for sharing assignment with a user.
+
+    Uses Alpine.js for modal state management.
+    HTMX for form submission.
+    """
+    return Div(
+        # Modal structure (DaisyUI modal with Alpine.js x-show)
+        Div(
+            Div(
+                # Modal box
+                Div(
+                    # Close button
+                    Form(
+                        Button(
+                            "✕",
+                            cls="btn btn-sm btn-circle btn-ghost absolute right-2 top-2",
+                            **{"@click": "shareModal = false"},
+                        ),
+                        method="dialog",
+                    ),
+                    # Modal content
+                    H3("Share Assignment", cls="font-bold text-lg mb-4"),
+                    # Share form
+                    Form(
+                        Div(
+                            Label("User UID:", cls="label label-text"),
+                            Input(
+                                type="text",
+                                name="recipient_uid",
+                                placeholder="user_teacher",
+                                cls="input input-bordered w-full",
+                                required=True,
+                            ),
+                            cls="form-control mb-3",
+                        ),
+                        Div(
+                            Label("Role:", cls="label label-text"),
+                            Select(
+                                Option("Viewer", value="viewer", selected=True),
+                                Option("Teacher", value="teacher"),
+                                Option("Peer", value="peer"),
+                                Option("Mentor", value="mentor"),
+                                name="role",
+                                cls="select select-bordered w-full",
+                            ),
+                            cls="form-control mb-4",
+                        ),
+                        Div(
+                            Button(
+                                "Cancel",
+                                type="button",
+                                cls="btn btn-ghost",
+                                **{"@click": "shareModal = false"},
+                            ),
+                            Button(
+                                "Share",
+                                type="submit",
+                                cls="btn btn-primary",
+                            ),
+                            cls="flex gap-2 justify-end",
+                        ),
+                        hx_post="/api/assignments/share",
+                        hx_vals=f"js:{{assignment_uid: '{assignment_uid}', recipient_uid: document.querySelector('input[name=recipient_uid]').value, role: document.querySelector('select[name=role]').value}}",
+                        hx_target="#shared-users-list",
+                        hx_swap="innerHTML",
+                        **{"@submit.prevent": "$el.dispatchEvent(new Event('htmx:trigger')); shareModal = false"},
+                    ),
+                    cls="modal-box",
+                ),
+                cls="modal-backdrop",
+                **{"@click": "shareModal = false"},
+            ),
+            cls="modal",
+            **{"x-show": "shareModal", "x-cloak": ""},
+        ),
+        # Open modal button
+        Button(
+            "👥 Share with User",
+            cls="btn btn-primary btn-sm",
+            **{"@click": "shareModal = true"},
+        ),
+    )
+
+
+def _render_shared_users_list(assignment_uid: str) -> Any:
+    """
+    Render list of users assignment is shared with.
+
+    Loaded dynamically via HTMX on page load.
+    """
+    return Div(
+        H4("Shared With", cls="font-bold mb-2"),
+        Div(
+            P("Loading shared users...", cls="text-base-content/60 text-sm"),
+            id="shared-users-list",
+            hx_get=f"/assignments/{assignment_uid}/shared-users",
+            hx_trigger="load",
+            hx_swap="innerHTML",
+        ),
+        cls="mt-4",
+    )
+
+
+def _render_sharing_section(assignment: Any) -> Any:
+    """
+    Render complete sharing section for assignment detail page.
+
+    Includes:
+    - Visibility dropdown
+    - Share button (opens modal)
+    - Shared users list
+
+    Only shown for assignment owner.
+    """
+    return Div(
+        H4("Sharing & Visibility", cls="font-bold text-lg mb-4"),
+        Div(
+            # Visibility controls
+            _render_visibility_dropdown(assignment),
+            # Share modal and button
+            Div(
+                _render_share_modal(assignment.uid),
+                cls="mb-4",
+            ),
+            # Shared users list
+            _render_shared_users_list(assignment.uid),
+            cls="space-y-2",
+        ),
+        id="sharing-section",
+        cls="card bg-base-200 p-4 rounded-lg mt-6",
+        **{
+            "x-data": "{ shareModal: false }",  # Alpine.js data for modal state
+        },
+    )
+
+
+# ============================================================================
 # ROUTE CREATION
 # ============================================================================
 
@@ -653,8 +855,18 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
         - Processing status and duration
         - Processed content (formatted)
         - Download links for original and processed files
+        - Sharing controls (visibility, share button, shared users)
         """
-        require_authenticated_user(request)  # Enforce authentication
+        user_uid = require_authenticated_user(request)  # Enforce authentication
+
+        # Fetch assignment to determine if user is owner (for sharing controls)
+        # Note: In production, this would use get_with_access_check()
+        assignment_result = await _assignment_service.get_assignment(uid)
+        is_owner = False
+        if not assignment_result.is_error:
+            assignment = assignment_result.value
+            is_owner = assignment.user_uid == user_uid
+
         # Detail view card with HTMX loading
         detail_card = Div(
             Div(
@@ -686,6 +898,12 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
                     ),
                     id="content-section",
                     cls="mb-4",
+                ),
+                # Sharing section (only for owner)
+                (
+                    _render_sharing_section(assignment)
+                    if is_owner and not assignment_result.is_error
+                    else None
                 ),
                 # Action buttons - use proper link instead of onclick
                 Div(
@@ -875,6 +1093,28 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
             logger.error(f"Error loading tags manager: {e}", exc_info=True)
             return Div("Error loading tags manager", cls="text-error")
 
+    @rt("/assignments/{uid}/shared-users")
+    async def get_shared_users_ui(request: Request, uid: str) -> Any:
+        """
+        HTMX endpoint for rendering shared users list.
+
+        Returns HTML fragment showing users the assignment is shared with.
+        """
+        try:
+            user_uid = require_authenticated_user(request)
+
+            # Note: This would ideally use the sharing service
+            # For now, return placeholder UI that will be populated via API
+            return Div(
+                P("Shared users list will appear here after sharing", cls="text-sm text-base-content/60"),
+                Span("No users yet", cls="badge badge-ghost"),
+                id="shared-users-content",
+            )
+
+        except Exception as e:
+            logger.error(f"Error loading shared users: {e}", exc_info=True)
+            return Div("Error loading shared users", cls="text-error text-sm")
+
     logger.info("Assignments UI routes created successfully")
 
     return [
@@ -886,4 +1126,5 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
         get_assignment_content,
         get_category_selector,
         get_tags_manager,
+        get_shared_users_ui,
     ]

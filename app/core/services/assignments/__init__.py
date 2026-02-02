@@ -35,6 +35,9 @@ from core.services.assignments.assignments_search_service import AssignmentsQuer
 from core.services.assignments.assignments_submission_service import (
     AssignmentSubmissionService,
 )
+from core.services.assignments.assignment_sharing_service import (
+    AssignmentSharingService,
+)
 
 __all__ = [
     # Primary names (new standardized)
@@ -43,6 +46,7 @@ __all__ = [
     "AssignmentsSearchService",
     "AssignmentsSubmissionService",
     "AssignmentsRelationshipService",
+    "AssignmentSharingService",
     # Backward compatibility aliases (class names unchanged for now)
     "AssignmentProcessorService",
     "AssignmentRelationshipService",
