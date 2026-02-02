@@ -240,6 +240,24 @@ class MetricsCache:
 
 ---
 
+## Implementation
+
+**Related Skills:**
+- [@prometheus-grafana](../../.claude/skills/prometheus-grafana/SKILL.md) - Complete observability guide (metrics, alerts, dashboards)
+
+**Documentation:**
+- [OBSERVABILITY_PHASE1_COMPLETE.md](/OBSERVABILITY_PHASE1_COMPLETE.md) - Complete implementation guide
+- [monitoring/README.md](/monitoring/README.md) - Quick start guide
+
+**Code Locations:**
+- `/core/infrastructure/monitoring/metrics_cache.py` - MetricsCache class (Prometheus-primary with lossy cache)
+- `/core/infrastructure/monitoring/prometheus_metrics.py` - Prometheus metric definitions
+- `/adapters/infrastructure/event_bus.py` - Uses MetricsCache for event instrumentation
+- `/monitoring/prometheus.yml` - Prometheus configuration
+- `/monitoring/dashboards/` - Grafana dashboard JSON files
+
+---
+
 ## Review Notes
 
 **Aligns With**:

@@ -107,6 +107,24 @@ self.relationships = common.relationships
 self.intelligence = common.intelligence
 ```
 
+## Deep Dive Resources
+
+**Architecture:**
+- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) - Three grouping patterns (KU, LS, LP)
+- [ADR-023](/docs/decisions/ADR-023-curriculum-baseservice-migration.md) - Curriculum BaseService migration
+- [FOURTEEN_DOMAIN_ARCHITECTURE.md](/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) - Complete domain architecture
+
+**Intelligence:**
+- [KU_INTELLIGENCE.md](/docs/intelligence/KU_INTELLIGENCE.md) - KU intelligence guide
+- [LS_INTELLIGENCE.md](/docs/intelligence/LS_INTELLIGENCE.md) - LS intelligence guide
+- [LP_INTELLIGENCE.md](/docs/intelligence/LP_INTELLIGENCE.md) - LP intelligence guide
+- [MOC_INTELLIGENCE.md](/docs/intelligence/MOC_INTELLIGENCE.md) - MOC intelligence guide
+
+**Patterns:**
+- [OWNERSHIP_VERIFICATION.md](/docs/patterns/OWNERSHIP_VERIFICATION.md) - ContentScope.SHARED pattern
+
+---
+
 ## Related Skills
 
 - [activity-domains](../activity-domains/SKILL.md) - Contrast with user-owned domains

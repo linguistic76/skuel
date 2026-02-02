@@ -607,6 +607,22 @@ Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format
 - **[neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md)** - Graph query patterns
 - **[python](../python/SKILL.md)** - Python patterns and protocols
 
+## Deep Dive Resources
+
+**Architecture:**
+- [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) - Complete intelligence services guide
+- [ADR-024](/docs/decisions/ADR-024-base-intelligence-service-migration.md) - Analytics vs AI separation decision
+- [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md) - BaseService mixin architecture
+
+**Patterns:**
+- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Service patterns and facade delegation
+- [protocol_architecture.md](/docs/patterns/protocol_architecture.md) - Protocol-based interfaces
+
+**Guides:**
+- [BASESERVICE_QUICK_START.md](/docs/guides/BASESERVICE_QUICK_START.md) - New developer onboarding
+
+---
+
 ## See Also
 
 - [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - File locations, imports, signatures

@@ -19,7 +19,17 @@ related_skills:
 
 **Critical pattern** - prevents real bugs that caused 404 errors in production.
 
-**Decision context:** See [ADR-020](/docs/decisions/ADR-020-fasthtml-route-registration-pattern.md) for the investigation details.
+## Quick Start
+
+**Skills:** [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
+
+For hands-on implementation:
+1. Invoke `@fasthtml` for route registration patterns
+2. See [QUICK_REFERENCE.md](../../.claude/skills/fasthtml/QUICK_REFERENCE.md) for decorator patterns
+3. **NEVER** use `routes = []` / `routes.append()` with `@rt()` decorator
+4. Continue below for detailed anti-pattern explanation
+
+**Related ADRs:** [ADR-020](../decisions/ADR-020-fasthtml-route-registration-pattern.md) - Investigation and decision rationale
 
 ---
 

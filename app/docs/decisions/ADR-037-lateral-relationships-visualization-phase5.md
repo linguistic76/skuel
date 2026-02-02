@@ -507,6 +507,24 @@ network.on("stabilizationIterationsDone", function() {
 
 ---
 
+## Implementation
+
+**Related Skills:**
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md) - Graph traversal and relationship queries
+
+**Documentation:**
+- [LATERAL_RELATIONSHIPS_CORE.md](/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md) - Core relationship architecture
+- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) - UI visualization patterns
+- [PHASE5_COMPLETE.md](/PHASE5_COMPLETE.md) - Complete implementation guide
+
+**Code Locations:**
+- `/ui/patterns/relationships/` - 4 UI components (EntityRelationshipsSection, BlockingChainView, AlternativesComparisonGrid, RelationshipGraphView)
+- `/core/services/lateral_relationships/lateral_relationship_service.py` - 3 graph query methods
+- `/static/vendor/vis-network/` - Vis.js library (v9.1.9)
+- `/static/js/skuel.js` - relationshipGraph Alpine component
+
+---
+
 ## Migration Path
 
 ### Phase 5.1: Add to New Domain (30 minutes)

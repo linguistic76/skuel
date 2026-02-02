@@ -21,6 +21,20 @@ related_skills:
 
 *Created: 2026-01-24*
 
+## Quick Start
+
+**Skills:** [@pydantic](../../.claude/skills/pydantic/SKILL.md), [@skuel-form-patterns](../../.claude/skills/skuel-form-patterns/SKILL.md)
+
+For hands-on implementation:
+1. Invoke `@pydantic` for request model validation patterns
+2. Invoke `@skuel-form-patterns` for form handling and error display
+3. See [QUICK_REFERENCE.md](../../.claude/skills/pydantic/QUICK_REFERENCE.md) for validation examples
+4. Continue below for complete validation strategy
+
+**Related ADRs:** [ADR-035](../decisions/ADR-035-tier-selection-guidelines.md) - Pydantic's role in three-tier system
+
+---
+
 ## Core Principle
 
 > "Validate at boundaries, fail fast with clear errors"

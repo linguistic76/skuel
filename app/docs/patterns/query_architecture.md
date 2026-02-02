@@ -19,6 +19,20 @@ related_skills:
 
 # Query Architecture
 
+## Quick Start
+
+**Skills:** [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md), [@skuel-search-architecture](../../.claude/skills/skuel-search-architecture/SKILL.md)
+
+For hands-on implementation:
+1. Invoke `@neo4j-cypher-patterns` for Cypher query patterns
+2. Invoke `@skuel-search-architecture` for unified search patterns
+3. Continue below for complete query architecture
+
+**Related Documentation:**
+- [SEARCH_ARCHITECTURE.md](../architecture/SEARCH_ARCHITECTURE.md) - Unified search architecture
+
+---
+
 ## Quick Reference
 
 SKUEL's query architecture uses a two-layer pattern with three specialized builders for optimal separation of concerns.

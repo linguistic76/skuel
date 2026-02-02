@@ -24,7 +24,19 @@ related_skills:
 
 Six patterns to reduce boilerplate in SKUEL services (~1,500+ lines saved across 10 facades).
 
-**Decision context:** See [ADR-025](/docs/decisions/ADR-025-service-consolidation-patterns.md) for why these patterns were chosen over alternatives.
+## Quick Start
+
+**Skills:** [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md), [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
+
+For hands-on implementation:
+1. Invoke `@base-analytics-service` for intelligence service patterns
+2. Invoke `@activity-domains` for facade delegation patterns
+3. See [BASESERVICE_QUICK_START.md](../guides/BASESERVICE_QUICK_START.md) for new developer onboarding
+4. Continue below for all 6 consolidation patterns
+
+**Related ADRs:** [ADR-025](../decisions/ADR-025-service-consolidation-patterns.md), [ADR-031](../decisions/ADR-031-baseservice-mixin-decomposition.md)
+
+---
 
 **Migration Status:** ✅ **100% Complete** (January 2026) - All 34 BaseService subclasses migrated to DomainConfig across all domains (Activity: 25, Curriculum: 2, Content: 3, Assignments: 3, Infrastructure: 1). See [Migration Guide](/docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md).
 

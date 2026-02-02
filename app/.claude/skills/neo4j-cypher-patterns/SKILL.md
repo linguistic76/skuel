@@ -237,6 +237,21 @@ RETURN t
 - **[skuel-search-architecture](../skuel-search-architecture/SKILL.md)** - Unified search using Cypher patterns
 - **[python](../python/SKILL.md)** - Python services executing Cypher queries
 
+## Deep Dive Resources
+
+**Architecture:**
+- [NEO4J_DATABASE_ARCHITECTURE.md](/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md) - Graph database architecture
+- [LATERAL_RELATIONSHIPS_CORE.md](/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md) - Lateral relationship patterns
+- [ADR-037](/docs/decisions/ADR-037-lateral-relationships-visualization-phase5.md) - Lateral relationships visualization
+
+**Patterns:**
+- [query_architecture.md](/docs/patterns/query_architecture.md) - Query architecture patterns
+
+**Code:**
+- `/core/models/relationship_names.py` - RelationshipName enum (source of truth for all 80+ relationship types)
+
+---
+
 ## Foundation
 
 This skill has no prerequisites. It is a foundational pattern.

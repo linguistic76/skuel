@@ -114,6 +114,24 @@ result = await graph_auth.reset_password_with_token(
 
 ---
 
+## Implementation
+
+**Related Skills:**
+- [@python](../../.claude/skills/python/SKILL.md) - Python security patterns (password hashing, sessions)
+- [@result-pattern](../../.claude/skills/result-pattern/SKILL.md) - Error handling for auth failures
+
+**Pattern Documentation:**
+- [AUTH_PATTERNS.md](/docs/patterns/AUTH_PATTERNS.md) - Authentication patterns and decorators
+
+**Code Locations:**
+- `/core/auth/authentication.py` - Core auth logic (require_authenticated_user, password hashing)
+- `/core/auth/session.py` - Session management (create_session, validate_session)
+- `/core/services/user/user_core_service.py` - User CRUD operations
+- `/adapters/inbound/auth_routes.py` - Login/logout routes
+- `/core/models/user/user.py` - User domain model with auth fields
+
+---
+
 ## Alternatives Considered
 
 ### Alternative 1: Keep Supabase

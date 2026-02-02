@@ -77,6 +77,25 @@ await service.link_{domain}_to_goal(entity_uid, goal_uid)
 await service.link_{domain}_to_principle(entity_uid, principle_uid)
 ```
 
+## Deep Dive Resources
+
+**Architecture:**
+- [FOURTEEN_DOMAIN_ARCHITECTURE.md](/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) - Complete domain architecture (14 domains)
+- [SERVICE_TOPOLOGY.md](/docs/architecture/SERVICE_TOPOLOGY.md) - Service architecture diagrams
+
+**Patterns:**
+- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Facade delegation patterns
+- [OWNERSHIP_VERIFICATION.md](/docs/patterns/OWNERSHIP_VERIFICATION.md) - ContentScope.USER_OWNED pattern
+
+**Intelligence:**
+- [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) - Intelligence services for all 6 activity domains
+
+**Guides:**
+- [BASESERVICE_QUICK_START.md](/docs/guides/BASESERVICE_QUICK_START.md) - Service architecture onboarding
+- [SUB_SERVICE_CATALOG.md](/docs/reference/SUB_SERVICE_CATALOG.md) - Which service does what
+
+---
+
 ## Related Skills
 
 - [result-pattern](../result-pattern/SKILL.md) - All methods return `Result[T]`

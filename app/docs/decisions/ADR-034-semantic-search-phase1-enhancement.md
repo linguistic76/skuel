@@ -269,6 +269,22 @@ learning_state_boost_not_started: float = 0.15
 
 ---
 
+## Implementation
+
+**Related Skills:**
+- [@neo4j-genai-plugin](../../.claude/skills/neo4j-genai-plugin/SKILL.md) - Vector search and semantic relationship integration
+
+**Architecture:**
+- [SEARCH_ARCHITECTURE.md](/docs/architecture/SEARCH_ARCHITECTURE.md) - Unified search architecture
+- [NEO4J_DATABASE_ARCHITECTURE.md](/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md) - Graph database patterns
+
+**Code Locations:**
+- `/core/services/search/neo4j_vector_search.py` - Neo4jVectorSearchService with semantic enhancements
+- `/core/services/search/models.py` - VectorSearchConfig with boost parameters
+- `/core/utils/vector_config.py` - Configuration utilities
+
+---
+
 ## Decision Outcome
 
 **Status:** Accepted and Implemented (2026-01-29)

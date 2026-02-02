@@ -539,6 +539,24 @@ rate(skuel_context_invalidations_total[5m]) > 10
 
 ---
 
+## Deep Dive Resources
+
+**Architecture:**
+- [ADR-036](/docs/decisions/ADR-036-prometheus-primary-cache-pattern.md) - Prometheus-primary architecture decision
+- [OBSERVABILITY_PHASE1_COMPLETE.md](/OBSERVABILITY_PHASE1_COMPLETE.md) - Complete implementation guide
+
+**Patterns:**
+- [PROMETHEUS_METRICS.md](/docs/observability/PROMETHEUS_METRICS.md) - Comprehensive 966-line metrics reference
+
+**Troubleshooting:**
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common observability issues
+
+**Configuration:**
+- [monitoring/prometheus.yml](/monitoring/prometheus.yml) - Prometheus configuration
+- [monitoring/dashboards/](/monitoring/dashboards/) - Grafana dashboard JSON files
+
+---
+
 ## See Also
 
 - [PROMQL_PATTERNS.md](PROMQL_PATTERNS.md) - PromQL query examples from dashboards

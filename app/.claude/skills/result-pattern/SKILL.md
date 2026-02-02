@@ -493,6 +493,20 @@ async def test_success_case():
 - **[pytest](../pytest/SKILL.md)** - Testing patterns using Result[T] mocks
 - **[pydantic](../pydantic/SKILL.md)** - Validation at edges before Result[T] in services
 
+## Deep Dive Resources
+
+**Patterns:**
+- [ERROR_HANDLING.md](/docs/patterns/ERROR_HANDLING.md) - Complete error handling architecture (1015 lines)
+- [linter_rules.md](/docs/patterns/linter_rules.md) - SKUEL003 (use .is_error), SKUEL007 (use Errors factory)
+
+**ADRs:**
+- [ADR-022](/docs/decisions/ADR-022-graph-native-authentication.md) - Graph-native auth with Result[T]
+
+**Migration:**
+- [result_migration_guide.md](/core/utils/result_migration_guide.md) - Migration from old Result to Result[T]
+
+---
+
 ## Foundation
 
 This skill has no prerequisites. It is a foundational pattern.

@@ -9,6 +9,21 @@ tags: [patterns, events, architecture, decoupling]
 
 # Event-Driven Architecture
 
+## Quick Start
+
+**Skills:** [@python](../../.claude/skills/python/SKILL.md), [@result-pattern](../../.claude/skills/result-pattern/SKILL.md)
+
+For hands-on implementation:
+1. Invoke `@python` for event handler patterns with `@safe_event_handler`
+2. Invoke `@result-pattern` for event error handling
+3. See event definitions in `/core/events/{domain}_events.py`
+4. Continue below for complete event-driven architecture
+
+**Related Documentation:**
+- [/core/events/](/core/events/) - 60+ events across all domains
+
+---
+
 ## Quick Reference
 
 SKUEL is migrating to event-driven architecture to eliminate service-to-service dependencies through decoupled domain events.

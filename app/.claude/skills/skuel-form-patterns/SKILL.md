@@ -1080,6 +1080,20 @@ When implementing forms, verify:
 - **HTMX:** For form submission without full page reload
 - **Accessibility Guide:** For ARIA labels and keyboard navigation
 
+## Deep Dive Resources
+
+**Patterns:**
+- [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md) - Lines 1079-1145 (Form patterns)
+- [API_VALIDATION_PATTERNS.md](/docs/patterns/API_VALIDATION_PATTERNS.md) - Query param and JSON validation
+- [ERROR_HANDLING.md](/docs/patterns/ERROR_HANDLING.md) - Safe form parsing pattern (lines 692-820)
+
+**Implementation Examples:**
+- `/adapters/inbound/tasks_ui.py` - Early validation pattern (lines 1079-1145)
+- `/adapters/inbound/goals_ui.py` - Progress form with validation
+- `/adapters/inbound/user_profile_ui.py` - Safe form parsing with safe_int/safe_bool
+
+---
+
 ## See Also
 
 - `daisyui` - For FormControl, Label, Input, Select, Textarea components

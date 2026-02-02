@@ -19,6 +19,21 @@ related_skills:
 
 **Last Updated**: January 29, 2026
 
+## Quick Start
+
+**Skills:** [@python](../../.claude/skills/python/SKILL.md)
+
+For hands-on implementation:
+1. Invoke `@python` for Protocol patterns and type-safe interfaces
+2. See [QUICK_REFERENCE.md](../../.claude/skills/python/QUICK_REFERENCE.md) for Protocol examples
+3. Continue below for complete protocol architecture
+
+**Related Documentation:**
+- [BACKEND_OPERATIONS_ISP.md](BACKEND_OPERATIONS_ISP.md) - Interface segregation for backends
+- [protocol_mixin_alignment.md](/docs/migrations/PROTOCOL_MIXIN_ALIGNMENT_COMPLETE_2026-01-29.md) - Protocol compliance migration
+
+---
+
 ## Overview
 
 SKUEL uses Python's Protocol typing (PEP 544) for dependency injection without framework overhead. This provides type safety, testability, and clean architecture while maintaining the "one path forward" philosophy.

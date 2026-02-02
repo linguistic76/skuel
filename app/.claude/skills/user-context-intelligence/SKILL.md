@@ -499,6 +499,21 @@ intelligence = factory.create(context)
 | `/core/services/user/intelligence/schedule_intelligence.py` | Method 8 (~180 lines) |
 | `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md` | Documentation |
 
+## Deep Dive Resources
+
+**Architecture:**
+- [UNIFIED_USER_ARCHITECTURE.md](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md) - Complete UserContext architecture
+- [ADR-030](/docs/decisions/ADR-030-usercontext-file-consolidation.md) - UserContext consolidation decision
+- [ADR-021](/docs/decisions/ADR-021-user-context-intelligence-modularization.md) - Intelligence modularization
+
+**Implementation:**
+- [USER_CONTEXT_INTELLIGENCE.md](/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md) - Detailed implementation guide
+
+**Patterns:**
+- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Service patterns
+
+---
+
 ## Related Skills
 
 - **[base-analytics-service](../base-analytics-service/SKILL.md)** - Domain analytics pattern (no AI)

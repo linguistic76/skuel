@@ -24,6 +24,20 @@ related_skills:
 
 *Last updated: 2026-01-24*
 
+## Quick Start
+
+**Skills:** [@python](../../.claude/skills/python/SKILL.md), [@pydantic](../../.claude/skills/pydantic/SKILL.md)
+
+For hands-on implementation:
+1. Invoke `@python` for frozen dataclass patterns (Domain tier)
+2. Invoke `@pydantic` for request model validation (External tier)
+3. See [DOMAIN_PATTERNS_CATALOG.md](DOMAIN_PATTERNS_CATALOG.md) for complete examples
+4. Continue below for architectural context and tier selection guidelines
+
+**Related ADRs:** [ADR-035](../decisions/ADR-035-tier-selection-guidelines.md) - When to use Pattern A vs Pattern B
+
+---
+
 ## Core Principle
 
 > "Pydantic at the edges, pure Python at the core"

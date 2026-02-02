@@ -19,6 +19,19 @@ related_skills:
 **Status**: ✅ Migration Complete (September 24, 2025)
 **Current Implementation**: `result_simplified.py` with boundary handlers
 
+## Quick Start
+
+**Skills:** [@result-pattern](../../.claude/skills/result-pattern/SKILL.md), [@ui-error-handling](../../.claude/skills/ui-error-handling/SKILL.md)
+
+For hands-on implementation guidance:
+1. Invoke `@result-pattern` for Result[T] patterns and error factories
+2. See [QUICK_REFERENCE.md](../../.claude/skills/result-pattern/QUICK_REFERENCE.md) for decision trees
+3. Continue reading below for architectural context and detailed patterns
+
+**Related ADRs:** [ADR-022](../decisions/ADR-022-graph-native-authentication.md) - Graph-native auth with Result[T]
+
+---
+
 ## Core Philosophy: Results Internally, Exceptions at Boundaries
 
 SKUEL follows a clean, predictable error handling pattern:

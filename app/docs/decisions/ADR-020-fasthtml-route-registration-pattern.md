@@ -110,6 +110,20 @@ def create_domain_routes(_app, rt, service, user_service):
 | `adapters/inbound/finance_api.py` | Removed routes list pattern |
 | `adapters/inbound/finance_routes.py` | Removed route counting logic |
 
+## Implementation
+
+**Related Skills:**
+- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md) - FastHTML route registration patterns
+
+**Pattern Documentation:**
+- [FASTHTML_ROUTE_REGISTRATION.md](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md) - Route registration patterns
+
+**Code Locations:**
+- `/adapters/inbound/` - All route files (no `routes = []` pattern)
+- `/scripts/dev/bootstrap.py` - Route registration orchestration
+
+---
+
 ## Consequences
 
 ### Positive

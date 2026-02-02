@@ -109,6 +109,22 @@ This follows SKUEL's "One Path Forward" philosophy: no legacy wrappers, no depre
 
 ---
 
+## Implementation
+
+**Related Skills:**
+- [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md) - UserContext intelligence operations
+
+**Architecture:**
+- [UNIFIED_USER_ARCHITECTURE.md](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md) - Complete UserContext architecture
+
+**Code Locations:**
+- `/core/services/user/unified_user_context.py` - Canonical UserContext (THE source of truth)
+- `/core/services/user/user_context_builder.py` - Context building orchestration
+- `/core/services/user/user_context_queries.py` - MEGA-QUERY for rich context
+- `/core/models/user/__init__.py` - Re-exports UserContext from services layer
+
+---
+
 ## Changelog
 
 | Date | Author | Change | Version |

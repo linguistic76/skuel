@@ -141,6 +141,23 @@ class BaseIntelligenceService(Generic[B, T]):
 - `_require_relationship_service()` - Fail-fast guard for relationships
 - `_to_domain_model(dto_or_dict, dto_class, model_class)` - DTO/dict conversion
 
+## Implementation
+
+**Related Skills:**
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md) - Analytics service patterns
+- [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md) - AI service patterns (for future AI layer)
+
+**Documentation:**
+- [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) - Complete intelligence services guide
+- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Service patterns
+
+**Code Locations:**
+- `/core/services/base_analytics_service.py` - Graph analytics base class (NO AI dependencies)
+- `/core/services/{domain}/{domain}_intelligence_service.py` - 10 domain intelligence services
+- `/core/services/user/intelligence/` - UserContextIntelligence (modular package)
+
+---
+
 ### Migration Pattern
 
 Each intelligence service now inherits from the base class:

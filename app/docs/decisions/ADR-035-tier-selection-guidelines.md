@@ -296,6 +296,24 @@ Neo4j → DTO → Pydantic Response (no business logic)
 
 ---
 
+## Implementation
+
+**Related Skills:**
+- [@python](../../.claude/skills/python/SKILL.md) - Python dataclass patterns (frozen vs mutable)
+- [@pydantic](../../.claude/skills/pydantic/SKILL.md) - Pydantic request model validation (Tier 1)
+
+**Pattern Documentation:**
+- [three_tier_type_system.md](/docs/patterns/three_tier_type_system.md) - Complete pattern guide
+- [DOMAIN_PATTERNS_CATALOG.md](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) - Working examples
+
+**Code Locations:**
+- `/core/models/{domain}/{domain}.py` - Pattern A: Domain models (frozen dataclasses)
+- `/core/models/{domain}/{domain}_dto.py` - Pattern A/B: DTOs (mutable)
+- `/core/models/{domain}/{domain}_request.py` - Pattern A/B: Pydantic request models
+- `/core/models/{domain}/{domain}_converters.py` - Pattern A: Tier conversion logic
+
+---
+
 ## Approval
 
 **Decision Maker:** Mike (SKUEL architect)

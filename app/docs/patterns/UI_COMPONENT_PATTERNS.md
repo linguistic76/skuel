@@ -12,6 +12,22 @@ related_skills:
 
 **Core Principle:** "BasePage for consistency, custom layouts for special cases"
 
+## Quick Start
+
+**Skills:** [@base-page-architecture](../../.claude/skills/base-page-architecture/SKILL.md), [@daisyui](../../.claude/skills/daisyui/SKILL.md), [@tailwind-css](../../.claude/skills/tailwind-css/SKILL.md)
+
+For hands-on implementation:
+1. Invoke `@base-page-architecture` for BasePage patterns and page types
+2. Invoke `@daisyui` for pre-built accessible UI components
+3. Invoke `@tailwind-css` for utility-first styling
+4. See [custom-sidebar-patterns](../../.claude/skills/custom-sidebar-patterns/SKILL.md) for advanced navigation
+5. Continue below for complete component architecture
+
+**Related Documentation:**
+- [/ui/profile/layout.py](/ui/profile/layout.py) - Profile Hub custom sidebar example
+
+---
+
 ## Overview
 
 SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI 5. This document explains the component system and how to use it.

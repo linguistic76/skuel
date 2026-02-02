@@ -2,6 +2,21 @@
 
 *Last updated: 2026-01-24*
 
+## Quick Start
+
+**Skills:** [@activity-domains](../../.claude/skills/activity-domains/SKILL.md), [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
+
+For hands-on implementation:
+1. Invoke `@activity-domains` for USER_OWNED verification patterns
+2. Invoke `@curriculum-domains` for SHARED content patterns
+3. See [AUTH_PATTERNS.md](AUTH_PATTERNS.md) for authentication decorators
+4. Continue below for complete ownership verification patterns
+
+**Related Documentation:**
+- [ROUTE_FACTORIES.md](ROUTE_FACTORIES.md) - ContentScope configuration in route factories
+
+---
+
 ## Status: ✅ Complete
 
 **All 42 manual routes across 7 API files now have ownership verification.**

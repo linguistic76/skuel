@@ -82,6 +82,22 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 
 ---
 
+## Implementation
+
+**Related Skills:**
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md) - Analytics service patterns
+
+**Documentation:**
+- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Service architecture patterns
+- [protocol_architecture.md](/docs/patterns/protocol_architecture.md) - Protocol-based interfaces
+
+**Code Locations:**
+- `/core/services/base_service.py` - 7 focused mixins (~490 lines)
+- `/core/services/protocols/base_service_interface.py` - BaseServiceInterface protocol
+- `/core/services/mixins/` - Individual mixin files
+
+---
+
 ## Alternatives Considered
 
 ### Alternative 1: Composed Services (Delegation)

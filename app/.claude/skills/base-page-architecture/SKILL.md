@@ -695,6 +695,21 @@ When building a new page, verify:
 
 ---
 
+## Deep Dive Resources
+
+**Patterns:**
+- [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md) - Complete UI component architecture
+
+**Migration:**
+- [PROFILE_HUB_MODERNIZATION_2026-02-01.md](/docs/migrations/PROFILE_HUB_MODERNIZATION_2026-02-01.md) - Profile Hub migration to BasePage with custom sidebar
+
+**Implementation:**
+- `/ui/profile/layout.py` - Profile Hub custom sidebar example (create_profile_page, build_profile_sidebar)
+- `/ui/layouts/base_page.py` - BasePage implementation
+- `/ui/layouts/page_types.py` - PageType enum and config
+
+---
+
 ## See Also
 
 ### Decision Making

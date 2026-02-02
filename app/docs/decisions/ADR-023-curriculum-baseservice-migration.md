@@ -46,6 +46,23 @@ This created:
 
 **Merge CurriculumBaseService into BaseService and eliminate domain categorization.**
 
+## Implementation
+
+**Related Skills:**
+- [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md) - Curriculum domain patterns (KU, LS, LP)
+
+**Architecture:**
+- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) - Three grouping patterns (KU, LS, LP)
+- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - BaseService patterns
+
+**Code Locations:**
+- `/core/services/base_service.py` - Unified BaseService with curriculum methods
+- `/core/services/ku/ku_core_service.py` - KU service (extends BaseService)
+- `/core/services/ls/ls_core_service.py` - LS service (extends BaseService)
+- `/core/services/lp/lp_core_service.py` - LP service (extends BaseService)
+
+---
+
 ### Implementation Phases
 
 **Phase 1: Merge CurriculumBaseService methods into BaseService**

@@ -1761,6 +1761,26 @@ SHOW VECTOR INDEXES
 - `/core/config/unified_config.py` - VectorSearchConfig
 - `/scripts/verify_genai_setup.py` - Verification script
 
+---
+
+## Deep Dive Resources
+
+**Architecture:**
+- [NEO4J_DATABASE_ARCHITECTURE.md](/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md) - Graph database architecture
+- [SEARCH_ARCHITECTURE.md](/docs/architecture/SEARCH_ARCHITECTURE.md) - Unified search with vector search
+- [ADR-034](/docs/decisions/ADR-034-semantic-search-phase1-enhancement.md) - Semantic search enhancement
+
+**Development Setup:**
+- [GENAI_SETUP.md](/docs/development/GENAI_SETUP.md) - Local Docker Neo4j with GenAI plugin
+
+**Migration:**
+- [AURADB_MIGRATION_GUIDE.md](/docs/deployment/AURADB_MIGRATION_GUIDE.md) - Production AuraDB migration
+
+**Patterns:**
+- [query_architecture.md](/docs/patterns/query_architecture.md) - Query patterns
+
+---
+
 **External Resources:**
 - [Neo4j GenAI Plugin Documentation](https://neo4j.com/docs/genai/plugin/current/)
 - [OpenAI Embeddings Guide](https://platform.openai.com/docs/guides/embeddings)
