@@ -25,7 +25,7 @@ Successfully applied the `validate_{domain}_form_data()` pattern to ALL domains,
 | 4 | Events | `events_ui.py` | `validate_event_form_data()` | ✅ Pre-existing |
 | 5 | Choices | `choice_ui.py` | `validate_choice_form_data()` | ✅ Pre-existing |
 | 6 | Principles | `principles_ui.py` | `validate_principle_form_data()` | ✅ Pre-existing |
-| 7 | **KU (Knowledge Units)** | `knowledge_ui.py` | `validate_ku_form_data()` | ✅ **NEW** |
+| 7 | **KU (Knowledge Units)** | `ku_ui.py` | `validate_ku_form_data()` | ✅ **NEW** |
 | 8 | **LS (Learning Steps)** | `learning_ui.py` | `validate_ls_form_data()` | ✅ **NEW** |
 | 9 | **LP (Learning Paths)** | `learning_ui.py` | `validate_lp_form_data()` | ✅ **NEW** |
 
@@ -35,7 +35,7 @@ Successfully applied the `validate_{domain}_form_data()` pattern to ALL domains,
 
 ## New Validation Functions
 
-### 1. KU (Knowledge Units) - `knowledge_ui.py`
+### 1. KU (Knowledge Units) - `ku_ui.py`
 
 **Location:** Lines 283-339 (added before route handlers)
 
@@ -210,7 +210,7 @@ def validate_{domain}_form_data(form_data: dict[str, Any]) -> "Result[None]":
 
 | File | Lines Added | Purpose |
 |------|-------------|---------|
-| `adapters/inbound/knowledge_ui.py` | +57 lines | Added `validate_ku_form_data()` |
+| `adapters/inbound/ku_ui.py` | +57 lines | Added `validate_ku_form_data()` |
 | `adapters/inbound/learning_ui.py` | +136 lines | Added `validate_ls_form_data()` and `validate_lp_form_data()` |
 | `docs/phase3/UNIVERSAL_FORM_VALIDATION_PLAN.md` | NEW | Implementation plan and documentation |
 | **Total** | **+193 lines** | **3 new validation functions** |

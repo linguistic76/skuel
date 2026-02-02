@@ -2075,7 +2075,7 @@ async def compose_services(
         # "Applied knowledge, not pure theory" - Track real-world knowledge application
         # ========================================================================
 
-        from core.events.knowledge_events import (
+        from core.events.ku_events import (
             KnowledgeAppliedInTask,
             KnowledgeBuiltIntoHabit,
             KnowledgeBulkAppliedInTask,

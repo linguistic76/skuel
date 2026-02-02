@@ -1,8 +1,8 @@
 """
-Knowledge UI Routes - Clean Component-Based UI
-==============================================
+KU UI Routes - Clean Component-Based UI
+========================================
 
-UI/HTMX routes using pure component composition for knowledge management.
+UI/HTMX routes using pure component composition for KU management.
 
 Thin routes that:
 - Render components
@@ -27,23 +27,23 @@ from core.models.ku.ku_request import KuCreateRequest
 from core.ui.daisy_components import Button, ButtonT, Card, Div, Span
 from core.utils.logging import get_logger
 
-logger = get_logger("skuel.routes.knowledge.ui")
+logger = get_logger("skuel.routes.ku.ui")
 
 
 # ============================================================================
-# UI COMPONENT LIBRARY - Reusable knowledge components
+# UI COMPONENT LIBRARY - Reusable KU components
 # ============================================================================
 
 
-class KnowledgeUIComponents:
-    """Centralized knowledge UI components - no more inline composition"""
+class KuUIComponents:
+    """Centralized KU UI components - no more inline composition"""
 
     @staticmethod
-    def render_knowledge_dashboard(
+    def render_ku_dashboard(
         knowledge_units=None, stats=None, domains=None, request=None
     ) -> Any:
         """
-        Main knowledge dashboard - REFACTORED to use SharedUIComponents.
+        Main KU dashboard - REFACTORED to use SharedUIComponents.
 
         BEFORE: Manual composition of stats, actions, recent units, graph, all units
         AFTER: Uses SharedUIComponents.render_entity_dashboard()
@@ -81,25 +81,25 @@ class KnowledgeUIComponents:
         quick_actions = [
             {
                 "label": "➕ New Knowledge",
-                "hx_get": "/knowledge/create",
+                "hx_get": "/ku/create",
                 "hx_target": "#modal",
                 "class": "btn-primary",
             },
             {
                 "label": "🔍 Discovery",
-                "hx_get": "/knowledge/discovery",
+                "hx_get": "/ku/discovery",
                 "hx_target": "#main-content",
                 "class": "btn-secondary",
             },
             {
                 "label": "📊 Analytics",
-                "hx_get": "/knowledge/analytics",
+                "hx_get": "/ku/analytics",
                 "hx_target": "#main-content",
                 "class": "btn-outline",
             },
             {
                 "label": "🕸️ Graph View",
-                "hx_get": "/knowledge/graph",
+                "hx_get": "/ku/graph",
                 "hx_target": "#main-content",
                 "class": "btn-ghost",
             },
@@ -110,10 +110,10 @@ class KnowledgeUIComponents:
             title="🧠 Knowledge Base",
             stats=stats_formatted,
             entities=knowledge_units,
-            entity_renderer=KnowledgeUIComponents.render_knowledge_card,
+            entity_renderer=KuUIComponents.render_ku_card,
             quick_actions=quick_actions,
             categories=domains,
-            filter_endpoint="/knowledge/filter",
+            filter_endpoint="/ku/filter",
             request=request,
             active_page="knowledge",
         )
@@ -124,9 +124,9 @@ class KnowledgeUIComponents:
     # Removed ~140 lines of duplicate code.
 
     @staticmethod
-    def render_knowledge_card(unit, compact=False) -> Any:
+    def render_ku_card(unit, compact=False) -> Any:
         """
-        Individual knowledge unit card component.
+        Individual KU card component.
 
         ✅ USES CardGenerator for 100% dynamic display generation.
         Expects Ku dataclass instances (follows "Models define structure → UI auto-generates").
@@ -164,14 +164,14 @@ class KnowledgeUIComponents:
                 "👁️ View",
                 variant=ButtonT.outline,
                 cls="btn-sm",
-                hx_get=f"/knowledge/{uid}/details",
+                hx_get=f"/ku/{uid}/details",
                 hx_target="#modal" if compact else "#main-content",
             ),
             Button(
                 "✏️ Edit",
                 variant=ButtonT.ghost,
                 cls="btn-sm",
-                hx_get=f"/knowledge/{uid}/edit",
+                hx_get=f"/ku/{uid}/edit",
                 hx_target="#modal",
             ),
         ]
@@ -182,7 +182,7 @@ class KnowledgeUIComponents:
                     "🕸️ Graph",
                     variant=ButtonT.secondary,
                     cls="btn-sm",
-                    hx_get=f"/knowledge/{uid}/graph",
+                    hx_get=f"/ku/{uid}/graph",
                     hx_target="#main-content",
                 )
             )
@@ -191,9 +191,9 @@ class KnowledgeUIComponents:
         return Card(Div(card, Div(*buttons, cls="flex gap-2 mt-3"), cls="p-4"))
 
     @staticmethod
-    def render_create_knowledge_form() -> Any:
+    def render_create_ku_form() -> Any:
         """
-        Create knowledge form component.
+        Create KU form component.
 
         ✅ MIGRATED: Now uses FormGenerator for 100% dynamic form generation.
         Previously: 72 lines of manual form composition.
@@ -203,7 +203,7 @@ class KnowledgeUIComponents:
             H2("🧠 Create Knowledge Unit", cls="text-xl font-bold mb-4"),
             FormGenerator.from_model(
                 KuCreateRequest,
-                action="/api/knowledge",
+                action="/api/ku",
                 method="POST",
                 include_fields=[
                     "title",
@@ -214,7 +214,7 @@ class KnowledgeUIComponents:
                     "complexity",
                 ],
                 form_attrs={
-                    "hx_post": "/api/knowledge",
+                    "hx_post": "/api/ku",
                     "hx_target": "#knowledge-container",
                     "hx_swap": "outerHTML",
                 },
@@ -224,8 +224,8 @@ class KnowledgeUIComponents:
         )
 
     @staticmethod
-    def render_knowledge_discovery_dashboard() -> Any:
-        """Knowledge discovery dashboard component"""
+    def render_ku_discovery_dashboard() -> Any:
+        """KU discovery dashboard component"""
         return Div(
             H1("🔍 Knowledge Discovery", cls="text-2xl font-bold mb-6"),
             # Discovery tools
@@ -254,8 +254,8 @@ class KnowledgeUIComponents:
         )
 
     @staticmethod
-    def render_knowledge_analytics_dashboard() -> Any:
-        """Knowledge analytics dashboard component"""
+    def render_ku_analytics_dashboard() -> Any:
+        """KU analytics dashboard component"""
         return Div(
             H1("📊 Knowledge Analytics", cls="text-2xl font-bold mb-6"),
             # Growth metrics
@@ -287,7 +287,7 @@ class KnowledgeUIComponents:
 
 def validate_ku_form_data(form_data: dict[str, Any]) -> "Result[None]":
     """
-    Validate knowledge unit form data early.
+    Validate KU form data early.
 
     Pure function: returns clear error messages for UI.
 
@@ -303,19 +303,19 @@ def validate_ku_form_data(form_data: dict[str, Any]) -> "Result[None]":
     # Required: title
     title = form_data.get("title", "").strip()
     if not title:
-        return Result.fail(Errors.validation("Knowledge title is required"))
+        return Result.fail(Errors.validation("KU title is required"))
     if len(title) > 200:
         return Result.fail(Errors.validation("Title must be 200 characters or less"))
 
     # Required: content
     content = form_data.get("content", "").strip()
     if not content:
-        return Result.fail(Errors.validation("Knowledge content is required"))
+        return Result.fail(Errors.validation("KU content is required"))
 
     # Required: domain
     domain = form_data.get("domain", "").strip()
     if not domain:
-        return Result.fail(Errors.validation("Knowledge domain is required"))
+        return Result.fail(Errors.validation("KU domain is required"))
 
     # Validate domain is valid enum value
     try:
@@ -346,23 +346,23 @@ from starlette.requests import Request
 
 
 @dataclass
-class KnowledgeFilters:
-    """Typed filters for knowledge unit list queries."""
+class KuFilters:
+    """Typed filters for KU list queries."""
 
     domain: str
 
 
-def parse_knowledge_filters(request: Request) -> KnowledgeFilters:
+def parse_ku_filters(request: Request) -> KuFilters:
     """
-    Extract knowledge filter parameters from request query params.
+    Extract KU filter parameters from request query params.
 
     Args:
         request: Starlette request object
 
     Returns:
-        Typed KnowledgeFilters with defaults applied
+        Typed KuFilters with defaults applied
     """
-    return KnowledgeFilters(
+    return KuFilters(
         domain=request.query_params.get("domain", "all"),
     )
 
@@ -372,22 +372,22 @@ def parse_knowledge_filters(request: Request) -> KnowledgeFilters:
 # ============================================================================
 
 
-def create_knowledge_ui_routes(_app, rt, ku_service):
+def create_ku_ui_routes(_app, rt, ku_service):
     """
     Create clean UI routes using component composition.
 
     Each route renders components, no inline HTML composition.
     """
 
-    logger.info("Knowledge UI routes registered (component-based)")
+    logger.info("KU UI routes registered (component-based)")
 
     # ========================================================================
     # MAIN UI PAGES
     # ========================================================================
 
-    @rt("/knowledge")
-    async def knowledge_dashboard(request) -> Any:
-        """Main knowledge dashboard - pure component rendering"""
+    @rt("/ku")
+    async def ku_dashboard(request) -> Any:
+        """Main KU dashboard - pure component rendering"""
         from ui.layouts.base_page import BasePage
         from ui.patterns.error_banner import render_error_banner
 
@@ -400,7 +400,7 @@ def create_knowledge_ui_routes(_app, rt, ku_service):
             if result.is_error:
                 return await BasePage(
                     content=render_error_banner(
-                        "Unable to load knowledge units. Please try again later.",
+                        "Unable to load KUs. Please try again later.",
                         result.error.message
                     ),
                     title="Knowledge",
@@ -420,26 +420,26 @@ def create_knowledge_ui_routes(_app, rt, ku_service):
             "learning_paths": 0,
         }
 
-        return KnowledgeUIComponents.render_knowledge_dashboard(
+        return KuUIComponents.render_knowledge_dashboard(
             knowledge_units=knowledge, stats=stats, request=request
         )
 
-    @rt("/knowledge/create")
+    @rt("/ku/create")
     async def knowledge_create_form(_request) -> Any:
         """Create knowledge form - pure component"""
-        return KnowledgeUIComponents.render_create_knowledge_form()
+        return KuUIComponents.render_create_ku_form()
 
-    @rt("/knowledge/discovery")
+    @rt("/ku/discovery")
     async def knowledge_discovery_dashboard(_request) -> Any:
         """Discovery dashboard - pure component"""
-        return KnowledgeUIComponents.render_knowledge_discovery_dashboard()
+        return KuUIComponents.render_ku_discovery_dashboard()
 
-    @rt("/knowledge/analytics")
+    @rt("/ku/analytics")
     async def knowledge_analytics_dashboard(_request) -> Any:
         """Analytics dashboard - pure component"""
-        return KnowledgeUIComponents.render_knowledge_analytics_dashboard()
+        return KuUIComponents.render_ku_analytics_dashboard()
 
-    @rt("/knowledge/graph")
+    @rt("/ku/graph")
     async def knowledge_graph_page(_request) -> Any:
         """Knowledge graph page - pure component"""
         return Card(
@@ -455,7 +455,7 @@ def create_knowledge_ui_routes(_app, rt, ku_service):
     # HTMX FRAGMENT ENDPOINTS
     # ========================================================================
 
-    @rt("/knowledge/filter")
+    @rt("/ku/filter")
     async def knowledge_filter_fragment(request) -> Any:
         """Return filtered knowledge fragment for HTMX updates"""
         from ui.patterns.error_banner import render_error_banner
@@ -488,14 +488,14 @@ def create_knowledge_ui_routes(_app, rt, ku_service):
 
         return (
             Div(
-                *[KnowledgeUIComponents.render_knowledge_card(unit) for unit in knowledge],
+                *[KuUIComponents.render_ku_card(unit) for unit in knowledge],
                 cls="space-y-3",
             )
             if knowledge
             else P("No knowledge units found for this domain", cls="text-center text-gray-500 py-8")
         )
 
-    @rt("/knowledge/{uid}/details")
+    @rt("/ku/{uid}/details")
     async def knowledge_details_modal(_request, uid: str) -> Any:
         """Knowledge details modal fragment"""
         return Card(
@@ -507,7 +507,7 @@ def create_knowledge_ui_routes(_app, rt, ku_service):
             cls="p-6",
         )
 
-    @rt("/knowledge/{uid}/edit")
+    @rt("/ku/{uid}/edit")
     async def knowledge_edit_form(_request, uid: str) -> Any:
         """Edit knowledge form fragment"""
         return Card(
@@ -516,7 +516,7 @@ def create_knowledge_ui_routes(_app, rt, ku_service):
             cls="p-6",
         )
 
-    @rt("/knowledge/{uid}/graph")
+    @rt("/ku/{uid}/graph")
     async def knowledge_graph_view(_request, uid: str) -> Any:
         """Knowledge graph view centered on specific unit"""
         return Card(
@@ -547,7 +547,7 @@ def create_knowledge_ui_routes(_app, rt, ku_service):
         }
 
         function expandKnowledgeCard(uid) {
-            htmx.ajax('GET', `/knowledge/${uid}/details`, '#knowledge-details');
+            htmx.ajax('GET', `/ku/${uid}/details`, '#knowledge-details');
         }
 
         // HTMX event handlers

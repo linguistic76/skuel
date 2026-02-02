@@ -84,7 +84,7 @@ def render_chain_fragment(chain_data: dict[str, Any]) -> Div:
     for level in chain_data["levels"]:
         depth_label = Div(
             f"Depth {level['depth']}",
-            cls="text-xs font-semibold text-base-content/50 mb-2",
+            cls="text-xs font-semibold text-base-content/60 mb-2",
         )
 
         entity_cards = []
@@ -98,7 +98,7 @@ def render_chain_fragment(chain_data: dict[str, Any]) -> Div:
                 status_color = "text-info"
                 status_icon = "○"
             else:
-                status_color = "text-base-content/50"
+                status_color = "text-base-content/60"
                 status_icon = "•"
 
             entity_card = Div(

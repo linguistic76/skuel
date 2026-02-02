@@ -83,7 +83,7 @@ class Text:
     # Body text
     BODY = "text-base text-base-content"
     SECONDARY = "text-sm text-base-content/70"
-    MUTED = "text-sm text-base-content/50"
+    MUTED = "text-sm text-base-content/60"
 
     # Labels
     LABEL = "text-sm font-medium"

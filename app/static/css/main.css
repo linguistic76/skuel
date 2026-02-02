@@ -299,6 +299,26 @@ a {
     border-width: 0;
 }
 
+/* Skip link - hidden by default, visible on focus (WCAG 2.1 Level AA) */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background-color: oklch(0.6 0.2 250);
+    color: white;
+    padding: 0.5rem 1rem;
+    text-decoration: none;
+    z-index: 100;
+    transition: top 0.2s ease;
+    border-radius: 0 0 0.25rem 0;
+}
+
+.skip-link:focus {
+    top: 0;
+    outline: 2px solid oklch(0.4 0.2 250);
+    outline-offset: 2px;
+}
+
 /* ============================================
    6. PRINT STYLES
    ============================================ */

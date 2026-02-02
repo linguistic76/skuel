@@ -8,7 +8,7 @@
 
 services:
   neo4j:
-    image: neo4j:5.26
+    image: neo4j:2025.12.1
     container_name: skuel-neo4j
     restart: unless-stopped
 
@@ -19,9 +19,21 @@ services:
 
     environment:
       # ============================================
+      # PLUGINS
+      # ============================================
+      # Enable GenAI plugin (automatically copies from /products to /plugins)
+      NEO4J_PLUGINS: '["genai"]'
+
+      # ============================================
       # AUTHENTICATION
       # ============================================
       NEO4J_AUTH: "${NEO4J_AUTH}"
+
+      # ============================================
+      # GENAI PLUGIN CONFIGURATION
+      # ============================================
+      # OpenAI API key for GenAI plugin (accessed via procedures)
+      OPENAI_API_KEY: "${NEO4J_OPENAI_API_KEY}"
 
       # ============================================
       # MEMORY CONFIGURATION (Phase 6.3 tuned)
@@ -61,6 +73,13 @@ services:
       NEO4J_db_logs_query_enabled: INFO
       NEO4J_db_logs_query_threshold: 1s
       NEO4J_db_logs_query_parameter__logging__enabled: "true"
+
+      # ============================================
+      # SECURITY CONFIGURATION
+      # ============================================
+      # Allow GenAI plugin procedures
+      NEO4J_dbms_security_procedures_unrestricted: "genai.*"
+      NEO4J_dbms_security_procedures_allowlist: "genai.*"
 
       # ============================================
       # NETWORK CONFIGURATION

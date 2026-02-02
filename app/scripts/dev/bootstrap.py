@@ -494,7 +494,7 @@ async def _wire_all_routes(
     This uses the streamlined route organization with 4 consolidated files:
     - core_routes.py (tasks + habits + timeline)
     - content_routes.py (journals + audio transcription)
-    - knowledge_routes.py (discovery + hierarchical + askesis)
+    - ku_routes.py (discovery + hierarchical + askesis)
     - system_routes.py (main + health + operations + sync)
     - finance_routes.py (standalone)
 
@@ -512,9 +512,9 @@ async def _wire_all_routes(
     # ========================================================================
 
     # Knowledge routes
-    from adapters.inbound.knowledge_routes import create_knowledge_routes
+    from adapters.inbound.ku_routes import create_ku_routes
 
-    create_knowledge_routes(app, rt, services, None)
+    create_ku_routes(app, rt, services, None)
 
     # Search routes - THE PRIMARY SEARCH INTERFACE
     # One Path Forward: All search goes through SearchRouter (January 2026)

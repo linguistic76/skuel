@@ -152,7 +152,7 @@ def SectionAccordionCard(
                         A(
                             f"  • {child.title}",
                             href=f"{base_path}/{slug}/{child.slug}",
-                            cls="block w-full text-left p-2 ml-8 hover:bg-white/50 rounded transition-colors text-sm text-base-content/50 hover:text-base-content/70",
+                            cls="block w-full text-left p-2 ml-8 hover:bg-white/50 rounded transition-colors text-sm text-base-content/60 hover:text-base-content/70",
                         )
                     )
 
@@ -179,7 +179,7 @@ def SectionAccordionCard(
         )
         if topic_links
         else Div(
-            P("No topics yet", cls="text-base-content/50 italic p-4"),
+            P("No topics yet", cls="text-base-content/60 italic p-4"),
             section_link,
             cls="mt-2",
         ),
@@ -235,7 +235,7 @@ def TopicList(topics: list[TopicInfo], section_title: str = "") -> Div:
                     Span("", cls="text-primary"),
                     Div(
                         Div(topic.title, cls="font-medium text-base-content"),
-                        Div(topic.description, cls="text-sm text-base-content/50")
+                        Div(topic.description, cls="text-sm text-base-content/60")
                         if topic.description
                         else None,
                     ),
@@ -288,7 +288,7 @@ def TopicContent(
     content.append(
         Div(
             H3("Related Topics", cls="text-lg font-semibold text-base-content mb-4"),
-            P("Related topics coming soon...", cls="text-base-content/50 italic"),
+            P("Related topics coming soon...", cls="text-base-content/60 italic"),
             cls="mt-12 pt-8 border-t border-base-300",
         )
     )
@@ -373,12 +373,12 @@ def Breadcrumbs(path: list[tuple[str, str]]) -> Div:
     items = []
     for i, (label, href) in enumerate(path):
         if i > 0:
-            items.append(Span("/", cls="text-base-content/50 mx-2"))
+            items.append(Span("/", cls="text-base-content/60 mx-2"))
 
         if href:
             items.append(A(label, href=href, cls="text-primary hover:underline"))
         else:
-            items.append(Span(label, cls="text-base-content/50"))
+            items.append(Span(label, cls="text-base-content/60"))
 
     return Div(*items, cls="flex items-center text-sm mb-6")
 

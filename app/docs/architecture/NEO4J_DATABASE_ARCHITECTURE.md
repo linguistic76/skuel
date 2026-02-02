@@ -1150,7 +1150,7 @@ class AskesisServiceV2:
 **Route → Service → GraphPort Flow:**
 ```python
 # Route receives HTTP request
-@rt("/api/knowledge/search")
+@rt("/api/ku/search")
 async def search_knowledge(request: Request):
     # Service adapter creates context
     result = await search_adapter.search_knowledge(

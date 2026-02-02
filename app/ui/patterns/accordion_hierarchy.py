@@ -213,7 +213,7 @@ def AccordionNodeList(
 
     if not nodes:
         return Div(
-            Span("No items", cls="text-base-content/50 text-sm italic text-center py-4"),
+            Span("No items", cls="text-base-content/60 text-sm italic text-center py-4"),
             cls="block",
         )
 

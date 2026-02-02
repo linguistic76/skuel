@@ -1054,7 +1054,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
                 ErrorComponents.render_error_banner("Failed to load goals"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
-            return create_goals_page(error_content, request=request)
+            return await create_goals_page(error_content, request=request)
 
         if categories_result.is_error:
             error_content = Div(
@@ -1062,7 +1062,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
                 ErrorComponents.render_error_banner("Failed to load categories"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
-            return create_goals_page(error_content, request=request)
+            return await create_goals_page(error_content, request=request)
 
         # Extract values
         goals, stats = filtered_result.value
@@ -1107,7 +1107,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
             cls=f"{Spacing.PAGE} {Container.WIDE}",
         )
 
-        return create_goals_page(page_content, request=request)
+        return await create_goals_page(page_content, request=request)
 
     # ========================================================================
     # HTMX VIEW FRAGMENTS

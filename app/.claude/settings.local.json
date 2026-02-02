@@ -195,7 +195,13 @@
       "Bash(./scripts/verify_phase5_complete.sh:*)",
       "Bash(do:*)",
       "Bash(then echo \"✓ $domain_dto.py\")",
-      "Bash(else echo \"✗ $domain_dto.py NOT FOUND\")"
+      "Bash(else echo \"✗ $domain_dto.py NOT FOUND\")",
+      "Bash(docker-compose:*)",
+      "Bash(__NEW_LINE_8be6417e7d1ca99f__ chmod +x /tmp/final_verification.sh)",
+      "Bash(bash:*)",
+      "Bash(git restore:*)",
+      "Bash(__NEW_LINE_3f70261cd0645386__ echo \"Staged navbar-related files\")",
+      "Bash(git mv:*)"
     ]
   }
 }

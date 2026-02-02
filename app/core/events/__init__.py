@@ -159,7 +159,7 @@ from core.events.journal_events import (
 )
 
 # Knowledge substance events (tracking real-world application)
-from core.events.knowledge_events import (
+from core.events.ku_events import (
     KnowledgeAppliedInTask,
     KnowledgeBuiltIntoHabit,
     KnowledgeBulkAppliedInTask,

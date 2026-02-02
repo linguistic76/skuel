@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from starlette.requests import Request
 
 
-def create_principles_page(
+async def create_principles_page(
     content: Any,
     user_display_name: str = "",
     is_authenticated: bool = True,
@@ -41,7 +41,7 @@ def create_principles_page(
     Returns:
         Complete principles page layout
     """
-    return create_activity_page(
+    return await create_activity_page(
         content=content,
         domain="principles",
         request=request,

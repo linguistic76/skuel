@@ -150,7 +150,7 @@ factory = IntelligenceRouteFactory(
 # Factory for shared content (Curriculum)
 factory = IntelligenceRouteFactory(
     intelligence_service=ku_service.intelligence,
-    domain_name="knowledge",
+    domain_name="ku",
     scope=ContentScope.SHARED,                # No ownership checks
 )
 ```
@@ -604,7 +604,7 @@ poetry run python -m pytest tests/integration/intelligence/ -k "test_predict_goa
 - Cross-domain knowledge connections
 - Knowledge substance tracking (how knowledge is LIVED)
 - Per-user substance calculation (January 2026 - KU-Activity Integration)
-- New API: `GET /api/knowledge/{uid}/my-context` for personalized KU views
+- New API: `GET /api/ku/{uid}/my-context` for personalized KU views
 
 **LS (Learning Steps):**
 - Lightweight intelligence (intentional design)
@@ -708,7 +708,7 @@ else:
 - Comprehensive documentation for all 11 services (6 Activity + 4 Curriculum + 1 Meta)
 - Full migration including KU, LP, and MOC domains
 - Shared utilities consolidation (5-phase consolidation reducing ~640 lines of duplicated helper code)
-- **KU-Activity Integration Enhancement** (January 11, 2026): Per-user substance calculation via `calculate_user_substance()` and new `/api/knowledge/{uid}/my-context` endpoint
+- **KU-Activity Integration Enhancement** (January 11, 2026): Per-user substance calculation via `calculate_user_substance()` and new `/api/ku/{uid}/my-context` endpoint
 - **Finance Domain Simplification** (January 17, 2026): Finance reverted to standalone bookkeeping domain (no intelligence service)
 - **IntelligenceOperations Protocol Rollout** (January 17, 2026): All 10 domain services implement standardized protocol with GraphContextOrchestrator pattern, enabling automatic route generation via IntelligenceRouteFactory
 - **Dual-Track Assessment Pattern** (January 18, 2026 - ADR-030): All 6 Activity Domain intelligence services now support dual-track assessment comparing user self-assessment (vision) with system measurement (action) for perception gap analysis

@@ -421,7 +421,7 @@ class FinanceLayout:
                 <span class="text-2xl">💰</span>
                 <span class="text-xl font-bold text-base-content">Finance Hub</span>
             </div>
-            <p class="text-sm text-base-content/50 mt-1">Manage expenses, budgets & reports</p>
+            <p class="text-sm text-base-content/60 mt-1">Manage expenses, budgets & reports</p>
         </div>
         """
 
@@ -441,7 +441,7 @@ class FinanceLayout:
             <hr class="border-base-300 mx-4 mb-4">
 
             <div class="px-4 mb-2">
-                <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">Finance Sections</span>
+                <span class="text-xs font-semibold text-base-content/60 uppercase tracking-wider">Finance Sections</span>
             </div>
             """
 
@@ -460,7 +460,7 @@ class FinanceLayout:
             "healthy": "text-success",
             "warning": "text-warning",
             "critical": "text-error",
-        }.get(self.budget_health, "text-base-content/50")
+        }.get(self.budget_health, "text-base-content/60")
 
         health_icon = {
             "healthy": "✓",
@@ -470,7 +470,7 @@ class FinanceLayout:
 
         nav_html += f"""
         <div class="absolute bottom-4 left-4 right-4">
-            <div class="flex items-center gap-2 text-xs text-base-content/50">
+            <div class="flex items-center gap-2 text-xs text-base-content/60">
                 <span class="{health_class}">{health_icon}</span>
                 <span>Budget Status: <span class="{health_class} font-medium">{self.budget_health.capitalize()}</span></span>
             </div>

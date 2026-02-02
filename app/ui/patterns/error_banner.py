@@ -6,7 +6,7 @@ Usage:
     from ui.patterns.error_banner import render_error_banner
 
     if result.is_error:
-        return BasePage(
+        return await BasePage(
             content=render_error_banner(
                 "Unable to load tasks",
                 result.error.message

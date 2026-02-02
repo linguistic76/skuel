@@ -17,10 +17,11 @@ def Input(
     placeholder: str = "",
     type: str = "text",
     required: bool = False,
+    help_text: str | None = None,
     error: str | None = None,
     **kwargs: Any,
 ) -> Div:
-    """Text input with optional label and error message.
+    """Text input with optional label, help text, and error message.
 
     Args:
         name: The input name attribute (also used for id)
@@ -28,20 +29,22 @@ def Input(
         placeholder: Placeholder text shown when input is empty
         type: Input type (text, email, password, number, etc.)
         required: Whether the field is required
+        help_text: Optional help text displayed below the input (e.g., "Must be at least 8 characters")
         error: Optional error message to display below the input
         **kwargs: Additional attributes passed to the Input element
 
     Returns:
-        A Div containing the label (optional), input, and error (optional)
+        A Div containing the label (optional), input, help text (optional), and error (optional)
 
     Accessibility:
         - Uses aria-invalid to indicate error state
-        - Links error message via aria-describedby
+        - Links help text and error message via aria-describedby
         - Error div has role="alert" for screen reader announcements
+        - Help text provides guidance without being announced as an error
     """
     input_cls = (
         "w-full px-3 py-2 bg-base-100 border rounded-lg text-base-content "
-        "placeholder:text-base-content/50 "
+        "placeholder:text-base-content/60 "
         "focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
     )
 
@@ -51,8 +54,10 @@ def Input(
         input_cls += " border-base-300"
 
     elements = []
+    help_id = f"{name}-help"
     error_id = f"{name}-error"
     has_error = error is not None
+    has_help = help_text is not None
 
     if label:
         label_cls = "block text-sm font-medium text-base-content mb-1.5"
@@ -61,9 +66,16 @@ def Input(
 
     # Build ARIA attributes for accessibility
     aria_attrs = {}
+    describedby_ids = []
+
+    if has_help:
+        describedby_ids.append(help_id)
     if has_error:
         aria_attrs["aria_invalid"] = "true"
-        aria_attrs["aria_describedby"] = error_id
+        describedby_ids.append(error_id)
+
+    if describedby_ids:
+        aria_attrs["aria_describedby"] = " ".join(describedby_ids)
 
     elements.append(
         HtmlInput(
@@ -77,6 +89,16 @@ def Input(
             **kwargs,
         )
     )
+
+    # Help text with muted styling
+    if help_text:
+        elements.append(
+            Div(
+                help_text,
+                id=help_id,
+                cls="mt-1 text-sm text-base-content/70",
+            )
+        )
 
     # Error message with proper ARIA role for screen readers
     if error:
@@ -98,10 +120,11 @@ def Textarea(
     placeholder: str = "",
     rows: int = 4,
     required: bool = False,
+    help_text: str | None = None,
     error: str | None = None,
     **kwargs: Any,
 ) -> Div:
-    """Textarea with optional label and error message.
+    """Textarea with optional label, help text, and error message.
 
     Args:
         name: The textarea name attribute (also used for id)
@@ -109,20 +132,22 @@ def Textarea(
         placeholder: Placeholder text shown when textarea is empty
         rows: Number of visible rows (default: 4)
         required: Whether the field is required
+        help_text: Optional help text displayed below the textarea
         error: Optional error message to display below the textarea
         **kwargs: Additional attributes passed to the Textarea element
 
     Returns:
-        A Div containing the label (optional), textarea, and error (optional)
+        A Div containing the label (optional), textarea, help text (optional), and error (optional)
 
     Accessibility:
         - Uses aria-invalid to indicate error state
-        - Links error message via aria-describedby
+        - Links help text and error message via aria-describedby
         - Error div has role="alert" for screen reader announcements
+        - Help text provides guidance without being announced as an error
     """
     textarea_cls = (
         "w-full px-3 py-2 bg-base-100 border rounded-lg text-base-content "
-        "placeholder:text-base-content/50 "
+        "placeholder:text-base-content/60 "
         "focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent "
         "resize-y"
     )
@@ -133,8 +158,10 @@ def Textarea(
         textarea_cls += " border-base-300"
 
     elements = []
+    help_id = f"{name}-help"
     error_id = f"{name}-error"
     has_error = error is not None
+    has_help = help_text is not None
 
     if label:
         label_cls = "block text-sm font-medium text-base-content mb-1.5"
@@ -143,9 +170,16 @@ def Textarea(
 
     # Build ARIA attributes for accessibility
     aria_attrs = {}
+    describedby_ids = []
+
+    if has_help:
+        describedby_ids.append(help_id)
     if has_error:
         aria_attrs["aria_invalid"] = "true"
-        aria_attrs["aria_describedby"] = error_id
+        describedby_ids.append(error_id)
+
+    if describedby_ids:
+        aria_attrs["aria_describedby"] = " ".join(describedby_ids)
 
     elements.append(
         HtmlTextarea(
@@ -159,6 +193,16 @@ def Textarea(
             **kwargs,
         )
     )
+
+    # Help text with muted styling
+    if help_text:
+        elements.append(
+            Div(
+                help_text,
+                id=help_id,
+                cls="mt-1 text-sm text-base-content/70",
+            )
+        )
 
     # Error message with proper ARIA role for screen readers
     if error:
@@ -181,10 +225,11 @@ def SelectInput(
     placeholder: str = "Select an option",
     required: bool = False,
     selected: str | None = None,
+    help_text: str | None = None,
     error: str | None = None,
     **kwargs: Any,
 ) -> Div:
-    """Select dropdown with optional label.
+    """Select dropdown with optional label, help text, and error message.
 
     Args:
         name: The select name attribute (also used for id)
@@ -193,16 +238,18 @@ def SelectInput(
         placeholder: Placeholder text for the empty option
         required: Whether the field is required
         selected: Currently selected value
+        help_text: Optional help text displayed below the select
         error: Optional error message to display below the select
         **kwargs: Additional attributes passed to the Select element
 
     Returns:
-        A Div containing the label (optional), select, and error (optional)
+        A Div containing the label (optional), select, help text (optional), and error (optional)
 
     Accessibility:
         - Uses aria-invalid to indicate error state
-        - Links error message via aria-describedby
+        - Links help text and error message via aria-describedby
         - Error div has role="alert" for screen reader announcements
+        - Help text provides guidance without being announced as an error
     """
     select_cls = (
         "w-full px-3 py-2 bg-base-100 border rounded-lg text-base-content "
@@ -215,8 +262,10 @@ def SelectInput(
         select_cls += " border-base-300"
 
     elements = []
+    help_id = f"{name}-help"
     error_id = f"{name}-error"
     has_error = error is not None
+    has_help = help_text is not None
 
     if label:
         label_cls = "block text-sm font-medium text-base-content mb-1.5"
@@ -230,9 +279,16 @@ def SelectInput(
 
     # Build ARIA attributes for accessibility
     aria_attrs = {}
+    describedby_ids = []
+
+    if has_help:
+        describedby_ids.append(help_id)
     if has_error:
         aria_attrs["aria_invalid"] = "true"
-        aria_attrs["aria_describedby"] = error_id
+        describedby_ids.append(error_id)
+
+    if describedby_ids:
+        aria_attrs["aria_describedby"] = " ".join(describedby_ids)
 
     elements.append(
         Select(
@@ -245,6 +301,16 @@ def SelectInput(
             **kwargs,
         )
     )
+
+    # Help text with muted styling
+    if help_text:
+        elements.append(
+            Div(
+                help_text,
+                id=help_id,
+                cls="mt-1 text-sm text-base-content/70",
+            )
+        )
 
     # Error message with proper ARIA role for screen readers
     if error:

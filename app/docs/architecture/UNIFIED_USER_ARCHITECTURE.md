@@ -54,7 +54,7 @@ Need user state data?
 │
 ├─ Fresh queries (real-time) → ku_service.get_ready_to_learn_for_user(user_uid)
 │  └─ Use: Direct API endpoints, real-time dashboards
-│  └─ Example: /api/knowledge/ready-to-learn
+│  └─ Example: /api/ku/ready-to-learn
 │
 └─ Relationship data → service.relationships.get_related_uids()
    └─ Use: Cross-domain context, graph traversal

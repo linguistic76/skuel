@@ -469,7 +469,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                 ErrorComponents.render_error_banner("Failed to load choices"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
-            return create_choices_page(error_content, request=request)
+            return await create_choices_page(error_content, request=request)
 
         if choice_types_result.is_error:
             error_content = Div(
@@ -477,7 +477,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                 ErrorComponents.render_error_banner("Failed to load choice types"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
-            return create_choices_page(error_content, request=request)
+            return await create_choices_page(error_content, request=request)
 
         if domains_result.is_error:
             error_content = Div(
@@ -485,7 +485,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
                 ErrorComponents.render_error_banner("Failed to load domains"),
                 cls="p-4 lg:p-8 max-w-7xl mx-auto",
             )
-            return create_choices_page(error_content, request=request)
+            return await create_choices_page(error_content, request=request)
 
         # Extract values
         choices, stats = filtered_result.value
@@ -530,7 +530,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
             cls="p-4 lg:p-8 max-w-7xl mx-auto",
         )
 
-        return create_choices_page(page_content, request=request)
+        return await create_choices_page(page_content, request=request)
 
     # ========================================================================
     # HTMX VIEW FRAGMENTS
@@ -875,7 +875,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
         )
 
         page_content = Div(detail_content, cls="p-4 lg:p-8 max-w-4xl mx-auto")
-        return create_choices_page(page_content, request=request)
+        return await create_choices_page(page_content, request=request)
 
     # ========================================================================
     # DECIDE MODAL

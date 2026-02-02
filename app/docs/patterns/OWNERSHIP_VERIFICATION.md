@@ -90,7 +90,7 @@ crud_factory = CRUDRouteFactory(
 # Curriculum domains (shared) - no ownership verification
 crud_factory = CRUDRouteFactory(
     service=ku_service,
-    domain_name="knowledge",
+    domain_name="ku",
     create_schema=KuCreateRequest,
     update_schema=KuUpdateRequest,
     scope=ContentScope.SHARED,  # KU is shared, not user-owned

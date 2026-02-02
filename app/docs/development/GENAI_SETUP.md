@@ -277,7 +277,7 @@ When embeddings are unavailable:
 GENAI_ENABLED=false poetry run python skuel.py
 
 # Verify keyword search works
-curl http://localhost:8000/api/knowledge/search?q=python
+curl http://localhost:8000/api/ku/search?q=python
 
 # Should return results using keyword matching
 ```

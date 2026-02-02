@@ -64,22 +64,22 @@ class FinanceSectionViews:
         stats_section = Div(
             Div(
                 Div(f"${total_spent:,.2f}", cls="text-2xl font-bold text-info"),
-                Div("Spent This Month", cls="text-sm text-base-content/50 mt-1"),
+                Div("Spent This Month", cls="text-sm text-base-content/60 mt-1"),
                 cls="bg-info/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(f"${total_budget:,.2f}", cls="text-2xl font-bold text-success"),
-                Div("Total Budget", cls="text-sm text-base-content/50 mt-1"),
+                Div("Total Budget", cls="text-sm text-base-content/60 mt-1"),
                 cls="bg-success/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(f"{budget_utilization:.0f}%", cls="text-2xl font-bold text-warning"),
-                Div("Budget Used", cls="text-sm text-base-content/50 mt-1"),
+                Div("Budget Used", cls="text-sm text-base-content/60 mt-1"),
                 cls="bg-warning/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(health_status, cls="text-2xl font-bold text-primary"),
-                Div("Health Status", cls="text-sm text-base-content/50 mt-1"),
+                Div("Health Status", cls="text-sm text-base-content/60 mt-1"),
                 cls="bg-primary/10 rounded-lg p-4 text-center",
             ),
             cls="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8",
@@ -115,7 +115,7 @@ class FinanceSectionViews:
                 Div(
                     Div(
                         Span(exp.get("description", "Unknown"), cls="font-medium"),
-                        Span(f" - ${exp.get('amount', 0):.2f}", cls="text-base-content/50"),
+                        Span(f" - ${exp.get('amount', 0):.2f}", cls="text-base-content/60"),
                         cls="flex-1",
                     ),
                     Div(
@@ -143,7 +143,7 @@ class FinanceSectionViews:
             recent_section = Div(
                 H3("Recent Expenses", cls="text-lg font-semibold mb-3"),
                 Div(
-                    P("No expenses recorded yet.", cls="text-base-content/50"),
+                    P("No expenses recorded yet.", cls="text-base-content/60"),
                     A(
                         "Add your first expense →",
                         href="/finance/expenses",
@@ -220,7 +220,7 @@ class FinanceSectionViews:
                         ),
                         cls="flex-1",
                     ),
-                    Span("to", cls="px-2 self-center text-base-content/50"),
+                    Span("to", cls="px-2 self-center text-base-content/60"),
                     Div(
                         Input(
                             type="date",
@@ -319,7 +319,7 @@ class FinanceSectionViews:
                     Td(exp.get("description", ""), cls="py-3 px-4"),
                     Td(f"${exp.get('amount', 0):.2f}", cls="py-3 px-4 font-medium"),
                     Td(exp.get("category", ""), cls="py-3 px-4"),
-                    Td(str(exp.get("expense_date", "")), cls="py-3 px-4 text-base-content/50"),
+                    Td(str(exp.get("expense_date", "")), cls="py-3 px-4 text-base-content/60"),
                     Td(
                         Span(
                             exp.get("status", "PENDING"),
@@ -348,7 +348,7 @@ class FinanceSectionViews:
             list_section = Div(
                 Div(
                     H3("Expenses", cls="text-lg font-semibold"),
-                    Span(f"{total_count} total", cls="text-base-content/50 text-sm"),
+                    Span(f"{total_count} total", cls="text-base-content/60 text-sm"),
                     cls="flex items-center justify-between mb-3",
                 ),
                 Div(
@@ -360,7 +360,7 @@ class FinanceSectionViews:
             list_section = Div(
                 H3("Expenses", cls="text-lg font-semibold mb-3"),
                 Div(
-                    P("No expenses found.", cls="text-base-content/50"),
+                    P("No expenses found.", cls="text-base-content/60"),
                     cls="bg-base-100 border border-base-300 rounded-lg p-8 text-center",
                 ),
                 id="expense-list",
@@ -397,12 +397,12 @@ class FinanceSectionViews:
         summary = Div(
             Div(
                 Div(f"${total_budgeted:,.2f}", cls="text-2xl font-bold text-success"),
-                Div("Total Budgeted", cls="text-sm text-base-content/50 mt-1"),
+                Div("Total Budgeted", cls="text-sm text-base-content/60 mt-1"),
                 cls="bg-success/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(f"${total_spent:,.2f}", cls="text-2xl font-bold text-info"),
-                Div("Total Spent", cls="text-sm text-base-content/50 mt-1"),
+                Div("Total Spent", cls="text-sm text-base-content/60 mt-1"),
                 cls="bg-info/10 rounded-lg p-4 text-center",
             ),
             Div(
@@ -410,12 +410,12 @@ class FinanceSectionViews:
                     f"${total_budgeted - total_spent:,.2f}",
                     cls="text-2xl font-bold text-primary",
                 ),
-                Div("Remaining", cls="text-sm text-base-content/50 mt-1"),
+                Div("Remaining", cls="text-sm text-base-content/60 mt-1"),
                 cls="bg-primary/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(f"{utilization:.0f}%", cls="text-2xl font-bold text-warning"),
-                Div("Overall Utilization", cls="text-sm text-base-content/50 mt-1"),
+                Div("Overall Utilization", cls="text-sm text-base-content/60 mt-1"),
                 cls="bg-warning/10 rounded-lg p-4 text-center",
             ),
             cls="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8",
@@ -513,8 +513,8 @@ class FinanceSectionViews:
                         ),
                         Div(
                             Span(f"${spent:,.2f}", cls="font-medium"),
-                            Span(" / ", cls="text-base-content/50"),
-                            Span(f"${limit:,.2f}", cls="text-base-content/50"),
+                            Span(" / ", cls="text-base-content/60"),
+                            Span(f"${limit:,.2f}", cls="text-base-content/60"),
                             cls="text-sm mb-2",
                         ),
                         # Progress bar
@@ -528,7 +528,7 @@ class FinanceSectionViews:
                         Div(
                             Span(f"{util_pct:.0f}% used", cls=f"text-sm {status_color}"),
                             Span(
-                                f"${remaining:,.2f} remaining", cls="text-sm text-base-content/50"
+                                f"${remaining:,.2f} remaining", cls="text-sm text-base-content/60"
                             ),
                             cls="flex justify-between",
                         ),
@@ -543,10 +543,10 @@ class FinanceSectionViews:
             list_section = Div(
                 H3("Active Budgets", cls="text-lg font-semibold mb-3"),
                 Div(
-                    P("No budgets created yet.", cls="text-base-content/50"),
+                    P("No budgets created yet.", cls="text-base-content/60"),
                     P(
                         "Create your first budget to start tracking spending.",
-                        cls="text-sm text-base-content/50 mt-1",
+                        cls="text-sm text-base-content/60 mt-1",
                     ),
                     cls="bg-base-100 border border-base-300 rounded-lg p-8 text-center",
                 ),
@@ -591,17 +591,17 @@ class FinanceSectionViews:
             Div(
                 Div(
                     Div(f"${month_total:,.2f}", cls="text-2xl font-bold text-info"),
-                    Div("Total Spent", cls="text-sm text-base-content/50 mt-1"),
+                    Div("Total Spent", cls="text-sm text-base-content/60 mt-1"),
                     cls="text-center",
                 ),
                 Div(
                     Div(str(expense_count), cls="text-2xl font-bold text-primary"),
-                    Div("Expenses", cls="text-sm text-base-content/50 mt-1"),
+                    Div("Expenses", cls="text-sm text-base-content/60 mt-1"),
                     cls="text-center",
                 ),
                 Div(
                     Div(f"${avg_expense:,.2f}", cls="text-2xl font-bold text-success"),
-                    Div("Average", cls="text-sm text-base-content/50 mt-1"),
+                    Div("Average", cls="text-sm text-base-content/60 mt-1"),
                     cls="text-center",
                 ),
                 cls="grid grid-cols-3 gap-4 bg-base-100 border border-base-300 rounded-lg p-6",
@@ -622,7 +622,7 @@ class FinanceSectionViews:
                         Span(f"${cat.get('amount', 0):,.2f}", cls="font-semibold"),
                         Span(
                             f" ({cat.get('percentage', 0):.0f}%)",
-                            cls="text-base-content/50 text-sm",
+                            cls="text-base-content/60 text-sm",
                         ),
                     ),
                     cls="flex items-center justify-between py-3 border-b border-base-300 last:border-0",
@@ -638,7 +638,7 @@ class FinanceSectionViews:
             category_section = Div(
                 H3("Spending by Category", cls="text-lg font-semibold mb-3"),
                 Div(
-                    P("No spending data available yet.", cls="text-base-content/50"),
+                    P("No spending data available yet.", cls="text-base-content/60"),
                     cls="bg-base-100 border border-base-300 rounded-lg p-4",
                 ),
                 cls="mb-8",
@@ -657,7 +657,7 @@ class FinanceSectionViews:
                         Div(f"${tax_total:,.2f}", cls="text-xl font-bold text-success"),
                         Div(
                             f"{tax_count} deductible expenses this year",
-                            cls="text-sm text-base-content/50",
+                            cls="text-sm text-base-content/60",
                         ),
                     ),
                     cls="flex items-center",
@@ -716,7 +716,7 @@ class FinanceSectionViews:
             Div(
                 Div(
                     Div(f"{health_score * 100:.0f}", cls="text-4xl font-bold"),
-                    Div("out of 100", cls="text-sm text-base-content/50"),
+                    Div("out of 100", cls="text-sm text-base-content/60"),
                     cls="text-center",
                 ),
                 Div(
@@ -732,12 +732,12 @@ class FinanceSectionViews:
         metrics_section = Div(
             Div(
                 Div(spending_pattern, cls="text-xl font-bold text-primary"),
-                Div("Spending Pattern", cls="text-sm text-base-content/50 mt-1"),
+                Div("Spending Pattern", cls="text-sm text-base-content/60 mt-1"),
                 cls="bg-primary/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(f"{budget_adherence:.0f}%", cls="text-xl font-bold text-success"),
-                Div("Budget Adherence", cls="text-sm text-base-content/50 mt-1"),
+                Div("Budget Adherence", cls="text-sm text-base-content/60 mt-1"),
                 cls="bg-success/10 rounded-lg p-4 text-center",
             ),
             cls="grid grid-cols-2 gap-4 mb-8",
@@ -767,7 +767,7 @@ class FinanceSectionViews:
                     Span(pattern_icon, cls="text-3xl mr-3"),
                     Div(
                         Div(spending_pattern, cls="font-semibold"),
-                        Div(pattern_desc, cls="text-sm text-base-content/50"),
+                        Div(pattern_desc, cls="text-sm text-base-content/60"),
                     ),
                     cls="flex items-center",
                 ),

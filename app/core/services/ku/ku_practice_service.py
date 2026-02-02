@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 from core.events import publish_event
 from core.events.calendar_event_events import CalendarEventCompleted
-from core.events.knowledge_events import KnowledgePracticed
+from core.events.ku_events import KnowledgePracticed
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:

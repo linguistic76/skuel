@@ -28,7 +28,7 @@ def StatusBadge(status: str) -> Span:
         "critical": "bg-error",
     }
 
-    color_class = color_classes.get(status, "bg-base-content/50")
+    color_class = color_classes.get(status, "bg-base-content/60")
 
     return Span(
         cls=f"w-2 h-2 rounded-full {color_class}",
@@ -50,12 +50,12 @@ def CountBadge(count: int, active: int | None = None) -> Span:
     if active is not None and active > 0:
         return Span(
             f"{active}/{count}",
-            cls="text-xs font-medium text-base-content/50 bg-base-200 px-2 py-0.5 rounded-full",
+            cls="text-xs font-medium text-base-content/60 bg-base-200 px-2 py-0.5 rounded-full",
         )
 
     return Span(
         str(count),
-        cls="text-xs font-medium text-base-content/50 bg-base-200 px-2 py-0.5 rounded-full",
+        cls="text-xs font-medium text-base-content/60 bg-base-200 px-2 py-0.5 rounded-full",
     )
 
 

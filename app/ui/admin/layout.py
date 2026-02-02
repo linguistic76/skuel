@@ -75,9 +75,9 @@ def StatusDot(status: str) -> Span:
         "healthy": "bg-success",
         "warning": "bg-warning",
         "critical": "bg-error",
-        "unknown": "bg-base-content/50",
+        "unknown": "bg-base-content/60",
     }
-    color_class = color_classes.get(status, "bg-base-content/50")
+    color_class = color_classes.get(status, "bg-base-content/60")
     return Span(
         cls=f"w-2 h-2 rounded-full {color_class}",
         title=f"Status: {status}",
@@ -103,7 +103,7 @@ def AdminSidebarItem(item: AdminNavItem, is_active: bool) -> A:
         right_content.append(
             Span(
                 item.badge,
-                cls="text-xs font-medium text-base-content/50",
+                cls="text-xs font-medium text-base-content/60",
             )
         )
 
@@ -438,7 +438,7 @@ class AdminLayout:
                 <span class="text-2xl font-bold text-primary">{admin_name}</span>
                 <span class="admin-badge">Admin</span>
             </div>
-            <p class="text-sm text-base-content/50 mt-1">Admin Dashboard</p>
+            <p class="text-sm text-base-content/60 mt-1">Admin Dashboard</p>
         </div>
         """
 
@@ -458,7 +458,7 @@ class AdminLayout:
             <hr class="border-base-300 mx-4 mb-4">
 
             <div class="px-4 mb-2">
-                <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">Admin Sections</span>
+                <span class="text-xs font-semibold text-base-content/60 uppercase tracking-wider">Admin Sections</span>
             </div>
             """
 
@@ -477,11 +477,11 @@ class AdminLayout:
             "healthy": "text-success",
             "warning": "text-warning",
             "critical": "text-error",
-        }.get(self.system_status, "text-base-content/50")
+        }.get(self.system_status, "text-base-content/60")
 
         nav_html += f"""
         <div class="absolute bottom-4 left-4 right-4">
-            <div class="flex items-center gap-2 text-xs text-base-content/50">
+            <div class="flex items-center gap-2 text-xs text-base-content/60">
                 {StatusDot(self.system_status)!s}
                 <span>System: <span class="{status_color} font-medium">{self.system_status.capitalize()}</span></span>
             </div>

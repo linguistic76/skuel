@@ -71,7 +71,7 @@
 
 .breadcrumbs li:not(:last-child)::after {
     content: "›";
-    @apply ml-2 text-base-content/50;
+    @apply ml-2 text-base-content/60;
 }
 
 .breadcrumbs li:last-child {
@@ -94,7 +94,7 @@
 
 /* Empty state */
 .tree-empty {
-    @apply text-base-content/50 text-sm italic text-center py-8;
+    @apply text-base-content/60 text-sm italic text-center py-8;
 }
 
 /* Alpine.js cloak */

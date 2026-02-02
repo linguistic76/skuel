@@ -339,7 +339,7 @@ class DocsLayout:
             <a href="{self.base_path}" class="text-2xl font-bold text-primary hover:text-primary-focus">
                 {nav_title}
             </a>
-            <p class="text-sm text-base-content/50 mt-1">{nav_subtitle}</p>
+            <p class="text-sm text-base-content/60 mt-1">{nav_subtitle}</p>
         </div>
         """
 
@@ -375,7 +375,7 @@ class DocsLayout:
         return f"""
         <aside class="hidden xl:block w-64 flex-shrink-0">
             <div class="sticky top-8">
-                <h4 class="text-sm font-semibold text-base-content/50 mb-4 uppercase tracking-wide">On this page</h4>
+                <h4 class="text-sm font-semibold text-base-content/60 mb-4 uppercase tracking-wide">On this page</h4>
                 <nav class="text-sm space-y-2">
                     {self.toc_html}
                 </nav>

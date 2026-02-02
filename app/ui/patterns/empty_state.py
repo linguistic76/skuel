@@ -46,7 +46,7 @@ def EmptyState(
     content = []
 
     if icon:
-        content.append(Div(icon, cls="text-5xl mb-4"))
+        content.append(Div(icon, cls="text-5xl mb-4", aria_hidden="true"))  # Decorative - title conveys meaning
 
     # Use a smaller, centered title for empty states
     content.append(Div(title, cls="text-xl font-semibold text-base-content"))

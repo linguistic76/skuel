@@ -50,7 +50,7 @@ class InvoiceViews:
                 H2("Invoices", cls="text-2xl font-bold text-base-content"),
                 Span(
                     f"{stats.get('total_count', 0)} total",
-                    cls="text-sm text-base-content/50",
+                    cls="text-sm text-base-content/60",
                 ),
                 cls="flex items-center justify-between mb-6",
             ),
@@ -104,7 +104,7 @@ class InvoiceViews:
                         Span(card["icon"], cls="text-2xl"),
                         Div(
                             Span(card["value"], cls="text-2xl font-bold"),
-                            Span(card["label"], cls="text-sm text-base-content/50"),
+                            Span(card["label"], cls="text-sm text-base-content/60"),
                             cls="flex flex-col",
                         ),
                         cls="flex items-center gap-3",
@@ -122,7 +122,7 @@ class InvoiceViews:
         return Div(
             # Type filter
             Div(
-                Label("Type", cls="text-sm font-medium text-base-content/50"),
+                Label("Type", cls="text-sm font-medium text-base-content/60"),
                 Select(
                     Option("All Types", value=""),
                     Option("Outgoing (To Clients)", value="outgoing"),
@@ -138,7 +138,7 @@ class InvoiceViews:
             ),
             # Status filter
             Div(
-                Label("Status", cls="text-sm font-medium text-base-content/50"),
+                Label("Status", cls="text-sm font-medium text-base-content/60"),
                 Select(
                     Option("All Statuses", value=""),
                     Option("Draft", value="draft"),
@@ -168,7 +168,7 @@ class InvoiceViews:
                     H3("No Invoices Yet", cls="text-lg font-semibold"),
                     Span(
                         "Create your first invoice using the form.",
-                        cls="text-sm text-base-content/50",
+                        cls="text-sm text-base-content/60",
                     ),
                     cls="flex flex-col items-center justify-center py-12",
                 ),
@@ -212,7 +212,7 @@ class InvoiceViews:
                     ),
                     Td(
                         inv.get("due_date", "N/A"),
-                        cls="py-3 px-4 text-base-content/50",
+                        cls="py-3 px-4 text-base-content/60",
                     ),
                     Td(
                         Span(
@@ -248,27 +248,27 @@ class InvoiceViews:
                     Tr(
                         Th(
                             "Invoice",
-                            cls="py-3 px-4 text-left text-sm font-semibold text-base-content/50",
+                            cls="py-3 px-4 text-left text-sm font-semibold text-base-content/60",
                         ),
                         Th(
                             "Counterparty",
-                            cls="py-3 px-4 text-left text-sm font-semibold text-base-content/50",
+                            cls="py-3 px-4 text-left text-sm font-semibold text-base-content/60",
                         ),
                         Th(
                             "Amount",
-                            cls="py-3 px-4 text-right text-sm font-semibold text-base-content/50",
+                            cls="py-3 px-4 text-right text-sm font-semibold text-base-content/60",
                         ),
                         Th(
                             "Due Date",
-                            cls="py-3 px-4 text-left text-sm font-semibold text-base-content/50",
+                            cls="py-3 px-4 text-left text-sm font-semibold text-base-content/60",
                         ),
                         Th(
                             "Status",
-                            cls="py-3 px-4 text-left text-sm font-semibold text-base-content/50",
+                            cls="py-3 px-4 text-left text-sm font-semibold text-base-content/60",
                         ),
                         Th(
                             "Actions",
-                            cls="py-3 px-4 text-left text-sm font-semibold text-base-content/50",
+                            cls="py-3 px-4 text-left text-sm font-semibold text-base-content/60",
                         ),
                         cls="bg-base-200",
                     ),
@@ -288,7 +288,7 @@ class InvoiceViews:
             Form(
                 # Invoice type
                 Div(
-                    Label("Type", cls="block text-sm font-medium text-base-content/50 mb-1"),
+                    Label("Type", cls="block text-sm font-medium text-base-content/60 mb-1"),
                     Div(
                         Label(
                             Input(
@@ -319,7 +319,7 @@ class InvoiceViews:
                 Div(
                     Label(
                         "Client/Vendor Name",
-                        cls="block text-sm font-medium text-base-content/50 mb-1",
+                        cls="block text-sm font-medium text-base-content/60 mb-1",
                     ),
                     Input(
                         type="text",
@@ -335,7 +335,7 @@ class InvoiceViews:
                     Div(
                         Label(
                             "Invoice Date",
-                            cls="block text-sm font-medium text-base-content/50 mb-1",
+                            cls="block text-sm font-medium text-base-content/60 mb-1",
                         ),
                         Input(
                             type="date",
@@ -347,7 +347,7 @@ class InvoiceViews:
                     ),
                     Div(
                         Label(
-                            "Due Date", cls="block text-sm font-medium text-base-content/50 mb-1"
+                            "Due Date", cls="block text-sm font-medium text-base-content/60 mb-1"
                         ),
                         Input(
                             type="date",
@@ -360,7 +360,7 @@ class InvoiceViews:
                 ),
                 # Line items section
                 Div(
-                    Label("Line Items", cls="block text-sm font-medium text-base-content/50 mb-2"),
+                    Label("Line Items", cls="block text-sm font-medium text-base-content/60 mb-2"),
                     Div(
                         # First line item (always visible)
                         InvoiceViews._render_line_item_row(0),
@@ -377,7 +377,7 @@ class InvoiceViews:
                 ),
                 # Notes
                 Div(
-                    Label("Notes", cls="block text-sm font-medium text-base-content/50 mb-1"),
+                    Label("Notes", cls="block text-sm font-medium text-base-content/60 mb-1"),
                     Textarea(
                         name="notes",
                         placeholder="Optional notes...",
@@ -472,7 +472,7 @@ class InvoiceViews:
             ),
             Div(
                 Span(
-                    "", cls="text-base-content/50"
+                    "", cls="text-base-content/60"
                 ),  # Placeholder for delete button (first item can't be deleted)
                 cls="col-span-1",
             ),

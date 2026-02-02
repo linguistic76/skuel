@@ -67,7 +67,7 @@ async def get_knowledge_unit(self, uid: str) -> Result[KnowledgeUnit]:
     return Result.ok(result.value)
 
 # Routes use @boundary_handler for HTTP conversion
-@rt("/api/knowledge/get")
+@rt("/api/ku/get")
 @boundary_handler()
 async def get_knowledge_route(request, uid: str):
     return await service.get_knowledge_unit(uid)  # Auto-converts Result[T] to HTTP

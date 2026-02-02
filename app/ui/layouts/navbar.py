@@ -32,15 +32,15 @@ from ui.layouts.nav_config import (
 
 
 def _nav_link(item: NavItem, active_page: str, mobile: bool = False) -> A:
-    """Create a navigation link with active state styling."""
+    """Create a navigation link with active state styling and keyboard focus."""
     is_active = item.page_key == active_page
 
     if mobile:
-        base_cls = "block rounded-md px-3 py-2 text-base font-medium"
+        base_cls = "block rounded-md px-3 py-2 text-base font-medium focus:outline-none focus:bg-base-300"
         active_cls = "bg-base-300 text-base-content"
         inactive_cls = "text-base-content/70 hover:bg-base-300 hover:text-base-content"
     else:
-        base_cls = "rounded-md px-3 py-2 text-sm font-medium"
+        base_cls = "rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
         active_cls = "bg-base-300 text-base-content"
         inactive_cls = "text-base-content/70 hover:bg-base-300 hover:text-base-content"
 
@@ -51,10 +51,10 @@ def _nav_link(item: NavItem, active_page: str, mobile: bool = False) -> A:
 
 
 def _bell_icon() -> NotStr:
-    """Create the notification bell SVG icon."""
+    """Create the notification bell SVG icon (decorative - button has sr-only label)."""
     return NotStr(
         '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" '
-        'stroke-width="1.5" stroke="currentColor" class="size-6">'
+        'stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">'
         '<path stroke-linecap="round" stroke-linejoin="round" '
         'd="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75'
         "a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0"
@@ -64,10 +64,10 @@ def _bell_icon() -> NotStr:
 
 
 def _hamburger_icon() -> NotStr:
-    """Create the hamburger menu SVG icon."""
+    """Create the hamburger menu SVG icon (decorative - button has sr-only label)."""
     return NotStr(
         '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" '
-        'stroke-width="1.5" stroke="currentColor" class="size-6">'
+        'stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">'
         '<path stroke-linecap="round" stroke-linejoin="round" '
         'd="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>'
         "</svg>"
@@ -75,10 +75,10 @@ def _hamburger_icon() -> NotStr:
 
 
 def _close_icon() -> NotStr:
-    """Create the close X SVG icon."""
+    """Create the close X SVG icon (decorative - button has sr-only label)."""
     return NotStr(
         '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" '
-        'stroke-width="1.5" stroke="currentColor" class="size-6">'
+        'stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">'
         '<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>'
         "</svg>"
     )
@@ -119,7 +119,7 @@ def _notification_button(unread_count: int = 0) -> Button:
 
 
 def _mobile_menu_button() -> Button:
-    """Create hamburger/close toggle button for mobile."""
+    """Create hamburger/close toggle button for mobile with keyboard navigation."""
     return Button(
         Span("Open menu", cls="sr-only"),
         # Show hamburger when closed, X when open
@@ -129,14 +129,16 @@ def _mobile_menu_button() -> Button:
         cls="btn btn-ghost btn-square sm:hidden",
         **{
             "@click": "toggleMobile()",
+            "@keydown.down.prevent": "toggleMobile()",
             "aria-label": "Toggle menu",
             ":aria-expanded": "mobileMenuOpen.toString()",
+            "aria-haspopup": "true",
         },
     )
 
 
 def _profile_dropdown(current_user: str) -> Div:
-    """Create profile dropdown using Alpine.js state."""
+    """Create profile dropdown using Alpine.js state with keyboard navigation."""
     user_initial = current_user[0].upper() if current_user else "U"
 
     return Div(
@@ -149,7 +151,13 @@ def _profile_dropdown(current_user: str) -> Div:
             ),
             type="button",
             cls="btn btn-ghost btn-circle",
-            **{"@click": "toggleProfile()", "data-profile-trigger": "true"},
+            **{
+                "@click": "toggleProfile()",
+                "@keydown.down.prevent": "toggleProfile()",
+                "data-profile-trigger": "true",
+                ":aria-expanded": "profileMenuOpen.toString()",
+                "aria-haspopup": "true",
+            },
         ),
         # Dropdown menu - explicit hx-boost=false for standard navigation
         Div(
@@ -157,14 +165,20 @@ def _profile_dropdown(current_user: str) -> Div:
                 A(
                     item.label,
                     href=item.href,
-                    cls="block px-4 py-2 text-sm text-base-content hover:bg-base-200 first:rounded-t-lg last:rounded-b-lg",
+                    cls="block px-4 py-2 text-sm text-base-content hover:bg-base-200 first:rounded-t-lg last:rounded-b-lg focus:outline-none focus:bg-base-200",
                     **{"hx-boost": "false"},
                 )
                 for item in PROFILE_MENU_ITEMS
             ],
             id="profile-dropdown",
             cls="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-lg bg-base-100 shadow-lg ring-1 ring-black/5",
-            **{"x-show": "profileMenuOpen", "x-transition": "", "x-cloak": ""},
+            role="menu",
+            **{
+                "x-show": "profileMenuOpen",
+                "x-transition": "",
+                "x-cloak": "",
+                "aria-orientation": "vertical",
+            },
         ),
         cls="relative",
     )
@@ -215,6 +229,8 @@ def create_navbar(
         Div(
             *[_nav_link(item, active_page, mobile=True) for item in nav_items],
             cls="space-y-1 px-2 pt-2 pb-3",
+            role="menu",
+            **{"aria-orientation": "vertical"},
         ),
         cls="sm:hidden",
         **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},

@@ -18,7 +18,7 @@ Successfully implemented typed `@dataclass` query parameters across all 8 UI fil
 
 | # | File | Dataclasses Added | Routes Updated | Status |
 |---|------|-------------------|----------------|--------|
-| 1 | `knowledge_ui.py` | `KnowledgeFilters` | 1 | ✅ |
+| 1 | `ku_ui.py` | `KuFilters` | 1 | ✅ |
 | 2 | `moc_ui.py` | `MocFilters` | 1 | ✅ |
 | 3 | `user_profile_ui.py` | `ProfileParams` | 1 | ✅ |
 | 4 | `insights_history_ui.py` | `InsightsHistoryParams` | 1 | ✅ |
@@ -45,19 +45,19 @@ async def knowledge_filter_fragment(request) -> Any:
 ### After (Typed Pattern)
 ```python
 @dataclass
-class KnowledgeFilters:
+class KuFilters:
     """Typed filters for knowledge unit list queries."""
     domain: str
 
-def parse_knowledge_filters(request: Request) -> KnowledgeFilters:
+def parse_ku_filters(request: Request) -> KuFilters:
     """Extract filter parameters from request query params."""
-    return KnowledgeFilters(
+    return KuFilters(
         domain=request.query_params.get("domain", "all"),
     )
 
 @rt("/knowledge/filter")
 async def knowledge_filter_fragment(request) -> Any:
-    filters = parse_knowledge_filters(request)  # Type-safe!
+    filters = parse_ku_filters(request)  # Type-safe!
     # IDE autocompletes: filters.domain
     # ... use filters.domain
 ```
@@ -66,12 +66,12 @@ async def knowledge_filter_fragment(request) -> Any:
 
 ## Detailed Implementation
 
-### 1. knowledge_ui.py ✅
+### 1. ku_ui.py ✅
 
-**Dataclass:** `KnowledgeFilters`
+**Dataclass:** `KuFilters`
 - `domain: str` - Domain filter (default: "all")
 
-**Parser:** `parse_knowledge_filters(request)`
+**Parser:** `parse_ku_filters(request)`
 
 **Route Updated:**
 - `/knowledge/filter` - Domain-based filtering
@@ -217,7 +217,7 @@ async def knowledge_filter_fragment(request) -> Any:
 domain_filter = params.get("doamin", "all")  # Silent bug!
 
 # After: MyPy catches typos
-filters.doamin  # Error: 'KnowledgeFilters' has no attribute 'doamin'
+filters.doamin  # Error: 'KuFilters' has no attribute 'doamin'
 ```
 
 ### 2. IDE Autocomplete ✅
@@ -233,7 +233,7 @@ class MockRequest:
     query_params = {"domain": "TECH"}
 
 # After: Direct dataclass instantiation
-filters = KnowledgeFilters(domain="TECH")
+filters = KuFilters(domain="TECH")
 ```
 
 ### 4. Documentation ✅
@@ -249,8 +249,8 @@ class InsightsFilters:
 
 ### 5. Default Values Centralized ✅
 ```python
-def parse_knowledge_filters(request: Request) -> KnowledgeFilters:
-    return KnowledgeFilters(
+def parse_ku_filters(request: Request) -> KuFilters:
+    return KuFilters(
         domain=request.query_params.get("domain", "all"),  # Default in ONE place
     )
 ```
@@ -272,14 +272,14 @@ def parse_insights_filters(request: Request) -> InsightsFilters:
 ## Naming Conventions Followed
 
 ### Dataclass Names
-- **List filtering:** `{Domain}Filters` (e.g., `KnowledgeFilters`, `InsightsFilters`)
+- **List filtering:** `{Domain}Filters` (e.g., `KuFilters`, `InsightsFilters`)
 - **View parameters:** `{Domain}Params` (e.g., `ProfileParams`, `ReportViewParams`)
 - **General parameters:** `{Feature}Params` (e.g., `PeriodParams`, `UserReportParams`)
 
 ### Parser Names
 - **Pattern:** `parse_{domain}_filters()` or `parse_{domain}_params()`
 - **Examples:**
-  - `parse_knowledge_filters()`
+  - `parse_ku_filters()`
   - `parse_insights_filters()`
   - `parse_period_params()`
   - `parse_user_report_params()`
@@ -327,7 +327,7 @@ def parse_insights_filters(request: Request) -> InsightsFilters:
 ### Syntax Validation ✅
 ```bash
 poetry run python -m py_compile \
-  adapters/inbound/knowledge_ui.py \
+  adapters/inbound/ku_ui.py \
   adapters/inbound/moc_ui.py \
   adapters/inbound/user_profile_ui.py \
   adapters/inbound/insights_history_ui.py \
@@ -341,7 +341,7 @@ poetry run python -m py_compile \
 
 ### Type Checking (Recommended)
 ```bash
-poetry run mypy adapters/inbound/knowledge_ui.py
+poetry run mypy adapters/inbound/ku_ui.py
 poetry run mypy adapters/inbound/insights_ui.py
 poetry run mypy adapters/inbound/reports_ui.py
 # ... etc
@@ -362,23 +362,23 @@ poetry run mypy adapters/inbound/reports_ui.py
 
 ### Unit Testing (Example)
 ```python
-from adapters.inbound.knowledge_ui import parse_knowledge_filters
+from adapters.inbound.knowledge_ui import parse_ku_filters
 
-def test_parse_knowledge_filters():
+def test_parse_ku_filters():
     """Test knowledge filter parsing."""
     # Mock request
     class MockRequest:
         query_params = {"domain": "TECH"}
 
-    filters = parse_knowledge_filters(MockRequest())
+    filters = parse_ku_filters(MockRequest())
     assert filters.domain == "TECH"
 
-def test_parse_knowledge_filters_defaults():
+def test_parse_ku_filters_defaults():
     """Test default values."""
     class MockRequest:
         query_params = {}
 
-    filters = parse_knowledge_filters(MockRequest())
+    filters = parse_ku_filters(MockRequest())
     assert filters.domain == "all"
 ```
 
@@ -413,7 +413,7 @@ def test_parse_knowledge_filters_defaults():
 ## Files Location
 
 All modified files are in `/home/mike/skuel/app/adapters/inbound/`:
-- `knowledge_ui.py`
+- `ku_ui.py`
 - `moc_ui.py`
 - `user_profile_ui.py`
 - `insights_history_ui.py`

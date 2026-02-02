@@ -305,14 +305,14 @@ grep "Registered tasks routes" logs/skuel.log
 
 ### Example 1: Single Service (Knowledge)
 
-**File:** `/adapters/inbound/knowledge_routes.py`
+**File:** `/adapters/inbound/ku_routes.py`
 
 ```python
-KNOWLEDGE_CONFIG = DomainRouteConfig(
-    domain_name="knowledge",
+KU_CONFIG = DomainRouteConfig(
+    domain_name="ku",
     primary_service_attr="ku",  # services.ku
-    api_factory=create_knowledge_api_routes,
-    ui_factory=create_knowledge_ui_routes,
+    api_factory=create_ku_api_routes,
+    ui_factory=create_ku_ui_routes,
     api_related_services={},  # No additional services needed
 )
 ```
@@ -549,7 +549,7 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 
 **Other Domains (6):** *(Migrated 2026-01-24)*
 7. `/adapters/inbound/learning_routes.py` (72 lines) - LP + LS routes
-8. `/adapters/inbound/knowledge_routes.py` (49 lines) - KU routes
+8. `/adapters/inbound/ku_routes.py` (49 lines) - KU routes
 9. `/adapters/inbound/context_routes.py` (49 lines) - UserContext routes
 10. `/adapters/inbound/reports_routes.py` (63 lines) - Meta-analysis
 11. `/adapters/inbound/finance_routes.py` (61 lines) - Admin-only bookkeeping

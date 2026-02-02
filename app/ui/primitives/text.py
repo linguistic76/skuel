@@ -88,7 +88,7 @@ def BodyText(text: str, muted: bool = False, **kwargs: Any) -> P:
     Returns:
         A P element with body text styling
     """
-    color = "text-base-content/50" if muted else "text-base-content"
+    color = "text-base-content/60" if muted else "text-base-content"
     return P(text, cls=f"text-base leading-relaxed {color}", **kwargs)
 
 
@@ -103,7 +103,7 @@ def SmallText(text: str, muted: bool = True, **kwargs: Any) -> Span:
     Returns:
         A Span element with small text styling
     """
-    color = "text-base-content/50" if muted else "text-base-content/70"
+    color = "text-base-content/60" if muted else "text-base-content/70"
     return Span(text, cls=f"text-sm {color}", **kwargs)
 
 
@@ -117,7 +117,7 @@ def Caption(text: str, **kwargs: Any) -> Span:
     Returns:
         A Span element with caption styling
     """
-    return Span(text, cls="text-xs text-base-content/50 uppercase tracking-wide", **kwargs)
+    return Span(text, cls="text-xs text-base-content/60 uppercase tracking-wide", **kwargs)
 
 
 def TruncatedText(text: str, lines: int = 1, cls: str = "", **kwargs: Any) -> Span:

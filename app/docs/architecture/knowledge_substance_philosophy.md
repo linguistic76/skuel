@@ -166,7 +166,7 @@ class KuService:
 ### API Endpoint
 
 ```
-GET /api/knowledge/{uid}/my-context
+GET /api/ku/{uid}/my-context
 ```
 
 Requires authentication. Returns personalized substance data for the current user.
@@ -226,7 +226,7 @@ user_substance_score = task_score + habit_score + event_score + journal_score + 
 
 - **Service:** `KuIntelligenceService.calculate_user_substance(ku_uid, user_context)`
 - **Facade:** `KuService.get_user_knowledge_context(ku_uid, user_context)`
-- **Route:** `/adapters/inbound/knowledge_api.py` (`get_knowledge_user_context_route`)
+- **Route:** `/adapters/inbound/ku_api.py` (`get_knowledge_user_context_route`)
 - **Wiring:** `user_service` passed through `services_bootstrap.py` → `KuService` → `KuIntelligenceService`
 
 ### Future: UserContext Extensions
@@ -352,7 +352,7 @@ Div(
 |-----------|----------|---------|
 | **Substance Fields** | `/core/models/ku/ku.py` | Times applied, last use dates, cached scores |
 | **Decay Algorithm** | `/core/models/ku/ku.py` | Exponential decay, spaced repetition |
-| **Domain Events** | `/core/events/knowledge_events.py` | 5 substance events |
+| **Domain Events** | `/core/events/ku_events.py` | 5 substance events |
 | **Event Listeners** | `/core/services/ku_service.py` | Atomic substance updates |
 | **Event Wiring** | `/core/utils/services_bootstrap.py` | Subscribe KuService to events |
 | **Dashboard UI** | `/core/ui/substance_dashboard.py` | Substance visualization |
@@ -393,7 +393,7 @@ Div(
 
 ## Substance Events Catalog
 
-**Location:** `/core/events/knowledge_events.py`
+**Location:** `/core/events/ku_events.py`
 
 ### 1. KnowledgeAppliedInTask
 - **Increments:** `times_applied_in_tasks`
@@ -481,7 +481,7 @@ substance_score = min(1.0, sum([
 ## Related Documentation
 
 - [Substance Tracking Implementation](/home/mike/skuel/app/SUBSTANCE_TRACKING_IMPLEMENTATION.md)
-- [Knowledge Events Catalog](/home/mike/skuel/app/core/events/knowledge_events.py)
+- [Knowledge Events Catalog](/home/mike/skuel/app/core/events/ku_events.py)
 - [Substance Dashboard Components](/home/mike/skuel/app/core/ui/substance_dashboard.py)
 - [KU Model Implementation](/home/mike/skuel/app/core/models/ku/ku.py)
 - [Event-Driven Architecture Guide](/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md)

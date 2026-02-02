@@ -319,7 +319,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
 
         # Publish batch knowledge event for substance tracking (O(1) vs O(n))
         if task_request.applies_knowledge_uids:
-            from core.events.knowledge_events import KnowledgeBulkAppliedInTask
+            from core.events.ku_events import KnowledgeBulkAppliedInTask
 
             knowledge_event = KnowledgeBulkAppliedInTask(
                 knowledge_uids=tuple(task_request.applies_knowledge_uids),

@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from starlette.requests import Request
 
 
-def create_goals_page(
+async def create_goals_page(
     content: Any,
     user_display_name: str = "",
     is_authenticated: bool = True,
@@ -46,9 +46,9 @@ def create_goals_page(
             GoalsViewComponents.render_list_view(goals, filters, stats),
             cls="p-4 lg:p-8 max-w-7xl mx-auto",
         )
-        return create_goals_page(content, "goals", request=request)
+        return await create_goals_page(content, "goals", request=request)
     """
-    return create_activity_page(
+    return await create_activity_page(
         content=content,
         domain="goals",
         request=request,

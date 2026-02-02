@@ -53,7 +53,7 @@ def IndentedList(
 
     if not items:
         return Div(
-            Span("No items", cls="text-base-content/50 text-sm italic text-center py-4"),
+            Span("No items", cls="text-base-content/60 text-sm italic text-center py-4"),
             cls="indented-list bg-base-100 rounded-lg border border-base-300 p-4",
             **kwargs,
         )

@@ -1,6 +1,6 @@
 """
-Knowledge API - Migrated to CRUDRouteFactory
-=============================================
+KU API - Migrated to CRUDRouteFactory
+======================================
 
 Sixth migration in Phase 1 CRUD API rollout.
 
@@ -26,14 +26,14 @@ from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
 
-def create_knowledge_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol) -> list[Any]:
+def create_ku_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol) -> list[Any]:
     """
-    Create knowledge API routes using factory pattern.
+    Create KU API routes using factory pattern.
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        ku_service: Knowledge service instance
+        ku_service: KU service instance
     """
 
     # ========================================================================
@@ -43,19 +43,19 @@ def create_knowledge_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol)
     # Create factory for standard CRUD operations
     crud_factory = CRUDRouteFactory(
         service=ku_service,
-        domain_name="knowledge",
+        domain_name="ku",
         create_schema=KuCreateRequest,
         update_schema=KuUpdateRequest,
-        uid_prefix="knowledge",
+        uid_prefix="ku",
         scope=ContentScope.SHARED,  # Curriculum content is shared
     )
 
     # Register all standard CRUD routes:
-    # - POST   /api/knowledge           (create)
-    # - GET    /api/knowledge/{uid}     (get)
-    # - PUT    /api/knowledge/{uid}     (update)
-    # - DELETE /api/knowledge/{uid}     (delete)
-    # - GET    /api/knowledge           (list with pagination)
+    # - POST   /api/ku           (create)
+    # - GET    /api/ku/{uid}     (get)
+    # - PUT    /api/ku/{uid}     (update)
+    # - DELETE /api/ku/{uid}     (delete)
+    # - GET    /api/ku           (list with pagination)
     crud_factory.register_routes(app, rt)
 
     # ========================================================================
@@ -64,27 +64,27 @@ def create_knowledge_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol)
 
     intelligence_factory = IntelligenceRouteFactory(
         intelligence_service=ku_service.intelligence,
-        domain_name="knowledge",
+        domain_name="ku",
         scope=ContentScope.SHARED,  # Curriculum content is shared
     )
 
     # Register intelligence routes:
-    # - GET /api/knowledge/context?uid=...&depth=2     (entity with graph context)
-    # - GET /api/knowledge/analytics?period_days=30   (user performance analytics)
-    # - GET /api/knowledge/insights?uid=...           (domain-specific insights)
+    # - GET /api/ku/context?uid=...&depth=2     (entity with graph context)
+    # - GET /api/ku/analytics?period_days=30   (user performance analytics)
+    # - GET /api/ku/insights?uid=...           (domain-specific insights)
     intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
     # ========================================================================
 
-    # Knowledge Relationships
-    # -----------------------
+    # KU Relationships
+    # ----------------
 
-    @rt("/api/knowledge/relationships", methods=["POST"])
+    @rt("/api/ku/relationships", methods=["POST"])
     @boundary_handler()
-    async def create_knowledge_relationship_route(request: Request, uid: str) -> Result[Any]:
-        """Create a relationship between knowledge units."""
+    async def create_ku_relationship_route(request: Request, uid: str) -> Result[Any]:
+        """Create a relationship between KUs."""
         body = await request.json()
         target_uid = body.get("target_uid")
         relationship_type = body.get("type", "RELATED_TO")
@@ -95,35 +95,35 @@ def create_knowledge_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol)
             uid, target_uid, relationship_type, strength, description
         )
 
-    @rt("/api/knowledge/relationships", methods=["GET"])
+    @rt("/api/ku/relationships", methods=["GET"])
     @boundary_handler()
-    async def get_knowledge_relationships_route(request: Request, uid: str) -> Result[Any]:
-        """Get relationships for a knowledge unit."""
+    async def get_ku_relationships_route(request: Request, uid: str) -> Result[Any]:
+        """Get relationships for a KU."""
         params = dict(request.query_params)
         relationship_type = params.get("type")
         # Note: direction param not supported by KuService - ignoring for now
 
         return await ku_service.get_knowledge_relationships(uid, relationship_type)
 
-    @rt("/api/knowledge/prerequisites")
+    @rt("/api/ku/prerequisites")
     @boundary_handler()
-    async def get_knowledge_prerequisites_route(request: Request, uid: str) -> Result[Any]:
-        """Get prerequisites for a knowledge unit."""
+    async def get_ku_prerequisites_route(request: Request, uid: str) -> Result[Any]:
+        """Get prerequisites for a KU."""
         return await ku_service.get_knowledge_prerequisites(uid)
 
-    @rt("/api/knowledge/dependencies")
+    @rt("/api/ku/dependencies")
     @boundary_handler()
-    async def get_knowledge_dependencies_route(request: Request, uid: str) -> Result[Any]:
-        """Get what depends on this knowledge unit."""
+    async def get_ku_dependencies_route(request: Request, uid: str) -> Result[Any]:
+        """Get what depends on this KU."""
         return await ku_service.get_knowledge_dependencies(uid)
 
-    # Knowledge Content Operations
-    # -----------------------------
+    # KU Content Operations
+    # ---------------------
 
-    @rt("/api/knowledge/content")
+    @rt("/api/ku/content")
     @boundary_handler()
     async def update_ku_content_route(request: Request, uid: str) -> Result[Any]:
-        """Update knowledge unit content."""
+        """Update KU content."""
         body = await request.json()
         content = body.get("content")
         title = body.get("title")  # Optional title update
@@ -131,31 +131,31 @@ def create_knowledge_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol)
 
         return await ku_service.update_ku_content(uid, content, title)
 
-    @rt("/api/knowledge/tags", methods=["POST"])
+    @rt("/api/ku/tags", methods=["POST"])
     @boundary_handler()
-    async def add_knowledge_tags_route(request: Request, uid: str) -> Result[Any]:
-        """Add tags to a knowledge unit."""
+    async def add_ku_tags_route(request: Request, uid: str) -> Result[Any]:
+        """Add tags to a KU."""
         body = await request.json()
         tags = body.get("tags", [])
 
         return await ku_service.add_knowledge_tags(uid, tags)
 
-    @rt("/api/knowledge/tags", methods=["DELETE"])
+    @rt("/api/ku/tags", methods=["DELETE"])
     @boundary_handler()
-    async def remove_knowledge_tags_route(request: Request, uid: str) -> Result[Any]:
-        """Remove tags from a knowledge unit."""
+    async def remove_ku_tags_route(request: Request, uid: str) -> Result[Any]:
+        """Remove tags from a KU."""
         body = await request.json()
         tags = body.get("tags", [])
 
         return await ku_service.remove_knowledge_tags(uid, tags)
 
-    # Knowledge Search and Discovery
-    # -------------------------------
+    # KU Search and Discovery
+    # -----------------------
 
-    @rt("/api/knowledge/search")
+    @rt("/api/ku/search")
     @boundary_handler()
-    async def search_knowledge_units_route(request: Request) -> Result[Any]:
-        """Search knowledge units by content, title, or tags."""
+    async def search_ku_route(request: Request) -> Result[Any]:
+        """Search KUs by content, title, or tags."""
         params = dict(request.query_params)
         query = params.get("q", "")
         # Note: search_type param not supported by KuService - searches all by default
@@ -163,80 +163,80 @@ def create_knowledge_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol)
 
         return await ku_service.search_knowledge_units(query, limit)
 
-    @rt("/api/knowledge/related")
+    @rt("/api/ku/related")
     @boundary_handler()
-    async def find_related_knowledge_route(request: Request, uid: str) -> Result[Any]:
-        """Find knowledge units related to the given unit."""
+    async def find_related_ku_route(request: Request, uid: str) -> Result[Any]:
+        """Find KUs related to the given unit."""
         params = dict(request.query_params)
         similarity_threshold = float(params.get("threshold", 0.7))
         limit = int(params.get("limit", 10))
 
         return await ku_service.find_related_knowledge(uid, similarity_threshold, limit)
 
-    @rt("/api/knowledge/recommendations")
+    @rt("/api/ku/recommendations")
     @boundary_handler()
-    async def get_knowledge_recommendations_route(request: Request, uid: str) -> Result[Any]:
-        """Get personalized knowledge recommendations."""
+    async def get_ku_recommendations_route(request: Request, uid: str) -> Result[Any]:
+        """Get personalized KU recommendations."""
         params = dict(request.query_params)
         user_uid = params.get("user_uid")
         recommendation_type = params.get("type", "learning")
 
         return await ku_service.get_knowledge_recommendations(uid, user_uid, recommendation_type)
 
-    # Knowledge Organization
-    # ----------------------
+    # KU Organization
+    # ---------------
 
-    @rt("/api/knowledge/domains")
+    @rt("/api/ku/domains")
     @boundary_handler()
-    async def list_knowledge_domains_route(_request: Request) -> Result[Any]:
-        """List all knowledge domains."""
+    async def list_ku_domains_route(_request: Request) -> Result[Any]:
+        """List all KU domains."""
         return await ku_service.list_knowledge_domains()
 
-    @rt("/api/knowledge/by-domain")
+    @rt("/api/ku/by-domain")
     @boundary_handler()
-    async def get_knowledge_by_domain_route(request: Request, domain: str) -> Result[Any]:
-        """Get knowledge units in a specific domain."""
+    async def get_ku_by_domain_route(request: Request, domain: str) -> Result[Any]:
+        """Get KUs in a specific domain."""
         params = dict(request.query_params)
         limit = int(params.get("limit", 100))
 
         return await ku_service.get_knowledge_by_domain(domain, limit)
 
-    @rt("/api/knowledge/categories")
+    @rt("/api/ku/categories")
     @boundary_handler()
-    async def list_knowledge_categories_route(_request: Request) -> Result[Any]:
-        """List all knowledge categories."""
+    async def list_ku_categories_route(_request: Request) -> Result[Any]:
+        """List all KU categories."""
         return await ku_service.list_knowledge_categories()
 
-    @rt("/api/knowledge/tags")
+    @rt("/api/ku/tags")
     @boundary_handler()
-    async def list_knowledge_tags_route(request: Request) -> Result[Any]:
-        """List all knowledge tags with usage counts."""
+    async def list_ku_tags_route(request: Request) -> Result[Any]:
+        """List all KU tags with usage counts."""
         params = dict(request.query_params)
         min_usage = int(params.get("min_usage", 1))
 
         return await ku_service.list_knowledge_tags(min_usage)
 
-    # Knowledge Analytics
-    # -------------------
+    # KU Analytics
+    # ------------
 
-    @rt("/api/knowledge/stats")
+    @rt("/api/ku/stats")
     @boundary_handler()
-    async def get_knowledge_stats_route(request: Request, uid: str) -> Result[Any]:
-        """Get statistics for a knowledge unit."""
+    async def get_ku_stats_route(request: Request, uid: str) -> Result[Any]:
+        """Get statistics for a KU."""
         return await ku_service.get_knowledge_stats(uid)
 
     # ========================================================================
     # USER CONTEXT ROUTES - KU-Activity Integration (January 2026)
     # ========================================================================
 
-    @rt("/api/knowledge/my-context")
+    @rt("/api/ku/my-context")
     @boundary_handler()
-    async def get_knowledge_user_context_route(request: Request, uid: str) -> Result[Any]:
+    async def get_ku_user_context_route(request: Request, uid: str) -> Result[Any]:
         """
-        Get personalized context for how the current user uses this knowledge.
+        Get personalized context for how the current user uses this KU.
 
         Returns per-user substance score, activity breakdown, and recommendations
-        for deepening knowledge application.
+        for deepening KU application.
 
         Requires authentication - returns 401 if not logged in.
 
@@ -261,7 +261,7 @@ def create_knowledge_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol)
             return Result.fail(
                 Errors.system(
                     message="User service not available",
-                    operation="get_knowledge_user_context",
+                    operation="get_ku_user_context",
                 )
             )
 
@@ -278,30 +278,30 @@ def create_knowledge_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol)
 
     # Analytics handler functions
     async def handle_summary_analytics(service, params):
-        """Handle summary analytics for all knowledge."""
+        """Handle summary analytics for all KUs."""
         time_period = params.get("period", "month")
         return await service.get_knowledge_summary_analytics(time_period)
 
     async def handle_graph_structure(service, params):
-        """Handle knowledge graph structure and metrics."""
+        """Handle KU graph structure and metrics."""
         include_metrics = params.get("metrics", "true").lower() == "true"
         return await service.get_knowledge_graph_structure(include_metrics)
 
     # Create analytics factory
     analytics_factory = AnalyticsRouteFactory(
         service=ku_service,
-        domain_name="knowledge",
+        domain_name="ku",
         analytics_config={
             "summary": {
-                "path": "/api/knowledge/analytics/summary",
+                "path": "/api/ku/analytics/summary",
                 "handler": handle_summary_analytics,
-                "description": "Get summary analytics for all knowledge",
+                "description": "Get summary analytics for all KUs",
                 "methods": ["GET"],
             },
             "graph_structure": {
-                "path": "/api/knowledge/graph/structure",
+                "path": "/api/ku/graph/structure",
                 "handler": handle_graph_structure,
-                "description": "Get knowledge graph structure and metrics",
+                "description": "Get KU graph structure and metrics",
                 "methods": ["GET"],
             },
         },
@@ -314,7 +314,7 @@ def create_knowledge_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol)
 # Migration Statistics:
 # =====================
 # Phase 1 - CRUD Factory Migration:
-# Before (knowledge_api.py):     327 lines
+# Before (ku_api.py):            327 lines
 # After (CRUD factory):          ~270 lines
 # CRUD Reduction:                57 lines (17% reduction via CRUDRouteFactory)
 #

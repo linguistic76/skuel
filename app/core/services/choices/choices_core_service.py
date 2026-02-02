@@ -277,7 +277,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
 
         # Publish batch knowledge event for substance tracking (O(1) vs O(n))
         if choice_request.informed_by_knowledge_uids:
-            from core.events.knowledge_events import KnowledgeBulkInformedChoice
+            from core.events.ku_events import KnowledgeBulkInformedChoice
 
             knowledge_event = KnowledgeBulkInformedChoice(
                 knowledge_uids=tuple(choice_request.informed_by_knowledge_uids),

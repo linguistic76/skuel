@@ -143,14 +143,14 @@ KuIntelligenceService provides knowledge analytics:
 
 ### Standard CRUD (CRUDRouteFactory)
 - `POST /api/knowledge` - Create KU
-- `GET /api/knowledge/{uid}` - Get KU
-- `PUT /api/knowledge/{uid}` - Update KU
-- `DELETE /api/knowledge/{uid}` - Delete KU
+- `GET /api/ku/{uid}` - Get KU
+- `PUT /api/ku/{uid}` - Update KU
+- `DELETE /api/ku/{uid}` - Delete KU
 - `GET /api/knowledge` - List KUs with pagination
 
 ### Personalized Context (January 2026)
 
-**`GET /api/knowledge/{uid}/my-context`** - Returns how the authenticated user uses this knowledge.
+**`GET /api/ku/{uid}/my-context`** - Returns how the authenticated user uses this knowledge.
 
 Requires authentication. Returns per-user substance score, activity breakdown, and recommendations.
 
@@ -173,12 +173,12 @@ Requires authentication. Returns per-user substance score, activity breakdown, a
 ```
 
 ### Other Endpoints
-- `GET /api/knowledge/{uid}/relationships` - Get relationships
-- `GET /api/knowledge/{uid}/prerequisites` - Get prerequisites
-- `GET /api/knowledge/{uid}/dependencies` - Get dependents
-- `GET /api/knowledge/search?q=...` - Search KUs
-- `GET /api/knowledge/related/{uid}` - Find related KUs
-- `GET /api/knowledge/analytics/summary` - Summary analytics
+- `GET /api/ku/{uid}/relationships` - Get relationships
+- `GET /api/ku/{uid}/prerequisites` - Get prerequisites
+- `GET /api/ku/{uid}/dependencies` - Get dependents
+- `GET /api/ku/search?q=...` - Search KUs
+- `GET /api/ku/related/{uid}` - Find related KUs
+- `GET /api/ku/analytics/summary` - Summary analytics
 
 ## MEGA-QUERY Sections
 

@@ -77,7 +77,7 @@ class ActivityLayout:
         """Get display title for the domain."""
         return DOMAIN_TITLES.get(self.domain, self.domain.title())
 
-    def render(self, content: Any) -> "FT":
+    async def render(self, content: Any) -> "FT":
         """
         Render the activity domain page layout.
 
@@ -92,7 +92,7 @@ class ActivityLayout:
         """
         # Prefer request-based navbar (auto-detects user, admin from session)
         if self.request is not None:
-            navbar = create_navbar_for_request(self.request, active_page=self.domain)
+            navbar = await create_navbar_for_request(self.request, active_page=self.domain)
         else:
             # Fallback for backwards compatibility
             navbar = create_navbar(
@@ -147,7 +147,7 @@ class ActivityLayout:
         )
 
 
-def create_activity_page(
+async def create_activity_page(
     content: Any,
     domain: str,
     request: "Request | None" = None,
@@ -178,7 +178,7 @@ def create_activity_page(
             GoalsViewComponents.render_list_view(goals, filters, stats),
             cls="p-6 lg:p-8 max-w-6xl mx-auto",  # Standard SKUEL container
         )
-        return create_activity_page(content, "goals", request=request)
+        return await create_activity_page(content, "goals", request=request)
     """
     layout = ActivityLayout(
         domain=domain,
@@ -187,7 +187,7 @@ def create_activity_page(
         is_authenticated=is_authenticated,
         is_admin=is_admin,
     )
-    return layout.render(content)
+    return await layout.render(content)
 
 
 __all__ = ["ActivityLayout", "create_activity_page", "DOMAIN_TITLES", "DOMAIN_CSS"]

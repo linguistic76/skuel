@@ -39,18 +39,18 @@
 
 ### Phase 1: Simple Migrations (Single-Service Domains)
 
-#### 1.1: knowledge_routes.py ✅
+#### 1.1: ku_routes.py ✅
 **Before:** 76 lines
 **After:** 49 lines
 **Reduction:** 35% (27 lines)
 
 **Configuration:**
 ```python
-KNOWLEDGE_CONFIG = DomainRouteConfig(
-    domain_name="knowledge",
+KU_CONFIG = DomainRouteConfig(
+    domain_name="ku",
     primary_service_attr="ku",
-    api_factory=create_knowledge_api_routes,
-    ui_factory=create_knowledge_ui_routes,
+    api_factory=create_ku_api_routes,
+    ui_factory=create_ku_ui_routes,
     api_related_services={},
 )
 ```

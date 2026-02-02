@@ -698,7 +698,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                 ErrorComponents.render_error_banner("Failed to load habits"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
-            return create_habits_page(error_content, request=request)
+            return await create_habits_page(error_content, request=request)
 
         if categories_result.is_error:
             error_content = Div(
@@ -706,7 +706,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
                 ErrorComponents.render_error_banner("Failed to load categories"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
-            return create_habits_page(error_content, request=request)
+            return await create_habits_page(error_content, request=request)
 
         # Extract values
         habits, stats = filtered_result.value
@@ -751,7 +751,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
             cls=f"{Spacing.PAGE} {Container.WIDE}",
         )
 
-        return create_habits_page(page_content, request=request)
+        return await create_habits_page(page_content, request=request)
 
     # ========================================================================
     # HTMX VIEW FRAGMENTS

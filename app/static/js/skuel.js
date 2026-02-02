@@ -26,6 +26,195 @@
         }
     };
 
+    /**
+     * Live Region Announcer - Task 10: HTMX + Screen Reader Integration
+     * Announces dynamic content changes to screen readers via ARIA live regions.
+     *
+     * @param {string} message - Message to announce
+     * @param {string} priority - 'polite' (default) or 'assertive'
+     */
+    window.SKUEL.announce = function(message, priority) {
+        priority = priority || 'polite';
+
+        var liveRegion = document.getElementById('live-region');
+        if (!liveRegion) {
+            console.warn('[SKUEL] Live region not found');
+            return;
+        }
+
+        // Set aria-live priority
+        liveRegion.setAttribute('aria-live', priority);
+
+        // Set message
+        liveRegion.textContent = message;
+
+        // Clear after 3 seconds to avoid stale announcements
+        setTimeout(function() {
+            liveRegion.textContent = '';
+        }, 3000);
+    };
+
+    // =========================================================================
+    // HTMX Integration - Task 10: Accessibility Announcements
+    // =========================================================================
+
+    /**
+     * HTMX event handlers for accessibility announcements.
+     * Announces loading states, success, and errors to screen readers.
+     */
+    document.addEventListener('DOMContentLoaded', function() {
+        var body = document.body;
+
+        // Before HTMX request - announce loading state
+        body.addEventListener('htmx:beforeRequest', function(event) {
+            var target = event.detail.target;
+            var elt = event.detail.elt;  // The element that triggered the request
+
+            // Add aria-busy to target element
+            if (target) {
+                target.setAttribute('aria-busy', 'true');
+            }
+
+            // Check for custom loading announcement on triggering element
+            var loadingMessage = null;
+            if (elt && elt.getAttribute) {
+                loadingMessage = elt.getAttribute('data-announce-loading');
+            }
+
+            // If custom loading message exists, use it
+            if (loadingMessage) {
+                window.SKUEL.announce(loadingMessage + '...', 'polite');
+                return;
+            }
+
+            // Otherwise, auto-detect from path/verb
+            var verb = event.detail.verb || 'GET';
+            var path = event.detail.path || '';
+
+            // Determine operation type from path/verb
+            var operation = 'Loading';
+            if (verb === 'POST' || verb === 'PUT') {
+                if (path.includes('/create')) {
+                    operation = 'Creating';
+                } else if (path.includes('/update') || path.includes('/edit') || path.includes('/save')) {
+                    operation = 'Updating';
+                } else if (path.includes('/delete') || path.includes('/remove')) {
+                    operation = 'Deleting';
+                } else if (path.includes('/complete')) {
+                    operation = 'Completing';
+                } else if (path.includes('/upload')) {
+                    operation = 'Uploading';
+                } else if (path.includes('/track')) {
+                    operation = 'Tracking';
+                } else if (path.includes('/enroll')) {
+                    operation = 'Enrolling';
+                } else if (path.includes('/toggle')) {
+                    operation = 'Updating status';
+                }
+            }
+
+            // Announce for non-GET requests (mutations)
+            if (verb !== 'GET') {
+                window.SKUEL.announce(operation + '...', 'polite');
+            }
+        });
+
+        // After HTMX request succeeds
+        body.addEventListener('htmx:afterSwap', function(event) {
+            var target = event.detail.target;
+            var elt = event.detail.elt;  // The element that triggered the request
+
+            // Remove aria-busy from target element
+            if (target) {
+                target.setAttribute('aria-busy', 'false');
+            }
+
+            var successMessage = null;
+
+            // 1. Check for data-announce on triggering element (highest priority)
+            if (elt && elt.getAttribute) {
+                successMessage = elt.getAttribute('data-announce');
+            }
+
+            // 2. Check for data-announce in swapped content
+            if (!successMessage && target) {
+                var announceEl = target.querySelector('[data-announce]');
+                if (announceEl) {
+                    successMessage = announceEl.getAttribute('data-announce');
+                }
+            }
+
+            // 3. Auto-detect from path if no custom message
+            if (!successMessage) {
+                var path = event.detail.pathInfo ? event.detail.pathInfo.path : '';
+
+                if (path.includes('/create')) {
+                    successMessage = 'Created successfully';
+                } else if (path.includes('/update') || path.includes('/edit') || path.includes('/save')) {
+                    successMessage = 'Updated successfully';
+                } else if (path.includes('/delete') || path.includes('/remove')) {
+                    successMessage = 'Deleted successfully';
+                } else if (path.includes('/complete')) {
+                    successMessage = 'Completed successfully';
+                } else if (path.includes('/upload')) {
+                    successMessage = 'Uploaded successfully';
+                } else if (path.includes('/track')) {
+                    successMessage = 'Tracked successfully';
+                } else if (path.includes('/enroll')) {
+                    successMessage = 'Enrolled successfully';
+                } else if (path.includes('/toggle')) {
+                    successMessage = 'Status updated';
+                } else if (path.includes('/decide')) {
+                    successMessage = 'Decision recorded';
+                }
+            }
+
+            if (successMessage) {
+                window.SKUEL.announce(successMessage, 'polite');
+            }
+        });
+
+        // After HTMX request fails
+        body.addEventListener('htmx:responseError', function(event) {
+            var target = event.detail.target;
+
+            // Remove aria-busy from target element
+            if (target) {
+                target.setAttribute('aria-busy', 'false');
+            }
+
+            // Announce error
+            var status = event.detail.xhr ? event.detail.xhr.status : null;
+            var errorMessage = 'An error occurred. Please try again.';
+
+            // More specific error messages
+            if (status === 404) {
+                errorMessage = 'Item not found';
+            } else if (status === 403) {
+                errorMessage = 'Permission denied';
+            } else if (status === 400) {
+                errorMessage = 'Invalid request';
+            } else if (status >= 500) {
+                errorMessage = 'Server error. Please try again later.';
+            }
+
+            window.SKUEL.announce(errorMessage, 'assertive');
+        });
+
+        // When HTMX encounters a client error
+        body.addEventListener('htmx:sendError', function(event) {
+            var target = event.detail.target;
+
+            // Remove aria-busy from target element
+            if (target) {
+                target.setAttribute('aria-busy', 'false');
+            }
+
+            // Announce network error
+            window.SKUEL.announce('Network error. Please check your connection.', 'assertive');
+        });
+    });
+
     // =========================================================================
     // Alpine.js Component Definitions
     // =========================================================================
@@ -622,13 +811,35 @@
                 profileMenuOpen: false,
                 currentProfileIndex: -1,
                 currentMobileIndex: -1,
+                mobileFocusTrap: null,  // Task 9: FocusTrap for mobile menu
 
                 toggleMobile: function() {
+                    var self = this;
                     this.mobileMenuOpen = !this.mobileMenuOpen;
+
                     if (this.mobileMenuOpen) {
                         this.currentMobileIndex = -1;
-                        // Focus first item when opening
-                        this.$nextTick(() => this.focusMobileItem(0));
+
+                        // Task 9: Initialize and activate focus trap for mobile menu
+                        this.$nextTick(function() {
+                            var mobileNav = document.querySelector('.sm\\:hidden[x-show]');
+                            if (mobileNav && !self.mobileFocusTrap) {
+                                self.mobileFocusTrap = new FocusTrap(mobileNav, {
+                                    onEscape: function() {
+                                        self.closeMobile();
+                                    },
+                                    restoreFocus: true,
+                                });
+                            }
+                            if (self.mobileFocusTrap) {
+                                self.mobileFocusTrap.activate();
+                            }
+                        });
+                    } else {
+                        // Deactivate focus trap when closing
+                        if (this.mobileFocusTrap) {
+                            this.mobileFocusTrap.deactivate();
+                        }
                     }
                 },
 
@@ -649,6 +860,11 @@
                 closeMobile: function() {
                     this.mobileMenuOpen = false;
                     this.currentMobileIndex = -1;
+
+                    // Task 9: Deactivate focus trap when closing mobile menu
+                    if (this.mobileFocusTrap) {
+                        this.mobileFocusTrap.deactivate();
+                    }
                 },
 
                 // Profile dropdown keyboard navigation

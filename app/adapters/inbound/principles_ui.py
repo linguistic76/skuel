@@ -492,7 +492,7 @@ def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadePr
                     ErrorComponents.render_error_banner("Failed to load categories"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
                 )
-                return create_principles_page(error_content, request=request)
+                return await create_principles_page(error_content, request=request)
 
             view_content = PrinciplesViewComponents.render_create_view(
                 categories=categories_result.value,
@@ -508,7 +508,7 @@ def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadePr
                     ErrorComponents.render_error_banner("Failed to load analytics"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
                 )
-                return create_principles_page(error_content, request=request)
+                return await create_principles_page(error_content, request=request)
 
             view_content = PrinciplesViewComponents.render_analytics_view(
                 analytics_data=analytics_result.value,
@@ -526,7 +526,7 @@ def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadePr
                     ErrorComponents.render_error_banner("Failed to load principles"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
                 )
-                return create_principles_page(error_content, request=request)
+                return await create_principles_page(error_content, request=request)
 
             principles, stats = filtered_result.value
             categories_result = await get_categories()
@@ -538,7 +538,7 @@ def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadePr
                     ErrorComponents.render_error_banner("Failed to load categories"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
                 )
-                return create_principles_page(error_content, request=request)
+                return await create_principles_page(error_content, request=request)
 
             view_content = PrinciplesViewComponents.render_list_view(
                 principles=principles,
@@ -559,7 +559,7 @@ def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadePr
             cls=f"{Spacing.PAGE} {Container.WIDE}",
         )
 
-        return create_principles_page(page_content, request=request)
+        return await create_principles_page(page_content, request=request)
 
     # ========================================================================
     # HTMX VIEW FRAGMENTS

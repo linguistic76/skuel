@@ -65,7 +65,7 @@ adapters/inbound/goals_routes.py
 adapters/inbound/habits_routes.py
 adapters/inbound/ingestion_routes.py
 adapters/inbound/journals_routes.py
-adapters/inbound/knowledge_routes.py
+adapters/inbound/ku_routes.py
 adapters/inbound/learning_routes.py
 adapters/inbound/nous_routes.py
 adapters/inbound/principles_routes.py
