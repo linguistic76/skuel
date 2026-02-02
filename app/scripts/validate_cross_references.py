@@ -150,36 +150,33 @@ def collect_doc_to_skills_mapping(
     doc_to_skills: dict[str, set[str]] = {}
     scanned_files: set[Path] = set()
 
-    # Scan patterns
-    patterns_dir = base_path / "docs" / "patterns"
-    for file_path in patterns_dir.glob("*.md"):
-        skills = find_skill_references_in_file(file_path)
-        rel_path = f"/docs/patterns/{file_path.name}"
-        doc_to_skills[rel_path] = skills
-        scanned_files.add(file_path)
+    # Scan ALL markdown files in docs/ recursively
+    docs_dir = base_path / "docs"
+    if docs_dir.exists():
+        for file_path in docs_dir.rglob("*.md"):
+            # Skip archive directory
+            if "archive" in file_path.parts:
+                continue
 
-    # Scan ADRs
-    adrs_dir = base_path / "docs" / "decisions"
-    for file_path in adrs_dir.glob("ADR-*.md"):
-        skills = find_skill_references_in_file(file_path)
-        rel_path = f"/docs/decisions/{file_path.name}"
-        doc_to_skills[rel_path] = skills
-        scanned_files.add(file_path)
-
-    # Scan architecture
-    arch_dir = base_path / "docs" / "architecture"
-    for file_path in arch_dir.glob("*.md"):
-        skills = find_skill_references_in_file(file_path)
-        rel_path = f"/docs/architecture/{file_path.name}"
-        doc_to_skills[rel_path] = skills
-        scanned_files.add(file_path)
-
-    # Scan intelligence
-    intel_dir = base_path / "docs" / "intelligence"
-    if intel_dir.exists():
-        for file_path in intel_dir.glob("*.md"):
             skills = find_skill_references_in_file(file_path)
-            rel_path = f"/docs/intelligence/{file_path.name}"
+            # Store with path relative to base (e.g., /docs/development/GENAI_SETUP.md)
+            rel_path = f"/{file_path.relative_to(base_path)}"
+            doc_to_skills[rel_path] = skills
+            scanned_files.add(file_path)
+
+    # Also scan root-level markdown files
+    for file_path in base_path.glob("*.md"):
+        skills = find_skill_references_in_file(file_path)
+        rel_path = f"/{file_path.relative_to(base_path)}"
+        doc_to_skills[rel_path] = skills
+        scanned_files.add(file_path)
+
+    # Scan monitoring/ directory
+    monitoring_dir = base_path / "monitoring"
+    if monitoring_dir.exists():
+        for file_path in monitoring_dir.rglob("*.md"):
+            skills = find_skill_references_in_file(file_path)
+            rel_path = f"/{file_path.relative_to(base_path)}"
             doc_to_skills[rel_path] = skills
             scanned_files.add(file_path)
 
