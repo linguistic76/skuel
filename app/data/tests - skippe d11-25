@@ -1,9 +1,0 @@
-Remaining 11 Skipped Tests (Intentionally Skipped):
-
-  1. Supabase auth flow tests (2) - External service tests requiring real Supabase setup
-  2. Type system tests (2) - Builder pattern tests
-  3. APOC builder backward compat (1) - Testing deprecated pattern
-  4. Askesis integration tests (5) - End-to-end tests requiring populated Neo4j database
-  5. Performance benchmarks (1) - Long-running benchmark test
-
-  These are all legitimate skipped tests for integration/manual testing scenarios, not mock update issues. Let me update the todo list to complete:

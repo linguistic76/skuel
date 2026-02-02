@@ -6,7 +6,7 @@ Focused service handling user lifecycle and authentication operations.
 
 Responsibilities:
 - User creation, retrieval, update, deletion
-- Username and Supabase ID lookups
+- Username lookups
 - Password-based authentication
 - Last login timestamp management
 
@@ -41,7 +41,7 @@ class UserCoreService:
 
     This service handles the fundamental user lifecycle operations:
     - Creating new users with default preferences
-    - Retrieving users by UID, username, or Supabase ID
+    - Retrieving users by UID or username
     - Updating user information
     - Deleting users
     - Authenticating users with password verification
@@ -51,7 +51,7 @@ class UserCoreService:
     - Protocol-based repository dependency (UserOperations)
     - Returns Result[T] for error handling
     - Uses frozen dataclass User model with immutable updates
-    - Integrates with Supabase authentication
+    - Graph-native authentication with bcrypt password hashing
 
 
     Source Tag: "user_core_explicit"
@@ -95,13 +95,11 @@ class UserCoreService:
         """
         Create a new user with default preferences.
 
-        Uses Supabase for authentication - password management is handled by Supabase.
-
         Args:
             username: Unique username
             email: Optional email address
             display_name: Display name (defaults to username)
-            **kwargs: Additional user properties (MUST include supabase_id for Supabase auth)
+            **kwargs: Additional user properties (e.g., password_hash, role, preferences)
 
         Returns:
             Result[User]: Created user or error
@@ -116,12 +114,11 @@ class UserCoreService:
             return Result.fail(Errors.validation(f"Username '{username}' already exists"))
 
         # Create user with factory function
-        # Note: Supabase handles authentication - password_hash is no longer used
         user = create_user(
             username=username,
             email=email or f"{username}@example.com",
             display_name=display_name,
-            **kwargs,  # Pass through additional properties (including supabase_id)
+            **kwargs,  # Pass through additional properties (password_hash, role, preferences, etc.)
         )
 
         # Save to repository
@@ -223,28 +220,6 @@ class UserCoreService:
         """
         return await self.repo.get_user_by_username(username)
 
-    @with_error_handling("get_user_by_supabase_id", error_type="database")
-    async def get_user_by_supabase_id(self, supabase_id: str) -> Result[User | None]:
-        """
-        Get user by Supabase ID.
-
-        Args:
-            supabase_id: Supabase auth user ID
-
-        Returns:
-            Result[Optional[User]]: User if found, None otherwise
-
-        Error cases:
-            - Database query fails → DATABASE
-        """
-        # Query Neo4j for user with matching supabase_id
-        result = await self.repo.find_by(supabase_id=supabase_id)
-
-        if result.is_ok and result.value:
-            # Return first match (supabase_id should be unique)
-            return Result.ok(result.value[0] if result.value else None)
-
-        return Result.ok(None)
 
     @with_error_handling("update_user", error_type="database")
     async def update_user(self, user: User) -> Result[User]:

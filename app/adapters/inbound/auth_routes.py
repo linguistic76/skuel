@@ -13,7 +13,7 @@ Features:
 Design:
 - All authentication state lives in Neo4j
 - Sessions stored as Neo4j nodes with audit trail
-- No external dependencies (Supabase removed)
+- No external authentication dependencies
 
 Security:
 - Debug endpoints (/debug-session, /whoami) are admin-only in production

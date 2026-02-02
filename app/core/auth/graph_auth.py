@@ -2,7 +2,7 @@
 Graph-Native Authentication Service
 ====================================
 
-Main authentication service replacing Supabase with full Neo4j integration.
+Main authentication service with full Neo4j integration.
 
 Design Philosophy:
 - All auth state lives in Neo4j (sessions, events, tokens)
@@ -34,7 +34,6 @@ class GraphAuthService:
     """
     Graph-native authentication service.
 
-    Replaces SupabaseAuthService with full Neo4j integration.
     All authentication state (sessions, events, tokens) lives in the graph.
     """
 
@@ -661,7 +660,7 @@ class GraphAuthService:
             return Result.fail(Errors.system(operation="reset_password_with_token", message=str(e)))
 
     # ========================================================================
-    # COMPATIBILITY METHODS (matching SupabaseAuthService interface)
+    # EMAIL-BASED PASSWORD RESET (PLACEHOLDER)
     # ========================================================================
 
     async def reset_password_email(self, email: str) -> Result[bool]:
@@ -670,7 +669,7 @@ class GraphAuthService:
 
         In graph-native auth, password reset is admin-initiated via
         admin_generate_reset_token() and reset_password_with_token().
-        This method exists for interface compatibility with external auth providers.
+        This method exists for future email service integration.
 
         TODO: Implement when email service is available.
 

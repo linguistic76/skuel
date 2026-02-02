@@ -156,10 +156,6 @@ class UserService:
         """Get user by username."""
         return await self.core.get_user_by_username(username)
 
-    async def get_user_by_supabase_id(self, supabase_id: str) -> Result[User | None]:
-        """Get user by Supabase ID."""
-        return await self.core.get_user_by_supabase_id(supabase_id)
-
     async def get_user_context(self, user_uid: str) -> Result[UserContext]:
         """
         Get UserContext for a user (public API for Askesis and other services).

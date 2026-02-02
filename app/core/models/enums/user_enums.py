@@ -11,7 +11,7 @@ Four-tier role hierarchy (lowest to highest):
 Each role inherits permissions from lower roles.
 
 Design Principles:
-- Roles stored in Neo4j User.role field (NOT in Supabase)
+- Roles stored in Neo4j User.role field
 - Role checking uses helper methods for hierarchy-aware comparisons
 - New users default to REGISTERED
 - Payment upgrades REGISTERED -> MEMBER
