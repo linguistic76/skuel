@@ -3,6 +3,11 @@ related_skills:
 - user-context-intelligence
 ---
 # UserContextIntelligence - Central Intelligence Hub
+## Related Skills
+
+For implementation guidance, see:
+- [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
+
 
 ## Overview
 

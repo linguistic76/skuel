@@ -201,7 +201,9 @@
       "Bash(bash:*)",
       "Bash(git restore:*)",
       "Bash(__NEW_LINE_3f70261cd0645386__ echo \"Staged navbar-related files\")",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(/home/mike/skuel/app/scripts/install_git_hooks.sh:*)",
+      "Bash(/home/mike/skuel/app/.git/hooks/pre-commit)"
     ]
   }
 }

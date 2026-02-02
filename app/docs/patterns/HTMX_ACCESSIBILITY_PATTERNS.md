@@ -27,6 +27,8 @@ SKUEL provides comprehensive accessibility support for HTMX operations through:
 
 ## Quick Start
 
+**Skills:** [@html-htmx](../../.claude/skills/html-htmx/SKILL.md), [@accessibility-guide](../../.claude/skills/accessibility-guide/SKILL.md)
+
 ### Basic Pattern
 
 ```python

@@ -3,8 +3,9 @@ title: Performance Monitoring System
 updated: 2026-01-31
 category: patterns
 related_skills:
-- pydantic
-- skuel-form-patterns
+  - prometheus-grafana
+  - pydantic
+  - skuel-form-patterns
 related_docs:
 - /docs/patterns/PROMETHEUS_METRICS.md
 - /docs/decisions/ADR-036

@@ -13,6 +13,11 @@ related_skills:
 ---
 
 # Neo4j Database Architecture in SKUEL
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+
 
 ## Overview
 

@@ -19,6 +19,11 @@ related_skills:
 # Admin Dashboard Architecture
 
 **Last Updated**: December 7, 2025
+## Related Skills
+
+For implementation guidance, see:
+- [@chartjs](../../.claude/skills/chartjs/SKILL.md)
+
 
 ## Overview
 

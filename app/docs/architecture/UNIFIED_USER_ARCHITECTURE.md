@@ -19,6 +19,11 @@ related_skills:
 **Last Updated:** January 20, 2026
 **Status:** ✅ Complete - MEGA-QUERY Rich Queries + Profile Hub Intelligence Integration + Field Mapping
 **One Path Forward:** UserContext for cached analysis, Services for fresh queries (ADR-029)
+## Related Skills
+
+For implementation guidance, see:
+- [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
+
 
 ## 🎯 Core Principle: Single Source of Truth
 

@@ -3,13 +3,15 @@ title: UI Component Patterns
 updated: '2026-02-02'
 category: patterns
 related_skills:
-- daisyui
-- html-htmx
-- base-page-architecture
-- tailwind-css
-- html-navigation
-- skuel-component-composition
-- js-alpine
+  - accessibility-guide
+  - base-page-architecture
+  - custom-sidebar-patterns
+  - daisyui
+  - html-htmx
+  - html-navigation
+  - js-alpine
+  - skuel-component-composition
+  - tailwind-css
 related_docs: []
 ---
 # UI Component Patterns
@@ -20,14 +22,19 @@ related_docs: []
 
 ## Quick Start
 
-**Skills:** [@base-page-architecture](../../.claude/skills/base-page-architecture/SKILL.md), [@daisyui](../../.claude/skills/daisyui/SKILL.md), [@tailwind-css](../../.claude/skills/tailwind-css/SKILL.md)
+**Core Skills:** [@base-page-architecture](../../.claude/skills/base-page-architecture/SKILL.md), [@daisyui](../../.claude/skills/daisyui/SKILL.md), [@tailwind-css](../../.claude/skills/tailwind-css/SKILL.md), [@html-htmx](../../.claude/skills/html-htmx/SKILL.md), [@js-alpine](../../.claude/skills/js-alpine/SKILL.md)
+
+**Advanced Skills:** [@custom-sidebar-patterns](../../.claude/skills/custom-sidebar-patterns/SKILL.md), [@html-navigation](../../.claude/skills/html-navigation/SKILL.md), [@skuel-component-composition](../../.claude/skills/skuel-component-composition/SKILL.md), [@accessibility-guide](../../.claude/skills/accessibility-guide/SKILL.md)
 
 For hands-on implementation:
 1. Invoke `@base-page-architecture` for BasePage patterns and page types
 2. Invoke `@daisyui` for pre-built accessible UI components
 3. Invoke `@tailwind-css` for utility-first styling
-4. See [custom-sidebar-patterns](../../.claude/skills/custom-sidebar-patterns/SKILL.md) for advanced navigation
-5. Continue below for complete component architecture
+4. Invoke `@html-htmx` for server communication patterns
+5. Invoke `@js-alpine` for client-side interactivity
+6. Invoke `@custom-sidebar-patterns` for advanced navigation
+7. Invoke `@accessibility-guide` for WCAG 2.1 Level AA compliance
+8. Continue below for complete component architecture
 
 **Related Documentation:**
 - [/ui/profile/layout.py](/ui/profile/layout.py) - Profile Hub custom sidebar example

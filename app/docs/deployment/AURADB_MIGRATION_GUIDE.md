@@ -1,3 +1,8 @@
+---
+title: Auradb Migration Guide
+related_skills:
+  - neo4j-genai-plugin
+---
 # AuraDB Production Migration Guide
 
 **Last Updated:** 2026-02-01

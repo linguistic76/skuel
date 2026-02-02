@@ -1,3 +1,8 @@
+---
+title: Genai Setup
+related_skills:
+  - neo4j-genai-plugin
+---
 # Neo4j GenAI Plugin Setup (Docker)
 
 **Last Updated:** 2026-02-01

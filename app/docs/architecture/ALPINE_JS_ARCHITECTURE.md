@@ -4,6 +4,11 @@ related_skills:
 ---
 # Alpine.js Architecture
 *Last updated: 2026-01-15*
+## Related Skills
+
+For implementation guidance, see:
+- [@js-alpine](../../.claude/skills/js-alpine/SKILL.md)
+
 
 ## Overview
 

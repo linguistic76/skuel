@@ -29,6 +29,8 @@ All components support HTMX lazy loading, Alpine.js state management, and work a
 
 ## Quick Start
 
+**Skill:** [@skuel-component-composition](../../.claude/skills/skuel-component-composition/SKILL.md)
+
 ### TreeView - Full-Featured Tree
 
 ```python

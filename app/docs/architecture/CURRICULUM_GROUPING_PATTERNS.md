@@ -14,6 +14,11 @@ related: [ADR-023-curriculum-baseservice-migration, ADR-028-ku-moc-unified-relat
 # Curriculum Grouping Patterns: KU, LS, LP + MOC Organization
 
 *Last updated: 2026-01-20*
+## Related Skills
+
+For implementation guidance, see:
+- [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
+
 
 ## Core Philosophy
 

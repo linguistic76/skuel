@@ -20,6 +20,11 @@ related_skills:
 
 **Last Updated**: January 20, 2026
 **Version**: 2.4.0
+## Related Skills
+
+For implementation guidance, see:
+- [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
+
 
 ## Executive Summary
 

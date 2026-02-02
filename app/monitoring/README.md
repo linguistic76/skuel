@@ -1,3 +1,8 @@
+---
+title: Readme
+related_skills:
+  - prometheus-grafana
+---
 # SKUEL Observability Stack
 
 **Prometheus + Grafana** monitoring for SKUEL's production infrastructure.

@@ -23,6 +23,8 @@ related_skills:
 
 ## Overview
 
+**Skill:** [@html-htmx](../../.claude/skills/html-htmx/SKILL.md)
+
 SKUEL standardizes on **HTMX 1.9.10** across all pages. This guide explains why version consistency matters and how to implement it correctly.
 
 ## The Problem

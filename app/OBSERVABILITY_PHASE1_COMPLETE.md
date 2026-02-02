@@ -1,3 +1,8 @@
+---
+title: Observability Phase1 Complete
+related_skills:
+  - prometheus-grafana
+---
 # Prometheus + Grafana Observability Stack - Phase 1 Complete
 
 **Date**: 2026-01-31

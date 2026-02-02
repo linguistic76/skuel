@@ -22,6 +22,11 @@ related_skills:
 # Search Architecture - Unified Search System
 
 *Last updated: 2026-01-05*
+## Related Skills
+
+For implementation guidance, see:
+- [@skuel-search-architecture](../../.claude/skills/skuel-search-architecture/SKILL.md)
+
 
 ## Overview
 
