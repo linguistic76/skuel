@@ -345,6 +345,18 @@ def create_calendar_routes(app, rt, services):
     # UI Routes
     # =========================================================================
 
+    @rt("/events")
+    async def redirect_events_to_calendar(_request: Request) -> Any:
+        """
+        Redirect /events to unified /calendar view (One Path Forward).
+
+        Events UI integrated into unified temporal calendar that shows
+        tasks + events + habits. Events API routes remain functional.
+        """
+        from starlette.responses import RedirectResponse
+
+        return RedirectResponse("/calendar", status_code=301)
+
     @rt("/calendar")
     async def calendar_default(request: Request) -> Any:
         """Default calendar view - redirects to current month."""

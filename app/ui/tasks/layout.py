@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from starlette.requests import Request
 
 
-def create_tasks_page(
+async def create_tasks_page(
     content: Any,
     user_display_name: str = "",
     title: str = "Tasks",
@@ -54,9 +54,9 @@ def create_tasks_page(
             TasksViewComponents.render_list_view(tasks, filters, stats),
             cls="p-4 lg:p-8 max-w-7xl mx-auto",
         )
-        return create_tasks_page(content, request=request)
+        return await create_tasks_page(content, request=request)
     """
-    return create_activity_page(
+    return await create_activity_page(
         content=content,
         domain="tasks",
         request=request,
