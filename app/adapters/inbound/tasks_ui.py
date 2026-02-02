@@ -1083,7 +1083,7 @@ def create_tasks_ui_routes(
 
         if result.is_error:
             logger.error(f"Failed to get task {uid}: {result.error}")
-            return BasePage(
+            return await BasePage(
                 content=Card(
                     H2("Task Not Found", cls="text-xl font-bold text-error mb-4"),
                     P(f"Could not find task: {uid}", cls="text-base-content/70"),
@@ -1188,7 +1188,7 @@ def create_tasks_ui_routes(
             cls=f"{Container.STANDARD} {Spacing.PAGE_PADDING}",
         )
 
-        return BasePage(
+        return await BasePage(
             content=content,
             title=task.title,
             page_type=PageType.STANDARD,

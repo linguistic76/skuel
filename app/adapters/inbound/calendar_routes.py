@@ -373,7 +373,7 @@ def create_calendar_routes(app, rt, services):
 
         calendar_data = result.value
         month_name = cal.month_name[month]
-        navbar = create_navbar_for_request(request, active_page="calendar")
+        navbar = await create_navbar_for_request(request, active_page="calendar")
 
         return _wrap_calendar_page(
             navbar,
@@ -442,7 +442,7 @@ def create_calendar_routes(app, rt, services):
 
         calendar_data = result.value
         week_start = calendar_data.start_date
-        navbar = create_navbar_for_request(request, active_page="calendar")
+        navbar = await create_navbar_for_request(request, active_page="calendar")
 
         return _wrap_calendar_page(
             navbar,
@@ -508,7 +508,7 @@ def create_calendar_routes(app, rt, services):
             return error_response(result.error)
 
         calendar_data = result.value
-        navbar = create_navbar_for_request(request, active_page="calendar")
+        navbar = await create_navbar_for_request(request, active_page="calendar")
 
         return _wrap_calendar_page(
             navbar,

@@ -449,7 +449,7 @@ def create_insights_ui_routes(
             },  # Phase 2, Task 9: Alpine component for bulk selection
         )
 
-        return BasePage(
+        return await BasePage(
             content,
             title="Insights | SKUEL",
             page_type=PageType.STANDARD,
@@ -520,7 +520,7 @@ def create_insights_ui_routes(
             cls="space-y-6",
         )
 
-        return BasePage(
+        return await BasePage(
             content,
             title="Insight Statistics | SKUEL",
             page_type=PageType.STANDARD,

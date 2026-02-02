@@ -164,11 +164,11 @@ def test_skeleton_table():
     assert "animate-pulse" in html_str
 
 
-def test_base_page_has_live_region():
+async def test_base_page_has_live_region():
     """Verify BasePage includes live region for screen readers."""
     from ui.layouts.base_page import BasePage
 
-    page = BasePage(
+    page = await BasePage(
         content=Div("Test content"),
         title="Test Page",
     )
@@ -185,11 +185,11 @@ def test_base_page_has_live_region():
     assert "sr-only" in html_str
 
 
-def test_base_page_viewport_safe_area():
+async def test_base_page_viewport_safe_area():
     """Verify BasePage viewport supports safe areas."""
     from ui.layouts.base_page import BasePage
 
-    page = BasePage(
+    page = await BasePage(
         content=Div("Test content"),
         title="Test Page",
     )

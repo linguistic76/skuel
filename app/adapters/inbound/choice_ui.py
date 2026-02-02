@@ -1298,7 +1298,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
 
         if result.is_error:
             logger.error(f"Failed to get choice {uid}: {result.error}")
-            return BasePage(
+            return await BasePage(
                 content=Card(
                     H2("Choice Not Found", cls="text-xl font-bold text-error mb-4"),
                     P(f"Could not find choice: {uid}", cls="text-base-content/70"),
@@ -1414,7 +1414,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
             cls="container mx-auto p-6 max-w-4xl",
         )
 
-        return BasePage(
+        return await BasePage(
             content=content,
             title=choice.title,
             page_type=PageType.STANDARD,

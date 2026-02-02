@@ -316,7 +316,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             # Check for errors FIRST, show user-friendly message (main content failure)
             if not expenses_result or expenses_result.is_error:
                 error_msg = expenses_result.error.message if expenses_result else "Service unavailable"
-                return BasePage(
+                return await BasePage(
                     content=render_error_banner(
                         "Unable to load expenses. Please try again later.",
                         error_msg
@@ -340,7 +340,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             ]
         except Exception as e:
             logger.error(f"Unexpected error fetching expenses: {e}")
-            return BasePage(
+            return await BasePage(
                 content=render_error_banner(
                     "An unexpected error occurred. Please try again later.",
                     str(e)

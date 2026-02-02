@@ -25,7 +25,7 @@ Usage:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Body, Button, Div, Head, Html, Link, Main, Meta, P, Script, Title
+from fasthtml.common import A, Body, Button, Div, Head, Html, Link, Main, Meta, P, Script, Title
 
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
 from ui.layouts.page_types import PAGE_CONFIG, PageType
@@ -78,12 +78,13 @@ def _build_head(
         # Extra CSS for specific pages
         *css_links,
         # SKUEL JavaScript (Alpine components)
+        Script(src="/static/js/focus_trap.js"),
         Script(src="/static/js/skuel.js"),
         Script(src="/static/js/profile_sidebar.js"),
     )
 
 
-def _build_navbar(
+async def _build_navbar(
     request: "Request | None",
     active_page: str,
     user_display_name: str,
@@ -92,7 +93,7 @@ def _build_navbar(
 ) -> "FT":
     """Build navbar, preferring request-based for auto-detection."""
     if request is not None:
-        return create_navbar_for_request(request, active_page=active_page)
+        return await create_navbar_for_request(request, active_page=active_page)
     return create_navbar(
         current_user=user_display_name,
         is_authenticated=is_authenticated,
@@ -101,7 +102,7 @@ def _build_navbar(
     )
 
 
-def BasePage(
+async def BasePage(
     content: Any,
     title: str = "SKUEL",
     page_type: PageType = PageType.STANDARD,
@@ -139,7 +140,7 @@ def BasePage(
     """
     config = PAGE_CONFIG[page_type]
 
-    navbar = _build_navbar(
+    navbar = await _build_navbar(
         request=request,
         active_page=active_page,
         user_display_name=user_display_name,
@@ -160,6 +161,7 @@ def BasePage(
             Div(
                 Main(
                     content,
+                    id="main-content",
                     cls=config["content_padding"],
                 ),
                 cls=config["container"],
@@ -173,17 +175,27 @@ def BasePage(
                 content,
                 cls=f"{config['container']} {config['content_padding']}",
             ),
+            id="main-content",
             cls="min-h-screen",
         )
 
     return Html(
         _build_head(title, extra_css),
         Body(
+            # Skip link for keyboard navigation (WCAG 2.1 Level AA)
+            A(
+                "Skip to main content",
+                href="#main-content",
+                cls="skip-link",
+            ),
             navbar,
             main_area,
             # Modal container for overlays
             Div(id="modal"),
-            # Live region for screen reader announcements
+            # Live region for screen reader announcements (Task 10: WCAG 2.1 Level AA)
+            # Automatically announces HTMX operations (create, update, delete, errors)
+            # Manual announcements: window.SKUEL.announce(message, priority)
+            # Custom announcements: Add data-announce="Custom message" to HTMX target
             Div(
                 id="live-region",
                 role="status",

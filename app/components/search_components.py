@@ -46,7 +46,7 @@ from ui.layouts.page_types import PageType
 # ============================================================================
 
 
-def render_search_page_with_navbar(request: Any = None) -> Any:
+async def render_search_page_with_navbar(request: Any = None) -> Any:
     """
     Main search page with horizontal filters above the search bar.
 
@@ -63,7 +63,7 @@ def render_search_page_with_navbar(request: Any = None) -> Any:
     """
     content = _render_horizontal_layout()
 
-    return BasePage(
+    return await BasePage(
         content=content,
         title="Search",
         page_type=PageType.STANDARD,

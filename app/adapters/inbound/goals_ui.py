@@ -1368,7 +1368,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
         # Verify goal exists and user owns it
         result = await goals_service.get_for_user(uid, user_uid)
         if result.is_error:
-            return BasePage(
+            return await BasePage(
                 content=Card(
                     H3("Goal Not Found", cls="text-lg font-bold text-error"),
                     P(f"Could not find goal: {uid}"),
@@ -1387,7 +1387,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
             root_goal=goal,
         )
 
-        return BasePage(
+        return await BasePage(
             content=content,
             title=f"{goal.title} - Hierarchy",
             page_type=PageType.STANDARD,

@@ -2092,7 +2092,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
 
         if result.is_error:
             logger.error(f"Failed to get habit {uid}: {result.error}")
-            return BasePage(
+            return await BasePage(
                 content=Card(
                     H2("Habit Not Found", cls="text-xl font-bold text-error mb-4"),
                     P(f"Could not find habit: {uid}", cls="text-base-content/70"),
@@ -2198,7 +2198,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
             cls="container mx-auto p-6 max-w-4xl",
         )
 
-        return BasePage(
+        return await BasePage(
             content=content,
             title=habit.name,
             page_type=PageType.STANDARD,

@@ -79,7 +79,7 @@ def _status_badge(status: str) -> "FT":
         "warning": "bg-warning",
         "critical": "bg-error",
     }
-    color = color_map.get(status, "bg-base-content/50")
+    color = color_map.get(status, "bg-base-content/60")
     return Span(cls=f"w-2 h-2 rounded-full {color}", title=f"Status: {status}")
 
 
@@ -96,9 +96,9 @@ def _insight_badge(insight_count: int) -> Optional["FT"]:
 
     from fasthtml.common import NotStr
 
-    # Bell icon SVG
+    # Bell icon SVG (decorative - insight count conveys meaning)
     bell_svg = NotStr(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">'
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3" aria-hidden="true">'
         '<path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>'
         "</svg>"
     )
@@ -131,7 +131,7 @@ def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
 
     return Li(
         Anchor(
-            Span(domain.icon, cls="text-lg"),
+            Span(domain.icon, cls="text-lg", aria_hidden="true"),  # Decorative emoji
             Span(domain.name, cls="flex-1"),
             Div(
                 *badges,
@@ -192,9 +192,9 @@ def build_profile_sidebar(
             *[_domain_menu_item(d, d.slug == active_domain) for d in curriculum_domains],
         ]
 
-    # Chevron icon for toggle button
+    # Chevron icon for toggle button (decorative - button has aria-label)
     chevron_svg = NotStr(
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">'
         '<path d="M15 18l-6-6 6-6"></path>'
         "</svg>"
     )
@@ -218,7 +218,7 @@ def build_profile_sidebar(
         # Overview link
         Li(
             Anchor(
-                Span("📊", cls="text-lg"),
+                Span("📊", cls="text-lg", aria_hidden="true"),  # Decorative emoji
                 "Overview",
                 href="/profile",
                 cls=f"flex items-center gap-2 {'menu-active' if is_overview_active else ''}",
@@ -266,7 +266,7 @@ def build_profile_sidebar(
     )
 
 
-def create_profile_page(
+async def create_profile_page(
     content: Any,
     domains: list[ProfileDomainItem],
     active_domain: str = "",
@@ -353,7 +353,7 @@ def create_profile_page(
     )
 
     # Use BasePage with STANDARD type (we handle layout ourselves)
-    return BasePage(
+    return await BasePage(
         content=wrapped_content,
         title=title,
         page_type=PageType.STANDARD,

@@ -122,7 +122,7 @@ def safe_bool(value: Any, default: bool = False) -> bool:
 # ============================================================================
 
 
-def error_page(message: str, status_code: int, user_display_name: str = "User") -> Any:
+async def error_page(message: str, status_code: int, user_display_name: str = "User") -> Any:
     """
     Unified error page for profile routes.
 
@@ -146,7 +146,7 @@ def error_page(message: str, status_code: int, user_display_name: str = "User") 
         cls="flex flex-col items-center justify-center min-h-[400px] p-8",
     )
 
-    return create_profile_page(
+    return await create_profile_page(
         content=content,
         domains=[],
         active_domain="",
@@ -223,7 +223,7 @@ def setup_user_profile_routes(rt, services):
                 "Failed to load user for settings",
                 extra={"user_uid": user_uid, "error": str(user_result.error)},
             )
-            return error_page("User not found", 404)
+            return await error_page("User not found", 404)
 
         user = user_result.value
 
@@ -631,7 +631,7 @@ def setup_user_profile_routes(rt, services):
                 "Failed to load user or context for profile page",
                 extra={"user_uid": user_uid, "error": str(e)},
             )
-            return error_page(str(e), 500)
+            return await error_page(str(e), 500)
 
         # Get intelligence data - may return None for basic mode
         intel_result = await _get_intelligence_data(context)
@@ -677,7 +677,7 @@ def setup_user_profile_routes(rt, services):
         # Check if user is admin (shows Admin Dashboard in navbar instead of Profile Hub)
         is_admin = user.can_manage_users() if hasattr(user, "can_manage_users") else False
 
-        return create_profile_page(
+        return await create_profile_page(
             content=content,
             domains=domain_items,
             active_domain="",
@@ -731,7 +731,7 @@ def setup_user_profile_routes(rt, services):
                 "Failed to load user or context for domain view",
                 extra={"user_uid": user_uid, "domain": domain, "error": str(e)},
             )
-            return error_page(str(e), 500)
+            return await error_page(str(e), 500)
 
         # Get insight counts by domain for Profile Hub integration (Phase 1)
         insight_counts: dict[str, int] = {}
@@ -753,7 +753,7 @@ def setup_user_profile_routes(rt, services):
         # Check if user is admin (shows Admin Dashboard in navbar instead of Profile Hub)
         is_admin = user.can_manage_users() if hasattr(user, "can_manage_users") else False
 
-        return create_profile_page(
+        return await create_profile_page(
             content=content,
             domains=domain_items,
             active_domain=domain,

@@ -83,7 +83,7 @@ def create_search_routes(
         """Main search page with unified BasePage layout."""
         require_authenticated_user(request)  # Enforce authentication
 
-        return render_search_page_with_navbar(request)
+        return await render_search_page_with_navbar(request)
 
     @app.get("/search/results")
     @boundary_handler()

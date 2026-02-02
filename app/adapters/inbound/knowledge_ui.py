@@ -398,7 +398,7 @@ def create_knowledge_ui_routes(_app, rt, ku_service):
 
             # Check for errors FIRST, show user-friendly message
             if result.is_error:
-                return BasePage(
+                return await BasePage(
                     content=render_error_banner(
                         "Unable to load knowledge units. Please try again later.",
                         result.error.message

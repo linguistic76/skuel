@@ -1056,7 +1056,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
             cls="container mx-auto p-6 max-w-4xl",
         )
 
-        return BasePage(
+        return await BasePage(
             content=content,
             title=f"KU: {uid}",
             page_type=PageType.STANDARD,
@@ -1097,7 +1097,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
             cls="container mx-auto p-6 max-w-4xl",
         )
 
-        return BasePage(
+        return await BasePage(
             content=content,
             title=f"LS: {uid}",
             page_type=PageType.STANDARD,
@@ -1139,7 +1139,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
             cls="container mx-auto p-6 max-w-4xl",
         )
 
-        return BasePage(
+        return await BasePage(
             content=content,
             title=f"LP: {uid}",
             page_type=PageType.STANDARD,

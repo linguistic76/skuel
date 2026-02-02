@@ -946,7 +946,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         if result.is_error:
             logger.error(f"Failed to get event {uid}: {result.error}")
-            return BasePage(
+            return await BasePage(
                 content=Card(
                     H2("Event Not Found", cls="text-xl font-bold text-error mb-4"),
                     P(f"Could not find event: {uid}", cls="text-base-content/70"),
@@ -1047,7 +1047,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
             cls="container mx-auto p-6 max-w-4xl",
         )
 
-        return BasePage(
+        return await BasePage(
             content=content,
             title=event.title,
             page_type=PageType.STANDARD,
