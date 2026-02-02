@@ -21,7 +21,9 @@ from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
 
-def create_user_pins_routes(_app: Any, rt: Any, user_relationship_service: UserRelationshipService) -> list[Any]:
+def create_user_pins_routes(
+    _app: Any, rt: Any, user_relationship_service: UserRelationshipService
+) -> list[Any]:
     """
     Create user pins API routes.
 

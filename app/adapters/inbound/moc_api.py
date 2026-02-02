@@ -27,7 +27,7 @@ Routes follow SKUEL's established patterns:
 - 200 OK for actions and updates
 """
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
@@ -85,10 +85,10 @@ def create_moc_api_routes(app: Any, rt: Any, moc_service: "MOCService") -> list[
         Returns:
             MocView with root info and organized children tree
         """
-        params = dict(request.query_params)
-        max_depth = int(params.get("max_depth", 3))
-
         # TODO: max_depth not yet supported by get() - needs MOC-specific implementation
+        # params = dict(request.query_params)
+        # max_depth = int(params.get("max_depth", 3))
+
         result = await moc_service.get(uid)
         if result.is_error:
             return Result.fail(result.expect_error())

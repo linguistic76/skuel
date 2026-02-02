@@ -743,7 +743,9 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             )
             return Result.ok(True)
 
-        return Result.fail(Errors.database(operation="create", message="Failed to create subevent relationship"))
+        return Result.fail(
+            Errors.database(operation="create", message="Failed to create subevent relationship")
+        )
 
     @with_error_handling("remove_subevent_relationship", error_type="database")
     async def remove_subevent_relationship(

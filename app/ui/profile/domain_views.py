@@ -468,7 +468,9 @@ def TasksDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
             (f"{overdue} task{'s' if overdue != 1 else ''} overdue - prioritize today", "warning")
         )
     # Derive high priority tasks from task_priorities (threshold >= 0.7)
-    high_priority_tasks = [uid for uid, priority in context.task_priorities.items() if priority >= 0.7]
+    high_priority_tasks = [
+        uid for uid, priority in context.task_priorities.items() if priority >= 0.7
+    ]
     if high_priority_tasks:
         high_pri_count = min(len(high_priority_tasks), 3)
         recommendations.append(
@@ -480,9 +482,7 @@ def TasksDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
     # Derive goal-aligned tasks count from tasks_by_goal
     goal_aligned_count = sum(len(tasks) for tasks in context.tasks_by_goal.values())
     if goal_aligned_count > 0:
-        recommendations.append(
-            (f"{goal_aligned_count} tasks aligned with active goals", "success")
-        )
+        recommendations.append((f"{goal_aligned_count} tasks aligned with active goals", "success"))
     if not recommendations and active > 0:
         recommendations.append(("Tasks are on track - keep up the momentum!", "success"))
 

@@ -507,9 +507,7 @@ class UserBackend(UserOperations):
 
         except Exception as e:
             self.logger.error(f"Failed to get user mastery: {e}")
-            return Result.fail(
-                Errors.database(operation="get_user_mastery", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="get_user_mastery", message=str(e)))
 
     async def enroll_in_learning_path(
         self,

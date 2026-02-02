@@ -101,7 +101,9 @@ class PrinciplesLateralService:
                     principle_uid, user_uid
                 )
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Principle {principle_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Principle {principle_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=principle_a_uid,
@@ -153,7 +155,9 @@ class PrinciplesLateralService:
                     principle_uid, user_uid
                 )
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Principle {principle_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Principle {principle_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=principle_a_uid,
@@ -203,7 +207,9 @@ class PrinciplesLateralService:
                     principle_uid, user_uid
                 )
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Principle {principle_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Principle {principle_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=principle_a_uid,
@@ -255,7 +261,9 @@ class PrinciplesLateralService:
                     principle_uid, user_uid
                 )
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Principle {principle_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Principle {principle_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=prerequisite_uid,
@@ -294,7 +302,9 @@ class PrinciplesLateralService:
                 principle_uid, user_uid
             )
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Principle {principle_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Principle {principle_uid} not found or access denied")
+                )
 
         all_related = await self.lateral_service.get_lateral_relationships(
             entity_uid=principle_uid,
@@ -338,7 +348,9 @@ class PrinciplesLateralService:
                 principle_uid, user_uid
             )
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Principle {principle_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Principle {principle_uid} not found or access denied")
+                )
 
         all_complementary = await self.lateral_service.get_lateral_relationships(
             entity_uid=principle_uid,
@@ -380,7 +392,9 @@ class PrinciplesLateralService:
                 principle_uid, user_uid
             )
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Principle {principle_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Principle {principle_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=principle_uid,
@@ -410,7 +424,9 @@ class PrinciplesLateralService:
                 principle_uid, user_uid
             )
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Principle {principle_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Principle {principle_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=principle_uid,
@@ -440,7 +456,9 @@ class PrinciplesLateralService:
                 principle_uid, user_uid
             )
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Principle {principle_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Principle {principle_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=principle_uid,
@@ -470,7 +488,9 @@ class PrinciplesLateralService:
                 principle_uid, user_uid
             )
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Principle {principle_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Principle {principle_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_siblings(
             entity_uid=principle_uid,

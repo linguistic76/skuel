@@ -39,6 +39,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
+
     from core.services.askesis.askesis_core_service import AskesisCoreService
 
 logger = get_logger("skuel.routes.askesis.api")

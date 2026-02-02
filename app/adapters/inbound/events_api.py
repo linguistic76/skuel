@@ -28,14 +28,10 @@ from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFac
 from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
 from core.models.enums import ContentScope
 from core.models.event.event_request import (
-    AddAttendeeRequest,
-    CheckConflictsRequest,
     EventCreateRequest,
     EventStatusUpdateRequest,
     EventUpdateRequest,
     GetRecurringEventsRequest,
-    RecurringInstancesRequest,
-    RemoveAttendeeRequest,
 )
 from core.services.protocols.facade_protocols import EventsFacadeProtocol
 from core.utils.error_boundary import boundary_handler

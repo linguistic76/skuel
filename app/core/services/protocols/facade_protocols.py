@@ -270,9 +270,7 @@ class ChoicesCoreOperations(Protocol):
         """Make a decision on a choice."""
         ...
 
-    async def evaluate_choice_outcome(
-        self, choice_uid: str, evaluation: Any
-    ) -> Result[Choice]:
+    async def evaluate_choice_outcome(self, choice_uid: str, evaluation: Any) -> Result[Choice]:
         """Record the outcome evaluation for a choice."""
         ...
 
@@ -1106,9 +1104,7 @@ class EventsFacadeProtocol(Protocol):
     # Additional Event operations (Added 2026-02-02)
     # ========================================================================
 
-    async def add_attendee(
-        self, event_uid: str, attendee_data: dict[str, Any]
-    ) -> Result[str]:
+    async def add_attendee(self, event_uid: str, attendee_data: dict[str, Any]) -> Result[str]:
         """Add attendee to event. Returns attendee UID."""
         ...
 
@@ -1136,9 +1132,7 @@ class EventsFacadeProtocol(Protocol):
         """Create recurring event instances. Returns list of created event UIDs."""
         ...
 
-    async def get_recurring_events(
-        self, parent_uid: str, limit: int = 100
-    ) -> Result[list[Any]]:
+    async def get_recurring_events(self, parent_uid: str, limit: int = 100) -> Result[list[Any]]:
         """Get all instances of a recurring event."""
         ...
 
@@ -1850,9 +1844,7 @@ class KuFacadeProtocol(Protocol):
         """List all knowledge domains."""
         ...
 
-    async def get_knowledge_by_domain(
-        self, domain: str, limit: int = 50
-    ) -> Result[list[Any]]:
+    async def get_knowledge_by_domain(self, domain: str, limit: int = 50) -> Result[list[Any]]:
         """Get KUs in a specific domain."""
         ...
 

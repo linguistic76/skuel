@@ -101,7 +101,9 @@ class HabitsLateralService:
             for habit_uid in [first_habit_uid, second_habit_uid]:
                 ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=first_habit_uid,
@@ -150,7 +152,9 @@ class HabitsLateralService:
             for habit_uid in [habit_a_uid, habit_b_uid]:
                 ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=habit_a_uid,
@@ -196,7 +200,9 @@ class HabitsLateralService:
             for habit_uid in [habit_a_uid, habit_b_uid]:
                 ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=habit_a_uid,
@@ -231,7 +237,9 @@ class HabitsLateralService:
         if user_uid:
             ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=habit_uid,
@@ -261,7 +269,9 @@ class HabitsLateralService:
         if user_uid:
             ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                )
 
         all_complementary = await self.lateral_service.get_lateral_relationships(
             entity_uid=habit_uid,
@@ -301,7 +311,9 @@ class HabitsLateralService:
         if user_uid:
             ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=habit_uid,
@@ -329,7 +341,9 @@ class HabitsLateralService:
         if user_uid:
             ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_siblings(
             entity_uid=habit_uid,

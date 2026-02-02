@@ -94,7 +94,9 @@ class EventsLateralService:
             for event_uid in [event_a_uid, event_b_uid]:
                 ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Event {event_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Event {event_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=event_a_uid,
@@ -140,7 +142,9 @@ class EventsLateralService:
             for event_uid in [event_a_uid, event_b_uid]:
                 ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Event {event_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Event {event_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=event_a_uid,
@@ -188,7 +192,9 @@ class EventsLateralService:
             for event_uid in [prerequisite_uid, dependent_uid]:
                 ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Event {event_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Event {event_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=prerequisite_uid,
@@ -239,7 +245,9 @@ class EventsLateralService:
             for event_uid in [event_a_uid, event_b_uid]:
                 ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Event {event_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Event {event_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=event_a_uid,
@@ -275,7 +283,9 @@ class EventsLateralService:
         if user_uid:
             ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Event {event_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Event {event_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=event_uid,
@@ -303,7 +313,9 @@ class EventsLateralService:
         if user_uid:
             ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Event {event_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Event {event_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=event_uid,
@@ -331,7 +343,9 @@ class EventsLateralService:
         if user_uid:
             ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Event {event_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Event {event_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=event_uid,
@@ -359,7 +373,9 @@ class EventsLateralService:
         if user_uid:
             ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Event {event_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Event {event_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=event_uid,
@@ -389,7 +405,9 @@ class EventsLateralService:
         if user_uid:
             ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Event {event_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Event {event_uid} not found or access denied")
+                )
 
         all_related = await self.lateral_service.get_lateral_relationships(
             entity_uid=event_uid,
@@ -429,7 +447,9 @@ class EventsLateralService:
         if user_uid:
             ownership_result = await self.events_service.verify_ownership(event_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Event {event_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Event {event_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_siblings(
             entity_uid=event_uid,

@@ -1033,7 +1033,9 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             )
             return Result.ok(True)
 
-        return Result.fail(Errors.database(operation="create", message="Failed to create subgoal relationship"))
+        return Result.fail(
+            Errors.database(operation="create", message="Failed to create subgoal relationship")
+        )
 
     @with_error_handling("remove_subgoal_relationship", error_type="database")
     async def remove_subgoal_relationship(self, parent_uid: str, subgoal_uid: str) -> Result[bool]:

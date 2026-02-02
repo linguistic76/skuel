@@ -16,7 +16,7 @@ SECURITY UPDATE (December 2025):
 - StatusRouteFactory provides automatic ownership verification
 """
 
-from typing import Any, cast
+from typing import Any
 
 from fasthtml.common import Request
 
@@ -32,12 +32,10 @@ from core.infrastructure.routes.query_route_factory import CommonQueryRouteFacto
 from core.models.enums import ContentScope
 from core.models.habit.habit_request import (
     ArchiveHabitRequest,
-    DeleteHabitReminderRequest,
     HabitCreateRequest,
     HabitUpdateRequest,
     PauseHabitRequest,
     ResumeHabitRequest,
-    SetHabitReminderRequest,
     TrackHabitRequest,
     UntrackHabitRequest,
 )
@@ -366,7 +364,9 @@ def create_habits_api_routes(
             "days": body.get("days", []),
             "enabled": body.get("enabled", True),
         }
-        return await habits_service.set_habit_reminder(habit_uid=entity.uid, reminder_data=reminder_data)
+        return await habits_service.set_habit_reminder(
+            habit_uid=entity.uid, reminder_data=reminder_data
+        )
 
     @rt("/api/habits/reminders", methods=["GET"])
     @require_ownership_query(get_habits_service)

@@ -12,7 +12,7 @@ This file uses:
 - Manual routes for domain-specific operations (expressions, alignment, links, search)
 """
 
-from typing import Any, cast
+from typing import Any
 
 from fasthtml.common import Request
 

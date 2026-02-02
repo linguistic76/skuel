@@ -1052,7 +1052,9 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
             self.logger.info(f"Added step {step_uid} to path {path_uid} at sequence {sequence}")
             return Result.ok(True)
 
-        return Result.fail(Errors.database(operation="database_operation", message="Failed to add step to path"))
+        return Result.fail(
+            Errors.database(operation="database_operation", message="Failed to add step to path")
+        )
 
     @with_error_handling("remove_step_from_path", error_type="database")
     async def remove_step_from_path(self, path_uid: str, step_uid: str) -> Result[bool]:

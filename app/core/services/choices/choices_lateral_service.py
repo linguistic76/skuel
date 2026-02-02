@@ -94,7 +94,9 @@ class ChoicesLateralService:
             for choice_uid in [choice_a_uid, choice_b_uid]:
                 ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Choice {choice_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Choice {choice_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=choice_a_uid,
@@ -140,7 +142,9 @@ class ChoicesLateralService:
             for choice_uid in [blocker_uid, blocked_uid]:
                 ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Choice {choice_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Choice {choice_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=blocker_uid,
@@ -186,7 +190,9 @@ class ChoicesLateralService:
             for choice_uid in [choice_a_uid, choice_b_uid]:
                 ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Choice {choice_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Choice {choice_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=choice_a_uid,
@@ -232,7 +238,9 @@ class ChoicesLateralService:
             for choice_uid in [choice_a_uid, choice_b_uid]:
                 ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
                 if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Choice {choice_uid} not found or access denied"))
+                    return Result.fail(
+                        Errors.not_found(f"Choice {choice_uid} not found or access denied")
+                    )
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=choice_a_uid,
@@ -267,7 +275,9 @@ class ChoicesLateralService:
         if user_uid:
             ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Choice {choice_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Choice {choice_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=choice_uid,
@@ -295,7 +305,9 @@ class ChoicesLateralService:
         if user_uid:
             ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Choice {choice_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Choice {choice_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=choice_uid,
@@ -323,7 +335,9 @@ class ChoicesLateralService:
         if user_uid:
             ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Choice {choice_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Choice {choice_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=choice_uid,
@@ -351,7 +365,9 @@ class ChoicesLateralService:
         if user_uid:
             ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Choice {choice_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Choice {choice_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=choice_uid,
@@ -379,7 +395,9 @@ class ChoicesLateralService:
         if user_uid:
             ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Choice {choice_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Choice {choice_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=choice_uid,
@@ -407,7 +425,9 @@ class ChoicesLateralService:
         if user_uid:
             ownership_result = await self.choices_service.verify_ownership(choice_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(Errors.not_found(f"Choice {choice_uid} not found or access denied"))
+                return Result.fail(
+                    Errors.not_found(f"Choice {choice_uid} not found or access denied")
+                )
 
         return await self.lateral_service.get_siblings(
             entity_uid=choice_uid,

@@ -122,7 +122,9 @@ class LateralRouteFactory:
 
         # GET /api/{domain}/{uid}/lateral/blocking - Get entities that block this one
         @self.rt(f"/api/{self.domain}/{{uid}}/lateral/blocking", methods=["GET"])
-        async def get_blocking(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        async def get_blocking(
+            request: Request, uid: str
+        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
             """Get entities that block this entity."""
             user_uid = require_authenticated_user(request)
 
@@ -141,7 +143,9 @@ class LateralRouteFactory:
 
         # GET /api/{domain}/{uid}/lateral/blocked - Get entities blocked by this one
         @self.rt(f"/api/{self.domain}/{{uid}}/lateral/blocked", methods=["GET"])
-        async def get_blocked(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        async def get_blocked(
+            request: Request, uid: str
+        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
             """Get entities blocked by this entity."""
             user_uid = require_authenticated_user(request)
 
@@ -206,7 +210,9 @@ class LateralRouteFactory:
 
         # GET /api/{domain}/{uid}/lateral/prerequisites - Get prerequisite entities
         @self.rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["GET"])
-        async def get_prerequisites(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        async def get_prerequisites(
+            request: Request, uid: str
+        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
             """Get entities that are prerequisites for this entity."""
             user_uid = require_authenticated_user(request)
 
@@ -271,7 +277,9 @@ class LateralRouteFactory:
 
         # GET /api/{domain}/{uid}/lateral/alternatives - Get alternative entities
         @self.rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["GET"])
-        async def get_alternatives(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        async def get_alternatives(
+            request: Request, uid: str
+        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
             """Get alternative entities."""
             user_uid = require_authenticated_user(request)
 
@@ -336,7 +344,9 @@ class LateralRouteFactory:
 
         # GET /api/{domain}/{uid}/lateral/complementary - Get complementary entities
         @self.rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["GET"])
-        async def get_complementary(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        async def get_complementary(
+            request: Request, uid: str
+        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
             """Get complementary entities."""
             user_uid = require_authenticated_user(request)
 
@@ -360,7 +370,9 @@ class LateralRouteFactory:
 
         # GET /api/{domain}/{uid}/lateral/siblings - Get sibling entities
         @self.rt(f"/api/{self.domain}/{{uid}}/lateral/siblings", methods=["GET"])
-        async def get_siblings(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        async def get_siblings(
+            request: Request, uid: str
+        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
             """Get sibling entities (same parent in hierarchy)."""
             user_uid = require_authenticated_user(request)
 

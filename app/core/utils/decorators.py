@@ -90,14 +90,18 @@ def _categorize_exception(
 
     # Database-related exceptions
     if "Neo4j" in exception_name or "Driver" in exception_name or "Session" in exception_name:
-        return Result.fail(Errors.database(operation=operation, message=str(e), **context if context else {}))
+        return Result.fail(
+            Errors.database(operation=operation, message=str(e), **context if context else {})
+        )
 
     # String matching fallback for legacy error messages
     error_msg_lower = str(e).lower()
     if "not found" in error_msg_lower:
         return Result.fail(Errors.not_found(str(e)))
     elif "database" in error_msg_lower or "neo4j" in error_msg_lower:
-        return Result.fail(Errors.database(operation=operation, message=str(e), **context if context else {}))
+        return Result.fail(
+            Errors.database(operation=operation, message=str(e), **context if context else {})
+        )
     elif "validation" in error_msg_lower or "invalid" in error_msg_lower:
         return Result.fail(
             Errors.validation(

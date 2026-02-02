@@ -774,7 +774,9 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             )
             return Result.ok(True)
 
-        return Result.fail(Errors.database(operation="create", message="Failed to create subtask relationship"))
+        return Result.fail(
+            Errors.database(operation="create", message="Failed to create subtask relationship")
+        )
 
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""

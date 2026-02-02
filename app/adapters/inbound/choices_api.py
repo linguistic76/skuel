@@ -14,7 +14,7 @@ This file uses:
 
 __version__ = "2.0"
 
-from typing import Any, cast
+from typing import Any
 
 from fasthtml.common import Request
 
@@ -235,7 +235,9 @@ def create_choices_api_routes(
             lookback_days = int(timeframe[:-1])
 
         # Use intelligence service (analytics methods consolidated here)
-        result: Result[Any] = await choice_service.intelligence.get_decision_patterns(user_uid, days=lookback_days)
+        result: Result[Any] = await choice_service.intelligence.get_decision_patterns(
+            user_uid, days=lookback_days
+        )
         return result
 
     # ========================================================================
@@ -274,7 +276,9 @@ def create_choices_api_routes(
             Dict with correlation scores for decision factors (confidence,
             principle alignment, time pressure, domain, etc.)
         """
-        result: Result[Any] = await choice_service.intelligence.get_choice_quality_correlations(user_uid)
+        result: Result[Any] = await choice_service.intelligence.get_choice_quality_correlations(
+            user_uid
+        )
         return result
 
     @rt("/api/choices/intelligence/predict-quality")
@@ -296,7 +300,9 @@ def create_choices_api_routes(
             DecisionQualityPrediction with estimated quality score,
             confidence, and contributing factors
         """
-        result: Result[Any] = await choice_service.intelligence.predict_decision_quality(entity.uid, user_uid)
+        result: Result[Any] = await choice_service.intelligence.predict_decision_quality(
+            entity.uid, user_uid
+        )
         return result
 
     @rt("/api/choices/intelligence/domain-patterns")
@@ -317,7 +323,9 @@ def create_choices_api_routes(
         params = dict(request.query_params)
         days = int(params.get("days", 90))
 
-        result: Result[Any] = await choice_service.intelligence.get_domain_decision_patterns(user_uid, days=days)
+        result: Result[Any] = await choice_service.intelligence.get_domain_decision_patterns(
+            user_uid, days=days
+        )
         return result
 
     return []  # Routes registered via @rt() decorators (no objects returned)

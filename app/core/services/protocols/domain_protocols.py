@@ -743,11 +743,11 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         """Recalculate budget totals and status."""
         ...
 
-    async def create_invoice(self, invoice: Any) -> Result["InvoicePure"]:
+    async def create_invoice(self, invoice: Any) -> Result[InvoicePure]:
         """Create invoice. Returns created invoice."""
         ...
 
-    async def get_invoice(self, invoice_uid: str) -> Result["InvoicePure | None"]:
+    async def get_invoice(self, invoice_uid: str) -> Result[InvoicePure | None]:
         """Get invoice by UID."""
         ...
 

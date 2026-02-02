@@ -296,7 +296,7 @@ class SyncTracker:
         query = """
         UNWIND $paths AS path
         MATCH (s:SyncMetadata {file_path: path})
-        DELETE s
+        DETACH DELETE s
         RETURN count(*) AS deleted
         """
 

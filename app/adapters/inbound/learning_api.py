@@ -14,7 +14,7 @@ This file uses:
 
 __version__ = "3.0"
 
-from typing import Any, cast
+from typing import Any
 
 from fasthtml.common import Request
 

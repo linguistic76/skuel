@@ -140,7 +140,12 @@ class LateralRelationshipService:
             )
 
             if not result.records:
-                return Result.fail(Errors.database(operation="create_relationship", message=f"Failed to create {relationship_type.value} relationship"))
+                return Result.fail(
+                    Errors.database(
+                        operation="create_relationship",
+                        message=f"Failed to create {relationship_type.value} relationship",
+                    )
+                )
 
             logger.info(
                 f"✅ Created lateral relationship: {source_uid} -[{relationship_type.value}]-> {target_uid}"
@@ -195,9 +200,11 @@ class LateralRelationshipService:
             deleted_count = result.records[0]["deleted_count"] if result.records else 0
 
             if deleted_count == 0:
-                return Result.fail(Errors.not_found(
-                    f"Relationship {relationship_type.value} not found between {source_uid} and {target_uid}"
-                ))
+                return Result.fail(
+                    Errors.not_found(
+                        f"Relationship {relationship_type.value} not found between {source_uid} and {target_uid}"
+                    )
+                )
 
             logger.info(
                 f"✅ Deleted lateral relationship: {source_uid} -[{relationship_type.value}]-> {target_uid}"
@@ -385,7 +392,9 @@ class LateralRelationshipService:
 
             # For simplicity, implement 1st cousins only for now
             if degree != 1:
-                return Result.fail(Errors.validation("Only first cousins (degree=1) currently supported"))
+                return Result.fail(
+                    Errors.validation("Only first cousins (degree=1) currently supported")
+                )
 
             result = await self.driver.execute_query(
                 """
@@ -508,9 +517,9 @@ class LateralRelationshipService:
             )
 
             if not result.records or result.records[0]["shared_parent_count"] == 0:
-                return Result.fail(Errors.validation(
-                    "Entities must share same parent for this relationship type"
-                ))
+                return Result.fail(
+                    Errors.validation("Entities must share same parent for this relationship type")
+                )
 
             return Result.ok(True)
 
@@ -541,10 +550,12 @@ class LateralRelationshipService:
 
             record = result.records[0]
             if record["source_depth"] != record["target_depth"]:
-                return Result.fail(Errors.validation(
-                    f"Entities must be at same depth for this relationship type "
-                    f"(source depth: {record['source_depth']}, target depth: {record['target_depth']}))"
-                ))
+                return Result.fail(
+                    Errors.validation(
+                        f"Entities must be at same depth for this relationship type "
+                        f"(source depth: {record['source_depth']}, target depth: {record['target_depth']}))"
+                    )
+                )
 
             return Result.ok(True)
 
@@ -573,9 +584,11 @@ class LateralRelationshipService:
             )
 
             if result.records and result.records[0]["cycle_count"] > 0:
-                return Result.fail(Errors.validation(
-                    f"Creating this {relationship_type.value} relationship would create a circular dependency"
-                ))
+                return Result.fail(
+                    Errors.validation(
+                        f"Creating this {relationship_type.value} relationship would create a circular dependency"
+                    )
+                )
 
             return Result.ok(True)
 
@@ -1080,7 +1093,9 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to get relationship graph: {e}")
-            return Result.fail(Errors.database(operation="Relationship graph query", message=str(e)))
+            return Result.fail(
+                Errors.database(operation="Relationship graph query", message=str(e))
+            )
 
 
 __all__ = ["LateralRelationshipService"]

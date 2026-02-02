@@ -16,7 +16,7 @@ SECURITY UPDATE (December 2025):
 - Manual routes use require_authenticated_user + verify_ownership for security
 """
 
-from typing import Any, cast
+from typing import Any
 
 from fasthtml.common import Request
 
