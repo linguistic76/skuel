@@ -11,9 +11,11 @@ UI for journal projects following SKUEL's transparency principles:
 Uses DaisyUI/Tailwind components for clean, consistent design.
 """
 
+from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import H1, H2, H3, Code, Form, Li, P, Pre, Ul
+from starlette.requests import Request
 
 from core.ui.daisy_components import (
     Button,
@@ -462,10 +464,6 @@ class JournalProjectUIComponents:
 # ============================================================================
 # TYPED QUERY PARAMETERS
 # ============================================================================
-
-
-from dataclasses import dataclass
-from starlette.requests import Request
 
 
 @dataclass

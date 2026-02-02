@@ -15,9 +15,11 @@ No JSON API logic, no manual UI composition in routes.
 __version__ = "1.0"
 
 
+from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import H1, H2, H3, P
+from starlette.requests import Request
 from starlette.responses import Response
 
 from components.card_generator import CardGenerator
@@ -26,6 +28,7 @@ from components.shared_ui_components import SharedUIComponents
 from core.models.ku.ku_request import KuCreateRequest
 from core.ui.daisy_components import Button, ButtonT, Card, Div, Span
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
 
 logger = get_logger("skuel.routes.ku.ui")
 
@@ -283,7 +286,7 @@ class KuUIComponents:
 # ============================================================================
 
 
-def validate_ku_form_data(form_data: dict[str, Any]) -> "Result[None]":
+def validate_ku_form_data(form_data: dict[str, Any]) -> Result[None]:
     """
     Validate KU form data early.
 
@@ -335,10 +338,6 @@ def validate_ku_form_data(form_data: dict[str, Any]) -> "Result[None]":
 # ============================================================================
 # TYPED QUERY PARAMETERS
 # ============================================================================
-
-
-from dataclasses import dataclass
-from starlette.requests import Request
 
 
 @dataclass
@@ -456,7 +455,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
         from ui.patterns.error_banner import render_error_banner
 
         # Parse typed filters
-        filters = parse_knowledge_filters(request)
+        filters = parse_ku_filters(request)
 
         # Fetch real knowledge from service
         if ku_service and hasattr(ku_service, "core") and hasattr(ku_service.core, "backend"):
@@ -560,4 +559,4 @@ def create_ku_ui_routes(_app, rt, ku_service):
 
 
 # Export the route creation function
-__all__ = ["create_knowledge_ui_routes"]
+__all__ = ["create_ku_ui_routes"]

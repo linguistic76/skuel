@@ -52,6 +52,7 @@ from core.ui.ui_types import (
     UserLearningOverview,
 )
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
@@ -333,7 +334,7 @@ class LearningUIComponents:
 # ============================================================================
 
 
-def validate_ls_form_data(form_data: dict[str, Any]) -> "Result[None]":
+def validate_ls_form_data(form_data: dict[str, Any]) -> Result[None]:
     """
     Validate learning step form data early.
 
@@ -382,7 +383,7 @@ def validate_ls_form_data(form_data: dict[str, Any]) -> "Result[None]":
     return Result.ok(None)
 
 
-def validate_lp_form_data(form_data: dict[str, Any]) -> "Result[None]":
+def validate_lp_form_data(form_data: dict[str, Any]) -> Result[None]:
     """
     Validate learning path form data early.
 

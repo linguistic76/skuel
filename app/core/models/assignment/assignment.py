@@ -240,13 +240,11 @@ class Assignment:
         Returns:
             True if user can view, False otherwise
         """
-        if user_uid == owner_uid:
-            return True
-        if self.visibility == Visibility.PUBLIC:
-            return True
-        if self.visibility == Visibility.SHARED and user_uid in shared_user_uids:
-            return True
-        return False
+        return (
+            user_uid == owner_uid
+            or self.visibility == Visibility.PUBLIC
+            or (self.visibility == Visibility.SHARED and user_uid in shared_user_uids)
+        )
 
 
 @dataclass

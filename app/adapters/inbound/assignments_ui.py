@@ -19,11 +19,11 @@ Future Enhancements:
 - Manual review queue interface
 """
 
+from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import (
     H1,
-    H2,
     H3,
     H4,
     A,
@@ -38,7 +38,6 @@ from fasthtml.common import (
     Script,
     Select,
     Span,
-    Textarea,
 )
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
@@ -354,10 +353,6 @@ def _render_status_buttons(assignment: Any) -> Any:
 # ============================================================================
 
 
-from dataclasses import dataclass
-from starlette.requests import Request
-
-
 @dataclass
 class AssignmentFilters:
     """Typed filters for assignment list queries."""
@@ -418,7 +413,7 @@ def _render_visibility_dropdown(assignment: Any) -> Any:
         Select(
             *[
                 Option(
-                    f"{icon} {label}",
+                    label,
                     value=val,
                     selected=(val == current_visibility),
                 )
@@ -1106,7 +1101,7 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
         Returns HTML fragment showing users the assignment is shared with.
         """
         try:
-            user_uid = require_authenticated_user(request)
+            _user_uid = require_authenticated_user(request)
 
             # Note: This would ideally use the sharing service
             # For now, return placeholder UI that will be populated via API

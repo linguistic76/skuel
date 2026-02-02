@@ -17,6 +17,7 @@ Architecture:
 
 __version__ = "4.0"  # Merged dashboard sidebar into profile/hub
 
+from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import Request
@@ -160,10 +161,6 @@ async def error_page(message: str, status_code: int, user_display_name: str = "U
 # ============================================================================
 # TYPED QUERY PARAMETERS
 # ============================================================================
-
-
-from dataclasses import dataclass
-from starlette.requests import Request
 
 
 @dataclass
@@ -788,7 +785,7 @@ def setup_user_profile_routes(rt, services):
             return await error_page(str(e), 500)
 
         # Fetch shared assignments
-        from fasthtml.common import H2, H3, H4, A, Div, P, Span, Button
+        from fasthtml.common import H2, H4, A, Button, Div, P, Span
 
         shared_assignments = []
         if services.assignments_sharing:
@@ -800,7 +797,7 @@ def setup_user_profile_routes(rt, services):
                 shared_assignments = assignments_result.value
 
         # Build shared content view
-        def SharedContentCard(assignment: Any) -> Any:
+        def shared_content_card(assignment: Any) -> Any:
             """Render a shared assignment card."""
             return Div(
                 Div(
@@ -868,7 +865,7 @@ def setup_user_profile_routes(rt, services):
             # Shared content grid
             (
                 Div(
-                    *[SharedContentCard(a) for a in shared_assignments],
+                    *[shared_content_card(a) for a in shared_assignments],
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
                 )
                 if shared_assignments

@@ -21,9 +21,11 @@ Design Philosophy:
 
 __version__ = "1.0"
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H1, H2, H3, A, Li, Option, P, Ul
+from starlette.requests import Request
 from starlette.responses import Response
 
 from components.shared_ui_components import SharedUIComponents
@@ -441,10 +443,6 @@ class MOCUIComponents:
 # ============================================================================
 
 
-from dataclasses import dataclass
-from starlette.requests import Request
-
-
 @dataclass
 class MocFilters:
     """Typed filters for MOC list queries."""
@@ -697,9 +695,9 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
     async def moc_filter_fragment(request) -> Any:
         """Filter MOCs by domain (HTMX fragment)."""
         # Parse typed filters
-        filters = parse_moc_filters(request)
+        _filters = parse_moc_filters(request)
 
-        # Would filter from service using filters.domain
+        # Would filter from service using _filters.domain
         return P("Filtered MOCs will appear here", cls="text-gray-500")
 
     # ========================================================================

@@ -11,6 +11,7 @@ Following SKUEL principles: just numbers and charts, no AI recommendations.
 - Benefit: Consistent styling across all dashboards
 """
 
+from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
@@ -34,6 +35,7 @@ from fasthtml.common import (
     Thead,
     Tr,
 )
+from starlette.requests import Request
 
 from core.models.shared_enums import ReportType
 from core.ui.daisy_components import Button, ButtonT
@@ -637,10 +639,6 @@ class ReportsUIComponents:
 # ============================================================================
 # TYPED QUERY PARAMETERS
 # ============================================================================
-
-
-from dataclasses import dataclass
-from starlette.requests import Request
 
 
 @dataclass

@@ -6,9 +6,11 @@ UI routes for displaying and managing event-driven insights.
 Phase 1 (January 2026): Insight dashboard with dismiss/action functionality.
 """
 
+from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import A, H2, H3, Div, Form, Input, Label, NotStr, P, Select, Span
+from fasthtml.common import H2, H3, A, Div, Input, Label, NotStr, P, Select, Span
+from starlette.requests import Request
 
 from components.insight_card import InsightCard
 from core.auth import require_authenticated_user
@@ -25,10 +27,6 @@ logger = get_logger("skuel.routes.insights.ui")
 # ============================================================================
 # TYPED QUERY PARAMETERS
 # ============================================================================
-
-
-from dataclasses import dataclass
-from starlette.requests import Request
 
 
 @dataclass
@@ -238,7 +236,7 @@ def create_insights_ui_routes(
             ),
             cls="mb-6 p-4 bg-base-200 rounded-lg",
             **{
-                "x-data": f"insightFiltersDebounced({{search: '{search_query}', domain: '{domain_filter or ''}', impact: '{impact_filter or ''}', type: '{insight_type_filter or ''}', status: '{action_status or 'all'}'}})"
+                "x-data": f"insightFiltersDebounced({{search: '{filters.search}', domain: '{filters.domain or ''}', impact: '{filters.impact or ''}', type: '{filters.insight_type or ''}', status: '{filters.action_status or 'all'}'}})"
             },
         )
 
@@ -545,7 +543,7 @@ def create_insights_ui_routes(
         result = await insight_store.get_active_insights(
             user_uid=user_uid,
             domain=filters.domain,
-            limit=page_size + offset,  # Get all up to this point
+            limit=page_size + filters.offset,  # Get all up to this point
         )
 
         if result.is_error:

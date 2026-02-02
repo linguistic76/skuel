@@ -15,17 +15,9 @@ These tests use the actual service implementation with real Neo4j driver.
 """
 
 import pytest
-from neo4j import Driver
 
-from core.models.assignment.assignment import (
-    Assignment,
-    AssignmentStatus,
-    AssignmentType,
-    ProcessorType,
-)
 from core.models.enums.metadata_enums import Visibility
 from core.services.assignments.assignment_sharing_service import AssignmentSharingService
-from core.utils.result_simplified import Result
 
 
 @pytest.fixture
@@ -39,8 +31,7 @@ async def neo4j_driver(request):
     # Get driver from pytest config (assumes neo4j_driver fixture exists)
     if hasattr(request, "getfixturevalue"):
         try:
-            driver = request.getfixturevalue("neo4j_driver")
-            return driver
+            return request.getfixturevalue("neo4j_driver")
         except Exception:
             pytest.skip("Neo4j not available for integration tests")
     pytest.skip("Neo4j driver not available")
@@ -141,7 +132,7 @@ async def test_complete_sharing_workflow(sharing_service, test_assignment):
     assert share_result.value is True
 
     # Step 3: Recipient can see it in "shared with me"
-    shared_result = await sharing_service.get_assignments_shared_with_me(
+    _shared_result = await sharing_service.get_assignments_shared_with_me(
         user_uid=recipient_uid,
         limit=50,
     )

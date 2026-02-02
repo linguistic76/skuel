@@ -24,9 +24,8 @@ from typing import Any
 
 from neo4j import Driver
 
-from core.models.assignment.assignment import Assignment, AssignmentDTO, assignment_dto_to_pure
+from core.models.assignment.assignment import AssignmentDTO
 from core.models.enums.metadata_enums import Visibility
-from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -36,7 +35,7 @@ logger = get_logger("skuel.services.assignment_sharing")
 class AssignmentSharingService:
     """Service for managing assignment sharing and access control."""
 
-    def __init__(self, driver: Driver):
+    def __init__(self, driver: Driver) -> None:
         """
         Initialize the sharing service.
 

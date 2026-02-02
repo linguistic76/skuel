@@ -6,9 +6,11 @@ UI routes for viewing dismissed and actioned insights with notes.
 Phase 4, Task 17: Action tracking and history page.
 """
 
+from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import Div, H3, Li, NotStr, P, Select, Span, Ul
+from fasthtml.common import Div, NotStr, P, Select, Span
+from starlette.requests import Request
 
 from components.insight_card import InsightCard
 from core.auth import require_authenticated_user
@@ -25,10 +27,6 @@ logger = get_logger("skuel.routes.insights.history")
 # ============================================================================
 # TYPED QUERY PARAMETERS
 # ============================================================================
-
-
-from dataclasses import dataclass
-from starlette.requests import Request
 
 
 @dataclass
@@ -99,9 +97,9 @@ def create_insights_history_routes(
                 Span("Filter: ", cls="text-sm font-medium mr-2"),
                 Select(
                     NotStr(
-                        f'<option value="all" {"selected" if history_type == "all" else ""}>All Actions</option>'
-                        f'<option value="dismissed" {"selected" if history_type == "dismissed" else ""}>Dismissed Only</option>'
-                        f'<option value="actioned" {"selected" if history_type == "actioned" else ""}>Actioned Only</option>'
+                        f'<option value="all" {"selected" if params.history_type == "all" else ""}>All Actions</option>'
+                        f'<option value="dismissed" {"selected" if params.history_type == "dismissed" else ""}>Dismissed Only</option>'
+                        f'<option value="actioned" {"selected" if params.history_type == "actioned" else ""}>Actioned Only</option>'
                     ),
                     cls="select select-bordered select-sm",
                     onchange="window.location.href='/insights/history?type=' + this.value",
@@ -168,7 +166,7 @@ def create_insights_history_routes(
             }
             history_cards = EmptyState(
                 title="No Action History",
-                message=empty_message.get(history_type, "No insights found."),
+                message=empty_message.get(params.history_type, "No insights found."),
                 icon="📜",
             )
 

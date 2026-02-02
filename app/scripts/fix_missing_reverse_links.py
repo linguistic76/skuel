@@ -8,10 +8,9 @@ to the related_skills field in YAML frontmatter.
 
 import re
 from pathlib import Path
-from typing import Dict, List, Set
 
 # Mapping from validation warnings: {file_path: [skills_to_add]}
-MISSING_REVERSE_LINKS: Dict[str, List[str]] = {
+MISSING_REVERSE_LINKS: dict[str, list[str]] = {
     "/docs/patterns/UI_COMPONENT_PATTERNS.md": [
         "html-htmx",
         "html-navigation",
@@ -69,7 +68,7 @@ def extract_frontmatter(content: str) -> tuple[str | None, str]:
     return parts[1], parts[2]
 
 
-def parse_related_skills(frontmatter: str) -> Set[str]:
+def parse_related_skills(frontmatter: str) -> set[str]:
     """Extract existing related_skills from frontmatter."""
     skills = set()
     in_related_skills = False
@@ -95,7 +94,7 @@ def parse_related_skills(frontmatter: str) -> Set[str]:
     return skills
 
 
-def update_frontmatter(frontmatter: str, new_skills: List[str]) -> str:
+def update_frontmatter(frontmatter: str, new_skills: list[str]) -> str:
     """Add new skills to related_skills field in frontmatter."""
     existing_skills = parse_related_skills(frontmatter)
     all_skills = sorted(existing_skills.union(new_skills))
@@ -115,12 +114,10 @@ def update_frontmatter(frontmatter: str, new_skills: List[str]) -> str:
     lines = frontmatter.split("\n")
     new_lines = []
     in_related_skills = False
-    related_skills_processed = False
 
     for line in lines:
         if line.strip().startswith("related_skills:"):
             in_related_skills = True
-            related_skills_processed = True
             # Check for inline array
             if "[" in line:
                 # Replace inline array with multiline
@@ -134,15 +131,14 @@ def update_frontmatter(frontmatter: str, new_skills: List[str]) -> str:
             if line.strip().startswith("-"):
                 # Skip existing skill lines, we'll replace them all
                 continue
-            elif line.strip() == "" or (line.startswith("  ") and not line.strip().startswith("-")):
+            if line.strip() == "" or (line.startswith("  ") and not line.strip().startswith("-")):
                 # Empty line or continuation, skip
                 continue
-            else:
-                # Hit next field, insert all skills now
-                for skill in all_skills:
-                    new_lines.append(f"  - {skill}")
-                in_related_skills = False
-                new_lines.append(line)
+            # Hit next field, insert all skills now
+            for skill in all_skills:
+                new_lines.append(f"  - {skill}")
+            in_related_skills = False
+            new_lines.append(line)
         else:
             new_lines.append(line)
 
@@ -154,7 +150,7 @@ def update_frontmatter(frontmatter: str, new_skills: List[str]) -> str:
     return "\n".join(new_lines)
 
 
-def process_file(file_path: Path, skills_to_add: List[str]) -> bool:
+def process_file(file_path: Path, skills_to_add: list[str]) -> bool:
     """Add missing skills to file's frontmatter. Returns True if modified."""
     if not file_path.exists():
         print(f"⚠️  File not found: {file_path}")
@@ -212,10 +208,10 @@ def main():
         else:
             skipped_count += 1
 
-    print(f"\n📊 Summary:")
+    print("\n📊 Summary:")
     print(f"   Modified: {modified_count} files")
     print(f"   Skipped: {skipped_count} files")
-    print(f"\nNext step: Run sync_cross_references.py to regenerate 'Related Skills' sections")
+    print("\nNext step: Run sync_cross_references.py to regenerate 'Related Skills' sections")
 
 
 if __name__ == "__main__":
