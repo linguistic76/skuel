@@ -24,6 +24,9 @@ Version: 1.0.0
 Date: 2026-01-21
 """
 
+from core.services.assignments.assignment_sharing_service import (
+    AssignmentSharingService,
+)
 from core.services.assignments.assignments_core_service import AssignmentsCoreService
 from core.services.assignments.assignments_processing_service import (
     AssignmentProcessorService,
@@ -34,9 +37,6 @@ from core.services.assignments.assignments_relationship_service import (
 from core.services.assignments.assignments_search_service import AssignmentsQueryService
 from core.services.assignments.assignments_submission_service import (
     AssignmentSubmissionService,
-)
-from core.services.assignments.assignment_sharing_service import (
-    AssignmentSharingService,
 )
 
 __all__ = [

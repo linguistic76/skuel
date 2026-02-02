@@ -7,7 +7,7 @@ Each view shows a combined layout:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Button, H2, H3, A, Div, Label, Li, Option, P, Select, Span, Ul
+from fasthtml.common import H2, H3, A, Button, Div, Label, Li, Option, P, Select, Span, Ul
 
 from core.models.enums.entity_enums import Domain
 from core.services.user.unified_user_context import UserContext

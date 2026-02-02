@@ -9,8 +9,8 @@ This script:
 """
 
 import re
-from pathlib import Path
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import yaml

@@ -15,8 +15,7 @@ Also tests helper methods:
 - _verify_shareable()
 """
 
-from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import MagicMock
 
 import pytest
 

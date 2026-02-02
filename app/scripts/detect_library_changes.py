@@ -206,7 +206,7 @@ def print_report(changes: list[VersionChange]) -> None:
 
     for change in changes:
         print(f"📦 {change.package}: {change.old_version} → {change.new_version}")
-        print(f"   Skills potentially affected:")
+        print("   Skills potentially affected:")
         for skill in change.affected_skills:
             print(f"   - @{skill}")
         print()

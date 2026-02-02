@@ -21,9 +21,9 @@ from ui.profile.domain_views import (
     TasksDomainView,
 )
 from ui.profile.layout import (
+    ProfileDomainItem,
     build_profile_sidebar,
     create_profile_page,
-    ProfileDomainItem,
 )
 
 __all__ = [

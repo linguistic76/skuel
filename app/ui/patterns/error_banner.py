@@ -167,7 +167,7 @@ def render_empty_state_with_error(
             action_href="/tasks"
         )
     """
-    from fasthtml.common import A, Button, H3
+    from fasthtml.common import H3, A, Button
 
     content = [
         H3(title, cls="text-xl font-bold text-base-content/70 mb-2"),
@@ -188,7 +188,6 @@ def render_empty_state_with_error(
 
 # Import Span for use in this module
 from fasthtml.common import Span  # noqa: E402
-
 
 __all__ = [
     "render_error_banner",

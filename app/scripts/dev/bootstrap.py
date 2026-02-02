@@ -636,10 +636,10 @@ async def _wire_all_routes(
     # Assignments routes (Primary interface for file submission and processing)
     if services.assignments and services.processing_pipeline:
         from adapters.inbound.assignments_api import create_assignments_api_routes
-        from adapters.inbound.assignments_ui import create_assignments_ui_routes
         from adapters.inbound.assignments_sharing_api import (
             create_assignments_sharing_api_routes,
         )
+        from adapters.inbound.assignments_ui import create_assignments_ui_routes
 
         create_assignments_api_routes(
             app,

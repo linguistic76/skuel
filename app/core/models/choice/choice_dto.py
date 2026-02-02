@@ -167,7 +167,6 @@ class ChoiceDTO(ActivityDTOMixin):
         """
         from core.models.dto_helpers import (
             dto_from_dict,
-            ensure_list_fields,
         )
 
         # Make a copy to avoid mutating the original

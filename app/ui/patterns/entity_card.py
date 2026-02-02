@@ -21,7 +21,6 @@ from ui.primitives.card import Card
 from ui.primitives.layout import FlexItem, Row
 from ui.primitives.text import CardTitle, SmallText, TruncatedText
 
-
 # ============================================================================
 # VARIANT SYSTEM
 # ============================================================================
