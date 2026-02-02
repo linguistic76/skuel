@@ -362,6 +362,22 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-030](/docs/decisions/ADR-030.md)
 
+### @vis-network
+
+**Description:** Expert guide to Vis.js Network for interactive graph visualization in SKUEL. Use when visualizing lateral relationships, building force-directed graphs, creating relationship network diagrams, or when the user mentions vis.js, graph visualization, relationship networks, interactive graphs, or lateral relationships.
+
+**Architecture:**
+- [LATERAL_RELATIONSHIPS_CORE.md](/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md)
+
+**Patterns (Primary):**
+- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md)
+
+**Patterns (Additional):**
+- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md)
+
+**ADRs:**
+- [ADR-037](/docs/decisions/ADR-037.md)
+
 ---
 
 ## By Document Category
@@ -374,6 +390,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ALPINE_JS_ARCHITECTURE.md](/docs/architecture/ALPINE_JS_ARCHITECTURE.md) → @js-alpine
 - [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) → @curriculum-domains
 - [FOURTEEN_DOMAIN_ARCHITECTURE.md](/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) → @activity-domains
+- [LATERAL_RELATIONSHIPS_CORE.md](/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md) → @vis-network
 - [NEO4J_DATABASE_ARCHITECTURE.md](/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md) → @neo4j-cypher-patterns
 - [SEARCH_ARCHITECTURE.md](/docs/architecture/SEARCH_ARCHITECTURE.md) → @skuel-search-architecture
 - [UNIFIED_USER_ARCHITECTURE.md](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md) → @user-context-intelligence
@@ -402,7 +419,7 @@ For each documentation category, this section shows which skills are relevant.
 - [HIERARCHICAL_RELATIONSHIPS_PATTERN.md](/docs/patterns/HIERARCHICAL_RELATIONSHIPS_PATTERN.md) → @neo4j-cypher-patterns
 - [HIERARCHY_COMPONENTS_GUIDE.md](/docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md) → @skuel-component-composition
 - [HTMX_ACCESSIBILITY_PATTERNS.md](/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md) → @accessibility-guide, @html-htmx
-- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) → @neo4j-cypher-patterns
+- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) → @neo4j-cypher-patterns, @vis-network
 - [OWNERSHIP_VERIFICATION.md](/docs/patterns/OWNERSHIP_VERIFICATION.md) → @activity-domains, @curriculum-domains
 - [PERFORMANCE_MONITORING.md](/docs/patterns/PERFORMANCE_MONITORING.md) → @prometheus-grafana, @pydantic, @skuel-form-patterns
 - [PROTOCOL_LSP_COMPLIANCE.md](/docs/patterns/PROTOCOL_LSP_COMPLIANCE.md) → @python
@@ -440,14 +457,14 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-034](/docs/decisions/ADR-034.md) → @neo4j-genai-plugin
 - [ADR-035](/docs/decisions/ADR-035.md) → @pydantic, @python
 - [ADR-036](/docs/decisions/ADR-036.md) → @prometheus-grafana
-- [ADR-037](/docs/decisions/ADR-037.md) → @neo4j-cypher-patterns
+- [ADR-037](/docs/decisions/ADR-037.md) → @neo4j-cypher-patterns, @vis-network
 
 ---
 
 ## Statistics
 
-- **Total skills:** 27
-- **Architecture docs:** 7 docs linked to skills
+- **Total skills:** 28
+- **Architecture docs:** 8 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
 - **Pattern docs:** 43 docs linked to skills
 - **ADRs:** 10 ADRs linked to skills

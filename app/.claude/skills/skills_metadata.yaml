@@ -111,6 +111,21 @@ skills:
     patterns: []
     keywords: [chartjs, visualization, graphs, charts, analytics]
 
+  - name: vis-network
+    description: Expert guide to Vis.js Network for interactive graph visualization in SKUEL. Use when visualizing lateral relationships, building force-directed graphs, creating relationship network diagrams, or when the user mentions vis.js, graph visualization, relationship networks, interactive graphs, or lateral relationships.
+    foundation: []
+    dependencies: []
+    library_package: null  # Self-hosted vendor library
+    library_version: "9.1.9"
+    primary_docs:
+      - /docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md
+      - /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
+    related_adrs:
+      - ADR-037
+    patterns:
+      - /docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md
+    keywords: [vis.js, visjs, vis-network, graph-visualization, force-directed-graph, relationship-network, lateral-relationships, interactive-graph, network-diagram, alpine-integration, htmx-lazy-loading, neo4j-visualization]
+
   # ============================================================================
   # WEB FRAMEWORK LAYER
   # ============================================================================
@@ -462,7 +477,7 @@ skills:
 # ============================================================================
 #
 # Foundation (no dependencies):
-#   python, pydantic, tailwind-css, daisyui, chartjs, js-alpine, neo4j-cypher-patterns, prometheus-grafana
+#   python, pydantic, tailwind-css, daisyui, chartjs, vis-network, js-alpine, neo4j-cypher-patterns, prometheus-grafana
 #
 # Web Framework:
 #   fasthtml → html-htmx → html-navigation
@@ -491,5 +506,5 @@ skills:
 # Testing:
 #   pytest (depends on python, result-pattern)
 #
-# Total skills: 27
+# Total skills: 28
 # No cycles detected - graph is valid ✓

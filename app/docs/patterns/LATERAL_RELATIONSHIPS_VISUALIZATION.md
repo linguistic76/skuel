@@ -4,6 +4,7 @@ updated: '2026-02-02'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
+- vis-network
 related_docs: []
 ---
 # Lateral Relationships Visualization Pattern
@@ -16,7 +17,8 @@ related_docs: []
 ## Related Skills
 
 For implementation guidance, see:
-- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md) - Graph queries and Cypher patterns
+- [@vis-network](../../.claude/skills/vis-network/SKILL.md) - Vis.js Network visualization integration
 
 
 ## Purpose
