@@ -63,26 +63,52 @@ async def get_learning_opportunities(
 
 **See:** `.claude/skills/neo4j-genai-plugin/` for GenAI plugin patterns
 
-## External Library Documentation
+## Skills & Documentation Cross-Reference
 
 **Core Principle:** "Local curated docs first, external lookup only when missing"
 
-| Library/Pattern | Local Documentation | Fallback |
-|-----------------|---------------------|----------|
-| **Technology Libraries** | | |
-| FastHTML | `/docs/fasthtml-llms.txt`, `/.claude/skills/fasthtml/` | Context7 MCP |
-| Alpine.js | `/.claude/skills/js-alpine/` | Context7 MCP |
-| DaisyUI | `/.claude/skills/daisyui/` | Context7 MCP |
-| Neo4j | `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md`, `/.claude/skills/neo4j-cypher-patterns/` | Context7 MCP |
-| Pydantic | `/docs/patterns/three_tier_type_system.md`, `/.claude/skills/pydantic/` | Context7 MCP |
-| Vis.js Network | `/PHASE5_FULL_DEPLOYMENT_COMPLETE.md` | https://visjs.github.io/vis-network/docs/network/ |
-| **SKUEL UX Patterns** | | |
-| Page Architecture | `/.claude/skills/base-page-architecture/` | `/docs/patterns/UI_COMPONENT_PATTERNS.md` |
-| Error Handling UI | `/.claude/skills/ui-error-handling/` | `/docs/patterns/UI_COMPONENT_PATTERNS.md` (lines 751-1199) |
-| Custom Sidebars | `/.claude/skills/custom-sidebar-patterns/` | `/ui/profile/layout.py` |
-| Form Patterns | `/.claude/skills/skuel-form-patterns/` | `/docs/patterns/UI_COMPONENT_PATTERNS.md` (lines 1079-1145) |
-| Component Composition | `/.claude/skills/skuel-component-composition/` | `/docs/patterns/UI_COMPONENT_PATTERNS.md` |
-| Accessibility | `/.claude/skills/accessibility-guide/` | WCAG 2.1 Level AA |
+**Cross-Reference System:**
+- Skills use "Deep Dive Resources" section to link to architecture docs
+- Docs use "Quick Start" or "Related Skills" section to link to skills
+- See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for complete mapping
+
+| Skill | Primary Documentation | Related Patterns |
+|-------|----------------------|------------------|
+| **Foundation Layer** | | |
+| python | `/docs/patterns/three_tier_type_system.md`, `/docs/patterns/protocol_architecture.md` | ASYNC_SYNC_DESIGN_PATTERN.md |
+| pydantic | `/docs/patterns/three_tier_type_system.md`, `/docs/patterns/API_VALIDATION_PATTERNS.md` | DOMAIN_PATTERNS_CATALOG.md |
+| tailwind-css | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
+| daisyui | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
+| chartjs | `/docs/architecture/ADMIN_DASHBOARD_ARCHITECTURE.md` | — |
+| **Web Framework** | | |
+| fasthtml | `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`, `/docs/patterns/ROUTE_FACTORIES.md` | DOMAIN_ROUTE_CONFIG_PATTERN.md |
+| html-htmx | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | HTMX_ACCESSIBILITY_PATTERNS.md |
+| html-navigation | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
+| js-alpine | `/docs/architecture/ALPINE_JS_ARCHITECTURE.md` | UI_COMPONENT_PATTERNS.md |
+| **UX & Accessibility** | | |
+| accessibility-guide | `/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md` | UI_COMPONENT_PATTERNS.md |
+| base-page-architecture | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
+| custom-sidebar-patterns | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
+| skuel-component-composition | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | HIERARCHY_COMPONENTS_GUIDE.md |
+| skuel-form-patterns | `/docs/patterns/API_VALIDATION_PATTERNS.md` | PERFORMANCE_MONITORING.md |
+| ui-error-handling | `/docs/patterns/ERROR_HANDLING.md` | RETURN_TYPE_ERROR_PROPAGATION.md |
+| **Database** | | |
+| neo4j-cypher-patterns | `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md`, `/docs/patterns/query_architecture.md` | CYPHER_VS_APOC_STRATEGY.md |
+| neo4j-genai-plugin | `/docs/development/GENAI_SETUP.md` | search_service_pattern.md |
+| **Monitoring** | | |
+| prometheus-grafana | `/monitoring/README.md`, `/OBSERVABILITY_PHASE1_COMPLETE.md` | PERFORMANCE_MONITORING.md |
+| **SKUEL Architecture** | | |
+| result-pattern | `/docs/patterns/ERROR_HANDLING.md` | RETURN_TYPE_ERROR_PROPAGATION.md |
+| base-analytics-service | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md` | 7 pattern docs |
+| base-ai-service | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | — |
+| activity-domains | `/docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` | OWNERSHIP_VERIFICATION.md |
+| curriculum-domains | `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` | OWNERSHIP_VERIFICATION.md |
+| skuel-search-architecture | `/docs/architecture/SEARCH_ARCHITECTURE.md` | query_architecture.md |
+| user-context-intelligence | `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` | — |
+| **Testing** | | |
+| pytest | `/docs/patterns/TESTING_PATTERNS.md`, `/TESTING.md` | GRAPH_ACCESS_PATTERNS.md |
+
+**Total:** 27 skills with comprehensive documentation mappings
 
 ## Documentation Architecture
 
