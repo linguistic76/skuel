@@ -23,6 +23,8 @@ related_skills:
 
 ## Purpose
 
+**Skill:** [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
+
 Learning Steps represent ordered steps within a learning path. They aggregate KUs into a sequential learning experience with practice opportunities (habits, tasks, events).
 
 ## Service Architecture (ADR-030)

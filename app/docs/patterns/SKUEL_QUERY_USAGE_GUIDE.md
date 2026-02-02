@@ -15,6 +15,8 @@ related_docs: []
 
 ## Quick Start
 
+**Skill:** [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+
 ```python
 from core.models.query.skuel_query_templates import get_template
 

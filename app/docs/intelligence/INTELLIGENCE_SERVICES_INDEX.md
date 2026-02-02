@@ -31,6 +31,10 @@ The app functions fully without any LLM dependencies - AI services enhance but a
 
 **Note:** Finance is a standalone bookkeeping domain (no intelligence service).
 
+## Quick Start
+
+**Skills:** [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md), [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md)
+
 ## One Path Forward (ADR-029)
 
 **January 8, 2026:** GraphNativeMixin removed from UserContextIntelligence (366 lines).

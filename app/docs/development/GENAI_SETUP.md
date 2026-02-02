@@ -12,6 +12,8 @@ related_skills:
 
 ## Overview
 
+**Skill:** [@neo4j-genai-plugin](../../.claude/skills/neo4j-genai-plugin/SKILL.md)
+
 SKUEL uses Neo4j's GenAI plugin for embeddings generation and vector similarity search in development. This guide covers Docker-based setup only.
 
 **For production AuraDB deployment:** See [`/docs/deployment/AURADB_MIGRATION_GUIDE.md`](../deployment/AURADB_MIGRATION_GUIDE.md)

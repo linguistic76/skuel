@@ -13,6 +13,8 @@ related_skills:
 
 ## Executive Summary
 
+**Skill:** [@prometheus-grafana](.claude/skills/prometheus-grafana/SKILL.md)
+
 Phase 1 of the Prometheus + Grafana observability stack improvements is **complete and production-ready**. This phase addressed the critical gaps identified in the comprehensive review, adding:
 
 - ✅ **8 new AI metrics** for OpenAI, embeddings, and Deepgram

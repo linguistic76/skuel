@@ -11,6 +11,8 @@ Complete catalog of methods across all 10 domain search services. All services e
 
 ## Quick Reference Matrix
 
+**Skill:** [@skuel-search-architecture](../../.claude/skills/skuel-search-architecture/SKILL.md)
+
 Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-specific
 
 | Method | Tasks | Goals | Habits | Events | Choices | Principles | KU | LS | LP | MOC |

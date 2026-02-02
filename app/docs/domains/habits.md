@@ -21,6 +21,8 @@ related_skills:
 
 ## Purpose
 
+**Skill:** [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
+
 Habits represent recurring behaviors with streak tracking. They form the "system" that supports goal achievement (per James Clear's Atomic Habits philosophy).
 
 ## Key Files

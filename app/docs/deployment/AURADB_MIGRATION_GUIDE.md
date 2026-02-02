@@ -13,6 +13,8 @@ related_skills:
 
 ## Overview
 
+**Skill:** [@neo4j-genai-plugin](../../.claude/skills/neo4j-genai-plugin/SKILL.md)
+
 This guide covers migrating from Docker-based Neo4j (development) to Neo4j AuraDB (production deployment). Use this guide when you're ready to deploy SKUEL to production.
 
 ### Current Setup (Development)

@@ -24,6 +24,8 @@ related_skills:
 
 ## Purpose
 
+**Skill:** [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
+
 Learning Paths represent complete, sequential learning journeys. They organize Learning Steps into a coherent curriculum with validation, adaptive sequencing, and progress tracking.
 
 ## Service Architecture (ADR-030, ADR-031)

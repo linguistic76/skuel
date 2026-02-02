@@ -8,6 +8,8 @@ related_skills:
 
 ## Quick Reference
 
+**Skill:** [@pytest](.claude/skills/pytest/SKILL.md)
+
 ```bash
 # RECOMMENDED: Run integration tests (100% passing in isolation)
 ./dev test-integration

@@ -11,6 +11,8 @@ related_skills:
 
 ## Quick Start
 
+**Skill:** [@prometheus-grafana](../.claude/skills/prometheus-grafana/SKILL.md)
+
 ### 1. Start the Monitoring Stack
 
 ```bash

@@ -23,6 +23,8 @@ related_skills:
 
 ## Purpose
 
+**Skill:** [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
+
 Knowledge Units are atomic pieces of knowledge content. They represent the fundamental building blocks that other curriculum patterns aggregate.
 
 ## UID Format

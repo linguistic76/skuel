@@ -21,6 +21,8 @@ related_skills:
 
 ## Purpose
 
+**Skill:** [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
+
 Goals represent desired outcomes that guide learning and habit formation. They provide direction for tasks, habits, and knowledge acquisition.
 
 ## Key Files

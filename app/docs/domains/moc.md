@@ -28,6 +28,8 @@ A KU "is" a MOC when it has outgoing ORGANIZES relationships to other KUs. This 
 
 ## Two Paths to Knowledge (Montessori-Inspired)
 
+**Skill:** [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
+
 SKUEL provides two fundamental ways to interact with Knowledge Units:
 
 | Path | Topology | Purpose | Pedagogy |

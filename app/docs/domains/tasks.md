@@ -21,6 +21,8 @@ related_skills:
 
 ## Purpose
 
+**Skill:** [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
+
 Tasks represent work items with dependencies, deadlines, and knowledge requirements. They are the primary unit of execution in SKUEL.
 
 ## Key Files
