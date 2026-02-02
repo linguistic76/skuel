@@ -15,7 +15,11 @@ Routes:
 See: /docs/patterns/SHARING_PATTERNS.md (to be created)
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from core.services.assignments.assignment_sharing_service import AssignmentSharingService
+    from core.services.assignments.assignments_core_service import AssignmentsCoreService
 
 from pydantic import BaseModel
 from starlette.requests import Request
@@ -62,11 +66,11 @@ class SetVisibilityRequest(BaseModel):
 
 
 def create_assignments_sharing_api_routes(
-    _app,
-    rt,
-    sharing_service,
-    core_service=None,
-):
+    _app: Any,
+    rt: Any,
+    sharing_service: "AssignmentSharingService",
+    core_service: "AssignmentsCoreService | None" = None,
+) -> list[Any]:
     """
     Create all assignment sharing API routes.
 

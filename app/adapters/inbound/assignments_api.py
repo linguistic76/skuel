@@ -24,7 +24,13 @@ Routes:
 
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from core.services.assignments.assignments_core_service import AssignmentsCoreService
+    from core.services.assignments.assignments_processing_service import AssignmentsProcessingService
+    from core.services.assignments.assignments_search_service import AssignmentsSearchService
+    from core.services.assignments.assignments_submission_service import AssignmentSubmissionService
 
 from starlette.background import BackgroundTask
 from starlette.datastructures import UploadFile
@@ -67,13 +73,13 @@ def cleanup_temp_file(filepath: str):
 
 
 def create_assignments_api_routes(
-    _app,
-    rt,
-    assignment_service,
-    processing_service,
-    assignments_query_service=None,
-    assignments_core_service=None,
-):
+    _app: Any,
+    rt: Any,
+    assignment_service: "AssignmentSubmissionService",
+    processing_service: "AssignmentsProcessingService",
+    assignments_query_service: "AssignmentsSearchService | None" = None,
+    assignments_core_service: "AssignmentsCoreService | None" = None,
+) -> list[Any]:
     """
     Create all assignment API routes.
 
@@ -588,7 +594,7 @@ def create_assignments_api_routes(
                 return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
-            if assignment.user_uid != user_uid:
+            if assignment is None or assignment.user_uid != user_uid:
                 return Result.fail(
                     Errors.not_found(resource="Assignment", identifier=assignment_uid)
                 )
@@ -621,7 +627,7 @@ def create_assignments_api_routes(
                 return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
-            if assignment.user_uid != user_uid:
+            if assignment is None or assignment.user_uid != user_uid:
                 return Result.fail(
                     Errors.not_found(resource="Assignment", identifier=assignment_uid)
                 )
@@ -652,7 +658,7 @@ def create_assignments_api_routes(
                 return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
-            if assignment.user_uid != user_uid:
+            if assignment is None or assignment.user_uid != user_uid:
                 return Result.fail(
                     Errors.not_found(resource="Assignment", identifier=assignment_uid)
                 )
@@ -677,7 +683,7 @@ def create_assignments_api_routes(
                 return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
-            if assignment.user_uid != user_uid:
+            if assignment is None or assignment.user_uid != user_uid:
                 return Result.fail(
                     Errors.not_found(resource="Assignment", identifier=assignment_uid)
                 )
@@ -702,7 +708,7 @@ def create_assignments_api_routes(
                 return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
-            if assignment.user_uid != user_uid:
+            if assignment is None or assignment.user_uid != user_uid:
                 return Result.fail(
                     Errors.not_found(resource="Assignment", identifier=assignment_uid)
                 )
@@ -727,7 +733,7 @@ def create_assignments_api_routes(
                 return Result.fail(assignment_result.expect_error())
 
             assignment = assignment_result.value
-            if assignment.user_uid != user_uid:
+            if assignment is None or assignment.user_uid != user_uid:
                 return Result.fail(
                     Errors.not_found(resource="Assignment", identifier=assignment_uid)
                 )
@@ -757,7 +763,7 @@ def create_assignments_api_routes(
                     return Result.fail(assignment_result.expect_error())
 
                 assignment = assignment_result.value
-                if assignment.user_uid != user_uid:
+                if assignment is None or assignment.user_uid != user_uid:
                     return Result.fail(
                         Errors.validation(
                             f"You do not own assignment {uid}", field="assignment_uids"
@@ -791,7 +797,7 @@ def create_assignments_api_routes(
                     return Result.fail(assignment_result.expect_error())
 
                 assignment = assignment_result.value
-                if assignment.user_uid != user_uid:
+                if assignment is None or assignment.user_uid != user_uid:
                     return Result.fail(
                         Errors.validation(
                             f"You do not own assignment {uid}", field="assignment_uids"
@@ -823,7 +829,7 @@ def create_assignments_api_routes(
                     return Result.fail(assignment_result.expect_error())
 
                 assignment = assignment_result.value
-                if assignment.user_uid != user_uid:
+                if assignment is None or assignment.user_uid != user_uid:
                     return Result.fail(
                         Errors.validation(
                             f"You do not own assignment {uid}", field="assignment_uids"

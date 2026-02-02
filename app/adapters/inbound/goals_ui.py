@@ -1367,7 +1367,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
 
         # Verify goal exists and user owns it
         result = await goals_service.get_for_user(uid, user_uid)
-        if result.is_error:
+        if result.is_error or result.value is None:
             return await BasePage(
                 content=Card(
                     H3("Goal Not Found", cls="text-lg font-bold text-error"),

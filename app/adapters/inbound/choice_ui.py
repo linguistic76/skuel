@@ -1296,8 +1296,8 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
         # Fetch choice with ownership verification
         result = await choices_service.get_for_user(uid, user_uid)
 
-        if result.is_error:
-            logger.error(f"Failed to get choice {uid}: {result.error}")
+        if result.is_error or result.value is None:
+            logger.error(f"Failed to get choice {uid}: {result.error if result.is_error else 'Not found'}")
             return await BasePage(
                 content=Card(
                     H2("Choice Not Found", cls="text-xl font-bold text-error mb-4"),

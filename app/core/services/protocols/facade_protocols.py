@@ -661,6 +661,28 @@ class PrinciplesFacadeProtocol(Protocol):
         """Recommend decision based on user's principles."""
         ...
 
+    # ========================================================================
+    # Expression & Linking methods (→ PrinciplesService explicit methods)
+    # ========================================================================
+
+    async def create_principle_expression(self, dto: Any) -> Result[dict[str, Any]]:
+        """Create a principle expression (how principle was lived out)."""
+        ...
+
+    async def get_principle_expressions(self, principle_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get expressions of a principle (instances where it was lived out)."""
+        ...
+
+    async def get_principle_alignment_history(
+        self, principle_uid: str, limit: int = 50, days: int = 90
+    ) -> Result[list[dict[str, Any]]]:
+        """Get principle alignment history."""
+        ...
+
+    async def create_principle_link(self, dto: Any) -> Result[dict[str, Any]]:
+        """Create a link between principles (e.g., supports, conflicts with)."""
+        ...
+
 
 @runtime_checkable
 class LpFacadeProtocol(Protocol):
@@ -1063,7 +1085,7 @@ class EventsFacadeProtocol(Protocol):
         """Get all attendees for an event."""
         ...
 
-    async def update_event_status(self, event_uid: str, status: str) -> Result[Any]:
+    async def update_event_status(self, request: Any) -> Result[Any]:
         """Update event status."""
         ...
 
@@ -1491,13 +1513,28 @@ class ChoicesFacadeProtocol(Protocol):
     # ========================================================================
 
     async def make_decision(
-        self, choice_uid: str, selected_option_uid: str, decision_notes: str | None = None
+        self,
+        choice_uid: str,
+        selected_option_uid: str,
+        decision_rationale: str | None = None,
+        confidence: float = 0.5,
     ) -> Result[Any]:
         """Make a decision by selecting an option."""
         ...
 
     async def update_option(
-        self, choice_uid: str, option_uid: str, updates: dict[str, Any]
+        self,
+        choice_uid: str,
+        option_uid: str,
+        title: str | None = None,
+        description: str | None = None,
+        feasibility_score: float | None = None,
+        risk_level: float | None = None,
+        potential_impact: float | None = None,
+        resource_requirement: float | None = None,
+        estimated_duration: int | None = None,
+        dependencies: list[str] | None = None,
+        tags: list[str] | None = None,
     ) -> Result[Any]:
         """Update a choice option."""
         ...

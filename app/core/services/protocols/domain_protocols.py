@@ -698,12 +698,20 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
     # ========================================================================
 
     async def get_expenses_by_date_range(
-        self, user_uid: str, start_date: date, end_date: date
-    ) -> Result[list[ExpensePure]]:
+        self,
+        user_uid: str,
+        start_date: date,
+        end_date: date,
+        category: Any = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Result[tuple[list[Any], int]]:
         """Get expenses for user in date range."""
         ...
 
-    async def search_expenses(self, user_uid: str, query: str) -> Result[list[ExpensePure]]:
+    async def search_expenses(
+        self, user_uid: str, query: str, limit: int = 100, offset: int = 0
+    ) -> Result[tuple[list[Any], int]]:
         """Search expenses by text query."""
         ...
 
@@ -743,8 +751,8 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         ...
 
     async def list_invoices(
-        self, user_uid: str, status: str | None = None
-    ) -> Result[list[dict[str, Any]]]:
+        self, limit: int = 50, invoice_type: str | None = None, status: str | None = None
+    ) -> Result[list[Any]]:
         """List invoices for user, optionally filtered by status."""
         ...
 

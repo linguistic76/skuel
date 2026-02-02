@@ -92,7 +92,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         target_uid: str,
         trigger: str = "after",
         strength: float = 0.8,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | tuple[dict[str, Any], int]:
         """Create STACKS_WITH relationship for habit chaining."""
         user_uid = require_authenticated_user(request)
 
@@ -116,7 +116,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         }
 
     @rt("/api/habits/{uid}/lateral/stack", methods=["GET"])
-    async def get_habit_stack(request: Request, uid: str) -> dict[str, Any]:
+    async def get_habit_stack(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
         """Get all habits in the stacking chain."""
         user_uid = require_authenticated_user(request)
 
@@ -152,7 +152,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         target_uid: str,
         conflict_type: str,
         severity: str = "hard",
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | tuple[dict[str, Any], int]:
         """Create CONFLICTS_WITH relationship for scheduling conflicts."""
         user_uid = require_authenticated_user(request)
 
@@ -176,7 +176,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         }
 
     @rt("/api/events/{uid}/lateral/conflicts", methods=["GET"])
-    async def get_event_conflicts(request: Request, uid: str) -> dict[str, Any]:
+    async def get_event_conflicts(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
         """Get events that conflict with this event."""
         user_uid = require_authenticated_user(request)
 
@@ -212,7 +212,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         target_uid: str,
         conflict_type: str,
         severity: str = "moderate",
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | tuple[dict[str, Any], int]:
         """Create CONFLICTS_WITH relationship for incompatible choices."""
         user_uid = require_authenticated_user(request)
 
@@ -236,7 +236,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         }
 
     @rt("/api/choices/{uid}/lateral/conflicts", methods=["GET"])
-    async def get_choice_conflicts(request: Request, uid: str) -> dict[str, Any]:
+    async def get_choice_conflicts(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
         """Get choices that conflict with this choice."""
         user_uid = require_authenticated_user(request)
 
@@ -273,7 +273,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         conflict_type: str,
         tension_description: str,
         severity: str = "moderate",
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | tuple[dict[str, Any], int]:
         """Create CONFLICTS_WITH relationship for contradictory principles."""
         user_uid = require_authenticated_user(request)
 
@@ -298,7 +298,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         }
 
     @rt("/api/principles/{uid}/lateral/conflicts", methods=["GET"])
-    async def get_principle_conflicts(request: Request, uid: str) -> dict[str, Any]:
+    async def get_principle_conflicts(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
         """Get principles that conflict with this principle (value tensions)."""
         user_uid = require_authenticated_user(request)
 
@@ -340,7 +340,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         target_uid: str,
         confidence: float = 0.8,
         topic_domain: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | tuple[dict[str, Any], int]:
         """Create ENABLES relationship (learning A unlocks B)."""
         require_authenticated_user(request)
 
@@ -362,7 +362,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         }
 
     @rt("/api/ku/{uid}/lateral/enables", methods=["GET"])
-    async def get_ku_enables(request: Request, uid: str) -> dict[str, Any]:
+    async def get_ku_enables(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
         """Get knowledge units that this KU enables."""
         require_authenticated_user(request)
 
@@ -378,7 +378,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         }
 
     @rt("/api/ku/{uid}/lateral/enabled-by", methods=["GET"])
-    async def get_ku_enabled_by(request: Request, uid: str) -> dict[str, Any]:
+    async def get_ku_enabled_by(request: Request, uid: str) -> dict[str, Any] | tuple[dict[str, Any], int]:
         """Get knowledge units that enable this KU."""
         require_authenticated_user(request)
 

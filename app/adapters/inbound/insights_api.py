@@ -144,10 +144,10 @@ def create_insights_api_routes(
             uids = body.get("uids", [])
         except Exception as e:
             logger.error(f"Failed to parse bulk dismiss request: {e}")
-            return Errors.validation(f"Invalid request body: {e}")
+            return Result.fail(Errors.validation(f"Invalid request body: {e}"))
 
         if not uids:
-            return Errors.validation("No insight UIDs provided")
+            return Result.fail(Errors.validation("No insight UIDs provided"))
 
         # Dismiss each insight
         success_count = 0
@@ -190,10 +190,10 @@ def create_insights_api_routes(
             uids = body.get("uids", [])
         except Exception as e:
             logger.error(f"Failed to parse bulk action request: {e}")
-            return Errors.validation(f"Invalid request body: {e}")
+            return Result.fail(Errors.validation(f"Invalid request body: {e}"))
 
         if not uids:
-            return Errors.validation("No insight UIDs provided")
+            return Result.fail(Errors.validation("No insight UIDs provided"))
 
         # Mark each insight as actioned
         success_count = 0
@@ -241,10 +241,10 @@ def create_insights_api_routes(
             filter_value = body.get("filter_value")  # "low", "tasks", "difficulty_pattern"
         except Exception as e:
             logger.error(f"Failed to parse smart dismiss request: {e}")
-            return Errors.validation(f"Invalid request body: {e}")
+            return Result.fail(Errors.validation(f"Invalid request body: {e}"))
 
         if not filter_type or not filter_value:
-            return Errors.validation("filter_type and filter_value are required")
+            return Result.fail(Errors.validation("filter_type and filter_value are required"))
 
         # Get all active insights
         result = await insight_store.get_active_insights(user_uid=user_uid, limit=200)
@@ -262,7 +262,7 @@ def create_insights_api_routes(
         elif filter_type == "type":
             matching_insights = [i for i in insights if i.insight_type.value == filter_value]
         else:
-            return Errors.validation(f"Invalid filter_type: {filter_type}")
+            return Result.fail(Errors.validation(f"Invalid filter_type: {filter_type}"))
 
         # Dismiss all matching insights
         success_count = 0
@@ -610,7 +610,7 @@ def create_insights_api_routes(
             logger.warning(
                 f"User {user_uid} attempted to access insight {uid} owned by {insight.user_uid}"
             )
-            return Errors.not_found(f"Insight {uid} not found")
+            return Result.fail(Errors.not_found(f"Insight {uid} not found"))
 
         # Convert to dictionary with full details
         insight_data = {
@@ -653,11 +653,11 @@ def create_insights_api_routes(
             days = body.get("days", 1)
         except Exception as e:
             logger.error(f"Failed to parse snooze request: {e}")
-            return Errors.validation(f"Invalid request body: {e}")
+            return Result.fail(Errors.validation(f"Invalid request body: {e}"))
 
         # Validate days
         if not isinstance(days, int) or days < 1 or days > 30:
-            return Errors.validation("Days must be an integer between 1 and 30")
+            return Result.fail(Errors.validation("Days must be an integer between 1 and 30"))
 
         # Snooze the insight (mark as dismissed with snooze metadata)
         # For now, we'll just dismiss it - a full implementation would add snooze_until_date
