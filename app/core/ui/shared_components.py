@@ -73,7 +73,7 @@ def MetricCard(
     subtitle: str | None = None,
     trend: str | None = None,
     color: str = "blue",
-) -> Card:
+) -> Any:
     """
     Display a key metric in a card with optional trend indicator.
 
@@ -145,7 +145,7 @@ def QuickMetricCard(title: str, value: str, color: str = "primary") -> Div:
 # ============================================================================
 
 
-def HealthStatusCard(health_data: dict[str, Any]) -> Card:
+def HealthStatusCard(health_data: dict[str, Any]) -> Any:
     """
     Display system health status with components and alerts.
 

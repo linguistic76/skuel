@@ -13,6 +13,7 @@ Key Components:
 
 __version__ = "1.0"
 
+from typing import Any
 
 from fasthtml.common import H1, H2, H3, A, P
 
@@ -59,7 +60,7 @@ def Badge(text: str, style: str = "default") -> Span:
 # ============================================================================
 
 
-def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Card:
+def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any:
     """
     DaisyUI Card for one SEL category showing progress.
 

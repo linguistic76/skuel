@@ -324,6 +324,11 @@ class GoalsFacadeProtocol(Protocol):
         """Access to core sub-service for methods like verify_ownership."""
         ...
 
+    @property
+    def intelligence(self) -> Any:
+        """Access to intelligence sub-service."""
+        ...
+
     # ========================================================================
     # Explicit facade methods (not delegated)
     # ========================================================================
@@ -481,6 +486,22 @@ class GoalsFacadeProtocol(Protocol):
         """Get knowledge requirements for goal achievement."""
         ...
 
+    # ========================================================================
+    # Additional Goal operations (Added 2026-02-02)
+    # ========================================================================
+
+    async def link_goal_to_habit(self, goal_uid: str, habit_uid: str) -> Result[bool]:
+        """Link a goal to a supporting habit."""
+        ...
+
+    async def unlink_goal_from_habit(self, goal_uid: str, habit_uid: str) -> Result[bool]:
+        """Unlink a habit from a goal."""
+        ...
+
+    async def get_goal_habits(self, goal_uid: str) -> Result[list[Any]]:
+        """Get all habits supporting a goal."""
+        ...
+
 
 @runtime_checkable
 class PrinciplesFacadeProtocol(Protocol):
@@ -498,6 +519,11 @@ class PrinciplesFacadeProtocol(Protocol):
     @property
     def core(self) -> PrinciplesCoreOperations:
         """Access to core sub-service for methods like verify_ownership, create_principle, update_principle."""
+        ...
+
+    @property
+    def intelligence(self) -> Any:
+        """Access to intelligence sub-service."""
         ...
 
     @property
@@ -640,6 +666,15 @@ class LpFacadeProtocol(Protocol):
     """
 
     # ========================================================================
+    # Sub-service access (for direct sub-service method calls)
+    # ========================================================================
+
+    @property
+    def intelligence(self) -> Any:
+        """Access to intelligence sub-service."""
+        ...
+
+    # ========================================================================
     # Core delegations (→ LpCoreService)
     # ========================================================================
 
@@ -769,6 +804,11 @@ class TasksFacadeProtocol(Protocol):
         """Access to core sub-service for methods like verify_ownership."""
         ...
 
+    @property
+    def intelligence(self) -> Any:
+        """Access to intelligence sub-service."""
+        ...
+
     # ========================================================================
     # Explicit facade methods (not delegated)
     # ========================================================================
@@ -875,6 +915,37 @@ class TasksFacadeProtocol(Protocol):
         """Generate insights for a specific task."""
         ...
 
+    # ========================================================================
+    # Additional Task operations (Added 2026-02-02)
+    # ========================================================================
+
+    @property
+    def search(self) -> Any:
+        """Access to search sub-service."""
+        ...
+
+    async def create_task_dependency(
+        self, task_uid: str, depends_on_uid: str, dependency_type: str = "blocks"
+    ) -> Result[bool]:
+        """Create dependency between tasks."""
+        ...
+
+    async def get_task_dependencies(self, task_uid: str) -> Result[list[Any]]:
+        """Get dependencies for a task."""
+        ...
+
+    async def get_task_practice_opportunities(
+        self, task_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Get practice opportunities related to a task."""
+        ...
+
+    async def get_user_assigned_tasks(
+        self, user_uid: str, limit: int = 100
+    ) -> Result[list[Any]]:
+        """Get tasks assigned to a user."""
+        ...
+
 
 @runtime_checkable
 class EventsFacadeProtocol(Protocol):
@@ -892,6 +963,11 @@ class EventsFacadeProtocol(Protocol):
     @property
     def core(self) -> EventsCoreOperations:
         """Access to core sub-service for methods like verify_ownership, create."""
+        ...
+
+    @property
+    def intelligence(self) -> Any:
+        """Access to intelligence sub-service."""
         ...
 
     @property
@@ -959,6 +1035,46 @@ class EventsFacadeProtocol(Protocol):
         """Analyze event performance and outcomes."""
         ...
 
+    # ========================================================================
+    # Additional Event operations (Added 2026-02-02)
+    # ========================================================================
+
+    async def add_attendee(
+        self, event_uid: str, attendee_data: dict[str, Any]
+    ) -> Result[str]:
+        """Add attendee to event. Returns attendee UID."""
+        ...
+
+    async def remove_attendee(self, event_uid: str, attendee_uid: str) -> Result[bool]:
+        """Remove attendee from event."""
+        ...
+
+    async def get_event_attendees(self, event_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all attendees for an event."""
+        ...
+
+    async def update_event_status(self, event_uid: str, status: str) -> Result[Any]:
+        """Update event status."""
+        ...
+
+    async def check_conflicts(
+        self, start_time: Any, end_time: Any, user_uid: str | None = None
+    ) -> Result[list[Any]]:
+        """Check for scheduling conflicts."""
+        ...
+
+    async def create_recurring_instances(
+        self, event_uid: str, recurrence_data: dict[str, Any]
+    ) -> Result[list[str]]:
+        """Create recurring event instances. Returns list of created event UIDs."""
+        ...
+
+    async def get_recurring_events(
+        self, parent_uid: str, limit: int = 100
+    ) -> Result[list[Any]]:
+        """Get all instances of a recurring event."""
+        ...
+
 
 @runtime_checkable
 class HabitsFacadeProtocol(Protocol):
@@ -976,6 +1092,11 @@ class HabitsFacadeProtocol(Protocol):
     @property
     def core(self) -> HabitsCoreOperations:
         """Access to core sub-service for methods like verify_ownership, create_habit."""
+        ...
+
+    @property
+    def intelligence(self) -> Any:
+        """Access to intelligence sub-service."""
         ...
 
     @property
@@ -1066,6 +1187,40 @@ class HabitsFacadeProtocol(Protocol):
         """Analyze habit performance and consistency."""
         ...
 
+    # ========================================================================
+    # Additional Habit operations (Added 2026-02-02)
+    # ========================================================================
+
+    async def track_habit(self, habit_uid: str, tracked_at: Any = None) -> Result[bool]:
+        """Track a habit completion."""
+        ...
+
+    async def untrack_habit(self, habit_uid: str, tracked_at: Any = None) -> Result[bool]:
+        """Remove a habit tracking entry."""
+        ...
+
+    async def get_habit_progress(self, habit_uid: str, days: int = 30) -> Result[dict[str, Any]]:
+        """Get habit progress over time period."""
+        ...
+
+    async def get_habit_streak(self, habit_uid: str) -> Result[dict[str, Any]]:
+        """Get current habit streak information."""
+        ...
+
+    async def set_habit_reminder(
+        self, habit_uid: str, reminder_data: dict[str, Any]
+    ) -> Result[str]:
+        """Set reminder for habit. Returns reminder UID."""
+        ...
+
+    async def get_habit_reminders(self, habit_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all reminders for a habit."""
+        ...
+
+    async def delete_habit_reminder(self, habit_uid: str, reminder_uid: str) -> Result[bool]:
+        """Delete a habit reminder."""
+        ...
+
 
 # =============================================================================
 # MocFacadeProtocol - REMOVED JANUARY 2026
@@ -1084,6 +1239,15 @@ class LsFacadeProtocol(Protocol):
     These methods are auto-generated by FacadeDelegationMixin from _delegations.
     This protocol makes them visible to MyPy for static type checking.
     """
+
+    # ========================================================================
+    # Sub-service access (for direct sub-service method calls)
+    # ========================================================================
+
+    @property
+    def intelligence(self) -> Any:
+        """Access to intelligence sub-service."""
+        ...
 
     # ========================================================================
     # Core delegations (→ LsCoreService)
@@ -1117,6 +1281,25 @@ class LsFacadeProtocol(Protocol):
         """List learning steps with pagination."""
         ...
 
+    # ========================================================================
+    # Additional LS operations (Added 2026-02-02)
+    # ========================================================================
+
+    @property
+    def relationships(self) -> Any:
+        """Access to relationships service."""
+        ...
+
+    async def attach_step_to_path(
+        self, step_uid: str, path_uid: str, sequence: int
+    ) -> Result[bool]:
+        """Attach a learning step to a learning path."""
+        ...
+
+    async def detach_step_from_path(self, step_uid: str, path_uid: str) -> Result[bool]:
+        """Detach a learning step from a learning path."""
+        ...
+
 
 @runtime_checkable
 class ChoicesFacadeProtocol(Protocol):
@@ -1136,6 +1319,11 @@ class ChoicesFacadeProtocol(Protocol):
         """Access to core sub-service for methods like verify_ownership, create_choice, make_decision."""
         ...
 
+    @property
+    def intelligence(self) -> Any:
+        """Access to intelligence sub-service."""
+        ...
+
     # ========================================================================
     # Explicit facade methods (not delegated)
     # ========================================================================
@@ -1144,7 +1332,19 @@ class ChoicesFacadeProtocol(Protocol):
         """Update a choice."""
         ...
 
-    async def add_option(self, choice_uid: str, title: str, description: str) -> Result[Any]:
+    async def add_option(
+        self,
+        choice_uid: str,
+        title: str,
+        description: str,
+        feasibility_score: float = 0.5,
+        risk_level: float = 0.5,
+        potential_impact: float = 0.5,
+        resource_requirement: float = 0.5,
+        estimated_duration: int | None = None,
+        dependencies: list[str] | None = None,
+        tags: list[str] | None = None,
+    ) -> Result[Any]:
         """Add an option to a choice."""
         ...
 
@@ -1274,6 +1474,26 @@ class ChoicesFacadeProtocol(Protocol):
 
     async def list_all_choice_categories(self) -> Result[list[str]]:
         """List all choice categories."""
+        ...
+
+    # ========================================================================
+    # Additional Choice operations (Added 2026-02-02)
+    # ========================================================================
+
+    async def make_decision(
+        self, choice_uid: str, selected_option_uid: str, decision_notes: str | None = None
+    ) -> Result[Any]:
+        """Make a decision by selecting an option."""
+        ...
+
+    async def update_option(
+        self, choice_uid: str, option_uid: str, updates: dict[str, Any]
+    ) -> Result[Any]:
+        """Update a choice option."""
+        ...
+
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[Any | None]:
+        """Get choice for user with ownership verification."""
         ...
 
 
@@ -1478,4 +1698,96 @@ class KuFacadeProtocol(Protocol):
 
     async def get_semantic_neighborhood(self, uid: str, radius: int = 2) -> Result[dict[str, Any]]:
         """Get semantic neighborhood around a KU."""
+        ...
+
+    # ========================================================================
+    # Additional KU operations (Added 2026-02-02)
+    # ========================================================================
+
+    async def create_knowledge_relationship(
+        self, from_uid: str, to_uid: str, relationship_type: str, metadata: dict[str, Any] | None = None
+    ) -> Result[bool]:
+        """Create relationship between two KUs."""
+        ...
+
+    async def get_knowledge_relationships(
+        self, uid: str, relationship_type: str | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        """Get relationships for a KU."""
+        ...
+
+    async def get_knowledge_prerequisites(self, uid: str) -> Result[list[Any]]:
+        """Get prerequisites for a KU."""
+        ...
+
+    async def get_knowledge_dependencies(self, uid: str, limit: int = 10) -> Result[list[Any]]:
+        """Get dependencies for a KU."""
+        ...
+
+    async def update_ku_content(
+        self, uid: str, content: str, title: str | None = None
+    ) -> Result[Any]:
+        """Update KU content and optionally title."""
+        ...
+
+    async def add_knowledge_tags(self, uid: str, tags: list[str]) -> Result[Any]:
+        """Add tags to a KU."""
+        ...
+
+    async def remove_knowledge_tags(self, uid: str, tags: list[str]) -> Result[Any]:
+        """Remove tags from a KU."""
+        ...
+
+    async def search_knowledge_units(self, query: str, limit: int = 50) -> Result[list[Any]]:
+        """Search KUs by text query."""
+        ...
+
+    async def find_related_knowledge(
+        self, uid: str, similarity_threshold: float = 0.7, limit: int = 10
+    ) -> Result[list[Any]]:
+        """Find related KUs based on similarity."""
+        ...
+
+    async def get_knowledge_recommendations(
+        self, uid: str, user_uid: str, recommendation_type: str | None = None
+    ) -> Result[list[Any]]:
+        """Get knowledge recommendations for user."""
+        ...
+
+    async def list_knowledge_domains(self) -> Result[list[str]]:
+        """List all knowledge domains."""
+        ...
+
+    async def get_knowledge_by_domain(
+        self, domain: str, limit: int = 50
+    ) -> Result[list[Any]]:
+        """Get KUs in a specific domain."""
+        ...
+
+    async def list_knowledge_categories(self) -> Result[list[str]]:
+        """List all knowledge categories."""
+        ...
+
+    async def list_knowledge_tags(self, min_usage: int = 1) -> Result[list[dict[str, Any]]]:
+        """List all knowledge tags with usage counts."""
+        ...
+
+    async def get_knowledge_stats(self, uid: str) -> Result[dict[str, Any]]:
+        """Get statistics for a knowledge unit."""
+        ...
+
+    async def get_user_knowledge_context(
+        self, uid: str, user_context: Any
+    ) -> Result[dict[str, Any]]:
+        """Get KU with user-specific context."""
+        ...
+
+    @property
+    def intelligence(self) -> Any:
+        """Access to intelligence sub-service."""
+        ...
+
+    @property
+    def user_service(self) -> Any:
+        """Access to user service for context."""
         ...

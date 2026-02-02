@@ -94,7 +94,7 @@ def KnowledgeGapCard(gap: dict[str, Any], index: int) -> Div:
     )
 
 
-def KnowledgeGapsList(gaps_data: dict[str, Any]) -> Card:
+def KnowledgeGapsList(gaps_data: dict[str, Any]) -> Any:
     """
     Display list of knowledge gaps.
 
@@ -137,7 +137,7 @@ def KnowledgeGapsList(gaps_data: dict[str, Any]) -> Card:
     )
 
 
-def TrendsCard(trends_data: dict[str, Any]) -> Card:
+def TrendsCard(trends_data: dict[str, Any]) -> Any:
     """
     Display trend analysis using shared TrendIndicator component.
 

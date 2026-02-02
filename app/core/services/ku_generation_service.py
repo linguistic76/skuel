@@ -1025,9 +1025,7 @@ class KuGenerationService:
 
             # Create knowledge DTO
             return KuDTO(
-                uid=UIDGenerator.generate_knowledge_uid(
-                    title=insight.title, domain_uid=Domain.KNOWLEDGE.value
-                ),
+                uid=UIDGenerator.generate_knowledge_uid(title=insight.title),
                 title=insight.title,
                 content=content,
                 domain=Domain.KNOWLEDGE,

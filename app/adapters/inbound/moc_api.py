@@ -27,16 +27,18 @@ Routes follow SKUEL's established patterns:
 - 200 OK for actions and updates
 """
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from fasthtml.common import Request
 
-from core.services.protocols.facade_protocols import KuFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from core.services.moc_service import MOCService
 
-def create_moc_api_routes(app: Any, rt: Any, moc_service: KuFacadeProtocol) -> list[Any]:
+
+def create_moc_api_routes(app: Any, rt: Any, moc_service: "MOCService") -> list[Any]:
     """
     Create MOC API routes.
 
@@ -86,7 +88,8 @@ def create_moc_api_routes(app: Any, rt: Any, moc_service: KuFacadeProtocol) -> l
         params = dict(request.query_params)
         max_depth = int(params.get("max_depth", 3))
 
-        result = await moc_service.get(uid, max_depth)
+        # TODO: max_depth not yet supported by get() - needs MOC-specific implementation
+        result = await moc_service.get(uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 

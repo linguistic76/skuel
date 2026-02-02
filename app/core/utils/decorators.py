@@ -90,14 +90,14 @@ def _categorize_exception(
 
     # Database-related exceptions
     if "Neo4j" in exception_name or "Driver" in exception_name or "Session" in exception_name:
-        return Result.fail(Errors.database(operation=operation, message=str(e), details=context))
+        return Result.fail(Errors.database(operation=operation, message=str(e), **context if context else {}))
 
     # String matching fallback for legacy error messages
     error_msg_lower = str(e).lower()
     if "not found" in error_msg_lower:
         return Result.fail(Errors.not_found(str(e)))
     elif "database" in error_msg_lower or "neo4j" in error_msg_lower:
-        return Result.fail(Errors.database(operation=operation, message=str(e), details=context))
+        return Result.fail(Errors.database(operation=operation, message=str(e), **context if context else {}))
     elif "validation" in error_msg_lower or "invalid" in error_msg_lower:
         return Result.fail(
             Errors.validation(
@@ -107,7 +107,7 @@ def _categorize_exception(
         )
 
     # Default to system error
-    return Result.fail(Errors.system(message=str(e), operation=operation, exception=e))
+    return Result.fail(Errors.system(message=str(e), exception=e, operation=operation))
 
 
 def _extract_context(
@@ -243,7 +243,7 @@ def requires_graph_intelligence(operation: str):
         return Result.fail(Errors.system(
             message="GraphIntelligenceService not available - Phase 1-4 queries disabled",
             operation="method_name"
-        ))
+        )))
 
     Single decorator ensures consistency and reduces maintenance burden.
 
@@ -260,7 +260,7 @@ def requires_graph_intelligence(operation: str):
                 return Result.fail(Errors.system(
                     message="GraphIntelligenceService not available - Phase 1-4 queries disabled",
                     operation="get_habit_with_context"
-                ))
+                )))
             # ... method logic
 
         # After (clean and declarative):

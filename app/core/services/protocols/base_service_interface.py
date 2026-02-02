@@ -96,7 +96,7 @@ if TYPE_CHECKING:
     from datetime import date
 
 # Type variables for generics
-T = TypeVar("T", contravariant=False, covariant=True)  # Domain model type
+T = TypeVar("T")  # Domain model type (invariant - used in both input and output positions)
 B = TypeVar("B")  # Backend operations type
 DTO = TypeVar("DTO")  # DTO type
 

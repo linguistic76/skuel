@@ -795,8 +795,8 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
                 title=ku_node["title"],
                 content=ku_node.get("content", ""),
                 domain=Domain[ku_node.get("domain", "KNOWLEDGE")],
+                sel_category=SELCategory[ku_node.get("sel_category", "SELF_AWARENESS")],
                 tags=ku_node.get("tags", []),
-                status=KnowledgeStatus[ku_node.get("status", "DRAFT")],
                 created_at=ku_node.get("created_at"),
                 updated_at=ku_node.get("updated_at"),
             )
@@ -843,8 +843,8 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
                 title=parent_node["title"],
                 content=parent_node.get("content", ""),
                 domain=Domain[parent_node.get("domain", "KNOWLEDGE")],
+                sel_category=SELCategory[parent_node.get("sel_category", "SELF_AWARENESS")],
                 tags=parent_node.get("tags", []),
-                status=KnowledgeStatus[parent_node.get("status", "DRAFT")],
                 created_at=parent_node.get("created_at"),
                 updated_at=parent_node.get("updated_at"),
             )

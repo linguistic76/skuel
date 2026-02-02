@@ -105,7 +105,7 @@ class GoalsLateralService:
             for goal_uid in [blocker_uid, blocked_uid]:
                 ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
                 if ownership_result.is_error:
-                    return Errors.not_found(f"Goal {goal_uid} not found or access denied")
+                    return Result.fail(Errors.not_found(f"Goal {goal_uid} not found or access denied"))
 
         # Create BLOCKS relationship via core service
         return await self.lateral_service.create_lateral_relationship(
@@ -161,7 +161,7 @@ class GoalsLateralService:
             for goal_uid in [goal_a_uid, goal_b_uid]:
                 ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
                 if ownership_result.is_error:
-                    return Errors.not_found(f"Goal {goal_uid} not found or access denied")
+                    return Result.fail(Errors.not_found(f"Goal {goal_uid} not found or access denied"))
 
         # Create symmetric ALTERNATIVE_TO relationship
         return await self.lateral_service.create_lateral_relationship(
@@ -210,14 +210,14 @@ class GoalsLateralService:
             ```
         """
         if not 0.0 <= synergy_score <= 1.0:
-            return Errors.validation("synergy_score must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("synergy_score must be between 0.0 and 1.0"))
 
         # Verify ownership
         if user_uid:
             for goal_uid in [goal_a_uid, goal_b_uid]:
                 ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
                 if ownership_result.is_error:
-                    return Errors.not_found(f"Goal {goal_uid} not found or access denied")
+                    return Result.fail(Errors.not_found(f"Goal {goal_uid} not found or access denied"))
 
         # Create symmetric COMPLEMENTARY_TO relationship
         return await self.lateral_service.create_lateral_relationship(
@@ -259,7 +259,7 @@ class GoalsLateralService:
         if user_uid:
             ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Goal {goal_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Goal {goal_uid} not found or access denied"))
 
         # Get incoming BLOCKS relationships
         return await self.lateral_service.get_lateral_relationships(
@@ -288,7 +288,7 @@ class GoalsLateralService:
         if user_uid:
             ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Goal {goal_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Goal {goal_uid} not found or access denied"))
 
         # Get outgoing BLOCKS relationships
         return await self.lateral_service.get_lateral_relationships(
@@ -317,7 +317,7 @@ class GoalsLateralService:
         if user_uid:
             ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Goal {goal_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Goal {goal_uid} not found or access denied"))
 
         # Get ALTERNATIVE_TO relationships (symmetric - get both directions)
         return await self.lateral_service.get_lateral_relationships(
@@ -346,7 +346,7 @@ class GoalsLateralService:
         if user_uid:
             ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Goal {goal_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Goal {goal_uid} not found or access denied"))
 
         # Get siblings (derived from hierarchy)
         return await self.lateral_service.get_siblings(
@@ -376,7 +376,7 @@ class GoalsLateralService:
             for goal_uid in [blocker_uid, blocked_uid]:
                 ownership_result = await self.goals_service.verify_ownership(goal_uid, user_uid)
                 if ownership_result.is_error:
-                    return Errors.not_found(f"Goal {goal_uid} not found or access denied")
+                    return Result.fail(Errors.not_found(f"Goal {goal_uid} not found or access denied"))
 
         # Delete BLOCKS relationship
         return await self.lateral_service.delete_lateral_relationship(

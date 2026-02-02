@@ -55,8 +55,8 @@ async def get_service_capabilities(
     domain = domain_name or "unknown"
     capabilities = {}
 
-    # Check category support (BaseService.list_categories from SearchMixin)
-    categories_result = await service.list_categories()
+    # Check category support (BaseService.list_all_categories from SearchMixin)
+    categories_result = await service.list_all_categories()
     capabilities["has_categories"] = not categories_result.is_error
     if not categories_result.is_error and categories_result.value:
         capabilities["category_count"] = len(categories_result.value)
@@ -202,8 +202,8 @@ class ServiceRegistry:
         all_categories = {}
 
         for domain_name, service in self._services.items():
-            # IDE autocompletes list_categories() because of BaseServiceInterface!
-            result = await service.list_categories()
+            # IDE autocompletes list_all_categories() because of BaseServiceInterface!
+            result = await service.list_all_categories()
             if not result.is_error and result.value:
                 all_categories[domain_name] = result.value
 

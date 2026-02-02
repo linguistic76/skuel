@@ -86,7 +86,7 @@ class KuLateralService:
             "Python Basics" PREREQUISITE_FOR "Django Framework"
         """
         if not 0.0 <= strength <= 1.0:
-            return Errors.validation("strength must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("strength must be between 0.0 and 1.0"))
 
         # Note: KU is SHARED content (no ownership check needed)
 
@@ -127,7 +127,7 @@ class KuLateralService:
             → Understanding functions enables learning decorators
         """
         if not 0.0 <= confidence <= 1.0:
-            return Errors.validation("confidence must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("confidence must be between 0.0 and 1.0"))
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=enabler_uid,
@@ -168,7 +168,7 @@ class KuLateralService:
             → Topics frequently studied together
         """
         if not 0.0 <= strength <= 1.0:
-            return Errors.validation("strength must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("strength must be between 0.0 and 1.0"))
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=ku_a_uid,
@@ -208,7 +208,7 @@ class KuLateralService:
             → Similar data structure concepts
         """
         if not 0.0 <= similarity_score <= 1.0:
-            return Errors.validation("similarity_score must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("similarity_score must be between 0.0 and 1.0"))
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=ku_a_uid,

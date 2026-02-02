@@ -431,7 +431,8 @@ def TasksDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
         uid = task.get("uid", "")
         # Phase 3, Task 12: Add filter metadata
         is_overdue = uid in context.overdue_task_uids
-        is_high_priority = uid in context.high_priority_task_uids
+        # Derive high priority from task_priorities dict (threshold >= 0.7)
+        is_high_priority = context.task_priorities.get(uid, 0.0) >= 0.7
         # Note: is_this_week would require due_date field - placeholder for now
         is_this_week = False  # TODO: Calculate based on task.due_date
 
@@ -466,15 +467,19 @@ def TasksDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
         recommendations.append(
             (f"{overdue} task{'s' if overdue != 1 else ''} overdue - prioritize today", "warning")
         )
-    if context.high_priority_task_uids:
-        high_pri_count = min(len(context.high_priority_task_uids), 3)
+    # Derive high priority tasks from task_priorities (threshold >= 0.7)
+    high_priority_tasks = [uid for uid, priority in context.task_priorities.items() if priority >= 0.7]
+    if high_priority_tasks:
+        high_pri_count = min(len(high_priority_tasks), 3)
         recommendations.append(
             (
                 f"{high_pri_count} high-priority task{'s' if high_pri_count != 1 else ''} need attention",
                 "priority",
             )
         )
-    if context.goal_aligned_tasks_count > 0:
+    # Derive goal-aligned tasks count from tasks_by_goal
+    goal_aligned_count = sum(len(tasks) for tasks in context.tasks_by_goal.values())
+    if goal_aligned_count > 0:
         recommendations.append(
             (f"{context.goal_aligned_tasks_count} tasks aligned with active goals", "success")
         )

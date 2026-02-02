@@ -246,7 +246,7 @@ def create_principles_api_routes(
         limit = int(params.get("limit", 10))
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("PrinciplesFacadeProtocol", principles_service)
+        typed_service = principles_service
         return await typed_service.get_related_principles(entity.uid, depth, limit)
 
     # Principle Search and Discovery
@@ -269,7 +269,7 @@ def create_principles_api_routes(
         """Get principle categories for the authenticated user."""
         user_uid = require_authenticated_user(request)
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("PrinciplesFacadeProtocol", principles_service)
+        typed_service = principles_service
         return await typed_service.get_principle_categories(user_uid)
 
     @rt("/api/principles/sources")

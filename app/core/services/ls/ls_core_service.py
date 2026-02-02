@@ -877,8 +877,10 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             self.logger.error(f"Error creating knowledge relationship: {e}")
             return Result.fail(
                 Errors.database(
-                    f"Failed to create knowledge relationship: {e}",
-                    context={"ls_uid": ls_uid, "ku_uid": ku_uid},
+                    operation="create_knowledge_relationship",
+                    message=str(e),
+                    ls_uid=ls_uid,
+                    ku_uid=ku_uid,
                 )
             )
 
@@ -977,8 +979,10 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             self.logger.error(f"Error querying knowledge relationships: {e}")
             return Result.fail(
                 Errors.database(
-                    f"Failed to query knowledge relationships: {e}",
-                    context={"ls_uid": ls_uid, "knowledge_type": knowledge_type},
+                    operation="query_knowledge_relationships",
+                    message=str(e),
+                    ls_uid=ls_uid,
+                    knowledge_type=knowledge_type,
                 )
             )
 
@@ -1031,8 +1035,10 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             self.logger.error(f"Error removing knowledge relationship: {e}")
             return Result.fail(
                 Errors.database(
-                    f"Failed to remove knowledge relationship: {e}",
-                    context={"ls_uid": ls_uid, "ku_uid": ku_uid},
+                    operation="remove_knowledge_relationship",
+                    message=str(e),
+                    ls_uid=ls_uid,
+                    ku_uid=ku_uid,
                 )
             )
 
@@ -1111,5 +1117,5 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
         except Exception as e:
             self.logger.error(f"Error getting knowledge summary: {e}")
             return Result.fail(
-                Errors.database(f"Failed to get knowledge summary: {e}", context={"ls_uid": ls_uid})
+                Errors.database(operation="get_knowledge_summary", message=str(e), ls_uid=ls_uid)
             )

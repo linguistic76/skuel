@@ -91,17 +91,17 @@ class HabitsLateralService:
             → "After meditating, do exercise"
         """
         if trigger not in {"after", "before", "during"}:
-            return Errors.validation('trigger must be "after", "before", or "during"')
+            return Result.fail(Errors.validation('trigger must be "after", "before", or "during"'))
 
         if not 0.0 <= strength <= 1.0:
-            return Errors.validation("strength must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("strength must be between 0.0 and 1.0"))
 
         # Verify ownership
         if user_uid:
             for habit_uid in [first_habit_uid, second_habit_uid]:
                 ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
                 if ownership_result.is_error:
-                    return Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                    return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=first_habit_uid,
@@ -143,14 +143,14 @@ class HabitsLateralService:
             → "Mindfulness + physical activity = optimal wellness"
         """
         if not 0.0 <= synergy_score <= 1.0:
-            return Errors.validation("synergy_score must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("synergy_score must be between 0.0 and 1.0"))
 
         # Verify ownership
         if user_uid:
             for habit_uid in [habit_a_uid, habit_b_uid]:
                 ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
                 if ownership_result.is_error:
-                    return Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                    return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=habit_a_uid,
@@ -196,7 +196,7 @@ class HabitsLateralService:
             for habit_uid in [habit_a_uid, habit_b_uid]:
                 ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
                 if ownership_result.is_error:
-                    return Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                    return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=habit_a_uid,
@@ -231,7 +231,7 @@ class HabitsLateralService:
         if user_uid:
             ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=habit_uid,
@@ -261,7 +261,7 @@ class HabitsLateralService:
         if user_uid:
             ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
 
         all_complementary = await self.lateral_service.get_lateral_relationships(
             entity_uid=habit_uid,
@@ -301,7 +301,7 @@ class HabitsLateralService:
         if user_uid:
             ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=habit_uid,
@@ -329,7 +329,7 @@ class HabitsLateralService:
         if user_uid:
             ownership_result = await self.habits_service.verify_ownership(habit_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Habit {habit_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Habit {habit_uid} not found or access denied"))
 
         return await self.lateral_service.get_siblings(
             entity_uid=habit_uid,

@@ -86,7 +86,7 @@ class LsLateralService:
             "Variables Lesson" PREREQUISITE_FOR "Functions Lesson"
         """
         if not 0.0 <= strength <= 1.0:
-            return Errors.validation("strength must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("strength must be between 0.0 and 1.0"))
 
         # Note: LS is SHARED content (no ownership check needed)
 
@@ -165,7 +165,7 @@ class LsLateralService:
             → Theory and practice steps
         """
         if not 0.0 <= strength <= 1.0:
-            return Errors.validation("strength must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("strength must be between 0.0 and 1.0"))
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=ls_a_uid,

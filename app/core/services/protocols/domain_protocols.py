@@ -693,6 +693,66 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         """
         ...
 
+    # ========================================================================
+    # ADDITIONAL FINANCE OPERATIONS (Added 2026-02-02)
+    # ========================================================================
+
+    async def get_expenses_by_date_range(
+        self, user_uid: str, start_date: date, end_date: date
+    ) -> Result[list[ExpensePure]]:
+        """Get expenses for user in date range."""
+        ...
+
+    async def search_expenses(self, user_uid: str, query: str) -> Result[list[ExpensePure]]:
+        """Search expenses by text query."""
+        ...
+
+    async def attach_receipt(self, expense_uid: str, receipt_url: str) -> Result[bool]:
+        """Attach receipt to expense."""
+        ...
+
+    async def clear_expense(self, expense_uid: str) -> Result[bool]:
+        """Mark expense as cleared/reconciled."""
+        ...
+
+    async def reconcile_expense(
+        self, expense_uid: str, reconciliation_data: dict[str, Any]
+    ) -> Result[bool]:
+        """Reconcile expense with bank statement."""
+        ...
+
+    async def bulk_categorize(
+        self, expense_uids: list[str], category: str
+    ) -> Result[int]:
+        """Bulk categorize multiple expenses. Returns count of updated expenses."""
+        ...
+
+    async def recalculate_budget(self, budget_uid: str) -> Result[bool]:
+        """Recalculate budget totals and status."""
+        ...
+
+    async def create_invoice(self, invoice_data: dict[str, Any]) -> Result[str]:
+        """Create invoice. Returns invoice UID."""
+        ...
+
+    async def get_invoice(self, invoice_uid: str) -> Result[dict[str, Any] | None]:
+        """Get invoice by UID."""
+        ...
+
+    async def list_invoices(
+        self, user_uid: str, status: str | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        """List invoices for user, optionally filtered by status."""
+        ...
+
+    async def get_invoice_stats(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Get invoice statistics for user."""
+        ...
+
+    async def generate_invoice_pdf(self, invoice_uid: str) -> Result[bytes]:
+        """Generate PDF for invoice. Returns PDF bytes."""
+        ...
+
 
 # NOTE: FinancesQueryOperations removed - unused, duplicates FinancesOperations methods
 # Use FinancesOperations directly for all finance query needs

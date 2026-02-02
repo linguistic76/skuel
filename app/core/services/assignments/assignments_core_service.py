@@ -293,7 +293,7 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
         else:
             result = await self.backend.list(limit=limit)
             if result.is_ok:
-                assignments_list, _ = result.value
+                assignments_list = result.value
                 assignments_list.sort(key=get_assignment_date, reverse=True)
                 return Result.ok(assignments_list[:limit])
             return Result.ok([])
@@ -505,7 +505,7 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
         else:
             result = await self.backend.list(limit=limit * 2)  # Fetch more, filter down
             if result.is_ok:
-                assignments_list, _ = result.value
+                assignments_list = result.value
                 # Filter by category in metadata
                 filtered = [
                     a
@@ -612,7 +612,7 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
         else:
             result = await self.backend.list(limit=limit * 2)
             if result.is_ok:
-                assignments_list, _ = result.value
+                assignments_list = result.value
                 # Filter by tag in metadata
                 filtered = [
                     a

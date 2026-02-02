@@ -1538,7 +1538,7 @@ Return ONLY Markdown in this structure:
             for j in journals
             if query_lower in (j.title or "").lower()
             or query_lower in (j.content or "").lower()
-            or query_lower in (j.summary or "").lower()
+            or query_lower in j.get_summary().lower()
         ]
 
         # Apply pagination

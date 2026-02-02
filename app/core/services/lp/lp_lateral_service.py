@@ -87,7 +87,7 @@ class LpLateralService:
             "Python Basics" PREREQUISITE_FOR "Web Development with Django"
         """
         if not 0.0 <= strength <= 1.0:
-            return Errors.validation("strength must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("strength must be between 0.0 and 1.0"))
 
         # Note: LP is SHARED content (no ownership check needed)
 
@@ -202,7 +202,7 @@ class LpLateralService:
             → Related specializations in AI domain
         """
         if not 0.0 <= strength <= 1.0:
-            return Errors.validation("strength must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("strength must be between 0.0 and 1.0"))
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=lp_a_uid,

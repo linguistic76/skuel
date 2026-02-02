@@ -89,7 +89,7 @@ class TasksLateralService:
             for task_uid in [blocker_uid, blocked_uid]:
                 ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
                 if ownership_result.is_error:
-                    return Errors.not_found(f"Task {task_uid} not found or access denied")
+                    return Result.fail(Errors.not_found(f"Task {task_uid} not found or access denied"))
 
         # Create BLOCKS relationship via core service
         return await self.lateral_service.create_lateral_relationship(
@@ -130,14 +130,14 @@ class TasksLateralService:
             Result[bool]: Success if relationship created
         """
         if not 0.0 <= strength <= 1.0:
-            return Errors.validation("strength must be between 0.0 and 1.0")
+            return Result.fail(Errors.validation("strength must be between 0.0 and 1.0"))
 
         # Verify ownership
         if user_uid:
             for task_uid in [prerequisite_uid, dependent_uid]:
                 ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
                 if ownership_result.is_error:
-                    return Errors.not_found(f"Task {task_uid} not found or access denied")
+                    return Result.fail(Errors.not_found(f"Task {task_uid} not found or access denied"))
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=prerequisite_uid,
@@ -179,7 +179,7 @@ class TasksLateralService:
             for task_uid in [task_a_uid, task_b_uid]:
                 ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
                 if ownership_result.is_error:
-                    return Errors.not_found(f"Task {task_uid} not found or access denied")
+                    return Result.fail(Errors.not_found(f"Task {task_uid} not found or access denied"))
 
         return await self.lateral_service.create_lateral_relationship(
             source_uid=task_a_uid,
@@ -214,7 +214,7 @@ class TasksLateralService:
         if user_uid:
             ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Task {task_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Task {task_uid} not found or access denied"))
 
         # Get incoming BLOCKS relationships
         return await self.lateral_service.get_lateral_relationships(
@@ -243,7 +243,7 @@ class TasksLateralService:
         if user_uid:
             ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Task {task_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Task {task_uid} not found or access denied"))
 
         # Get outgoing BLOCKS relationships
         return await self.lateral_service.get_lateral_relationships(
@@ -272,7 +272,7 @@ class TasksLateralService:
         if user_uid:
             ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Task {task_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Task {task_uid} not found or access denied"))
 
         return await self.lateral_service.get_lateral_relationships(
             entity_uid=task_uid,
@@ -300,7 +300,7 @@ class TasksLateralService:
         if user_uid:
             ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
             if ownership_result.is_error:
-                return Errors.not_found(f"Task {task_uid} not found or access denied")
+                return Result.fail(Errors.not_found(f"Task {task_uid} not found or access denied"))
 
         return await self.lateral_service.get_siblings(
             entity_uid=task_uid,
@@ -329,7 +329,7 @@ class TasksLateralService:
             for task_uid in [blocker_uid, blocked_uid]:
                 ownership_result = await self.tasks_service.verify_ownership(task_uid, user_uid)
                 if ownership_result.is_error:
-                    return Errors.not_found(f"Task {task_uid} not found or access denied")
+                    return Result.fail(Errors.not_found(f"Task {task_uid} not found or access denied"))
 
         return await self.lateral_service.delete_lateral_relationship(
             source_uid=blocker_uid,

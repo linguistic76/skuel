@@ -443,7 +443,7 @@ class Neo4jGenAIEmbeddingsService:
             result = await self.driver.execute_query(query, params)
 
             if not result:
-                return Result.fail(Errors.not_found(entity="Node", identifier=f"{label}:{uid}"))
+                return Result.fail(Errors.not_found(resource="Node", identifier=f"{label}:{uid}"))
 
             self.logger.debug(f"Stored embedding for {label}:{uid} (version={EMBEDDING_VERSION})")
             return Result.ok(None)
@@ -483,7 +483,7 @@ class Neo4jGenAIEmbeddingsService:
             result = await self.driver.execute_query(query, {"uid": uid})
 
             if not result:
-                return Result.fail(Errors.not_found(entity="Node", identifier=f"{label}:{uid}"))
+                return Result.fail(Errors.not_found(resource="Node", identifier=f"{label}:{uid}"))
 
             record = result[0]
             embedding = record.get("embedding")

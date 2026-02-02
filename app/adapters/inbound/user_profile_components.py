@@ -158,7 +158,7 @@ def DomainCard(
     stats: dict[str, Any],
     preview_items: list[dict[str, Any]],
     route: str,
-) -> Card:
+) -> Any:
     """
     Reusable domain card component.
 
@@ -224,7 +224,7 @@ def PreviewItem(item: dict[str, Any]) -> Li:
 # ============================================================================
 
 
-def LearningStatusCard(learning_stats: dict[str, Any]) -> Card:
+def LearningStatusCard(learning_stats: dict[str, Any]) -> Any:
     """
     Knowledge/Learning Path progress card.
 
@@ -374,7 +374,7 @@ def DomainCardsGrid(domain_stats: dict[str, dict[str, Any]]) -> Div:
 # ============================================================================
 
 
-def RecentActivityFeed(recent_activities: list[dict[str, Any]]) -> Card:
+def RecentActivityFeed(recent_activities: list[dict[str, Any]]) -> Any:
     """
     Recent activity feed showing last 10 actions.
 

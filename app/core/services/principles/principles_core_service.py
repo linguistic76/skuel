@@ -857,7 +857,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             )
             return Result.ok(True)
 
-        return Result.fail(Errors.database("Failed to create subprinciple relationship"))
+        return Result.fail(Errors.database(operation="create", message="Failed to create subprinciple relationship"))
 
     @with_error_handling("remove_subprinciple_relationship", error_type="database")
     async def remove_subprinciple_relationship(

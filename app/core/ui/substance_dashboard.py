@@ -50,7 +50,7 @@ def SubstanceScoreCard(
     status_message: str | None = None,
     _is_theoretical: bool = False,
     _is_well_practiced: bool = False,
-) -> Card:
+) -> Any:
     """
     Display main substance score with visual indicator and status.
 
@@ -145,7 +145,7 @@ def SubstanceScoreCard(
 # ============================================================================
 
 
-def SubstanceBreakdownCard(breakdown: dict[str, Any]) -> Card:
+def SubstanceBreakdownCard(breakdown: dict[str, Any]) -> Any:
     """
     Display detailed breakdown of substance by type.
 
@@ -291,7 +291,7 @@ def SubstanceBreakdownCard(breakdown: dict[str, Any]) -> Card:
 
 def SubstanceRecommendationsCard(
     gaps: list[str], recommendations: list[dict[str, str]], ku_uid: str
-) -> Card:
+) -> Any:
     """
     Display actionable recommendations to increase substance.
 
@@ -398,7 +398,7 @@ def SubstanceRecommendationsCard(
 # ============================================================================
 
 
-def SubstanceReviewCard(review_status: dict[str, Any]) -> Card:
+def SubstanceReviewCard(review_status: dict[str, Any]) -> Any:
     """
     Display spaced repetition review schedule.
 

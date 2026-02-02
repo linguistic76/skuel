@@ -107,7 +107,7 @@ class LateralRelationshipService:
             ```
         """
         if source_uid == target_uid:
-            return Errors.validation("Cannot create lateral relationship with self")
+            return Result.fail(Errors.validation("Cannot create lateral relationship with self"))
 
         # Validation phase
         if validate:
@@ -140,7 +140,7 @@ class LateralRelationshipService:
             )
 
             if not result.records:
-                return Errors.database(f"Failed to create {relationship_type.value} relationship")
+                return Result.fail(Errors.database(operation="create_relationship", message=f"Failed to create {relationship_type.value} relationship"))
 
             logger.info(
                 f"✅ Created lateral relationship: {source_uid} -[{relationship_type.value}]-> {target_uid}"
@@ -161,7 +161,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to create lateral relationship: {e}")
-            return Errors.database(f"Relationship creation failed: {e!s}")
+            return Result.fail(Errors.database(operation="Relationship creation", message=str(e)))
 
     async def delete_lateral_relationship(
         self,
@@ -195,9 +195,9 @@ class LateralRelationshipService:
             deleted_count = result.records[0]["deleted_count"] if result.records else 0
 
             if deleted_count == 0:
-                return Errors.not_found(
+                return Result.fail(Errors.not_found(
                     f"Relationship {relationship_type.value} not found between {source_uid} and {target_uid}"
-                )
+                ))
 
             logger.info(
                 f"✅ Deleted lateral relationship: {source_uid} -[{relationship_type.value}]-> {target_uid}"
@@ -217,7 +217,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to delete lateral relationship: {e}")
-            return Errors.database(f"Relationship deletion failed: {e!s}")
+            return Result.fail(Errors.database(operation="Relationship deletion", message=str(e)))
 
     async def get_lateral_relationships(
         self,
@@ -301,7 +301,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to get lateral relationships: {e}")
-            return Errors.database(f"Query failed: {e!s}")
+            return Result.fail(Errors.database(operation="Query", message=str(e)))
 
     async def get_siblings(
         self,
@@ -361,7 +361,7 @@ class LateralRelationshipService:
 
             except Exception as e:
                 logger.error(f"❌ Failed to get siblings: {e}")
-                return Errors.database(f"Sibling query failed: {e!s}")
+                return Result.fail(Errors.database(operation="Sibling query", message=str(e)))
 
     async def get_cousins(
         self,
@@ -385,7 +385,7 @@ class LateralRelationshipService:
 
             # For simplicity, implement 1st cousins only for now
             if degree != 1:
-                return Errors.validation("Only first cousins (degree=1) currently supported")
+                return Result.fail(Errors.validation("Only first cousins (degree=1) currently supported"))
 
             result = await self.driver.execute_query(
                 """
@@ -420,7 +420,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to get cousins: {e}")
-            return Errors.database(f"Cousin query failed: {e!s}")
+            return Result.fail(Errors.database(operation="Cousin query", message=str(e)))
 
     # ========================================================================
     # Private Helper Methods
@@ -482,18 +482,18 @@ class LateralRelationshipService:
             )
 
             if not result.records:
-                return Errors.not_found("One or both entities not found")
+                return Result.fail(Errors.not_found("One or both entities not found"))
 
             record = result.records[0]
             if record["source_count"] == 0:
-                return Errors.not_found(f"Source entity {source_uid} not found")
+                return Result.fail(Errors.not_found(f"Source entity {source_uid} not found"))
             if record["target_count"] == 0:
-                return Errors.not_found(f"Target entity {target_uid} not found")
+                return Result.fail(Errors.not_found(f"Target entity {target_uid} not found"))
 
             return Result.ok(True)
 
         except Exception as e:
-            return Errors.database(f"Entity existence check failed: {e!s}")
+            return Result.fail(Errors.database(operation="Entity existence check", message=str(e)))
 
     async def _check_same_parent(self, source_uid: str, target_uid: str) -> Result[bool]:
         """Verify entities share the same parent."""
@@ -508,14 +508,14 @@ class LateralRelationshipService:
             )
 
             if not result.records or result.records[0]["shared_parent_count"] == 0:
-                return Errors.validation(
+                return Result.fail(Errors.validation(
                     "Entities must share same parent for this relationship type"
-                )
+                ))
 
             return Result.ok(True)
 
         except Exception as e:
-            return Errors.database(f"Same parent check failed: {e!s}")
+            return Result.fail(Errors.database(operation="Same parent check", message=str(e)))
 
     async def _check_same_depth(self, source_uid: str, target_uid: str) -> Result[bool]:
         """Verify entities are at the same hierarchical depth."""
@@ -541,15 +541,15 @@ class LateralRelationshipService:
 
             record = result.records[0]
             if record["source_depth"] != record["target_depth"]:
-                return Errors.validation(
+                return Result.fail(Errors.validation(
                     f"Entities must be at same depth for this relationship type "
-                    f"(source depth: {record['source_depth']}, target depth: {record['target_depth']})"
-                )
+                    f"(source depth: {record['source_depth']}, target depth: {record['target_depth']}))"
+                ))
 
             return Result.ok(True)
 
         except Exception as e:
-            return Errors.database(f"Same depth check failed: {e!s}")
+            return Result.fail(Errors.database(operation="Same depth check", message=str(e)))
 
     async def _check_no_cycles(
         self,
@@ -573,14 +573,14 @@ class LateralRelationshipService:
             )
 
             if result.records and result.records[0]["cycle_count"] > 0:
-                return Errors.validation(
+                return Result.fail(Errors.validation(
                     f"Creating this {relationship_type.value} relationship would create a circular dependency"
-                )
+                ))
 
             return Result.ok(True)
 
         except Exception as e:
-            return Errors.database(f"Cycle check failed: {e!s}")
+            return Result.fail(Errors.database(operation="Cycle check", message=str(e)))
 
     async def _create_inverse_relationship(
         self,
@@ -758,7 +758,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to get blocking chain: {e}")
-            return Errors.database(f"Blocking chain query failed: {e!s}")
+            return Result.fail(Errors.database(operation="Blocking chain query", message=str(e)))
 
     async def get_alternatives_with_comparison(
         self,
@@ -880,7 +880,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to get alternatives with comparison: {e}")
-            return Errors.database(f"Alternatives query failed: {e!s}")
+            return Result.fail(Errors.database(operation="Alternatives query", message=str(e)))
 
     async def get_relationship_graph(
         self,
@@ -1080,7 +1080,7 @@ class LateralRelationshipService:
 
         except Exception as e:
             logger.error(f"❌ Failed to get relationship graph: {e}")
-            return Errors.database(f"Relationship graph query failed: {e!s}")
+            return Result.fail(Errors.database(operation="Relationship graph query", message=str(e)))
 
 
 __all__ = ["LateralRelationshipService"]

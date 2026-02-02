@@ -198,9 +198,8 @@ class Neo4jVectorSearchService:
             if not records or not records[0].get("embedding"):
                 return Result.fail(
                     Errors.not_found(
-                        entity_type=label,
-                        uid=uid,
-                        context={"reason": "No embedding found for this node"},
+                        resource=label,
+                        identifier=uid,
                     )
                 )
 

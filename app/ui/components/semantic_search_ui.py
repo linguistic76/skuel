@@ -126,7 +126,7 @@ def SemanticSearchBar(
 
 def SearchResultCard(
     result: dict[str, Any], show_relationships: bool = True, expandable: bool = True
-) -> Card:
+) -> Any:
     """
     Display a semantic search result.
 

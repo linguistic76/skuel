@@ -140,7 +140,7 @@ def create_goals_api_routes(
         update_date = body.get("date")
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("GoalsFacadeProtocol", goals_service)
+        typed_service = goals_service
         return await typed_service.update_goal_progress(
             entity.uid, progress_value, notes, update_date
         )
@@ -156,7 +156,7 @@ def create_goals_api_routes(
         period = params.get("period", "month")
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("GoalsFacadeProtocol", goals_service)
+        typed_service = goals_service
         return await typed_service.get_goal_progress(entity.uid, period)
 
     @rt("/api/goals/milestones", methods=["POST"])
@@ -172,7 +172,7 @@ def create_goals_api_routes(
         description = body.get("description", "")
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("GoalsFacadeProtocol", goals_service)
+        typed_service = goals_service
         return await typed_service.create_goal_milestone(
             entity.uid, milestone_title, target_date, description
         )
@@ -185,7 +185,7 @@ def create_goals_api_routes(
     ) -> Result[list[dict[str, Any]]]:
         """Get milestones for a goal (requires ownership)."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("GoalsFacadeProtocol", goals_service)
+        typed_service = goals_service
         return await typed_service.get_goal_milestones(entity.uid)
 
     # Goal Habits Integration
@@ -269,7 +269,7 @@ def create_goals_api_routes(
         """List goal categories for the authenticated user."""
         user_uid = require_authenticated_user(request)
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("GoalsFacadeProtocol", goals_service)
+        typed_service = goals_service
         return await typed_service.list_goal_categories(user_uid)
 
     @rt("/api/goals/by-category")
@@ -281,7 +281,7 @@ def create_goals_api_routes(
         limit = int(params.get("limit", 100))
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("GoalsFacadeProtocol", goals_service)
+        typed_service = goals_service
         return await typed_service.get_goals_by_category(category, limit)
 
     @rt("/api/goals/by-status")
@@ -293,7 +293,7 @@ def create_goals_api_routes(
         limit = int(params.get("limit", 100))
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("GoalsFacadeProtocol", goals_service)
+        typed_service = goals_service
         return await typed_service.get_goals_by_status(status, limit)
 
     # Goal Search and Filtering
@@ -309,7 +309,7 @@ def create_goals_api_routes(
         limit = int(params.get("limit", 50))
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("GoalsFacadeProtocol", goals_service)
+        typed_service = goals_service
         return await typed_service.search_goals(query, limit)
 
     @rt("/api/goals/due-soon")
@@ -320,7 +320,7 @@ def create_goals_api_routes(
         days_ahead = int(params.get("days", 7))
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("GoalsFacadeProtocol", goals_service)
+        typed_service = goals_service
         return await typed_service.get_goals_due_soon(days_ahead)
 
     @rt("/api/goals/overdue")
@@ -331,7 +331,7 @@ def create_goals_api_routes(
         limit = int(params.get("limit", 100))
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("GoalsFacadeProtocol", goals_service)
+        typed_service = goals_service
         return await typed_service.get_overdue_goals(limit)
 
     return []  # Routes registered via @rt() decorators (no objects returned)

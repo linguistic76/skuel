@@ -442,7 +442,7 @@ class RelationshipName(str, Enum):
         """
         prerequisite_types = {
             self.REQUIRES_TASK,
-            self.REQUIRES_GOAL,
+            self.DEPENDS_ON_GOAL,
             self.REQUIRES_HABIT,
             self.REQUIRES_PREREQUISITE_HABIT,
             self.REQUIRES_KNOWLEDGE,

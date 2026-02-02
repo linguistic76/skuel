@@ -260,7 +260,7 @@ def create_habits_api_routes(
         """List habit categories for the authenticated user."""
         user_uid = require_authenticated_user(request)
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("HabitsFacadeProtocol", habits_service)
+        typed_service = habits_service
         return await typed_service.list_habit_categories(user_uid)
 
     @rt("/api/habits/by-category")
@@ -272,7 +272,7 @@ def create_habits_api_routes(
         limit = int(params.get("limit", 100))
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("HabitsFacadeProtocol", habits_service)
+        typed_service = habits_service
         return await typed_service.get_habits_by_category(category, limit)
 
     # ========================================================================
@@ -327,7 +327,7 @@ def create_habits_api_routes(
         limit = int(params.get("limit", 50))
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("HabitsFacadeProtocol", habits_service)
+        typed_service = habits_service
         return await typed_service.search_habits(query, limit)
 
     @rt("/api/habits/due-today")
@@ -336,7 +336,7 @@ def create_habits_api_routes(
         """Get habits due today for the authenticated user."""
         user_uid = require_authenticated_user(request)
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("HabitsFacadeProtocol", habits_service)
+        typed_service = habits_service
         return await typed_service.get_habits_due_today(user_uid)
 
     @rt("/api/habits/overdue")
@@ -347,7 +347,7 @@ def create_habits_api_routes(
         limit = int(params.get("limit", 100))
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("HabitsFacadeProtocol", habits_service)
+        typed_service = habits_service
         return await typed_service.get_overdue_habits(limit)
 
     # Habit Reminders

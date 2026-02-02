@@ -449,7 +449,7 @@ class KuSearchService(BaseService[KuOperations, Ku]):
         # Get the source unit to verify it exists
         source_result = await self.backend.get(uid)
         if source_result.is_error or not source_result.value:
-            return Result.fail(Errors.not_found(entity_type="Ku", uid=uid))
+            return Result.fail(Errors.not_found(resource="Ku", identifier=uid))
 
         # Try AI-enhanced vector search if available and preferred
         if self.vector_search and prefer_vector_search:

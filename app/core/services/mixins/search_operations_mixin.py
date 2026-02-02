@@ -189,14 +189,14 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return config_result
 
         # Use modular cypher query for consistent text search pattern
-        # Access config via properties for consistency (DomainConfig priority honored)
+        # Access config via underscore-prefixed attributes
         cypher_query, params = build_text_search_query(
-            self.model_class,  # type: ignore - validated above
+            self._model_class,
             query,
-            search_fields=self.search_fields,  # type: ignore - property access
+            search_fields=self._search_fields,
             label=self.entity_label,
             limit=limit,
-            order_by=self.search_order_by,  # type: ignore - property access
+            order_by=self._search_order_by,
             order_desc=True,
         )
 

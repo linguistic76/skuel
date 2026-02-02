@@ -620,7 +620,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             )
             return Result.ok(True)
 
-        return Result.fail(Errors.database("Failed to create subhabit relationship"))
+        return Result.fail(Errors.database(operation="create", message="Failed to create subhabit relationship"))
 
     @with_error_handling("remove_subhabit_relationship", error_type="database")
     async def remove_subhabit_relationship(

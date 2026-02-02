@@ -90,6 +90,7 @@ class UserContextService:
         self.goal_task_generator = goal_task_generator
         self.habits_service = habits_service
         self.intelligence_factory = intelligence_factory
+        self.logger = get_logger(__name__)
 
     # =========================================================================
     # CORE CONTEXT OPERATIONS

@@ -1278,7 +1278,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             )
             return Result.ok(True)
 
-        return Result.fail(Errors.database("Failed to create subchoice relationship"))
+        return Result.fail(Errors.database(operation="create", message="Failed to create subchoice relationship"))
 
     @with_error_handling("remove_subchoice_relationship", error_type="database")
     async def remove_subchoice_relationship(
