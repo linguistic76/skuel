@@ -414,7 +414,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
             "learning_paths": 0,
         }
 
-        return KuUIComponents.render_knowledge_dashboard(
+        return KuUIComponents.render_ku_dashboard(
             knowledge_units=knowledge, stats=stats, request=request
         )
 

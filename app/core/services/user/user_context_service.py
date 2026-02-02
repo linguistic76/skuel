@@ -309,7 +309,7 @@ class UserContextService:
         )
 
         if summary_result.is_error:
-            return summary_result
+            return Result.fail(summary_result)
 
         summary: ContextSummary = summary_result.value
 
@@ -402,7 +402,7 @@ class UserContextService:
         )
 
         if summary_result.is_error:
-            return summary_result
+            return Result.fail(summary_result)
 
         summary: ContextSummary = summary_result.value
 

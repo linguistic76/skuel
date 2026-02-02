@@ -475,8 +475,11 @@ class LearningStateAnalyzer:
                 return None
 
             # Generate embedding
-            # Note: create_embedding returns list[float] | None, not Result[T]
-            return await self.embeddings.create_embedding(profile_text)
+            embedding_result = await self.embeddings.create_embedding(profile_text)
+            if embedding_result.is_error:
+                logger.warning(f"Failed to create embedding: {embedding_result.error}")
+                return None
+            return embedding_result.value
 
         except Exception as e:
             logger.warning(f"Failed to generate learning style vector: {e}")

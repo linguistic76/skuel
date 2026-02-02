@@ -131,7 +131,7 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
         result = await self.backend.find_by(**filters)
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         assignments = result.value
 

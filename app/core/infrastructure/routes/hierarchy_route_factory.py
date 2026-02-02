@@ -203,8 +203,13 @@ class HierarchyRouteFactory:
             remove_rel_fn = getattr(self.service, self.remove_relationship_method, None)
             create_rel_fn = getattr(self.service, self.create_relationship_method, None)
 
-            if not all([get_parent_fn, remove_rel_fn, create_rel_fn]):
-                return {"success": False, "error": "Hierarchy methods not available"}, 500
+            # Check each function individually for mypy type narrowing
+            if get_parent_fn is None:
+                return {"success": False, "error": "get_parent method not available"}, 500
+            if remove_rel_fn is None:
+                return {"success": False, "error": "remove_relationship method not available"}, 500
+            if create_rel_fn is None:
+                return {"success": False, "error": "create_relationship method not available"}, 500
 
             # Remove old relationship (if exists)
             old_parent_result = await get_parent_fn(uid)

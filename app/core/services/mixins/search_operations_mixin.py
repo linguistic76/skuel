@@ -186,7 +186,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
-            return config_result
+            return Result.fail(config_result)
 
         # Use modular cypher query for consistent text search pattern
         # Access config via underscore-prefixed attributes
@@ -239,7 +239,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
-            return config_result
+            return Result.fail(config_result)
 
         # Single-query traversal - returns full entities (no N+1)
         cypher_query, params = build_relationship_traversal_query(
@@ -298,7 +298,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
-            return config_result
+            return Result.fail(config_result)
 
         # Use graph-aware search query builder
         from core.models.query.cypher import build_graph_aware_search_query
@@ -419,7 +419,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
-            return config_result
+            return Result.fail(config_result)
 
         # Use array contains query builder
         from core.models.query.cypher import build_array_contains_query
@@ -475,7 +475,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
-            return config_result
+            return Result.fail(config_result)
 
         # Build dynamic Cypher query
         # Note: Using dict[str, Any] for params because we dynamically add keys
@@ -619,7 +619,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
-            return config_result
+            return Result.fail(config_result)
 
         result = await self.backend.find_by(status=status, limit=limit)
         if result.is_error:
@@ -645,7 +645,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
-            return config_result
+            return Result.fail(config_result)
 
         from core.services.protocols import get_enum_value
 
@@ -681,7 +681,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
-            return config_result
+            return Result.fail(config_result)
 
         # Build filter kwargs dynamically using _category_field
         filters: dict[str, Any] = {self._category_field: category, "limit": limit}

@@ -638,7 +638,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
             # I/O: Fetch all habits
             habits_result = await get_all_habits(user_uid)
             if habits_result.is_error:
-                return habits_result
+                return Result.fail(habits_result)
 
             habits = habits_result.value
 
@@ -896,7 +896,11 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
 
     async def render_habit_success_view(user_uid: str) -> Any:
         """Render list view after successful habit creation."""
-        habits, stats = await get_filtered_habits(user_uid, "active", "streak")
+        result = await get_filtered_habits(user_uid, "active", "streak")
+        if result.is_error:
+            habits, stats = [], {}
+        else:
+            habits, stats = result.value
         categories = await get_categories()
         return HabitsViewComponents.render_list_view(
             habits=habits,

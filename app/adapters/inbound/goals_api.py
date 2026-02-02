@@ -141,9 +141,13 @@ def create_goals_api_routes(
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_service = goals_service
-        return await typed_service.update_goal_progress(
+        result = await typed_service.update_goal_progress(
             entity.uid, progress_value, notes, update_date
         )
+        # ProgressResult is a TypedDict, convert to dict[str, Any] for type compatibility
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(dict(result.value))
 
     @rt("/api/goals/progress", methods=["GET"])
     @require_ownership_query(get_goals_service)
@@ -157,7 +161,11 @@ def create_goals_api_routes(
 
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_service = goals_service
-        return await typed_service.get_goal_progress(entity.uid, period)
+        result = await typed_service.get_goal_progress(entity.uid, period)
+        # ProgressResult is a TypedDict, convert to dict[str, Any] for type compatibility
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(dict(result.value))
 
     @rt("/api/goals/milestones", methods=["POST"])
     @require_ownership_query(get_goals_service)

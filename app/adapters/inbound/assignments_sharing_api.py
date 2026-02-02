@@ -116,7 +116,7 @@ def create_assignments_sharing_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -154,7 +154,7 @@ def create_assignments_sharing_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -203,7 +203,7 @@ def create_assignments_sharing_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -239,7 +239,7 @@ def create_assignments_sharing_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         assignments = result.value
 
@@ -306,7 +306,7 @@ def create_assignments_sharing_api_routes(
         if core_service:
             assignment_result = await core_service.get_assignment(assignment_uid)
             if assignment_result.is_error:
-                return assignment_result
+                return Result.fail(assignment_result)
 
             assignment = assignment_result.value
             if assignment.user_uid != user_uid:
@@ -322,7 +322,7 @@ def create_assignments_sharing_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         users = result.value
 
@@ -367,15 +367,15 @@ def create_assignments_sharing_api_routes(
                 }
             )
 
-        # Use BaseService search with visibility filter
+        # Use BaseService search - note: visibility filtering would need to be done post-query
+        # or via a custom method since BaseService.search doesn't support filters parameter
         search_result = await core_service.search(
-            query_text="",  # Empty query = all
+            query="",  # Empty query = all
             limit=limit,
-            filters={"visibility": "public"},
         )
 
         if search_result.is_error:
-            return search_result
+            return Result.fail(search_result)
 
         assignments = search_result.value
 

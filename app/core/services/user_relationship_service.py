@@ -138,7 +138,7 @@ class UserRelationshipService:
         # Get current max order
         current_pins_result = await self.get_pinned_entities(user_uid)
         if current_pins_result.is_error:
-            return current_pins_result
+            return Result.fail(current_pins_result)
 
         current_count = len(current_pins_result.value)
 

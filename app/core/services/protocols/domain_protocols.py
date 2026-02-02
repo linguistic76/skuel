@@ -86,6 +86,7 @@ if TYPE_CHECKING:
     from core.models.choice.choice import Choice
     from core.models.event.event import Event
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
+    from core.models.finance.invoice import InvoicePure
     from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
     from core.models.journal.journal_pure import JournalPure
@@ -742,11 +743,11 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         """Recalculate budget totals and status."""
         ...
 
-    async def create_invoice(self, invoice_data: dict[str, Any]) -> Result[str]:
-        """Create invoice. Returns invoice UID."""
+    async def create_invoice(self, invoice: Any) -> Result["InvoicePure"]:
+        """Create invoice. Returns created invoice."""
         ...
 
-    async def get_invoice(self, invoice_uid: str) -> Result[dict[str, Any] | None]:
+    async def get_invoice(self, invoice_uid: str) -> Result["InvoicePure | None"]:
         """Get invoice by UID."""
         ...
 

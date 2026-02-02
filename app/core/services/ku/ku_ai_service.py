@@ -205,17 +205,17 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
                 limit=5
             )
         """
-        if not self.embeddings_service:
+        if not self.embeddings:
             return Result.fail(
                 Errors.integration(
-                    provider="embeddings_service",
+                    service="embeddings_service",
                     message="Embeddings service not configured",
                     operation="semantic_search_chunks",
                 )
             )
 
         # Generate query embedding
-        query_embedding_result = await self.embeddings_service.create_embedding(query)
+        query_embedding_result = await self.embeddings.create_embedding(query)
         if query_embedding_result.is_error:
             return Result.fail(query_embedding_result.expect_error())
 

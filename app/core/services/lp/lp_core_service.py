@@ -265,7 +265,7 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         )
 
         if query_result.is_error:
-            return query_result
+            return Result.fail(query_result)
 
         paths_map = {}
         for record in query_result.value:
@@ -321,7 +321,7 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         )
 
         if query_result.is_error:
-            return query_result
+            return Result.fail(query_result)
 
         records = query_result.value
         if not records:
@@ -472,7 +472,7 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         )
 
         if query_result.is_error:
-            return query_result
+            return Result.fail(query_result)
 
         records = query_result.value
         if not records:
@@ -589,7 +589,7 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         query_result = await self.backend.execute_query(query, params)
 
         if query_result.is_error:
-            return query_result
+            return Result.fail(query_result)
 
         paths = []
         for record in query_result.value:

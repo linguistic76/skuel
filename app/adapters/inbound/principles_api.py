@@ -181,7 +181,7 @@ def create_principles_api_routes(
         min_confidence = getattr(data, "min_confidence", 0.7)
 
         # Use hybrid dual-track assessment: store user input AND calculate system alignment
-        return await principles_service.alignment.assess_with_user_input(
+        result: Result[Any] = await principles_service.alignment.assess_with_user_input(
             principle_uid=entity.uid,
             user_uid=user_uid,
             user_alignment_level=data.alignment_level,
@@ -189,6 +189,7 @@ def create_principles_api_routes(
             user_reflection=data.reflection,
             min_confidence=min_confidence,
         )
+        return result
 
     @rt("/api/principles/alignment-history")
     @require_ownership_query(get_principles_service, uid_param="principle_uid")

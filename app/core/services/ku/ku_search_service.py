@@ -515,11 +515,15 @@ class KuSearchService(BaseService[KuOperations, Ku]):
         try:
             result = await self.backend.execute_query(query, {"uid": uid, "limit": limit})
 
-            if not result:
+            if result.is_error:
+                return Result.fail(result)
+
+            records = result.value
+            if not records:
                 return Result.ok([])
 
             # Convert to DTOs
-            dtos = [self._node_dict_to_dto(dict(record["similar"])) for record in result]
+            dtos = [self._node_dict_to_dto(dict(record["similar"])) for record in records]
             self.logger.debug(f"Keyword search found {len(dtos)} similar units for {uid}")
             return Result.ok(dtos)
 
@@ -733,10 +737,14 @@ class KuSearchService(BaseService[KuOperations, Ku]):
                 query, {"query_text": query_text, "limit": limit}
             )
 
-            if not result:
+            if result.is_error:
+                return Result.fail(result)
+
+            records = result.value
+            if not records:
                 return Result.ok([])
 
-            dtos = [self._node_dict_to_dto(dict(record["ku"])) for record in result]
+            dtos = [self._node_dict_to_dto(dict(record["ku"])) for record in records]
             self.logger.debug(f"Keyword search found {len(dtos)} results for '{query_text}'")
             return Result.ok(dtos)
 

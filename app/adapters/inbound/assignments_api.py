@@ -28,8 +28,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.services.assignments.assignments_core_service import AssignmentsCoreService
-    from core.services.assignments.assignments_processing_service import AssignmentsProcessingService
-    from core.services.assignments.assignments_search_service import AssignmentsSearchService
+    from core.services.assignments.assignments_processing_service import AssignmentProcessorService
+    from core.services.assignments.assignments_search_service import AssignmentsQueryService
     from core.services.assignments.assignments_submission_service import AssignmentSubmissionService
 
 from starlette.background import BackgroundTask
@@ -76,8 +76,8 @@ def create_assignments_api_routes(
     _app: Any,
     rt: Any,
     assignment_service: "AssignmentSubmissionService",
-    processing_service: "AssignmentsProcessingService",
-    assignments_query_service: "AssignmentsSearchService | None" = None,
+    processing_service: "AssignmentProcessorService",
+    assignments_query_service: "AssignmentsQueryService | None" = None,
     assignments_core_service: "AssignmentsCoreService | None" = None,
 ) -> list[Any]:
     """

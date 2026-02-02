@@ -13,7 +13,7 @@ This file uses:
 - Manual routes for domain-specific operations (calendar, recurrence, attendees, intelligence)
 """
 
-from typing import Any, cast
+from typing import Any
 
 from fasthtml.common import Request
 
@@ -194,17 +194,19 @@ def create_events_api_routes(
         end_date = params.get("end_date")
         view = params.get("view", "month")
 
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("EventsFacadeProtocol", events_service)
-        return await typed_service.get_calendar_events(start_date, end_date, view)
+        return await events_service.get_calendar_events(start_date, end_date, view)
 
     @rt("/api/events/conflicts")
     @require_ownership_query(get_events_service)
     @boundary_handler()
     async def check_conflicts_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Check for scheduling conflicts (requires ownership)."""
-        typed_request = CheckConflictsRequest(event_uid=entity.uid)
-        return await events_service.check_conflicts(typed_request)
+        # Use facade protocol signature: (start_time, end_time, user_uid)
+        return await events_service.check_conflicts(
+            start_time=entity.start_time,
+            end_time=entity.end_time,
+            user_uid=user_uid,
+        )
 
     # Search and Analytics
     # --------------------
@@ -217,9 +219,7 @@ def create_events_api_routes(
         query = params.get("q", "")
         limit = int(params.get("limit", 50))
 
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = cast("EventsFacadeProtocol", events_service)
-        return await typed_service.search_events(query, limit)
+        return await events_service.search_events(query, limit)
 
     # ========================================================================
     # ANALYTICS ROUTES (Factory-Generated)
@@ -281,11 +281,14 @@ def create_events_api_routes(
     ) -> Result[Any]:
         """Create recurring event instances (requires ownership)."""
         body = await request.json()
-        typed_request = RecurringInstancesRequest(
+        # Use facade protocol signature: (event_uid, recurrence_data)
+        recurrence_data = {
+            "count": body.get("count", 10),
+        }
+        return await events_service.create_recurring_instances(
             event_uid=entity.uid,
-            count=body.get("count", 10),
+            recurrence_data=recurrence_data,
         )
-        return await events_service.create_recurring_instances(typed_request)
 
     @rt("/api/events/recurring")
     @boundary_handler()
@@ -308,13 +311,13 @@ def create_events_api_routes(
     async def add_attendee_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Add attendee to event (requires ownership)."""
         body = await request.json()
-        typed_request = AddAttendeeRequest(
-            event_uid=entity.uid,
-            user_uid=body.get("attendee_uid", body.get("user_uid", "")),
-            role=body.get("role", "attendee"),
-            send_notification=body.get("send_notification", True),
-        )
-        return await events_service.add_attendee(typed_request)
+        # Use facade protocol signature: (event_uid, attendee_data)
+        attendee_data = {
+            "user_uid": body.get("attendee_uid", body.get("user_uid", "")),
+            "role": body.get("role", "attendee"),
+            "send_notification": body.get("send_notification", True),
+        }
+        return await events_service.add_attendee(event_uid=entity.uid, attendee_data=attendee_data)
 
     @rt("/api/events/attendees", methods=["DELETE"])
     @require_ownership_query(get_events_service)
@@ -323,12 +326,11 @@ def create_events_api_routes(
         request: Request, user_uid: str, entity: Any, attendee_uid: str
     ) -> Result[Any]:
         """Remove attendee from event (requires ownership)."""
-        typed_request = RemoveAttendeeRequest(
+        # Use facade protocol signature: (event_uid, attendee_uid)
+        return await events_service.remove_attendee(
             event_uid=entity.uid,
-            user_uid=attendee_uid,
-            send_notification=True,
+            attendee_uid=attendee_uid,
         )
-        return await events_service.remove_attendee(typed_request)
 
     @rt("/api/events/attendees", methods=["GET"])
     @require_ownership_query(get_events_service)

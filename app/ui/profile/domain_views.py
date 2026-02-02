@@ -455,7 +455,7 @@ def TasksDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
                 "uid": uid,
                 "status": "in_progress",
                 "is_overdue": uid in context.overdue_task_uids,
-                "is_high_priority": uid in context.high_priority_task_uids,
+                "is_high_priority": context.task_priorities.get(uid, 0.0) >= 0.7,
                 "is_this_week": False,
             }
             for uid in context.active_task_uids[:50]
@@ -481,7 +481,7 @@ def TasksDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
     goal_aligned_count = sum(len(tasks) for tasks in context.tasks_by_goal.values())
     if goal_aligned_count > 0:
         recommendations.append(
-            (f"{context.goal_aligned_tasks_count} tasks aligned with active goals", "success")
+            (f"{goal_aligned_count} tasks aligned with active goals", "success")
         )
     if not recommendations and active > 0:
         recommendations.append(("Tasks are on track - keep up the momentum!", "success"))

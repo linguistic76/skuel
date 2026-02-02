@@ -200,7 +200,7 @@ def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadePr
 
         return Result.ok(None)
 
-    def get_strength_value(p, strength_order: dict) -> int:
+    def get_strength_value(p, strength_order: dict[Any, int]) -> int:
         """
         Get numeric strength value for comparison.
 
@@ -217,13 +217,15 @@ def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadePr
 
         s = getattr(p, "strength", PrincipleStrength.MODERATE)
         if isinstance(s, PrincipleStrength):
-            return strength_order.get(s, 3)
+            result: int = strength_order.get(s, 3)
+            return result
         # Handle string values
         if isinstance(s, str):
             s_upper = s.upper()
             for enum_val in PrincipleStrength:
                 if enum_val.value == s or enum_val.name == s_upper:
-                    return strength_order.get(enum_val, 3)
+                    result2: int = strength_order.get(enum_val, 3)
+                    return result2
         return 3  # Default to moderate
 
     def compute_principle_stats(principles: list[Any], strength_order: dict) -> dict[str, int]:
@@ -352,7 +354,7 @@ def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadePr
             # I/O: Fetch all principles
             principles_result = await get_all_principles(user_uid)
             if principles_result.is_error:
-                return principles_result
+                return Result.fail(principles_result)
 
             principles = principles_result.value
 
@@ -413,7 +415,7 @@ def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadePr
             # Check for errors
             if principles_result.is_error:
                 logger.warning(f"Failed to get principles for analytics: {principles_result.error}")
-                return principles_result  # Propagate the error
+                return Result.fail(principles_result)  # Propagate the error
 
             principles = principles_result.value
 

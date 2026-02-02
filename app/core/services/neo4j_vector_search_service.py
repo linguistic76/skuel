@@ -376,7 +376,12 @@ class Neo4jVectorSearchService:
             for uid, score in rrf_scores.items()
             if score >= min_rrf_score
         ]
-        merged.sort(key=lambda x: x["score"], reverse=True)
+
+        def by_score(item: dict[str, Any]) -> float:
+            """Extract score for sorting."""
+            return item["score"]
+
+        merged.sort(key=by_score, reverse=True)
 
         # Step 5: Limit results
         final_results = merged[:limit]

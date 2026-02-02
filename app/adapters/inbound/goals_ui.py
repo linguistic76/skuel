@@ -985,7 +985,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
             # I/O: Fetch all goals
             goals_result = await get_all_goals(user_uid)
             if goals_result.is_error:
-                return goals_result
+                return Result.fail(goals_result)
 
             goals = goals_result.value
 

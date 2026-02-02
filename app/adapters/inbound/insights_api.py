@@ -543,7 +543,7 @@ def create_insights_api_routes(
         stats_result = await insight_store.get_insight_stats(user_uid)
 
         if stats_result.is_error:
-            return stats_result
+            return Result.fail(stats_result)
 
         stats = stats_result.value
         action_rate = stats.get("action_rate", 0) * 100  # Convert to percentage

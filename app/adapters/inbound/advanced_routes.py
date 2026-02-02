@@ -113,7 +113,7 @@ def create_advanced_routes(_app, rt, services):
                 events = events_result.value or []
 
         # Optimize calendar
-        return await services.calendar_optimization.optimize_knowledge_scheduling(
+        result: Result[Any] = await services.calendar_optimization.optimize_knowledge_scheduling(
             user_uid=user_uid,
             target_date=opt_date,
             tasks=tasks,
@@ -121,6 +121,7 @@ def create_advanced_routes(_app, rt, services):
             knowledge_units=knowledge_units,
             strategy=strat,
         )
+        return result
 
     @rt("/events/calendar/cognitive-load")
     @boundary_handler()

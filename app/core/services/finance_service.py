@@ -58,6 +58,7 @@ from core.models.finance.finance_pure import (
     ExpensePure,
     ExpenseStatus,
 )
+from core.models.finance.invoice import InvoicePure
 from core.services.finance import (
     FinanceBudgetService,
     FinanceCoreService,
@@ -731,7 +732,7 @@ class FinanceService:
     # INVOICE OPERATIONS - Delegate to FinanceInvoiceService
     # ========================================================================
 
-    async def create_invoice(self, invoice: Any) -> Result[Any]:
+    async def create_invoice(self, invoice: Any) -> Result[InvoicePure]:
         """
         Create a new invoice.
 
@@ -745,7 +746,7 @@ class FinanceService:
             return Result.fail(Errors.system("Invoice service not initialized"))
         return await self.invoice.create(invoice)
 
-    async def get_invoice(self, uid: str) -> Result[Any]:
+    async def get_invoice(self, uid: str) -> Result[InvoicePure | None]:
         """
         Get an invoice by UID.
 

@@ -147,7 +147,9 @@ def create_finance_api_routes(
             offset = int(params.get("offset", 0))
 
             # Call service (admin sees all)
-            result = await finance_service.search_expenses(query=query, limit=limit, offset=offset)
+            result = await finance_service.search_expenses(
+                user_uid=current_user.uid, query=query, limit=limit, offset=offset
+            )
 
             if result.is_ok:
                 expenses = result.value
@@ -200,7 +202,7 @@ def create_finance_api_routes(
     @boundary_handler()
     async def reconcile_expense_route(request, current_user, uid: str) -> Result[Any]:
         """Mark expense as reconciled (admin only)."""
-        result = await finance_service.reconcile_expense(uid)
+        result = await finance_service.reconcile_expense(expense_uid=uid, reconciliation_data={})
 
         if result.is_ok:
             logger.info(f"Expense reconciled via API by admin: {uid}")
@@ -443,7 +445,7 @@ def create_finance_api_routes(
     @boundary_handler()
     async def get_invoice_stats_route(request, current_user) -> Result[Any]:
         """Get invoice statistics (admin only)"""
-        result = await finance_service.get_invoice_stats()
+        result = await finance_service.get_invoice_stats(user_uid=current_user.uid)
 
         if result.is_ok:
             return Result.ok(result.value)

@@ -45,10 +45,10 @@ logger = get_logger("skuel.routes.askesis.api")
 
 
 def create_askesis_api_routes(
-    _app: Any,
-    _rt: Any,
-    _askesis_service: AskesisOperations,
-    _askesis_core_service: "AskesisCoreService | None" = None,
+    app: Any,
+    rt: Any,
+    askesis_service: AskesisOperations,
+    askesis_core_service: "AskesisCoreService | None" = None,
     driver: "AsyncDriver | None" = None,
 ) -> list[Any]:
     """
@@ -114,7 +114,7 @@ def create_askesis_api_routes(
 
         # Call RAG pipeline
         logger.info(f"RAG question from {user_uid}: {question}")
-        result = await _askesis_service.answer_user_question(user_uid, question)
+        result = await askesis_service.answer_user_question(user_uid, question)
 
         if result.is_ok:
             logger.info(f"RAG answer generated for {user_uid}")
@@ -128,7 +128,7 @@ def create_askesis_api_routes(
     async def get_user_askesis_route(request: Request, user_uid: str) -> Result:
         """Get user's Askesis AI assistant instance (or create if not exists)."""
 
-        if not _askesis_core_service:
+        if not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis core service not available",
@@ -137,7 +137,7 @@ def create_askesis_api_routes(
             )
 
         # Get or create Askesis instance for user
-        return await _askesis_core_service.get_or_create_for_user(user_uid)
+        return await askesis_core_service.get_or_create_for_user(user_uid)
 
     @rt("/api/askesis")
     @boundary_handler(success_status=201)
@@ -157,7 +157,7 @@ def create_askesis_api_routes(
                 )
             )
 
-        if not _askesis_core_service:
+        if not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis core service not available",
@@ -166,7 +166,7 @@ def create_askesis_api_routes(
             )
 
         # Create Askesis instance
-        return await _askesis_core_service.create_askesis(user_uid, askesis_request)
+        return await askesis_core_service.create_askesis(user_uid, askesis_request)
 
     @rt("/api/askesis/settings", methods=["PUT"])
     @boundary_handler()
@@ -176,7 +176,7 @@ def create_askesis_api_routes(
 
         askesis_update = AskesisUpdateRequest.model_validate(body)
 
-        if not _askesis_core_service:
+        if not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis core service not available",
@@ -185,7 +185,7 @@ def create_askesis_api_routes(
             )
 
         # Update Askesis settings
-        return await _askesis_core_service.update_askesis(askesis_uid, askesis_update)
+        return await askesis_core_service.update_askesis(askesis_uid, askesis_update)
 
     # ========================================================================
     # CONVERSATION MANAGEMENT
@@ -284,7 +284,7 @@ def create_askesis_api_routes(
 
         GuidanceRecommendationCreateRequest.model_validate(body)
 
-        if not _askesis_service:
+        if not askesis_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis intelligence service not available",
@@ -293,7 +293,7 @@ def create_askesis_api_routes(
             )
 
         # Get user UID from askesis instance
-        if not _askesis_core_service:
+        if not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis core service not available",
@@ -301,7 +301,7 @@ def create_askesis_api_routes(
                 )
             )
 
-        askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
+        askesis_result = await askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
             return Result.fail(askesis_result.expect_error())
 
@@ -327,7 +327,7 @@ def create_askesis_api_routes(
         user_context = context_result.value
 
         # Get next best action recommendation
-        recommendation_result = await _askesis_service.get_next_best_action(user_context)
+        recommendation_result = await askesis_service.get_next_best_action(user_context)
 
         if recommendation_result.is_error:
             return Result.fail(recommendation_result.expect_error())
@@ -347,7 +347,7 @@ def create_askesis_api_routes(
         params.get("timeframe", "7d")
         params.get("domains", "all")
 
-        if not _askesis_service or not _askesis_core_service:
+        if not askesis_service or not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis services not available",
@@ -356,7 +356,7 @@ def create_askesis_api_routes(
             )
 
         # Get user UID from askesis instance
-        askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
+        askesis_result = await askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
             return Result.fail(askesis_result.expect_error())
 
@@ -382,13 +382,13 @@ def create_askesis_api_routes(
         user_context = context_result.value
 
         # Analyze user state
-        analysis_result = await _askesis_service.analyze_user_state(user_context)
+        analysis_result = await askesis_service.analyze_user_state(user_context)
 
         if analysis_result.is_error:
             return Result.fail(analysis_result.expect_error())
 
         # Identify patterns
-        patterns_result = await _askesis_service.identify_patterns(user_context)
+        patterns_result = await askesis_service.identify_patterns(user_context)
 
         if patterns_result.is_error:
             return Result.fail(patterns_result.expect_error())
@@ -411,7 +411,7 @@ def create_askesis_api_routes(
 
         DomainInteractionRequest.model_validate(body)
 
-        if not _askesis_service or not _askesis_core_service:
+        if not askesis_service or not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis services not available",
@@ -420,7 +420,7 @@ def create_askesis_api_routes(
             )
 
         # Get user UID from askesis instance
-        askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
+        askesis_result = await askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
             return Result.fail(askesis_result.expect_error())
 
@@ -446,7 +446,7 @@ def create_askesis_api_routes(
         user_context = context_result.value
 
         # Optimize workflow across domains
-        optimization_result = await _askesis_service.optimize_workflow(user_context)
+        optimization_result = await askesis_service.optimize_workflow(user_context)
 
         if optimization_result.is_error:
             return Result.fail(optimization_result.expect_error())
@@ -470,7 +470,7 @@ def create_askesis_api_routes(
             }
         )
 
-        if not _askesis_service or not _askesis_core_service:
+        if not askesis_service or not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis services not available",
@@ -479,7 +479,7 @@ def create_askesis_api_routes(
             )
 
         # Get askesis instance
-        askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
+        askesis_result = await askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
             return Result.fail(askesis_result.expect_error())
 
@@ -505,12 +505,12 @@ def create_askesis_api_routes(
         user_context = context_result.value
 
         # Calculate system health
-        health = _askesis_service.calculate_system_health(user_context)
+        health = askesis_service.calculate_system_health(user_context)
 
         # Optionally get predictions
         predictions = None
         if analytics_request.include_predictions:
-            predictions_result = await _askesis_service.predict_future_state(
+            predictions_result = await askesis_service.predict_future_state(
                 user_context, days_ahead=7
             )
             if predictions_result.is_ok:
@@ -555,7 +555,7 @@ def create_askesis_api_routes(
                 )
             )
 
-        if not _askesis_service:
+        if not askesis_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis intelligence service not available",
@@ -564,7 +564,7 @@ def create_askesis_api_routes(
             )
 
         # Use the RAG pipeline to process query
-        answer_result = await _askesis_service.answer_user_question(user_uid, query)
+        answer_result = await askesis_service.answer_user_question(user_uid, query)
 
         if answer_result.is_error:
             return Result.fail(answer_result.expect_error())
@@ -593,7 +593,7 @@ def create_askesis_api_routes(
 
         IntelligenceUpdateRequest.model_validate(body)
 
-        if not _askesis_core_service:
+        if not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis core service not available",
@@ -602,7 +602,7 @@ def create_askesis_api_routes(
             )
 
         # Record conversation (updates metrics)
-        result = await _askesis_core_service.record_conversation(askesis_uid)
+        result = await askesis_core_service.record_conversation(askesis_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -671,7 +671,7 @@ def create_askesis_api_routes(
         prioritize_life_path = params.get("prioritize_life_path", "true").lower() == "true"
         respect_capacity = params.get("respect_capacity", "true").lower() == "true"
 
-        if not _askesis_service or not _askesis_core_service:
+        if not askesis_service or not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis services not available",
@@ -680,7 +680,7 @@ def create_askesis_api_routes(
             )
 
         # Get user UID from askesis instance
-        askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
+        askesis_result = await askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
             return Result.fail(askesis_result.expect_error())
 
@@ -706,7 +706,7 @@ def create_askesis_api_routes(
         user_context = context_result.value
 
         # Get daily work plan using 13-domain intelligence
-        plan_result = await _askesis_service.get_daily_work_plan(
+        plan_result = await askesis_service.get_daily_work_plan(
             user_context,
             prioritize_life_path=prioritize_life_path,
             respect_capacity=respect_capacity,
@@ -777,7 +777,7 @@ def create_askesis_api_routes(
         consider_goals = params.get("consider_goals", "true").lower() == "true"
         consider_capacity = params.get("consider_capacity", "true").lower() == "true"
 
-        if not _askesis_service or not _askesis_core_service:
+        if not askesis_service or not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis services not available",
@@ -786,7 +786,7 @@ def create_askesis_api_routes(
             )
 
         # Get user UID from askesis instance
-        askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
+        askesis_result = await askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
             return Result.fail(askesis_result.expect_error())
 
@@ -812,7 +812,7 @@ def create_askesis_api_routes(
         user_context = context_result.value
 
         # Get optimal learning steps using 13-domain intelligence
-        steps_result = await _askesis_service.get_optimal_next_learning_steps(
+        steps_result = await askesis_service.get_optimal_next_learning_steps(
             user_context,
             max_steps=max_steps,
             consider_goals=consider_goals,
@@ -862,7 +862,7 @@ def create_askesis_api_routes(
             Result[list[str]]: Ordered list of KU UIDs representing critical path
         """
 
-        if not _askesis_service or not _askesis_core_service:
+        if not askesis_service or not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis services not available",
@@ -871,7 +871,7 @@ def create_askesis_api_routes(
             )
 
         # Get user UID from askesis instance
-        askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
+        askesis_result = await askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
             return Result.fail(askesis_result.expect_error())
 
@@ -897,7 +897,7 @@ def create_askesis_api_routes(
         user_context = context_result.value
 
         # Get critical path using 13-domain intelligence
-        path_result = await _askesis_service.get_learning_path_critical_path(user_context)
+        path_result = await askesis_service.get_learning_path_critical_path(user_context)
 
         if path_result.is_error:
             return Result.fail(path_result.expect_error())
@@ -928,7 +928,7 @@ def create_askesis_api_routes(
             Result[list[tuple[str, int]]]: List of (ku_uid, blocked_count) sorted by impact
         """
 
-        if not _askesis_service or not _askesis_core_service:
+        if not askesis_service or not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis services not available",
@@ -937,7 +937,7 @@ def create_askesis_api_routes(
             )
 
         # Get user UID from askesis instance
-        askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
+        askesis_result = await askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
             return Result.fail(askesis_result.expect_error())
 
@@ -963,7 +963,7 @@ def create_askesis_api_routes(
         user_context = context_result.value
 
         # Get unblocking priority order using 13-domain intelligence
-        order_result = await _askesis_service.get_unblocking_priority_order(user_context)
+        order_result = await askesis_service.get_unblocking_priority_order(user_context)
 
         if order_result.is_error:
             return Result.fail(order_result.expect_error())
@@ -1014,7 +1014,7 @@ def create_askesis_api_routes(
         types_param = request.query_params.get("types", "")
         include_types = types_param.split(",") if types_param else None
 
-        if not _askesis_service or not _askesis_core_service:
+        if not askesis_service or not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis services not available",
@@ -1023,7 +1023,7 @@ def create_askesis_api_routes(
             )
 
         # Get user UID from askesis instance
-        askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
+        askesis_result = await askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
             return Result.fail(askesis_result.expect_error())
 
@@ -1049,7 +1049,7 @@ def create_askesis_api_routes(
         user_context = context_result.value
 
         # Get cross-domain synergies using 13-domain intelligence
-        synergies_result = await _askesis_service.get_cross_domain_synergies(
+        synergies_result = await askesis_service.get_cross_domain_synergies(
             user_context,
             min_synergy_score=min_score,
             include_types=include_types,
@@ -1114,7 +1114,7 @@ def create_askesis_api_routes(
                 - aligned_goals, supporting_habits, knowledge_gaps
         """
 
-        if not _askesis_service or not _askesis_core_service:
+        if not askesis_service or not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis services not available",
@@ -1123,7 +1123,7 @@ def create_askesis_api_routes(
             )
 
         # Get user UID from askesis instance
-        askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
+        askesis_result = await askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
             return Result.fail(askesis_result.expect_error())
 
@@ -1149,7 +1149,7 @@ def create_askesis_api_routes(
         user_context = context_result.value
 
         # Calculate life path alignment using 13-domain intelligence
-        alignment_result = await _askesis_service.calculate_life_path_alignment(
+        alignment_result = await askesis_service.calculate_life_path_alignment(
             user_context,
         )
 
@@ -1224,7 +1224,7 @@ def create_askesis_api_routes(
         time_horizon_hours = int(request.query_params.get("time_horizon_hours", "8"))
         respect_energy = request.query_params.get("respect_energy", "true").lower() == "true"
 
-        if not _askesis_service or not _askesis_core_service:
+        if not askesis_service or not askesis_core_service:
             return Result.fail(
                 Errors.system(
                     message="Askesis services not available",
@@ -1233,7 +1233,7 @@ def create_askesis_api_routes(
             )
 
         # Get user UID from askesis instance
-        askesis_result = await _askesis_core_service.get_askesis(askesis_uid)
+        askesis_result = await askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
             return Result.fail(askesis_result.expect_error())
 
@@ -1259,7 +1259,7 @@ def create_askesis_api_routes(
         user_context = context_result.value
 
         # Get schedule-aware recommendations using 13-domain intelligence
-        recommendations_result = await _askesis_service.get_schedule_aware_recommendations(
+        recommendations_result = await askesis_service.get_schedule_aware_recommendations(
             user_context,
             max_recommendations=max_recommendations,
             time_horizon_hours=time_horizon_hours,

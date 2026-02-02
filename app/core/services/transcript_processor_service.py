@@ -1430,9 +1430,14 @@ Return ONLY Markdown in this structure:
         Note: Renamed from 'list' to avoid shadowing the built-in list type,
         which would break type annotations in subsequent method definitions.
         """
-        return await self.backend.list(
+        result = await self.backend.list(
             limit=limit, offset=offset, sort_by="entry_date", sort_order="desc"
         )
+        # backend.list() returns tuple[list, int], extract just the list
+        if result.is_error:
+            return Result.fail(result)
+        journals, _total = result.value
+        return Result.ok(journals)
 
     # ========================================================================
     # ESSENTIAL QUERY METHODS

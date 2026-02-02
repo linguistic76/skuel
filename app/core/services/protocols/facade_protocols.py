@@ -270,6 +270,12 @@ class ChoicesCoreOperations(Protocol):
         """Make a decision on a choice."""
         ...
 
+    async def evaluate_choice_outcome(
+        self, choice_uid: str, evaluation: Any
+    ) -> Result[Choice]:
+        """Record the outcome evaluation for a choice."""
+        ...
+
     async def delete_choice(self, choice_uid: str) -> Result[bool]:
         """Delete a choice."""
         ...
@@ -537,6 +543,11 @@ class PrinciplesFacadeProtocol(Protocol):
         """Access to reflection sub-service for reflection-related operations."""
         ...
 
+    @property
+    def alignment(self) -> Any:
+        """Access to alignment sub-service for alignment assessment operations."""
+        ...
+
     # ========================================================================
     # Intelligence delegations (→ PrinciplesIntelligenceService)
     # ========================================================================
@@ -615,6 +626,22 @@ class PrinciplesFacadeProtocol(Protocol):
 
     async def list_all_principle_categories(self) -> Result[list[str]]:
         """List all principle categories."""
+        ...
+
+    async def search_principles(
+        self, query: str, filters: dict[str, Any] | None = None, limit: int = 50
+    ) -> Result[list[Principle]]:
+        """Search principles by text query."""
+        ...
+
+    async def get_principle_sources(self) -> Result[list[str]]:
+        """List all principle sources (where principles come from)."""
+        ...
+
+    async def get_principle_links(
+        self, principle_uid: str, link_type: str | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        """Get links for a principle (relationships to other principles)."""
         ...
 
     # ========================================================================
@@ -867,6 +894,10 @@ class TasksFacadeProtocol(Protocol):
         """Get user tasks within date range."""
         ...
 
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[Any]:
+        """Get task for user with ownership verification."""
+        ...
+
     # ========================================================================
     # Search delegations (→ TasksSearchService)
     # ========================================================================
@@ -1019,6 +1050,10 @@ class EventsFacadeProtocol(Protocol):
         """Get events for a specific user."""
         ...
 
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[Any]:
+        """Get event for user with ownership verification."""
+        ...
+
     async def update(self, uid: str, updates: dict[str, Any]) -> Result[Event]:
         """Update an event."""
         ...
@@ -1169,6 +1204,10 @@ class HabitsFacadeProtocol(Protocol):
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Any]]:
         """Get user habits within date range."""
+        ...
+
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[Any]:
+        """Get habit for user with ownership verification."""
         ...
 
     # ========================================================================
@@ -1539,7 +1578,7 @@ class ChoicesFacadeProtocol(Protocol):
         """Update a choice option."""
         ...
 
-    async def get_for_user(self, uid: str, user_uid: str) -> Result[Any | None]:
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[Any]:
         """Get choice for user with ownership verification."""
         ...
 

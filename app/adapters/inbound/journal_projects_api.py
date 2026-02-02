@@ -139,7 +139,7 @@ def create_journal_projects_api_routes(
 
         if feedback_result.is_error:
             logger.error(f"Failed to generate feedback: {feedback_result.error}")
-            return feedback_result
+            return Result.fail(feedback_result)
 
         feedback_text = feedback_result.value
 

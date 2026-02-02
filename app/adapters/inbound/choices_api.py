@@ -14,7 +14,7 @@ This file uses:
 
 __version__ = "2.0"
 
-from typing import Any
+from typing import Any, cast
 
 from fasthtml.common import Request
 
@@ -235,7 +235,8 @@ def create_choices_api_routes(
             lookback_days = int(timeframe[:-1])
 
         # Use intelligence service (analytics methods consolidated here)
-        return await choice_service.intelligence.get_decision_patterns(user_uid, days=lookback_days)
+        result: Result[Any] = await choice_service.intelligence.get_decision_patterns(user_uid, days=lookback_days)
+        return result
 
     # ========================================================================
     # INTELLIGENCE ROUTES (High-Value Analytics)
@@ -257,7 +258,8 @@ def create_choices_api_routes(
         Returns:
             ChoiceImpactAnalysis with affected domains, relationships, and impact scores
         """
-        return await choice_service.intelligence.analyze_choice_impact(entity.uid)
+        result: Result[Any] = await choice_service.intelligence.analyze_choice_impact(entity.uid)
+        return result
 
     @rt("/api/choices/intelligence/quality-correlations")
     @boundary_handler()
@@ -272,7 +274,8 @@ def create_choices_api_routes(
             Dict with correlation scores for decision factors (confidence,
             principle alignment, time pressure, domain, etc.)
         """
-        return await choice_service.intelligence.get_choice_quality_correlations(user_uid)
+        result: Result[Any] = await choice_service.intelligence.get_choice_quality_correlations(user_uid)
+        return result
 
     @rt("/api/choices/intelligence/predict-quality")
     @require_ownership_query(get_choice_service, uid_param="choice_uid")
@@ -293,7 +296,8 @@ def create_choices_api_routes(
             DecisionQualityPrediction with estimated quality score,
             confidence, and contributing factors
         """
-        return await choice_service.intelligence.predict_decision_quality(entity.uid, user_uid)
+        result: Result[Any] = await choice_service.intelligence.predict_decision_quality(entity.uid, user_uid)
+        return result
 
     @rt("/api/choices/intelligence/domain-patterns")
     @boundary_handler()
@@ -313,7 +317,8 @@ def create_choices_api_routes(
         params = dict(request.query_params)
         days = int(params.get("days", 90))
 
-        return await choice_service.intelligence.get_domain_decision_patterns(user_uid, days=days)
+        result: Result[Any] = await choice_service.intelligence.get_domain_decision_patterns(user_uid, days=days)
+        return result
 
     return []  # Routes registered via @rt() decorators (no objects returned)
 

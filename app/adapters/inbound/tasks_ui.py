@@ -19,7 +19,7 @@ Routes:
 import contextlib
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from fasthtml.common import H1, H2, Div, JSONResponse, P, Response, Span
 
@@ -151,7 +151,7 @@ def create_tasks_ui_routes(
 
     def _get_cached_autocomplete(
         cache_key: str,
-        fetch_fn: Any,  # Callable returning list[str]
+        fetch_fn: Callable[[], list[str]],
     ) -> list[str]:
         """
         Get autocomplete results from cache or fetch fresh.
@@ -486,7 +486,7 @@ def create_tasks_ui_routes(
             # I/O: Fetch all tasks
             tasks_result = await get_all_tasks(user_uid)
             if tasks_result.is_error:
-                return tasks_result
+                return Result.fail(tasks_result)
 
             tasks = tasks_result.value
 
@@ -1185,7 +1185,7 @@ def create_tasks_ui_routes(
                 entity_uid=task.uid,
                 entity_type="tasks",
             ),
-            cls=f"{Container.STANDARD} {Spacing.PAGE_PADDING}",
+            cls=f"{Container.STANDARD} {Spacing.PAGE}",
         )
 
         return await BasePage(
