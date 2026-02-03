@@ -5,7 +5,7 @@ updated: 2026-02-01
 
 # SKUEL Claude Skills Index
 
-> Quick navigation for all 27 project-specific Claude skills.
+> Quick navigation for all 28 project-specific Claude skills.
 
 ## Skill Stacks
 
@@ -34,6 +34,7 @@ updated: 2026-02-01
 | [js-alpine](js-alpine/SKILL.md) | Client-side reactivity | html-htmx |
 | [html-navigation](html-navigation/SKILL.md) | Navigation components (navbar, sidebar, mobile) | html-htmx, js-alpine |
 | [fasthtml](fasthtml/SKILL.md) | Python server-rendered framework | html-htmx, monsterui |
+| [domain-route-config](domain-route-config/SKILL.md) | Configuration-driven route registration (4 variants) | fasthtml, python |
 
 ### UX Patterns (SKUEL-Specific)
 
@@ -96,6 +97,7 @@ updated: 2026-02-01
 | curriculum-domains | 4 | 4 Curriculum Domains: KU, LS, LP, MOC (shared knowledge) |
 | custom-sidebar-patterns | 1 | Collapsible sidebars, drawer navigation (Profile Hub pattern) |
 | daisyui | 3 | DaisyUI semantic component library |
+| domain-route-config | 3 | Configuration-driven route registration (Standard, API-only, UI-only, Multi-factory) |
 | fasthtml | 4 | FastHTML Python framework patterns |
 | html-htmx | 4 | Semantic HTML + HTMX hypermedia |
 | html-navigation | 4 | Navigation components (navbar, sidebar, mobile) |
@@ -236,6 +238,8 @@ Frontend/Web:
          |
          v
     fasthtml (Python framework) <--- monsterui
+         |
+         +---> domain-route-config (route wiring)
          |
          v
     +------------------------------------------+

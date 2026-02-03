@@ -148,6 +148,22 @@ skills:
       - /docs/patterns/ROUTE_NAMING_CONVENTION.md
     keywords: [fasthtml, routes, fast_app, FT, server-rendered]
 
+  - name: domain-route-config
+    description: Configuration-driven route registration for *_routes.py files using DomainRouteConfig
+    foundation: [fasthtml, python]
+    dependencies: [fasthtml, python]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
+    primary_docs:
+      - /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
+      - /docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md
+    related_adrs:
+      - ADR-020  # FastHTML route registration pattern
+    patterns:
+      - /docs/patterns/ROUTE_FACTORIES.md
+      - /docs/patterns/FASTHTML_ROUTE_REGISTRATION.md
+    keywords: [domain-route-config, route-registration, configuration-driven, DomainRouteConfig, register_domain_routes]
+
   - name: html-htmx
     description: Semantic HTML and HTMX (HTTP-complete HTML)
     foundation: [fasthtml]
@@ -481,6 +497,7 @@ skills:
 #
 # Web Framework:
 #   fasthtml → html-htmx → html-navigation
+#   fasthtml → domain-route-config
 #   (html-navigation also depends on js-alpine)
 #
 # UX & Accessibility:
@@ -506,5 +523,5 @@ skills:
 # Testing:
 #   pytest (depends on python, result-pattern)
 #
-# Total skills: 28
+# Total skills: 29
 # No cycles detected - graph is valid ✓

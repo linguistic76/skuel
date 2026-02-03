@@ -82,6 +82,7 @@ async def get_learning_opportunities(
 | chartjs | `/docs/architecture/ADMIN_DASHBOARD_ARCHITECTURE.md` | — |
 | **Web Framework** | | |
 | fasthtml | `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`, `/docs/patterns/ROUTE_FACTORIES.md` | DOMAIN_ROUTE_CONFIG_PATTERN.md |
+| domain-route-config | `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`, `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md` | ROUTE_FACTORIES.md |
 | html-htmx | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | HTMX_ACCESSIBILITY_PATTERNS.md |
 | html-navigation | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | — |
 | js-alpine | `/docs/architecture/ALPINE_JS_ARCHITECTURE.md` | UI_COMPONENT_PATTERNS.md |
@@ -110,7 +111,7 @@ async def get_learning_opportunities(
 | **Meta** | | |
 | docs-skills-evolution | `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/decisions/ADR-TEMPLATE.md` | Cross-reference validation |
 
-**Total:** 28 skills with comprehensive documentation mappings
+**Total:** 29 skills with comprehensive documentation mappings
 
 ## Documentation Architecture
 
