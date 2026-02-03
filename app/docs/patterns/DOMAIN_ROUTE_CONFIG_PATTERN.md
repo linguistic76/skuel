@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** Currently used by 22 of 36 route files (61%), with 14 files remaining as justified exceptions.
+**Adoption:** Currently used by 23 of 36 route files (64%), with 13 files remaining as justified exceptions.
 
 ## The Pattern
 
@@ -584,6 +584,38 @@ def create_learning_routes(app, rt, services, _sync_service=None):
 - Demonstrates extending the pattern for complex domain hierarchies
 - Soft-fail pattern for optional services (learning_steps may be None)
 
+### Example 9: Self-Contained Facade with Complex UI (LifePath)
+
+**File:** `/adapters/inbound/lifepath_routes.py`
+
+```python
+LIFEPATH_CONFIG = DomainRouteConfig(
+    domain_name="lifepath",
+    primary_service_attr="lifepath",  # services.lifepath
+    api_factory=create_lifepath_api_routes,
+    ui_factory=create_lifepath_ui_routes,
+    api_related_services={},  # Self-contained facade
+)
+```
+
+**API Routes:** (`lifepath_api.py` - 121 lines)
+- 4 JSON endpoints for vision capture, designation, alignment
+
+**UI Routes:** (`lifepath_ui.py` - 501 lines)
+- 5 UI routes with drawer navigation layout
+- 7 helper functions for dashboard, recommendations, alignment views
+- Complex presentation logic isolated in UI file
+
+**Key features:**
+- Self-contained service facade (no api_related_services needed)
+- All dependencies accessed via facade sub-services (.core, .alignment, .vision, .intelligence)
+- Complex drawer layout UI with 7 presentation helper functions
+- Standard 2026-02-03 UI factory signature: `services: Any = None`
+- Main file reduced from 589 → 32 lines (94.6% reduction)
+- Demonstrates that even complex drawer layouts work with DomainRouteConfig
+
+**Migration:** 2026-02-03 (see `/docs/migrations/LIFEPATH_ROUTES_MIGRATION_2026-02-03.md`)
+
 ## Related Patterns
 
 ### Route Factories
@@ -706,15 +738,17 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 21. `/adapters/inbound/insights_routes.py` (67 lines) - Insights dashboard (multi-factory)
 22. `/adapters/inbound/nous_routes.py` (29 lines) - NOUS knowledge UI (UI-only)
 
-### Justified Exceptions (14 files)
+**Additional Migration (1):** *(Migrated 2026-02-03)*
+23. `/adapters/inbound/lifepath_routes.py` (32 lines) - Life path alignment (API + UI, drawer layout)
+
+### Justified Exceptions (13 files)
 
 Files with legitimate complexity warranting custom patterns:
 
-**Complex/Specialized (9):**
+**Complex/Specialized (8):**
 - `ai_routes.py` - AI service integration
 - `graphql_routes.py` - GraphQL schema with explicit multi-dependency injection
 - `sel_routes.py` - Social-emotional learning (drawer layout, 562 lines)
-- `lifepath_routes.py` - Life path alignment (drawer layout, 589 lines)
 - `search_routes.py` - Unified search orchestration (uses SearchRouter DI pattern)
 - `lateral_routes.py` - Uses specialized LateralRouteFactory
 - `hierarchy_routes.py` - Uses specialized HierarchyRouteFactory

@@ -371,7 +371,8 @@ if config.api_factory:
 
 - **Before Phase 3:** 13/36 files (36% adoption)
 - **After Phase 3:** 22/36 files (61% adoption)
-- **Improvement:** +25 percentage points, +69% increase
+- **After LifePath:** 23/36 files (64% adoption)
+- **Improvement:** +27 percentage points, +77% increase
 
 ---
 

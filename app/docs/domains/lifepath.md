@@ -1,7 +1,7 @@
 ---
 title: LifePath Domain
 created: 2025-12-04
-updated: 2026-01-07
+updated: 2026-02-03
 status: current
 category: domains
 tags: [lifepath, destination-domain, domain]
@@ -95,7 +95,9 @@ LifePathService (Facade)
 | **Vision Models** | `/core/models/lifepath/vision.py` |
 | **DTOs** | `/core/models/lifepath/lifepath_dto.py` |
 | **Request Models** | `/core/models/lifepath/lifepath_request.py` |
-| **Routes** | `/adapters/inbound/lifepath_routes.py` |
+| **Routes** | `/adapters/inbound/lifepath_routes.py` (factory) |
+| **API Routes** | `/adapters/inbound/lifepath_api.py` (4 routes) |
+| **UI Routes** | `/adapters/inbound/lifepath_ui.py` (5 routes + helpers) |
 
 ## Domain Model
 
@@ -161,6 +163,13 @@ alignment_score = (
 ```
 
 ## Routes
+
+**Architecture:** DomainRouteConfig pattern (migrated 2026-02-03)
+- Main file: 32 lines (configuration factory)
+- API routes: 121 lines (4 JSON endpoints)
+- UI routes: 501 lines (5 pages + 7 helper functions)
+
+See: [DomainRouteConfig Pattern](../patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md)
 
 ### UI Routes
 
