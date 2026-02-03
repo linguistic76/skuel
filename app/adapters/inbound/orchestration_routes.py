@@ -1,49 +1,51 @@
 """
-Orchestration API Routes - Phase 1 Essential Services (FastHTML-Aligned)
-=========================================================================
+Orchestration Routes - Cross-Domain Orchestration Services
+==========================================================
 
-API endpoints for cross-domain orchestration services following FastHTML best practices:
-- GoalTaskGenerator: Auto-generate tasks from goals
-- HabitEventScheduler: Auto-schedule events from habits
-- GoalsIntelligenceService: Predictive goal success analytics (merged from GoalAnalyticsService)
-- PrincipleAlignmentService: Motivational intelligence
+Wires orchestration API routes using DomainRouteConfig (Multi-Factory variant).
 
-FastHTML Conventions Applied:
-- Query parameters over path parameters
-- Function names define routes
-- Type hints for automatic parameter extraction
-- POST for all mutations
+Primary service: goal_task_generator (Goal→Task generation)
+Extension factories:
+- create_habit_event_routes: Habit→Event scheduling (2 endpoints)
+- create_goals_intelligence_routes: Predictive goal analytics (3 endpoints)
+- create_principle_alignment_routes: Principle alignment & motivational intel (5 endpoints)
 
-These services fill critical gaps in the architecture by bridging
-domain entities and providing AI/ML insights.
+Routes:
+- POST /goals/generate-tasks - Generate tasks from a goal
+- GET  /goals/task-templates - Get task templates for a goal
+- POST /habits/schedule-events - Schedule events from a habit
+- GET  /habits/event-templates - Get event templates for a habit
+- GET  /goals/predict-success - Predict goal success probability
+- GET  /goals/habit-impact - Analyze habit impact on goals
+- GET  /goals/risk-assessment - Assess goal risk factors
+- GET  /principles/list - List user's principles
+- GET  /principles/goal-alignment - Goal-principle alignment
+- GET  /principles/habit-alignment - Habit-principle alignment
+- GET  /principles/motivational-profile - User motivational profile
+- GET  /principles/suggest-actions - Principle-aligned action suggestions
 """
 
-__version__ = "1.0"
+from typing import Any
 
 from fasthtml.common import JSONResponse, Request
 
 from core.auth import require_authenticated_user
+from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
 from core.services.user import UserContext
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
-logger = get_logger(__name__)
+logger = get_logger("skuel.routes.orchestration")
 
 
-def create_orchestration_routes(_app, rt, services):
-    """
-    Create and register orchestration API routes.
+# ---------------------------------------------------------------------------
+# Goal → Task Generation (primary service)
+# ---------------------------------------------------------------------------
 
-    Args:
-        app: FastHTML app instance
-        rt: Route decorator
-        services: Service container with orchestration services
-    """
 
-    # ========================================================================
-    # GOAL → TASK GENERATION
-    # ========================================================================
+def create_goal_task_routes(_app: Any, rt: Any, goal_task_generator: Any) -> list[Any]:
+    """Register Goal→Task generation endpoints."""
 
     @rt("/goals/generate-tasks")
     @boundary_handler()
@@ -52,24 +54,14 @@ def create_orchestration_routes(_app, rt, services):
         Generate tasks for a goal based on milestones, knowledge requirements, and habits.
         Requires authentication.
 
-        FastHTML Convention: Query parameters with type hints
         Query params:
             uid: Goal UID
             auto_create: If True, create tasks; if False, return templates only
-
-        Returns:
-            List of generated or template tasks
         """
-        if not services.goal_task_generator:
-            return Result.fail(
-                Errors.system("GoalTaskGenerator not available", service="GoalTaskGenerator")
-            )
-
-        # Get authenticated user from session (raises 401 if not authenticated)
         user_uid = require_authenticated_user(request)
         user_context = UserContext(user_uid=user_uid)
 
-        return await services.goal_task_generator.generate_tasks_for_goal(
+        return await goal_task_generator.generate_tasks_for_goal(
             goal_uid=uid, user_context=user_context, auto_create=auto_create
         )
 
@@ -80,26 +72,28 @@ def create_orchestration_routes(_app, rt, services):
         Get task templates for a goal without creating them.
         Requires authentication.
 
-        FastHTML Convention: Function name = route, query param for ID
+        Query params:
+            uid: Goal UID
         """
-        if not services.goal_task_generator:
-            return Result.fail(
-                Errors.system("GoalTaskGenerator not available", service="GoalTaskGenerator")
-            )
-
-        # Get authenticated user from session (raises 401 if not authenticated)
         user_uid = require_authenticated_user(request)
         user_context = UserContext(user_uid=user_uid)
 
-        return await services.goal_task_generator.generate_tasks_for_goal(
+        return await goal_task_generator.generate_tasks_for_goal(
             goal_uid=uid,
             user_context=user_context,
             auto_create=False,  # Templates only
         )
 
-    # ========================================================================
-    # HABIT → EVENT SCHEDULING
-    # ========================================================================
+    return [generate_tasks, task_templates]
+
+
+# ---------------------------------------------------------------------------
+# Habit → Event Scheduling (extension)
+# ---------------------------------------------------------------------------
+
+
+def create_habit_event_routes(_app: Any, rt: Any, habit_event_scheduler: Any) -> list[Any]:
+    """Register Habit→Event scheduling endpoints."""
 
     @rt("/habits/schedule-events")
     @boundary_handler()
@@ -110,25 +104,15 @@ def create_orchestration_routes(_app, rt, services):
         Schedule recurring events for a habit.
         Requires authentication.
 
-        FastHTML Convention: All parameters from query string
         Query params:
             uid: Habit UID
             auto_create: If True, create events; if False, return templates only
             days_ahead: How many days to schedule ahead (default: 7)
-
-        Returns:
-            List of scheduled or template events
         """
-        if not services.habit_event_scheduler:
-            return Result.fail(
-                Errors.system("HabitEventScheduler not available", service="HabitEventScheduler")
-            )
-
-        # Get authenticated user from session (raises 401 if not authenticated)
         user_uid = require_authenticated_user(request)
         user_context = UserContext(user_uid=user_uid)
 
-        return await services.habit_event_scheduler.schedule_events_for_habit(
+        return await habit_event_scheduler.schedule_events_for_habit(
             habit_uid=uid, user_context=user_context, auto_create=auto_create, days_ahead=days_ahead
         )
 
@@ -139,26 +123,30 @@ def create_orchestration_routes(_app, rt, services):
         Get event templates for a habit without creating them.
         Requires authentication.
 
-        FastHTML Convention: Simple function name, query param for ID
+        Query params:
+            uid: Habit UID
         """
-        if not services.habit_event_scheduler:
-            return Result.fail(
-                Errors.system("HabitEventScheduler not available", service="HabitEventScheduler")
-            )
-
-        # Get authenticated user from session (raises 401 if not authenticated)
         user_uid = require_authenticated_user(request)
         user_context = UserContext(user_uid=user_uid)
 
-        return await services.habit_event_scheduler.schedule_events_for_habit(
+        return await habit_event_scheduler.schedule_events_for_habit(
             habit_uid=uid,
             user_context=user_context,
             auto_create=False,  # Templates only
         )
 
-    # ========================================================================
-    # GOAL ANALYTICS - Predictive Success
-    # ========================================================================
+    return [schedule_events, event_templates]
+
+
+# ---------------------------------------------------------------------------
+# Goals Intelligence - Predictive Analytics (extension)
+# ---------------------------------------------------------------------------
+
+
+def create_goals_intelligence_routes(
+    _app: Any, rt: Any, goals_intelligence: Any, habits: Any
+) -> list[Any]:
+    """Register predictive goal analytics endpoints."""
 
     @rt("/goals/predict-success")
     @boundary_handler()
@@ -166,25 +154,14 @@ def create_orchestration_routes(_app, rt, services):
         """
         Predict goal success probability using habit data and historical patterns.
 
-        FastHTML Convention: Query parameters with type hints
         Query params:
             uid: Goal UID
             lookback_days: Days of historical data to analyze (default: 30)
-
-        Returns:
-            GoalPrediction with success probability, risk factors, and recommendations
         """
-        if not services.goals_intelligence:
-            return Result.fail(
-                Errors.system(
-                    "GoalsIntelligenceService not available", service="GoalsIntelligenceService"
-                )
-            )
-
-        return await services.goals_intelligence.predict_goal_success(
+        return await goals_intelligence.predict_goal_success(
             goal_uid=uid,
             lookback_days=lookback_days,
-            habits_service=services.habits,  # Pass habits service for full analysis
+            habits_service=habits,
         )
 
     @rt("/goals/habit-impact")
@@ -193,23 +170,12 @@ def create_orchestration_routes(_app, rt, services):
         """
         Analyze which habits have the most impact on goal success.
 
-        FastHTML Convention: Query parameter with type hint
         Query params:
             uid: Goal UID
-
-        Returns:
-            List of HabitImpactAnalysis showing criticality and consistency gaps
         """
-        if not services.goals_intelligence:
-            return Result.fail(
-                Errors.system(
-                    "GoalsIntelligenceService not available", service="GoalsIntelligenceService"
-                )
-            )
-
-        return await services.goals_intelligence.analyze_habit_impact(
+        return await goals_intelligence.analyze_habit_impact(
             goal_uid=uid,
-            habits_service=services.habits,  # Pass habits service for analysis
+            habits_service=habits,
         )
 
     @rt("/goals/risk-assessment")
@@ -218,24 +184,12 @@ def create_orchestration_routes(_app, rt, services):
         """
         Assess risk factors for goal achievement.
 
-        FastHTML Convention: Query parameter with type hint
         Query params:
             uid: Goal UID
-
-        Returns:
-            Risk assessment with identified blockers and mitigation strategies
         """
-        if not services.goals_intelligence:
-            return Result.fail(
-                Errors.system(
-                    "GoalsIntelligenceService not available", service="GoalsIntelligenceService"
-                )
-            )
-
-        # Get prediction which includes risk factors
-        prediction_result = await services.goals_intelligence.predict_goal_success(
+        prediction_result = await goals_intelligence.predict_goal_success(
             goal_uid=uid,
-            habits_service=services.habits,  # Pass habits service for full analysis
+            habits_service=habits,
         )
 
         if prediction_result.is_error:
@@ -257,123 +211,69 @@ def create_orchestration_routes(_app, rt, services):
             }
         )
 
-    # ========================================================================
-    # PRINCIPLE ALIGNMENT - Motivational Intelligence
-    # ========================================================================
+    return [predict_success, habit_impact, risk_assessment]
+
+
+# ---------------------------------------------------------------------------
+# Principle Alignment - Motivational Intelligence (extension)
+# ---------------------------------------------------------------------------
+
+
+def create_principle_alignment_routes(_app: Any, rt: Any, principles: Any) -> list[Any]:
+    """Register principle alignment and motivational intelligence endpoints."""
 
     @rt("/principles/list")
     @boundary_handler()
     async def list_principles(request: Request) -> JSONResponse:
-        """
-        Get all principles for the authenticated user.
-        Requires authentication.
-
-        Returns:
-            List of user's principles
-        """
-        if not services.principles:
-            return Result.fail(
-                Errors.system("PrinciplesService not available", service="PrinciplesService")
-            )
-
-        # Get authenticated user from session (raises 401 if not authenticated)
+        """Get all principles for the authenticated user."""
         user_uid = require_authenticated_user(request)
-
-        return await services.principles.get_user_principles(user_uid=user_uid)
+        return await principles.get_user_principles(user_uid=user_uid)
 
     @rt("/principles/goal-alignment")
     @boundary_handler()
     async def goal_alignment(request: Request, goal_uid: str) -> JSONResponse:
         """
         Assess how well a goal aligns with the authenticated user's principles.
-        Requires authentication.
 
         Args:
             goal_uid: Goal UID
-
-        Returns:
-            Alignment score and detailed analysis
         """
-        if not services.principles:
-            return Result.fail(
-                Errors.system("PrinciplesService not available", service="PrinciplesService")
-            )
-
-        # Get authenticated user from session (raises 401 if not authenticated)
         user_uid = require_authenticated_user(request)
-
-        return await services.principles.assess_goal_alignment(goal_uid=goal_uid, user_uid=user_uid)
+        return await principles.assess_goal_alignment(goal_uid=goal_uid, user_uid=user_uid)
 
     @rt("/principles/habit-alignment")
     @boundary_handler()
     async def habit_alignment(request: Request, habit_uid: str) -> JSONResponse:
         """
         Assess how well a habit aligns with the authenticated user's principles.
-        Requires authentication.
 
         Args:
             habit_uid: Habit UID
-
-        Returns:
-            Alignment score and detailed analysis
         """
-        if not services.principles:
-            return Result.fail(
-                Errors.system("PrinciplesService not available", service="PrinciplesService")
-            )
-
-        # Get authenticated user from session (raises 401 if not authenticated)
         user_uid = require_authenticated_user(request)
-
-        return await services.principles.assess_habit_alignment(
-            habit_uid=habit_uid, user_uid=user_uid
-        )
+        return await principles.assess_habit_alignment(habit_uid=habit_uid, user_uid=user_uid)
 
     @rt("/principles/motivational-profile")
     @boundary_handler()
     async def motivational_profile(request: Request) -> JSONResponse:
         """
         Get comprehensive motivational profile for the authenticated user.
-        Requires authentication.
-
         Includes principle hierarchy, value patterns, and alignment insights.
-
-        Returns:
-            Comprehensive motivational profile
         """
-        if not services.principles:
-            return Result.fail(
-                Errors.system("PrinciplesService not available", service="PrinciplesService")
-            )
-
-        # Get authenticated user from session (raises 401 if not authenticated)
         user_uid = require_authenticated_user(request)
-
-        return await services.principles.get_motivational_profile(user_uid=user_uid)
+        return await principles.get_motivational_profile(user_uid=user_uid)
 
     @rt("/principles/suggest-actions")
     @boundary_handler()
     async def suggest_actions(request: Request, context: str = "general") -> JSONResponse:
         """
         Suggest actions that align with the authenticated user's principles.
-        Requires authentication.
 
         Args:
             context: Context for suggestions (e.g., "goal", "habit", "general")
-
-        Returns:
-            List of principle-aligned action suggestions
         """
-        if not services.principles:
-            return Result.fail(
-                Errors.system("PrinciplesService not available", service="PrinciplesService")
-            )
-
-        # Get authenticated user from session (raises 401 if not authenticated)
         user_uid = require_authenticated_user(request)
 
-        # This would use the suggest_principle_aligned_actions method
-        # For now, return a placeholder
         return Result.ok(
             {
                 "user_uid": user_uid,
@@ -383,4 +283,44 @@ def create_orchestration_routes(_app, rt, services):
             }
         )
 
-    logger.info("✅ Orchestration API routes registered (FastHTML-aligned)")
+    return [list_principles, goal_alignment, habit_alignment, motivational_profile, suggest_actions]
+
+
+# ---------------------------------------------------------------------------
+# DomainRouteConfig + Multi-Factory wiring
+# ---------------------------------------------------------------------------
+
+ORCHESTRATION_CONFIG = DomainRouteConfig(
+    domain_name="orchestration",
+    primary_service_attr="goal_task_generator",
+    api_factory=create_goal_task_routes,
+)
+
+
+def create_orchestration_routes(app: Any, rt: Any, services: Any, _sync_service=None) -> list[Any]:
+    """
+    Wire orchestration API routes using DomainRouteConfig (Multi-Factory variant).
+
+    Primary: goal_task_generator routes via DomainRouteConfig.
+    Extensions: habit_event, goals_intelligence, principle_alignment factories
+    appended conditionally after primary registration.
+
+    See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
+    """
+    routes = register_domain_routes(app, rt, services, ORCHESTRATION_CONFIG)
+
+    if services and services.habit_event_scheduler:
+        routes.extend(create_habit_event_routes(app, rt, services.habit_event_scheduler))
+
+    if services and services.goals_intelligence:
+        routes.extend(
+            create_goals_intelligence_routes(app, rt, services.goals_intelligence, services.habits)
+        )
+
+    if services and services.principles:
+        routes.extend(create_principle_alignment_routes(app, rt, services.principles))
+
+    return routes
+
+
+__all__ = ["create_orchestration_routes"]

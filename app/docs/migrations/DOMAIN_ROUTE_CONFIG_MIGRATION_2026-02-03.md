@@ -586,14 +586,16 @@ Consider extending pattern for:
 
 Consider migrating 14 remaining files (currently "justified exceptions"):
 
-**Potentially Feasible (4):**
+**Migrated in Phase 6 (2):**
+- orchestration_routes.py — Multi-factory (4 service groups, 12 endpoints)
+- advanced_routes.py — Multi-factory (3 service groups, 10 endpoints)
+
+**Potentially Feasible (2):**
 - lateral_routes.py - Uses specialized LateralRouteFactory
 - hierarchy_routes.py - Uses specialized HierarchyRouteFactory
-- timeline_routes.py - Export functionality
-- advanced_routes.py - Cross-domain concerns
 
-**Complex/Leave As-Is (9):**
-- ai_routes.py, graphql_routes.py, search_routes.py, monitoring_routes.py, orchestration_routes.py, metrics_routes.py, assignments_routes.py (2 total)
+**Complex/Leave As-Is (7):**
+- ai_routes.py, graphql_routes.py, search_routes.py, monitoring_routes.py, metrics_routes.py, timeline_routes.py, assignments_routes.py
 
 **Target:** 90%+ adoption theoretically possible
 
@@ -954,13 +956,15 @@ async def page_route(request: Request) -> Any:
 
 ### Remaining Migrations
 
-After Phase 4, **12 files remain** not using DomainRouteConfig:
+After Phase 4, **12 files remain** not using DomainRouteConfig.
 
-**Potentially Feasible (5):**
+**Migrated in Phase 6 (2):**
+- orchestration_routes.py — Multi-factory (4 service groups, 12 endpoints)
+- advanced_routes.py — Multi-factory (3 service groups, 10 endpoints)
+
+**Potentially Feasible (3):**
 - assessment_routes.py
 - home_routes.py
-- ku_routes.py
-- search_routes.py
 - user_routes.py
 
 **Partially Migrated (6):**
@@ -1093,6 +1097,122 @@ CALENDAR_CONFIG = DomainRouteConfig(
 
 ---
 
-**Migration Status:** ✅ PHASES 3–5 COMPLETE
+---
+
+## Phase 6: Multi-Factory Extensions (COMPLETED)
+
+**Date:** 2026-02-03
+**Focus:** Route files that group endpoints by service rather than by domain — each group independently optional
+
+### Overview
+
+Phase 6 migrated two "cross-domain concerns" files previously classified as justified exceptions. Both fit the Multi-Factory variant cleanly: one service group becomes the DomainRouteConfig primary, the remaining groups become extension factories called after `register_domain_routes()`. The canonical template is `insights_routes.py` (Phase 3); Phase 6 proves the variant scales to 3–4 groups and composes with `api_related_services`.
+
+**Key Achievements:**
+- **2 files migrated** (orchestration, advanced)
+- **22 endpoints covered** (12 + 10)
+- **Zero bootstrap changes** — signatures stay `(app, rt, services)`
+- **Zero regressions:** Ruff clean, imports resolve, 426 tests pass
+
+---
+
+### 6.1: orchestration_routes.py ✅
+
+**Before:** 387 lines (single monolithic closure over `services`)
+**After:** 326 lines (4 factories + config + wiring)
+**Reduction:** 16% (61 lines) — reduction is modest because the route handler bodies are preserved verbatim; the gain is structural clarity
+
+**Configuration:**
+```python
+ORCHESTRATION_CONFIG = DomainRouteConfig(
+    domain_name="orchestration",
+    primary_service_attr="goal_task_generator",
+    api_factory=create_goal_task_routes,  # 2 endpoints
+)
+```
+
+**Extension factories:**
+| Factory | Service | Endpoints |
+|---------|---------|-----------|
+| `create_goal_task_routes` (primary) | `goal_task_generator` | 2 |
+| `create_habit_event_routes` | `habit_event_scheduler` | 2 |
+| `create_goals_intelligence_routes` | `goals_intelligence` + `habits` | 3 |
+| `create_principle_alignment_routes` | `principles` | 5 |
+
+**Pattern:** Multi-factory with 3 extensions. `goals_intelligence` routes receive `habits` as a second positional argument — the closure captures it, no config entry needed.
+
+**Removed:** Per-endpoint `if not services.X` availability guards. Service availability is now checked once per group at the Multi-Factory wiring level (`if services and services.X:`), matching the insights pattern.
+
+---
+
+### 6.2: advanced_routes.py ✅
+
+**Before:** 359 lines (single monolithic closure over `services`)
+**After:** 306 lines (3 factories + config + wiring)
+**Reduction:** 15% (53 lines)
+
+**Configuration:**
+```python
+ADVANCED_CONFIG = DomainRouteConfig(
+    domain_name="advanced",
+    primary_service_attr="calendar_optimization",
+    api_factory=create_calendar_optimization_routes,
+    api_related_services={
+        "tasks": "tasks",
+        "events": "events",
+    },
+)
+```
+
+**Extension factories:**
+| Factory | Service | Endpoints |
+|---------|---------|-----------|
+| `create_calendar_optimization_routes` (primary) | `calendar_optimization` + `tasks` + `events` | 2 |
+| `create_jupyter_sync_routes` | `jupyter_sync` | 4 |
+| `create_performance_routes` | `performance_optimization` | 4 |
+
+**Pattern:** Multi-factory where the primary factory also pulls related services via `api_related_services`. This demonstrates that Multi-Factory and config-driven injection are composable.
+
+**Bug fixed:** Original `optimize` handler declared `tasks` and `events` as `([],)` (a single-element tuple containing a list) instead of `[]`. Corrected to plain `[]` in the migrated factory.
+
+---
+
+### Phase 6 Summary Statistics
+
+#### Code Reduction
+
+| File | Before | After | Reduction | % |
+|------|--------|-------|-----------|---|
+| orchestration_routes.py | 387 | 326 | 61 | 16% |
+| advanced_routes.py | 359 | 306 | 53 | 15% |
+| **TOTAL** | **746** | **632** | **114** | **15%** |
+
+Reduction is intentionally modest: Multi-Factory migration is about **structure**, not line count. The handler bodies are unchanged; the value is independent service-group guards, testable factories, and conformance to the one proven pattern.
+
+#### Adoption Progress
+
+- **After Phase 5:** 25/35 files (71% adoption)
+- **After Phase 6:** 27/35 files (77% adoption)
+
+#### Overall Progress (Phases 3–6)
+
+- **Total Files Migrated (this doc):** 14
+- **Patterns Proven:** All 4 (Standard, API-only, UI-only, Multi-factory)
+- **Multi-factory scale proven:** Up to 3 extension factories + `api_related_services` on primary
+
+---
+
+### Phase 6 Verification
+
+- ✅ Ruff lint: clean (both files)
+- ✅ Ruff format: clean (both files)
+- ✅ Syntax: valid (ast.parse)
+- ✅ Bootstrap imports resolve (`create_orchestration_routes`, `create_advanced_routes`)
+- ✅ Test suite: 426 passed, 1 pre-existing failure (unrelated `test_ku_search_service`)
+- ✅ No bootstrap changes required
+
+---
+
+**Migration Status:** ✅ PHASES 3–6 COMPLETE
 **Report Generated:** 2026-02-03
 **Quality:** VERIFIED AND APPROVED

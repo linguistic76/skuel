@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** Currently used by 25 of 35 route files (71%), with 10 files remaining as justified exceptions.
+**Adoption:** Currently used by 27 of 35 route files (77%), with 8 files remaining as justified exceptions.
 
 ## The Pattern
 
@@ -708,6 +708,87 @@ CALENDAR_CONFIG = DomainRouteConfig(
 
 ---
 
+### Example 12: Multi-Factory with Multiple Extensions (Orchestration)
+
+**File:** `/adapters/inbound/orchestration_routes.py`
+
+```python
+ORCHESTRATION_CONFIG = DomainRouteConfig(
+    domain_name="orchestration",
+    primary_service_attr="goal_task_generator",  # services.goal_task_generator
+    api_factory=create_goal_task_routes,         # Primary: 2 endpoints
+)
+
+
+def create_orchestration_routes(app, rt, services, _sync_service=None):
+    routes = register_domain_routes(app, rt, services, ORCHESTRATION_CONFIG)
+
+    if services and services.habit_event_scheduler:
+        routes.extend(create_habit_event_routes(app, rt, services.habit_event_scheduler))
+
+    if services and services.goals_intelligence:
+        routes.extend(create_goals_intelligence_routes(
+            app, rt, services.goals_intelligence, services.habits
+        ))
+
+    if services and services.principles:
+        routes.extend(create_principle_alignment_routes(app, rt, services.principles))
+
+    return routes
+```
+
+**Key features:**
+- **Three extension factories** beyond the primary — the largest Multi-Factory in the codebase
+- Each extension factory is independently guarded: if its service is unavailable, only that group is skipped
+- `create_goals_intelligence_routes` receives two services (`goals_intelligence` + `habits`) as positional args — the closure captures both, no config change needed
+- All 12 endpoints share a single bootstrap call (`create_orchestration_routes(app, rt, services)`) — zero bootstrap changes from pre-migration
+- Primary service (`goal_task_generator`) chosen because it's the namesake orchestration service; the other three groups are extensions by nature
+
+**When to reach for this variant:**
+A route file groups endpoints by service rather than by domain. Each group is independently optional. Pick one group as primary; the rest become extension factories.
+
+**Migration:** 2026-02-03 (Phase 6)
+
+---
+
+### Example 13: Multi-Factory with Related Services on Primary (Advanced)
+
+**File:** `/adapters/inbound/advanced_routes.py`
+
+```python
+ADVANCED_CONFIG = DomainRouteConfig(
+    domain_name="advanced",
+    primary_service_attr="calendar_optimization",  # services.calendar_optimization
+    api_factory=create_calendar_optimization_routes,
+    api_related_services={
+        "tasks": "tasks",    # services.tasks  — inline data pull
+        "events": "events",  # services.events — inline data pull
+    },
+)
+
+
+def create_advanced_routes(app, rt, services, _sync_service=None):
+    routes = register_domain_routes(app, rt, services, ADVANCED_CONFIG)
+
+    if services and services.jupyter_sync:
+        routes.extend(create_jupyter_sync_routes(app, rt, services.jupyter_sync))
+
+    if services and services.performance_optimization:
+        routes.extend(create_performance_routes(app, rt, services.performance_optimization))
+
+    return routes
+```
+
+**Key features:**
+- **Primary factory pulls related services** (`tasks`, `events`) via `api_related_services` — the calendar optimization endpoints need live task/event data for the target date
+- Extension factories are self-contained (each closes over a single service)
+- Combines both DomainRouteConfig capabilities: config-driven related-service injection on the primary, manual extension for the rest
+- Demonstrates that Multi-Factory and `api_related_services` are composable, not alternatives
+
+**Migration:** 2026-02-03 (Phase 6)
+
+---
+
 ## Related Patterns
 
 ### Route Factories
@@ -800,7 +881,7 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
   - `DomainRouteConfig` dataclass (lines 37-58)
   - `register_domain_routes()` function (lines 61-124)
 
-### Current Users (25 files - 69% adoption)
+### Current Users (27 files - 77% adoption)
 
 **Activity Domains (6):**
 1. `/adapters/inbound/tasks_routes.py` (33 lines)
@@ -837,22 +918,23 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 **Phase 5 Migration (1):** *(Migrated 2026-02-03)*
 25. `/adapters/inbound/calendar_routes.py` (34 lines) - Calendar views (API + UI, HTMX fragments)
 
-### Justified Exceptions (11 files)
+**Phase 6 Migrations (2):** *(Migrated 2026-02-03)*
+26. `/adapters/inbound/orchestration_routes.py` (326 lines) - Cross-domain orchestration (Multi-factory, 4 service groups)
+27. `/adapters/inbound/advanced_routes.py` (306 lines) - Advanced optional services (Multi-factory, 3 service groups)
+
+### Justified Exceptions (8 files)
 
 Files with legitimate complexity warranting custom patterns:
 
-**Complex/Specialized (7):**
+**Complex/Specialized (5):**
 - `ai_routes.py` - AI service integration
 - `graphql_routes.py` - GraphQL schema with explicit multi-dependency injection
 - `search_routes.py` - Unified search orchestration (uses SearchRouter DI pattern)
 - `lateral_routes.py` - Uses specialized LateralRouteFactory
 - `hierarchy_routes.py` - Uses specialized HierarchyRouteFactory
-- `monitoring_routes.py` - Health checks only
-- `orchestration_routes.py` - Cross-domain concerns
 
-**Specialized UI (2):**
+**Specialized UI (1):**
 - `timeline_routes.py` - Export functionality
-- `advanced_routes.py` - Cross-domain concerns
 
 **Minimal Overhead (2):**
 - `metrics_routes.py` - Single endpoint, minimal overhead
@@ -1051,14 +1133,18 @@ Zero runtime overhead - routes are registered once at application startup.
 **Phase 5 (Complete - 2026-02-03):** HTMX calendar
 - ✅ Calendar (848 → 34 lines, Standard with UI optional dependency)
 
-**Phase 6 (No Migration Planned):** Justified exceptions (11/11)
+**Phase 6 (Complete - 2026-02-03):** Multi-Factory extensions
+- ✅ Orchestration (387 → 326 lines, Multi-factory with 3 extensions)
+- ✅ Advanced (359 → 306 lines, Multi-factory with related services on primary)
+
+**Phase 7 (No Migration Planned):** Justified exceptions (8/8)
 - Complex/specialized route files remain manual (complexity warranted)
 
-**Summary:** 25/35 files using DomainRouteConfig (71% adoption) - **pattern complete** for all feasible migrations.
+**Summary:** 27/35 files using DomainRouteConfig (77% adoption) - **pattern complete** for all feasible migrations.
 
 **Key Achievements:**
-- 4,648 lines reduced to ~444 lines across 12 files (91% average reduction)
 - All 4 patterns proven: Standard, API-only, UI-only, Multi-factory
+- Multi-factory variant proven at scale: up to 3 extensions + related services on primary
 - Infrastructure bug fixed (api_factory=None support)
 - UI optional dependency pattern proven (calendar)
 - Zero regressions detected

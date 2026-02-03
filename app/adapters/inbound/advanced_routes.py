@@ -1,49 +1,50 @@
 """
-Advanced API Routes - Phase 2 Optional Services (FastHTML-Aligned)
-===================================================================
+Advanced Routes - Phase 2 Optional Services
+============================================
 
-API endpoints for advanced optional services following FastHTML best practices:
-- CalendarOptimizationService: Cognitive load optimization
-- JupyterNeo4jSync: Jupyter-Neo4j-Obsidian workflow
-- PerformanceOptimizationService: Scale optimization
+Wires advanced API routes using DomainRouteConfig (Multi-Factory variant).
 
-FastHTML Conventions Applied:
-- Query parameters over path parameters
-- Function names define routes
-- Type hints for automatic parameter extraction
-- POST for all mutations
+Primary service: calendar_optimization (Calendar cognitive-load balancing)
+Extension factories:
+- create_jupyter_sync_routes: Jupyter-Neo4j-Obsidian workflow (4 endpoints)
+- create_performance_routes: Scale & speed optimization (4 endpoints)
 
-These services provide specialized functionality for advanced use cases.
+Routes:
+- GET  /events/calendar/optimize       - Optimize calendar with cognitive load balancing
+- GET  /events/calendar/cognitive-load - Analyze cognitive load for a date
+- GET  /jupyter/fetch                  - Fetch KU content for Jupyter editing
+- POST /jupyter/save                   - Save Jupyter edits back to Neo4j
+- POST /jupyter/sync-to-obsidian       - Sync changes to Obsidian
+- GET  /jupyter/detect-conflicts       - Detect Neo4j/Obsidian conflicts
+- GET  /performance/metrics            - Current performance metrics
+- GET  /performance/cache-stats        - Cache performance statistics
+- POST /performance/optimize           - Trigger optimization analysis
+- GET  /performance/scale-test         - Run scale testing simulation
 """
-
-__version__ = "1.0"
 
 from datetime import date
 from typing import Any
 
 from fasthtml.common import JSONResponse, Request
 
+from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
 from core.services.calendar_optimization_service import SchedulingStrategy
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-logger = get_logger(__name__)
+logger = get_logger("skuel.routes.advanced")
 
 
-def create_advanced_routes(_app, rt, services):
-    """
-    Create and register advanced service API routes.
+# ---------------------------------------------------------------------------
+# Calendar Optimization - Cognitive Load Balancing (primary service)
+# ---------------------------------------------------------------------------
 
-    Args:
-        app: FastHTML app instance
-        rt: Route decorator
-        services: Service container with advanced services
-    """
 
-    # ========================================================================
-    # CALENDAR OPTIMIZATION - Cognitive Load Balancing
-    # ========================================================================
+def create_calendar_optimization_routes(
+    _app: Any, rt: Any, calendar_optimization: Any, tasks: Any = None, events: Any = None
+) -> list[Any]:
+    """Register calendar optimization endpoints."""
 
     @rt("/events/calendar/optimize")
     @boundary_handler()
@@ -55,25 +56,13 @@ def create_advanced_routes(_app, rt, services):
         """
         Optimize calendar for a specific date with cognitive load balancing.
 
-        FastHTML Convention: Query parameters with type hints
         Query params:
             user_uid: User identifier (default: default_user)
             target_date: Date to optimize (YYYY-MM-DD), defaults to today
             strategy: Optimization strategy (default: cognitive_balanced)
                      Options: cognitive_balanced, knowledge_focused, deadline_driven,
                              energy_aligned, spaced_repetition
-
-        Returns:
-            Optimized calendar with task scheduling recommendations
         """
-        if not services.calendar_optimization:
-            return Result.fail(
-                Errors.system(
-                    "CalendarOptimizationService not available",
-                    service="CalendarOptimizationService",
-                )
-            )
-
         # Parse target date
         if target_date:
             try:
@@ -98,30 +87,28 @@ def create_advanced_routes(_app, rt, services):
             )
 
         # Get tasks and events for the date
-        tasks: list[Any] = ([],)
-        events: list[Any] = ([],)
+        task_list: list[Any] = []
+        event_list: list[Any] = []
         knowledge_units: list[Any] = []
 
-        if services.tasks:
-            tasks_result = await services.tasks.get_tasks_for_date(opt_date)
+        if tasks:
+            tasks_result = await tasks.get_tasks_for_date(opt_date)
             if tasks_result.is_ok:
-                tasks = tasks_result.value or []
+                task_list = tasks_result.value or []
 
-        if services.events:
-            events_result = await services.events.get_events_for_date(opt_date)
+        if events:
+            events_result = await events.get_events_for_date(opt_date)
             if events_result.is_ok:
-                events = events_result.value or []
+                event_list = events_result.value or []
 
-        # Optimize calendar
-        result: Result[Any] = await services.calendar_optimization.optimize_knowledge_scheduling(
+        return await calendar_optimization.optimize_knowledge_scheduling(
             user_uid=user_uid,
             target_date=opt_date,
-            tasks=tasks,
-            events=events,
+            tasks=task_list,
+            events=event_list,
             knowledge_units=knowledge_units,
             strategy=strat,
         )
-        return result
 
     @rt("/events/calendar/cognitive-load")
     @boundary_handler()
@@ -130,17 +117,8 @@ def create_advanced_routes(_app, rt, services):
     ) -> JSONResponse:
         """
         Analyze cognitive load for a specific date.
-
         Returns cognitive load distribution and overload risks.
         """
-        if not services.calendar_optimization:
-            return Result.fail(
-                Errors.system(
-                    "CalendarOptimizationService not available",
-                    service="CalendarOptimizationService",
-                )
-            )
-
         if target_date:
             try:
                 opt_date = date.fromisoformat(target_date)
@@ -156,16 +134,16 @@ def create_advanced_routes(_app, rt, services):
             opt_date = date.today()
 
         # Get tasks for the date
-        tasks: list[Any] = []
-        if services.tasks:
-            tasks_result = await services.tasks.get_tasks_for_date(opt_date)
+        task_list: list[Any] = []
+        if tasks:
+            tasks_result = await tasks.get_tasks_for_date(opt_date)
             if tasks_result.is_ok:
-                tasks = tasks_result.value or []
+                task_list = tasks_result.value or []
 
         # Analyze cognitive load for each task
         analyses = []
-        for task in tasks:
-            analysis = services.calendar_optimization.analyze_cognitive_load(task, [])
+        for task in task_list:
+            analysis = calendar_optimization.analyze_cognitive_load(task, [])
             analyses.append(
                 {
                     "task_uid": task.uid,
@@ -179,15 +157,22 @@ def create_advanced_routes(_app, rt, services):
         return Result.ok(
             {
                 "date": opt_date.isoformat(),
-                "task_count": len(tasks),
+                "task_count": len(task_list),
                 "cognitive_analyses": analyses,
                 "overload_risks": [a for a in analyses if a["is_overload_risk"]],
             }
         )
 
-    # ========================================================================
-    # JUPYTER SYNC - Jupyter-Neo4j-Obsidian Workflow
-    # ========================================================================
+    return [optimize, cognitive_load]
+
+
+# ---------------------------------------------------------------------------
+# Jupyter Sync - Jupyter-Neo4j-Obsidian Workflow (extension)
+# ---------------------------------------------------------------------------
+
+
+def create_jupyter_sync_routes(_app: Any, rt: Any, jupyter_sync: Any) -> list[Any]:
+    """Register Jupyter-Neo4j-Obsidian sync endpoints."""
 
     @rt("/jupyter/fetch")
     @boundary_handler()
@@ -195,37 +180,17 @@ def create_advanced_routes(_app, rt, services):
         """
         Fetch content from Neo4j for Jupyter editing.
 
-        FastHTML Convention: Query parameter with type hint
         Query params:
             uid: Knowledge unit UID
-
-        Returns:
-            Content formatted for Jupyter notebook editing
         """
-        if not services.jupyter_sync:
-            return Result.fail(
-                Errors.system("JupyterNeo4jSync not available", service="JupyterNeo4jSync")
-            )
-
-        return await services.jupyter_sync.get_content_for_jupyter(uid)
+        return await jupyter_sync.get_content_for_jupyter(uid)
 
     @rt("/jupyter/save")
     @boundary_handler()
     async def save(request: Request, uid: str) -> JSONResponse:
-        """
-        Save Jupyter-edited content back to Neo4j.
-
-        Expects JSON body with edited content.
-        """
-        if not services.jupyter_sync:
-            return Result.fail(
-                Errors.system("JupyterNeo4jSync not available", service="JupyterNeo4jSync")
-            )
-
-        # Get content from request body
+        """Save Jupyter-edited content back to Neo4j. Expects JSON body with edited content."""
         content = await request.json()
-
-        return await services.jupyter_sync.save_jupyter_changes(uid, content)
+        return await jupyter_sync.save_jupyter_changes(uid, content)
 
     @rt("/jupyter/sync-to-obsidian")
     @boundary_handler()
@@ -235,16 +200,8 @@ def create_advanced_routes(_app, rt, services):
 
         Args:
             uid: Knowledge unit UID
-
-        Returns:
-            Sync status and any conflicts detected
         """
-        if not services.jupyter_sync:
-            return Result.fail(
-                Errors.system("JupyterNeo4jSync not available", service="JupyterNeo4jSync")
-            )
-
-        return await services.jupyter_sync.sync_to_obsidian(uid)
+        return await jupyter_sync.sync_to_obsidian(uid)
 
     @rt("/jupyter/detect-conflicts")
     @boundary_handler()
@@ -252,77 +209,40 @@ def create_advanced_routes(_app, rt, services):
         """
         Detect conflicts between Neo4j and Obsidian content.
 
-        Returns:
-            Conflict analysis with resolution suggestions
+        Args:
+            uid: Knowledge unit UID
         """
-        if not services.jupyter_sync:
-            return Result.fail(
-                Errors.system("JupyterNeo4jSync not available", service="JupyterNeo4jSync")
-            )
+        return await jupyter_sync.detect_conflicts(uid)
 
-        return await services.jupyter_sync.detect_conflicts(uid)
+    return [fetch, save, sync_to_obsidian, detect_conflicts]
 
-    # ========================================================================
-    # PERFORMANCE OPTIMIZATION - Scale & Speed
-    # ========================================================================
+
+# ---------------------------------------------------------------------------
+# Performance Optimization - Scale & Speed (extension)
+# ---------------------------------------------------------------------------
+
+
+def create_performance_routes(_app: Any, rt: Any, performance_optimization: Any) -> list[Any]:
+    """Register performance optimization endpoints."""
 
     @rt("/performance/metrics")
     @boundary_handler()
     async def metrics() -> JSONResponse:
-        """
-        Get current performance metrics.
-
-        Returns:
-            Real-time performance statistics (response time, throughput, cache hit rate, etc.)
-        """
-        if not services.performance_optimization:
-            return Result.fail(
-                Errors.system(
-                    "PerformanceOptimizationService not available",
-                    service="PerformanceOptimizationService",
-                )
-            )
-
-        return await services.performance_optimization.get_current_metrics()
+        """Get current performance metrics (response time, throughput, cache hit rate, etc.)."""
+        return await performance_optimization.get_current_metrics()
 
     @rt("/performance/cache-stats")
     @boundary_handler()
     async def cache_stats() -> JSONResponse:
-        """
-        Get cache performance statistics.
-
-        Returns:
-            Cache hit rate, size, evictions, and efficiency metrics
-        """
-        if not services.performance_optimization:
-            return Result.fail(
-                Errors.system(
-                    "PerformanceOptimizationService not available",
-                    service="PerformanceOptimizationService",
-                )
-            )
-
-        stats = services.performance_optimization.inference_engine.get_cache_stats()
+        """Get cache performance statistics (hit rate, size, evictions, efficiency)."""
+        stats = performance_optimization.inference_engine.get_cache_stats()
         return Result.ok(stats)
 
     @rt("/performance/optimize")
     @boundary_handler()
     async def optimize_performance() -> JSONResponse:
-        """
-        Trigger performance optimization analysis and tuning.
-
-        Returns:
-            Optimization recommendations and applied changes
-        """
-        if not services.performance_optimization:
-            return Result.fail(
-                Errors.system(
-                    "PerformanceOptimizationService not available",
-                    service="PerformanceOptimizationService",
-                )
-            )
-
-        return await services.performance_optimization.optimize_performance()
+        """Trigger performance optimization analysis and tuning."""
+        return await performance_optimization.optimize_performance()
 
     @rt("/performance/scale-test")
     @boundary_handler()
@@ -333,19 +253,7 @@ def create_advanced_routes(_app, rt, services):
         Args:
             concurrent_users: Number of concurrent users to simulate
             duration_seconds: Test duration
-
-        Returns:
-            Scale test results with performance under load
         """
-        if not services.performance_optimization:
-            return Result.fail(
-                Errors.system(
-                    "PerformanceOptimizationService not available",
-                    service="PerformanceOptimizationService",
-                )
-            )
-
-        # Placeholder for scale test
         return Result.ok(
             {
                 "message": "Scale test initiated",
@@ -355,4 +263,44 @@ def create_advanced_routes(_app, rt, services):
             }
         )
 
-    logger.info("✅ Advanced API routes registered (Phase 2 - FastHTML-aligned)")
+    return [metrics, cache_stats, optimize_performance, scale_test]
+
+
+# ---------------------------------------------------------------------------
+# DomainRouteConfig + Multi-Factory wiring
+# ---------------------------------------------------------------------------
+
+ADVANCED_CONFIG = DomainRouteConfig(
+    domain_name="advanced",
+    primary_service_attr="calendar_optimization",
+    api_factory=create_calendar_optimization_routes,
+    api_related_services={
+        "tasks": "tasks",
+        "events": "events",
+    },
+)
+
+
+def create_advanced_routes(app: Any, rt: Any, services: Any, _sync_service=None) -> list[Any]:
+    """
+    Wire advanced API routes using DomainRouteConfig (Multi-Factory variant).
+
+    Primary: calendar_optimization routes via DomainRouteConfig (pulls tasks/events
+    as related services).
+    Extensions: jupyter_sync and performance_optimization factories appended
+    conditionally after primary registration.
+
+    See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
+    """
+    routes = register_domain_routes(app, rt, services, ADVANCED_CONFIG)
+
+    if services and services.jupyter_sync:
+        routes.extend(create_jupyter_sync_routes(app, rt, services.jupyter_sync))
+
+    if services and services.performance_optimization:
+        routes.extend(create_performance_routes(app, rt, services.performance_optimization))
+
+    return routes
+
+
+__all__ = ["create_advanced_routes"]
