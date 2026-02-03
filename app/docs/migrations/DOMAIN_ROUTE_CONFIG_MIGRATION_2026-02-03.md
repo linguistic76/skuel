@@ -1213,6 +1213,64 @@ Reduction is intentionally modest: Multi-Factory migration is about **structure*
 
 ---
 
-**Migration Status:** ✅ PHASES 3–6 COMPLETE
+---
+
+## Phase 7: Tasks Bootstrap Normalization (COMPLETED)
+
+**Date:** 2026-02-03
+**Focus:** Remove the only Activity Domain that bypassed `DomainRouteConfig` in bootstrap
+
+### Overview
+
+Tasks was the last Activity Domain wired manually in `bootstrap.py`. The other five (Goals, Habits, Events, Choices, Principles) all called `create_{domain}_routes(app, rt, services, None)` → `register_domain_routes()`. Tasks called `create_tasks_api_routes()` and `create_tasks_ui_routes()` directly, with a TODO:
+
+```python
+# TODO: Update DomainRouteConfig pattern to support prometheus_metrics
+```
+
+### Root Cause
+
+`prometheus_metrics` was passed to `CRUDRouteFactory` inside `create_tasks_api_routes()` for HTTP instrumentation. `DomainRouteConfig.api_related_services` resolves kwargs via `getattr(services, container_attr)`, but `prometheus_metrics` was never stored on `Services`. The bootstrap closure captured it directly instead.
+
+Infrastructure fields like `event_bus` and `graph_adapter` already lived on `Services`. Adding `prometheus_metrics` alongside them was the consistent resolution.
+
+### Changes (3 files)
+
+#### 1. `core/utils/services_bootstrap.py`
+
+- Added `prometheus_metrics: Any = None` to the `Services` dataclass (Infrastructure section, alongside `event_bus`)
+- Added `prometheus_metrics=prometheus_metrics` to the `Services(...)` instantiation
+
+#### 2. `adapters/inbound/tasks_routes.py`
+
+- Added `"prometheus_metrics": "prometheus_metrics"` to `TASKS_CONFIG.api_related_services`
+
+#### 3. `scripts/dev/bootstrap.py`
+
+- Replaced the 22-line manual Tasks block (two direct factory calls, per-kwarg passthrough, TODO comment) with the 4-line standard pattern:
+
+```python
+if services.tasks:
+    from adapters.inbound.tasks_routes import create_tasks_routes
+
+    create_tasks_routes(app, rt, services, None)
+    logger.info("✅ Tasks routes registered (API + UI, includes intelligence API)")
+```
+
+### Verification
+
+- ✅ Server boots clean — no import or wiring errors
+- ✅ `CRUDRouteFactory initialized for tasks … instrumentation=enabled` — `prometheus_metrics` arrives via config
+- ✅ `GET /api/tasks/list` returns 401 (route exists, auth required — correct for user-owned)
+- ✅ `/metrics` records `skuel_http_requests_total{endpoint="/api/tasks/list"}` with latency histogram
+- ✅ Other Activity Domain routes unaffected
+
+### Why This Matters
+
+Tasks was the only Activity Domain with a divergent bootstrap path. The TODO was a known debt marker. Resolving it required a single-field addition to `Services` — the same mechanism already used for `event_bus` and `graph_adapter`. No pattern changes, no new abstractions. The bootstrap block for Tasks is now byte-for-byte identical in structure to Goals, Habits, Events, Choices, and Principles.
+
+---
+
+**Migration Status:** ✅ PHASES 3–7 COMPLETE
 **Report Generated:** 2026-02-03
 **Quality:** VERIFIED AND APPROVED

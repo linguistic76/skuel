@@ -805,7 +805,7 @@ def create_advanced_routes(app, rt, services, _sync_service=None):
 **Usage together:**
 ```python
 # Inside create_tasks_api_routes() - uses route factories
-def create_tasks_api_routes(app, rt, tasks_service, user_service, goals_service, habits_service):
+def create_tasks_api_routes(app, rt, tasks_service, user_service, goals_service, habits_service, prometheus_metrics=None):
     routes = []
 
     # Use CRUDRouteFactory for standard endpoints
@@ -972,8 +972,9 @@ from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
 | `events_service` | `events` | EventsService |
 | `choices_service` | `choices` | ChoicesService |
 | `principles_service` | `principles` | PrinciplesService |
+| `prometheus_metrics` | `prometheus_metrics` | PrometheusMetrics (HTTP instrumentation) |
 
-**Pattern:** Activity domains use short names (`goals`, `tasks`), shared services use full names (`user_service`).
+**Pattern:** Activity domains use short names (`goals`, `tasks`), shared services use full names (`user_service`). Infrastructure services (`prometheus_metrics`, `event_bus`) follow the same mapping contract — they live on `Services` alongside domain services and are resolved identically by `api_related_services`.
 
 ## Troubleshooting
 

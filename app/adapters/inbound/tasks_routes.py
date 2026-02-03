@@ -20,6 +20,7 @@ TASKS_CONFIG = DomainRouteConfig(
         "user_service": "user_service",  # user_service=services.user_service
         "goals_service": "goals",  # goals_service=services.goals
         "habits_service": "habits",  # habits_service=services.habits
+        "prometheus_metrics": "prometheus_metrics",  # prometheus_metrics=services.prometheus_metrics
     },
 )
 

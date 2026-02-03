@@ -585,26 +585,9 @@ async def _wire_all_routes(
 
     # Core domain routes
     if services.tasks:
-        from adapters.inbound.tasks_api import create_tasks_api_routes
-        from adapters.inbound.tasks_ui import create_tasks_ui_routes
+        from adapters.inbound.tasks_routes import create_tasks_routes
 
-        # Note: Switched to direct API route creation to pass prometheus_metrics
-        # TODO: Update DomainRouteConfig pattern to support prometheus_metrics
-        create_tasks_api_routes(
-            app,
-            rt,
-            services.tasks,
-            user_service=services.user_service,
-            goals_service=services.goals,
-            habits_service=services.habits,
-            prometheus_metrics=prometheus_metrics,
-        )
-        create_tasks_ui_routes(
-            app,
-            rt,
-            services.tasks,
-            services=services,
-        )
+        create_tasks_routes(app, rt, services, None)
         logger.info("✅ Tasks routes registered (API + UI, includes intelligence API)")
 
     if services.events:

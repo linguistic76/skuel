@@ -266,6 +266,7 @@ class Services:
     # Infrastructure adapters
     graph_adapter: Any = None  # Neo4jAdapter - database connection
     event_bus: EventBusOperations | None = None
+    prometheus_metrics: Any = None  # PrometheusMetrics for HTTP instrumentation
 
     # Event-driven intelligence (Phase 1 - January 2026)
     insight_store: Any = None  # InsightStore - Persists event-driven insights
@@ -2289,6 +2290,7 @@ async def compose_services(
             # Infrastructure
             graph_adapter=neo4j_adapter,
             event_bus=event_bus,
+            prometheus_metrics=prometheus_metrics,
             driver=driver,  # Exposed for routes requiring UserContextBuilder
             neo4j_driver=driver,  # Alias for backward compatibility
             insight_store=insight_store,  # Event-driven insights (Phase 1 - January 2026)
