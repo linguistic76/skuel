@@ -1321,11 +1321,14 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
     return register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
 
-**Current users:** 12 of 27 route files (44% adoption)
+**Current users:** 22 of 36 route files (61% adoption)
 - Activity domains (6): tasks, goals, habits, events, choices, principles
-- Other domains (6): learning, knowledge, context, reports, finance, askesis
+- Standard domains (7): learning, knowledge, context, reports, finance, askesis, journal_projects
+- Phase 3 migrations (9): transcription, visualization, admin, auth, journals, system, ingestion, insights, nous
 
-**See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`, `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-01-24.md`
+**Patterns proven:** Standard (API+UI), API-only, UI-only, Multi-factory
+
+**See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`, `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md`
 
 ## FastHTML Best Practices
 
