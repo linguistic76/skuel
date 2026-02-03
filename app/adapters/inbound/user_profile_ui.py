@@ -28,7 +28,12 @@ from core.services.user.unified_user_context import UserContext
 from core.ui.daisy_components import Div
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from ui.profile.badges import DomainStatus
+from ui.profile.domain_stats_config import (
+    DOMAIN_STATS_CONFIG,
+    learning_active,
+    learning_count,
+    learning_status,
+)
 from ui.profile.domain_views import (
     ChoicesDomainView,
     EventsDomainView,
@@ -355,13 +360,15 @@ def setup_user_profile_routes(rt, services):
         context: UserContext, insight_counts: dict[str, int] | None = None
     ) -> list[ProfileDomainItem]:
         """
-        Build ProfileDomainItem list from UserContext.
+        Build ProfileDomainItem list from UserContext using configuration.
 
-        Calculates counts and status for each domain.
+        Configuration-driven approach eliminates repetitive if-elif blocks.
 
         Args:
             context: UserContext with all domain data
             insight_counts: Optional dict mapping domain -> insight count (e.g., {"habits": 3})
+
+        See: /ui/profile/domain_stats_config.py
         """
         items = []
         insight_counts = insight_counts or {}
@@ -371,43 +378,13 @@ def setup_user_profile_routes(rt, services):
             icon = DEFAULT_DOMAIN_ICONS[slug]
             href = f"/{slug}"  # Link directly to domain routes, not profile/hub summary
 
-            # Calculate counts and status based on domain
-            if slug == "tasks":
-                count = len(context.active_task_uids) + len(context.completed_task_uids)
-                active = len(context.active_task_uids)
-                status = DomainStatus.calculate_tasks_status(
-                    len(context.overdue_task_uids),
-                    len(context.blocked_task_uids),
-                )
-            elif slug == "events":
-                count = len(context.upcoming_event_uids) + len(context.today_event_uids)
-                active = len(context.today_event_uids)
-                status = DomainStatus.calculate_events_status(
-                    0,
-                    len(context.missed_event_uids),
-                )
-            elif slug == "goals":
-                count = len(context.active_goal_uids) + len(context.completed_goal_uids)
-                active = len(context.active_goal_uids)
-                status = DomainStatus.calculate_goals_status(
-                    len(context.at_risk_goals),
-                    len(context.get_stalled_goals()),
-                )
-            elif slug == "habits":
-                count = len(context.active_habit_uids)
-                active = count
-                status = DomainStatus.calculate_habits_status(len(context.at_risk_habits))
-            elif slug == "principles":
-                count = len(context.core_principle_uids)
-                active = count
-                status = DomainStatus.calculate_principles_status(
-                    context.decisions_aligned_with_principles,
-                    context.decisions_against_principles,
-                )
-            elif slug == "choices":
-                count = len(context.pending_choice_uids) + len(context.resolved_choice_uids)
-                active = len(context.pending_choice_uids)
-                status = DomainStatus.calculate_choices_status(len(context.pending_choice_uids))
+            # Get configuration or use defaults
+            config = DOMAIN_STATS_CONFIG.get(slug)
+            if config:
+                count = config.count_fn(context)
+                active = config.active_fn(context)
+                status_args = config.status_args_fn(context)
+                status = config.status_fn(*status_args)
             else:
                 count = 0
                 active = 0
@@ -425,7 +402,7 @@ def setup_user_profile_routes(rt, services):
                     active_count=active,
                     status=status,
                     href=href,
-                    insight_count=insight_count,  # Pass insight count to domain item
+                    insight_count=insight_count,
                 )
             )
 
@@ -433,9 +410,11 @@ def setup_user_profile_routes(rt, services):
 
     def _build_curriculum_items(context: UserContext) -> list[ProfileDomainItem]:
         """
-        Build ProfileDomainItem list for curriculum domains.
+        Build ProfileDomainItem list for curriculum domains using configuration.
 
-        Calculates counts and status for learning/curriculum domain.
+        Configuration-driven approach for curriculum domain statistics.
+
+        See: /ui/profile/domain_stats_config.py
         """
         items = []
 
@@ -444,24 +423,11 @@ def setup_user_profile_routes(rt, services):
             icon = DEFAULT_DOMAIN_ICONS[slug]
             href = f"/profile/{slug}"
 
+            # Use configuration for learning domain
             if slug == "learning":
-                # Count curriculum items
-                mastered = len(context.mastered_knowledge_uids)
-                in_progress = len(context.in_progress_knowledge_uids)
-                ready = len(context.ready_to_learn_uids)
-                enrolled_paths = len(context.enrolled_path_uids)
-                blocked = len(context.prerequisites_needed)
-
-                count = mastered + in_progress + ready
-                active = in_progress + ready
-
-                # Determine status
-                if blocked > enrolled_paths * 0.5 and enrolled_paths > 0:
-                    status = "critical"
-                elif blocked > 0:
-                    status = "warning"
-                else:
-                    status = "healthy"
+                count = learning_count(context)
+                active = learning_active(context)
+                status = learning_status(context)
             else:
                 count = 0
                 active = 0

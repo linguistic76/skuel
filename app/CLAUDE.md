@@ -767,6 +767,7 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 - `/ui/layouts/base_page.py` - Unified page wrapper (`BasePage`)
 - `/ui/layouts/page_types.py` - Page type enum and config
 - `/ui/profile/layout.py` - Profile Hub custom sidebar (`build_profile_sidebar`, `create_profile_page`)
+- `/ui/profile/domain_stats_config.py` - Configuration-driven domain statistics (eliminates 80-line if-elif blocks)
 - `/ui/tokens.py` - Spacing, container, card tokens
 - `/ui/patterns/` - PageHeader, SectionHeader components
 

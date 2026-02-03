@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-02-02'
+updated: '2026-02-03'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -157,6 +157,119 @@ return create_profile_page(
 - `/nous`-style toggle pattern (cleaner UX)
 - Sidebar state persistence across sessions
 - Matches documentation (/nous, /docs) patterns
+
+#### Configuration-Driven Domain Stats
+
+**Added:** 2026-02-03
+
+**Core Principle:** "Configuration over repetition for domain statistics"
+
+The Profile Hub uses a configuration-driven pattern to calculate domain statistics (counts, active counts, status) from `UserContext`, eliminating repetitive if-elif blocks.
+
+**Pattern Benefits:**
+- **DRY Compliance:** 80-line if-elif block reduced to 11-line config lookup (86% reduction)
+- **Type Safety:** Protocol-based configuration with MyPy enforcement
+- **Maintainability:** Adding new domains requires only config changes, no route logic changes
+- **SKUEL012 Compliant:** Uses named functions instead of lambdas
+
+**Configuration Structure:**
+
+```python
+from ui.profile.domain_stats_config import DOMAIN_STATS_CONFIG
+
+# Configuration lookup replaces if-elif blocks
+config = DOMAIN_STATS_CONFIG.get("tasks")
+if config:
+    count = config.count_fn(context)           # Total items
+    active = config.active_fn(context)         # Active/pending items
+    status_args = config.status_args_fn(context)  # Args for status calculator
+    status = config.status_fn(*status_args)    # "healthy" | "warning" | "critical"
+```
+
+**Adding a New Domain:**
+
+```python
+# 1. Add extractor functions in /ui/profile/domain_stats_config.py
+def projects_count(ctx: UserContext) -> int:
+    """Calculate total project count."""
+    return len(ctx.active_project_uids) + len(ctx.completed_project_uids)
+
+def projects_active(ctx: UserContext) -> int:
+    """Calculate active project count."""
+    return len(ctx.active_project_uids)
+
+def projects_status_args(ctx: UserContext) -> tuple[int]:
+    """Extract status args for projects."""
+    return (len(ctx.overdue_projects),)
+
+# 2. Add configuration entry
+DOMAIN_STATS_CONFIG["projects"] = DomainStatsConfig(
+    count_fn=projects_count,
+    active_fn=projects_active,
+    status_fn=DomainStatus.calculate_projects_status,
+    status_args_fn=projects_status_args,
+)
+
+# 3. Done! No changes needed in user_profile_ui.py route logic
+```
+
+**Edge Cases Handled:**
+- **Habits:** `active = count` (special case - all active habits are counted)
+- **Events:** First status arg hardcoded to 0 (missed_today not tracked separately)
+- **Principles:** Uses int values for decisions, not UID lists
+- **Learning:** Custom status function with complex prerequisite logic
+- **Unknown domains:** Fallback to `count=0, active=0, status="healthy"`
+
+**Files:**
+- `/ui/profile/domain_stats_config.py` - Configuration and extractor functions
+- `/adapters/inbound/user_profile_ui.py` - Uses configuration in `_build_domain_items()`
+- `/tests/unit/ui/test_domain_stats_config.py` - 31 tests covering all domains
+
+**Type Safety:**
+```python
+from ui.profile.domain_stats_config import DomainStatsConfig, StatusCalculator
+
+class StatusCalculator(Protocol):
+    """Protocol for domain status calculator functions."""
+    def __call__(self, *args: int) -> str: ...
+
+@dataclass(frozen=True)
+class DomainStatsConfig:
+    count_fn: Callable[[UserContext], int]
+    active_fn: Callable[[UserContext], int]
+    status_fn: StatusCalculator
+    status_args_fn: Callable[[UserContext], tuple[int, ...]]
+```
+
+**Before Refactoring (80 lines):**
+```python
+# Repetitive if-elif blocks in user_profile_ui.py
+if slug == "tasks":
+    count = len(context.active_task_uids) + len(context.completed_task_uids)
+    active = len(context.active_task_uids)
+    status = DomainStatus.calculate_tasks_status(
+        len(context.overdue_task_uids),
+        len(context.blocked_task_uids),
+    )
+elif slug == "events":
+    # ... 8 more lines
+# ... 4 more similar blocks
+```
+
+**After Refactoring (11 lines):**
+```python
+# Clean configuration lookup
+config = DOMAIN_STATS_CONFIG.get(slug)
+if config:
+    count = config.count_fn(context)
+    active = config.active_fn(context)
+    status_args = config.status_args_fn(context)
+    status = config.status_fn(*status_args)
+else:
+    count = 0
+    active = 0
+    status = "healthy"
+```
 
 ### Design Tokens
 

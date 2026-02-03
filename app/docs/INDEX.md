@@ -162,7 +162,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [UID Boundary Conversion](patterns/UID_BOUNDARY_CONVERSION.md) | 2025-11-27 | 150 |
 | [Query Patterns](patterns/QUERY_PATTERNS.md) | 2025-11-27 | 300 |
 | **[Integration Testing Patterns](patterns/TESTING_PATTERNS.md)** | **2026-01-07** | **280** |
-| **[UI Component Patterns](patterns/UI_COMPONENT_PATTERNS.md)** | **2026-01-22** | **680** |
+| **[UI Component Patterns](patterns/UI_COMPONENT_PATTERNS.md)** | **2026-02-03** | **1395** |
 
 ## Dsl
 
