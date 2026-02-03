@@ -842,12 +842,6 @@ async def _wire_all_routes(
     create_advanced_routes(app, rt, services)
     logger.info("✅ Advanced API routes registered (Phase 2 - Optional)")
 
-    # Report Generation API routes
-    from adapters.inbound.report_routes import create_report_routes
-
-    create_report_routes(app, rt, services)
-    logger.info("✅ Report routes registered (FastHTML-aligned)")
-
     # Journal Projects routes (Factory pattern)
     from adapters.inbound.journal_projects_routes import create_journal_projects_routes
 

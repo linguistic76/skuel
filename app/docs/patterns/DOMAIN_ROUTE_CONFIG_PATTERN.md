@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** Currently used by 25 of 36 route files (69%), with 11 files remaining as justified exceptions.
+**Adoption:** Currently used by 25 of 35 route files (71%), with 10 files remaining as justified exceptions.
 
 ## The Pattern
 
@@ -1054,7 +1054,7 @@ Zero runtime overhead - routes are registered once at application startup.
 **Phase 6 (No Migration Planned):** Justified exceptions (11/11)
 - Complex/specialized route files remain manual (complexity warranted)
 
-**Summary:** 25/36 files using DomainRouteConfig (69% adoption) - **pattern complete** for all feasible migrations.
+**Summary:** 25/35 files using DomainRouteConfig (71% adoption) - **pattern complete** for all feasible migrations.
 
 **Key Achievements:**
 - 4,648 lines reduced to ~444 lines across 12 files (91% average reduction)
