@@ -81,7 +81,7 @@ class Request(Protocol):
 # ============================================================================
 
 
-def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
+def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, services: Any = None):
     """
     Create three-view choice UI routes (standalone, analytics as third tab).
 
@@ -94,6 +94,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol):
         _app: FastHTML app instance
         rt: Route decorator
         choices_service: Choices service
+        services: Full services container (unused, kept for API compatibility)
     """
 
     logger.info("Registering three-view choice routes (standalone, analytics)")

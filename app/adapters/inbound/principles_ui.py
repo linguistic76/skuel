@@ -67,7 +67,7 @@ class Request(Protocol):
 # ============================================================================
 
 
-def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadeProtocol):
+def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadeProtocol, services: Any = None):
     """
     Create three-view principle UI routes (standalone, analytics as third tab).
 
@@ -80,6 +80,7 @@ def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadePr
         _app: FastHTML app instance
         rt: Route decorator
         principles_service: Principles service
+        services: Full services container (unused, kept for API compatibility)
     """
 
     logger.info("Registering three-view principle routes (standalone, analytics)")

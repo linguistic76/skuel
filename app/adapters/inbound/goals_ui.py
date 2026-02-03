@@ -720,7 +720,7 @@ def get_priority_color(priority) -> Any:
 # ============================================================================
 
 
-def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
+def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, services: Any = None):
     """
     Create three-view goal UI routes (standalone, no drawer).
 
@@ -728,6 +728,12 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol):
     - List: Sortable, filterable goal list with progress
     - Create: Full goal creation form
     - Calendar: Month/Week/Day views showing goal timelines
+
+    Args:
+        _app: FastHTML app instance
+        rt: Route decorator
+        goals_service: Goals service instance
+        services: Full services container (unused, kept for API compatibility)
     """
 
     logger.info("Registering three-view goal routes (standalone)")

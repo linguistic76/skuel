@@ -20,11 +20,6 @@ HABITS_CONFIG = DomainRouteConfig(
         "user_service": "user_service",  # user_service=services.user_service
         "goals_service": "goals",  # goals_service=services.goals
     },
-    ui_related_services={
-        # Format: {kwarg_name: container_attr}
-        # Each entry is passed to ui_factory as: kwarg_name=getattr(services, container_attr)
-        "goals_service": "goals",  # goals_service=services.goals
-    },
 )
 
 

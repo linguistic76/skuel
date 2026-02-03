@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-02-02
+updated: 2026-02-03
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -14,8 +14,8 @@ related: []
 > `/home/mike/0bsidian/skuel/docs/` contains **content** (KU docs), NOT technical documentation.
 
 *Generated: 2025-12-07*
-*Updated: 2026-02-02*
-*Total: 175 documents* (2 new: 1 pattern, 1 ADR - Content Sharing System)
+*Updated: 2026-02-03*
+*Total: 176 documents* (1 new: UI Factory Signature Standardization)
 
 > **📝 Documentation Standards:**
 > - **File Naming:** UPPERCASE for major reference docs/guides, lowercase for specific patterns
@@ -296,6 +296,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Lateral Relationships Phase 3 Complete](migrations/LATERAL_RELATIONSHIPS_PHASE3_COMPLETE_2026-01-31.md)** | **2026-01-31** | **240** |
 | **[Lateral Relationships Phase 4 Complete](migrations/LATERAL_RELATIONSHIPS_PHASE4_COMPLETE_2026-01-31.md)** | **2026-01-31** | **320** |
 | **[Profile Insights Phase 3 & 4 Complete](migrations/PROFILE_INSIGHTS_PHASE3_4_COMPLETE.md)** | **2026-01-31** | **780** |
+| [KU Route Naming Standardization](migrations/KU_ROUTE_NAMING_STANDARDIZATION_2026-02-02.md) | 2026-02-02 | 167 |
+| **[UI Factory Signature Standardization](migrations/UI_FACTORY_SIGNATURE_STANDARDIZATION_2026-02-03.md)** | **2026-02-03** | **180** |
 
 ## Roadmap
 

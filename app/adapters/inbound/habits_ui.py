@@ -396,7 +396,7 @@ def get_status_color(status) -> Any:
 # ============================================================================
 
 
-def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goals_service=None):
+def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, services: Any = None):
     """
     Create three-view habit UI routes (standalone, no drawer).
 
@@ -409,7 +409,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, goal
         _app: FastHTML app instance
         rt: Route decorator
         habits_service: Habits service
-        goals_service: Goals service (optional, for wizard integration)
+        services: Full services container (unused, kept for API compatibility)
     """
 
     logger.info("Registering three-view habit routes (standalone)")

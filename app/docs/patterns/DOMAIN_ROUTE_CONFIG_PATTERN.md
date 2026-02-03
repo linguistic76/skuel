@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: '2026-02-02'
+updated: '2026-02-03'
 category: patterns
 related_skills:
 - fasthtml
@@ -8,7 +8,7 @@ related_docs: []
 ---
 # Domain Route Configuration Pattern
 
-**Status:** Active | **Last Updated:** 2026-01-24
+**Status:** Active | **Last Updated:** 2026-02-03
 ## Related Skills
 
 For implementation guidance, see:
@@ -47,9 +47,17 @@ class DomainRouteConfig:
     ui_related_services: dict[str, str] = {}   # UI factory dependencies
 ```
 
+### Recent Updates
+
+**2026-02-03: UI Factory Signature Standardization**
+- All UI factories now accept standard `services: Any = None` parameter
+- Removed domain-specific `ui_related_services` configurations
+- UI routes can access related services via the services container if needed
+- See migration doc: `/docs/migrations/UI_FACTORY_SIGNATURE_STANDARDIZATION_2026-02-03.md`
+
 ### Service Mapping Contract
 
-The `api_related_services` and `ui_related_services` dictionaries use a specific mapping pattern:
+The `api_related_services` dictionary uses a specific mapping pattern (note: `ui_related_services` is now deprecated as of 2026-02-03):
 
 ```python
 {
@@ -140,9 +148,11 @@ __all__ = ["create_{domain}_routes"]
 - `{Domain}` → Domain name capitalized (e.g., "Tasks", "Goals")
 - `{DOMAIN}` → Domain name in uppercase (e.g., "TASKS", "GOALS")
 
-## Canonical Factory Signature
+## Canonical Factory Signatures
 
-**CRITICAL:** All API and UI factories MUST follow this signature pattern:
+**CRITICAL:** All API and UI factories MUST follow these signature patterns:
+
+### API Factory Signature
 
 ```python
 def create_{domain}_api_routes(
@@ -167,12 +177,40 @@ def create_{domain}_api_routes(
     return []
 ```
 
+### UI Factory Signature (Standardized 2026-02-03)
+
+```python
+def create_{domain}_ui_routes(
+    _app: Any,
+    rt: Any,
+    primary_service: ServiceType,
+    services: Any = None,
+) -> list[Any]:
+    """
+    Create {domain} UI routes.
+
+    Args:
+        _app: FastHTML application instance (unused, kept for signature consistency)
+        rt: Route decorator
+        primary_service: {Domain}Service instance
+        services: Full services container (unused, kept for API compatibility)
+
+    Returns:
+        Empty list (routes registered via decorators, not returned)
+    """
+    # Register routes via decorators
+    return []
+```
+
 **Key requirements:**
-1. **First param:** `app` (FastHTML app instance)
+1. **First param:** `app` (FastHTML app instance, prefixed with `_` in UI factories if unused)
 2. **Second param:** `rt` (route decorator)
 3. **Third param:** `primary_service` (the domain's main service)
-4. **Kwargs:** `**related_services` with defaults (e.g., `user_service: Any = None`)
-5. **Return:** `list[Any]` (never None - return empty list if no routes)
+4. **Fourth param (UI only):** `services: Any = None` (standard container parameter)
+5. **Kwargs (API only):** `**related_services` with defaults (e.g., `user_service: Any = None`)
+6. **Return:** `list[Any]` (never None - return empty list if no routes)
+
+**Note:** UI factories use a standardized `services` parameter instead of `**related_services` kwargs for consistency across all domains.
 
 ## When to Use This Pattern
 
@@ -336,7 +374,7 @@ KU_CONFIG = DomainRouteConfig(
 - Empty api_related_services dict (explicit no dependencies)
 - Demonstrates minimal DomainRouteConfig setup
 
-### Example 2: UI Dependencies (Habits)
+### Example 2: API Dependencies Only (Habits)
 
 **File:** `/adapters/inbound/habits_routes.py`
 
@@ -352,18 +390,13 @@ HABITS_CONFIG = DomainRouteConfig(
         "user_service": "user_service",  # user_service=services.user_service
         "goals_service": "goals",        # goals_service=services.goals
     },
-    ui_related_services={
-        # Format: {kwarg_name: container_attr}
-        # Each entry is passed to ui_factory as: kwarg_name=getattr(services, container_attr)
-        "goals_service": "goals",        # goals_service=services.goals
-    },
 )
 ```
 
 **Key features:**
-- BOTH api_related_services AND ui_related_services specified
-- UI factory needs goals_service for rendering goal-related content
-- Shows separation of API vs UI dependencies
+- API factory needs user_service and goals_service
+- UI factory uses standard `services` parameter (no ui_related_services needed)
+- Demonstrates standardized UI factory signature (2026-02-03 update)
 
 ### Example 3: Multi-Service with UI Dependencies (Finance)
 
@@ -693,11 +726,12 @@ api_related_services={
 **Symptom:**
 Logs show "API routes: 15 endpoints" but no "UI routes: X endpoints"
 
-**Cause:** `ui_factory` is None or ui_related_services is missing required dependencies
+**Cause:** `ui_factory` is None or UI factory signature is incorrect
 
 **Fix:**
 1. Verify `ui_factory` is set: `ui_factory=create_{domain}_ui_routes`
-2. Check if UI factory needs related services - add to `ui_related_services`
+2. Ensure UI factory uses standard signature: `def create_{domain}_ui_routes(_app, rt, {domain}_service, services=None)`
+3. As of 2026-02-03, `ui_related_services` is deprecated - UI factories use standard `services` parameter
 
 ### Issue: TypeError about NoneType
 
