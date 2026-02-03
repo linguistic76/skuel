@@ -615,7 +615,7 @@ def create_system_api_routes(
 
     @rt("/api/alerts/thresholds")
     @require_admin(get_user_service_instance)
-    @boundary_handler(success_status=201)
+    @boundary_handler()
     async def update_alert_thresholds_route(
         request: Request, current_user
     ) -> Result[dict[str, Any]]:

@@ -129,7 +129,7 @@ def create_goals_api_routes(
 
     @rt("/api/goals/progress", methods=["POST"])
     @require_ownership_query(get_goals_service)
-    @boundary_handler(success_status=201)
+    @boundary_handler()
     async def update_goal_progress_route(
         request: Request, user_uid: str, entity: Any
     ) -> Result[dict[str, Any]]:

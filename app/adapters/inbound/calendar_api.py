@@ -24,8 +24,9 @@ from core.utils.result_simplified import Errors, Result
 def create_calendar_api_routes(app, rt, calendar_service):
     """Register calendar API routes."""
 
-    @app.post("/api/calendar/quick-create")
-    async def quick_create(request) -> Any:
+    @rt("/api/calendar/quick-create", methods=["POST"])
+    @boundary_handler(success_status=201)
+    async def quick_create(request: Request) -> Result[dict[str, Any]]:
         """Quick create a calendar item."""
         data = await request.json()
 
@@ -36,10 +37,9 @@ def create_calendar_api_routes(app, rt, calendar_service):
             **data.get("extras", {}),
         )
 
-        if result.is_ok:
-            return {"success": True, "item": calendar_item_to_dict(result.value)}
-        else:
-            return ({"success": False, "error": str(result.error)}, 400)
+        if result.is_error:
+            return result
+        return Result.ok({"item": calendar_item_to_dict(result.value)})
 
     @rt("/api/v2/calendar/items/{item_id}")
     @boundary_handler()
