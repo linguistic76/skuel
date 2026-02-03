@@ -15,7 +15,7 @@ related: []
 
 *Generated: 2025-12-07*
 *Updated: 2026-02-03*
-*Total: 176 documents* (1 new: UI Factory Signature Standardization)
+*Total: 179 documents* (4 new: UI Factory Signature Standardization, SEL Adaptive Curriculum, SEL UX Modernization, SEL Component Patterns)
 
 > **📝 Documentation Standards:**
 > - **File Naming:** UPPERCASE for major reference docs/guides, lowercase for specific patterns
@@ -142,6 +142,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Return Type Error Propagation Pattern](patterns/RETURN_TYPE_ERROR_PROPAGATION.md) | 2025-11-08 | 255 |
 | [Route Factory Patterns - Complete Guide](patterns/ROUTE_FACTORY_PATTERNS.md) | 2025-11-18 | 469 |
 | [SearchService Pattern for Activity Domains](patterns/search_service_pattern.md) | 2025-11-28 | 268 |
+| **[SEL Component Patterns](patterns/SEL_COMPONENT_PATTERNS.md)** | **2026-02-03** | **650** |
 | [Service Decomposition - Implementation Guide](patterns/SERVICE_DECOMPOSITION_IMPLEMENTATION_GUIDE.md) | 2025-11-27 | 554 |
 | [Service Integration Guide - Relationship Helpers](patterns/SERVICE_INTEGRATION_RELATIONSHIP_HELPERS.md) | 2025-11-18 | 468 |
 | **[Three-Tier Type System](patterns/three_tier_type_system.md)** | **2026-01-24** | **468** |
@@ -272,6 +273,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | Document | Updated | Lines |
 |----------|---------|-------|
 | **[Profile Hub & Insights Integration](features/PROFILE_INSIGHTS_INTEGRATION.md)** | **2026-01-31** | **1100** |
+| **[SEL Adaptive Curriculum](features/SEL_ADAPTIVE_CURRICULUM.md)** | **2026-02-03** | **850** |
 
 ## Migrations
 
@@ -299,6 +301,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Profile Insights Phase 3 & 4 Complete](migrations/PROFILE_INSIGHTS_PHASE3_4_COMPLETE.md)** | **2026-01-31** | **780** |
 | [KU Route Naming Standardization](migrations/KU_ROUTE_NAMING_STANDARDIZATION_2026-02-02.md) | 2026-02-02 | 167 |
 | **[UI Factory Signature Standardization](migrations/UI_FACTORY_SIGNATURE_STANDARDIZATION_2026-02-03.md)** | **2026-02-03** | **180** |
+| **[SEL Routes UX Modernization](migrations/SEL_UX_MODERNIZATION_2026-02-03.md)** | **2026-02-03** | **900** |
 
 ## Roadmap
 

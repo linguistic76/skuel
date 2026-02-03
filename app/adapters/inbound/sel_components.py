@@ -11,48 +11,23 @@ Key Components:
 - SELJourneyOverview: Complete SEL journey across all 5 categories
 """
 
-__version__ = "1.0"
+__version__ = "2.0"
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, A, P
+from fasthtml.common import H1, H2, P
 
 from core.models.ku.ku import Ku
 from core.models.sel import SELCategoryProgress, SELJourney
 from core.models.shared_enums import SELCategory
-from core.ui.daisy_components import Card, CardBody, Div, Progress, Span
+from core.ui.daisy_components import Div, Progress, Span
 from core.ui.enum_helpers import get_sel_icon
 from core.utils.logging import get_logger
+from ui.patterns.entity_card import CardConfig, EntityCard
+from ui.primitives.badge import Badge
+from ui.primitives.button import ButtonLink
 
 logger = get_logger(__name__)
-
-
-# ============================================================================
-# DAISYUI BADGE COMPONENT (Reused from user_profile_components)
-# ============================================================================
-
-
-def Badge(text: str, style: str = "default") -> Span:
-    """
-    DaisyUI Badge component.
-
-    Args:
-        text: Badge text content
-        style: Badge style (default, primary, secondary, success, warning)
-
-    Returns:
-        Span element with DaisyUI badge classes
-    """
-    style_classes = {
-        "default": "badge",
-        "primary": "badge badge-primary",
-        "secondary": "badge badge-secondary",
-        "success": "badge badge-success",
-        "warning": "badge badge-warning",
-        "destructive": "badge badge-error",
-    }
-    badge_class = style_classes.get(style, "badge")
-    return Span(cls=badge_class)(text)
 
 
 # ============================================================================
@@ -64,53 +39,56 @@ def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any
     """
     DaisyUI Card for one SEL category showing progress.
 
+    Migrated to use EntityCard pattern with custom progress bar.
+
     Args:
         category: SEL category
         progress: User's progress in this category
 
     Returns:
-        Card component with progress and action button
-
-    Uses get_sel_icon() helper
+        Div containing EntityCard with progress visualization
     """
-    return Card(
-        CardBody(
-            # Card header with icon and title
-            Div(
-                Div(
-                    # Use enum helper for icon
-                    Span(get_sel_icon(category.value), cls="text-lg mr-2"),
-                    Div(
-                        H3(category.value.replace("_", " ").title(), cls="card-title m-0"),
-                        P(category.get_description(), cls="text-sm text-gray-500 m-0"),
-                    ),
-                    cls="flex items-center",
-                ),
-                Badge(f"{progress.completion_percentage:.0f}%", style="primary"),
-                cls="flex justify-between items-center mb-2",
-            ),
-            # Progress bar using DaisyUI
-            Progress(
-                value=progress.kus_mastered,
-                max=progress.total_kus,
-                cls="progress progress-primary mb-2",
-            ),
-            # Stats row
-            Div(
-                P(f"{progress.kus_mastered} mastered", cls="m-0"),
-                P(f"{progress.kus_in_progress} in progress", cls="m-0"),
-                P(f"{progress.kus_available} available", cls="m-0"),
-                cls="flex justify-between text-sm text-gray-500 mb-2",
-            ),
-            # Action button using DaisyUI button classes - simple link instead of HTMX
-            A(
-                "Continue Learning →",
-                href=f"/sel/{category.value.replace('_', '-')}",
-                cls="btn btn-primary w-full",
-            ),
+    # Build category title with icon
+    category_title = f"{get_sel_icon(category.value)} {category.value.replace('_', ' ').title()}"
+
+    # Metadata for the card
+    metadata = [
+        f"{progress.kus_mastered} mastered",
+        f"{progress.kus_in_progress} in progress",
+        f"{progress.kus_available} available",
+    ]
+
+    # Create entity card
+    card = EntityCard(
+        title=category_title,
+        description=category.get_description(),
+        status=None,
+        priority=None,
+        metadata=metadata,
+        actions=ButtonLink(
+            "Continue Learning →",
+            href=f"/sel/{category.value.replace('_', '-')}",
+            variant="primary",
+            full_width=True,
         ),
-        cls="card bg-base-100 shadow-sm hover:shadow-md transition-shadow",
+        config=CardConfig.default(),
     )
+
+    # Add custom progress bar below the card
+    progress_section = Div(
+        Progress(
+            value=progress.kus_mastered,
+            max=progress.total_kus,
+            cls="progress progress-primary w-full",
+        ),
+        P(
+            f"{progress.completion_percentage:.0f}% complete",
+            cls="text-sm text-base-content/70 mt-1 text-center",
+        ),
+        cls="mt-3",
+    )
+
+    return Div(card, progress_section, cls="mb-4")
 
 
 # ============================================================================
@@ -187,48 +165,56 @@ def AdaptiveCurriculumPage(
 # ============================================================================
 
 
-def AdaptiveKUCard(ku: Ku) -> Div:
+def AdaptiveKUCard(ku: Ku, prerequisites_met: bool = True) -> Any:
     """
-    DaisyUI Card for one Knowledge Unit in adaptive curriculum.
+    Card for one Knowledge Unit in adaptive curriculum.
+
+    Migrated to use EntityCard pattern.
 
     Args:
         ku: Knowledge unit to display
+        prerequisites_met: Whether prerequisites are met (default True)
 
     Returns:
-        Div containing a DaisyUI card
+        EntityCard component
     """
-    return Div(
-        Card(
-            CardBody(
-                # Title and level badge
-                Div(
-                    H3(ku.title, cls="card-title m-0"),
-                    Badge(ku.learning_level.value.title(), style="secondary"),
-                    cls="flex justify-between items-start mb-2",
-                ),
-                # Description
-                P(
-                    ku.content[:150] + "..." if len(ku.content) > 150 else ku.content,
-                    cls="text-sm text-gray-500 mb-2",
-                ),
-                # Metadata badges
-                Div(
-                    Span(f"⏱ {ku.estimated_time_minutes} min", cls="badge badge-ghost"),
-                    Span(f"🎯 {ku.difficulty_rating:.1f}/1.0 difficulty", cls="badge badge-ghost"),
-                    Span("✓ Prerequisites met", cls="badge badge-success")
-                    if getattr(ku, "prerequisites_met", False)
-                    else None,
-                    cls="flex flex-wrap gap-2 mb-2",
-                ),
-                # Action button - simple link instead of HTMX
-                A(
-                    "Start Learning →",
-                    href=f"/knowledge/{ku.uid}",
-                    cls="btn btn-primary w-full mt-2",
-                ),
-            ),
-            cls="card bg-base-100 shadow-sm hover:shadow-md transition-shadow",
-        )
+    # Build metadata list
+    metadata = []
+
+    # Time estimate
+    if hasattr(ku, "estimated_time_minutes") and ku.estimated_time_minutes:
+        metadata.append(f"⏱ {ku.estimated_time_minutes} min")
+
+    # Difficulty rating
+    if hasattr(ku, "difficulty_rating") and ku.difficulty_rating is not None:
+        metadata.append(f"🎯 {ku.difficulty_rating:.1f}/1.0 difficulty")
+
+    # Learning level badge
+    if hasattr(ku, "learning_level") and ku.learning_level:
+        metadata.append(Badge(ku.learning_level.value.title(), variant="default"))
+
+    # Prerequisites status badge
+    if prerequisites_met:
+        metadata.append(Badge("✓ Prerequisites met", variant="success"))
+    else:
+        metadata.append(Badge("Prerequisites needed", variant="warning"))
+
+    # Truncate description
+    description = ku.content[:150] + "..." if len(ku.content) > 150 else ku.content
+
+    return EntityCard(
+        title=ku.title,
+        description=description,
+        status=None,
+        priority=None,
+        metadata=metadata,
+        actions=ButtonLink(
+            "Start Learning →",
+            href=f"/knowledge/{ku.uid}",
+            variant="primary",
+            full_width=True,
+        ),
+        config=CardConfig.default(),
     )
 
 

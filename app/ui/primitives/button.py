@@ -70,6 +70,7 @@ def ButtonLink(
     href: str,
     variant: str = "primary",
     size: str = "md",
+    full_width: bool = False,
     **kwargs: Any,
 ) -> A:
     """Button-styled link for navigation.
@@ -88,6 +89,7 @@ def ButtonLink(
             - "sm": Small
             - "md": Medium (default)
             - "lg": Large
+        full_width: If True, button takes full width of container
         **kwargs: Additional attributes passed to the A element
 
     Returns:
@@ -112,7 +114,8 @@ def ButtonLink(
 
     variant_cls = variants.get(variant, variants["primary"])
     size_cls = sizes.get(size, sizes["md"])
-    full_cls = f"{base} {variant_cls} {size_cls}"
+    width_cls = "w-full" if full_width else ""
+    full_cls = f"{base} {variant_cls} {size_cls} {width_cls}".strip()
 
     extra_cls = kwargs.pop("cls", "")
     if extra_cls:

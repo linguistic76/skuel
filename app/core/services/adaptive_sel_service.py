@@ -39,7 +39,7 @@ from core.models.user.user_intelligence import IntelligenceSource, UserLearningI
 from core.services.protocols import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # Type alias for the Ku backend
 KuBackend = BackendOperations[Ku]
@@ -450,6 +450,94 @@ class AdaptiveSELService:
             return SELCategoryProgress(
                 user_uid=user_uid, sel_category=category, kus_mastered=0, total_kus=0
             )
+
+    # ==========================================================================
+    # INTERACTION TRACKING
+    # ==========================================================================
+
+    async def track_page_view(
+        self, user_uid: str, category: SELCategory | None = None
+    ) -> Result[None]:
+        """
+        Track when user views SEL page.
+
+        Creates/updates view count properties on User node.
+
+        Args:
+            user_uid: User identifier
+            category: SEL category (None for overview)
+
+        Returns:
+            Result[None]: Success or error
+        """
+        try:
+            category_str = category.value if category else "overview"
+
+            query = """
+            MATCH (u:User {uid: $user_uid})
+            SET u.sel_last_viewed = datetime(),
+                u.sel_view_count = coalesce(u.sel_view_count, 0) + 1
+            WITH u
+            SET u['sel_' + $category + '_views'] = coalesce(u['sel_' + $category + '_views'], 0) + 1
+            RETURN u.uid
+            """
+
+            params = {"user_uid": user_uid, "category": category_str}
+
+            await self.ku_backend.driver.execute_query(query, params)
+
+            self.logger.info(f"Tracked SEL page view: {user_uid} -> {category_str}")
+            return Result.ok(None)
+
+        except Exception as e:
+            self.logger.error(f"Failed to track page view: {e}")
+            return Result.fail(Errors.database(f"Failed to track page view: {e}"))
+
+    async def track_curriculum_completion(
+        self, user_uid: str, ku_uid: str, completion_time_minutes: int = 30
+    ) -> Result[None]:
+        """
+        Track when user completes KU from SEL curriculum.
+
+        Creates MASTERED relationship if not exists.
+
+        Args:
+            user_uid: User identifier
+            ku_uid: Knowledge unit identifier
+            completion_time_minutes: Time spent (default: 30)
+
+        Returns:
+            Result[None]: Success or error
+        """
+        try:
+            query = """
+            MATCH (u:User {uid: $user_uid}), (k:Ku {uid: $ku_uid})
+            MERGE (u)-[m:MASTERED]->(k)
+            ON CREATE SET
+                m.mastery_level = 'introduced',
+                m.created_at = datetime(),
+                m.time_to_mastery_hours = $completion_time_minutes / 60.0,
+                m.source = 'sel_curriculum'
+            ON MATCH SET
+                m.mastery_level = 'proficient',
+                m.updated_at = datetime()
+            RETURN m
+            """
+
+            params = {
+                "user_uid": user_uid,
+                "ku_uid": ku_uid,
+                "completion_time_minutes": completion_time_minutes,
+            }
+
+            await self.ku_backend.driver.execute_query(query, params)
+
+            self.logger.info(f"Tracked curriculum completion: {user_uid} -> {ku_uid}")
+            return Result.ok(None)
+
+        except Exception as e:
+            self.logger.error(f"Failed to track completion: {e}")
+            return Result.fail(Errors.database(f"Failed to track completion: {e}"))
 
     # ==========================================================================
     # HELPER METHODS
