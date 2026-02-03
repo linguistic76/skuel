@@ -243,9 +243,10 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
 | `/core/services/askesis/response_generator.py` | Action and context generation (January 2026) |
 | `/core/services/askesis/entity_extractor.py` | Entity extraction |
 | `/core/services/askesis/context_retriever.py` | Context retrieval |
+| `/core/services/askesis/askesis_core_service.py` | CRUD + `build_user_context()` (owns Neo4j driver) |
 | `/core/services/askesis/types.py` | Shared data classes |
 | `/core/services/protocols/askesis_protocols.py` | Protocol definitions |
-| `/adapters/inbound/askesis_routes.py` | Route factory |
+| `/adapters/inbound/askesis_routes.py` | Route wiring (DomainRouteConfig) |
 | `/adapters/inbound/askesis_api.py` | JSON API endpoints |
 | `/adapters/inbound/askesis_ui.py` | UI components |
 
@@ -347,6 +348,8 @@ class AskesisAnalysis:
 | **January 2026** | QueryProcessor decomposition: IntentClassifier + ResponseGenerator extracted (962 → ~500 lines) |
 | **January 2026** | Unused dependencies removed (`learning_orchestrator`, `cascade_manager`) - One Path Forward |
 | **January 2026** | Stub implementations completed - semantic search, gap analysis, LLM integration, prerequisite ordering |
+| **February 2026** | Route wiring switched to DomainRouteConfig (was bypassed in bootstrap) |
+| **February 2026** | Neo4j driver encapsulated in `AskesisCoreService.build_user_context()` — routes no longer hold a raw driver. 11 identical context-building blocks in `askesis_api.py` consolidated to single-line calls |
 
 ---
 

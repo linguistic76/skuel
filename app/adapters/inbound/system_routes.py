@@ -27,7 +27,7 @@ SYSTEM_CONFIG = DomainRouteConfig(
 )
 
 
-def create_system_routes(app, rt, services, sync_service=None):
+def create_system_routes(app, rt, services):
     """Wire system API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, SYSTEM_CONFIG)
 

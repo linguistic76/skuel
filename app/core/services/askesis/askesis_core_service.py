@@ -19,12 +19,15 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
+    from neo4j import AsyncDriver
+
     from core.models.askesis.askesis import Askesis
     from core.models.askesis.askesis_request import (
         AskesisCreateRequest,
         AskesisUpdateRequest,
     )
     from core.services.protocols.base_protocols import BackendOperations
+    from core.services.user.unified_user_context import UserContext
 
 
 logger = get_logger("skuel.services.askesis.core")
@@ -69,15 +72,30 @@ class AskesisCoreService:
     - Logs operations with structured logging
     """
 
-    def __init__(self, backend: BackendOperations) -> None:
+    def __init__(self, backend: BackendOperations, driver: "AsyncDriver") -> None:
         """
         Initialize Askesis core service.
 
         Args:
             backend: Backend implementing BackendOperations protocol
+            driver: Neo4j driver for UserContextBuilder
         """
         self.backend = backend
+        self.driver = driver
         self.logger = get_logger("skuel.services.askesis.core")
+
+    async def build_user_context(self, user_uid: str) -> "Result[UserContext]":
+        """
+        Build user context for the given user.
+
+        Encapsulates UserContextBuilder so routes don't hold a raw driver.
+
+        See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
+        """
+        from core.services.user.user_context_builder import UserContextBuilder
+
+        context_builder = UserContextBuilder(self.driver)
+        return await context_builder.build(user_uid)
 
     async def get_or_create_for_user(
         self,

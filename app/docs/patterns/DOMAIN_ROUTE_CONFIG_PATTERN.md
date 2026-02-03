@@ -32,7 +32,7 @@ For implementation guidance, see:
 1. **DomainRouteConfig** - Declarative configuration object
 2. **register_domain_routes()** - Single registration function
 3. **Service extraction** - Automatic attribute lookup from services container
-4. **Consistent logging** - Built-in structured logging
+4. **Route collection** - Gathers and returns route lists from both factories
 
 ### Configuration Structure
 
@@ -93,11 +93,12 @@ api_factory(app, rt, primary_service,
 2. Extract primary service: getattr(services, config.primary_service_attr)
 3. Validate primary service exists (return [] if missing)
 4. Extract API-related services: {kwarg: getattr(services, attr) for kwarg, attr in api_related_services}
-5. Call api_factory(app, rt, primary_service, **api_related)
-6. (Optional) Extract UI-related services and call ui_factory
-7. Log registration results (API count, UI count)
-8. Return combined route list
+5. Call api_factory(app, rt, primary_service, **api_related), collect returned routes
+6. (Optional) Extract UI-related services, call ui_factory, collect returned routes
+7. Return combined route list (API + UI)
 ```
+
+**Logging:** `register_domain_routes()` does not log. Each call site in `bootstrap.py` owns its own log message, which often includes domain-specific detail (e.g. "includes intelligence API"). This avoids double-logging and keeps messages precise.
 
 ## Canonical Template
 
@@ -322,14 +323,16 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
     return register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
 
-### Step 4: Remove Custom Logging
+### Step 4: Add Bootstrap Logging
 
-The pattern provides built-in logging:
-```
-INFO - ✅ Registered tasks routes (API + UI)
+`register_domain_routes()` does not log — the bootstrap call site owns the message. Add a log line after the call with any domain-specific detail:
+
+```python
+create_tasks_routes(app, rt, services, None)
+logger.info("✅ Tasks routes registered (API + UI, includes intelligence API)")
 ```
 
-Remove any custom logging in the route file - it's now redundant.
+This keeps messages precise and avoids double-logging.
 
 ### Why Factories Return []
 
@@ -437,16 +440,15 @@ ASKESIS_CONFIG = DomainRouteConfig(
     api_related_services={
         # Format: {kwarg_name: container_attr}
         # askesis_core_service is optional (Priority 1.1 implementation)
-        "_askesis_core_service": "askesis_core",  # _askesis_core_service=services.askesis_core
-        "driver": "driver",  # driver=services.driver
+        "askesis_core_service": "askesis_core",  # askesis_core_service=services.askesis_core
     },
 )
 ```
 
 **Key features:**
-- Shows optional dependencies (askesis_core may be None)
+- Shows optional dependencies (`askesis_core` may be None — routes guard with `if not askesis_core_service:`)
 - DomainRouteConfig handles None gracefully via getattr
-- Demonstrates complex dependency patterns (driver, optional services)
+- Infrastructure dependencies (Neo4j driver) are encapsulated inside services, not passed through config. `AskesisCoreService.build_user_context()` owns the `UserContextBuilder` — routes never touch a raw driver
 
 ### Example 5: API-Only Pattern (Transcription)
 

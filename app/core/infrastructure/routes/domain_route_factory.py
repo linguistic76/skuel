@@ -100,8 +100,9 @@ def register_domain_routes(
         api_related[kwarg_name] = getattr(services, container_attr, None) if services else None
 
     # 3. Wire API routes (optional)
+    registered: list[Any] = []
     if config.api_factory:
-        config.api_factory(app, rt, primary_service, **api_related)
+        registered.extend(config.api_factory(app, rt, primary_service, **api_related) or [])
 
     # 4. Wire UI routes (optional)
     if config.ui_factory:
@@ -110,9 +111,6 @@ def register_domain_routes(
         for kwarg_name, container_attr in config.ui_related_services.items():
             ui_related[kwarg_name] = getattr(services, container_attr, None) if services else None
 
-        config.ui_factory(app, rt, primary_service, **ui_related)
+        registered.extend(config.ui_factory(app, rt, primary_service, **ui_related) or [])
 
-    # 5. Log registration
-    logger.info(f"✅ Registered {config.domain_name} routes (API + UI)")
-
-    return []
+    return registered

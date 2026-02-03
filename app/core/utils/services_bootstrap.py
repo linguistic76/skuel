@@ -1389,8 +1389,8 @@ async def compose_services(
         # Create Askesis core service (CRUD operations for AI assistant instances)
         from core.services.askesis.askesis_core_service import AskesisCoreService
 
-        askesis_core_service = AskesisCoreService(backend=askesis_backend)
-        logger.info("✅ Askesis core service created (CRUD operations for AI assistant)")
+        askesis_core_service = AskesisCoreService(backend=askesis_backend, driver=driver)
+        logger.info("✅ Askesis core service created (CRUD + context building)")
 
         # NOTE: Askesis service now created in PHASE 4 after intelligence_factory is available
         # This eliminates post-construction wiring (January 2026 architecture evolution)

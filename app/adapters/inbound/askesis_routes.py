@@ -26,8 +26,7 @@ ASKESIS_CONFIG = DomainRouteConfig(
     api_related_services={
         # Format: {kwarg_name: container_attr}
         # askesis_core_service is optional (Priority 1.1 implementation)
-        "_askesis_core_service": "askesis_core",  # _askesis_core_service=services.askesis_core
-        "driver": "driver",  # driver=services.driver
+        "askesis_core_service": "askesis_core",  # askesis_core_service=services.askesis_core
     },
 )
 

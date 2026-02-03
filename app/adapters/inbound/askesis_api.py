@@ -38,8 +38,6 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
-
     from core.services.askesis.askesis_core_service import AskesisCoreService
 
 logger = get_logger("skuel.routes.askesis.api")
@@ -50,7 +48,6 @@ def create_askesis_api_routes(
     rt: Any,
     askesis_service: AskesisOperations,
     askesis_core_service: "AskesisCoreService | None" = None,
-    driver: "AsyncDriver | None" = None,
 ) -> list[Any]:
     """
     Create clean API routes for Askesis functionality with service integration.
@@ -59,8 +56,7 @@ def create_askesis_api_routes(
         app: FastHTML application instance
         rt: Route decorator
         askesis_service: AskesisService instance (intelligence)
-        askesis_core_service: AskesisCoreService instance (CRUD operations)
-        driver: Neo4j driver for UserContextBuilder (required for context-aware routes)
+        askesis_core_service: AskesisCoreService instance (CRUD + context building)
 
     Returns:
         Empty list (routes registered via decorators)
@@ -310,17 +306,7 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        from core.services.user.user_context_builder import UserContextBuilder
-
-        if not driver:
-            return Result.fail(
-                Errors.system(
-                    message="Driver not available for context building",
-                    operation="generate_guidance",
-                )
-            )
-        context_builder = UserContextBuilder(driver)
-        context_result = await context_builder.build(user_uid)
+        context_result = await askesis_core_service.build_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -365,17 +351,7 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        from core.services.user.user_context_builder import UserContextBuilder
-
-        if not driver:
-            return Result.fail(
-                Errors.system(
-                    message="Driver not available for context building",
-                    operation="generate_guidance",
-                )
-            )
-        context_builder = UserContextBuilder(driver)
-        context_result = await context_builder.build(user_uid)
+        context_result = await askesis_core_service.build_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -429,17 +405,7 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        from core.services.user.user_context_builder import UserContextBuilder
-
-        if not driver:
-            return Result.fail(
-                Errors.system(
-                    message="Driver not available for context building",
-                    operation="generate_guidance",
-                )
-            )
-        context_builder = UserContextBuilder(driver)
-        context_result = await context_builder.build(user_uid)
+        context_result = await askesis_core_service.build_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -488,17 +454,7 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        from core.services.user.user_context_builder import UserContextBuilder
-
-        if not driver:
-            return Result.fail(
-                Errors.system(
-                    message="Driver not available for context building",
-                    operation="generate_guidance",
-                )
-            )
-        context_builder = UserContextBuilder(driver)
-        context_result = await context_builder.build(user_uid)
+        context_result = await askesis_core_service.build_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -689,17 +645,7 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        from core.services.user.user_context_builder import UserContextBuilder
-
-        if not driver:
-            return Result.fail(
-                Errors.system(
-                    message="Driver not available for context building",
-                    operation="generate_guidance",
-                )
-            )
-        context_builder = UserContextBuilder(driver)
-        context_result = await context_builder.build(user_uid)
+        context_result = await askesis_core_service.build_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -795,17 +741,7 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        from core.services.user.user_context_builder import UserContextBuilder
-
-        if not driver:
-            return Result.fail(
-                Errors.system(
-                    message="Driver not available for context building",
-                    operation="generate_guidance",
-                )
-            )
-        context_builder = UserContextBuilder(driver)
-        context_result = await context_builder.build(user_uid)
+        context_result = await askesis_core_service.build_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -880,17 +816,7 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        from core.services.user.user_context_builder import UserContextBuilder
-
-        if not driver:
-            return Result.fail(
-                Errors.system(
-                    message="Driver not available for context building",
-                    operation="generate_guidance",
-                )
-            )
-        context_builder = UserContextBuilder(driver)
-        context_result = await context_builder.build(user_uid)
+        context_result = await askesis_core_service.build_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -946,17 +872,7 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        from core.services.user.user_context_builder import UserContextBuilder
-
-        if not driver:
-            return Result.fail(
-                Errors.system(
-                    message="Driver not available for context building",
-                    operation="generate_guidance",
-                )
-            )
-        context_builder = UserContextBuilder(driver)
-        context_result = await context_builder.build(user_uid)
+        context_result = await askesis_core_service.build_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -1032,17 +948,7 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        from core.services.user.user_context_builder import UserContextBuilder
-
-        if not driver:
-            return Result.fail(
-                Errors.system(
-                    message="Driver not available for context building",
-                    operation="generate_guidance",
-                )
-            )
-        context_builder = UserContextBuilder(driver)
-        context_result = await context_builder.build(user_uid)
+        context_result = await askesis_core_service.build_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -1132,17 +1038,7 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        from core.services.user.user_context_builder import UserContextBuilder
-
-        if not driver:
-            return Result.fail(
-                Errors.system(
-                    message="Driver not available for context building",
-                    operation="generate_guidance",
-                )
-            )
-        context_builder = UserContextBuilder(driver)
-        context_result = await context_builder.build(user_uid)
+        context_result = await askesis_core_service.build_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -1242,17 +1138,7 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        from core.services.user.user_context_builder import UserContextBuilder
-
-        if not driver:
-            return Result.fail(
-                Errors.system(
-                    message="Driver not available for context building",
-                    operation="generate_guidance",
-                )
-            )
-        context_builder = UserContextBuilder(driver)
-        context_result = await context_builder.build(user_uid)
+        context_result = await askesis_core_service.build_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())

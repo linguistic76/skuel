@@ -562,7 +562,7 @@ async def _wire_all_routes(
     # Add SystemService to services container for route access
     services.system_service = system_service
 
-    create_system_routes(app, rt, services, None)  # sync field removed (Jan 2026)
+    create_system_routes(app, rt, services)
 
     # Monitoring routes (Phase 3 - January 2026)
     from adapters.inbound.monitoring_routes import create_monitoring_routes
@@ -658,7 +658,7 @@ async def _wire_all_routes(
         create_habits_routes(app, rt, services, None)  # sync removed Jan 2026
         logger.info("✅ Habits routes registered")
 
-        # Register goals routes (integrated with habits)
+    if services.goals:
         from adapters.inbound.goals_routes import create_goals_routes
 
         create_goals_routes(app, rt, services, None)  # sync removed Jan 2026
@@ -766,19 +766,11 @@ async def _wire_all_routes(
     else:
         logger.warning("Learning service not available - skipping learning routes")
 
-    # Askesis routes - AI Learning Assistant
-    from adapters.inbound.askesis_ui import create_askesis_ui_routes
+    # Askesis routes - AI Learning Assistant (DomainRouteConfig)
+    from adapters.inbound.askesis_routes import create_askesis_routes
 
-    create_askesis_ui_routes(app, rt, services.askesis)
-    logger.info("✅ Askesis routes registered at /askesis")
-
-    # Askesis API routes - RAG pipeline and CRUD operations
-    from adapters.inbound.askesis_api import create_askesis_api_routes
-
-    create_askesis_api_routes(
-        app, rt, services.askesis, services.askesis_core, driver=app.state.neo4j_driver
-    )
-    logger.info("✅ Askesis API routes registered (/api/askesis/*)")
+    create_askesis_routes(app, rt, services, None)
+    logger.info("✅ Askesis routes registered (API + UI)")
 
     # AI routes - Optional AI-powered features (ADR-030: Two-Tier Intelligence Design)
     # Routes return 503 when AI services are unavailable (fail-fast at route level)
