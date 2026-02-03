@@ -224,6 +224,7 @@ class Services:
         None  # CalendarService - unified calendar aggregation (no CalendarOperations protocol yet)
     )
     system_service: Any = None  # SystemService - health checks and system monitoring
+    visualization: Any = None  # VisualizationService - Chart.js/Vis.js/Gantt adapters
 
     # User management (fundamental)
     user_service: UserOperations | None = None  # UserService - user profile management
@@ -1537,6 +1538,12 @@ async def compose_services(
         system_service = SystemService()
         logger.info("✅ System service created (health checks enabled)")
 
+        # Create visualization service (Chart.js/Vis.js/Gantt adapters)
+        from core.services.visualization_service import VisualizationService
+
+        visualization_service = VisualizationService()
+        logger.info("✅ Visualization service created (Chart.js/Vis.js adapters)")
+
         # Create transcript processor service (OpenAI API key required)
         from core.config.credential_store import get_credential
         from core.services.ai_service import OpenAIService
@@ -2255,6 +2262,7 @@ async def compose_services(
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion
             calendar=calendar_service,
             system_service=system_service,
+            visualization=visualization_service,  # Chart.js/Vis.js/Gantt adapters
             transcription=core_services["transcription"],
             # User management
             user_service=core_services["user"],

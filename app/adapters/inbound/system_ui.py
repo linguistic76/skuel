@@ -28,18 +28,25 @@ logger = get_logger("skuel.routes.system.ui")
 # ============================================================================
 
 
-def create_system_ui_routes(_app, rt, _services):
+def create_system_ui_routes(
+    app: Any,
+    rt: Any,
+    system_service: Any,
+    services: Any = None,
+) -> list[Any]:
     """
     Create system UI routes for the application.
 
     Args:
         app: The FastHTML app instance
         rt: The router instance
-        services: The services container
+        system_service: System service instance (unused but kept for consistency)
+        services: Optional services container (unused)
 
     Returns:
         List of registered routes
     """
+    routes: list[Any] = []
 
     # ========================================================================
     # HOME PAGE ROUTE
@@ -120,7 +127,14 @@ def create_system_ui_routes(_app, rt, _services):
     logger.info("✅ System UI routes registered")
 
     # Return list of registered routes
-    return [home, not_found]
+    # Collect all routes
+    routes.extend([home, not_found])
+
+    logger.info(f"System UI routes registered: {len(routes)} endpoints")
+    return routes
+
+
+__all__ = ["create_system_ui_routes"]
 
 
 def _render_login_landing_page() -> NotStr:

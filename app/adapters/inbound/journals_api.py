@@ -46,7 +46,14 @@ logger = get_logger("skuel.routes.journals.api")
 # ============================================================================
 
 
-def create_journals_api_routes(app, rt, transcript_processor, services):
+def create_journals_api_routes(
+    app: Any,
+    rt: Any,
+    transcript_processor: Any,
+    assignments_core: Any = None,
+    user_service: Any = None,
+    audio: Any = None,
+) -> list[Any]:
     """
     Create journals API routes.
 
@@ -54,7 +61,9 @@ def create_journals_api_routes(app, rt, transcript_processor, services):
         app: FastHTML application instance
         rt: Router instance
         transcript_processor: TranscriptProcessorService - AI transcript processing
-        services: Services container (includes assignments_core for content management)
+        assignments_core: AssignmentsCoreService for content management
+        user_service: Optional user service
+        audio: Optional audio service
 
     SERVICE ARCHITECTURE:
     --------------------
@@ -62,19 +71,16 @@ def create_journals_api_routes(app, rt, transcript_processor, services):
     - AssignmentsCoreService: Content management (categories, tags, publish/archive, bulk ops)
     - JournalRelationshipService: Graph relationship queries for journals
 
-    Routes operate on Journal entities (JournalPure) and use JournalRelationshipService.
+    Returns:
+        List of created routes
     """
+    routes: list[Any] = []
 
     # FAIL-FAST: Validate required services BEFORE any route registration
     if not transcript_processor:
-        raise ValueError("transcript_processor required for assignments content API - fail-fast")
-    if not services:
-        raise ValueError("Services container required for assignments content API")
-    if not services.assignments_core:
+        raise ValueError("transcript_processor required for journals API - fail-fast")
+    if not assignments_core:
         raise ValueError("assignments_core required for content management routes - fail-fast")
-
-    assignments_core = services.assignments_core
-    user_service = services.user_service
 
     # Initialize relationship services for fetching graph relationships
     driver = None
@@ -669,10 +675,8 @@ def create_journals_api_routes(app, rt, transcript_processor, services):
             filename = audio_file.filename
             logger.info(f"File received: {filename}, size: {len(file_content)} bytes")
 
-            # Get audio transcription service from services
-            logger.info(f"Services object: {services}")
-            logger.info(f"Services.audio: {services.audio if services else 'services is None'}")
-            audio_service = services.audio if services else None
+            # Get audio transcription service
+            audio_service = audio
             if not audio_service:
                 logger.error(
                     f"Audio service not available. Services: {services}, audio: {audio_service}"
@@ -761,7 +765,7 @@ def create_journals_api_routes(app, rt, transcript_processor, services):
         title = request.query_params.get("title")  # Optional
 
         # Get audio service
-        audio_service = services.audio if services else None
+        audio_service = audio
         if not audio_service:
             return Result.fail(Errors.system("Audio transcription service not available"))
 
@@ -794,9 +798,8 @@ def create_journals_api_routes(app, rt, transcript_processor, services):
             logger.error(f"Processing failed: {error_msg}")
             return Result.fail(Errors.system(error_msg))
 
-    logger.info("Journals API routes created successfully")
-
-    return [
+    # Collect all routes
+    routes.extend([
         transcribe_audio_route,
         process_transcription_with_llm_route,
         search_journals_route,
@@ -818,4 +821,10 @@ def create_journals_api_routes(app, rt, transcript_processor, services):
         bulk_categorize_journals_route,
         bulk_tag_journals_route,
         export_markdown_route,
-    ]
+    ])
+
+    logger.info(f"Journals API routes registered: {len(routes)} endpoints")
+    return routes
+
+
+__all__ = ["create_journals_api_routes"]

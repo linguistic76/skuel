@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** Currently used by 12 of 27 route files (44%), with 15 files remaining (2 candidates + 13 justified exceptions).
+**Adoption:** Currently used by 22 of 36 route files (61%), with 14 files remaining as justified exceptions.
 
 ## The Pattern
 
@@ -448,7 +448,100 @@ ASKESIS_CONFIG = DomainRouteConfig(
 - DomainRouteConfig handles None gracefully via getattr
 - Demonstrates complex dependency patterns (driver, optional services)
 
-### Example 5: Complex Multi-Service (Learning with LS Routes)
+### Example 5: API-Only Pattern (Transcription)
+
+**File:** `/adapters/inbound/transcription_routes.py`
+
+```python
+TRANSCRIPTION_CONFIG = DomainRouteConfig(
+    domain_name="transcription",
+    primary_service_attr="transcription",
+    api_factory=create_transcription_api_routes,
+    ui_factory=None,  # No UI routes for this domain
+    api_related_services={},
+)
+```
+
+**Key features:**
+- API-only domain (no UI routes needed)
+- `ui_factory=None` explicitly indicates no UI component
+- Demonstrates single-purpose API services (audio transcription)
+- Pattern used by: transcription, visualization, admin, journals
+
+### Example 6: UI-Only Pattern (NOUS)
+
+**File:** `/adapters/inbound/nous_routes.py`
+
+```python
+NOUS_CONFIG = DomainRouteConfig(
+    domain_name="nous",
+    primary_service_attr="ku",
+    api_factory=None,  # UI-only domain (no API routes)
+    ui_factory=create_nous_ui_routes,
+    api_related_services={},
+)
+```
+
+**Key features:**
+- UI-only domain (no API routes needed)
+- `api_factory=None` - register_domain_routes handles this gracefully
+- Bug fix required: domain_route_factory.py:103 must check `if config.api_factory:` before calling
+- First domain to use this pattern (2026-02-03 migration)
+- Demonstrates content-focused domains without CRUD API needs
+
+**Critical Implementation Detail:**
+
+The `register_domain_routes()` function must check for `None` before calling api_factory:
+
+```python
+# /core/infrastructure/routes/domain_route_factory.py:103
+if config.api_factory:  # ✓ REQUIRED - prevents TypeError
+    api_routes = config.api_factory(app, rt, primary_service, **api_related)
+```
+
+Without this check, `api_factory=None` causes `TypeError: 'NoneType' object is not callable`.
+
+### Example 7: Multi-Factory Pattern (Insights with History Routes)
+
+**File:** `/adapters/inbound/insights_routes.py`
+
+```python
+INSIGHTS_CONFIG = DomainRouteConfig(
+    domain_name="insights",
+    primary_service_attr="insight_store",
+    api_factory=create_insights_api_routes,
+    ui_factory=create_insights_ui_routes,
+    api_related_services={},
+)
+
+
+def create_insights_routes(app, rt, services, _sync_service=None):
+    """
+    Wire insights API and UI routes using configuration-driven registration.
+
+    Demonstrates multi-factory pattern: DomainRouteConfig handles main routes,
+    additional history routes registered separately.
+    """
+    # Register main API + UI routes via DomainRouteConfig
+    routes = register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
+
+    # Additional history routes (separate from main API/UI)
+    if services and services.insight_store:
+        history_routes = create_insights_history_routes(app, rt, services.insight_store)
+        routes.extend(history_routes)
+        logger.info(f"  ✅ Insights history routes registered: {len(history_routes)} endpoints")
+
+    return routes
+```
+
+**Key features:**
+- Uses DomainRouteConfig for standard API + UI routes
+- Extends pattern with custom history route registration
+- Demonstrates composition: config handles 80% of work, custom logic adds specialized routes
+- Pattern: DomainRouteConfig + manual extension (not all-or-nothing)
+- History routes are domain-specific (not covered by standard CRUD)
+
+### Example 8: Complex Multi-Service (Learning with LS Routes)
 
 **File:** `/adapters/inbound/learning_routes.py`
 
@@ -583,7 +676,7 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
   - `DomainRouteConfig` dataclass (lines 37-58)
   - `register_domain_routes()` function (lines 61-124)
 
-### Current Users (12 files - 44% adoption)
+### Current Users (22 files - 61% adoption)
 
 **Activity Domains (6):**
 1. `/adapters/inbound/tasks_routes.py` (33 lines)
@@ -593,48 +686,49 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 5. `/adapters/inbound/choices_routes.py` (31 lines)
 6. `/adapters/inbound/principles_routes.py` (32 lines)
 
-**Other Domains (6):** *(Migrated 2026-01-24)*
+**Other Domains (7):** *(Migrated 2026-01-24)*
 7. `/adapters/inbound/learning_routes.py` (72 lines) - LP + LS routes
 8. `/adapters/inbound/ku_routes.py` (49 lines) - KU routes
 9. `/adapters/inbound/context_routes.py` (49 lines) - UserContext routes
 10. `/adapters/inbound/reports_routes.py` (63 lines) - Meta-analysis
 11. `/adapters/inbound/finance_routes.py` (61 lines) - Admin-only bookkeeping
 12. `/adapters/inbound/askesis_routes.py` (54 lines) - AI assistant management
+13. `/adapters/inbound/journal_projects_routes.py` - Journal projects
 
-### Migration Candidates (2 files)
+**Tier 1-3 Migrations (9):** *(Migrated 2026-02-03)*
+14. `/adapters/inbound/transcription_routes.py` (26 lines) - Audio transcription API
+15. `/adapters/inbound/visualization_routes.py` (31 lines) - Chart.js/Vis.js visualization
+16. `/adapters/inbound/admin_routes.py` (28 lines) - Admin user management
+17. `/adapters/inbound/auth_routes.py` (32 lines) - Authentication (API + UI)
+18. `/adapters/inbound/journals_routes.py` (58 lines) - Journal processing
+19. `/adapters/inbound/system_routes.py` (36 lines) - System health/metrics
+20. `/adapters/inbound/ingestion_routes.py` (34 lines) - Content ingestion
+21. `/adapters/inbound/insights_routes.py` (67 lines) - Insights dashboard (multi-factory)
+22. `/adapters/inbound/nous_routes.py` (29 lines) - NOUS knowledge UI (UI-only)
 
-**Files that SHOULD use DomainRouteConfig but need factory refactoring first:**
-
-1. **`system_routes.py`** (48 lines)
-   - **Issue:** Factories take full `services` container instead of specific services
-   - **Fix needed:** Refactor `create_system_api_routes()` and `create_system_ui_routes()` to extract specific services
-   - **Complexity:** Low (both factories only use `services.system_service`)
-
-2. **`journals_routes.py`** (87 lines)
-   - **Issue:** API factory takes both `transcript_processor` AND full `services` container
-   - **Fix needed:** Refactor `create_assignments_content_api_routes()` to extract specific services from container
-   - **Complexity:** Medium (uses `transcript_processor`, `services.assignments_core`, `services.user_service`)
-
-### Justified Exceptions (13 files)
+### Justified Exceptions (14 files)
 
 Files with legitimate complexity warranting custom patterns:
 
-**Complex/Specialized (10):**
-- `admin_routes.py` - Custom admin workflows
+**Complex/Specialized (9):**
 - `ai_routes.py` - AI service integration
-- `transcription_routes.py` - Audio processing pipeline
-- `auth_routes.py` - Authentication flows
-- `ingestion_routes.py` - Multi-source content ingestion
 - `graphql_routes.py` - GraphQL schema with explicit multi-dependency injection
-- `nous_routes.py` - AI chat interface
-- `sel_routes.py` - Social-emotional learning
-- `lifepath_routes.py` - Life path alignment
-- `search_routes.py` - Unified search orchestration (uses explicit DI pattern like GraphQL, January 2026)
+- `sel_routes.py` - Social-emotional learning (drawer layout, 562 lines)
+- `lifepath_routes.py` - Life path alignment (drawer layout, 589 lines)
+- `search_routes.py` - Unified search orchestration (uses SearchRouter DI pattern)
+- `lateral_routes.py` - Uses specialized LateralRouteFactory
+- `hierarchy_routes.py` - Uses specialized HierarchyRouteFactory
+- `monitoring_routes.py` - Health checks only
+- `orchestration_routes.py` - Cross-domain concerns
 
 **Specialized UI (3):**
 - `timeline_routes.py` - Export functionality
-- `visualization_routes.py` - Chart rendering
 - `calendar_routes.py` - HTMX calendar navigation
+- `advanced_routes.py` - Cross-domain concerns
+
+**Minimal Overhead (2):**
+- `metrics_routes.py` - Single endpoint, minimal overhead
+- `assignments_routes.py` - Content ingestion routes (separate from journal_projects)
 
 ## Common Patterns and Conventions
 
@@ -733,6 +827,32 @@ Logs show "API routes: 15 endpoints" but no "UI routes: X endpoints"
 2. Ensure UI factory uses standard signature: `def create_{domain}_ui_routes(_app, rt, {domain}_service, services=None)`
 3. As of 2026-02-03, `ui_related_services` is deprecated - UI factories use standard `services` parameter
 
+### Issue: TypeError with api_factory=None (UI-only pattern)
+
+**Symptom:**
+```
+TypeError: 'NoneType' object is not callable
+RuntimeError: Error registering nous routes
+```
+
+**Cause:** domain_route_factory.py attempts to call `config.api_factory()` without checking for None
+
+**Fix (infrastructure):**
+In `/core/infrastructure/routes/domain_route_factory.py` line 103, ensure null check exists:
+
+```python
+# ✓ CORRECT - with null check
+if config.api_factory:
+    api_routes = config.api_factory(app, rt, primary_service, **api_related)
+
+# ✗ WRONG - missing null check
+api_routes = config.api_factory(app, rt, primary_service, **api_related)
+```
+
+**Status:** Fixed in infrastructure as of 2026-02-03. UI-only pattern (`api_factory=None`) now fully supported.
+
+**Use case:** Content-focused domains like NOUS that only need UI routes (no CRUD API operations)
+
 ### Issue: TypeError about NoneType
 
 **Symptom:**
@@ -782,22 +902,34 @@ Zero runtime overhead - routes are registered once at application startup.
 **Phase 1 (Complete - 2025):** Activity domains (6/6)
 - ✅ Tasks, Goals, Habits, Events, Choices, Principles
 
-**Phase 2 (Complete - 2026-01-24):** Other standard domains (6/6)
+**Phase 2 (Complete - 2026-01-24):** Other standard domains (7/7)
 - ✅ Learning (LP)
 - ✅ Knowledge (KU)
 - ✅ Context (UserContext)
 - ✅ Reports (Meta-analysis)
 - ✅ Finance (Admin bookkeeping)
 - ✅ Askesis (AI assistants)
+- ✅ Journal Projects
 
-**Phase 3 (Deferred):** Factory refactoring required (2/2)
-- ⏸️ System (needs factory signature standardization)
-- ⏸️ Journals (needs factory signature standardization)
+**Phase 3 (Complete - 2026-02-03):** Complex migrations (9/9)
+- ✅ Tier 1 (5): Transcription, Visualization, Admin, Auth, Journals
+- ✅ Tier 2 (3): System, Ingestion, Insights
+- ✅ Tier 3 (1): NOUS (UI-only pattern)
 
-**Phase 4 (No Migration Planned):** Justified exceptions (13/13)
+**Phase 4 (Deferred - 2 files):** Large drawer layouts
+- ⏸️ LifePath (589 lines, drawer layout)
+- ⏸️ SEL (562 lines, drawer layout + categories)
+
+**Phase 5 (No Migration Planned):** Justified exceptions (14/14)
 - Complex/specialized route files remain manual (complexity warranted)
 
-**Summary:** 12/27 files using DomainRouteConfig (44% adoption) - **pattern complete** for all standard domains.
+**Summary:** 22/36 files using DomainRouteConfig (61% adoption) - **pattern complete** for all feasible migrations.
+
+**Key Achievements:**
+- 2,922 lines reduced to 341 lines across 9 files (88% reduction)
+- All 4 patterns proven: Standard, API-only, UI-only, Multi-factory
+- Infrastructure bug fixed (api_factory=None support)
+- Zero regressions detected
 
 ## References
 
@@ -806,7 +938,9 @@ Zero runtime overhead - routes are registered once at application startup.
 - **Route Factories:** `/docs/patterns/ROUTE_FACTORIES.md` - Endpoint-level factories
 - **Service Bootstrap:** `/core/utils/services_bootstrap.py` - Container creation
 - **Clean Architecture:** `/docs/architecture/ARCHITECTURE_OVERVIEW.md` - Layer separation
-- **Migration Summary:** `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-01-24.md` - Full migration details
+- **Migration Summaries:**
+  - `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-01-24.md` - Phase 2 migration (6 files)
+  - `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md` - Phase 3 migration (9 files)
 
 ### Related ADRs
 

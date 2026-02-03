@@ -531,13 +531,13 @@ async def _wire_all_routes(
     # Authentication routes (login, logout, user switching)
     from adapters.inbound.auth_routes import create_auth_routes
 
-    create_auth_routes(app, rt, services)
+    create_auth_routes(app, rt, services, None)
     logger.info("✅ Authentication routes registered (/login, /logout, /switch-user, /whoami)")
 
     # Admin routes (user management - requires ADMIN role)
     from adapters.inbound.admin_routes import create_admin_routes
 
-    create_admin_routes(app, rt, services)
+    create_admin_routes(app, rt, services, None)
     logger.info("✅ Admin routes registered (/api/admin/users/*)")
 
     # Admin dashboard UI routes (requires ADMIN role)
@@ -580,7 +580,7 @@ async def _wire_all_routes(
     if services.insight_store:
         from adapters.inbound.insights_routes import create_insights_routes
 
-        create_insights_routes(app, rt, services)
+        create_insights_routes(app, rt, services, None)
         logger.info("✅ Insights routes registered (/insights, /api/insights/*)")
 
     # Core domain routes
@@ -625,13 +625,8 @@ async def _wire_all_routes(
         create_journals_routes(app, rt, services, None)  # sync removed Jan 2026
         logger.info("✅ Journals routes registered")
 
-    # Journals API routes (January 2026 - Domain Separation)
-    # Dedicated API for Journal domain - separate from Assignment domain
-    if services.journals_core:
-        from adapters.inbound.journals_api import create_journals_api_routes
-
-        create_journals_api_routes(app, rt, services.transcript_processor, services)
-        logger.info("✅ Journals API routes registered (/api/journals/*)")
+    # Note: Journals API routes are registered via create_journals_routes() above
+    # using DomainRouteConfig pattern (migrated February 2026)
 
     # Assignments routes (Primary interface for file submission and processing)
     if services.assignments and services.processing_pipeline:
@@ -750,7 +745,7 @@ async def _wire_all_routes(
     if services.unified_ingestion:
         from adapters.inbound.ingestion_routes import create_ingestion_routes
 
-        create_ingestion_routes(app, rt, services.unified_ingestion, services.user_service)
+        create_ingestion_routes(app, rt, services, None)
         logger.info(
             "✅ Ingestion routes registered (unified MD + YAML for 14 entity types, admin-only)"
         )
@@ -770,13 +765,13 @@ async def _wire_all_routes(
     # Visualization routes (Chart.js, Vis.js Timeline, Frappe Gantt)
     from adapters.inbound.visualization_routes import create_visualization_routes
 
-    create_visualization_routes(app, rt, services)
+    create_visualization_routes(app, rt, services, None)
     logger.info("✅ Visualization routes registered")
 
     if services.transcription:
         from adapters.inbound.transcription_routes import create_transcription_routes
 
-        create_transcription_routes(app, rt, services.transcription)
+        create_transcription_routes(app, rt, services, None)
         logger.info("✅ Transcription routes registered")
 
     # Learning routes with clean architecture
@@ -819,7 +814,7 @@ async def _wire_all_routes(
     # Replaces old /docs routes - now THE primary documentation system
     from adapters.inbound.nous_routes import create_nous_routes
 
-    create_nous_routes(app, rt, services)
+    create_nous_routes(app, rt, services, None)
     logger.info("✅ Nous routes registered (/nous)")
 
     # User Profile Hub

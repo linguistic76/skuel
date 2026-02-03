@@ -99,8 +99,9 @@ def register_domain_routes(
     for kwarg_name, container_attr in config.api_related_services.items():
         api_related[kwarg_name] = getattr(services, container_attr, None) if services else None
 
-    # 3. Wire API routes
-    config.api_factory(app, rt, primary_service, **api_related)
+    # 3. Wire API routes (optional)
+    if config.api_factory:
+        config.api_factory(app, rt, primary_service, **api_related)
 
     # 4. Wire UI routes (optional)
     if config.ui_factory:

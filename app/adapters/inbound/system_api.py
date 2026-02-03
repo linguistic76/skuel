@@ -35,29 +35,36 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger("skuel.routes.system.api")
 
 
-def create_system_api_routes(_app, rt, services, _sync_service):
+def create_system_api_routes(
+    app: Any,
+    rt: Any,
+    system_service: Any,
+    user_service: Any = None,
+    sync_service: Any = None,
+) -> list[Any]:
     """
     Create system API routes for the application.
 
     Args:
         app: The FastHTML app instance
         rt: The router instance
-        services: The services container
-        sync_service: The sync service instance
+        system_service: System service instance
+        user_service: Optional user service for admin role checks
+        sync_service: Optional sync service instance
 
     Returns:
         List of registered routes
 
     Raises:
-        ValueError: If system_service is not available in services container
+        ValueError: If system_service is not available
 
     Note:
         Follows SKUEL's "Fail-Fast Dependency Philosophy" - all dependencies
         are REQUIRED. System API routes cannot function without system_service.
     """
+    routes: list[Any] = []
 
     # Fail-fast validation: system service is REQUIRED
-    system_service = getattr(services, "system_service", None)
     if system_service is None:
         raise ValueError(
             "System service is required for system API routes. "
@@ -65,9 +72,9 @@ def create_system_api_routes(_app, rt, services, _sync_service):
         )
 
     # User service for admin role checks (SKUEL012: use named function, not lambda)
-    def get_user_service():
+    def get_user_service_instance():
         """Get user service for admin role checks."""
-        return services.user_service
+        return user_service
 
     # ========================================================================
     # BASIC HEALTH ENDPOINTS
@@ -75,7 +82,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
     # Security: All system endpoints require admin role (January 2026)
 
     @rt("/api/health")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def health_check_route(_request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -110,7 +117,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
         return Result.ok(response)
 
     @rt("/api/status")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def status_route(_request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -156,7 +163,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
         return Result.ok(response)
 
     @rt("/api/health/detailed")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def detailed_health_route(_request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -196,7 +203,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
         return Result.ok(response)
 
     @rt("/api/version")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def version_info_route(_request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -220,7 +227,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
         )
 
     @rt("/api/metrics")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def system_metrics_route(_request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -277,7 +284,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
         return Result.ok(metrics)
 
     @rt("/api/diagnostics")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def system_diagnostics_route(_request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -341,7 +348,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
     # ========================================================================
 
     @rt("/api/services/register")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler(success_status=201)
     async def register_service_route(request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -378,7 +385,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
         )
 
     @rt("/api/services/unregister")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def unregister_service_route(request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -408,7 +415,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
             return Result.fail(Errors.not_found(resource="Service", identifier=service_name))
 
     @rt("/api/services")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def list_services_route(_request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -431,7 +438,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
     # ========================================================================
 
     @rt("/api/validate")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def validate_system_route(_request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -465,7 +472,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
         return Result.ok(validation_data)
 
     @rt("/api/summary")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def system_summary_route(_request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -564,7 +571,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
     # ========================================================================
 
     @rt("/api/alerts")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def check_alerts_route(_request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -594,7 +601,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
         return Result.ok(alerts_data)
 
     @rt("/api/alerts/thresholds")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler()
     async def get_alert_thresholds_route(_request: Request, current_user) -> Result[dict[str, Any]]:
         """
@@ -607,7 +614,7 @@ def create_system_api_routes(_app, rt, services, _sync_service):
         return Result.ok({"thresholds": thresholds, "timestamp": datetime.now(UTC).isoformat()})
 
     @rt("/api/alerts/thresholds")
-    @require_admin(get_user_service)
+    @require_admin(get_user_service_instance)
     @boundary_handler(success_status=201)
     async def update_alert_thresholds_route(
         request: Request, current_user
@@ -636,10 +643,8 @@ def create_system_api_routes(_app, rt, services, _sync_service):
             }
         )
 
-    logger.info("✅ System API routes registered (consistent architecture)")
-
-    # Return list of registered routes
-    return [
+    # Collect all routes
+    routes.extend([
         health_check_route,
         status_route,
         detailed_health_route,
@@ -654,7 +659,10 @@ def create_system_api_routes(_app, rt, services, _sync_service):
         check_alerts_route,
         get_alert_thresholds_route,
         update_alert_thresholds_route,
-    ]
+    ])
+
+    logger.info(f"System API routes registered: {len(routes)} endpoints")
+    return routes
 
 
 # ============================================================================
@@ -722,3 +730,6 @@ async def check_service_health(service):
 # 12. GET /api/alerts - Check triggered alerts
 # 13. GET /api/alerts/thresholds - Get alert thresholds
 # 14. POST /api/alerts/thresholds - Update alert thresholds (201)
+
+
+__all__ = ["create_system_api_routes"]
