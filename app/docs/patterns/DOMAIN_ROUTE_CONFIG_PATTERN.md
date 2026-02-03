@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** Currently used by 24 of 36 route files (67%), with 12 files remaining as justified exceptions.
+**Adoption:** Currently used by 25 of 36 route files (69%), with 11 files remaining as justified exceptions.
 
 ## The Pattern
 
@@ -670,6 +670,44 @@ SEL_CONFIG = DomainRouteConfig(
 
 ---
 
+### Example 11: Standard with UI Optional Dependency (Calendar)
+
+**File:** `/adapters/inbound/calendar_routes.py`
+
+```python
+CALENDAR_CONFIG = DomainRouteConfig(
+    domain_name="calendar",
+    primary_service_attr="calendar",  # services.calendar
+    api_factory=create_calendar_api_routes,
+    ui_factory=create_calendar_ui_routes,
+    api_related_services={},
+    ui_related_services={
+        "habits_service": "habits",  # habits_service=services.habits (optional)
+    },
+)
+```
+
+**API Routes:** (`calendar_api.py` - 3 routes)
+- `POST /api/calendar/quick-create` — Uses `@app.post` (not `@rt`), returns dict/tuple directly
+- `GET /api/v2/calendar/items/{item_id}` — `@rt` + `@boundary_handler`, returns `Result[Any]`
+- `PATCH /api/events/calendar/reschedule` — Returns raw `Response` with `HX-Refresh` header
+
+**UI Routes:** (`calendar_ui.py` - 7 routes)
+- 4 page views: `/events`, `/events/month/{y}/{m}`, `/events/week/{date}`, `/events/day/{date}`
+- 3 HTMX fragments: quick-create form, habit recording, item-details modal
+- Module-level helpers: page wrapper, navigation (prev/next month/week/day), modal renderer
+
+**Key features:**
+- **UI optional dependency:** `habits_service` wired via `ui_related_services`. The UI factory receives it as an explicit kwarg with a `None` default, keeping the dependency visible. The route guards usage with `if habits_service:` and provides a development fallback.
+- **`@app.post` vs `@rt`:** `quick_create` uses `@app.post` because it returns a plain dict (not an FT component). The API factory receives `app` as its first param specifically for this case.
+- **Raw Response:** `reschedule_item` imports `Response` inline and returns it directly (no `@boundary_handler`). The `HX-Refresh: true` header triggers a full page reload after drag-drop reschedule.
+- **Internal call pattern:** `calendar_default` (`GET /events`) calls `calendar_month` directly instead of issuing a redirect. `calendar_month` is defined first in the factory so the reference is unambiguous.
+- **848 → 34 lines** (96% reduction) — largest single-file reduction in the migration series.
+
+**Migration:** 2026-02-03 (Phase 5)
+
+---
+
 ## Related Patterns
 
 ### Route Factories
@@ -762,7 +800,7 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
   - `DomainRouteConfig` dataclass (lines 37-58)
   - `register_domain_routes()` function (lines 61-124)
 
-### Current Users (22 files - 61% adoption)
+### Current Users (25 files - 69% adoption)
 
 **Activity Domains (6):**
 1. `/adapters/inbound/tasks_routes.py` (33 lines)
@@ -792,26 +830,28 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 21. `/adapters/inbound/insights_routes.py` (67 lines) - Insights dashboard (multi-factory)
 22. `/adapters/inbound/nous_routes.py` (29 lines) - NOUS knowledge UI (UI-only)
 
-**Additional Migration (1):** *(Migrated 2026-02-03)*
+**Phase 4 Migrations (2):** *(Migrated 2026-02-03)*
 23. `/adapters/inbound/lifepath_routes.py` (32 lines) - Life path alignment (API + UI, drawer layout)
+24. `/adapters/inbound/sel_routes.py` (35 lines) - SEL personalized learning (API + UI, drawer layout)
 
-### Justified Exceptions (13 files)
+**Phase 5 Migration (1):** *(Migrated 2026-02-03)*
+25. `/adapters/inbound/calendar_routes.py` (34 lines) - Calendar views (API + UI, HTMX fragments)
+
+### Justified Exceptions (11 files)
 
 Files with legitimate complexity warranting custom patterns:
 
-**Complex/Specialized (8):**
+**Complex/Specialized (7):**
 - `ai_routes.py` - AI service integration
 - `graphql_routes.py` - GraphQL schema with explicit multi-dependency injection
-- `sel_routes.py` - Social-emotional learning (drawer layout, 562 lines)
 - `search_routes.py` - Unified search orchestration (uses SearchRouter DI pattern)
 - `lateral_routes.py` - Uses specialized LateralRouteFactory
 - `hierarchy_routes.py` - Uses specialized HierarchyRouteFactory
 - `monitoring_routes.py` - Health checks only
 - `orchestration_routes.py` - Cross-domain concerns
 
-**Specialized UI (3):**
+**Specialized UI (2):**
 - `timeline_routes.py` - Export functionality
-- `calendar_routes.py` - HTMX calendar navigation
 - `advanced_routes.py` - Cross-domain concerns
 
 **Minimal Overhead (2):**
@@ -1004,19 +1044,23 @@ Zero runtime overhead - routes are registered once at application startup.
 - ✅ Tier 2 (3): System, Ingestion, Insights
 - ✅ Tier 3 (1): NOUS (UI-only pattern)
 
-**Phase 4 (Deferred - 2 files):** Large drawer layouts
-- ⏸️ LifePath (589 lines, drawer layout)
-- ⏸️ SEL (562 lines, drawer layout + categories)
+**Phase 4 (Complete - 2026-02-03):** Large drawer layouts
+- ✅ LifePath (589 → 32 lines, drawer layout)
+- ✅ SEL (730 → 35 lines, drawer layout + categories)
 
-**Phase 5 (No Migration Planned):** Justified exceptions (14/14)
+**Phase 5 (Complete - 2026-02-03):** HTMX calendar
+- ✅ Calendar (848 → 34 lines, Standard with UI optional dependency)
+
+**Phase 6 (No Migration Planned):** Justified exceptions (11/11)
 - Complex/specialized route files remain manual (complexity warranted)
 
-**Summary:** 22/36 files using DomainRouteConfig (61% adoption) - **pattern complete** for all feasible migrations.
+**Summary:** 25/36 files using DomainRouteConfig (69% adoption) - **pattern complete** for all feasible migrations.
 
 **Key Achievements:**
-- 2,922 lines reduced to 341 lines across 9 files (88% reduction)
+- 4,648 lines reduced to ~444 lines across 12 files (91% average reduction)
 - All 4 patterns proven: Standard, API-only, UI-only, Multi-factory
 - Infrastructure bug fixed (api_factory=None support)
+- UI optional dependency pattern proven (calendar)
 - Zero regressions detected
 
 ## References
