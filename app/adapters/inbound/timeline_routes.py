@@ -28,12 +28,13 @@ from components.timeline_components import (
 from core.models.shared_enums import ActivityStatus
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
+from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
 
-def create_timeline_routes(_app, rt, tasks_service: Any):
+def create_timeline_api_routes(_app, rt, tasks_service: Any):
     """Create timeline routes for both REST API and web interface."""
 
     @rt("/api/tasks/timeline")
@@ -329,5 +330,20 @@ def create_timeline_routes(_app, rt, tasks_service: Any):
     return [get_tasks_timeline, get_timeline_preview, timeline_viewer]
 
 
-# Export the route creation function
+# ---------------------------------------------------------------------------
+# DomainRouteConfig wiring
+# ---------------------------------------------------------------------------
+
+TIMELINE_CONFIG = DomainRouteConfig(
+    domain_name="timeline",
+    primary_service_attr="tasks",
+    api_factory=create_timeline_api_routes,
+)
+
+
+def create_timeline_routes(app, rt, services, _sync_service=None):
+    """Wire timeline routes using configuration-driven registration."""
+    return register_domain_routes(app, rt, services, TIMELINE_CONFIG)
+
+
 __all__ = ["create_timeline_routes"]

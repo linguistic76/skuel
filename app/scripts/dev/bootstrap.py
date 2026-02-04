@@ -696,16 +696,10 @@ async def _wire_all_routes(
         register_analytics_routes(app, services)
         logger.info("✅ Analytics API routes registered (Phase 5: Event-driven live metrics)")
 
-    if services.moc:
-        from adapters.inbound.moc_api import create_moc_api_routes
-        from adapters.inbound.moc_ui import create_moc_ui_routes
+    from adapters.inbound.moc_routes import create_moc_routes
 
-        create_moc_api_routes(app, rt, services.moc)
-        create_moc_ui_routes(app, rt, services.moc)
-        logger.info(
-            "✅ MOC API routes registered (20 endpoints: 5 CRUD + 13 domain-specific + 2 analytics)"
-        )
-        logger.info("✅ MOC UI routes registered (dashboard, detail views, forms)")
+    create_moc_routes(app, rt, services)
+    logger.info("✅ MOC routes registered (API + UI)")
 
     # Hierarchy routes (TreeView, AccordionHierarchy API endpoints)
     from adapters.inbound.hierarchy_routes import create_hierarchy_routes
@@ -743,7 +737,7 @@ async def _wire_all_routes(
     # Specialized routes
     from adapters.inbound.timeline_routes import create_timeline_routes
 
-    create_timeline_routes(app, rt, services.tasks)
+    create_timeline_routes(app, rt, services)
 
     # Visualization routes (Chart.js, Vis.js Timeline, Frappe Gantt)
     from adapters.inbound.visualization_routes import create_visualization_routes
