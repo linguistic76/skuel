@@ -39,7 +39,7 @@ async def core_service(neo4j_driver):
         driver=neo4j_driver, label="Askesis", entity_class=Askesis
     )
 
-    return AskesisCoreService(backend=backend)
+    return AskesisCoreService(backend=backend, driver=neo4j_driver)
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ async def test_get_or_create_for_user_creates_default(core_service, test_user_ui
     assert askesis.user_uid == test_user_uid
     assert askesis.name == "Askesis"
     assert askesis.version == "1.0"
-    assert askesis.uid.startswith("askesis.")
+    assert askesis.uid.startswith("askesis_")
 
 
 @pytest.mark.asyncio
@@ -238,4 +238,4 @@ async def test_get_user_askesis_alias(core_service, test_user_uid):
     # Assert
     assert result.is_ok
     assert result.value.user_uid == test_user_uid
-    assert result.value.uid.startswith("askesis.")
+    assert result.value.uid.startswith("askesis_")
