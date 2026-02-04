@@ -29,7 +29,7 @@ npm install
 Create a `.env` file in the project root:
 
 ```bash
-# Neo4j Connection (running in separate /infra)
+# Neo4j Connection (running in ~/skuel/infrastructure)
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=your_password
@@ -53,7 +53,7 @@ LOG_LEVEL=INFO
 ### 3. Start Neo4j Infrastructure
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose up -d
 ```
 
@@ -420,7 +420,7 @@ Always check local docs first:
 
 ## Project Scope
 
-**Important**: This repository contains SKUEL application code only. Neo4j infrastructure runs separately from `/infra`. Do not assume access to Docker, infrastructure configs, or system-level settings beyond this directory.
+**Important**: This repository contains SKUEL application code only. Neo4j infrastructure runs separately in `~/skuel/infrastructure`. Do not assume access to Docker, infrastructure configs, or system-level settings beyond this directory.
 
 ---
 

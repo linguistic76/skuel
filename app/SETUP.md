@@ -10,7 +10,7 @@
 SKUEL uses a **separated infrastructure pattern** where infrastructure services run independently from application code:
 
 ```
-/home/mike/infra/          ← Infrastructure (Neo4j, future services)
+/home/mike/skuel/infrastructure/          ← Infrastructure (Neo4j, future services)
 /home/mike/skuel/app/        ← SKUEL application code
 ```
 
@@ -18,7 +18,7 @@ SKUEL uses a **separated infrastructure pattern** where infrastructure services 
 - ✅ Infrastructure runs independently (survives app restarts)
 - ✅ Single source of truth for infrastructure config
 - ✅ Clean separation of concerns
-- ✅ Easier backups (backup /infra = backup all data)
+- ✅ Easier backups (backup ~/skuel/infrastructure = backup all data)
 - ✅ Production-ready Neo4j 5.26+ configuration
 
 ---
@@ -36,7 +36,7 @@ SKUEL uses a **separated infrastructure pattern** where infrastructure services 
 ### 1. Start Infrastructure
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose up -d
 ```
 
@@ -57,10 +57,10 @@ docker compose ps
 Create `/home/mike/skuel/app/.env`:
 
 ```bash
-# Neo4j Connection (connects to /infra instance)
+# Neo4j Connection (connects to ~/skuel/infrastructure instance)
 NEO4J_URI=neo4j://localhost:7687
 NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=<password from /infra/.env>
+NEO4J_PASSWORD=<password from ~/skuel/infrastructure/.env>
 NEO4J_DATABASE=neo4j
 
 # AI Service API Keys
@@ -74,12 +74,12 @@ APP_DEBUG=false
 LOG_LEVEL=INFO
 ```
 
-**Important:** `NEO4J_PASSWORD` must match the password in `/home/mike/infra/.env`
+**Important:** `NEO4J_PASSWORD` must match the password in `/home/mike/skuel/infrastructure/.env`
 
 ### 3. Install Dependencies
 
 ```bash
-cd ~/skuel/app0
+cd ~/skuel/app
 poetry install
 ```
 
@@ -87,13 +87,13 @@ poetry install
 
 **Option A: Local Python (Recommended for development)**
 ```bash
-cd ~/skuel/app0
+cd ~/skuel/app
 poetry run python main.py
 ```
 
 **Option B: Dockerized Application**
 ```bash
-cd ~/skuel/app0
+cd ~/skuel/app
 docker compose up -d
 ```
 
@@ -108,7 +108,7 @@ docker compose up -d
 
 ### Neo4j Memory Settings
 
-Configure in `/home/mike/infra/.env`:
+Configure in `/home/mike/skuel/infrastructure/.env`:
 
 ```bash
 NEO4J_AUTH=neo4j/<your-password>
@@ -140,7 +140,7 @@ The infrastructure uses Neo4j 5.26+ configuration syntax (zero deprecation warni
 | Transaction timeout | `NEO4J_db_transaction_timeout` | Large query timeout (600s) |
 | Query logging | `NEO4J_db_logs_query_enabled` | Slow query detection (INFO) |
 
-See `/home/mike/infra/README.md` for complete configuration reference.
+See `/home/mike/skuel/infrastructure/README.md` for complete configuration reference.
 
 ---
 
@@ -152,10 +152,10 @@ See `/home/mike/infra/README.md` for complete configuration reference.
 
 ```bash
 # Terminal 1: Infrastructure (start once, leave running)
-cd ~/infra && docker compose up -d
+cd ~/skuel/infrastructure && docker compose up -d
 
 # Terminal 2: Application (restart as needed)
-cd ~/skuel/app0 && poetry run python main.py
+cd ~/skuel/app && poetry run python main.py
 ```
 
 **Benefits:**
@@ -169,8 +169,8 @@ cd ~/skuel/app0 && poetry run python main.py
 **Best for testing containerized deployment:**
 
 ```bash
-cd ~/infra && docker compose up -d     # Start Neo4j
-cd ~/skuel/app0 && docker compose up -d   # Start app in Docker
+cd ~/skuel/infrastructure && docker compose up -d     # Start Neo4j
+cd ~/skuel/app && docker compose up -d   # Start app in Docker
 ```
 
 **Benefits:**
@@ -183,7 +183,7 @@ cd ~/skuel/app0 && docker compose up -d   # Start app in Docker
 **For production deployment:**
 
 ```bash
-cd ~/skuel/app0
+cd ~/skuel/app
 docker compose -f docker-compose.production.yml up -d
 ```
 
@@ -196,7 +196,7 @@ This includes all services (Neo4j, app, optional future services like Redis, Oll
 ### Check Status
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose ps
 ```
 
@@ -226,14 +226,14 @@ docker compose restart
 ### Stop Infrastructure
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose down  # Stops containers, preserves data
 ```
 
 ### Complete Cleanup (⚠️ Deletes all data!)
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose down -v  # Removes volumes
 rm -rf neo4j/data/*     # Clear data directory
 ```
@@ -245,16 +245,16 @@ rm -rf neo4j/data/*     # Clear data directory
 ### Backup Neo4j
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/backups
 ```
 
-Backup file saved to: `/home/mike/infra/neo4j/backups/`
+Backup file saved to: `/home/mike/skuel/infrastructure/neo4j/backups/`
 
 ### Restore from Backup
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose stop neo4j
 docker compose exec neo4j neo4j-admin database load neo4j \
     --from-path=/backups/<backup-file>.dump --overwrite-destination=true
@@ -264,7 +264,7 @@ docker compose start neo4j
 ### Clear Database (Keep Structure)
 
 ```bash
-cd ~/skuel/app0
+cd ~/skuel/app
 poetry run python scripts/clear_neo4j.py reset
 # Type: DELETE EVERYTHING
 ```
@@ -279,7 +279,7 @@ This clears data, constraints, and indexes.
 
 **Check logs:**
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose logs neo4j
 ```
 
@@ -298,7 +298,7 @@ docker ps | grep neo4j
 
 **Test connection:**
 ```bash
-cd ~/skuel/app0
+cd ~/skuel/app
 poetry run python -c "
 from neo4j import GraphDatabase
 driver = GraphDatabase.driver('neo4j://localhost:7687', auth=('neo4j', 'password'))
@@ -311,8 +311,8 @@ driver.close()
 **Check password match:**
 ```bash
 # Compare passwords
-cat ~/infra/.env | grep NEO4J_AUTH
-cat ~/skuel/app0/.env | grep NEO4J_PASSWORD
+cat ~/skuel/infrastructure/.env | grep NEO4J_AUTH
+cat ~/skuel/app/.env | grep NEO4J_PASSWORD
 # These must match!
 ```
 
@@ -326,14 +326,14 @@ lsof -i :7687  # Bolt port
 
 **Solutions:**
 - Kill the conflicting process
-- Change port in `/infra/.env` (not recommended)
+- Change port in `~/skuel/infrastructure/.env` (not recommended)
 
 ---
 
 ## File Structure
 
 ```
-/home/mike/infra/
+/home/mike/skuel/infrastructure/
 ├── docker-compose.yml     # Neo4j configuration (SINGLE SOURCE OF TRUTH)
 ├── .env                   # Infrastructure credentials
 ├── README.md              # Infrastructure documentation
@@ -346,7 +346,7 @@ lsof -i :7687  # Bolt port
     └── backups/           # Database backups
 
 /home/mike/skuel/app/
-├── docker-compose.yml              # App-only (connects to /infra)
+├── docker-compose.yml              # App-only (connects to ~/skuel/infrastructure)
 ├── docker-compose.production.yml   # Full production stack
 ├── .env                            # App config + Neo4j connection
 ├── main.py                         # Application entry point
@@ -360,7 +360,7 @@ lsof -i :7687  # Bolt port
 
 ## Environment Variables Reference
 
-### Infrastructure (.env in /infra)
+### Infrastructure (.env in ~/skuel/infrastructure)
 
 ```bash
 # Authentication
@@ -378,7 +378,7 @@ NEO4J_PAGECACHE=2G
 # Neo4j Connection
 NEO4J_URI=neo4j://localhost:7687
 NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=<must match /infra/.env>
+NEO4J_PASSWORD=<must match ~/skuel/infrastructure/.env>
 NEO4J_DATABASE=neo4j
 
 # AI Services
@@ -417,7 +417,7 @@ See `/home/mike/skuel/app/FUTURE_SERVICES.md` for detailed activation instructio
 
 ## Next Steps
 
-1. ✅ Infrastructure running (`cd ~/infra && docker compose ps`)
+1. ✅ Infrastructure running (`cd ~/skuel/infrastructure && docker compose ps`)
 2. ✅ Application configured (`.env` file created)
 3. ✅ Dependencies installed (`poetry install`)
 4. ✅ Application running (`poetry run python main.py`)
@@ -430,24 +430,24 @@ See `/home/mike/skuel/app/FUTURE_SERVICES.md` for detailed activation instructio
 
 ```bash
 # Infrastructure
-cd ~/infra && docker compose up -d              # Start Neo4j
-cd ~/infra && docker compose ps                 # Check status
-cd ~/infra && docker compose logs -f neo4j      # View logs
-cd ~/infra && docker compose restart neo4j      # Restart Neo4j
-cd ~/infra && docker compose down               # Stop (preserves data)
+cd ~/skuel/infrastructure && docker compose up -d              # Start Neo4j
+cd ~/skuel/infrastructure && docker compose ps                 # Check status
+cd ~/skuel/infrastructure && docker compose logs -f neo4j      # View logs
+cd ~/skuel/infrastructure && docker compose restart neo4j      # Restart Neo4j
+cd ~/skuel/infrastructure && docker compose down               # Stop (preserves data)
 
 # Application (Local)
-cd ~/skuel/app0 && poetry install                  # Install dependencies
-cd ~/skuel/app0 && poetry run python main.py       # Start app
-cd ~/skuel/app0 && ./restart_server.sh             # Restart app (if script exists)
+cd ~/skuel/app && poetry install                  # Install dependencies
+cd ~/skuel/app && poetry run python main.py       # Start app
+cd ~/skuel/app && ./restart_server.sh             # Restart app (if script exists)
 
 # Application (Docker)
-cd ~/skuel/app0 && docker compose up -d            # Start app container
-cd ~/skuel/app0 && docker compose logs -f          # View app logs
-cd ~/skuel/app0 && docker compose restart          # Restart app
+cd ~/skuel/app && docker compose up -d            # Start app container
+cd ~/skuel/app && docker compose logs -f          # View app logs
+cd ~/skuel/app && docker compose restart          # Restart app
 
 # Database
-cd ~/infra && docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/backups
+cd ~/skuel/infrastructure && docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/backups
 open http://localhost:7474                      # Neo4j Browser
 ```
 
@@ -455,7 +455,7 @@ open http://localhost:7474                      # Neo4j Browser
 
 ## Related Documentation
 
-- **Infrastructure:** `/home/mike/infra/README.md`
+- **Infrastructure:** `/home/mike/skuel/infrastructure/README.md`
 - **Future Services:** `/home/mike/skuel/app/FUTURE_SERVICES.md`
 - **Development Guide:** `/home/mike/skuel/app/CLAUDE.md`
 - **Architecture:** `/home/mike/skuel/app/docs/architecture/`

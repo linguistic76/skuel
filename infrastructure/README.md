@@ -18,10 +18,10 @@ This directory contains **all infrastructure services** that SKUEL depends on, c
 **Quick Start:**
 ```bash
 # Start infrastructure (once, leave running)
-cd ~/infra && docker compose up -d
+cd ~/skuel/infrastructure && docker compose up -d
 
 # Develop application freely (restarts don't affect infrastructure)
-cd ~/skuel00 && poetry run python main.py
+cd ~/skuel/app && poetry run python main.py
 ```
 
 **Key Benefit:** Infrastructure and application have independent lifecycles - start infrastructure once, restart app hundreds of times without losing data.
@@ -35,7 +35,7 @@ This directory contains all infrastructure services that SKUEL depends on. By se
 - ✅ **Clean Separation**: Infrastructure can be managed independently
 - ✅ **Independent Lifecycle**: Services stay running while application restarts
 - ✅ **Data Isolation**: All persistent data in one location
-- ✅ **Easier Backups**: Backup /infra to preserve all application data
+- ✅ **Easier Backups**: Backup ~/skuel/infrastructure to preserve all application data
 - ✅ **Development Workflow**: Start infrastructure once, develop/restart app freely
 
 ## Benefits of This Architecture
@@ -46,10 +46,10 @@ This directory contains all infrastructure services that SKUEL depends on. By se
 
 ```bash
 # Terminal 1: Infrastructure (start once, leave running)
-cd ~/infra && docker compose up -d
+cd ~/skuel/infrastructure && docker compose up -d
 
 # Terminal 2: Application (restart as needed)
-cd ~/skuel00 && poetry run python main.py
+cd ~/skuel/app && poetry run python main.py
 # Or use hot reload, debugger, tests, etc.
 ```
 
@@ -67,17 +67,17 @@ cd ~/skuel00 && poetry run python main.py
 - ✅ **Independent updates** - Update infrastructure without redeploying app
 - ✅ **Horizontal scaling** - Multiple app instances, single infrastructure
 - ✅ **Clear ownership** - Different teams can own infrastructure vs. application
-- ✅ **Backup strategy** - All data in one location (`/infra/neo4j/`)
+- ✅ **Backup strategy** - All data in one location (`~/skuel/infrastructure/neo4j/`)
 - ✅ **Resource allocation** - Infrastructure and app can scale independently
 - ✅ **Zero-downtime deploys** - Update app while infrastructure runs
 
 **Example Production Workflow:**
 ```bash
 # Infrastructure team manages Neo4j, Redis, etc.
-cd ~/infra && docker compose up -d
+cd ~/skuel/infrastructure && docker compose up -d
 
 # Application team deploys multiple instances
-cd ~/skuel00 && docker compose -f docker-compose.production.yml scale skuel-app=3
+cd ~/skuel/app && docker compose -f docker-compose.production.yml scale skuel-app=3
 ```
 
 ## Architecture Pattern
@@ -97,7 +97,7 @@ cd ~/skuel00 && docker compose -f docker-compose.production.yml scale skuel-app=
 
 **Connection Flow**:
 ```
-Application (/skuel00) → Connects to → Infrastructure (/infra)
+Application (~/skuel/app) → Connects to → Infrastructure (~/skuel/infrastructure)
    Uses environment variables to locate services (NEO4J_URI, etc.)
 ```
 
@@ -158,7 +158,7 @@ open http://localhost:7474
 ### Starting Infrastructure
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose up -d
 ```
 
@@ -167,7 +167,7 @@ docker compose up -d
 ### Checking Status
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose ps
 ```
 
@@ -193,7 +193,7 @@ docker compose logs --tail=100 neo4j
 ### Stopping Infrastructure
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose down
 ```
 
@@ -202,7 +202,7 @@ docker compose down
 ### Restarting a Service
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose restart neo4j
 ```
 
@@ -224,10 +224,10 @@ The SKUEL application connects to infrastructure services via **network protocol
 **Application configures connection in `/home/mike/skuel/app/.env`:**
 
 ```bash
-# Neo4j Connection (points to /infra services)
+# Neo4j Connection (points to ~/skuel/infrastructure services)
 NEO4J_URI=neo4j://localhost:7687
 NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=<must match /infra/.env>
+NEO4J_PASSWORD=<must match ~/skuel/infrastructure/.env>
 NEO4J_DATABASE=neo4j
 ```
 
@@ -236,20 +236,20 @@ NEO4J_DATABASE=neo4j
 **Scenario 1: Local App + Docker Infrastructure (Recommended for Development)**
 ```bash
 # Infrastructure runs in Docker
-cd ~/infra && docker compose up -d
+cd ~/skuel/infrastructure && docker compose up -d
 
 # Application runs locally
-cd ~/skuel00 && poetry run python main.py
+cd ~/skuel/app && poetry run python main.py
 # App connects to localhost:7687 (Docker port is mapped to host)
 ```
 
 **Scenario 2: Both in Docker**
 ```bash
 # Infrastructure runs in Docker
-cd ~/infra && docker compose up -d
+cd ~/skuel/infrastructure && docker compose up -d
 
 # Application runs in Docker
-cd ~/skuel00 && docker compose up -d
+cd ~/skuel/app && docker compose up -d
 # App connects via host.docker.internal:7687 (Docker → host network)
 ```
 
@@ -266,7 +266,7 @@ docker compose -f docker-compose.production.yml up -d --scale skuel-app=3
 
 **Test from application directory:**
 ```bash
-cd ~/skuel00
+cd ~/skuel/app
 poetry run python -c "
 from neo4j import GraphDatabase
 import os
@@ -295,12 +295,12 @@ driver.close()
 
 1. **Start infrastructure** (once, stays running):
    ```bash
-   cd ~/infra && docker compose up -d
+   cd ~/skuel/infrastructure && docker compose up -d
    ```
 
 2. **Develop application** (restart freely):
    ```bash
-   cd ~/skuel00
+   cd ~/skuel/app
    poetry run python main.py
    # Or use ./restart_server.sh
    ```
@@ -313,7 +313,7 @@ driver.close()
 
 4. **Stop infrastructure** only when done for the day:
    ```bash
-   cd ~/infra && docker compose down
+   cd ~/skuel/infrastructure && docker compose down
    ```
 
 ## Environment Variables
@@ -330,7 +330,7 @@ NEO4J_HEAP_MAX=1500M
 NEO4J_PAGECACHE=2G
 ```
 
-### Application Connection (.env in /skuel00)
+### Application Connection (.env in ~/skuel/app)
 
 ```bash
 # Connection to infrastructure
@@ -350,7 +350,7 @@ DEEPGRAM_API_KEY=<your-key>
 
 **Manual backup**:
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/backups
 ```
 
@@ -359,9 +359,9 @@ Backup file will be in `./neo4j/backups/`
 **Automated backup** (recommended - create script):
 ```bash
 #!/bin/bash
-# /infra/scripts/backup-neo4j.sh
+# ~/skuel/infrastructure/scripts/backup-neo4j.sh
 DATE=$(date +%Y%m%d_%H%M%S)
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose exec neo4j neo4j-admin database dump neo4j \
     --to-path=/backups/neo4j_${DATE}.dump
 echo "Backup created: neo4j_${DATE}.dump"
@@ -370,7 +370,7 @@ echo "Backup created: neo4j_${DATE}.dump"
 ### Restoring from Backup
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 # Stop neo4j
 docker compose stop neo4j
 
@@ -387,7 +387,7 @@ docker compose start neo4j
 **⚠️ Warning: This deletes everything!**
 
 ```bash
-cd ~/infra
+cd ~/skuel/infrastructure
 docker compose down -v  # -v removes volumes
 rm -rf neo4j/data/*     # Clear data directory
 docker compose up -d    # Start fresh
@@ -433,7 +433,7 @@ docker stats skuel-neo4j
 # Shows: CPU%, MEM USAGE/LIMIT, MEM%, NET I/O, BLOCK I/O
 ```
 
-## What Runs in /infra
+## What Runs in ~/skuel/infrastructure
 
 ### Currently Active Services
 
@@ -473,11 +473,11 @@ This directory is designed to hold additional infrastructure services as SKUEL g
 - SKUEL001 linter rule still bans APOC in domain services (`core/services/`) — pure Cypher remains the rule for all application queries
 - See `/home/mike/skuel/app/docs/patterns/CYPHER_VS_APOC_STRATEGY.md` for the full strategy
 
-### Adding Services to /infra
+### Adding Services to ~/skuel/infrastructure
 
 **Process:**
-1. Define service in `/infra/docker-compose.yml`
-2. Add credentials to `/infra/.env`
+1. Define service in `~/skuel/infrastructure/docker-compose.yml`
+2. Add credentials to `~/skuel/infrastructure/.env`
 3. Document in this README
 4. Update application connection in `/home/mike/skuel/app/.env`
 5. Test connectivity
@@ -508,7 +508,7 @@ docker ps | grep neo4j
 **Test connection**:
 ```bash
 # From application directory
-cd ~/skuel00
+cd ~/skuel/app
 poetry run python -c "
 from neo4j import GraphDatabase
 driver = GraphDatabase.driver('neo4j://localhost:7687', auth=('neo4j', 'password'))
@@ -521,8 +521,8 @@ driver.close()
 **Check password match**:
 ```bash
 # Compare passwords
-cat ~/infra/.env | grep NEO4J_AUTH
-cat ~/skuel00/.env | grep NEO4J_PASSWORD
+cat ~/skuel/infrastructure/.env | grep NEO4J_AUTH
+cat ~/skuel/app/.env | grep NEO4J_PASSWORD
 # These must match!
 ```
 
@@ -554,7 +554,7 @@ docker system prune -a  # Remove unused containers, images, networks
 
 1. **Backup first**:
    ```bash
-   cd ~/infra
+   cd ~/skuel/infrastructure
    docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/backups
    ```
 
@@ -649,7 +649,7 @@ When deploying to production:
 
 ```bash
 # Start infrastructure
-cd ~/infra && docker compose up -d
+cd ~/skuel/infrastructure && docker compose up -d
 
 # Check status
 docker compose ps
@@ -677,4 +677,4 @@ curl http://localhost:7474
 
 **Philosophy**: "Infrastructure should be boring and reliable"
 
-This /infra directory exists to make SKUEL's infrastructure predictable, manageable, and separate from application development. It should "just work" so you can focus on building features.
+This ~/skuel/infrastructure directory exists to make SKUEL's infrastructure predictable, manageable, and separate from application development. It should "just work" so you can focus on building features.

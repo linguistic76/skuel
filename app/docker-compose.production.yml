@@ -10,7 +10,7 @@
 #
 # CURRENTLY RUNNING (when using this file):
 #   - skuel-app      ✅ SKUEL application
-#   - neo4j          ⚠️ SHOULD USE /infra instead (see note below)
+#   - neo4j          ⚠️ SHOULD USE ~/skuel/infrastructure instead (see note below)
 #
 # FUTURE SERVICES (Pre-wired, ready to enable):
 #   - redis          🟡 Ready - In-memory cache currently sufficient
@@ -23,18 +23,18 @@
 # IMPORTANT: Neo4j Infrastructure Separation
 # ------------------------------------------
 # Neo4j is defined here for completeness, BUT should actually run from:
-#   /home/mike/infra/docker-compose.yml
+#   /home/mike/skuel/infrastructure/docker-compose.yml
 #
-# The /infra setup provides:
+# The ~/skuel/infrastructure setup provides:
 #   - Clean separation of infrastructure from application
 #   - Independent lifecycle management
 #   - Easier backup and data management
 #
 # When deploying:
-#   1. Start infrastructure: cd /home/mike/infra && docker compose up -d
+#   1. Start infrastructure: cd ~/skuel/infrastructure && docker compose up -d
 #   2. Start application: docker compose -f docker-compose.production.yml up skuel-app
 #
-# Or use /infra for all infrastructure and this file only for skuel-app.
+# Or use ~/skuel/infrastructure for all infrastructure and this file only for skuel-app.
 # ===========================================================================
 
 version: "3.8"
@@ -52,7 +52,7 @@ services:
     container_name: skuel-app
     environment:
       # Database connections
-      NEO4J_URI: ${NEO4J_URI:-bolt://localhost:7687}  # Can connect to /infra neo4j
+      NEO4J_URI: ${NEO4J_URI:-bolt://localhost:7687}  # Can connect to ~/skuel/infrastructure neo4j
       NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       REDIS_URL: ${REDIS_URL:-redis://:password@localhost:6379}  # If Redis enabled
@@ -136,8 +136,8 @@ services:
 
   # --------------------------------------------------------------------------
   # FUTURE: Neo4j - Graph Database
-  # Status: Use /infra instead (see header comments)
-  # NOTE: Neo4j SHOULD run from /infra/docker-compose.yml for clean separation
+  # Status: Use ~/skuel/infrastructure instead (see header comments)
+  # NOTE: Neo4j SHOULD run from ~/skuel/infrastructure/docker-compose.yml for clean separation
   # This definition kept for reference/fallback only
   # --------------------------------------------------------------------------
   # neo4j:

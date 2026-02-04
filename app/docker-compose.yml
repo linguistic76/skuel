@@ -2,15 +2,15 @@
 # SKUEL Application Docker Compose Configuration
 # ==============================================
 # This file runs ONLY the SKUEL application in Docker.
-# Neo4j infrastructure runs separately from /infra.
+# Neo4j infrastructure runs separately in ~/skuel/infrastructure.
 #
 # ⚠️ RECOMMENDED WORKFLOW:
-#    cd ~/infra && docker compose up -d              # Start Neo4j
-#    cd ~/skuel/app0 && docker compose up -d            # Start app (Docker)
-#    OR: cd ~/skuel/app0 && poetry run python main.py   # Start app (local)
+#    cd ~/skuel/infrastructure && docker compose up -d   # Start Neo4j
+#    cd ~/skuel/app && docker compose up -d              # Start app (Docker)
+#    OR: cd ~/skuel/app && poetry run python main.py     # Start app (local)
 #
 # This docker-compose.yml is for:
-#   - Running SKUEL app in Docker (connects to /infra Neo4j)
+#   - Running SKUEL app in Docker (connects to ~/skuel/infrastructure Neo4j)
 #   - CI/CD environments (requires external Neo4j)
 #   - Testing containerized application deployment
 #
@@ -21,14 +21,14 @@ services:
   # --------------------------------------------------------------------------
   # SKUEL Application
   # --------------------------------------------------------------------------
-  # Connects to Neo4j running in /infra (via host.docker.internal on Mac/Windows
-  # or 172.17.0.1 on Linux)
+  # Connects to Neo4j running in ~/skuel/infrastructure (via host.docker.internal
+  # on Mac/Windows or 172.17.0.1 on Linux)
   # --------------------------------------------------------------------------
   skuel-app:
     build: .
     container_name: skuel-app
     environment:
-      # Neo4j connection to /infra instance
+      # Neo4j connection to ~/skuel/infrastructure instance
       # Use host.docker.internal (Mac/Win) or 172.17.0.1 (Linux) to connect to host
       NEO4J_URI: ${NEO4J_URI:-bolt://host.docker.internal:7687}
       NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
@@ -59,7 +59,7 @@ services:
     networks:
       - skuel-network
     restart: unless-stopped
-    # Note: Requires Neo4j running in /infra (cd ~/infra && docker compose up -d)
+    # Note: Requires Neo4j running in ~/skuel/infrastructure (cd ~/skuel/infrastructure && docker compose up -d)
     command: python skuel.py
 
   # --------------------------------------------------------------------------
