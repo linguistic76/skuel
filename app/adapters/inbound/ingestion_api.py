@@ -21,15 +21,12 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fasthtml.common import H1, H2, Form, NotStr, P, Pre
 from starlette.requests import Request
 
 from core.auth import require_admin
-from core.ui.daisy_components import Button, Card, CardBody, Container, Div, Input, Label
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from ui.layouts.navbar import create_navbar
 
 if TYPE_CHECKING:
     from core.services.ingestion import UnifiedIngestionService

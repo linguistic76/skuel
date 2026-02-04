@@ -25,10 +25,10 @@ from components.timeline_components import (
     render_timeline_error,
     render_timeline_viewer_page,
 )
+from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
 from core.models.shared_enums import ActivityStatus
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)

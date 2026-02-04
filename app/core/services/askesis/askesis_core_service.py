@@ -72,7 +72,7 @@ class AskesisCoreService:
     - Logs operations with structured logging
     """
 
-    def __init__(self, backend: BackendOperations, driver: "AsyncDriver") -> None:
+    def __init__(self, backend: BackendOperations, driver: AsyncDriver) -> None:
         """
         Initialize Askesis core service.
 
@@ -84,7 +84,7 @@ class AskesisCoreService:
         self.driver = driver
         self.logger = get_logger("skuel.services.askesis.core")
 
-    async def build_user_context(self, user_uid: str) -> "Result[UserContext]":
+    async def build_user_context(self, user_uid: str) -> Result[UserContext]:
         """
         Build user context for the given user.
 

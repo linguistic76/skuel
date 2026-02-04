@@ -24,7 +24,9 @@ Architecture:
 
 from typing import Any
 
-from fasthtml.common import A as Anchor, Button, H3, Li, Main, NotStr, P, Request, Span, Ul
+from fasthtml.common import H3, Button, Li, Main, NotStr, P, Request, Span, Ul
+from fasthtml.common import A as Anchor
+
 from core.auth import require_authenticated_user
 from core.models.shared_enums import SELCategory
 from core.ui.daisy_components import Card, CardBody, Div
