@@ -613,31 +613,9 @@ async def _wire_all_routes(
 
     # Assignments routes (Primary interface for file submission and processing)
     if services.assignments and services.processing_pipeline:
-        from adapters.inbound.assignments_api import create_assignments_api_routes
-        from adapters.inbound.assignments_sharing_api import (
-            create_assignments_sharing_api_routes,
-        )
-        from adapters.inbound.assignments_ui import create_assignments_ui_routes
+        from adapters.inbound.assignments_routes import create_assignments_routes
 
-        create_assignments_api_routes(
-            app,
-            rt,
-            services.assignments,
-            services.processing_pipeline,
-            services.assignments_query,
-            services.assignments_core,
-        )
-        create_assignments_ui_routes(app, rt, services.assignments, services.processing_pipeline)
-
-        # Assignment sharing routes (Phase 1: Assignment Portfolio)
-        if services.assignments_sharing:
-            create_assignments_sharing_api_routes(
-                app,
-                rt,
-                services.assignments_sharing,
-                services.assignments_core,
-            )
-            logger.info("✅ Assignment sharing routes registered (Portfolio feature)")
+        create_assignments_routes(app, rt, services, None)
 
         logger.info(
             "✅ Assignments routes registered (Primary interface for audio/text processing)"

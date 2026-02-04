@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** Currently used by 27 of 35 route files (77%), with 8 files remaining as justified exceptions.
+**Adoption:** Currently used by 28 of 35 route files (80%), with 7 files remaining as justified exceptions.
 
 ## The Pattern
 
@@ -924,7 +924,10 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 26. `/adapters/inbound/orchestration_routes.py` (326 lines) - Cross-domain orchestration (Multi-factory, 4 service groups)
 27. `/adapters/inbound/advanced_routes.py` (306 lines) - Advanced optional services (Multi-factory, 3 service groups)
 
-### Justified Exceptions (8 files)
+**Phase 7 Migration (1):** *(Migrated 2026-02-04)*
+28. `/adapters/inbound/assignments_routes.py` (76 lines) - File submission pipeline (Multi-factory, sharing extension uses separate primary service)
+
+### Justified Exceptions (7 files)
 
 Files with legitimate complexity warranting custom patterns:
 
@@ -938,9 +941,8 @@ Files with legitimate complexity warranting custom patterns:
 **Specialized UI (1):**
 - `timeline_routes.py` - Export functionality
 
-**Minimal Overhead (2):**
+**Minimal Overhead (1):**
 - `metrics_routes.py` - Single endpoint, minimal overhead
-- `assignments_routes.py` - Content ingestion routes (separate from journal_projects)
 
 ## Common Patterns and Conventions
 
@@ -1140,10 +1142,13 @@ Zero runtime overhead - routes are registered once at application startup.
 - ✅ Orchestration (387 → 326 lines, Multi-factory with 3 extensions)
 - ✅ Advanced (359 → 306 lines, Multi-factory with related services on primary)
 
-**Phase 7 (No Migration Planned):** Justified exceptions (8/8)
+**Phase 7 (Complete - 2026-02-04):** Multi-Factory extension
+- ✅ Assignments (Multi-factory, sharing extension uses separate primary service)
+
+**Phase 8 (No Migration Planned):** Justified exceptions (7/7)
 - Complex/specialized route files remain manual (complexity warranted)
 
-**Summary:** 27/35 files using DomainRouteConfig (77% adoption) - **pattern complete** for all feasible migrations.
+**Summary:** 28/35 files using DomainRouteConfig (80% adoption) - **pattern complete** for all feasible migrations.
 
 **Key Achievements:**
 - All 4 patterns proven: Standard, API-only, UI-only, Multi-factory

@@ -594,8 +594,8 @@ Consider migrating 14 remaining files (currently "justified exceptions"):
 - lateral_routes.py - Uses specialized LateralRouteFactory
 - hierarchy_routes.py - Uses specialized HierarchyRouteFactory
 
-**Complex/Leave As-Is (7):**
-- ai_routes.py, graphql_routes.py, search_routes.py, monitoring_routes.py, metrics_routes.py, timeline_routes.py, assignments_routes.py
+**Complex/Leave As-Is (6):**
+- ai_routes.py, graphql_routes.py, search_routes.py, monitoring_routes.py, metrics_routes.py, timeline_routes.py
 
 **Target:** 90%+ adoption theoretically possible
 
@@ -967,11 +967,13 @@ After Phase 4, **12 files remain** not using DomainRouteConfig.
 - home_routes.py
 - user_routes.py
 
-**Partially Migrated (6):**
+**Migrated in Phase 7 (1):** *(Migrated 2026-02-04)*
+- assignments_routes.py — Multi-factory (sharing extension uses separate primary service)
+
+**Partially Migrated (5):**
 - lp_routes.py (Learning Sequence) - partially using pattern
 - ls_routes.py (Learning Sequence) - partially using pattern
 - profile_routes.py - partially using pattern
-- assignments_routes.py - partially using pattern
 - activity_api.py - partially using pattern
 - activity_ui.py - partially using pattern
 
