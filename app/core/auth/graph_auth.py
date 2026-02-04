@@ -186,16 +186,10 @@ class GraphAuthService:
                 return is_locked
 
             if is_locked.value:
-                # Log the failed attempt even when locked
-                event = create_auth_event(
-                    event_type=AuthEventType.LOGIN_FAILED,
-                    ip_address=ip_address,
-                    user_agent=user_agent,
-                    email=email,
-                    metadata={"reason": "account_locked"},
-                )
-                await self.session_backend.log_auth_event(event)
-
+                # Do NOT log another LOGIN_FAILED here — doing so pushes a new
+                # timestamp into the rolling window and perpetually extends the
+                # lockout.  The original failures that triggered the lock are
+                # already recorded; that's sufficient for the audit trail.
                 return Result.fail(
                     Errors.business(
                         rule="rate_limit",
