@@ -549,7 +549,7 @@ if not access_check.value:
 @pytest.fixture
 def mock_driver():
     driver = MagicMock()
-    driver.execute_query = MagicMock()
+    driver.execute_query = AsyncMock()  # AsyncMock required — service awaits execute_query
     return driver
 
 @pytest.mark.asyncio
@@ -684,7 +684,7 @@ if result.is_error:
 
 ### Tests
 - **Unit Tests:** `/tests/unit/test_assignment_sharing_service.py` (27 tests)
-- **Integration Tests:** `/tests/integration/test_sharing_workflows.py` (17 tests)
+- **Integration Tests:** `/tests/integration/test_sharing_workflows.py` (12 tests)
 
 ---
 

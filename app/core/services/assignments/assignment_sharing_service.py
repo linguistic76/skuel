@@ -16,7 +16,7 @@ Access Control Rules:
 3. SHARED assignments visible to owner + users with SHARES_WITH relationship
 4. Only completed assignments can be shared (quality control)
 
-See: /docs/patterns/SHARING_PATTERNS.md (to be created)
+See: /docs/patterns/SHARING_PATTERNS.md
 """
 
 from datetime import datetime
@@ -88,7 +88,7 @@ class AssignmentSharingService:
         """
 
         try:
-            records, _, _ = self.driver.execute_query(
+            records, _, _ = await self.driver.execute_query(
                 query,
                 recipient_uid=recipient_uid,
                 assignment_uid=assignment_uid,
@@ -143,7 +143,7 @@ class AssignmentSharingService:
         """
 
         try:
-            records, _, _ = self.driver.execute_query(
+            records, _, _ = await self.driver.execute_query(
                 query,
                 recipient_uid=recipient_uid,
                 assignment_uid=assignment_uid,
@@ -189,7 +189,7 @@ class AssignmentSharingService:
         """
 
         try:
-            records, _, _ = self.driver.execute_query(
+            records, _, _ = await self.driver.execute_query(
                 query,
                 assignment_uid=assignment_uid,
             )
@@ -237,7 +237,7 @@ class AssignmentSharingService:
         """
 
         try:
-            records, _, _ = self.driver.execute_query(
+            records, _, _ = await self.driver.execute_query(
                 query,
                 user_uid=user_uid,
                 limit=limit,
@@ -298,7 +298,7 @@ class AssignmentSharingService:
         """
 
         try:
-            records, _, _ = self.driver.execute_query(
+            records, _, _ = await self.driver.execute_query(
                 query,
                 assignment_uid=assignment_uid,
                 owner_uid=owner_uid,
@@ -348,7 +348,7 @@ class AssignmentSharingService:
         """
 
         try:
-            records, _, _ = self.driver.execute_query(
+            records, _, _ = await self.driver.execute_query(
                 query,
                 assignment_uid=assignment_uid,
                 user_uid=user_uid,
@@ -399,7 +399,7 @@ class AssignmentSharingService:
         """
 
         try:
-            records, _, _ = self.driver.execute_query(
+            records, _, _ = await self.driver.execute_query(
                 query,
                 assignment_uid=assignment_uid,
             )
@@ -440,7 +440,7 @@ class AssignmentSharingService:
         """
 
         try:
-            records, _, _ = self.driver.execute_query(
+            records, _, _ = await self.driver.execute_query(
                 query,
                 assignment_uid=assignment_uid,
             )

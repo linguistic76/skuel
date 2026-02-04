@@ -15,7 +15,7 @@ Also tests helper methods:
 - _verify_shareable()
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -27,7 +27,7 @@ from core.services.assignments.assignment_sharing_service import AssignmentShari
 def mock_driver():
     """Create a mock Neo4j driver."""
     driver = MagicMock()
-    driver.execute_query = MagicMock()
+    driver.execute_query = AsyncMock()
     return driver
 
 

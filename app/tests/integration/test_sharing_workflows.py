@@ -21,23 +21,6 @@ from core.services.assignments.assignment_sharing_service import AssignmentShari
 
 
 @pytest.fixture
-async def neo4j_driver(request):
-    """
-    Get Neo4j driver from test configuration.
-
-    Note: These tests require a running Neo4j instance.
-    Use pytest markers to skip if Neo4j is not available.
-    """
-    # Get driver from pytest config (assumes neo4j_driver fixture exists)
-    if hasattr(request, "getfixturevalue"):
-        try:
-            return request.getfixturevalue("neo4j_driver")
-        except Exception:
-            pytest.skip("Neo4j not available for integration tests")
-    pytest.skip("Neo4j driver not available")
-
-
-@pytest.fixture
 async def sharing_service(neo4j_driver):
     """Create AssignmentSharingService with real Neo4j driver."""
     return AssignmentSharingService(driver=neo4j_driver)
@@ -72,7 +55,7 @@ async def test_assignment(neo4j_driver):
     RETURN a.uid as uid
     """
 
-    neo4j_driver.execute_query(
+    await neo4j_driver.execute_query(
         query,
         uid=assignment_uid,
         user_uid=user_uid,
@@ -86,7 +69,7 @@ async def test_assignment(neo4j_driver):
     OPTIONAL MATCH (a)<-[r:SHARES_WITH]-()
     DELETE r, a
     """
-    neo4j_driver.execute_query(cleanup_query, uid=assignment_uid)
+    await neo4j_driver.execute_query(cleanup_query, uid=assignment_uid)
 
 
 # ============================================================================
@@ -371,7 +354,7 @@ async def test_only_completed_assignments_can_be_shared(neo4j_driver, sharing_se
     RETURN a.uid
     """
 
-    neo4j_driver.execute_query(query, uid=assignment_uid, user_uid=owner_uid)
+    await neo4j_driver.execute_query(query, uid=assignment_uid, user_uid=owner_uid)
 
     try:
         # Try to share processing assignment
@@ -387,7 +370,7 @@ async def test_only_completed_assignments_can_be_shared(neo4j_driver, sharing_se
 
     finally:
         # Cleanup
-        neo4j_driver.execute_query(
+        await neo4j_driver.execute_query(
             "MATCH (a:Assignment {uid: $uid}) DELETE a",
             uid=assignment_uid,
         )
