@@ -204,7 +204,7 @@ async def BasePage(
             ),
             # Toast notification container
             Div(
-                **{"x-data": "toastManager", "x-cloak": True},
+                **{"x-data": "toastManager", "x-cloak": True, "x-show": "toasts.length > 0"},
                 cls="fixed top-4 right-4 z-50 space-y-2",
             )(
                 # Template for rendering toasts
