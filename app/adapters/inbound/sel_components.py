@@ -78,7 +78,7 @@ def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any
     progress_section = Div(
         Progress(
             value=progress.kus_mastered,
-            max=progress.total_kus,
+            max_val=progress.total_kus,
             cls="progress progress-primary w-full",
         ),
         P(
@@ -129,7 +129,7 @@ def AdaptiveCurriculumPage(
                 ),
                 Progress(
                     value=progress.kus_mastered,
-                    max=progress.total_kus,
+                    max_val=progress.total_kus,
                     cls="progress progress-primary",
                 ),
                 cls="mt-4",
@@ -251,7 +251,7 @@ def SELJourneyOverview(journey: SELJourney) -> Div:
                     cls="text-sm text-gray-500 mb-2",
                 ),
                 Progress(
-                    value=int(journey.overall_completion), max=100, cls="progress progress-primary"
+                    value=int(journey.overall_completion), max_val=100, cls="progress progress-primary"
                 ),
                 cls="mt-4",
             ),

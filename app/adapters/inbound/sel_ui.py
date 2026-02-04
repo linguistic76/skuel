@@ -16,17 +16,15 @@ UI Routes:
 - GET /sel/decision-making - Decision Making curriculum
 
 Architecture:
-    - Layout: DaisyUI drawer navigation (components/drawer_layout.py)
+    - Layout: Profile-style sidebar (profile_sidebar.css / profile_sidebar.js)
     - Components: sel_components.py (SELJourneyOverview, AdaptiveKUCard)
-    - CSS: DaisyUI built-in (no custom CSS needed)
-    - JavaScript: DaisyUI checkbox-based toggle (no custom JS needed)
+    - CSS: profile_sidebar.css (included via BasePage extra_css)
+    - JavaScript: profile_sidebar.js (loaded globally via base_page.py)
 """
 
 from typing import Any
 
-from fasthtml.common import H3, P, Request
-
-from components.drawer_layout import create_drawer_layout
+from fasthtml.common import A as Anchor, Button, H3, Li, Main, NotStr, P, Request, Span, Ul
 from core.auth import require_authenticated_user
 from core.models.shared_enums import SELCategory
 from core.ui.daisy_components import Card, CardBody, Div
@@ -71,27 +69,105 @@ SEL_MENU_ITEMS = [
 ]
 
 
-def _sel_drawer_layout(active_page: str, content: Any):
-    """
-    Create DaisyUI drawer layout for SEL section.
+def _sel_sidebar(active_slug: str):
+    """Build the SEL sidebar, mirroring the profile sidebar pattern."""
+    chevron_svg = NotStr(
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">'
+        '<path d="M15 18l-6-6 6-6"></path>'
+        "</svg>"
+    )
 
-    Uses the reusable DrawerLayout component from components/drawer_layout.py.
-    This replaces ~280 lines of custom CSS/JS with DaisyUI's CSS-only drawer.
+    menu_items = [
+        Li(
+            Anchor(
+                title,
+                href=href,
+                cls=f"{'menu-active' if slug == active_slug else ''}",
+                **{
+                    "hx-boost": "false",
+                    "onclick": "if(window.innerWidth<=1024)toggleProfileSidebar()",
+                },
+            )
+        )
+        for title, href, slug, _desc in SEL_MENU_ITEMS
+    ]
 
-    Args:
-        active_page: Slug of the currently active page
-        content: Main content to render
+    sidebar_nav = Ul(
+        Li(
+            Anchor(
+                "SEL",
+                href="/sel",
+                cls="text-xl font-bold text-primary hover:text-primary-focus",
+                id="sel-sidebar-heading",
+                **{"hx-boost": "false"},
+            ),
+            P("Social Emotional Learning", cls="text-xs opacity-60 mt-1"),
+            cls="px-4 py-4 sidebar-header-text",
+        ),
+        Li(cls="divider my-0"),
+        *menu_items,
+        cls="menu bg-base-200 min-h-full w-full p-4 sidebar-nav",
+        id="sel-sidebar-nav",
+    )
 
-    Returns:
-        Complete drawer layout with SEL navigation
-    """
-    return create_drawer_layout(
-        drawer_id="sel-drawer",
-        title="SEL Navigation",
-        menu_items=SEL_MENU_ITEMS,
-        active_page=active_page,
-        content=content,
-        subtitle="Social Emotional Learning",
+    return Div(
+        Div(
+            Button(
+                chevron_svg,
+                onclick="toggleProfileSidebar()",
+                cls="sidebar-toggle",
+                title="Toggle Sidebar",
+                type="button",
+                aria_label="Toggle SEL sidebar",
+                aria_expanded="false",
+                aria_controls="sel-sidebar-nav",
+            ),
+            sidebar_nav,
+            cls="sidebar-inner",
+        ),
+        cls="profile-sidebar",
+        id="profile-sidebar",
+        role="dialog",
+        aria_modal="false",
+        aria_labelledby="sel-sidebar-heading",
+    )
+
+
+def _sel_page_layout(active_slug: str, content: Any):
+    """Assemble the full profile-container shell around SEL content."""
+    return Div(
+        Div(
+            cls="profile-overlay",
+            id="profile-overlay",
+            onclick="toggleProfileSidebar()",
+        ),
+        _sel_sidebar(active_slug),
+        Div(
+            id="sidebar-sr-announcements",
+            role="status",
+            aria_live="polite",
+            cls="sr-only",
+        ),
+        Div(
+            Div(
+                Span("☰", aria_hidden="true"),
+                Span("Menu"),
+                cls="btn btn-ghost mobile-menu-button mb-4",
+                onclick="toggleProfileSidebar()",
+                role="button",
+                tabindex="0",
+                aria_label="Open SEL navigation",
+                aria_expanded="false",
+                aria_controls="profile-sidebar",
+            ),
+            Main(
+                Div(content, cls="max-w-6xl mx-auto"),
+                cls="p-6 lg:p-8",
+            ),
+            cls="profile-content",
+            id="profile-content",
+        ),
+        cls="profile-container",
     )
 
 
@@ -153,7 +229,7 @@ def create_sel_ui_routes(
             ),
         )
 
-        page_layout = _sel_drawer_layout("overview", content)
+        page_layout = _sel_page_layout("overview", content)
 
         return await BasePage(
             page_layout,
@@ -161,6 +237,7 @@ def create_sel_ui_routes(
             page_type=PageType.STANDARD,
             request=request,
             active_page="sel",
+            extra_css=["/static/css/profile_sidebar.css"],
         )
 
     # ========================================================================
@@ -243,7 +320,7 @@ def create_sel_ui_routes(
             ),
         )
 
-        page_layout = _sel_drawer_layout("self-awareness", content)
+        page_layout = _sel_page_layout("self-awareness", content)
 
         return await BasePage(
             page_layout,
@@ -251,6 +328,7 @@ def create_sel_ui_routes(
             page_type=PageType.STANDARD,
             request=request,
             active_page="sel",
+            extra_css=["/static/css/profile_sidebar.css"],
         )
 
     # ========================================================================
@@ -328,7 +406,7 @@ def create_sel_ui_routes(
             ),
         )
 
-        page_layout = _sel_drawer_layout("self-management", content)
+        page_layout = _sel_page_layout("self-management", content)
 
         return await BasePage(
             page_layout,
@@ -336,6 +414,7 @@ def create_sel_ui_routes(
             page_type=PageType.STANDARD,
             request=request,
             active_page="sel",
+            extra_css=["/static/css/profile_sidebar.css"],
         )
 
     # ========================================================================
@@ -412,7 +491,7 @@ def create_sel_ui_routes(
             ),
         )
 
-        page_layout = _sel_drawer_layout("social-awareness", content)
+        page_layout = _sel_page_layout("social-awareness", content)
 
         return await BasePage(
             page_layout,
@@ -420,6 +499,7 @@ def create_sel_ui_routes(
             page_type=PageType.STANDARD,
             request=request,
             active_page="sel",
+            extra_css=["/static/css/profile_sidebar.css"],
         )
 
     # ========================================================================
@@ -495,7 +575,7 @@ def create_sel_ui_routes(
             ),
         )
 
-        page_layout = _sel_drawer_layout("relationship-skills", content)
+        page_layout = _sel_page_layout("relationship-skills", content)
 
         return await BasePage(
             page_layout,
@@ -503,6 +583,7 @@ def create_sel_ui_routes(
             page_type=PageType.STANDARD,
             request=request,
             active_page="sel",
+            extra_css=["/static/css/profile_sidebar.css"],
         )
 
     # ========================================================================
@@ -515,7 +596,7 @@ def create_sel_ui_routes(
         user_uid = require_authenticated_user(request)
 
         if adaptive_sel_service:
-            await adaptive_sel_service.track_page_view(user_uid, SELCategory.DECISION_MAKING)
+            await adaptive_sel_service.track_page_view(user_uid, SELCategory.RESPONSIBLE_DECISION_MAKING)
 
         breadcrumbs = Breadcrumbs(
             path=[
@@ -541,7 +622,7 @@ def create_sel_ui_routes(
                     P("Loading personalized curriculum...", cls="text-center py-8"),
                     cls="animate-pulse",
                 ),
-                hx_get="/api/sel/curriculum-html/decision_making?limit=10",
+                hx_get="/api/sel/curriculum-html/responsible_decision_making?limit=10",
                 hx_trigger="load",
                 hx_swap="innerHTML",
                 **htmx_attrs(
@@ -578,7 +659,7 @@ def create_sel_ui_routes(
             ),
         )
 
-        page_layout = _sel_drawer_layout("decision-making", content)
+        page_layout = _sel_page_layout("decision-making", content)
 
         return await BasePage(
             page_layout,
@@ -586,6 +667,7 @@ def create_sel_ui_routes(
             page_type=PageType.STANDARD,
             request=request,
             active_page="sel",
+            extra_css=["/static/css/profile_sidebar.css"],
         )
 
     logger.info("SEL UI routes registered (6 pages)")

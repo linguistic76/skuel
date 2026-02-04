@@ -305,30 +305,32 @@ def create_drawer_layout(
 
 ## Usage in Routes
 
+> **Note:** The SEL pages previously used `create_drawer_layout` here but have since migrated to the profile sidebar pattern (`profile_sidebar.css` / `profile_sidebar.js`). See `.claude/skills/custom-sidebar-patterns/SKILL.md` — "Example 3: SEL Pages" for the current implementation. The DaisyUI drawer pattern below remains valid for new pages that prefer the CSS-only approach.
+
 ```python
 from components.drawer_layout import create_drawer_layout
 
-@rt("/sel")
-async def sel_page(request):
+@rt("/docs")
+async def docs_page(request):
     menu_items = [
-        ("Overview", "/sel", "overview", "Introduction to SEL"),
-        ("Self Awareness", "/sel/self-awareness", "self-awareness", "Understanding emotions"),
-        ("Self Management", "/sel/self-management", "self-management", "Managing reactions"),
+        ("Getting Started", "/docs", "getting-started", "Introduction"),
+        ("API Reference", "/docs/api", "api", "Endpoint documentation"),
+        ("Tutorials", "/docs/tutorials", "tutorials", "Step-by-step guides"),
     ]
 
     content = Div(
-        H1("Social Emotional Learning"),
-        P("Welcome to the SEL section..."),
+        H1("Documentation"),
+        P("Welcome to the docs..."),
     )
 
     return Titled(
-        "SEL",
+        "Docs",
         create_drawer_layout(
-            drawer_id="sel-drawer",
-            title="SEL Navigation",
-            subtitle="Social Emotional Learning",
+            drawer_id="docs-drawer",
+            title="Documentation",
+            subtitle="SKUEL Guides",
             menu_items=menu_items,
-            active_page="overview",
+            active_page="getting-started",
             content=content,
         ),
     )

@@ -1,6 +1,6 @@
 ---
 title: SEL Component Patterns
-updated: 2026-02-03
+updated: 2026-02-04
 status: current
 category: patterns
 tags: [sel, components, entity-card, htmx, adaptive-learning]
@@ -62,7 +62,7 @@ def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any
     progress_section = Div(
         Progress(
             value=progress.kus_mastered,
-            max=progress.total_kus,
+            max_val=progress.total_kus,
             cls="progress progress-primary w-full",
         ),
         P(
@@ -160,7 +160,7 @@ def SELJourneyOverview(journey: SELJourney) -> Div:
             ),
             Progress(
                 value=int(journey.overall_completion),
-                max=100,
+                max_val=100,
                 cls="progress progress-primary",
             ),
             cls="mt-4 mb-8",
@@ -318,15 +318,15 @@ content = Div(
 - ✅ UIDs for keys, titles for display
 - ✅ Automatic keyboard navigation
 
-### 6. Drawer Sidebar Navigation
+### 6. Profile-Style Sidebar Navigation
 
-**Use Case:** Persistent sidebar menu for all SEL pages
+**Use Case:** Persistent sidebar menu for all SEL pages, reusing the profile sidebar pattern
 
 **Pattern:**
 ```python
-from components.drawer_layout import create_drawer_layout
+from fasthtml.common import A as Anchor, Button, Li, Main, NotStr, P, Span, Ul
 
-# Define menu items (at module level)
+# Menu items defined at module level (title, href, slug, description)
 SEL_MENU_ITEMS = [
     ("Overview", "/sel", "overview", "Introduction to SEL"),
     ("Self Awareness", "/sel/self-awareness", "self-awareness", "Understanding thoughts/emotions"),
@@ -334,23 +334,55 @@ SEL_MENU_ITEMS = [
     # ... rest
 ]
 
-# In route handler
-def create_sel_sidebar_layout(active_page: str, content: Any):
-    """Create DaisyUI drawer layout for SEL section."""
-    return create_drawer_layout(
-        drawer_id="sel-drawer",
-        title="SEL Navigation",
-        menu_items=SEL_MENU_ITEMS,
-        active_page=active_page,  # Slug of current page
-        content=content,
-        subtitle="Social Emotional Learning",
+def _sel_sidebar(active_slug: str):
+    """Build sidebar — mirrors build_profile_sidebar() structure."""
+    menu_items = [
+        Li(
+            Anchor(
+                title,
+                href=href,
+                cls=f"{'menu-active' if slug == active_slug else ''}",
+                **{
+                    "hx-boost": "false",
+                    "onclick": "if(window.innerWidth<=1024)toggleProfileSidebar()",
+                },
+            )
+        )
+        for title, href, slug, _desc in SEL_MENU_ITEMS
+    ]
+
+    return Div(
+        Div(
+            Button(..., cls="sidebar-toggle", onclick="toggleProfileSidebar()"),
+            Ul(*menu_items, cls="menu bg-base-200 min-h-full w-full p-4 sidebar-nav", id="sel-sidebar-nav"),
+            cls="sidebar-inner",
+        ),
+        cls="profile-sidebar",
+        id="profile-sidebar",        # Required by profile_sidebar.js
+        role="dialog",
     )
 
-# Wrap content with sidebar
+def _sel_page_layout(active_slug: str, content: Any):
+    """Assemble the profile-container shell."""
+    return Div(
+        Div(id="profile-overlay", cls="profile-overlay", onclick="toggleProfileSidebar()"),
+        _sel_sidebar(active_slug),
+        Div(id="sidebar-sr-announcements", role="status", aria_live="polite", cls="sr-only"),
+        Div(
+            Div(Span("☰"), Span("Menu"), cls="btn btn-ghost mobile-menu-button mb-4",
+                onclick="toggleProfileSidebar()", role="button", tabindex="0"),
+            Main(Div(content, cls="max-w-6xl mx-auto"), cls="p-6 lg:p-8"),
+            cls="profile-content",
+            id="profile-content",     # Required by profile_sidebar.js
+        ),
+        cls="profile-container",
+    )
+
+# In route handler — extra_css loads the shared sidebar stylesheet
 @rt("/sel/self-awareness")
 async def sel_self_awareness(request: Request) -> Any:
     content = Div(...)  # Your page content
-    page_layout = create_sel_sidebar_layout("self-awareness", content)
+    page_layout = _sel_page_layout("self-awareness", content)
 
     return await BasePage(
         page_layout,
@@ -358,14 +390,16 @@ async def sel_self_awareness(request: Request) -> Any:
         page_type=PageType.STANDARD,
         request=request,
         active_page="sel",
+        extra_css=["/static/css/profile_sidebar.css"],
     )
 ```
 
 **Key Techniques:**
-- ✅ Reusable `create_drawer_layout()` function
-- ✅ Active page slug highlights current item
-- ✅ DaisyUI CSS-only drawer (no JS)
-- ✅ Mobile responsive (hamburger menu)
+- ✅ Reuses `profile_sidebar.css` + `profile_sidebar.js` (loaded globally via `base_page.py`)
+- ✅ Four IDs required by `profile_sidebar.js`: `profile-sidebar`, `profile-content`, `profile-overlay`, `sidebar-sr-announcements`
+- ✅ Active page slug drives `menu-active` class
+- ✅ `onclick` on nav anchors closes drawer on mobile (`innerWidth <= 1024`)
+- ✅ `extra_css` on `BasePage` pulls in the sidebar stylesheet
 
 ## Best Practices
 

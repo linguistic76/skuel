@@ -813,6 +813,88 @@ return BasePage(
 - **HUB:** Simple static menu, no persistence, standard drawer
 - **Custom:** Multi-section, badges, persistence, fine-grained control
 
+### Example 3: SEL Pages (Profile Sidebar on a Non-Profile Domain)
+
+**File:** `/home/mike/skuel/app/adapters/inbound/sel_ui.py`
+
+SEL is the second domain to adopt the profile sidebar pattern. It reuses `profile_sidebar.css` and `profile_sidebar.js` directly — no new CSS or JS files needed.
+
+**Key differences from Profile Hub:**
+- Sidebar content is static (6 fixed menu items, no badges or domain stats)
+- `_sel_sidebar()` and `_sel_page_layout()` are module-level helpers, not imported from a shared layout module
+- `extra_css=["/static/css/profile_sidebar.css"]` is passed explicitly on each `BasePage` call
+
+**Usage in route:**
+
+```python
+from fasthtml.common import A as Anchor, Button, Li, Main, NotStr, P, Span, Ul
+
+SEL_MENU_ITEMS = [
+    ("Overview", "/sel", "overview", "Introduction to SEL"),
+    ("Self Awareness", "/sel/self-awareness", "self-awareness", "..."),
+    # ... 4 more items
+]
+
+def _sel_sidebar(active_slug: str):
+    """Sidebar Div — same IDs profile_sidebar.js expects."""
+    menu_items = [
+        Li(Anchor(title, href=href,
+                  cls=f"{'menu-active' if slug == active_slug else ''}",
+                  **{"hx-boost": "false",
+                     "onclick": "if(window.innerWidth<=1024)toggleProfileSidebar()"}))
+        for title, href, slug, _desc in SEL_MENU_ITEMS
+    ]
+    return Div(
+        Div(
+            Button(..., cls="sidebar-toggle", onclick="toggleProfileSidebar()"),
+            Ul(...menu_items, cls="menu bg-base-200 min-h-full w-full p-4 sidebar-nav",
+               id="sel-sidebar-nav"),
+            cls="sidebar-inner",
+        ),
+        id="profile-sidebar", cls="profile-sidebar", role="dialog",
+    )
+
+def _sel_page_layout(active_slug: str, content: Any):
+    """Profile-container shell — identical structure to create_profile_page()."""
+    return Div(
+        Div(id="profile-overlay", cls="profile-overlay", onclick="toggleProfileSidebar()"),
+        _sel_sidebar(active_slug),
+        Div(id="sidebar-sr-announcements", role="status", aria_live="polite", cls="sr-only"),
+        Div(
+            Div(Span("☰"), Span("Menu"),
+                cls="btn btn-ghost mobile-menu-button mb-4",
+                onclick="toggleProfileSidebar()", role="button", tabindex="0",
+                aria_label="Open SEL navigation", aria_controls="profile-sidebar"),
+            Main(Div(content, cls="max-w-6xl mx-auto"), cls="p-6 lg:p-8"),
+            id="profile-content", cls="profile-content",
+        ),
+        cls="profile-container",
+    )
+
+# Route handler
+@rt("/sel")
+async def sel_main(request: Request) -> Any:
+    content = Div(...)
+    page_layout = _sel_page_layout("overview", content)
+    return await BasePage(
+        page_layout,
+        title="SEL - Social Emotional Learning",
+        page_type=PageType.STANDARD,
+        request=request,
+        active_page="sel",
+        extra_css=["/static/css/profile_sidebar.css"],   # ← the only addition vs Profile Hub
+    )
+```
+
+**Required element IDs (enforced by `profile_sidebar.js`):**
+
+| ID | Element | Role |
+|----|---------|------|
+| `profile-sidebar` | Outer sidebar Div | Toggle target; receives `collapsed` class |
+| `profile-content` | Content wrapper Div | Receives `expanded` class |
+| `profile-overlay` | Mobile overlay Div | Receives `active` class |
+| `sidebar-sr-announcements` | Live region Div | Screen-reader drawer state announcements |
+
 ## Common Mistakes & Anti-Patterns
 
 ### Mistake 1: Using Alpine.js for Simple Toggle
