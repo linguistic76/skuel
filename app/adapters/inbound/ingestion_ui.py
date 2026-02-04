@@ -8,7 +8,6 @@ Security:
 - Dashboard requires admin role
 """
 
-from typing import TYPE_CHECKING
 
 from fasthtml.common import H1, H2, Form, NotStr, P, Pre
 from starlette.requests import Request
@@ -17,9 +16,6 @@ from core.auth import require_admin
 from core.ui.daisy_components import Button, Card, CardBody, Container, Div, Input, Label
 from core.utils.logging import get_logger
 from ui.layouts.navbar import create_navbar
-
-if TYPE_CHECKING:
-    pass
 
 logger = get_logger("skuel.routes.ingestion_ui")
 
@@ -36,7 +32,7 @@ def create_ingestion_ui_routes(
     Args:
         app: FastHTML app instance
         rt: Router instance
-        unified_ingestion: The UnifiedIngestionService instance  
+        unified_ingestion: The UnifiedIngestionService instance
         user_service: UserService instance for admin role checks
 
     Returns:

@@ -25,7 +25,6 @@ Date: 2026-01-21
 
 from typing import Any
 
-from fasthtml.common import H1, H2, A, P
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
@@ -37,7 +36,6 @@ from core.auth import (
     is_authenticated,
     set_current_user,
 )
-from core.ui.daisy_components import Card, CardBody, Div
 from core.utils.form_helpers import safe_form_string
 from core.utils.logging import get_logger
 
@@ -430,6 +428,3 @@ def create_auth_ui_routes(
 
 
 __all__ = ["create_auth_ui_routes"]
-
-
-__all__ = ["create_auth_routes"]
