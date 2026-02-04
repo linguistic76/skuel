@@ -147,8 +147,7 @@ open http://localhost:7474
     ├── data/              # Graph database storage
     ├── logs/              # Neo4j server logs
     ├── conf/              # Configuration files
-    │   ├── apoc.conf      # APOC plugin config (future)
-    │   └── neo4j.conf     # Neo4j settings (future)
+    │   └── neo4j.conf     # Neo4j settings (managed by docker-compose env vars)
     ├── plugins/           # APOC and other plugins
     ├── import/            # CSV/data import directory
     └── backups/           # Database backup storage
@@ -461,20 +460,18 @@ This directory is designed to hold additional infrastructure services as SKUEL g
 
 **To enable:** See `/home/mike/skuel/app/FUTURE_SERVICES.md` for detailed activation instructions and decision criteria.
 
-#### Not Planned
+#### Active Infrastructure Plugins
 
-| Service | Status | Why Not |
-|---------|--------|---------|
-| **APOC** | 🔴 Rejected | SKUEL uses pure Cypher for transparency and performance |
+| Plugin | Status | Scope | Purpose |
+|--------|--------|-------|---------|
+| **GenAI** | ✅ Active | `genai.*` | Embeddings + vector search |
+| **APOC (core)** | ✅ Active | `apoc.meta.*` only | Schema introspection (`apoc.meta.schema`) |
 
-**APOC Philosophy:**
-- ✅ Pure Cypher provides better query planner optimization
-- ✅ Cypher queries are cached (10-100x speedup)
-- ✅ Transparent, maintainable, portable
-- ✅ SKUEL001 linter rule prevents accidental APOC usage
-- ⚠️ Only consider APOC if benchmarked use case proves measurable value
-
-See `/home/mike/skuel/app/FUTURE_SERVICES.md` for complete APOC analysis.
+**APOC Scope Policy:**
+- Only `apoc-core.jar` is loaded (not `apoc-all`) — dangerous procedures (`cypher.run`, `export.*`, `load.*`) are not in the JAR at all
+- Allowlist further restricts to `apoc.meta.*` — a second layer of defence
+- SKUEL001 linter rule still bans APOC in domain services (`core/services/`) — pure Cypher remains the rule for all application queries
+- See `/home/mike/skuel/app/docs/patterns/CYPHER_VS_APOC_STRATEGY.md` for the full strategy
 
 ### Adding Services to /infra
 

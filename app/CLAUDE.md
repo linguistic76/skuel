@@ -45,7 +45,8 @@ async def get_learning_opportunities(
 
 **Current Setup (Development):** Docker-based Neo4j
 - Connection: `bolt://localhost:7687`
-- GenAI plugin: Enabled via `NEO4J_PLUGINS='["genai"]'` in docker-compose.yml
+- Plugins: GenAI + APOC (meta only) via `NEO4J_PLUGINS='["apoc", "genai"]'` in docker-compose.yml
+- APOC scoped to `apoc.meta.*` — schema introspection only; domain services use pure Cypher (SKUEL001)
 - API keys: Per-query token passing (OPENAI_API_KEY environment variable)
 - Setup guide: `/docs/development/GENAI_SETUP.md`
 

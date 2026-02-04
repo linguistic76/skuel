@@ -170,15 +170,15 @@ services:
   neo4j:
     image: neo4j:2025.12.1
     environment:
-      # Enable GenAI plugin (auto-loads from /products to /plugins)
-      NEO4J_PLUGINS: '["genai"]'
+      # Plugins: APOC core (meta-only) + GenAI
+      NEO4J_PLUGINS: '["apoc", "genai"]'
 
       # OpenAI API key (accessible via procedures)
       OPENAI_API_KEY: "${NEO4J_OPENAI_API_KEY}"
 
-      # Allow GenAI plugin procedures
-      NEO4J_dbms_security_procedures_unrestricted: "genai.*"
-      NEO4J_dbms_security_procedures_allowlist: "genai.*"
+      # Allowlist: GenAI procedures + APOC schema introspection only
+      NEO4J_dbms_security_procedures_unrestricted: "genai.*,apoc.meta.*"
+      NEO4J_dbms_security_procedures_allowlist: "genai.*,apoc.meta.*"
 ```
 
 **Key Differences from AuraDB:**
