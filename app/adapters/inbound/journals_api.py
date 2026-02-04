@@ -678,9 +678,7 @@ def create_journals_api_routes(
             # Get audio transcription service
             audio_service = audio
             if not audio_service:
-                logger.error(
-                    f"Audio service not available. Services: {services}, audio: {audio_service}"
-                )
+                logger.error("Audio service not available")
                 return Result.fail(Errors.system("Audio transcription service not available"))
 
             # Save to temporary file

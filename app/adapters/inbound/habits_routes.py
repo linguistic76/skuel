@@ -20,6 +20,9 @@ HABITS_CONFIG = DomainRouteConfig(
         "user_service": "user_service",  # user_service=services.user_service
         "goals_service": "goals",  # goals_service=services.goals
     },
+    ui_related_services={
+        "goals_service": "goals",  # goals_service=services.goals
+    },
 )
 
 

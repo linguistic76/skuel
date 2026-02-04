@@ -284,7 +284,7 @@ def create_nous_ui_routes(app: Any, rt: Any, ku_service: Any) -> list[Any]:
 
     # Create a simple services-like object for backward compatibility
     class ServicesLike:
-        def __init__(self, ku):
+        def __init__(self, ku) -> None:
             self.ku = ku
 
     services = ServicesLike(ku_service)

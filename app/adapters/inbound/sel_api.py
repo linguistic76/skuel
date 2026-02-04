@@ -69,7 +69,8 @@ def create_sel_api_routes(
         # Get authenticated user from session (raises 401 if not authenticated)
         user_uid = require_authenticated_user(request)
 
-        return await adaptive_sel_service.get_sel_journey(user_uid)
+        result: Result[SELJourney] = await adaptive_sel_service.get_sel_journey(user_uid)
+        return result
 
     @rt("/api/sel/curriculum/{category}")
     @boundary_handler()
@@ -101,9 +102,10 @@ def create_sel_api_routes(
         except ValueError:
             return Result.fail(NotFoundError(f"Invalid SEL category: {category}"))
 
-        return await adaptive_sel_service.get_personalized_curriculum(
+        result: Result[list[Ku]] = await adaptive_sel_service.get_personalized_curriculum(
             user_uid=user_uid, sel_category=sel_category, limit=limit
         )
+        return result
 
     # ========================================================================
     # HTMX FRAGMENT ROUTES

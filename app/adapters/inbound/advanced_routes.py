@@ -101,7 +101,7 @@ def create_calendar_optimization_routes(
             if events_result.is_ok:
                 event_list = events_result.value or []
 
-        return await calendar_optimization.optimize_knowledge_scheduling(
+        result: Result[Any] = await calendar_optimization.optimize_knowledge_scheduling(
             user_uid=user_uid,
             target_date=opt_date,
             tasks=task_list,
@@ -109,6 +109,7 @@ def create_calendar_optimization_routes(
             knowledge_units=knowledge_units,
             strategy=strat,
         )
+        return result
 
     @rt("/events/calendar/cognitive-load")
     @boundary_handler()

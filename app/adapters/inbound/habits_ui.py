@@ -39,7 +39,7 @@ from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.models.habit.habit import HabitStatus
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.shared_enums import Priority
-from core.services.protocols.facade_protocols import HabitsFacadeProtocol
+from core.services.protocols.facade_protocols import GoalsFacadeProtocol, HabitsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
 from core.ui.daisy_components import Button, ButtonT, Card, CardBody, Div, Size, Span
 from core.utils.logging import get_logger
@@ -396,7 +396,9 @@ def get_status_color(status) -> Any:
 # ============================================================================
 
 
-def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, services: Any = None):
+def create_habits_ui_routes(
+    _app, rt, habits_service: HabitsFacadeProtocol, goals_service: GoalsFacadeProtocol | None = None
+):
     """
     Create three-view habit UI routes (standalone, no drawer).
 
@@ -409,7 +411,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
         _app: FastHTML app instance
         rt: Route decorator
         habits_service: Habits service
-        services: Full services container (unused, kept for API compatibility)
+        goals_service: Goals service for habit-goal linking and goal diagnostics
     """
 
     logger.info("Registering three-view habit routes (standalone)")
@@ -1022,7 +1024,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
                 try:
                     # Create relationship with essentiality property
                     await goals_service.link_goal_to_habit(
-                        goal_uid=goal_uid, habit_uid=habit.uid, essentiality=essentiality
+                        goal_uid=goal_uid, habit_uid=habit.uid, contribution_type=essentiality
                     )
                 except Exception as e:
                     logger.warning(f"Failed to link habit to goal {goal_uid}: {e}")
@@ -1123,6 +1125,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
                         continue
 
                     goal = goal_result.value
+                    if goal is None:
+                        continue
 
                     # Store old values
                     old_strength = getattr(goal, "cached_system_strength", None)
@@ -1334,24 +1338,15 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
             return Div(P("Error: Could not find goal", cls="text-red-600"), cls="p-4")
 
         goal = goal_result.value
-
-        # Helper function to determine habit essentiality
-        def get_habit_essentiality(habit_uid: str) -> str:
-            """Determine essentiality level for a habit UID."""
-            if habit_uid in goal.essential_habit_uids:
-                return "essential"
-            elif habit_uid in goal.critical_habit_uids:
-                return "critical"
-            elif habit_uid in goal.supporting_habit_uids:
-                return "supporting"
-            elif habit_uid in goal.optional_habit_uids:
-                return "optional"
-            return "unknown"
+        if goal is None:
+            return Div(P("Goal not found", cls="text-red-600"), cls="p-4")
 
         # Fetch all habits for this goal and build success rate map
-        all_habit_uids_result = await goals_service.relationships.get_all_habit_uids(goal.uid)
-        all_habit_uids = all_habit_uids_result.value if all_habit_uids_result.is_ok else []
-        habit_success_rates = {}
+        # NOTE: get_goal_habits returns supporting habits; essentiality grouping
+        # requires GoalRelationships.fetch() which is not available through the facade.
+        all_habit_uids_result = await goals_service.get_goal_habits(goal.uid)
+        all_habit_uids: list[str] = all_habit_uids_result.value if all_habit_uids_result.is_ok else []
+        habit_success_rates: dict[str, float] = {}
 
         # Build habit breakdown with details
         habit_breakdown = []
@@ -1368,14 +1363,11 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
                 # Store success rate for diagnosis
                 habit_success_rates[habit_uid] = habit.success_rate
 
-                # Get essentiality
-                essentiality = get_habit_essentiality(habit_uid)
-
                 # Build habit detail for breakdown
                 habit_breakdown.append(
                     {
                         "name": habit.name,
-                        "essentiality": essentiality,
+                        "essentiality": "supporting",
                         "consistency": habit.calculate_consistency_score(),
                         "impact": habit.predict_goal_impact(),
                     }
@@ -1413,11 +1405,13 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
             return Div(P("Error: Could not find goal", cls="text-red-600"), cls="p-4")
 
         goal = goal_result.value
+        if goal is None:
+            return Div(P("Goal not found", cls="text-red-600"), cls="p-4")
 
         # Fetch all habits and build completion counts
-        all_habit_uids_result = await goals_service.relationships.get_all_habit_uids(goal.uid)
-        all_habit_uids = all_habit_uids_result.value if all_habit_uids_result.is_ok else []
-        habit_completion_counts = {}
+        all_habit_uids_result = await goals_service.get_goal_habits(goal.uid)
+        all_habit_uids: list[str] = all_habit_uids_result.value if all_habit_uids_result.is_ok else []
+        habit_completion_counts: dict[str, int] = {}
 
         # Build weighted breakdown by essentiality
         weighted_breakdown = {"essential": 0, "critical": 0, "supporting": 0, "optional": 0}
@@ -1434,15 +1428,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
                 # Store total completions for velocity calculation
                 habit_completion_counts[habit_uid] = habit.total_completions
 
-                # Add to weighted breakdown
-                if habit_uid in goal.essential_habit_uids:
-                    weighted_breakdown["essential"] += habit.total_completions * 3
-                elif habit_uid in goal.critical_habit_uids:
-                    weighted_breakdown["critical"] += habit.total_completions * 2
-                elif habit_uid in goal.supporting_habit_uids:
-                    weighted_breakdown["supporting"] += habit.total_completions * 1
-                elif habit_uid in goal.optional_habit_uids:
-                    weighted_breakdown["optional"] += habit.total_completions * 0.5
+                # All habits returned by get_goal_habits are supporting
+                weighted_breakdown["supporting"] += habit.total_completions
 
             except Exception as e:
                 logger.warning(f"Error processing habit {habit_uid}: {e}")
@@ -1468,10 +1455,12 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
             velocity_trend.extend([{"week": f"Week {i}", "velocity": 0.0} for i in range(1, 5)])
 
         # Determine trend
-        if len(velocity_trend) > 1 and velocity_trend[-1]["velocity"] > 0:
-            if velocity_trend[-1]["velocity"] > velocity_trend[0]["velocity"]:
+        last_velocity: float = float(velocity_trend[-1]["velocity"]) if velocity_trend else 0.0
+        first_velocity: float = float(velocity_trend[0]["velocity"]) if velocity_trend else 0.0
+        if len(velocity_trend) > 1 and last_velocity > 0:
+            if last_velocity > first_velocity:
                 trend = "increasing"
-            elif velocity_trend[-1]["velocity"] < velocity_trend[0]["velocity"]:
+            elif last_velocity < first_velocity:
                 trend = "decreasing"
             else:
                 trend = "stable"
@@ -1504,25 +1493,14 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
             return Div(P("Error: Could not find goal", cls="text-red-600"), cls="p-4")
 
         goal = goal_result.value
-
-        # Helper function to determine habit essentiality
-        def get_habit_essentiality(habit_uid: str) -> str:
-            """Determine essentiality level for a habit UID."""
-            if habit_uid in goal.essential_habit_uids:
-                return "essential"
-            elif habit_uid in goal.critical_habit_uids:
-                return "critical"
-            elif habit_uid in goal.supporting_habit_uids:
-                return "supporting"
-            elif habit_uid in goal.optional_habit_uids:
-                return "optional"
-            return "unknown"
+        if goal is None:
+            return Div(P("Goal not found", cls="text-red-600"), cls="p-4")
 
         # Fetch all habits and build completion counts for velocity
-        all_habit_uids_result = await goals_service.relationships.get_all_habit_uids(goal.uid)
-        all_habit_uids = all_habit_uids_result.value if all_habit_uids_result.is_ok else []
-        habit_completion_counts = {}
-        habit_success_rates = {}
+        all_habit_uids_result = await goals_service.get_goal_habits(goal.uid)
+        all_habit_uids: list[str] = all_habit_uids_result.value if all_habit_uids_result.is_ok else []
+        habit_completion_counts: dict[str, int] = {}
+        habit_success_rates: dict[str, float] = {}
 
         # Build habit impacts list
         habit_impacts = []
@@ -1543,9 +1521,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
                 # Get habit impact prediction
                 impact_score = habit.predict_goal_impact()
 
-                # Get essentiality
-                essentiality = get_habit_essentiality(habit_uid)
-
                 # Get consistency
                 consistency = habit.calculate_consistency_score()
 
@@ -1553,7 +1528,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
                 habit_impacts.append(
                     {
                         "name": habit.name,
-                        "essentiality": essentiality,
+                        "essentiality": "supporting",
                         "impact_score": impact_score,
                         "consistency": consistency,
                     }
@@ -1567,7 +1542,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsFacadeProtocol, serv
 
         # Calculate achievement probability
         # Formula: 60% system strength + 40% velocity (normalized)
-        system_strength = goal.calculate_system_strength(habit_success_rates)
+        system_strength = goal.calculate_system_strength(habit_success_rates=habit_success_rates)
         velocity = goal.calculate_habit_velocity(habit_completion_counts)
 
         # Normalize velocity to 0-1 scale (150 = excellent velocity = 1.0)

@@ -491,7 +491,7 @@ class AdaptiveSELService:
 
         except Exception as e:
             self.logger.error(f"Failed to track page view: {e}")
-            return Result.fail(Errors.database(f"Failed to track page view: {e}"))
+            return Result.fail(Errors.database("track_page_view", f"Failed to track page view: {e}"))
 
     async def track_curriculum_completion(
         self, user_uid: str, ku_uid: str, completion_time_minutes: int = 30
@@ -537,7 +537,7 @@ class AdaptiveSELService:
 
         except Exception as e:
             self.logger.error(f"Failed to track completion: {e}")
-            return Result.fail(Errors.database(f"Failed to track completion: {e}"))
+            return Result.fail(Errors.database("track_curriculum_completion", f"Failed to track completion: {e}"))
 
     # ==========================================================================
     # HELPER METHODS

@@ -44,6 +44,7 @@ from components.calendar_components import (
     create_month_grid,
     create_reschedule_form,
     create_view_switcher,
+    create_week_grid,
     error_response,
 )
 from core.auth import require_authenticated_user
