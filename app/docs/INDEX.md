@@ -239,6 +239,18 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Simple Search - Setup Guide](guides/SIMPLE_SEARCH_SETUP_GUIDE.md) | 2025-11-27 | 499 |
 | **[Troubleshooting Guide](TROUBLESHOOTING.md)** | **2026-01-31** | **650** |
 
+## Deployment
+
+*Infrastructure migration guides — local → DigitalOcean → AuraDB*
+
+| Document | Updated | Description |
+|----------|---------|-------------|
+| [Neo4j Setup Migration Summary](deployment/NEO4J_SETUP_MIGRATION_SUMMARY.md) | 2026-02-05 | History and rationale of the three-stage deployment roadmap |
+| [DigitalOcean Migration Guide](deployment/DO_MIGRATION_GUIDE.md) | 2026-02-05 | Stage 2: Droplet (Neo4j) + App Platform (app) |
+| [AuraDB Migration Guide](deployment/AURADB_MIGRATION_GUIDE.md) | 2026-02-01 | Stage 3: Neo4j AuraDB production deployment |
+
+---
+
 ## Reference
 
 *Templates, checklists, and reference materials*

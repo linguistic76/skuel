@@ -281,7 +281,7 @@ When embeddings are unavailable:
 
 ```bash
 # Disable GenAI to test fallback behavior
-GENAI_ENABLED=false poetry run python skuel.py
+GENAI_ENABLED=false poetry run python main.py
 
 # Verify keyword search works
 curl http://localhost:8000/api/ku/search?q=python

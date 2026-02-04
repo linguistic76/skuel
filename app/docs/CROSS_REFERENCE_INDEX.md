@@ -117,6 +117,17 @@ For each skill, this section shows all related documentation (architecture docs,
 **Patterns (Primary):**
 - [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)
 
+### @docker
+
+**Description:** SKUEL's Docker setup — the two-directory compose split, Dockerfile.production conventions, startup sequences, and local vs Droplet vs App Platform differences
+
+**Deployment:**
+- [DO_MIGRATION_GUIDE.md](/docs/deployment/DO_MIGRATION_GUIDE.md)
+- [AURADB_MIGRATION_GUIDE.md](/docs/deployment/AURADB_MIGRATION_GUIDE.md)
+
+**Development:**
+- [GENAI_SETUP.md](/docs/development/GENAI_SETUP.md)
+
 ### @docs-skills-evolution
 
 **Description:** How SKUEL's documentation and skills evolve in rhythm with the ecosystem
@@ -446,6 +457,12 @@ For each documentation category, this section shows which skills are relevant.
 - [search_service_pattern.md](/docs/patterns/search_service_pattern.md) → @base-analytics-service, @neo4j-genai-plugin, @skuel-search-architecture
 - [three_tier_type_system.md](/docs/patterns/three_tier_type_system.md) → @pydantic, @python
 
+### Deployment Docs
+
+- [DO_MIGRATION_GUIDE.md](/docs/deployment/DO_MIGRATION_GUIDE.md) → @docker, @neo4j-genai-plugin
+- [AURADB_MIGRATION_GUIDE.md](/docs/deployment/AURADB_MIGRATION_GUIDE.md) → @docker, @neo4j-genai-plugin
+- [NEO4J_SETUP_MIGRATION_SUMMARY.md](/docs/deployment/NEO4J_SETUP_MIGRATION_SUMMARY.md) → @docker
+
 ### ADRs (Architecture Decision Records)
 
 - [ADR-020](/docs/decisions/ADR-020.md) → @fasthtml
@@ -463,7 +480,7 @@ For each documentation category, this section shows which skills are relevant.
 
 ## Statistics
 
-- **Total skills:** 28
+- **Total skills:** 29
 - **Architecture docs:** 8 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
 - **Pattern docs:** 43 docs linked to skills

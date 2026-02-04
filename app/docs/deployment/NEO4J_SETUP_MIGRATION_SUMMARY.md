@@ -142,22 +142,30 @@ Applied SKUEL's "One Path Forward" principle to Neo4j infrastructure documentati
 
 ## Production Deployment Path
 
-### When to Migrate to AuraDB
+The path from local development to production is now a three-stage roadmap:
 
-**You Should Migrate When:**
-- Deploying to production environment
+```
+Stage 1 (Current)          Stage 2 (Intermediate)         Stage 3 (End Goal)
+─────────────────          ──────────────────────         ──────────────────
+Local Docker Neo4j    →    DO Droplet Neo4j          →    AuraDB
+Local app (poetry)         DO App Platform (app)          DO App Platform (app)
+```
+
+- **Stage 2** validates cloud deployment, establishes backup/monitoring habits, and reduces risk for Stage 3. See [DO Migration Guide](./DO_MIGRATION_GUIDE.md).
+- **Stage 3** replaces the self-managed Droplet Neo4j with AuraDB. The app deployment does not change — only the `NEO4J_URI` and credential env vars. See [AuraDB Migration Guide](./AURADB_MIGRATION_GUIDE.md).
+
+### When to Move to Stage 2
+
+- App is feature-complete enough to warrant cloud validation
+- You want to test networking, secrets management, and deployment automation before committing to AuraDB costs
+
+### When to Move to Stage 3 (AuraDB)
+
+- Stage 2 is stable and you want to eliminate Neo4j infrastructure maintenance
 - Need 99.95% uptime SLA
-- Want automated backups and monitoring
-- Team needs centralized database management
-- Want to eliminate infrastructure maintenance
+- Want automated backups and built-in monitoring
 
-**You Should NOT Migrate If:**
-- Still in active development
-- Running on localhost only
-- Need rapid schema changes
-- Cost-sensitive early-stage project
-
-**Recommendation:** Docker for dev/staging, AuraDB for production
+**Recommendation:** Stage 1 for active development. Stage 2 before Stage 3.
 
 ---
 
@@ -189,7 +197,8 @@ This migration demonstrates SKUEL's "One Path Forward" principle:
 ## Related Documentation
 
 - [Docker GenAI Setup](../development/GENAI_SETUP.md) - Current development setup
-- [AuraDB Migration Guide](./AURADB_MIGRATION_GUIDE.md) - Production deployment
+- [DigitalOcean Migration Guide](./DO_MIGRATION_GUIDE.md) - Stage 2: Droplet + App Platform
+- [AuraDB Migration Guide](./AURADB_MIGRATION_GUIDE.md) - Stage 3: production
 - [Neo4j Infrastructure](../../CLAUDE.md#neo4j-infrastructure) - Quick reference
 
 ---

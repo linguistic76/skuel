@@ -60,7 +60,7 @@ services:
       - skuel-network
     restart: unless-stopped
     # Note: Requires Neo4j running in ~/skuel/infrastructure (cd ~/skuel/infrastructure && docker compose up -d)
-    command: python skuel.py
+    command: python main.py
 
   # --------------------------------------------------------------------------
   # Prometheus - Metrics Collection

@@ -439,7 +439,7 @@ poetry run pytest tests/e2e/test_semantic_search_flow.py -v
 
 ```bash
 # Start application
-poetry run python skuel.py
+poetry run python main.py
 
 # Open browser: http://localhost:8000
 

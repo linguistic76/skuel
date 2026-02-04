@@ -41,28 +41,29 @@ async def get_learning_opportunities(
 
 ## Neo4j Infrastructure
 
-**Core Principle:** "One Path Forward - Docker for development, AuraDB for production"
+**Core Principle:** "One Path Forward - Docker → DigitalOcean → AuraDB"
 
-**Current Setup (Development):** Docker-based Neo4j
+**Stage 1 (Current — Development):** Docker-based Neo4j
 - Connection: `bolt://localhost:7687`
 - Plugins: GenAI + APOC (meta only) via `NEO4J_PLUGINS='["apoc", "genai"]'` in docker-compose.yml
 - APOC scoped to `apoc.meta.*` — schema introspection only; domain services use pure Cypher (SKUEL001)
 - API keys: Per-query token passing (OPENAI_API_KEY environment variable)
 - Setup guide: `/docs/development/GENAI_SETUP.md`
 
-**Production Migration:** AuraDB
+**Stage 2 (Intermediate — DigitalOcean):** Droplet (Neo4j) + App Platform (app)
+- Migration guide: `/docs/deployment/DO_MIGRATION_GUIDE.md`
+- Same Neo4j config as local Docker; Bolt exposed to App Platform via firewall
+- Validates cloud deployment before AuraDB commitment
+
+**Stage 3 (Production — AuraDB):**
 - Migration guide: `/docs/deployment/AURADB_MIGRATION_GUIDE.md`
 - Database-level API keys (no per-query passing)
 - Connection: `neo4j+s://xxx.databases.neo4j.io`
 - Automated backups, 99.95% uptime SLA
 
-**Key Difference:**
-- Docker: Per-query `token` parameter with OpenAI API key
-- AuraDB: API key configured at database level via console
+**Code is environment-agnostic** - only `.env` configuration changes across all three stages.
 
-**Code is environment-agnostic** - only `.env` configuration changes for Docker vs AuraDB.
-
-**See:** `.claude/skills/neo4j-genai-plugin/` for GenAI plugin patterns
+**See:** `.claude/skills/neo4j-genai-plugin/`, `.claude/skills/docker/`
 
 ## Skills & Documentation Cross-Reference
 
@@ -97,6 +98,8 @@ async def get_learning_opportunities(
 | **Database** | | |
 | neo4j-cypher-patterns | `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md`, `/docs/patterns/query_architecture.md` | CYPHER_VS_APOC_STRATEGY.md |
 | neo4j-genai-plugin | `/docs/development/GENAI_SETUP.md` | search_service_pattern.md |
+| **Infrastructure** | | |
+| docker | `/docs/deployment/DO_MIGRATION_GUIDE.md` | GENAI_SETUP.md |
 | **Monitoring** | | |
 | prometheus-grafana | `/monitoring/README.md`, `/OBSERVABILITY_PHASE1_COMPLETE.md` | PERFORMANCE_MONITORING.md |
 | **SKUEL Architecture** | | |

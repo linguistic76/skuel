@@ -15,7 +15,7 @@ related_skills:
 
 **Skill:** [@neo4j-genai-plugin](../../.claude/skills/neo4j-genai-plugin/SKILL.md)
 
-This guide covers migrating from Docker-based Neo4j (development) to Neo4j AuraDB (production deployment). Use this guide when you're ready to deploy SKUEL to production.
+This guide covers migrating from Docker-based Neo4j to Neo4j AuraDB (production deployment). It assumes the app is already deployed on DigitalOcean App Platform (see [DO Migration Guide](./DO_MIGRATION_GUIDE.md) if you have not done that yet). The migration here is primarily a Neo4j swap: the app deployment itself does not change.
 
 ### Current Setup (Development)
 
@@ -706,7 +706,7 @@ poetry run pytest tests/e2e/test_semantic_search_flow.py -v
 
 ```bash
 # Start application
-poetry run python skuel.py
+poetry run python main.py
 
 # Should start without errors
 ```
@@ -1145,6 +1145,7 @@ poetry run python scripts/verify_auradb_backups.py
 
 ### Related Documentation
 
+- [DigitalOcean Migration Guide](./DO_MIGRATION_GUIDE.md) - Stage 2: App Platform + Droplet (prerequisite for this guide)
 - [Docker GenAI Setup](../development/GENAI_SETUP.md) - Current Docker setup (development)
 - [Vector Search Architecture](../architecture/SEARCH_ARCHITECTURE.md) - Technical details
 - [Testing Guide](../development/TESTING.md) - Running tests
