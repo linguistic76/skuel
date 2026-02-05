@@ -624,10 +624,11 @@ async def _wire_all_routes(
             "📋 Assignments handles all file types: audio → transcription → journal formatting"
         )
 
-        # Journals UI routes (dedicated journal submission interface)
+    # Journals UI routes (dedicated journal submission interface)
+    if services.journals_core:
         from adapters.inbound.journals_ui import create_journals_ui_routes
 
-        create_journals_ui_routes(app, rt, services.assignments, services.processing_pipeline)
+        create_journals_ui_routes(app, rt, services.journals_core, services.processing_pipeline)
         logger.info("✅ Journals UI routes registered (/journals)")
 
     if services.habits:
