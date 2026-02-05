@@ -673,6 +673,38 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
                         ),
                         cls="mb-4",
                     ),
+                    # Knowledge Units selector (MVP - Phase C)
+                    Div(
+                        Label("Knowledge Units Applied (Optional)", cls="label"),
+                        P(
+                            "Link this assignment to Knowledge Units you're demonstrating",
+                            cls="text-sm text-base-content/60 mb-2",
+                        ),
+                        Input(
+                            type="text",
+                            name="ku_selector_display",
+                            placeholder="Search for Knowledge Units...",
+                            cls="input input-bordered w-full",
+                            **{
+                                "hx-get": "/api/search/unified?type=ku",
+                                "hx-trigger": "keyup changed delay:300ms",
+                                "hx-target": "#ku-results",
+                                "hx-include": "this",
+                            },
+                        ),
+                        # Selected KUs display
+                        Div(id="ku-selected", cls="flex flex-wrap gap-2 mt-2"),
+                        # Search results dropdown
+                        Div(id="ku-results", cls="mt-2"),
+                        # Hidden input for form submission (comma-separated UIDs)
+                        Input(
+                            type="hidden",
+                            name="applies_knowledge_uids",
+                            id="ku-uids-input",
+                            value="",
+                        ),
+                        cls="mb-4",
+                    ),
                     # Auto-process checkbox
                     Div(
                         Label(

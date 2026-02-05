@@ -106,6 +106,27 @@ class UserContextPopulator:
             if item and item.get("uid") is not None and item.get("confidence") is not None
         }
 
+        # KU Tracking - view counts, recently viewed, marked as read (MVP - Phase B)
+        ku_view_data = uids_data.get("ku_view_data", [])
+        context.ku_view_counts = {
+            item["uid"]: item["view_count"]
+            for item in ku_view_data
+            if item and item.get("uid") is not None
+        }
+        # Recently viewed KUs - sort by last_viewed_at descending, take last 10
+        viewed_with_timestamps = [
+            (item["uid"], item["last_viewed_at"])
+            for item in ku_view_data
+            if item and item.get("uid") is not None and item.get("last_viewed_at") is not None
+        ]
+        viewed_with_timestamps.sort(key=lambda x: x[1], reverse=True)
+        context.recently_viewed_ku_uids = [uid for uid, _ in viewed_with_timestamps[:10]]
+
+        # Marked as read KUs
+        context.ku_marked_as_read_uids = set(
+            uid for uid in uids_data.get("ku_marked_as_read_uids", []) if uid
+        )
+
         # Learning Paths
         context.enrolled_path_uids = uids_data.get("enrolled_path_uids", [])
 
@@ -221,6 +242,9 @@ class UserContextPopulator:
         context.mastered_knowledge_uids = knowledge_data.get("mastered_uids", set())
         context.enrolled_path_uids = knowledge_data.get("enrolled_path_uids", [])
         context.knowledge_mastery = knowledge_data.get("knowledge_mastery", {})
+        context.ku_view_counts = knowledge_data.get("ku_view_counts", {})
+        context.recently_viewed_ku_uids = knowledge_data.get("recently_viewed_ku_uids", [])
+        context.ku_marked_as_read_uids = knowledge_data.get("ku_marked_as_read_uids", set())
 
         # Events
         events_data = data.get("events", {})

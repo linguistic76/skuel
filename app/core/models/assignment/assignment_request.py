@@ -37,6 +37,12 @@ class AssignmentCreateRequest(BaseModel):
         None, description="Additional metadata for the assignment"
     )
 
+    # Knowledge application (MVP - Phase C)
+    applies_knowledge_uids: list[str] = Field(
+        default_factory=list,
+        description="Knowledge Units being applied/demonstrated in this assignment",
+    )
+
 
 class AssignmentUpdateRequest(BaseModel):
     """

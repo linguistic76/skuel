@@ -128,6 +128,7 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
         processor_type: ProcessorType = ProcessorType.AUTOMATIC,
         file_type: str | None = None,
         metadata: dict[str, Any] | None = None,
+        applies_knowledge_uids: list[str] | None = None,
     ) -> Result[Assignment]:
         """
         Submit a file for processing.
@@ -145,6 +146,7 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
             processor_type: Processor to use (default: AUTOMATIC)
             file_type: MIME type (optional, will detect from filename)
             metadata: Additional metadata (optional)
+            applies_knowledge_uids: Knowledge Units being applied (MVP - Phase C)
 
         Returns:
             Result containing created Assignment
@@ -192,9 +194,25 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
 
             return create_result
 
+        # Create APPLIES_KNOWLEDGE relationships (MVP - Phase C)
+        if applies_knowledge_uids:
+            from core.models.relationship_names import RelationshipName
+
+            relationships = [
+                (uid, ku_uid, RelationshipName.APPLIES_KNOWLEDGE.value, None)
+                for ku_uid in applies_knowledge_uids
+            ]
+            rel_result = await self.backend.create_relationships_batch(relationships)
+            if rel_result.is_error:
+                self.logger.warning(
+                    f"Failed to create APPLIES_KNOWLEDGE relationships for {uid}: {rel_result.error}"
+                )
+                # Don't fail the whole submission, just log the warning
+
         self.logger.info(
             f"Assignment submitted: {uid} "
-            f"(type={assignment_type.value}, size={len(file_content)} bytes)"
+            f"(type={assignment_type.value}, size={len(file_content)} bytes, "
+            f"applies_knowledge={len(applies_knowledge_uids or [])} KUs)"
         )
 
         # Publish AssignmentSubmitted event

@@ -168,6 +168,28 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      } END) as knowledge_rich
 
 // ====================================================================
+// KU INTERACTION TRACKING (MVP - Phase B)
+// ====================================================================
+// Track view counts and recently viewed KUs from VIEWED relationships
+OPTIONAL MATCH (user)-[viewed:VIEWED]->(viewed_ku:Ku)
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     collect({
+         uid: viewed_ku.uid,
+         view_count: coalesce(viewed.view_count, 1),
+         last_viewed_at: viewed.last_viewed_at
+     }) as ku_view_data
+
+// Track marked as read KUs
+OPTIONAL MATCH (user)-[:MARKED_AS_READ]->(read_ku:Ku)
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data,
+     collect(read_ku.uid) as ku_marked_as_read_uids
+
+// ====================================================================
 // HABITS - Fetch UIDs, metadata, AND rich data with graph neighborhoods
 // ====================================================================
 OPTIONAL MATCH (user)-[:HAS_HABIT]->(habit:Habit)
@@ -175,6 +197,7 @@ WHERE habit.status = 'active'
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      collect(habit.uid) as active_habit_uids,
      collect({uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)}) as habit_metadata,
      collect(habit) as all_habit_nodes
@@ -186,6 +209,7 @@ WHERE habit IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata,
      habit, collect(DISTINCT {uid: linked_goal.uid, title: linked_goal.title, status: linked_goal.status}) as habit_linked_goals
 
@@ -194,6 +218,7 @@ WHERE habit IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata,
      habit, habit_linked_goals,
      collect(DISTINCT {uid: habit_ku.uid, title: habit_ku.title}) as habit_applied_knowledge
@@ -203,6 +228,7 @@ WHERE habit IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata,
      habit, habit_linked_goals, habit_applied_knowledge,
      collect(DISTINCT {uid: prereq_habit.uid, title: prereq_habit.name}) as habit_prerequisites
@@ -210,6 +236,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata,
      collect(CASE WHEN habit IS NOT NULL THEN {
          habit: properties(habit),
@@ -228,6 +255,7 @@ WHERE event.event_date >= date($today)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      collect(event.uid) as upcoming_event_uids,
      collect(CASE WHEN date(event.event_date) = date($today) THEN event.uid END) as today_event_uids,
@@ -240,6 +268,7 @@ WHERE event IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, collect(DISTINCT {uid: event_ku.uid, title: event_ku.title})[0..10] as event_applied_knowledge
@@ -249,6 +278,7 @@ WHERE event IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge,
@@ -259,6 +289,7 @@ WHERE event IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals,
@@ -269,6 +300,7 @@ WHERE event IS NOT NULL AND conflicting_event.uid <> event.uid
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
@@ -278,6 +310,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      collect(CASE WHEN event IS NOT NULL THEN {
@@ -297,6 +330,7 @@ OPTIONAL MATCH (user)-[:HAS_PRINCIPLE]->(principle:Principle)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      collect(principle.uid) as core_principle_uids,
@@ -309,6 +343,7 @@ WHERE principle IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
@@ -319,6 +354,7 @@ WHERE principle IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
@@ -330,6 +366,7 @@ WHERE principle IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
@@ -341,6 +378,7 @@ WHERE principle IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
@@ -352,6 +390,7 @@ WHERE principle IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
@@ -362,6 +401,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
@@ -384,6 +424,7 @@ WHERE choice.status IN ['pending', 'active']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -397,6 +438,7 @@ WHERE choice IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -408,6 +450,7 @@ WHERE choice IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -420,6 +463,7 @@ WHERE choice IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -432,6 +476,7 @@ WHERE choice IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -444,6 +489,7 @@ WHERE choice IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -455,6 +501,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -477,6 +524,7 @@ OPTIONAL MATCH (user)-[:ENROLLED_IN|HAS_PATH]->(lp:Lp)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -491,6 +539,7 @@ WHERE lp IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -508,6 +557,7 @@ WHERE lp IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -521,6 +571,7 @@ WHERE lp IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -534,6 +585,7 @@ WHERE lp IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -545,6 +597,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -573,6 +626,7 @@ WHERE ls.status IN ['not_started', 'in_progress']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -587,6 +641,7 @@ WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -599,6 +654,7 @@ WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -612,6 +668,7 @@ WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -625,6 +682,7 @@ WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -638,6 +696,7 @@ WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -666,6 +725,7 @@ OPTIONAL MATCH (user)-[lp_rel:ULTIMATE_PATH]->(life_path:Lp)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -683,6 +743,7 @@ OPTIONAL MATCH (user)-[:HAS_MOC]->(moc:Moc)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
@@ -712,6 +773,8 @@ RETURN {
         enrolled_path_uids: enrolled_path_uids,
         goal_progress: [item IN goal_progress_data WHERE item.uid IS NOT NULL | {uid: item.uid, progress: item.progress}],
         knowledge_mastery: [item IN knowledge_mastery_data WHERE item.uid IS NOT NULL | {uid: item.uid, score: item.score}],
+        ku_view_data: [item IN ku_view_data WHERE item.uid IS NOT NULL | {uid: item.uid, view_count: item.view_count, last_viewed_at: item.last_viewed_at}],
+        ku_marked_as_read_uids: [uid IN ku_marked_as_read_uids WHERE uid IS NOT NULL],
         habit_metadata: habit_metadata,
         active_moc_uids: [uid IN active_moc_uids WHERE uid IS NOT NULL],
         moc_metadata: [item IN moc_metadata WHERE item.uid IS NOT NULL]
@@ -785,12 +848,29 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_goal_uids, completed_goal_uids, goal_data,
      collect({uid: ku.uid, score: coalesce(mastered.mastery_score, 1.0)}) as knowledge_data
 
+// KU Tracking - view counts and marked as read (MVP - Phase B)
+OPTIONAL MATCH (user)-[viewed:VIEWED]->(viewed_ku:Ku)
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     active_habit_uids, habit_data,
+     active_goal_uids, completed_goal_uids, goal_data,
+     knowledge_data,
+     collect({uid: viewed_ku.uid, view_count: coalesce(viewed.view_count, 1), last_viewed_at: viewed.last_viewed_at}) as ku_view_data
+
+OPTIONAL MATCH (user)-[:MARKED_AS_READ]->(read_ku:Ku)
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     active_habit_uids, habit_data,
+     active_goal_uids, completed_goal_uids, goal_data,
+     knowledge_data,
+     ku_view_data,
+     collect(read_ku.uid) as ku_marked_as_read_uids
+
 // Learning Paths - parallel collection
 OPTIONAL MATCH (user)-[:ENROLLED_IN]->(lp:Lp)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
      knowledge_data,
+     ku_view_data, ku_marked_as_read_uids,
      collect(lp.uid) as enrolled_path_uids
 
 // MOCs - parallel collection with view counts
@@ -798,7 +878,9 @@ OPTIONAL MATCH (user)-[:HAS_MOC]->(moc:Moc)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
-     knowledge_data, enrolled_path_uids,
+     knowledge_data,
+     ku_view_data, ku_marked_as_read_uids,
+     enrolled_path_uids,
      collect(moc.uid) as active_moc_uids,
      collect({uid: moc.uid, view_count: coalesce(moc.view_count, 0), updated: moc.updated_at}) as moc_data
 
@@ -818,6 +900,8 @@ RETURN
     completed_goal_uids,
     goal_data,
     knowledge_data,
+    ku_view_data,
+    ku_marked_as_read_uids,
     enrolled_path_uids,
     active_moc_uids,
     moc_data,
@@ -846,6 +930,9 @@ def empty_context_data() -> dict[str, Any]:
             "mastered_uids": set(),
             "enrolled_path_uids": [],
             "knowledge_mastery": {},
+            "ku_view_counts": {},
+            "recently_viewed_ku_uids": [],
+            "ku_marked_as_read_uids": set(),
         },
         "events": {"upcoming_uids": [], "today_uids": []},
         "mocs": {"active_uids": [], "view_counts": {}, "recently_viewed_uids": []},
@@ -983,6 +1070,22 @@ class UserContextQueryExecutor:
                             item["uid"]: item["score"]
                             for item in (record["knowledge_data"] or [])
                             if item and item.get("uid") is not None
+                        },
+                        "ku_view_counts": {
+                            item["uid"]: item["view_count"]
+                            for item in (record["ku_view_data"] or [])
+                            if item and item.get("uid") is not None
+                        },
+                        "recently_viewed_ku_uids": [
+                            item["uid"]
+                            for item in sorted(
+                                [i for i in (record["ku_view_data"] or []) if i and i.get("uid") and i.get("last_viewed_at")],
+                                key=lambda x: x["last_viewed_at"],
+                                reverse=True,
+                            )
+                        ][:10],
+                        "ku_marked_as_read_uids": {
+                            uid for uid in (record["ku_marked_as_read_uids"] or []) if uid
                         },
                     },
                     "events": {

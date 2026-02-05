@@ -186,8 +186,26 @@ def create_assignments_api_routes(
         if len(file_content) > 100_000_000:
             return Result.fail(Errors.validation("File too large (max 100MB)", field="file"))
 
+        # Extract applies_knowledge_uids (MVP - Phase C)
+        applies_knowledge_uids = []
+        applies_knowledge_str = form.get("applies_knowledge_uids", "")
+        if isinstance(applies_knowledge_str, str) and applies_knowledge_str:
+            # Parse comma-separated UIDs or JSON array
+            if applies_knowledge_str.startswith("["):
+                # JSON array format
+                import json
+
+                try:
+                    applies_knowledge_uids = json.loads(applies_knowledge_str)
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse applies_knowledge_uids JSON: {applies_knowledge_str}")
+            else:
+                # Comma-separated format
+                applies_knowledge_uids = [uid.strip() for uid in applies_knowledge_str.split(",") if uid.strip()]
+
         logger.info(
-            f"File upload: {filename} ({len(file_content)} bytes, type={assignment_type.value})"
+            f"File upload: {filename} ({len(file_content)} bytes, type={assignment_type.value}, "
+            f"applies_knowledge={len(applies_knowledge_uids)} KUs)"
         )
 
         # Submit file
@@ -197,6 +215,7 @@ def create_assignments_api_routes(
             user_uid=user_uid,
             assignment_type=assignment_type,
             processor_type=processor_type,
+            applies_knowledge_uids=applies_knowledge_uids if applies_knowledge_uids else None,
         )
 
         if result.is_error:

@@ -86,6 +86,7 @@ mkdocs-material = "^9.0.0"
 pytest-mock = "^3.14.1"
 ruff = "^0.12.12"
 testcontainers = "^4.13.1"
+mcp-neo4j-cypher = "^0.5.2"
 types-requests = "^2.32.4.20250913"
 types-markdown = "^3.10.0.20251106"
 
