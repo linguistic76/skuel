@@ -33,8 +33,8 @@ class NavItem:
 
 
 # Main navigation items - order determines display order
+# Note: Profile is accessed via the avatar link in the navbar right section, not here.
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
-    NavItem("Profile", "/profile", "profile"),
     NavItem("Search", "/search", "search"),
     NavItem("Askesis", "/askesis", "askesis"),
     NavItem("Events", "/events", "events"),
@@ -49,16 +49,8 @@ ADMIN_NAV_ITEM = NavItem(
     requires_admin=True,
 )
 
-# Profile dropdown menu items
-PROFILE_MENU_ITEMS: tuple[NavItem, ...] = (
-    NavItem("Your profile", "/profile", "profile"),
-    NavItem("Settings", "/settings", "settings"),
-    NavItem("Sign out", "/logout", "logout"),
-)
-
 __all__ = [
     "NavItem",
     "MAIN_NAV_ITEMS",
     "ADMIN_NAV_ITEM",
-    "PROFILE_MENU_ITEMS",
 ]

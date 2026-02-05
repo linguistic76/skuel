@@ -247,6 +247,33 @@ def build_profile_sidebar(
         *activity_items,
         # Curriculum section (if provided)
         *curriculum_section,
+        # Account actions (pinned at bottom)
+        Li(cls="divider my-0"),
+        Li(
+            Span(
+                "Account",
+                cls="text-xs font-semibold uppercase tracking-wider opacity-60",
+            ),
+            cls="menu-title",
+        ),
+        Li(
+            Anchor(
+                Span("⚙️", cls="text-lg", aria_hidden="true"),
+                "Settings",
+                href="/settings",
+                cls="flex items-center gap-2",
+                **{"hx-boost": "false"},
+            )
+        ),
+        Li(
+            Anchor(
+                Span("🚪", cls="text-lg", aria_hidden="true"),
+                "Sign out",
+                href="/logout",
+                cls="flex items-center gap-2",
+                **{"hx-boost": "false"},
+            )
+        ),
         cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
         id="profile-sidebar-nav",
     )

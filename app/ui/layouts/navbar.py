@@ -26,7 +26,6 @@ from starlette.requests import Request
 from ui.layouts.nav_config import (
     ADMIN_NAV_ITEM,
     MAIN_NAV_ITEMS,
-    PROFILE_MENU_ITEMS,
     NavItem,
 )
 
@@ -139,50 +138,40 @@ def _mobile_menu_button() -> Button:
     )
 
 
-def _profile_dropdown(current_user: str) -> Div:
-    """Create profile dropdown using Alpine.js state with keyboard navigation."""
-    user_initial = current_user[0].upper() if current_user else "U"
+def _avatar_hue(name: str) -> int:
+    """Deterministic hue (0–359) from a name string for per-user avatar color."""
+    h = 0
+    for c in name:
+        h = (h * 31 + ord(c)) % 360
+    return h
 
-    return Div(
-        # Trigger button
-        Button(
-            Span("Open user menu", cls="sr-only"),
-            Div(
-                user_initial,
-                cls="size-8 rounded-full bg-primary flex items-center justify-center text-primary-content font-medium text-sm",
-            ),
-            type="button",
-            cls="btn btn-ghost btn-circle",
-            **{
-                "@click": "toggleProfile()",
-                "@keydown.down.prevent": "toggleProfile()",
-                "data-profile-trigger": "true",
-                ":aria-expanded": "profileMenuOpen.toString()",
-                "aria-haspopup": "true",
-            },
-        ),
-        # Dropdown menu - explicit hx-boost=false for standard navigation
+
+def _profile_avatar_link(current_user: str) -> A:
+    """Create profile avatar link — navigates directly to /profile.
+
+    Avatar circle color is derived from the username so each user gets a
+    consistent, unique color across sessions.  Settings and sign-out live
+    at the bottom of the profile sidebar.
+    """
+    initial = current_user[0].upper() if current_user else "U"
+    hue = _avatar_hue(current_user)
+
+    avatar_cls = (
+        "size-8 rounded-full flex items-center justify-center"
+        " text-white font-medium text-sm"
+    )
+
+    return A(
         Div(
-            *[
-                A(
-                    item.label,
-                    href=item.href,
-                    cls="block px-4 py-2 text-sm text-base-content hover:bg-base-200 first:rounded-t-lg last:rounded-b-lg focus:outline-none focus:bg-base-200",
-                    **{"hx-boost": "false"},
-                )
-                for item in PROFILE_MENU_ITEMS
-            ],
-            id="profile-dropdown",
-            cls="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-lg bg-base-100 shadow-lg ring-1 ring-black/5",
-            role="menu",
-            **{
-                "x-show": "profileMenuOpen",
-                "x-transition": "",
-                "x-cloak": "",
-                "aria-orientation": "vertical",
-            },
+            initial,
+            cls=avatar_cls,
+            style=f"background-color: hsl({hue}, 65%, 45%);",
+            aria_hidden="true",
         ),
-        cls="relative",
+        href="/profile",
+        cls="btn btn-ghost btn-circle",
+        aria_label="Your profile",
+        **{"hx-boost": "false"},
     )
 
 
@@ -242,7 +231,7 @@ def create_navbar(
     if is_authenticated and current_user:
         profile_section = Div(
             _notification_button(unread_insights),  # Pass unread count (Phase 1 integration)
-            _profile_dropdown(current_user),
+            _profile_avatar_link(current_user),
             cls="flex items-center gap-2",
         )
     else:

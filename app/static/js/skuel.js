@@ -808,8 +808,6 @@
         Alpine.data('navbar', function() {
             return {
                 mobileMenuOpen: false,
-                profileMenuOpen: false,
-                currentProfileIndex: -1,
                 currentMobileIndex: -1,
                 mobileFocusTrap: null,  // Task 9: FocusTrap for mobile menu
 
@@ -843,20 +841,6 @@
                     }
                 },
 
-                toggleProfile: function() {
-                    this.profileMenuOpen = !this.profileMenuOpen;
-                    if (this.profileMenuOpen) {
-                        this.currentProfileIndex = -1;
-                        // Focus first item when opening
-                        this.$nextTick(() => this.focusProfileItem(0));
-                    }
-                },
-
-                closeProfile: function() {
-                    this.profileMenuOpen = false;
-                    this.currentProfileIndex = -1;
-                },
-
                 closeMobile: function() {
                     this.mobileMenuOpen = false;
                     this.currentMobileIndex = -1;
@@ -864,44 +848,6 @@
                     // Task 9: Deactivate focus trap when closing mobile menu
                     if (this.mobileFocusTrap) {
                         this.mobileFocusTrap.deactivate();
-                    }
-                },
-
-                // Profile dropdown keyboard navigation
-                handleProfileKeydown: function(e) {
-                    if (!this.profileMenuOpen) return;
-
-                    var items = this.getProfileItems();
-                    if (!items.length) return;
-
-                    switch(e.key) {
-                        case 'ArrowDown':
-                            e.preventDefault();
-                            this.focusProfileItem(Math.min(this.currentProfileIndex + 1, items.length - 1));
-                            break;
-                        case 'ArrowUp':
-                            e.preventDefault();
-                            this.focusProfileItem(Math.max(this.currentProfileIndex - 1, 0));
-                            break;
-                        case 'Home':
-                            e.preventDefault();
-                            this.focusProfileItem(0);
-                            break;
-                        case 'End':
-                            e.preventDefault();
-                            this.focusProfileItem(items.length - 1);
-                            break;
-                        case 'Escape':
-                            e.preventDefault();
-                            this.closeProfile();
-                            // Return focus to trigger button
-                            var trigger = document.querySelector('[data-profile-trigger]');
-                            if (trigger) trigger.focus();
-                            break;
-                        case 'Tab':
-                            // Allow default tab behavior, but close menu when tabbing out
-                            this.closeProfile();
-                            break;
                     }
                 },
 
@@ -940,25 +886,10 @@
                     }
                 },
 
-                // Helper: Get profile dropdown items
-                getProfileItems: function() {
-                    var menu = document.getElementById('profile-dropdown');
-                    return menu ? Array.from(menu.querySelectorAll('a')) : [];
-                },
-
                 // Helper: Get mobile menu items
                 getMobileItems: function() {
                     var mobileNav = document.querySelector('.sm\\:hidden[x-show]');
                     return mobileNav ? Array.from(mobileNav.querySelectorAll('a')) : [];
-                },
-
-                // Helper: Focus specific profile menu item
-                focusProfileItem: function(index) {
-                    var items = this.getProfileItems();
-                    if (items[index]) {
-                        this.currentProfileIndex = index;
-                        items[index].focus();
-                    }
                 },
 
                 // Helper: Focus specific mobile menu item
@@ -973,23 +904,9 @@
                 init: function() {
                     var self = this;
 
-                    // Close profile menu when clicking outside
-                    document.addEventListener('click', function(e) {
-                        var profileButton = e.target.closest('[data-profile-trigger]');
-                        var profileMenu = document.getElementById('profile-dropdown');
-
-                        if (!profileButton && profileMenu && !profileMenu.contains(e.target)) {
-                            self.profileMenuOpen = false;
-                            self.currentProfileIndex = -1;
-                        }
-                    });
-
-                    // Global keyboard handler for dropdown navigation
+                    // Global keyboard handler for mobile menu navigation
                     document.addEventListener('keydown', function(e) {
-                        // Only handle if a dropdown is open
-                        if (self.profileMenuOpen) {
-                            self.handleProfileKeydown(e);
-                        } else if (self.mobileMenuOpen) {
+                        if (self.mobileMenuOpen) {
                             self.handleMobileKeydown(e);
                         }
                     });
