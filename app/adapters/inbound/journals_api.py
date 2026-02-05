@@ -797,29 +797,31 @@ def create_journals_api_routes(
             return Result.fail(Errors.system(error_msg))
 
     # Collect all routes
-    routes.extend([
-        transcribe_audio_route,
-        process_transcription_with_llm_route,
-        search_journals_route,
-        get_journals_by_date_range_route,
-        get_recent_journals_route,
-        get_journal_for_date_route,
-        publish_journal_route,
-        archive_journal_route,
-        get_journals_by_category_route,
-        update_insights_route,
-        extract_insights_route,
-        get_journals_by_mood_route,
-        get_transcribed_journals_route,
-        get_writing_statistics_route,
-        get_mood_trends_route,
-        get_writing_streaks_route,
-        add_tags_route,
-        get_journals_by_tag_route,
-        bulk_categorize_journals_route,
-        bulk_tag_journals_route,
-        export_markdown_route,
-    ])
+    routes.extend(
+        [
+            transcribe_audio_route,
+            process_transcription_with_llm_route,
+            search_journals_route,
+            get_journals_by_date_range_route,
+            get_recent_journals_route,
+            get_journal_for_date_route,
+            publish_journal_route,
+            archive_journal_route,
+            get_journals_by_category_route,
+            update_insights_route,
+            extract_insights_route,
+            get_journals_by_mood_route,
+            get_transcribed_journals_route,
+            get_writing_statistics_route,
+            get_mood_trends_route,
+            get_writing_streaks_route,
+            add_tags_route,
+            get_journals_by_tag_route,
+            bulk_categorize_journals_route,
+            bulk_tag_journals_route,
+            export_markdown_route,
+        ]
+    )
 
     logger.info(f"Journals API routes registered: {len(routes)} endpoints")
     return routes

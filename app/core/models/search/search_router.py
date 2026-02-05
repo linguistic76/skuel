@@ -965,10 +965,7 @@ class SearchRouter:
             List of SearchResultItem with semantic boost metadata
         """
         # Check if vector search service available
-        if (
-            not hasattr(self.services, "vector_search_service")
-            or self.services.vector_search_service is None
-        ):
+        if getattr(self.services, "vector_search_service", None) is None:
             self.logger.warning(
                 "Vector search service not available, falling back to standard search"
             )

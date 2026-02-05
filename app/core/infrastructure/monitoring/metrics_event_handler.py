@@ -201,7 +201,8 @@ class MetricsEventHandler:
     async def _on_tasks_bulk_completed(self, event: TasksBulkCompleted) -> None:
         """Track bulk task completion."""
         # Increment by number of tasks completed
-        count = len(event.task_uids) if hasattr(event, "task_uids") else 1
+        task_uids = getattr(event, "task_uids", None)
+        count = len(task_uids) if task_uids else 1
         self.prometheus_metrics.domains.entities_completed.labels(
             entity_type="task", user_uid=event.user_uid
         ).inc(count)

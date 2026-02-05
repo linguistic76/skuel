@@ -8,7 +8,6 @@ Security:
 - Dashboard requires admin role
 """
 
-
 from fasthtml.common import H1, H2, Form, NotStr, P, Pre
 from starlette.requests import Request
 

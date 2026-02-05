@@ -6,10 +6,16 @@ This script creates a comprehensive bidirectional mapping between skills and doc
 """
 
 import re
+from operator import itemgetter
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+
+def _parse_adr_number(adr_id: str) -> int:
+    """Extract numeric part from ADR identifier for sorting."""
+    return int(adr_id.replace("ADR-", ""))
 
 
 def load_skills_metadata(base_path: Path) -> dict[str, Any]:
@@ -71,7 +77,7 @@ def generate_index_content(base_path: Path) -> str:
     )
     content.append("")
 
-    for skill in sorted(skills_data["skills"], key=lambda s: s["name"]):
+    for skill in sorted(skills_data["skills"], key=itemgetter("name")):
         name = skill["name"]
         description = skill.get("description", "")
         primary_docs = skill.get("primary_docs", [])
@@ -249,7 +255,7 @@ def generate_index_content(base_path: Path) -> str:
                 adr_to_skills[adr] = []
             adr_to_skills[adr].append(skill["name"])
 
-    for adr in sorted(adr_to_skills.keys(), key=lambda x: int(x.replace("ADR-", ""))):
+    for adr in sorted(adr_to_skills.keys(), key=_parse_adr_number):
         skills = sorted(set(adr_to_skills[adr]))
         skills_str = ", ".join(f"@{s}" for s in skills)
         adr_file = f"ADR-{adr}.md" if not adr.startswith("ADR-") else f"{adr}.md"

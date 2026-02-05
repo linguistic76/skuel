@@ -339,12 +339,14 @@ def create_ingestion_api_routes(
             )
 
     # Collect all routes
-    routes.extend([
-        ingest_file_route,
-        ingest_directory_route,
-        ingest_vault_route,
-        ingest_bundle_route,
-    ])
+    routes.extend(
+        [
+            ingest_file_route,
+            ingest_directory_route,
+            ingest_vault_route,
+            ingest_bundle_route,
+        ]
+    )
 
     logger.info(f"Ingestion API routes registered: {len(routes)} endpoints")
     return routes

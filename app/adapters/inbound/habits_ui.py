@@ -1345,7 +1345,9 @@ def create_habits_ui_routes(
         # NOTE: get_goal_habits returns supporting habits; essentiality grouping
         # requires GoalRelationships.fetch() which is not available through the facade.
         all_habit_uids_result = await goals_service.get_goal_habits(goal.uid)
-        all_habit_uids: list[str] = all_habit_uids_result.value if all_habit_uids_result.is_ok else []
+        all_habit_uids: list[str] = (
+            all_habit_uids_result.value if all_habit_uids_result.is_ok else []
+        )
         habit_success_rates: dict[str, float] = {}
 
         # Build habit breakdown with details
@@ -1410,7 +1412,9 @@ def create_habits_ui_routes(
 
         # Fetch all habits and build completion counts
         all_habit_uids_result = await goals_service.get_goal_habits(goal.uid)
-        all_habit_uids: list[str] = all_habit_uids_result.value if all_habit_uids_result.is_ok else []
+        all_habit_uids: list[str] = (
+            all_habit_uids_result.value if all_habit_uids_result.is_ok else []
+        )
         habit_completion_counts: dict[str, int] = {}
 
         # Build weighted breakdown by essentiality
@@ -1498,7 +1502,9 @@ def create_habits_ui_routes(
 
         # Fetch all habits and build completion counts for velocity
         all_habit_uids_result = await goals_service.get_goal_habits(goal.uid)
-        all_habit_uids: list[str] = all_habit_uids_result.value if all_habit_uids_result.is_ok else []
+        all_habit_uids: list[str] = (
+            all_habit_uids_result.value if all_habit_uids_result.is_ok else []
+        )
         habit_completion_counts: dict[str, int] = {}
         habit_success_rates: dict[str, float] = {}
 

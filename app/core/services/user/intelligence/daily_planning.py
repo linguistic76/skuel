@@ -138,7 +138,7 @@ class DailyPlanningMixin:
         # =====================================================================
         if not respect_capacity or plan.estimated_time_minutes < available_time * 0.7:
             # Try semantic-enhanced search first (Phase 1)
-            if self.vector_search and hasattr(self.vector_search, "learning_aware_search"):
+            if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
                 search_query = self._generate_daily_learning_query(plan)
                 vector_result = await self.vector_search.learning_aware_search(
                     label="Ku",

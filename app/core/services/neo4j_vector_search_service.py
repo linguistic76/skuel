@@ -19,6 +19,7 @@ See: /docs/architecture/NEO4J_GENAI_ARCHITECTURE.md
 
 import time
 from datetime import datetime
+from operator import itemgetter
 from typing import Any
 
 from core.config.unified_config import VectorSearchConfig
@@ -700,7 +701,7 @@ class Neo4jVectorSearchService:
             result["semantic_boost"] = semantic_boost
 
         # Step 4: Re-rank by enhanced score
-        results.sort(key=lambda x: x["score"], reverse=True)
+        results.sort(key=itemgetter("score"), reverse=True)
 
         # Step 5: Limit to requested count
         final_results = results[:limit]
@@ -903,7 +904,7 @@ class Neo4jVectorSearchService:
             result["learning_boost"] = boost_multiplier
 
         # Step 4: Re-rank by boosted score
-        results.sort(key=lambda x: x["score"], reverse=True)
+        results.sort(key=itemgetter("score"), reverse=True)
 
         # Step 5: Limit to requested count
         final_results = results[:limit]

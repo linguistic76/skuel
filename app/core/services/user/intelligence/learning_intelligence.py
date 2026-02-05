@@ -74,7 +74,7 @@ class LearningIntelligenceMixin:
             Result[list[LearningStep]] ranked by priority with full context
         """
         # Phase 1 Enhancement: Try learning-aware search first (if available)
-        if self.vector_search and hasattr(self.vector_search, "learning_aware_search"):
+        if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
             # Use semantic/learning-aware search to find optimal next steps
             # This personalizes based on mastery state (MASTERED, IN_PROGRESS, etc.)
             search_query = self._generate_learning_query()

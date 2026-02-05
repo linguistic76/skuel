@@ -644,22 +644,24 @@ def create_system_api_routes(
         )
 
     # Collect all routes
-    routes.extend([
-        health_check_route,
-        status_route,
-        detailed_health_route,
-        version_info_route,
-        system_metrics_route,
-        system_diagnostics_route,
-        register_service_route,
-        unregister_service_route,
-        list_services_route,
-        validate_system_route,
-        system_summary_route,
-        check_alerts_route,
-        get_alert_thresholds_route,
-        update_alert_thresholds_route,
-    ])
+    routes.extend(
+        [
+            health_check_route,
+            status_route,
+            detailed_health_route,
+            version_info_route,
+            system_metrics_route,
+            system_diagnostics_route,
+            register_service_route,
+            unregister_service_route,
+            list_services_route,
+            validate_system_route,
+            system_summary_route,
+            check_alerts_route,
+            get_alert_thresholds_route,
+            update_alert_thresholds_route,
+        ]
+    )
 
     logger.info(f"System API routes registered: {len(routes)} endpoints")
     return routes

@@ -412,9 +412,7 @@ def create_visualization_api_routes(
             # Get dependencies (tasks_service.relationships always exists per SKUEL architecture)
             for task in tasks:
                 try:
-                    deps_result = await tasks_service.relationships.get_task_prerequisites(
-                        task.uid
-                    )
+                    deps_result = await tasks_service.relationships.get_task_prerequisites(task.uid)
                     if deps_result.is_ok and deps_result.value:
                         dependencies[task.uid] = [d.uid for d in deps_result.value]
                 except Exception:
@@ -510,16 +508,18 @@ def create_visualization_api_routes(
         return JSONResponse(demo_data)
 
     # Collect all routes
-    routes.extend([
-        get_completion_chart,
-        get_priority_distribution,
-        get_streak_chart,
-        get_status_distribution,
-        get_timeline_data,
-        get_tasks_timeline,
-        get_tasks_gantt,
-        get_goal_gantt,
-    ])
+    routes.extend(
+        [
+            get_completion_chart,
+            get_priority_distribution,
+            get_streak_chart,
+            get_status_distribution,
+            get_timeline_data,
+            get_tasks_timeline,
+            get_tasks_gantt,
+            get_goal_gantt,
+        ]
+    )
 
     logger.info(f"Visualization API routes registered: {len(routes)} endpoints")
     return routes

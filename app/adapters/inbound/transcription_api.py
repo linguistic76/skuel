@@ -178,7 +178,9 @@ def create_transcription_api_routes(
         user_uid = params.get("user_uid")
         limit = int(params.get("limit", 100))
 
-        result = await transcription_service.get_by_status(status_enum, user_uid=user_uid, limit=limit)
+        result = await transcription_service.get_by_status(
+            status_enum, user_uid=user_uid, limit=limit
+        )
 
         if result.is_error:
             return result

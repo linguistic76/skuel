@@ -70,8 +70,9 @@ def instrument_handler(
                 result = await handler(request, *args, **kwargs)
 
                 # Extract status code from result if it's a Response object
-                if hasattr(result, "status_code"):
-                    status_code = result.status_code
+                result_status = getattr(result, "status_code", None)
+                if result_status is not None:
+                    status_code = result_status
 
                 # Track successful request
                 prometheus_metrics.http.requests_total.labels(
@@ -184,8 +185,9 @@ def instrument_with_boundary_handler(
                 else:
                     # If not a Result, assume it's already a response
                     response = result
-                    if hasattr(response, "status_code"):
-                        status_code = response.status_code
+                    resp_status = getattr(response, "status_code", None)
+                    if resp_status is not None:
+                        status_code = resp_status
 
                 # Track successful request
                 if prometheus_metrics:

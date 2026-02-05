@@ -157,8 +157,7 @@ def _profile_avatar_link(current_user: str) -> A:
     hue = _avatar_hue(current_user)
 
     avatar_cls = (
-        "size-8 rounded-full flex items-center justify-center"
-        " text-white font-medium text-sm"
+        "size-8 rounded-full flex items-center justify-center text-white font-medium text-sm"
     )
 
     return A(

@@ -25,6 +25,7 @@ import argparse
 import re
 import sys
 from collections import Counter, defaultdict
+from operator import itemgetter
 from pathlib import Path
 from typing import Any
 
@@ -165,7 +166,7 @@ def get_slow_queries(
         List of slow queries sorted by latency (slowest first)
     """
     slow = [m for m in metrics_list if m["latency_ms"] > threshold_ms]
-    return sorted(slow, key=lambda x: x["latency_ms"], reverse=True)
+    return sorted(slow, key=itemgetter("latency_ms"), reverse=True)
 
 
 def analyze_by_type(metrics_list: list[dict[str, Any]]) -> dict[str, SearchMetricsAggregate]:

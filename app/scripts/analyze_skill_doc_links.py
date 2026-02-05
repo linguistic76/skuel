@@ -116,7 +116,7 @@ def main() -> None:
 
         if docs["adrs"]:
             print("\n**Related ADRs:**")
-            for adr in sorted(docs["adrs"], key=lambda x: int(x)):
+            for adr in sorted(docs["adrs"], key=int):
                 print(f"  - ADR-{adr}")
 
         print()

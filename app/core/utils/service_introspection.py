@@ -112,7 +112,7 @@ def validate_service_for_analytics(
         ]
 
     missing_methods = [
-        method_name for method_name in required_methods if not hasattr(service, method_name)
+        method_name for method_name in required_methods if not getattr(service, method_name, None)
     ]
 
     is_valid = len(missing_methods) == 0

@@ -6,6 +6,7 @@ API routes for managing event-driven insights (dismiss, mark as actioned).
 Phase 1 (January 2026): Insight lifecycle management.
 """
 
+from operator import itemgetter
 from typing import Any
 
 from fasthtml.common import Request
@@ -443,7 +444,7 @@ def create_insights_api_routes(
             domain_counts[domain] = domain_counts.get(domain, 0) + 1
 
         # Sort by count descending
-        sorted_domains = sorted(domain_counts.items(), key=lambda x: x[1], reverse=True)
+        sorted_domains = sorted(domain_counts.items(), key=itemgetter(1), reverse=True)
 
         # Chart.js bar config
         chart_config = {
@@ -494,7 +495,7 @@ def create_insights_api_routes(
             type_counts[insight_type] = type_counts.get(insight_type, 0) + 1
 
         # Sort by count descending
-        sorted_types = sorted(type_counts.items(), key=lambda x: x[1], reverse=True)
+        sorted_types = sorted(type_counts.items(), key=itemgetter(1), reverse=True)
 
         # Format labels (convert snake_case to Title Case)
         labels = [t.replace("_", " ").title() for t, _ in sorted_types]

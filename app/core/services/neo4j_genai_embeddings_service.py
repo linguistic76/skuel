@@ -23,6 +23,7 @@ SECURITY:
 See: /docs/development/GENAI_SETUP.md
 """
 
+from operator import itemgetter
 from typing import Any
 
 from core.utils.logging import get_logger
@@ -324,7 +325,7 @@ class Neo4jGenAIEmbeddingsService:
 
             # Extract embeddings in order
             embeddings = [
-                record["embedding"] for record in sorted(records, key=lambda r: r["index"])
+                record["embedding"] for record in sorted(records, key=itemgetter("index"))
             ]
 
             # Validate all dimensions

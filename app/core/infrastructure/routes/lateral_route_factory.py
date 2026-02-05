@@ -428,14 +428,12 @@ class LateralRouteFactory:
                     "error": f"Unsupported relationship type: {relationship_type}",
                 }, 400
 
-            # Check if service has the method
-            if not hasattr(self.lateral_service, method_name):
+            delete_method = getattr(self.lateral_service, method_name, None)
+            if delete_method is None:
                 return {
                     "success": False,
                     "error": f"Delete method not available for {relationship_type}",
                 }, 400
-
-            delete_method = getattr(self.lateral_service, method_name)
             result = await delete_method(
                 blocker_uid=uid,
                 blocked_uid=target_uid,

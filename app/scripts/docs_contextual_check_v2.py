@@ -409,9 +409,10 @@ def merge_and_deduplicate(all_suggestions: list[DocSuggestion]) -> list[DocSugge
                 )
 
     # Sort by confidence
-    return sorted(
-        by_doc.values(), key=lambda s: confidence_order.get(s.confidence, 0), reverse=True
-    )
+    def by_confidence(suggestion: DocSuggestion) -> int:
+        return confidence_order.get(suggestion.confidence, 0)
+
+    return sorted(by_doc.values(), key=by_confidence, reverse=True)
 
 
 def print_suggestions(suggestions: list[DocSuggestion], changed_files: list[str]) -> None:

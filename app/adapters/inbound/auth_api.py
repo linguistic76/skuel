@@ -128,10 +128,12 @@ def create_auth_api_routes(
         )
 
     # Collect all routes
-    routes.extend([
-        debug_session,
-        whoami,
-    ])
+    routes.extend(
+        [
+            debug_session,
+            whoami,
+        ]
+    )
 
     logger.info(f"Auth API routes registered: {len(routes)} endpoints")
     return routes

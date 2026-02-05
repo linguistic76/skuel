@@ -187,7 +187,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
             Configuration value from RelationshipConfig or default
         """
         # Check RelationshipConfig (instance config)
-        if hasattr(self, "config") and self.config:
+        if getattr(self, "config", None):
             value = getattr(self.config, attr_name, None)
             if value is not None:
                 return value

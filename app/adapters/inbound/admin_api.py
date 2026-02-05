@@ -388,14 +388,16 @@ def create_admin_api_routes(
         )
 
     # Collect all routes
-    routes.extend([
-        list_users,
-        get_user_details,
-        change_user_role,
-        deactivate_user,
-        activate_user,
-        generate_reset_token,
-    ])
+    routes.extend(
+        [
+            list_users,
+            get_user_details,
+            change_user_role,
+            deactivate_user,
+            activate_user,
+            generate_reset_token,
+        ]
+    )
 
     logger.info(f"Admin API routes registered: {len(routes)} endpoints")
     return routes

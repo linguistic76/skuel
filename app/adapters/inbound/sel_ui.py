@@ -598,7 +598,9 @@ def create_sel_ui_routes(
         user_uid = require_authenticated_user(request)
 
         if adaptive_sel_service:
-            await adaptive_sel_service.track_page_view(user_uid, SELCategory.RESPONSIBLE_DECISION_MAKING)
+            await adaptive_sel_service.track_page_view(
+                user_uid, SELCategory.RESPONSIBLE_DECISION_MAKING
+            )
 
         breadcrumbs = Breadcrumbs(
             path=[

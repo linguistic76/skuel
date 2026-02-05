@@ -251,7 +251,9 @@ def SELJourneyOverview(journey: SELJourney) -> Div:
                     cls="text-sm text-gray-500 mb-2",
                 ),
                 Progress(
-                    value=int(journey.overall_completion), max_val=100, cls="progress progress-primary"
+                    value=int(journey.overall_completion),
+                    max_val=100,
+                    cls="progress progress-primary",
                 ),
                 cls="mt-4",
             ),

@@ -67,7 +67,9 @@ class Request(Protocol):
 # ============================================================================
 
 
-def create_principles_ui_routes(_app, rt, principles_service: PrinciplesFacadeProtocol, services: Any = None):
+def create_principles_ui_routes(
+    _app, rt, principles_service: PrinciplesFacadeProtocol, services: Any = None
+):
     """
     Create three-view principle UI routes (standalone, analytics as third tab).
 

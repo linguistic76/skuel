@@ -325,9 +325,10 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
 
     # Build supporting data section
     supporting_data_items = []
-    if hasattr(insight, "metadata") and insight.metadata:
+    metadata = getattr(insight, "metadata", None)
+    if metadata:
         # Extract supporting data from metadata
-        supporting_data = insight.metadata.get("supporting_data", {})
+        supporting_data = metadata.get("supporting_data", {})
         if supporting_data:
             for key, value in supporting_data.items():
                 supporting_data_items.append(
