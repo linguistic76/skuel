@@ -27,7 +27,6 @@ from fasthtml.common import (
     H3,
     H4,
     A,
-    Container,
     Div,
     Form,
     Input,
@@ -45,7 +44,7 @@ from starlette.requests import Request
 from core.auth import require_authenticated_user
 from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
-from ui.layouts.navbar import create_navbar_for_request
+from ui.layouts.base_page import BasePage
 
 logger = get_logger("skuel.routes.assignments.ui")
 
@@ -783,8 +782,8 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
             cls="card bg-base-100 shadow-sm",
         )
 
-        # Main dashboard layout
-        dashboard = Container(
+        # Main page content
+        content = Div(
             Div(
                 H1("Assignments", cls="text-3xl font-bold"),
                 P(
@@ -801,10 +800,9 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
                 Div(assignments_grid, cls="w-full md:w-3/4"),
                 cls="flex flex-col md:flex-row gap-4",
             ),
-            # Minimal JavaScript for UX enhancements only
+            # HTMX event handlers for UX polish (not core functionality)
             Script(
                 NotStr("""
-                // HTMX event handlers for UX polish (not core functionality)
                 document.body.addEventListener('htmx:beforeRequest', function(evt) {
                     const form = evt.detail.elt;
                     if (form.id === 'upload-form') {
@@ -819,27 +817,25 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
                 document.body.addEventListener('htmx:afterRequest', function(evt) {
                     const form = evt.detail.elt;
                     if (form.id === 'upload-form') {
-                        // Reset form after successful upload
                         form.reset();
-                        // Re-enable button
                         const btn = form.querySelector('button[type="submit"]');
                         if (btn) {
                             btn.disabled = false;
                             btn.textContent = 'Upload & Submit';
                         }
-                        // Refresh assignments grid
                         htmx.trigger('#assignments-grid-container', 'load');
                     }
                 });
             """)
             ),
-            cls="container mx-auto mt-8 p-4",
         )
 
-        # Create navbar
-        navbar = create_navbar_for_request(request, active_page="assignments")
-
-        return Div(navbar, dashboard)
+        return await BasePage(
+            content,
+            title="Assignments",
+            request=request,
+            active_page="assignments",
+        )
 
     # ========================================================================
     # ASSIGNMENT DETAIL VIEW - HTMX-powered
@@ -919,19 +915,21 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
             cls="card bg-base-100 shadow-sm",
         )
 
-        # Main detail layout
-        detail_view = Container(
+        content = Div(
             Div(
                 H1("Assignment Details", cls="text-3xl font-bold"),
                 P(f"UID: {uid}", cls="text-lg text-base-content/60"),
                 cls="text-center mb-8",
             ),
             detail_card,
-            cls="container mx-auto mt-8 p-4",
         )
 
-        navbar = create_navbar_for_request(request, active_page="assignments")
-        return Div(navbar, detail_view)
+        return await BasePage(
+            content,
+            title="Assignment Details",
+            request=request,
+            active_page="assignments",
+        )
 
     # ========================================================================
     # HTMX ENDPOINTS

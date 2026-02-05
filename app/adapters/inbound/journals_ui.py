@@ -36,14 +36,13 @@ from core.ui.daisy_components import (
     ButtonT,
     Card,
     CardBody,
-    Container,
     Div,
     Input,
     Label,
     Span,
 )
 from core.utils.logging import get_logger
-from ui.layouts.navbar import create_navbar_for_request
+from ui.layouts.base_page import BasePage
 
 logger = get_logger("skuel.routes.journals.ui")
 
@@ -755,14 +754,14 @@ def create_journals_ui_routes(_app, rt, journals_core_service, transcription_ser
             **{"x-data": "{}"},  # Share Alpine.js scope with tabs above
         )
 
-        # Main dashboard layout
-        dashboard = Container(
+        # Main page content
+        content = Div(
             # Header
             Div(
                 H1("Journals", cls="text-3xl font-bold"),
                 P(
                     "Capture your thoughts through voice or curated text",
-                    cls="text-lg text-gray-500",
+                    cls="text-lg text-base-content/60",
                 ),
                 cls="text-center mb-8",
             ),
@@ -772,9 +771,8 @@ def create_journals_ui_routes(_app, rt, journals_core_service, transcription_ser
             # HTMX handling for form submissions
             FTScript(
                 NotStr("""
-                // Note: Tab switching now handled by Alpine.js accessibleTabs component (WCAG 2.1 Level AA)
+                // Tab switching handled by Alpine.js accessibleTabs component (WCAG 2.1 Level AA)
 
-                // Add loading state to buttons during HTMX requests
                 document.body.addEventListener('htmx:beforeRequest', function(evt) {
                     const form = evt.detail.elt;
                     const btn = form.querySelector('button[type="submit"]');
@@ -788,14 +786,11 @@ def create_journals_ui_routes(_app, rt, journals_core_service, transcription_ser
                     const form = evt.detail.elt;
                     if (form.id === 'voice-journal-form') {
                         form.reset();
-                        // Reload voice journals list
                         htmx.trigger('#recent-voice-journals', 'load');
                     } else if (form.id === 'curated-journal-form') {
                         form.reset();
-                        // Reload curated journals list
                         htmx.trigger('#recent-curated-journals', 'load');
                     }
-                    // Re-enable button
                     const btn = form.querySelector('button[type="submit"]');
                     if (btn) {
                         btn.disabled = false;
@@ -808,13 +803,14 @@ def create_journals_ui_routes(_app, rt, journals_core_service, transcription_ser
                 });
             """)
             ),
-            cls="container mx-auto mt-8 px-4",
         )
 
-        # Create navbar
-        navbar = create_navbar_for_request(request, active_page="journals")
-
-        return Div(navbar, dashboard)
+        return await BasePage(
+            content,
+            title="Journals",
+            request=request,
+            active_page="journals",
+        )
 
     logger.info("Journals UI routes created successfully (two-tier system)")
     logger.info("   - /journals: Two-tier dashboard with tabs")
