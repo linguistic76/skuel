@@ -24,7 +24,11 @@ from core.infrastructure.routes.crud_route_factory import (
     CRUDRouteFactory,
 )
 from core.infrastructure.routes.domain_route_factory import (
+    CRUDRouteConfig,
     DomainRouteConfig,
+    IntelligenceRouteConfig,
+    QueryRouteConfig,
+    create_activity_domain_route_config,
     register_domain_routes,
 )
 from core.infrastructure.routes.intelligence_route_factory import (
@@ -35,6 +39,10 @@ from core.infrastructure.routes.query_route_factory import CommonQueryRouteFacto
 from core.infrastructure.routes.quick_add_factory import (
     QuickAddConfig,
     QuickAddRouteFactory,
+)
+from core.infrastructure.routes.route_helpers import (
+    check_required_role,
+    verify_entity_ownership,
 )
 from core.infrastructure.routes.status_route_factory import (
     StatusOperations,
@@ -47,13 +55,20 @@ __all__ = [
     "CRUDRouteFactory",
     "CommonQueryRouteFactory",
     # Domain route factory (January 2026)
+    "CRUDRouteConfig",
     "DomainRouteConfig",
+    "IntelligenceRouteConfig",
+    "QueryRouteConfig",
+    "create_activity_domain_route_config",
     "register_domain_routes",
     "IntelligenceOperations",
     "IntelligenceRouteFactory",
     # Quick-add form factory (January 2026)
     "QuickAddConfig",
     "QuickAddRouteFactory",
+    # Shared route helpers
+    "check_required_role",
+    "verify_entity_ownership",
     # Status route factory (December 2025)
     "StatusOperations",
     "StatusRouteFactory",

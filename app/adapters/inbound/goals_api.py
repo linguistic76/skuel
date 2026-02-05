@@ -1,19 +1,12 @@
 """
-Goals API - Migrated to CRUDRouteFactory
-========================================
+Goals API - Status and Domain-Specific Routes
+==============================================
 
-Third migration in the CRUD API rollout.
-
-Before: 323 lines of manual route definitions
-After: ~270 lines
-
-This file uses:
-- CRUDRouteFactory for standard CRUD routes (create, get, update, delete, list)
-- Manual routes for domain-specific operations (progress, milestones, habits, status)
-
-SECURITY UPDATE (December 2025):
-- CRUDRouteFactory now verifies ownership on get/update/delete
-- Manual routes use require_authenticated_user + verify_ownership for security
+CRUD, Query, and Intelligence factories are now registered via config in
+goals_routes.py.  This file contains only factories and routes that require
+runtime closures or domain-specific handler logic:
+- StatusRouteFactory (activate/pause/complete/archive transitions)
+- Manual domain routes (progress, milestones, habits, categories, search)
 """
 
 from typing import Any
@@ -22,15 +15,11 @@ from fasthtml.common import Request
 
 from core.auth import require_authenticated_user, require_ownership_query
 from core.infrastructure.routes import (
-    CRUDRouteFactory,
-    IntelligenceRouteFactory,
     StatusRouteFactory,
     StatusTransition,
 )
-from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
 from core.models.enums import ContentScope
 from core.models.goal.goal import Goal
-from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 from core.services.protocols.facade_protocols import GoalsFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
@@ -40,84 +29,24 @@ def create_goals_api_routes(
     app: Any,
     rt: Any,
     goals_service: GoalsFacadeProtocol,
-    user_service: Any = None,
-    habits_service: Any = None,
+    **_kwargs: Any,
 ) -> list[Any]:
     """
-    Create goal API routes using factory pattern.
+    Create goal API routes that require runtime closures or domain-specific logic.
+
+    CRUD, Query, and Intelligence routes are registered by register_domain_routes
+    before this function is called (see goals_routes.py → GOALS_CONFIG).
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        goals_service: GoalsService instance
-        user_service: UserService for admin role verification
-        habits_service: HabitsService for habit ownership verification
+        goals_service: GoalsService instance (primary service)
+        **_kwargs: Absorbs related services passed by register_domain_routes
     """
 
     # Service getter for ownership decorator (SKUEL012: named function, not lambda)
     def get_goals_service():
         return goals_service
-
-    # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for standard CRUD operations
-    crud_factory = CRUDRouteFactory(
-        service=goals_service,
-        domain_name="goals",
-        create_schema=GoalCreateRequest,
-        update_schema=GoalUpdateRequest,
-        uid_prefix="goal",
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register all standard CRUD routes:
-    # - POST   /api/goals           (create)
-    # - GET    /api/goals/{uid}     (get)
-    # - PUT    /api/goals/{uid}     (update)
-    # - DELETE /api/goals/{uid}     (delete)
-    # - GET    /api/goals           (list with pagination)
-    crud_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # COMMON QUERY ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for common query patterns
-    query_factory = CommonQueryRouteFactory(
-        service=goals_service,
-        domain_name="goals",
-        user_service=user_service,  # For admin /user route
-        habits_service=habits_service,  # For habit ownership verification
-        supports_goal_filter=False,  # Goals don't filter by goal (it IS the goal domain)
-        supports_habit_filter=True,
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register common query routes:
-    # - GET /api/goals/mine               (get authenticated user's goals)
-    # - GET /api/goals/user?user_uid=...  (admin only - get any user's goals)
-    # - GET /api/goals/habit?habit_uid=...  (get goals for habit, ownership verified)
-    # - GET /api/goals/by-status?status=...  (filter by status, auth required)
-    query_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # INTELLIGENCE ROUTES (Factory-Generated)
-    # ========================================================================
-
-    intelligence_factory = IntelligenceRouteFactory(
-        intelligence_service=goals_service.intelligence,
-        domain_name="goals",
-        ownership_service=goals_service,
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register intelligence routes:
-    # - GET /api/goals/context?uid=...&depth=2     (entity with graph context)
-    # - GET /api/goals/analytics?period_days=30   (user performance analytics)
-    # - GET /api/goals/insights?uid=...           (domain-specific insights)
-    intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
@@ -343,15 +272,3 @@ def create_goals_api_routes(
         return await typed_service.get_overdue_goals(limit)
 
     return []  # Routes registered via @rt() decorators (no objects returned)
-
-
-# Migration Statistics:
-# =====================
-# Before (goals_api.py):         323 lines
-# After (goals_api_migrated):    ~270 lines
-# Reduction:                     53 lines (16% reduction)
-#
-# CRUD boilerplate eliminated:   ~75 lines (88% CRUD code → factory handles it)
-#
-# The 5 standard CRUD routes are now handled by the factory, while
-# 19 domain-specific routes remain as manual implementations.

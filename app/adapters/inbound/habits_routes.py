@@ -1,27 +1,32 @@
 """
-Habits Routes - Clean Architecture Factory
-==========================================
+Habits Routes - Config-Driven Registration
+============================================
 
-Minimal factory that wires API and UI routes using DomainRouteConfig.
+Activity Domain: CRUD, Query, and Intelligence factories declared in config.
+Status and Analytics factories remain in habits_api.py.
 """
 
 from adapters.inbound.habits_api import create_habits_api_routes
 from adapters.inbound.habits_ui import create_habits_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
 
-HABITS_CONFIG = DomainRouteConfig(
+HABITS_CONFIG = create_activity_domain_route_config(
     domain_name="habits",
     primary_service_attr="habits",
     api_factory=create_habits_api_routes,
     ui_factory=create_habits_ui_routes,
+    create_schema=HabitCreateRequest,
+    update_schema=HabitUpdateRequest,
+    uid_prefix="habit",
+    supports_goal_filter=True,
+    supports_habit_filter=False,
     api_related_services={
-        # Format: {kwarg_name: container_attr}
-        # Each entry is passed to api_factory as: kwarg_name=getattr(services, container_attr)
-        "user_service": "user_service",  # user_service=services.user_service
-        "goals_service": "goals",  # goals_service=services.goals
+        "user_service": "user_service",
+        "goals_service": "goals",
     },
     ui_related_services={
-        "goals_service": "goals",  # goals_service=services.goals
+        "goals_service": "goals",
     },
 )
 

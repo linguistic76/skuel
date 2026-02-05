@@ -1,19 +1,13 @@
 """
-Habits API - Migrated to CRUDRouteFactory
-==========================================
+Habits API - Status, Analytics, and Domain-Specific Routes
+============================================================
 
-Second pilot migration demonstrating the factory pattern across domains.
-
-Before: 334 lines of manual route definitions
-After: ~190 lines (43% reduction)
-
-This file uses:
-- CRUDRouteFactory for standard CRUD routes (create, get, update, delete, list)
-- StatusRouteFactory for status changes (pause, resume, archive)
-- Manual routes for domain-specific operations (track, reminders, analytics, etc.)
-
-SECURITY UPDATE (December 2025):
-- StatusRouteFactory provides automatic ownership verification
+CRUD, Query, and Intelligence factories are now registered via config in
+habits_routes.py.  This file contains only factories and routes that require
+runtime closures or domain-specific handler logic:
+- StatusRouteFactory (pause/resume/archive with request_builder closures)
+- AnalyticsRouteFactory (custom async handlers)
+- Manual domain routes (track, reminders, categories, search)
 """
 
 from typing import Any
@@ -22,18 +16,13 @@ from fasthtml.common import Request
 
 from core.auth import require_authenticated_user, require_ownership_query
 from core.infrastructure.routes import (
-    CRUDRouteFactory,
-    IntelligenceRouteFactory,
     StatusRouteFactory,
     StatusTransition,
 )
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
-from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
 from core.models.enums import ContentScope
 from core.models.habit.habit_request import (
     ArchiveHabitRequest,
-    HabitCreateRequest,
-    HabitUpdateRequest,
     PauseHabitRequest,
     ResumeHabitRequest,
     TrackHabitRequest,
@@ -74,94 +63,24 @@ def create_habits_api_routes(
     app: Any,
     rt: Any,
     habits_service: HabitsFacadeProtocol,
-    user_service: Any = None,
-    goals_service: Any = None,
+    **_kwargs: Any,
 ) -> list[Any]:
     """
-    Create habit API routes using factory pattern.
+    Create habit API routes that require runtime closures or domain-specific logic.
+
+    CRUD, Query, and Intelligence routes are registered by register_domain_routes
+    before this function is called (see habits_routes.py → HABITS_CONFIG).
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        habits_service: HabitsService instance
-        user_service: UserService for admin role verification
-        goals_service: GoalsService for goal ownership verification
-
-    Note:
-        Enrichment helpers (get_enriched_learning_summary, get_enriched_curriculum_metadata,
-        get_enriched_prerequisite_metadata) are now available in HabitsService:
-        - habits_service.get_enriched_learning_summary(habit)
-        - habits_service.get_enriched_curriculum_metadata(habit)
-        - habits_service.get_enriched_prerequisite_metadata(habit)
-
-        This follows the separation of concerns principle - business logic
-        belongs in the service layer, not route handlers.
+        habits_service: HabitsService instance (primary service)
+        **_kwargs: Absorbs related services passed by register_domain_routes
     """
 
     # Service getter for ownership decorator (SKUEL012: named function, not lambda)
     def get_habits_service():
         return habits_service
-
-    # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for standard CRUD operations
-    crud_factory = CRUDRouteFactory(
-        service=habits_service,
-        domain_name="habits",
-        create_schema=HabitCreateRequest,
-        update_schema=HabitUpdateRequest,
-        uid_prefix="habit",
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register all standard CRUD routes:
-    # - POST   /api/habits           (create)
-    # - GET    /api/habits/{uid}     (get)
-    # - PUT    /api/habits/{uid}     (update)
-    # - DELETE /api/habits/{uid}     (delete)
-    # - GET    /api/habits           (list with pagination)
-    crud_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # COMMON QUERY ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for common query patterns
-    query_factory = CommonQueryRouteFactory(
-        service=habits_service,
-        domain_name="habits",
-        user_service=user_service,  # For admin /user route
-        goals_service=goals_service,  # For goal ownership verification
-        supports_goal_filter=True,
-        supports_habit_filter=False,
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register common query routes:
-    # - GET /api/habits/mine               (get authenticated user's habits)
-    # - GET /api/habits/user?user_uid=...  (admin only - get any user's habits)
-    # - GET /api/habits/goal?goal_uid=...  (get habits for goal, ownership verified)
-    # - GET /api/habits/by-status?status=...  (filter by status, auth required)
-    query_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # INTELLIGENCE ROUTES (Factory-Generated)
-    # ========================================================================
-
-    intelligence_factory = IntelligenceRouteFactory(
-        intelligence_service=habits_service.intelligence,
-        domain_name="habits",
-        ownership_service=habits_service,
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register intelligence routes:
-    # - GET /api/habits/context?uid=...&depth=2     (entity with graph context)
-    # - GET /api/habits/analytics?period_days=30   (user performance analytics)
-    # - GET /api/habits/insights?uid=...           (domain-specific insights)
-    intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
@@ -391,24 +310,3 @@ def create_habits_api_routes(
         )
 
     return []  # Routes registered via @rt() decorators (no objects returned)
-
-
-# Migration Statistics:
-# =====================
-# Phase 1 - CRUD Factory Migration:
-# Before (habits_api.py):        334 lines
-# After (CRUD factory):          ~290 lines
-# CRUD Reduction:                44 lines (13% reduction via CRUDRouteFactory)
-#
-# Phase 2 - Analytics Factory Migration:
-# Analytics endpoints migrated:  3 (habit analytics, summary, trends)
-# Analytics before:              ~39 lines (13 lines × 3 endpoints)
-# Analytics after:               ~30 lines (handlers + factory config)
-# Analytics Reduction:           ~9 lines (23% reduction via AnalyticsRouteFactory)
-#
-# Total Reduction:               ~53 lines (16% overall reduction)
-#
-# Factory usage:
-# - CRUDRouteFactory:     5 standard CRUD routes
-# - AnalyticsRouteFactory: 3 analytics endpoints
-# - Manual routes:        20 domain-specific routes

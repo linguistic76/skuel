@@ -1,24 +1,29 @@
 """
-Choices Routes - Clean Architecture Factory
-==========================================
+Choices Routes - Config-Driven Registration
+============================================
 
-Minimal factory that wires API and UI routes using DomainRouteConfig.
+Activity Domain: CRUD, Query, and Intelligence factories declared in config.
+No Status or Analytics factories — all remaining routes are manual.
 """
 
 from adapters.inbound.choice_ui import create_choice_ui_routes
 from adapters.inbound.choices_api import create_choices_api_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
 
-CHOICES_CONFIG = DomainRouteConfig(
+CHOICES_CONFIG = create_activity_domain_route_config(
     domain_name="choices",
     primary_service_attr="choices",
     api_factory=create_choices_api_routes,
     ui_factory=create_choice_ui_routes,
+    create_schema=ChoiceCreateRequest,
+    update_schema=ChoiceUpdateRequest,
+    uid_prefix="choice",
+    supports_goal_filter=True,
+    supports_habit_filter=False,
     api_related_services={
-        # Format: {kwarg_name: container_attr}
-        # Each entry is passed to api_factory as: kwarg_name=getattr(services, container_attr)
-        "user_service": "user_service",  # user_service=services.user_service
-        "goals_service": "goals",  # goals_service=services.goals
+        "user_service": "user_service",
+        "goals_service": "goals",
     },
 )
 

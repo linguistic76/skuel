@@ -1308,7 +1308,7 @@ CRUDRouteFactory(
 
 DomainRouteConfig pattern eliminates route wiring boilerplate (80 lines → 15 lines per domain).
 
-**Pattern:**
+**Standard Pattern:**
 ```python
 {DOMAIN}_CONFIG = DomainRouteConfig(
     domain_name="tasks",
@@ -1326,15 +1326,53 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
     return register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
 
+**Config-Driven Factory Registration (Activity Domains - 2026-02-05):**
+
+For Activity Domains, use `create_activity_domain_route_config()` to move CRUD/Query/Intelligence factories from api_factory to config:
+
+```python
+from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
+
+TASKS_CONFIG = create_activity_domain_route_config(
+    domain_name="tasks",
+    primary_service_attr="tasks",
+    api_factory=create_tasks_api_routes,
+    ui_factory=create_tasks_ui_routes,
+    create_schema=TaskCreateRequest,      # CRUD factory params
+    update_schema=TaskUpdateRequest,
+    uid_prefix="task",
+    supports_goal_filter=True,            # Query factory params
+    supports_habit_filter=True,
+    api_related_services={
+        "user_service": "user_service",
+        "goals_service": "goals",
+        "habits_service": "habits",
+    },
+    prometheus_metrics_attr="prometheus_metrics",
+)
+```
+
+**What this eliminates from api_factory:**
+- CRUDRouteFactory instantiation (~25 lines)
+- CommonQueryRouteFactory instantiation (~20 lines)
+- IntelligenceRouteFactory instantiation (~15 lines)
+- Schema imports (moved to routes file)
+
+**What remains in api_factory:**
+- StatusRouteFactory (runtime closures)
+- AnalyticsRouteFactory (custom handlers)
+- Manual domain-specific routes
+
 **Current users:** 28 of 35 route files (80% adoption)
-- Activity domains (6): tasks, goals, habits, events, choices, principles
+- Activity domains (6): tasks, goals, habits, events, choices, principles — all using config-driven factories
 - Standard domains (9): learning, knowledge, context, reports, finance, askesis, journal_projects, lifepath, sel
 - Phase 3 migrations (9): transcription, visualization, admin, auth, journals, system, ingestion, insights, nous
 - Phase 5 migration (1): calendar
 - Phase 6 migrations (2): orchestration, advanced
 - Phase 7 migration (1): assignments (Multi-factory — sharing routes use separate primary service)
 
-**Patterns proven:** Standard (API+UI), API-only, UI-only, Multi-factory
+**Patterns proven:** Standard (API+UI), API-only, UI-only, Multi-factory, Config-Driven Factories
 
 **See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`, `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md`
 

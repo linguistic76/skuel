@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: '2026-02-03'
+updated: '2026-02-05'
 category: patterns
 related_skills:
 - fasthtml
@@ -8,7 +8,7 @@ related_docs: []
 ---
 # Domain Route Configuration Pattern
 
-**Status:** Active | **Last Updated:** 2026-02-03
+**Status:** Active | **Last Updated:** 2026-02-05
 ## Related Skills
 
 For implementation guidance, see:
@@ -45,7 +45,89 @@ class DomainRouteConfig:
     ui_factory: Callable[..., list[Any]] | None = None  # Optional UI routes factory
     api_related_services: dict[str, str] = {}  # API factory dependencies
     ui_related_services: dict[str, str] = {}   # UI factory dependencies
+    crud: CRUDRouteConfig | None = None        # Config-driven CRUD factory (optional)
+    query: QueryRouteConfig | None = None      # Config-driven Query factory (optional)
+    intelligence: IntelligenceRouteConfig | None = None  # Config-driven Intelligence factory (optional)
 ```
+
+### Config-Driven Factory Registration (2026-02-05)
+
+**What:** Move formulaic factory instantiation (CRUD, Query, Intelligence) from `api_factory` functions into `DomainRouteConfig` declarations.
+
+**Why:** These three factories have purely static parameters across all Activity Domains. Moving them to config eliminates ~80-120 lines of boilerplate per domain.
+
+**What Stays in api_factory:** Factories with runtime closures (StatusRouteFactory, AnalyticsRouteFactory) and all manual domain-specific routes remain in api_factory.
+
+#### Sub-Config Dataclasses
+
+Three frozen dataclasses define static factory parameters:
+
+```python
+@dataclass(frozen=True)
+class CRUDRouteConfig:
+    """Parameters for CRUDRouteFactory."""
+    create_schema: type              # e.g., TaskCreateRequest
+    update_schema: type              # e.g., TaskUpdateRequest
+    uid_prefix: str                  # e.g., "task"
+    prometheus_metrics_attr: str | None = None  # Container attr name
+
+@dataclass(frozen=True)
+class QueryRouteConfig:
+    """Parameters for CommonQueryRouteFactory."""
+    supports_goal_filter: bool = False
+    supports_habit_filter: bool = False
+
+@dataclass(frozen=True)
+class IntelligenceRouteConfig:
+    """Sentinel — presence means 'register intelligence routes'."""
+    # All Activity Domains use identical parameters, nothing to configure
+```
+
+#### Activity Domain Convenience Function
+
+For Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles), use the convenience function:
+
+```python
+def create_activity_domain_route_config(
+    domain_name: str,
+    primary_service_attr: str,
+    api_factory: Callable[..., list[Any]],
+    create_schema: type,
+    update_schema: type,
+    uid_prefix: str,
+    ui_factory: Callable[..., list[Any]] | None = None,
+    supports_goal_filter: bool = False,
+    supports_habit_filter: bool = False,
+    api_related_services: dict[str, str] | None = None,
+    ui_related_services: dict[str, str] | None = None,
+    prometheus_metrics_attr: str | None = None,
+) -> DomainRouteConfig:
+    """
+    Pre-populate Activity Domain conventions into DomainRouteConfig.
+
+    Automatically creates CRUD, Query, and Intelligence sub-configs.
+    Ensures user_service is in api_related_services (required by Query).
+    """
+```
+
+#### Execution Order
+
+When sub-configs are present, `register_domain_routes()` executes in this order:
+
+1. CRUD factory instantiation + registration
+2. Query factory instantiation + registration
+3. Intelligence factory instantiation + registration
+4. api_factory call (Status, Analytics, manual routes)
+5. ui_factory call (if present)
+
+**Benefits:**
+- api_factory files reduced by ~80-120 lines (Tasks: 264 → 145 lines)
+- Zero factory code duplication across domains
+- Schema imports moved to *_routes.py (single source of truth)
+- Factories with static params declared once in config
+- Manual routes and dynamic factories remain flexible
+
+**Adoption:** All 6 Activity Domains migrated (2026-02-05)
 
 ### Recent Updates
 
@@ -143,6 +225,72 @@ def create_{domain}_routes(app, rt, services, _sync_service=None):
 
 __all__ = ["create_{domain}_routes"]
 ```
+
+### Activity Domain Template (With Config-Driven Factories)
+
+For Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles), use this template:
+
+```python
+"""
+{Domain} Routes - Configuration-Driven Registration (Activity Domain)
+=====================================================================
+
+Wires {Domain} API and UI routes using DomainRouteConfig with config-driven
+CRUD, Query, and Intelligence factory registration.
+
+Benefits:
+- Zero factory boilerplate in api_factory
+- Schema definitions centralized in routes file
+- Consistent with other Activity Domains
+- Minimal maintenance overhead
+
+Version: 3.0 (Config-Driven Factory Registration)
+"""
+
+from adapters.inbound.{domain}_api import create_{domain}_api_routes
+from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
+from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain}UpdateRequest
+
+{DOMAIN}_CONFIG = create_activity_domain_route_config(
+    domain_name="{domain}",
+    primary_service_attr="{domain}",
+    api_factory=create_{domain}_api_routes,
+    ui_factory=create_{domain}_ui_routes,
+    create_schema={Domain}CreateRequest,
+    update_schema={Domain}UpdateRequest,
+    uid_prefix="{domain_prefix}",  # e.g., "task", "goal", "habit"
+    supports_goal_filter=False,  # True if domain relates to goals
+    supports_habit_filter=False,  # True if domain relates to habits
+    api_related_services={
+        # Format: {kwarg_name: container_attr}
+        "user_service": "user_service",  # Always include for Query factory
+        # Add other domain-specific services as needed
+    },
+    prometheus_metrics_attr="prometheus_metrics",  # Optional
+)
+
+
+def create_{domain}_routes(app, rt, services, _sync_service=None):
+    """Wire {domain} API and UI routes using configuration-driven registration."""
+    return register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+
+
+__all__ = ["create_{domain}_routes"]
+```
+
+**What this eliminates from api_factory:**
+- CRUDRouteFactory instantiation (~25 lines)
+- CommonQueryRouteFactory instantiation (~20 lines)
+- IntelligenceRouteFactory instantiation (~15 lines)
+- Schema imports (moved to routes file)
+- ContentScope import (unless needed by Status/Analytics factories)
+
+**What remains in api_factory:**
+- StatusRouteFactory (if domain has status transitions)
+- AnalyticsRouteFactory (if domain has custom analytics)
+- All manual domain-specific routes
+- Module-level request builders (for StatusRouteFactory)
 
 **Placeholders to replace:**
 - `{domain}` → Domain name in lowercase (e.g., "tasks", "goals")
@@ -880,8 +1028,13 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 ### Implementation
 
 - **Core pattern:** `/core/infrastructure/routes/domain_route_factory.py`
-  - `DomainRouteConfig` dataclass (lines 37-58)
-  - `register_domain_routes()` function (lines 61-124)
+  - Sub-config dataclasses:
+    - `CRUDRouteConfig` (lines 55-65) - CRUD factory parameters
+    - `QueryRouteConfig` (lines 68-76) - Query factory parameters
+    - `IntelligenceRouteConfig` (lines 79-90) - Intelligence factory sentinel
+  - `DomainRouteConfig` dataclass (lines 98-129) - Main configuration
+  - `register_domain_routes()` function (lines 132-250) - Registration with config-driven factories
+  - `create_activity_domain_route_config()` function (lines 253-320) - Activity Domain convenience function
 
 ### Current Users (27 files - 77% adoption)
 
@@ -1145,17 +1298,28 @@ Zero runtime overhead - routes are registered once at application startup.
 **Phase 7 (Complete - 2026-02-04):** Multi-Factory extension
 - ✅ Assignments (Multi-factory, sharing extension uses separate primary service)
 
-**Phase 8 (No Migration Planned):** Justified exceptions (7/7)
+**Phase 8 (Complete - 2026-02-05):** Config-Driven Factory Registration
+- ✅ All 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles)
+- CRUD, Query, Intelligence factories moved from api_factory to config
+- `create_activity_domain_route_config()` convenience function
+- ~80-120 lines removed per domain (Tasks: 264 → 145 lines)
+- Schema imports moved to *_routes.py
+- StatusRouteFactory, AnalyticsRouteFactory, manual routes stay in api_factory
+- 16 comprehensive tests added
+- Zero regressions detected
+
+**Phase 9 (No Migration Planned):** Justified exceptions (7/7)
 - Complex/specialized route files remain manual (complexity warranted)
 
 **Summary:** 28/35 files using DomainRouteConfig (80% adoption) - **pattern complete** for all feasible migrations.
 
 **Key Achievements:**
 - All 4 patterns proven: Standard, API-only, UI-only, Multi-factory
+- Config-driven factory registration for Activity Domains
 - Multi-factory variant proven at scale: up to 3 extensions + related services on primary
 - Infrastructure bug fixed (api_factory=None support)
 - UI optional dependency pattern proven (calendar)
-- Zero regressions detected
+- Zero regressions detected across all phases
 
 ## References
 

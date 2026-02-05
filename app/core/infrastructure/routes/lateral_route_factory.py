@@ -23,13 +23,12 @@ Domain-specific routes can be added separately for unique relationship types:
 - etc.
 
 Usage:
-    LateralRouteFactory(
-        app=app,
-        rt=rt,
+    factory = LateralRouteFactory(
         domain="goals",
         lateral_service=goals_lateral_service,
         entity_name="Goal",
-    ).create_routes()
+    )
+    factory.register_routes(app, rt)
 
 See: /docs/patterns/DOMAIN_LATERAL_SERVICES.md
 """
@@ -49,39 +48,35 @@ class LateralRouteFactory:
 
     def __init__(
         self,
-        app: Any,
-        rt: Any,
         domain: str,  # "goals", "tasks", "habits", etc.
         lateral_service: Any,  # Domain lateral service (e.g., GoalsLateralService)
         entity_name: str,  # "Goal", "Task", "Habit", etc.
     ) -> None:
-        self.app = app
-        self.rt = rt
         self.domain = domain
         self.lateral_service = lateral_service
         self.entity_name = entity_name
 
-    def create_routes(self) -> list[Any]:
-        """Create all lateral relationship routes for this domain."""
+    def register_routes(self, _app, rt) -> list[Any]:
+        """Register all lateral relationship routes for this domain."""
         return [
-            self._create_blocking_routes(),
-            self._create_prerequisite_routes(),
-            self._create_alternative_routes(),
-            self._create_complementary_routes(),
-            self._create_sibling_route(),
-            self._create_delete_route(),
+            self._create_blocking_routes(rt),
+            self._create_prerequisite_routes(rt),
+            self._create_alternative_routes(rt),
+            self._create_complementary_routes(rt),
+            self._create_sibling_route(rt),
+            self._create_delete_route(rt),
             # Phase 5: Enhanced UX routes
-            self._create_chain_route(),
-            self._create_comparison_route(),
-            self._create_graph_route(),
+            self._create_chain_route(rt),
+            self._create_comparison_route(rt),
+            self._create_graph_route(rt),
         ]
 
-    def _create_blocking_routes(self) -> list[Any]:
+    def _create_blocking_routes(self, rt) -> list[Any]:
         """Create BLOCKS relationship routes."""
         routes = []
 
         # POST /api/{domain}/{uid}/lateral/blocks - Create blocking relationship
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/blocks", methods=["POST"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/blocks", methods=["POST"])
         async def create_blocking(
             request: Request,
             uid: str,
@@ -121,7 +116,7 @@ class LateralRouteFactory:
         routes.append(create_blocking)
 
         # GET /api/{domain}/{uid}/lateral/blocking - Get entities that block this one
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/blocking", methods=["GET"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/blocking", methods=["GET"])
         async def get_blocking(
             request: Request, uid: str
         ) -> dict[str, Any] | tuple[dict[str, Any], int]:
@@ -142,7 +137,7 @@ class LateralRouteFactory:
         routes.append(get_blocking)
 
         # GET /api/{domain}/{uid}/lateral/blocked - Get entities blocked by this one
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/blocked", methods=["GET"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/blocked", methods=["GET"])
         async def get_blocked(
             request: Request, uid: str
         ) -> dict[str, Any] | tuple[dict[str, Any], int]:
@@ -164,12 +159,12 @@ class LateralRouteFactory:
 
         return routes
 
-    def _create_prerequisite_routes(self) -> list[Any]:
+    def _create_prerequisite_routes(self, rt) -> list[Any]:
         """Create PREREQUISITE_FOR relationship routes."""
         routes = []
 
         # POST /api/{domain}/{uid}/lateral/prerequisites - Create prerequisite relationship
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["POST"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["POST"])
         async def create_prerequisite(
             request: Request,
             uid: str,
@@ -209,7 +204,7 @@ class LateralRouteFactory:
         routes.append(create_prerequisite)
 
         # GET /api/{domain}/{uid}/lateral/prerequisites - Get prerequisite entities
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["GET"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["GET"])
         async def get_prerequisites(
             request: Request, uid: str
         ) -> dict[str, Any] | tuple[dict[str, Any], int]:
@@ -231,12 +226,12 @@ class LateralRouteFactory:
 
         return routes
 
-    def _create_alternative_routes(self) -> list[Any]:
+    def _create_alternative_routes(self, rt) -> list[Any]:
         """Create ALTERNATIVE_TO relationship routes."""
         routes = []
 
         # POST /api/{domain}/{uid}/lateral/alternatives - Create alternative relationship
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["POST"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["POST"])
         async def create_alternative(
             request: Request,
             uid: str,
@@ -276,7 +271,7 @@ class LateralRouteFactory:
         routes.append(create_alternative)
 
         # GET /api/{domain}/{uid}/lateral/alternatives - Get alternative entities
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["GET"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["GET"])
         async def get_alternatives(
             request: Request, uid: str
         ) -> dict[str, Any] | tuple[dict[str, Any], int]:
@@ -298,12 +293,12 @@ class LateralRouteFactory:
 
         return routes
 
-    def _create_complementary_routes(self) -> list[Any]:
+    def _create_complementary_routes(self, rt) -> list[Any]:
         """Create COMPLEMENTARY_TO relationship routes."""
         routes = []
 
         # POST /api/{domain}/{uid}/lateral/complementary - Create complementary relationship
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["POST"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["POST"])
         async def create_complementary(
             request: Request,
             uid: str,
@@ -343,7 +338,7 @@ class LateralRouteFactory:
         routes.append(create_complementary)
 
         # GET /api/{domain}/{uid}/lateral/complementary - Get complementary entities
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["GET"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["GET"])
         async def get_complementary(
             request: Request, uid: str
         ) -> dict[str, Any] | tuple[dict[str, Any], int]:
@@ -365,11 +360,11 @@ class LateralRouteFactory:
 
         return routes
 
-    def _create_sibling_route(self) -> Any:
+    def _create_sibling_route(self, rt) -> Any:
         """Create sibling relationship route (derived from hierarchy)."""
 
         # GET /api/{domain}/{uid}/lateral/siblings - Get sibling entities
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/siblings", methods=["GET"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/siblings", methods=["GET"])
         async def get_siblings(
             request: Request, uid: str
         ) -> dict[str, Any] | tuple[dict[str, Any], int]:
@@ -389,11 +384,11 @@ class LateralRouteFactory:
 
         return get_siblings
 
-    def _create_delete_route(self) -> Any:
+    def _create_delete_route(self, rt) -> Any:
         """Create route to delete lateral relationships."""
 
         # DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid} - Delete relationship
-        @self.rt(
+        @rt(
             f"/api/{self.domain}/{{uid}}/lateral/{{relationship_type}}/{{target_uid}}",
             methods=["DELETE"],
         )
@@ -456,11 +451,11 @@ class LateralRouteFactory:
     # Phase 5: Enhanced UX Routes
     # ========================================================================
 
-    def _create_chain_route(self) -> Any:
+    def _create_chain_route(self, rt) -> Any:
         """Create route to get blocking chain with depth levels."""
 
         # GET /api/{domain}/{uid}/lateral/chain - Get transitive blocking chain
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/chain", methods=["GET"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/chain", methods=["GET"])
         async def get_chain(
             request: Request,
             uid: str,
@@ -488,11 +483,11 @@ class LateralRouteFactory:
 
         return get_chain
 
-    def _create_comparison_route(self) -> Any:
+    def _create_comparison_route(self, rt) -> Any:
         """Create route to get alternatives with comparison data."""
 
         # GET /api/{domain}/{uid}/lateral/alternatives/compare - Get alternatives with comparison
-        @self.rt(
+        @rt(
             f"/api/{self.domain}/{{uid}}/lateral/alternatives/compare",
             methods=["GET"],
         )
@@ -530,11 +525,11 @@ class LateralRouteFactory:
 
         return get_comparison
 
-    def _create_graph_route(self) -> Any:
+    def _create_graph_route(self, rt) -> Any:
         """Create route to get relationship graph in Vis.js format."""
 
         # GET /api/{domain}/{uid}/lateral/graph - Get relationship graph
-        @self.rt(f"/api/{self.domain}/{{uid}}/lateral/graph", methods=["GET"])
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/graph", methods=["GET"])
         async def get_graph(
             request: Request,
             uid: str,

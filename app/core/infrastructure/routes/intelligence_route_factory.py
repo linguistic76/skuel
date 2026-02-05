@@ -49,6 +49,7 @@ Benefits:
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 from core.auth import require_authenticated_user
+from core.infrastructure.routes.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
@@ -242,30 +243,6 @@ class IntelligenceRouteFactory:
 
         logger.info(f"IntelligenceRouteFactory initialized for {domain_name} (scope={scope.value})")
 
-    async def _verify_ownership_if_enabled(self, uid: str, user_uid: str) -> Result[Any] | None:
-        """
-        Verify ownership if enabled, return error Result or None.
-
-        Returns:
-            Result with error if ownership check fails
-            None if ownership check passes or is disabled
-
-        Usage in routes:
-            ownership_error = await self._verify_ownership_if_enabled(uid, user_uid)
-            if ownership_error:
-                return ownership_error
-        """
-        if not self.verify_ownership or self.ownership_service is None:
-            return None
-
-        ownership_result = await self.ownership_service.verify_ownership(uid, user_uid)
-        if ownership_result.is_error:
-            logger.debug(
-                f"Ownership verification failed for {self.domain}: uid={uid}, user={user_uid}"
-            )
-            return ownership_result  # Returns NotFound error
-        return None
-
     def register_routes(self, _app, rt):
         """
         Register all intelligence routes.
@@ -336,9 +313,12 @@ class IntelligenceRouteFactory:
             user_uid = require_authenticated_user(request)
 
             # Verify ownership (returns 404 to prevent UID enumeration)
-            ownership_error = await factory._verify_ownership_if_enabled(uid, user_uid)
-            if ownership_error:
-                return ownership_error
+            if factory.verify_ownership and factory.ownership_service:
+                ownership_error = await verify_entity_ownership(
+                    factory.ownership_service, uid, user_uid, factory.domain
+                )
+                if ownership_error:
+                    return ownership_error
 
             result = await service.get_with_context(uid, depth)
 
@@ -384,9 +364,12 @@ class IntelligenceRouteFactory:
             user_uid = require_authenticated_user(request)
 
             # Verify ownership (returns 404 to prevent UID enumeration)
-            ownership_error = await factory._verify_ownership_if_enabled(uid, user_uid)
-            if ownership_error:
-                return ownership_error
+            if factory.verify_ownership and factory.ownership_service:
+                ownership_error = await verify_entity_ownership(
+                    factory.ownership_service, uid, user_uid, factory.domain
+                )
+                if ownership_error:
+                    return ownership_error
 
             result = await service.get_domain_insights(uid, min_confidence)
 

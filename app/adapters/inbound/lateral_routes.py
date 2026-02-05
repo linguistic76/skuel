@@ -54,35 +54,29 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     # Tasks lateral routes
     tasks_factory = LateralRouteFactory(
-        app=app,
-        rt=rt,
         domain="tasks",
         lateral_service=services.tasks_lateral,
         entity_name="Task",
     )
-    all_routes.extend(tasks_factory.create_routes())
+    all_routes.extend(tasks_factory.register_routes(app, rt))
     logger.info("✅ Tasks lateral routes registered")
 
     # Goals lateral routes
     goals_factory = LateralRouteFactory(
-        app=app,
-        rt=rt,
         domain="goals",
         lateral_service=services.goals_lateral,
         entity_name="Goal",
     )
-    all_routes.extend(goals_factory.create_routes())
+    all_routes.extend(goals_factory.register_routes(app, rt))
     logger.info("✅ Goals lateral routes registered")
 
     # Habits lateral routes
     habits_factory = LateralRouteFactory(
-        app=app,
-        rt=rt,
         domain="habits",
         lateral_service=services.habits_lateral,
         entity_name="Habit",
     )
-    all_routes.extend(habits_factory.create_routes())
+    all_routes.extend(habits_factory.register_routes(app, rt))
 
     # Habits-specific: Habit stacking
     @rt("/api/habits/{uid}/lateral/stacks", methods=["POST"])
@@ -138,13 +132,11 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     # Events lateral routes
     events_factory = LateralRouteFactory(
-        app=app,
-        rt=rt,
         domain="events",
         lateral_service=services.events_lateral,
         entity_name="Event",
     )
-    all_routes.extend(events_factory.create_routes())
+    all_routes.extend(events_factory.register_routes(app, rt))
 
     # Events-specific: Scheduling conflicts
     @rt("/api/events/{uid}/lateral/conflicts", methods=["POST"])
@@ -200,13 +192,11 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     # Choices lateral routes
     choices_factory = LateralRouteFactory(
-        app=app,
-        rt=rt,
         domain="choices",
         lateral_service=services.choices_lateral,
         entity_name="Choice",
     )
-    all_routes.extend(choices_factory.create_routes())
+    all_routes.extend(choices_factory.register_routes(app, rt))
 
     # Choices-specific: Value conflicts
     @rt("/api/choices/{uid}/lateral/conflicts", methods=["POST"])
@@ -262,13 +252,11 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     # Principles lateral routes
     principles_factory = LateralRouteFactory(
-        app=app,
-        rt=rt,
         domain="principles",
         lateral_service=services.principles_lateral,
         entity_name="Principle",
     )
-    all_routes.extend(principles_factory.create_routes())
+    all_routes.extend(principles_factory.register_routes(app, rt))
 
     # Principles-specific: Value tensions
     @rt("/api/principles/{uid}/lateral/conflicts", methods=["POST"])
@@ -332,13 +320,11 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     # KU lateral routes
     ku_factory = LateralRouteFactory(
-        app=app,
-        rt=rt,
         domain="ku",
         lateral_service=services.ku_lateral,
         entity_name="Knowledge Unit",
     )
-    all_routes.extend(ku_factory.create_routes())
+    all_routes.extend(ku_factory.register_routes(app, rt))
 
     # KU-specific: ENABLES relationship
     @rt("/api/ku/{uid}/lateral/enables", methods=["POST"])
@@ -410,24 +396,20 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     # LS lateral routes
     ls_factory = LateralRouteFactory(
-        app=app,
-        rt=rt,
         domain="ls",
         lateral_service=services.ls_lateral,
         entity_name="Learning Step",
     )
-    all_routes.extend(ls_factory.create_routes())
+    all_routes.extend(ls_factory.register_routes(app, rt))
     logger.info("✅ LS lateral routes registered")
 
     # LP lateral routes
     lp_factory = LateralRouteFactory(
-        app=app,
-        rt=rt,
         domain="lp",
         lateral_service=services.lp_lateral,
         entity_name="Learning Path",
     )
-    all_routes.extend(lp_factory.create_routes())
+    all_routes.extend(lp_factory.register_routes(app, rt))
     logger.info("✅ LP lateral routes registered")
 
     logger.info(f"✅ Lateral relationship routes registered: {len(all_routes)} total routes")

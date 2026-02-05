@@ -1,24 +1,29 @@
 """
-Goals Routes - Clean Architecture Factory
-=========================================
+Goals Routes - Config-Driven Registration
+==========================================
 
-Minimal factory that wires API and UI routes using DomainRouteConfig.
+Activity Domain: CRUD, Query, and Intelligence factories declared in config.
+Status factory remains in goals_api.py.
 """
 
 from adapters.inbound.goals_api import create_goals_api_routes
 from adapters.inbound.goals_ui import create_goals_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 
-GOALS_CONFIG = DomainRouteConfig(
+GOALS_CONFIG = create_activity_domain_route_config(
     domain_name="goals",
     primary_service_attr="goals",
     api_factory=create_goals_api_routes,
     ui_factory=create_goals_ui_routes,
+    create_schema=GoalCreateRequest,
+    update_schema=GoalUpdateRequest,
+    uid_prefix="goal",
+    supports_goal_filter=False,
+    supports_habit_filter=True,
     api_related_services={
-        # Format: {kwarg_name: container_attr}
-        # Each entry is passed to api_factory as: kwarg_name=getattr(services, container_attr)
-        "user_service": "user_service",  # user_service=services.user_service
-        "habits_service": "habits",  # habits_service=services.habits
+        "user_service": "user_service",
+        "habits_service": "habits",
     },
 )
 

@@ -1,16 +1,13 @@
 """
-Events API - Migrated to Route Factories
-=========================================
+Events API - Status, Analytics, and Domain-Specific Routes
+============================================================
 
-Fourth migration in the CRUD API rollout.
-
-Before: 331 lines of manual route definitions
-After: ~240 lines
-
-This file uses:
-- CRUDRouteFactory for standard CRUD routes (create, get, update, delete, list)
-- StatusRouteFactory for status transitions (start, complete, cancel)
-- Manual routes for domain-specific operations (calendar, recurrence, attendees, intelligence)
+CRUD, Query, and Intelligence factories are now registered via config in
+events_routes.py.  This file contains only factories and routes that require
+runtime closures or domain-specific handler logic:
+- StatusRouteFactory (start/complete/cancel transitions)
+- AnalyticsRouteFactory (custom async handlers)
+- Manual domain routes (calendar, conflicts, recurrence, attendees)
 """
 
 from typing import Any
@@ -19,18 +16,13 @@ from fasthtml.common import Request
 
 from core.auth import require_ownership_query
 from core.infrastructure.routes import (
-    CRUDRouteFactory,
-    IntelligenceRouteFactory,
     StatusRouteFactory,
     StatusTransition,
 )
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
-from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
 from core.models.enums import ContentScope
 from core.models.event.event_request import (
-    EventCreateRequest,
     EventStatusUpdateRequest,
-    EventUpdateRequest,
     GetRecurringEventsRequest,
 )
 from core.services.protocols.facade_protocols import EventsFacadeProtocol
@@ -42,88 +34,24 @@ def create_events_api_routes(
     app: Any,
     rt: Any,
     events_service: EventsFacadeProtocol,
-    user_service: Any = None,
-    goals_service: Any = None,
-    habits_service: Any = None,
+    **_kwargs: Any,
 ) -> list[Any]:
     """
-    Create event API routes using factory pattern.
+    Create event API routes that require runtime closures or domain-specific logic.
+
+    CRUD, Query, and Intelligence routes are registered by register_domain_routes
+    before this function is called (see events_routes.py → EVENTS_CONFIG).
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        events_service: EventsService instance
-        user_service: UserService for admin role verification
-        goals_service: GoalsService for goal ownership verification
-        habits_service: HabitsService for habit ownership verification
+        events_service: EventsService instance (primary service)
+        **_kwargs: Absorbs related services passed by register_domain_routes
     """
 
     # Service getter for ownership decorator (SKUEL012: named function, not lambda)
     def get_events_service():
         return events_service
-
-    # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for standard CRUD operations
-    crud_factory = CRUDRouteFactory(
-        service=events_service,
-        domain_name="events",
-        create_schema=EventCreateRequest,
-        update_schema=EventUpdateRequest,
-        uid_prefix="event",
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register all standard CRUD routes:
-    # - POST   /api/events           (create)
-    # - GET    /api/events/{uid}     (get)
-    # - PUT    /api/events/{uid}     (update)
-    # - DELETE /api/events/{uid}     (delete)
-    # - GET    /api/events           (list with pagination)
-    crud_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # COMMON QUERY ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for common query patterns
-    query_factory = CommonQueryRouteFactory(
-        service=events_service,
-        domain_name="events",
-        user_service=user_service,  # For admin /user route
-        goals_service=goals_service,  # For goal ownership verification
-        habits_service=habits_service,  # For habit ownership verification
-        supports_goal_filter=True,
-        supports_habit_filter=True,
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register common query routes:
-    # - GET /api/events/mine               (get authenticated user's events)
-    # - GET /api/events/user?user_uid=...  (admin only - get any user's events)
-    # - GET /api/events/goal?goal_uid=...  (get events for goal, ownership verified)
-    # - GET /api/events/habit?habit_uid=...  (get events for habit, ownership verified)
-    # - GET /api/events/by-status?status=...  (filter by status, auth required)
-    query_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # INTELLIGENCE ROUTES (Factory-Generated)
-    # ========================================================================
-
-    intelligence_factory = IntelligenceRouteFactory(
-        intelligence_service=events_service.intelligence,
-        domain_name="events",
-        ownership_service=events_service,
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register intelligence routes:
-    # - GET /api/events/context?uid=...&depth=2     (entity with graph context)
-    # - GET /api/events/analytics?period_days=30   (user performance analytics)
-    # - GET /api/events/insights?uid=...           (domain-specific insights)
-    intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
@@ -338,24 +266,3 @@ def create_events_api_routes(
         return await events_service.get_event_attendees(entity.uid)
 
     return []  # Routes registered via @rt() decorators (no objects returned)
-
-
-# Migration Statistics:
-# =====================
-# Phase 1 - CRUD Factory Migration:
-# Before (events_api.py):        331 lines
-# After (CRUD factory):          ~280 lines
-# CRUD Reduction:                51 lines (15% reduction via CRUDRouteFactory)
-#
-# Phase 2 - Analytics Factory Migration:
-# Analytics endpoints migrated:  3 (time-usage, patterns, insights)
-# Analytics before:              ~42 lines (14 lines × 3 endpoints)
-# Analytics after:               ~32 lines (handlers + factory config)
-# Analytics Reduction:           ~10 lines (24% reduction via AnalyticsRouteFactory)
-#
-# Total Reduction:               ~61 lines (18% overall reduction)
-#
-# Factory usage:
-# - CRUDRouteFactory:     5 standard CRUD routes
-# - AnalyticsRouteFactory: 3 analytics endpoints
-# - Manual routes:        17 domain-specific routes

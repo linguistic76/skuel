@@ -63,6 +63,7 @@ from typing import Any, Protocol, TypeVar
 from pydantic import BaseModel
 
 from core.auth.session import get_current_user, require_authenticated_user
+from core.infrastructure.routes.route_helpers import check_required_role
 from core.models.enums import ContentScope, UserRole
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -255,57 +256,6 @@ class CRUDRouteFactory[T]:
             f"instrumentation={'enabled' if prometheus_metrics else 'disabled'})"
         )
 
-    async def _check_role(self, request) -> Result[None]:
-        """
-        Check if the user has the required role.
-
-        Returns:
-            Result.ok(None) if no role check needed or user has permission
-            Result.fail(Errors.forbidden(...)) if user lacks permission
-
-        Note: This method follows SKUEL's "Result internally" pattern.
-        The boundary_handler will convert failures to HTTP 403 responses.
-        """
-        if not self.require_role:
-            return Result.ok(None)
-
-        if not self.user_service_getter:
-            return Result.fail(
-                Errors.system(
-                    message="Role check requires user_service_getter",
-                    operation="_check_role",
-                )
-            )
-
-        # Get user_uid from session (raises 401 if not authenticated)
-        user_uid = require_authenticated_user(request)
-
-        # Get user from service
-        user_service = self.user_service_getter()
-        result = await user_service.get_user(user_uid)
-
-        if result.is_error or not result.value:
-            return Result.fail(
-                Errors.forbidden(
-                    action=f"access {self.domain}",
-                    reason="User not found or access denied",
-                )
-            )
-
-        user = result.value
-
-        # Check role hierarchy
-        if not user.has_permission(self.require_role):
-            return Result.fail(
-                Errors.forbidden(
-                    action=f"access {self.domain}",
-                    reason=f"Requires {self.require_role.value} role or higher",
-                    required_role=self.require_role.value,
-                )
-            )
-
-        return Result.ok(None)
-
     def _instrument_handler(
         self, handler: Callable, endpoint: str, success_status: int = 200
     ) -> Callable:
@@ -398,9 +348,11 @@ class CRUDRouteFactory[T]:
         async def create(request) -> Result[T]:
             """Create new entity"""
             # Role check (returns Result.fail on authorization failure)
-            role_check = await factory._check_role(request)
+            role_check = await check_required_role(
+                request, factory.require_role, factory.user_service_getter, factory.domain
+            )
             if role_check.is_error:
-                return Result.fail(role_check.expect_error())
+                return role_check
 
             body = await request.json()
 
@@ -486,9 +438,11 @@ class CRUDRouteFactory[T]:
         async def get(request, uid: str) -> Result[T | None]:
             """Get entity by UID (query param) with ownership verification"""
             # Role check (returns Result.fail on authorization failure)
-            role_check = await factory._check_role(request)
+            role_check = await check_required_role(
+                request, factory.require_role, factory.user_service_getter, factory.domain
+            )
             if role_check.is_error:
-                return Result.fail(role_check.expect_error())
+                return role_check
 
             if verify_ownership:
                 # Require authentication and verify ownership
@@ -526,9 +480,11 @@ class CRUDRouteFactory[T]:
         async def update(request, uid: str) -> Result[T]:
             """Update entity with partial data and ownership verification"""
             # Role check (returns Result.fail on authorization failure)
-            role_check = await factory._check_role(request)
+            role_check = await check_required_role(
+                request, factory.require_role, factory.user_service_getter, factory.domain
+            )
             if role_check.is_error:
-                return Result.fail(role_check.expect_error())
+                return role_check
 
             # uid extracted from query params via type hint
             body = await request.json()
@@ -579,9 +535,11 @@ class CRUDRouteFactory[T]:
         async def delete(request, uid: str) -> Result[bool]:
             """Delete entity by UID (query param) with ownership verification"""
             # Role check (returns Result.fail on authorization failure)
-            role_check = await factory._check_role(request)
+            role_check = await check_required_role(
+                request, factory.require_role, factory.user_service_getter, factory.domain
+            )
             if role_check.is_error:
-                return Result.fail(role_check.expect_error())
+                return role_check
 
             if verify_ownership:
                 user_uid = require_authenticated_user(request)
@@ -642,9 +600,11 @@ class CRUDRouteFactory[T]:
         ) -> Result[list[T]]:
             """List entities with pagination and user filtering"""
             # Role check (returns Result.fail on authorization failure)
-            role_check = await factory._check_role(request)
+            role_check = await check_required_role(
+                request, factory.require_role, factory.user_service_getter, factory.domain
+            )
             if role_check.is_error:
-                return Result.fail(role_check.expect_error())
+                return role_check
 
             # FastHTML extracts query params via type hints
 
@@ -697,9 +657,11 @@ class CRUDRouteFactory[T]:
         async def search(request, query: str, limit: int = 50, offset: int = 0) -> Result[list[T]]:
             """Search entities"""
             # Role check (returns Result.fail on authorization failure)
-            role_check = await factory._check_role(request)
+            role_check = await check_required_role(
+                request, factory.require_role, factory.user_service_getter, factory.domain
+            )
             if role_check.is_error:
-                return Result.fail(role_check.expect_error())
+                return role_check
 
             # FastHTML extracts query params via type hints
 

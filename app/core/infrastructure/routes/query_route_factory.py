@@ -38,6 +38,7 @@ from typing import Any
 from fasthtml.common import Request
 
 from core.auth import require_authenticated_user
+from core.infrastructure.routes.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope, UserRole
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
@@ -254,10 +255,11 @@ class CommonQueryRouteFactory:
 
             # Verify user owns the goal if goals_service is provided
             if goals_service and verify_ownership:
-                ownership = await goals_service.verify_ownership(goal_uid, user_uid)
-                if ownership.is_error:
-                    # Return 404 (not found) per SKUEL ownership pattern
-                    return ownership
+                ownership_error = await verify_entity_ownership(
+                    goals_service, goal_uid, user_uid, domain
+                )
+                if ownership_error:
+                    return ownership_error
 
             # Call service method: get_{domain}_for_goal()
             method_name = f"get_{domain}_for_goal"
@@ -299,10 +301,11 @@ class CommonQueryRouteFactory:
 
             # Verify user owns the habit if habits_service is provided
             if habits_service and verify_ownership:
-                ownership = await habits_service.verify_ownership(habit_uid, user_uid)
-                if ownership.is_error:
-                    # Return 404 (not found) per SKUEL ownership pattern
-                    return ownership
+                ownership_error = await verify_entity_ownership(
+                    habits_service, habit_uid, user_uid, domain
+                )
+                if ownership_error:
+                    return ownership_error
 
             # Call service method: get_{domain}_for_habit()
             method_name = f"get_{domain}_for_habit"

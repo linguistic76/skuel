@@ -1,25 +1,30 @@
 """
-Principles Routes - Clean Architecture Factory
-=============================================
+Principles Routes - Config-Driven Registration
+================================================
 
-Minimal factory that wires API and UI routes using DomainRouteConfig.
+Activity Domain: CRUD, Query, and Intelligence factories declared in config.
+Analytics factory remains in principles_api.py.
 """
 
 from adapters.inbound.principles_api import create_principles_api_routes
 from adapters.inbound.principles_ui import create_principles_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
 
-PRINCIPLES_CONFIG = DomainRouteConfig(
+PRINCIPLES_CONFIG = create_activity_domain_route_config(
     domain_name="principles",
     primary_service_attr="principles",
     api_factory=create_principles_api_routes,
     ui_factory=create_principles_ui_routes,
+    create_schema=PrincipleCreateRequest,
+    update_schema=PrincipleUpdateRequest,
+    uid_prefix="principle",
+    supports_goal_filter=True,
+    supports_habit_filter=True,
     api_related_services={
-        # Format: {kwarg_name: container_attr}
-        # Each entry is passed to api_factory as: kwarg_name=getattr(services, container_attr)
-        "user_service": "user_service",  # user_service=services.user_service
-        "goals_service": "goals",  # goals_service=services.goals
-        "habits_service": "habits",  # habits_service=services.habits
+        "user_service": "user_service",
+        "goals_service": "goals",
+        "habits_service": "habits",
     },
 )
 

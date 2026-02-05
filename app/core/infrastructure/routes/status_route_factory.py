@@ -48,6 +48,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from core.auth.session import require_authenticated_user
+from core.infrastructure.routes.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
@@ -257,9 +258,11 @@ class StatusRouteFactory:
 
             # 2. Verify ownership (if enabled)
             if verify_ownership:
-                ownership = await service.verify_ownership(uid, user_uid)
-                if ownership.is_error:
-                    return ownership
+                ownership_error = await verify_entity_ownership(
+                    service, uid, user_uid, domain_singular
+                )
+                if ownership_error:
+                    return ownership_error
 
             # 3. Parse body if required
             fields: dict[str, Any] = {}

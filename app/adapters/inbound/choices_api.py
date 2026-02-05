@@ -1,15 +1,11 @@
 """
-Choice API Routes - Migrated to CRUDRouteFactory
-================================================
+Choice API Routes - Domain-Specific Routes
+============================================
 
-Migrated to factory pattern for CRUD operations.
-
-Before: 440 lines with manual route definitions
-After: ~280 lines (36% reduction)
-
-This file uses:
-- CRUDRouteFactory for standard CRUD routes (create, get, update, delete, list)
-- Manual routes for domain-specific operations (decide, options, evaluate, analytics)
+CRUD, Query, and Intelligence factories are now registered via config in
+choices_routes.py.  This file contains only manual domain-specific routes:
+- Decision flow (decide, options, evaluate)
+- Analytics and intelligence endpoints
 """
 
 __version__ = "2.0"
@@ -19,102 +15,33 @@ from typing import Any
 from fasthtml.common import Request
 
 from core.auth import require_ownership_query
-from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
-from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
-from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
-from core.models.enums import ContentScope
 from core.services.protocols.facade_protocols import ChoicesFacadeProtocol
 from core.utils.error_boundary import boundary_handler
-from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-
-logger = get_logger("skuel.routes.choice.api")
 
 
 def create_choices_api_routes(
     app: Any,
     rt: Any,
     choice_service: ChoicesFacadeProtocol,
-    user_service: Any = None,
-    goals_service: Any = None,
+    **_kwargs: Any,
 ) -> list[Any]:
     """
-    Create choice API routes using factory pattern.
+    Create choice API routes that require domain-specific logic.
+
+    CRUD, Query, and Intelligence routes are registered by register_domain_routes
+    before this function is called (see choices_routes.py → CHOICES_CONFIG).
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        choice_service: ChoicesService instance
-        user_service: UserService for admin role verification
-        goals_service: GoalsService for goal ownership verification
+        choice_service: ChoicesService instance (primary service)
+        **_kwargs: Absorbs related services passed by register_domain_routes
     """
 
     # Service getter for ownership decorator (SKUEL012: named function, not lambda)
     def get_choice_service():
         return choice_service
-
-    # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for standard CRUD operations
-    crud_factory = CRUDRouteFactory(
-        service=choice_service,
-        domain_name="choices",
-        create_schema=ChoiceCreateRequest,
-        update_schema=ChoiceUpdateRequest,
-        uid_prefix="choice",
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register all standard CRUD routes:
-    # - POST   /api/choices            (create)
-    # - GET    /api/choices/{uid}      (get)
-    # - PUT    /api/choices/{uid}      (update)
-    # - DELETE /api/choices/{uid}      (delete)
-    # - GET    /api/choices            (list with pagination)
-    crud_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # COMMON QUERY ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for common query patterns
-    query_factory = CommonQueryRouteFactory(
-        service=choice_service,
-        domain_name="choices",
-        user_service=user_service,  # For admin /user route
-        goals_service=goals_service,  # For goal ownership verification
-        supports_goal_filter=True,  # Graph query: (goal)-[:MOTIVATED_BY_GOAL]->(choice)
-        supports_habit_filter=False,  # Choices don't filter by habits
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register common query routes:
-    # - GET /api/choices/mine               (get authenticated user's choices)
-    # - GET /api/choices/user?user_uid=...  (admin only - get any user's choices)
-    # - GET /api/choices/goal?goal_uid=...  (get choices for goal, ownership verified)
-    # - GET /api/choices/by-status?status=...  (filter by status, auth required)
-    query_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # INTELLIGENCE ROUTES (Factory-Generated)
-    # ========================================================================
-
-    intelligence_factory = IntelligenceRouteFactory(
-        intelligence_service=choice_service.intelligence,
-        domain_name="choices",
-        ownership_service=choice_service,
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register intelligence routes:
-    # - GET /api/choices/context?uid=...&depth=2     (entity with graph context)
-    # - GET /api/choices/analytics?period_days=30   (user performance analytics)
-    # - GET /api/choices/insights?uid=...           (domain-specific insights)
-    intelligence_factory.register_routes(app, rt)
-
-    logger.info("✅ Choice API routes registered (factory pattern)")
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
@@ -333,19 +260,3 @@ def create_choices_api_routes(
 
 # Export the route creation function
 __all__ = ["create_choices_api_routes"]
-
-
-# Migration Statistics:
-# =====================
-# Before (choice_api.py):      440 lines
-# After (choice_api_migrated): ~200 lines
-# Reduction:                   240 lines (55% reduction)
-#
-# The 4 standard CRUD routes are now handled by the factory, while
-# 5 domain-specific routes remain as manual implementations.
-#
-# Benefits:
-# 1. CRUD consistency across all domains
-# 2. Single source of truth for standard operations
-# 3. Automatic 201 status for POST creates
-# 4. Eliminates ~200 lines of boilerplate

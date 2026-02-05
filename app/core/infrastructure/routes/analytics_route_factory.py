@@ -49,7 +49,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from core.auth.session import require_authenticated_user
+from core.infrastructure.routes.route_helpers import check_required_role
 from core.models.enums import UserRole
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
@@ -160,43 +160,6 @@ class AnalyticsRouteFactory:
         logger.info(f"Analytics routes registered for {self.domain_name}: {len(routes)} endpoints")
         return routes
 
-    async def _check_role(self, request) -> Result[None]:
-        """
-        Check if the user has the required role.
-
-        Returns Result[None] - ok if authorized, error if unauthorized.
-        Follows SKUEL pattern: Results internally, exceptions at boundaries.
-        """
-        if not self.require_role:
-            return Result.ok(None)
-
-        if not self.user_service_getter:
-            return Result.fail(Errors.system(message="Role check requires user_service_getter"))
-
-        # Get user_uid from session (raises 401 if not authenticated - boundary exception)
-        user_uid = require_authenticated_user(request)
-
-        # Get user from service
-        user_service = self.user_service_getter()
-        result = await user_service.get_user(user_uid)
-
-        if result.is_error or not result.value:
-            return Result.fail(Errors.forbidden(action="access analytics"))
-
-        user = result.value
-
-        # Check role hierarchy
-        if not user.has_permission(self.require_role):
-            return Result.fail(
-                Errors.forbidden(
-                    action="access analytics",
-                    reason=f"Requires {self.require_role.value} role or higher",
-                    required_role=self.require_role.value,
-                )
-            )
-
-        return Result.ok(None)
-
     def _create_route_handler(self, endpoint: AnalyticsEndpoint) -> Callable:
         """
         Create a route handler function for an analytics endpoint.
@@ -214,7 +177,9 @@ class AnalyticsRouteFactory:
             """Auto-generated analytics endpoint handler"""
             try:
                 # Role check (returns Result[None])
-                role_check = await factory._check_role(request)
+                role_check = await check_required_role(
+                    request, factory.require_role, factory.user_service_getter, factory.domain_name
+                )
                 if role_check.is_error:
                     return role_check
 

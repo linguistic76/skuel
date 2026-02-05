@@ -1,15 +1,13 @@
 """
-Tasks API - Migrated to CRUDRouteFactory
-========================================
+Tasks API - Status, Analytics, and Domain-Specific Routes
+=========================================================
 
-Pilot migration demonstrating the new factory pattern.
-
-Before: 324 lines of manual route definitions
-After: ~50 lines (85% reduction)
-
-This file uses:
-- CRUDRouteFactory for standard CRUD routes (create, get, update, delete, list)
-- Manual routes for domain-specific operations (complete, assign, dependencies, etc.)
+CRUD, Query, and Intelligence factories are now registered via config in
+tasks_routes.py.  This file contains only factories and routes that require
+runtime closures or domain-specific handler logic:
+- StatusRouteFactory (complete/uncomplete transitions)
+- AnalyticsRouteFactory (custom async handlers)
+- Manual domain routes (assign, dependencies, impact, etc.)
 """
 
 from typing import Any, cast
@@ -18,15 +16,11 @@ from fasthtml.common import Request
 
 from core.auth import require_authenticated_user, require_ownership_query
 from core.infrastructure.routes import (
-    CRUDRouteFactory,
-    IntelligenceRouteFactory,
     StatusRouteFactory,
     StatusTransition,
 )
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
-from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
 from core.models.enums import ContentScope
-from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.services.protocols.facade_protocols import TasksFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
@@ -36,92 +30,24 @@ def create_tasks_api_routes(
     app: Any,
     rt: Any,
     tasks_service: TasksFacadeProtocol,
-    user_service: Any = None,
-    goals_service: Any = None,
-    habits_service: Any = None,
-    prometheus_metrics: Any = None,
+    **_kwargs: Any,
 ) -> list[Any]:
     """
-    Create task API routes using factory pattern.
+    Create task API routes that require runtime closures or domain-specific logic.
+
+    CRUD, Query, and Intelligence routes are registered by register_domain_routes
+    before this function is called (see tasks_routes.py → TASKS_CONFIG).
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        tasks_service: TasksService instance
-        user_service: UserService for admin role verification
-        goals_service: GoalsService for goal ownership verification
-        habits_service: HabitsService for habit ownership verification
-        prometheus_metrics: PrometheusMetrics for HTTP instrumentation (Phase 2 - January 2026)
+        tasks_service: TasksService instance (primary service)
+        **_kwargs: Absorbs related services passed by register_domain_routes
     """
 
     # Service getter for ownership decorator (SKUEL012: named function, not lambda)
     def get_tasks_service():
         return tasks_service
-
-    # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for standard CRUD operations
-    # No adapter needed - CRUDRouteFactory uses ConversionServiceV2 automatically
-    crud_factory = CRUDRouteFactory(
-        service=tasks_service,
-        domain_name="tasks",
-        create_schema=TaskCreateRequest,
-        update_schema=TaskUpdateRequest,
-        uid_prefix="task",
-        scope=ContentScope.USER_OWNED,
-        prometheus_metrics=prometheus_metrics,  # Phase 2 - HTTP instrumentation
-    )
-
-    # Register all standard CRUD routes:
-    # - POST /api/tasks/create        (create)
-    # - GET  /api/tasks/get?uid=...   (get)
-    # - POST /api/tasks/update?uid=.. (update)
-    # - POST /api/tasks/delete?uid=.. (delete)
-    # - GET  /api/tasks/list          (list with pagination)
-    crud_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # COMMON QUERY ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for common query patterns
-    query_factory = CommonQueryRouteFactory(
-        service=tasks_service,
-        domain_name="tasks",
-        user_service=user_service,  # For admin /user route
-        goals_service=goals_service,  # For goal ownership verification
-        habits_service=habits_service,  # For habit ownership verification
-        supports_goal_filter=True,  # Tasks can be filtered by goal
-        supports_habit_filter=True,  # Tasks can be filtered by habit
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register common query routes:
-    # - GET /api/tasks/mine               (get authenticated user's tasks)
-    # - GET /api/tasks/user?user_uid=...  (admin only - get any user's tasks)
-    # - GET /api/tasks/goal?goal_uid=...  (get tasks for goal, ownership verified)
-    # - GET /api/tasks/habit?habit_uid=...  (get tasks for habit, ownership verified)
-    # - GET /api/tasks/by-status?status=...  (filter by status, auth required)
-    query_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # INTELLIGENCE ROUTES (Factory-Generated)
-    # ========================================================================
-
-    intelligence_factory = IntelligenceRouteFactory(
-        intelligence_service=tasks_service.intelligence,
-        domain_name="tasks",
-        ownership_service=tasks_service,
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register intelligence routes:
-    # - GET /api/tasks/context?uid=...&depth=2     (entity with graph context)
-    # - GET /api/tasks/analytics?period_days=30   (user performance analytics)
-    # - GET /api/tasks/insights?uid=...           (domain-specific insights)
-    intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
     # STATUS ROUTES (Factory-Generated)
@@ -354,19 +280,3 @@ def create_tasks_api_routes(
 
     # Return empty list since routes are registered directly on app
     return []
-
-
-# Migration Statistics:
-# =====================
-# Before (tasks_api.py):      324 lines
-# After (tasks_api_migrated): ~230 lines
-# Reduction:                  94 lines (29% reduction)
-#
-# Note: The reduction is less than expected because tasks API has many
-# domain-specific routes. The real win is:
-# 1. CRUD consistency across all domains
-# 2. Single source of truth for standard operations
-# 3. Eliminates duplicate CRUD boilerplate (85 lines → factory handles it)
-#
-# The 5 standard CRUD routes are now handled by the factory, while
-# 15 domain-specific routes remain as manual implementations.

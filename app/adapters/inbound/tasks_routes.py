@@ -1,27 +1,33 @@
 """
-Tasks Routes - Clean Architecture Factory
-=========================================
+Tasks Routes - Config-Driven Registration
+==========================================
 
-Minimal factory that wires API and UI routes using DomainRouteConfig.
+Activity Domain pilot: CRUD, Query, and Intelligence factories are declared
+in the config.  Status and Analytics factories (runtime closures) remain in
+tasks_api.py.
 """
 
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 
-TASKS_CONFIG = DomainRouteConfig(
+TASKS_CONFIG = create_activity_domain_route_config(
     domain_name="tasks",
     primary_service_attr="tasks",
     api_factory=create_tasks_api_routes,
     ui_factory=create_tasks_ui_routes,
+    create_schema=TaskCreateRequest,
+    update_schema=TaskUpdateRequest,
+    uid_prefix="task",
+    supports_goal_filter=True,
+    supports_habit_filter=True,
     api_related_services={
-        # Format: {kwarg_name: container_attr}
-        # Each entry is passed to api_factory as: kwarg_name=getattr(services, container_attr)
-        "user_service": "user_service",  # user_service=services.user_service
-        "goals_service": "goals",  # goals_service=services.goals
-        "habits_service": "habits",  # habits_service=services.habits
-        "prometheus_metrics": "prometheus_metrics",  # prometheus_metrics=services.prometheus_metrics
+        "user_service": "user_service",
+        "goals_service": "goals",
+        "habits_service": "habits",
     },
+    prometheus_metrics_attr="prometheus_metrics",
 )
 
 

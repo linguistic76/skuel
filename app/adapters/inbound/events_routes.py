@@ -1,27 +1,31 @@
 """
-Events Routes - API-Only Factory
-=================================
+Events Routes - Config-Driven Registration
+============================================
 
-Registers only API routes for events domain.
-UI route (/events) redirected to unified calendar view (/calendar) per One Path Forward.
+Activity Domain: CRUD, Query, and Intelligence factories declared in config.
+Status and Analytics factories remain in events_api.py.
+UI disabled — /events redirects to /calendar per One Path Forward.
 
 See: /adapters/inbound/calendar_routes.py for /events redirect
 """
 
 from adapters.inbound.events_api import create_events_api_routes
-from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
+from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
+from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
 
-EVENTS_CONFIG = DomainRouteConfig(
+EVENTS_CONFIG = create_activity_domain_route_config(
     domain_name="events",
     primary_service_attr="events",
     api_factory=create_events_api_routes,
-    ui_factory=None,  # UI disabled - /events redirects to /calendar
+    create_schema=EventCreateRequest,
+    update_schema=EventUpdateRequest,
+    uid_prefix="event",
+    supports_goal_filter=True,
+    supports_habit_filter=True,
     api_related_services={
-        # Format: {kwarg_name: container_attr}
-        # Each entry is passed to api_factory as: kwarg_name=getattr(services, container_attr)
-        "user_service": "user_service",  # user_service=services.user_service
-        "goals_service": "goals",  # goals_service=services.goals
-        "habits_service": "habits",  # habits_service=services.habits
+        "user_service": "user_service",
+        "goals_service": "goals",
+        "habits_service": "habits",
     },
 )
 

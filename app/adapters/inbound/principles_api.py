@@ -1,15 +1,12 @@
 """
-Principles API - Migrated to CRUDRouteFactory
-==============================================
+Principles API - Analytics and Domain-Specific Routes
+=======================================================
 
-Fifth migration in Phase 1 CRUD API rollout.
-
-Before: 268 lines of manual route definitions
-After: ~215 lines
-
-This file uses:
-- CRUDRouteFactory for standard CRUD routes (create, get, update, delete, list)
-- Manual routes for domain-specific operations (expressions, alignment, links, search)
+CRUD, Query, and Intelligence factories are now registered via config in
+principles_routes.py.  This file contains only factories and routes that require
+runtime closures or domain-specific handler logic:
+- AnalyticsRouteFactory (custom async handler)
+- Manual domain routes (expressions, alignment, links, search)
 """
 
 from typing import Any
@@ -17,16 +14,11 @@ from typing import Any
 from fasthtml.common import Request
 
 from core.auth import require_authenticated_user, require_ownership_query
-from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
-from core.infrastructure.routes.query_route_factory import CommonQueryRouteFactory
-from core.models.enums import ContentScope
 from core.models.principle.principle_request import (
     AlignmentAssessmentRequest,
-    PrincipleCreateRequest,
     PrincipleExpressionRequest,
     PrincipleLinkRequest,
-    PrincipleUpdateRequest,
 )
 from core.services.conversion_service import ConversionService
 from core.services.protocols.facade_protocols import PrinciplesFacadeProtocol
@@ -41,88 +33,24 @@ def create_principles_api_routes(
     app: Any,
     rt: Any,
     principles_service: PrinciplesFacadeProtocol,
-    user_service: Any = None,
-    goals_service: Any = None,
-    habits_service: Any = None,
+    **_kwargs: Any,
 ) -> list[Any]:
     """
-    Create principles API routes using factory pattern.
+    Create principles API routes that require runtime closures or domain-specific logic.
+
+    CRUD, Query, and Intelligence routes are registered by register_domain_routes
+    before this function is called (see principles_routes.py → PRINCIPLES_CONFIG).
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        principles_service: PrinciplesService instance
-        user_service: UserService for admin role verification
-        goals_service: GoalsService for goal ownership verification
-        habits_service: HabitsService for habit ownership verification
+        principles_service: PrinciplesService instance (primary service)
+        **_kwargs: Absorbs related services passed by register_domain_routes
     """
 
     # Service getter for ownership decorator (SKUEL012: named function, not lambda)
     def get_principles_service():
         return principles_service
-
-    # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for standard CRUD operations
-    crud_factory = CRUDRouteFactory(
-        service=principles_service,
-        domain_name="principles",
-        create_schema=PrincipleCreateRequest,
-        update_schema=PrincipleUpdateRequest,
-        uid_prefix="principle",
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register all standard CRUD routes:
-    # - POST   /api/principles           (create)
-    # - GET    /api/principles/{uid}     (get)
-    # - PUT    /api/principles/{uid}     (update)
-    # - DELETE /api/principles/{uid}     (delete)
-    # - GET    /api/principles           (list with pagination)
-    crud_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # COMMON QUERY ROUTES (Factory-Generated)
-    # ========================================================================
-
-    # Create factory for common query patterns
-    query_factory = CommonQueryRouteFactory(
-        service=principles_service,
-        domain_name="principles",
-        user_service=user_service,  # For admin /user route
-        goals_service=goals_service,  # For goal ownership verification
-        habits_service=habits_service,  # For habit ownership verification
-        supports_goal_filter=True,  # Graph query: (goal)-[:GUIDED_BY_PRINCIPLE]->(principle)
-        supports_habit_filter=True,  # Graph query: (habit)-[:ALIGNED_WITH_PRINCIPLE]->(principle)
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register common query routes:
-    # - GET /api/principles/mine               (get authenticated user's principles)
-    # - GET /api/principles/user?user_uid=...  (admin only - get any user's principles)
-    # - GET /api/principles/goal?goal_uid=...  (get principles for goal, ownership verified)
-    # - GET /api/principles/habit?habit_uid=...  (get principles for habit, ownership verified)
-    # - GET /api/principles/by-status?status=...  (filter by status, auth required)
-    query_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # INTELLIGENCE ROUTES (Factory-Generated)
-    # ========================================================================
-
-    intelligence_factory = IntelligenceRouteFactory(
-        intelligence_service=principles_service.intelligence,
-        domain_name="principles",
-        ownership_service=principles_service,
-        scope=ContentScope.USER_OWNED,
-    )
-
-    # Register intelligence routes:
-    # - GET /api/principles/context?uid=...&depth=2     (entity with graph context)
-    # - GET /api/principles/analytics?period_days=30   (user performance analytics)
-    # - GET /api/principles/insights?uid=...           (domain-specific insights)
-    intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
@@ -305,24 +233,3 @@ def create_principles_api_routes(
     analytics_factory.register_routes(app, rt)
 
     return []  # Routes registered via @rt() decorators (no objects returned)
-
-
-# Migration Statistics:
-# =====================
-# Phase 1 - CRUD Factory Migration:
-# Before (principles_api.py):    268 lines
-# After (CRUD factory):          ~215 lines
-# CRUD Reduction:                53 lines (20% reduction via CRUDRouteFactory)
-#
-# Phase 2 - Analytics Factory Migration:
-# Analytics endpoints migrated:  1 (stats)
-# Analytics before:              ~9 lines (9 lines × 1 endpoint)
-# Analytics after:               ~8 lines (handler + factory config)
-# Analytics Reduction:           ~1 line (11% reduction via AnalyticsRouteFactory)
-#
-# Total Reduction:               ~54 lines (20% overall reduction)
-#
-# Factory usage:
-# - CRUDRouteFactory:     5 standard CRUD routes
-# - AnalyticsRouteFactory: 1 analytics endpoint
-# - Manual routes:        11 domain-specific routes
