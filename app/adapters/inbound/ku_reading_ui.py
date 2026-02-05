@@ -15,14 +15,12 @@ Routes:
 
 from typing import Any
 
-from fasthtml.common import Div, H1, H2, H3, NotStr, P, Request, Span, Button, A
-from fasthtml.common import A as Anchor
+from fasthtml.common import Button, Div, NotStr, P, Request
 
 from core.auth import require_authenticated_user
 from core.ui.daisy_components import Card, CardBody
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.page_header import PageHeader
 
@@ -83,32 +81,45 @@ def create_ku_reading_ui_routes(
 
         # Get learning state
         state_result = await ku_interaction_service.get_learning_state(user_uid, uid)
-        is_marked_read = state_result.value.state.value == "marked_as_read" if state_result.is_ok else False
+        is_marked_read = (
+            state_result.value.state.value == "marked_as_read" if state_result.is_ok else False
+        )
 
         # Get MOC context for breadcrumbs
         mocs_result = await moc_service.find_mocs_containing(uid)
         mocs = mocs_result.value if mocs_result.is_ok else []
 
         # Build breadcrumbs
-        breadcrumb_items = [("Home", "/"), ("Knowledge", "/sel")]
+        breadcrumb_path = [
+            {"uid": "home", "title": "Home", "url": "/"},
+            {"uid": "knowledge", "title": "Knowledge", "url": "/sel"},
+        ]
         if mocs:
             # Use first MOC for breadcrumb
             moc = mocs[0]
-            breadcrumb_items.append((moc.get("title", "MOC"), f"/moc/{moc.get('uid')}"))
-        breadcrumb_items.append((ku.title, f"/ku/read/{uid}"))
+            breadcrumb_path.append(
+                {
+                    "uid": moc.get("uid"),
+                    "title": moc.get("title", "MOC"),
+                    "url": f"/moc/{moc.get('uid')}",
+                }
+            )
+        breadcrumb_path.append({"uid": uid, "title": ku.title, "url": ""})  # Current page (no link)
 
         # Build content
         content = Div(
             # Breadcrumbs
-            Breadcrumbs(items=breadcrumb_items),
+            Breadcrumbs(path=breadcrumb_path),
             # Page Header
             PageHeader(
                 title=ku.title,
-                description=ku.description or "",
+                subtitle=ku.description or "",
                 actions=[
                     Button(
                         "✓ Marked as Read" if is_marked_read else "Mark as Read",
-                        cls="btn btn-sm btn-primary" if not is_marked_read else "btn btn-sm btn-outline",
+                        cls="btn btn-sm btn-primary"
+                        if not is_marked_read
+                        else "btn btn-sm btn-outline",
                         hx_post=f"/api/ku/{uid}/mark-read",
                         hx_swap="outerHTML",
                         hx_target="this",

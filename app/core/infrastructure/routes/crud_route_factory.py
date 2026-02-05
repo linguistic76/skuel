@@ -58,7 +58,7 @@ Benefits:
 
 import uuid
 from collections.abc import Callable
-from typing import Any, Protocol, TypeVar
+from typing import Any, Protocol, TypeVar, cast
 
 from pydantic import BaseModel
 
@@ -352,7 +352,7 @@ class CRUDRouteFactory[T]:
                 request, factory.require_role, factory.user_service_getter, factory.domain
             )
             if role_check.is_error:
-                return role_check
+                return cast("Result[T]", role_check)
 
             body = await request.json()
 
@@ -442,7 +442,7 @@ class CRUDRouteFactory[T]:
                 request, factory.require_role, factory.user_service_getter, factory.domain
             )
             if role_check.is_error:
-                return role_check
+                return cast("Result[T | None]", role_check)
 
             if verify_ownership:
                 # Require authentication and verify ownership
@@ -484,7 +484,7 @@ class CRUDRouteFactory[T]:
                 request, factory.require_role, factory.user_service_getter, factory.domain
             )
             if role_check.is_error:
-                return role_check
+                return cast("Result[T]", role_check)
 
             # uid extracted from query params via type hint
             body = await request.json()
@@ -539,7 +539,7 @@ class CRUDRouteFactory[T]:
                 request, factory.require_role, factory.user_service_getter, factory.domain
             )
             if role_check.is_error:
-                return role_check
+                return cast("Result[bool]", role_check)
 
             if verify_ownership:
                 user_uid = require_authenticated_user(request)
@@ -604,7 +604,7 @@ class CRUDRouteFactory[T]:
                 request, factory.require_role, factory.user_service_getter, factory.domain
             )
             if role_check.is_error:
-                return role_check
+                return cast("Result[list[T]]", role_check)
 
             # FastHTML extracts query params via type hints
 
@@ -661,7 +661,7 @@ class CRUDRouteFactory[T]:
                 request, factory.require_role, factory.user_service_getter, factory.domain
             )
             if role_check.is_error:
-                return role_check
+                return cast("Result[list[T]]", role_check)
 
             # FastHTML extracts query params via type hints
 

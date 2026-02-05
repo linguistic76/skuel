@@ -119,7 +119,11 @@ class UserContextPopulator:
             for item in ku_view_data
             if item and item.get("uid") is not None and item.get("last_viewed_at") is not None
         ]
-        viewed_with_timestamps.sort(key=lambda x: x[1], reverse=True)
+
+        def by_timestamp(item: tuple) -> Any:
+            return item[1]
+
+        viewed_with_timestamps.sort(key=by_timestamp, reverse=True)
         context.recently_viewed_ku_uids = [uid for uid, _ in viewed_with_timestamps[:10]]
 
         # Marked as read KUs

@@ -762,7 +762,9 @@ async def _wire_all_routes(
     from adapters.inbound.ku_reading_routes import create_ku_reading_routes
 
     create_ku_reading_routes(app, rt, services, None)
-    logger.info("✅ KU reading routes registered (4 endpoints: read page, mark-read, bookmark, navigation)")
+    logger.info(
+        "✅ KU reading routes registered (4 endpoints: read page, mark-read, bookmark, navigation)"
+    )
 
     # User Profile Hub
     from adapters.inbound.user_profile_ui import setup_user_profile_routes

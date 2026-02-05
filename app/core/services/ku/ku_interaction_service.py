@@ -408,7 +408,9 @@ class KuInteractionService:
             Result[None]: Success or database error
         """
         if not self.driver:
-            return Result.fail(Errors.system("Neo4j driver required", service="KuInteractionService"))
+            return Result.fail(
+                Errors.system("Neo4j driver required", service="KuInteractionService")
+            )
 
         try:
             query = """
@@ -447,7 +449,9 @@ class KuInteractionService:
             Result[bool]: True if bookmarked, False if unbookmarked
         """
         if not self.driver:
-            return Result.fail(Errors.system("Neo4j driver required", service="KuInteractionService"))
+            return Result.fail(
+                Errors.system("Neo4j driver required", service="KuInteractionService")
+            )
 
         try:
             # Check if bookmark exists
@@ -484,7 +488,9 @@ class KuInteractionService:
 
         except Exception as e:
             self.logger.error(f"Failed to toggle bookmark: {e}")
-            return Result.fail(Errors.database("toggle_bookmark", f"Failed to toggle bookmark: {e}"))
+            return Result.fail(
+                Errors.database("toggle_bookmark", f"Failed to toggle bookmark: {e}")
+            )
 
     async def get_bookmarked_kus(
         self,
@@ -500,7 +506,9 @@ class KuInteractionService:
             Result[list[str]]: List of bookmarked KU UIDs
         """
         if not self.driver:
-            return Result.fail(Errors.system("Neo4j driver required", service="KuInteractionService"))
+            return Result.fail(
+                Errors.system("Neo4j driver required", service="KuInteractionService")
+            )
 
         try:
             query = """
@@ -519,4 +527,6 @@ class KuInteractionService:
 
         except Exception as e:
             self.logger.error(f"Failed to get bookmarked KUs: {e}")
-            return Result.fail(Errors.database("get_bookmarked_kus", f"Failed to get bookmarked KUs: {e}"))
+            return Result.fail(
+                Errors.database("get_bookmarked_kus", f"Failed to get bookmarked KUs: {e}")
+            )

@@ -198,10 +198,14 @@ def create_assignments_api_routes(
                 try:
                     applies_knowledge_uids = json.loads(applies_knowledge_str)
                 except json.JSONDecodeError:
-                    logger.warning(f"Failed to parse applies_knowledge_uids JSON: {applies_knowledge_str}")
+                    logger.warning(
+                        f"Failed to parse applies_knowledge_uids JSON: {applies_knowledge_str}"
+                    )
             else:
                 # Comma-separated format
-                applies_knowledge_uids = [uid.strip() for uid in applies_knowledge_str.split(",") if uid.strip()]
+                applies_knowledge_uids = [
+                    uid.strip() for uid in applies_knowledge_str.split(",") if uid.strip()
+                ]
 
         logger.info(
             f"File upload: {filename} ({len(file_content)} bytes, type={assignment_type.value}, "

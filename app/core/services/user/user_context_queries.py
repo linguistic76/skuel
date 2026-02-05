@@ -26,6 +26,16 @@ logger = get_logger(__name__)
 
 
 # =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+
+def _sort_by_last_viewed_at(item: dict[str, Any]) -> Any:
+    """Sort key function for last_viewed_at timestamp."""
+    return item["last_viewed_at"]
+
+
+# =============================================================================
 # QUERY CONSTANTS
 # =============================================================================
 
@@ -1079,8 +1089,12 @@ class UserContextQueryExecutor:
                         "recently_viewed_ku_uids": [
                             item["uid"]
                             for item in sorted(
-                                [i for i in (record["ku_view_data"] or []) if i and i.get("uid") and i.get("last_viewed_at")],
-                                key=lambda x: x["last_viewed_at"],
+                                [
+                                    i
+                                    for i in (record["ku_view_data"] or [])
+                                    if i and i.get("uid") and i.get("last_viewed_at")
+                                ],
+                                key=_sort_by_last_viewed_at,
                                 reverse=True,
                             )
                         ][:10],

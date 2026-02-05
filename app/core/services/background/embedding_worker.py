@@ -39,6 +39,7 @@ from core.events import (
 from core.events.embedding_events import EmbeddingRequested
 from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
 
 
 class EmbeddingBackgroundWorker:
@@ -97,7 +98,7 @@ class EmbeddingBackgroundWorker:
         self._batches_processed = 0
         self._started_at = None
 
-    async def start(self) -> None:
+    async def start(self) -> Result[None]:
         """
         Start listening for embedding events.
 
@@ -126,6 +127,7 @@ class EmbeddingBackgroundWorker:
 
         # Start batch processing loop
         await self._process_batches_loop()
+        return Result.ok(None)
 
     async def _queue_request(self, event: EmbeddingRequested) -> None:
         """

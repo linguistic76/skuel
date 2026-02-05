@@ -928,7 +928,7 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
                 ),
                 # Sharing section (only for owner)
                 (
-                    _render_sharing_section(assignment)
+                    _render_sharing_section(assignment_result.value)
                     if is_owner and not assignment_result.is_error
                     else None
                 ),
