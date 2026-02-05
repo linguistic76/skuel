@@ -757,13 +757,6 @@ async def _wire_all_routes(
     create_sel_routes(app, rt, services, None)  # sync removed Jan 2026
     logger.info("✅ SEL routes registered (legacy)")
 
-    # Nous routes (worldview content from moc_nous.md)
-    # Replaces old /docs routes - now THE primary documentation system
-    from adapters.inbound.nous_routes import create_nous_routes
-
-    create_nous_routes(app, rt, services, None)
-    logger.info("✅ Nous routes registered (/nous)")
-
     # User Profile Hub
     from adapters.inbound.user_profile_ui import setup_user_profile_routes
 
