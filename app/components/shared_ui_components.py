@@ -84,7 +84,7 @@ class SharedUIComponents:
     # ========================================================================
 
     @staticmethod
-    def render_entity_dashboard(
+    async def render_entity_dashboard(
         title: str,
         stats: dict[str, Any],
         entities: list[Any],
@@ -143,7 +143,7 @@ class SharedUIComponents:
         # Falls back to manual parameters for backwards compatibility
         if navbar is None:
             if request is not None:
-                navbar = create_navbar_for_request(request, active_page=active_page)
+                navbar = await create_navbar_for_request(request, active_page=active_page)
             else:
                 navbar = create_navbar(
                     current_user=current_user,
@@ -604,7 +604,7 @@ class SharedUIComponents:
     # ========================================================================
 
     @staticmethod
-    def render_detail_view(
+    async def render_detail_view(
         title: str,
         entity_card: Any,
         sections: list[dict[str, Any]],
@@ -641,7 +641,7 @@ class SharedUIComponents:
         # Prefer request-based navbar (auto-detects user, admin status from session)
         if navbar is None:
             if request is not None:
-                navbar = create_navbar_for_request(request, active_page="")
+                navbar = await create_navbar_for_request(request, active_page="")
             else:
                 navbar = create_navbar()
         return Div(
@@ -715,9 +715,9 @@ class SharedUIComponentsExamples:
         return Card(P(goal.title), cls="p-4")
 
     @staticmethod
-    def habits_dashboard_example(habits) -> Any:
+    async def habits_dashboard_example(habits) -> Any:
         """Example: Habits dashboard using shared components"""
-        return SharedUIComponents.render_entity_dashboard(
+        return await SharedUIComponents.render_entity_dashboard(
             title="🎯 Habit Tracker",
             stats={
                 "total": {"label": "Total Habits", "value": len(habits), "color": "blue"},
@@ -743,9 +743,9 @@ class SharedUIComponentsExamples:
         )
 
     @staticmethod
-    def tasks_dashboard_example(tasks) -> Any:
+    async def tasks_dashboard_example(tasks) -> Any:
         """Example: Tasks dashboard using shared components"""
-        return SharedUIComponents.render_entity_dashboard(
+        return await SharedUIComponents.render_entity_dashboard(
             title="📋 Task Manager",
             stats={
                 "total": {"label": "Total Tasks", "value": len(tasks), "color": "blue"},

@@ -62,7 +62,7 @@ class MOCUIComponents:
     """Centralized MOC UI components for consistent rendering."""
 
     @staticmethod
-    def render_moc_dashboard(
+    async def render_moc_dashboard(
         mocs: list | None = None, stats: dict | None = None, request=None
     ) -> Any:
         """
@@ -122,7 +122,7 @@ class MOCUIComponents:
             },
         ]
 
-        return SharedUIComponents.render_entity_dashboard(
+        return await SharedUIComponents.render_entity_dashboard(
             title="Maps of Content",
             stats=stats_formatted,
             entities=mocs,
@@ -512,7 +512,7 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
             "domains_count": len(domains),
         }
 
-        return MOCUIComponents.render_moc_dashboard(mocs=mocs, stats=stats, request=request)
+        return await MOCUIComponents.render_moc_dashboard(mocs=mocs, stats=stats, request=request)
 
     @rt("/moc/create")
     async def moc_create_form(request) -> Any:

@@ -42,7 +42,7 @@ class KuUIComponents:
     """Centralized KU UI components - no more inline composition"""
 
     @staticmethod
-    def render_ku_dashboard(knowledge_units=None, stats=None, domains=None, request=None) -> Any:
+    async def render_ku_dashboard(knowledge_units=None, stats=None, domains=None, request=None) -> Any:
         """
         Main KU dashboard - REFACTORED to use SharedUIComponents.
 
@@ -107,7 +107,7 @@ class KuUIComponents:
         ]
 
         # Use shared dashboard component
-        return SharedUIComponents.render_entity_dashboard(
+        return await SharedUIComponents.render_entity_dashboard(
             title="🧠 Knowledge Base",
             stats=stats_formatted,
             entities=knowledge_units,
@@ -414,7 +414,7 @@ def create_ku_ui_routes(_app, rt, ku_service):
             "learning_paths": 0,
         }
 
-        return KuUIComponents.render_ku_dashboard(
+        return await KuUIComponents.render_ku_dashboard(
             knowledge_units=knowledge, stats=stats, request=request
         )
 

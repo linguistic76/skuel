@@ -1028,7 +1028,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
     # ========================================================================
 
     @rt("/ku/{uid}")
-    async def ku_detail_view(request: Any, uid: str) -> Any:
+    async def ku_detail_view(request, uid: str) -> Any:
         """
         Knowledge Unit detail view with full context and relationships.
 
@@ -1070,7 +1070,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
     # ========================================================================
 
     @rt("/ls/{uid}")
-    async def ls_detail_view(request: Any, uid: str) -> Any:
+    async def ls_detail_view(request, uid: str) -> Any:
         """
         Learning Step detail view with full context and relationships.
 
@@ -1111,7 +1111,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
     # ========================================================================
 
     @rt("/lp/{uid}")
-    async def lp_detail_view(request: Any, uid: str) -> Any:
+    async def lp_detail_view(request, uid: str) -> Any:
         """
         Learning Path detail view with full context and relationships.
 
