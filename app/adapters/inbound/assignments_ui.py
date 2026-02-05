@@ -859,9 +859,8 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
         # Note: In production, this would use get_with_access_check()
         assignment_result = await _assignment_service.get_assignment(uid)
         is_owner = False
-        if not assignment_result.is_error:
-            assignment = assignment_result.value
-            is_owner = assignment.user_uid == user_uid
+        if not assignment_result.is_error and assignment_result.value is not None:
+            is_owner = assignment_result.value.user_uid == user_uid
 
         # Detail view card with HTMX loading
         detail_card = Div(
