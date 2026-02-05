@@ -29,7 +29,7 @@ The drawer pattern uses a **CSS-only toggle** based on a hidden checkbox:
     <!-- Main content area -->
     <div class="drawer-content flex flex-col">
         <!-- Mobile navbar with hamburger -->
-        <div class="navbar bg-base-200 lg:hidden">
+        <div class="navbar bg-white border-b border-gray-200 lg:hidden">
             <div class="flex-none">
                 <label for="my-drawer" class="btn btn-square btn-ghost drawer-button">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -44,7 +44,7 @@ The drawer pattern uses a **CSS-only toggle** based on a hidden checkbox:
         </div>
 
         <!-- Page content -->
-        <main class="flex-1 p-6 lg:p-8 bg-base-100">
+        <main class="flex-1 p-6 lg:p-8">
             <!-- Your content here -->
         </main>
     </div>
@@ -52,7 +52,7 @@ The drawer pattern uses a **CSS-only toggle** based on a hidden checkbox:
     <!-- Sidebar -->
     <div class="drawer-side">
         <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-        <div class="menu p-4 w-80 min-h-full bg-base-200 text-base-content">
+        <div class="menu p-4 w-80 min-h-full bg-white border-r border-gray-200 text-base-content">
             <!-- Sidebar header -->
             <div class="mb-6">
                 <h2 class="text-2xl font-bold text-primary">Navigation</h2>
@@ -142,7 +142,7 @@ class DrawerLayout:
             <input id="{self.drawer_id}" type="checkbox" class="drawer-toggle" />
 
             <div class="drawer-content flex flex-col" id="{self.content_id}">
-                <div class="navbar bg-base-200 lg:hidden">
+                <div class="navbar bg-white border-b border-gray-200 lg:hidden">
                     <div class="flex-none">
                         <label for="{self.drawer_id}" class="btn btn-square btn-ghost drawer-button">
                             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -156,14 +156,14 @@ class DrawerLayout:
                     </div>
                 </div>
 
-                <div class="flex-1 p-6 lg:p-8 bg-base-100">
+                <div class="flex-1 p-6 lg:p-8">
                     {content}
                 </div>
             </div>
 
             <div class="drawer-side">
                 <label for="{self.drawer_id}" aria-label="close sidebar" class="drawer-overlay"></label>
-                <div class="menu p-4 {self.sidebar_width} min-h-full bg-base-200 text-base-content">
+                <div class="menu p-4 {self.sidebar_width} min-h-full bg-white border-r border-gray-200 text-base-content">
                     {header_html}
                     <ul class="menu space-y-1">
                         {menu_html}

@@ -141,7 +141,7 @@ def create_navbar(
         ),
         mobile_links,
         **{"x-data": "navbar()"},
-        cls="navbar bg-base-200 sticky top-0 z-50",
+        cls="navbar bg-white border-b border-gray-200 sticky top-0 z-50",
     )
 ```
 

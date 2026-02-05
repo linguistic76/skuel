@@ -227,7 +227,7 @@ def build_profile_sidebar(
         *activity_items,
         # Curriculum section (if provided)
         *curriculum_section,
-        cls="menu bg-base-200 min-h-full w-full p-4 sidebar-nav",
+        cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
     )
 
     return Div(
@@ -721,7 +721,7 @@ sidebar_menu = Ul(
     *activity_section,
     # Curriculum section
     *curriculum_section,
-    cls="menu bg-base-200 min-h-full w-full p-4 sidebar-nav",
+    cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
 )
 ```
 
@@ -797,7 +797,7 @@ def create_admin_sidebar():
         Li(Anchor("Dashboard", href="/admin")),
         Li(Anchor("Users", href="/admin/users")),
         Li(Anchor("Settings", href="/admin/settings")),
-        cls="menu bg-base-200 w-64 min-h-full",
+        cls="menu bg-white w-64 min-h-full",
     )
 
 return BasePage(
@@ -847,7 +847,7 @@ def _sel_sidebar(active_slug: str):
     return Div(
         Div(
             Button(..., cls="sidebar-toggle", onclick="toggleProfileSidebar()"),
-            Ul(...menu_items, cls="menu bg-base-200 min-h-full w-full p-4 sidebar-nav",
+            Ul(...menu_items, cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
                id="sel-sidebar-nav"),
             cls="sidebar-inner",
         ),

@@ -137,11 +137,11 @@ class ActivityLayout:
                 # Main content area with full width
                 Div(
                     content,
-                    cls="min-h-screen bg-base-100",
+                    cls="min-h-screen",
                 ),
                 # Modal container for edit forms and other modals
                 Div(id="modal"),
-                cls="bg-base-200",
+                cls="bg-white",
             ),
             **{"data-theme": "light"},
         )

@@ -53,7 +53,7 @@ Body(
             ),
         ),
     ),
-    cls="bg-base-100",
+    cls="bg-white",
 )
 ```
 

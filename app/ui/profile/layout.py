@@ -247,7 +247,7 @@ def build_profile_sidebar(
         *activity_items,
         # Curriculum section (if provided)
         *curriculum_section,
-        cls="menu bg-base-200 min-h-full w-full p-4 sidebar-nav",
+        cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
         id="profile-sidebar-nav",
     )
 

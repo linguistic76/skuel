@@ -650,7 +650,7 @@ DaisyUI classes are categorized as:
   </div>
   <div class="drawer-side">
     <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-    <ul class="menu bg-base-200 min-h-full w-80 p-4">
+    <ul class="menu bg-white min-h-full w-80 p-4">
       <li><a>Item 1</a></li>
       <li><a>Item 2</a></li>
     </ul>
@@ -673,7 +673,7 @@ DaisyUI classes are categorized as:
   <div class="drawer-content">Page content</div>
   <div class="drawer-side is-drawer-close:overflow-visible">
     <label for="my-drawer-4" class="drawer-overlay"></label>
-    <div class="is-drawer-close:w-14 is-drawer-open:w-64 bg-base-200 min-h-full">
+    <div class="is-drawer-close:w-14 is-drawer-open:w-64 bg-white border-r border-gray-200 min-h-full">
       <ul class="menu">
         <li>
           <button class="is-drawer-close:tooltip is-drawer-close:tooltip-right" data-tip="Home">
@@ -753,7 +753,7 @@ DaisyUI classes are categorized as:
 ### Navbar
 
 ```html
-<div class="navbar bg-base-200">
+<div class="navbar bg-white border-b border-gray-200">
   <div class="navbar-start">
     <a class="btn btn-ghost text-xl">Brand</a>
   </div>

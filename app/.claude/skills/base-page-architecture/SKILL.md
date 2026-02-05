@@ -9,7 +9,7 @@ related_skills:
 
 # SKUEL Page Architecture
 
-*Last updated: 2026-02-01*
+*Last updated: 2026-02-05*
 
 **When to use this skill:** When building new pages, choosing page layouts, implementing consistent UX patterns, or understanding how SKUEL structures HTML pages.
 
@@ -67,7 +67,17 @@ Use design tokens from `/ui/tokens.py` for spacing and containers:
 - `Spacing.PAGE` - `p-6 lg:p-8`
 - `Card.BASE` - Standard card styling
 
-### 5. Custom Layouts are Rare
+### 5. Unified White Background
+
+All layout surfaces use `bg-white`. Sections are separated by **borders**, not color contrast:
+- Navbar: `bg-white border-b border-gray-200`
+- HUB sidebar: `bg-white border-r border-gray-200`
+- Custom sidebars (Profile Hub, SEL): `bg-white` + CSS `border-right` via `profile_sidebar.css`
+- Body / content area: `bg-white`
+
+Only interactive states (active nav links, hover tints) use non-white backgrounds.
+
+### 6. Custom Layouts are Rare
 
 Only create custom layouts when:
 - You need sidebar behavior DIFFERENT from PageType.HUB (e.g., collapsible with state persistence)

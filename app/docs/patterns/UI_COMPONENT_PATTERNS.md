@@ -68,6 +68,8 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 
 **Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `STANDARD` page type with custom sidebar implementation. This provides more control while maintaining BasePage consistency.
 
+**Background Convention (2026-02-05):** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
+
 ### BasePage Usage
 
 ```python

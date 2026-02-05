@@ -600,7 +600,7 @@ light, dark, cupcake, bumblebee, emerald, corporate, synthwave, retro, cyberpunk
   </div>
   <div class="drawer-side">
     <label for="drawer" class="drawer-overlay"></label>
-    <ul class="menu bg-base-200 w-80 min-h-full">
+    <ul class="menu bg-white w-80 min-h-full">
       <!-- Menu items -->
     </ul>
   </div>
@@ -609,7 +609,7 @@ light, dark, cupcake, bumblebee, emerald, corporate, synthwave, retro, cyberpunk
 
 ### Navbar with Dropdown
 ```html
-<div class="navbar bg-base-200">
+<div class="navbar bg-white border-b border-gray-200">
   <div class="navbar-start">
     <a class="btn btn-ghost text-xl">Brand</a>
   </div>

@@ -354,7 +354,7 @@ def _sel_sidebar(active_slug: str):
     return Div(
         Div(
             Button(..., cls="sidebar-toggle", onclick="toggleProfileSidebar()"),
-            Ul(*menu_items, cls="menu bg-base-200 min-h-full w-full p-4 sidebar-nav", id="sel-sidebar-nav"),
+            Ul(*menu_items, cls="menu bg-white min-h-full w-full p-4 sidebar-nav", id="sel-sidebar-nav"),
             cls="sidebar-inner",
         ),
         cls="profile-sidebar",

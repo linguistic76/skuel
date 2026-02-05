@@ -25,7 +25,7 @@ Navigation components require three distinct concerns working in harmony:
 ```html
 <!-- Complete navbar with mobile toggle and profile dropdown -->
 <nav x-data="{ mobileOpen: false, profileOpen: false }"
-     class="navbar bg-base-200 sticky top-0 z-50"
+     class="navbar bg-white border-b border-gray-200 sticky top-0 z-50"
      aria-label="Main navigation">
 
     <!-- Mobile menu button -->
@@ -181,7 +181,7 @@ def create_navbar(current_user: str | None, active_page: str = "") -> Nav:
         ),
         # Alpine.js state management
         **{"x-data": "navbar()"},
-        cls="navbar bg-base-200 sticky top-0 z-50",
+        cls="navbar bg-white border-b border-gray-200 sticky top-0 z-50",
     )
 ```
 

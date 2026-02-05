@@ -276,7 +276,7 @@ Sizes: `loading-xs`, `loading-sm`, `loading-md`, `loading-lg`
 
   <div class="drawer-side">
     <label for="drawer" class="drawer-overlay"></label>
-    <ul class="menu bg-base-200 min-h-full w-80 p-4">
+    <ul class="menu bg-white min-h-full w-80 p-4">
       <!-- Sidebar content -->
     </ul>
   </div>

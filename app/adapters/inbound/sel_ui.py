@@ -108,7 +108,7 @@ def _sel_sidebar(active_slug: str):
         ),
         Li(cls="divider my-0"),
         *menu_items,
-        cls="menu bg-base-200 min-h-full w-full p-4 sidebar-nav",
+        cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
         id="sel-sidebar-nav",
     )
 

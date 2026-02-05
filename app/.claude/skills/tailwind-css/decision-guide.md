@@ -61,7 +61,7 @@ Need to style something?
 | **Dropdowns** | — | `dropdown` | Use DaisyUI + Alpine |
 | **Loading** | — | `loading loading-spinner` | `Span(cls="loading loading-spinner")` |
 | **Alerts** | — | `alert alert-success` | Use DaisyUI alert pattern |
-| **Navbar** | — | `navbar bg-base-100` | Use DaisyUI navbar pattern |
+| **Navbar** | — | `navbar bg-white border-b border-gray-200` | Use DaisyUI navbar pattern |
 
 ## When to Use Each Layer
 

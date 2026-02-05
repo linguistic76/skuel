@@ -207,7 +207,7 @@ Mobile navigation should use:
 ```html
 <div class="drawer-content">
     <!-- Mobile navbar - hidden on lg+ -->
-    <div class="navbar bg-base-200 lg:hidden">
+    <div class="navbar bg-white border-b border-gray-200 lg:hidden">
         <label for="drawer-id" class="btn btn-ghost drawer-button">
             <svg><!-- Hamburger icon --></svg>
         </label>
@@ -304,7 +304,7 @@ def create_responsive_navbar(
 
         # Alpine.js state
         **{"x-data": "{ mobileMenuOpen: false, profileMenuOpen: false }"},
-        cls="navbar bg-base-200 sticky top-0 z-50",
+        cls="navbar bg-white border-b border-gray-200 sticky top-0 z-50",
     )
 ```
 
