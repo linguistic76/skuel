@@ -290,31 +290,28 @@ def create_navbar(
         # Main navbar container
         Div(
             Div(
-                # Left: Mobile menu button
-                _mobile_menu_button(),
-                # Logo - explicit hx-boost=false for standard navigation
+                # Left group: Mobile menu button + Logo + Desktop nav links
                 Div(
+                    _mobile_menu_button(),
+                    # Logo
                     A(
                         "SKUEL",
                         href="/",
-                        cls="text-xl font-bold text-primary",
+                        cls="text-xl font-bold text-primary flex-shrink-0",
                         **{"hx-boost": "false"},
                     ),
-                    cls="flex-shrink-0 ml-2 sm:ml-0",
-                ),
-                # Center: Desktop navigation
-                Div(
+                    # Desktop navigation links
                     desktop_links,
-                    cls="hidden sm:flex sm:flex-1 sm:justify-center",
+                    cls="flex items-center gap-1",
                 ),
-                # Right: Profile section
+                # Right group: Notifications + Profile
                 Div(
                     profile_section,
                     cls="flex items-center",
                 ),
                 cls="flex items-center justify-between h-16",
             ),
-            cls="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+            cls="w-full px-4 sm:px-6 lg:px-8",
         ),
         # Mobile menu (collapsible)
         mobile_links,
