@@ -79,8 +79,8 @@ DOMAIN_RECOGNITION_PROMPT = """You are analyzing journal text to identify activi
 - @context(lp) - Learning paths (sequences of learning)
 
 ### Meta Domains (3) - How I ORGANIZE:
-- @context(assignment) - Content to process (files, voice memos)
-- @context(report) - Reports to generate
+- @context(report) - Content to process (files, voice memos)
+- @context(analytics) - Analytics to generate
 - @context(calendar) - Time blocks to schedule
 
 ### The Destination (+1) - Where I'm GOING:
@@ -146,7 +146,7 @@ Output:
 
 DOMAIN_RECOGNITION_PROMPT_COMPACT = """Analyze this journal and extract activities into SKUEL DSL format.
 
-DOMAINS: task, habit, goal, event, principle, choice, finance, ku, ls, lp, assignment, report, calendar, lifepath
+DOMAINS: task, habit, goal, event, principle, choice, finance, ku, ls, lp, report, analytics, calendar, lifepath
 
 SYNTAX: - @context(type) description @attr(value)...
 ATTRS: @priority, @when, @repeat, @duration, @energy, @amount, @goal, @principle, @ku
@@ -195,8 +195,8 @@ class DSLTransformResult:
     kus_identified: int = 0
     learning_steps_identified: int = 0
     learning_paths_identified: int = 0
-    assignments_identified: int = 0
     reports_identified: int = 0
+    analytics_identified: int = 0
     calendar_items_identified: int = 0
     lifepath_items_identified: int = 0
 
@@ -227,8 +227,8 @@ class DSLTransformResult:
                 "learning_steps": self.learning_steps_identified,
                 "learning_paths": self.learning_paths_identified,
                 # Meta Domains (3)
-                "assignments": self.assignments_identified,
                 "reports": self.reports_identified,
+                "analytics": self.analytics_identified,
                 "calendar_items": self.calendar_items_identified,
                 # The Destination (+1)
                 "lifepath_items": self.lifepath_items_identified,
@@ -276,7 +276,7 @@ class LLMDSLBridgeService:
     **Integration with Pipeline:**
 
     ```python
-    # In AssignmentProcessorService or JournalCoreService
+    # In ReportProcessorService or JournalCoreService
 
     # 1. Transform raw text to DSL format
     transform_result = await llm_bridge.transform(raw_journal_text, user_uid)
@@ -555,10 +555,10 @@ class LLMDSLBridgeService:
                 result.learning_paths_identified += 1
 
             # Meta Domains (3)
-            elif "@context(assignment)" in line_lower:
-                result.assignments_identified += 1
             elif "@context(report)" in line_lower:
                 result.reports_identified += 1
+            elif "@context(analytics)" in line_lower:
+                result.analytics_identified += 1
             elif "@context(calendar)" in line_lower:
                 result.calendar_items_identified += 1
 

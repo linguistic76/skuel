@@ -1,15 +1,15 @@
 """
-Assignment Processor Service
+Reports Processing Service
 ============================
 
-Orchestrates processing of submitted assignments.
+Orchestrates processing of submitted reports.
 
-Routes assignments to appropriate processors:
-- Audio files → TranscriptionService → LLM formatting → Activity Extraction
-- Text files → Direct LLM processing → Activity Extraction
-- PDFs → OCR → LLM extraction (future)
-- Images → Vision API → LLM analysis (future)
-- Manual review → Human review queue (future)
+Routes reports to appropriate processors:
+- Audio files -> TranscriptionService -> LLM formatting -> Activity Extraction
+- Text files -> Direct LLM processing -> Activity Extraction
+- PDFs -> OCR -> LLM extraction (future)
+- Images -> Vision API -> LLM analysis (future)
+- Manual review -> Human review queue (future)
 
 This service is a facade that coordinates existing processors.
 
@@ -18,25 +18,25 @@ This service is a facade that coordinates existing processors.
 When `extract_activities=True` in instructions, the processor will:
 1. Parse processed content for Activity Lines (@context tags)
 2. Create corresponding entities (Tasks, Habits, Goals, Events)
-3. Store extraction results in assignment metadata
+3. Store extraction results in report metadata
 
 This transforms journals from passive records into active task managers.
 """
 
 from typing import Any
 
-from core.models.assignment.assignment import (
-    Assignment,
-    AssignmentStatus,
+from core.models.report.report import (
+    Report,
+    ReportStatus,
 )
-from core.services.assignments.assignments_submission_service import AssignmentSubmissionService
+from core.services.reports.reports_submission_service import ReportSubmissionService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 
-class AssignmentProcessorService:
+class ReportsProcessingService:
     """
-    Orchestrator service for assignment processing.
+    Orchestrator service for report processing.
 
     Phase 1 Implementation:
     - Audio processing (transcription + LLM formatting)
@@ -51,9 +51,9 @@ class AssignmentProcessorService:
     - Retry logic and error recovery
 
 
-    Source Tag: "assignment_processor_explicit"
-    - Format: "assignment_processor_explicit" for user-created relationships
-    - Format: "assignment_processor_inferred" for system-generated relationships
+    Source Tag: "report_processor_explicit"
+    - Format: "report_processor_explicit" for user-created relationships
+    - Format: "report_processor_inferred" for system-generated relationships
 
     Confidence Scoring:
     - 0.9+: User explicitly defined relationship
@@ -65,91 +65,89 @@ class AssignmentProcessorService:
 
     def __init__(
         self,
-        assignment_service: AssignmentSubmissionService,
+        report_service: ReportSubmissionService,
         transcription_service=None,  # TranscriptionService (simplified, Dec 2025)
         transcript_processor=None,  # TranscriptProcessorService (for LLM processing)
-        assignment_relationship_service=None,  # AssignmentRelationshipService (Option A)
+        report_relationship_service=None,  # ReportsRelationshipService (Option A)
         activity_extractor=None,  # JournalActivityExtractorService (DSL extraction)
         event_bus=None,
     ) -> None:
         """
-        Initialize assignment processor service.
+        Initialize reports processing service.
 
         Args:
-            assignment_service: AssignmentSubmissionService for status updates
+            report_service: ReportSubmissionService for status updates
             transcription_service: TranscriptionService for audio transcription (simplified)
             transcript_processor: TranscriptProcessorService for LLM formatting
-            assignment_relationship_service: AssignmentRelationshipService for graph relationships (Option A)
+            report_relationship_service: ReportsRelationshipService for graph relationships (Option A)
             activity_extractor: JournalActivityExtractorService for DSL-based entity extraction
             event_bus: Event bus for domain events (optional)
         """
-        self.assignment_service = assignment_service
+        self.report_service = report_service
         self.transcription_service = transcription_service
         self.transcript_processor = transcript_processor
-        self.assignment_relationship_service = assignment_relationship_service
+        self.report_relationship_service = report_relationship_service
         self.activity_extractor = activity_extractor
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.assignment_processor")
+        self.logger = get_logger("skuel.services.reports_processing")
 
     # ========================================================================
     # MAIN PROCESSING ENTRY POINT
     # ========================================================================
 
-    async def process_assignment(
-        self, assignment_uid: str, instructions: dict[str, Any] | None = None
-    ) -> Result[Assignment]:
+    async def process_report(
+        self, report_uid: str, instructions: dict[str, Any] | None = None
+    ) -> Result[Report]:
         """
-        Process an assignment using appropriate processor.
+        Process a report using appropriate processor.
 
         Routes to processor based on:
-        1. Assignment type (journal, transcript, report, etc.)
+        1. Report type (journal, transcript, report, etc.)
         2. File type (audio, text, pdf, image, video)
         3. Processor type (LLM, human, hybrid, automatic)
 
-        Updates assignment status throughout:
-        SUBMITTED → QUEUED → PROCESSING → COMPLETED (or FAILED)
+        Updates report status throughout:
+        SUBMITTED -> QUEUED -> PROCESSING -> COMPLETED (or FAILED)
 
         Args:
-            assignment_uid: Assignment UID to process
+            report_uid: Report UID to process
             instructions: Processor-specific instructions (optional)
 
         Returns:
-            Result containing processed assignment
+            Result containing processed report
         """
-        # Get assignment
-        assignment_result = await self.assignment_service.get_assignment(assignment_uid)
+        # Get report
+        report_result = await self.report_service.get_report(report_uid)
 
-        if assignment_result.is_error:
-            return Result.fail(assignment_result.expect_error())
+        if report_result.is_error:
+            return Result.fail(report_result.expect_error())
 
-        assignment = assignment_result.value
-        if not assignment:
-            return Result.fail(Errors.not_found("Assignment", assignment_uid))
+        report = report_result.value
+        if not report:
+            return Result.fail(Errors.not_found("Report", report_uid))
 
         # Check if already processed
-        if assignment.status in {AssignmentStatus.COMPLETED, AssignmentStatus.PROCESSING}:
+        if report.status in {ReportStatus.COMPLETED, ReportStatus.PROCESSING}:
             return Result.fail(
                 Errors.validation(
-                    message=f"Assignment already {assignment.status.value}",
+                    message=f"Report already {report.status.value}",
                     field="status",
-                    value=assignment.status.value,
+                    value=report.status.value,
                 )
             )
 
         # Update status to QUEUED
-        await self.assignment_service.update_assignment_status(
-            assignment_uid, AssignmentStatus.QUEUED
-        )
+        await self.report_service.update_report_status(report_uid, ReportStatus.QUEUED)
 
         # Route to appropriate processor
         try:
-            result = await self._route_to_processor(assignment, instructions)
+            result = await self._route_to_processor(report, instructions)
 
             if result.is_error:
                 # Mark as failed
-                await self.assignment_service.update_assignment_status(
-                    assignment_uid,
-                    AssignmentStatus.FAILED,
+                await self.report_service.update_report_status(
+                    report_uid,
+                    ReportStatus.FAILED,
                     error_message=result.error.user_message
                     if result.error
                     else "Processing failed",
@@ -157,31 +155,29 @@ class AssignmentProcessorService:
                 return result
 
             # Mark as completed
-            await self.assignment_service.update_assignment_status(
-                assignment_uid, AssignmentStatus.COMPLETED
-            )
+            await self.report_service.update_report_status(report_uid, ReportStatus.COMPLETED)
 
-            # Get updated assignment
-            updated_result = await self.assignment_service.get_assignment(assignment_uid)
+            # Get updated report
+            updated_result = await self.report_service.get_report(report_uid)
             if updated_result.is_error:
                 return Result.fail(updated_result.expect_error())
             if not updated_result.value:
-                return Result.fail(Errors.not_found("Assignment", assignment_uid))
+                return Result.fail(Errors.not_found("Report", report_uid))
             return Result.ok(updated_result.value)
 
         except Exception as e:
             self.logger.error(
-                f"Unexpected error processing assignment {assignment_uid}: {e}", exc_info=True
+                f"Unexpected error processing report {report_uid}: {e}", exc_info=True
             )
 
             # Mark as failed
-            await self.assignment_service.update_assignment_status(
-                assignment_uid, AssignmentStatus.FAILED, error_message=str(e)
+            await self.report_service.update_report_status(
+                report_uid, ReportStatus.FAILED, error_message=str(e)
             )
 
             return Result.fail(
                 Errors.system(
-                    message=f"Processing failed: {e!s}", operation="process_assignment", exception=e
+                    message=f"Processing failed: {e!s}", operation="process_report", exception=e
                 )
             )
 
@@ -190,43 +186,41 @@ class AssignmentProcessorService:
     # ========================================================================
 
     async def _route_to_processor(
-        self, assignment: Assignment, instructions: dict[str, Any] | None
-    ) -> Result[Assignment]:
+        self, report: Report, instructions: dict[str, Any] | None
+    ) -> Result[Report]:
         """
-        Route assignment to appropriate processor based on type and file type.
+        Route report to appropriate processor based on type and file type.
 
         Routing logic:
-        - Audio files → Audio processor
-        - Text files → Text processor
-        - Other types → Error (not yet implemented)
+        - Audio files -> Audio processor
+        - Text files -> Text processor
+        - Other types -> Error (not yet implemented)
 
         Args:
-            assignment: Assignment to process
+            report: Report to process
             instructions: Processor-specific instructions
 
         Returns:
-            Result containing processed assignment
+            Result containing processed report
         """
         # Update status to PROCESSING
-        await self.assignment_service.update_assignment_status(
-            assignment.uid, AssignmentStatus.PROCESSING
-        )
+        await self.report_service.update_report_status(report.uid, ReportStatus.PROCESSING)
 
         # Route based on file type
-        file_type = assignment.file_type.lower()
+        file_type = report.file_type.lower()
 
         if file_type.startswith("audio/"):
-            return await self._process_audio(assignment, instructions)
+            return await self._process_audio(report, instructions)
 
         if file_type.startswith("text/"):
-            return await self._process_text(assignment, instructions)
+            return await self._process_text(report, instructions)
 
         # Unsupported type
         return Result.fail(
             Errors.validation(
-                message=f"File type not yet supported: {assignment.file_type}",
+                message=f"File type not yet supported: {report.file_type}",
                 field="file_type",
-                value=assignment.file_type,
+                value=report.file_type,
             )
         )
 
@@ -235,22 +229,22 @@ class AssignmentProcessorService:
     # ========================================================================
 
     async def _process_audio(
-        self, assignment: Assignment, instructions: dict[str, Any] | None
-    ) -> Result[Assignment]:
+        self, report: Report, instructions: dict[str, Any] | None
+    ) -> Result[Report]:
         """
         Process audio file: transcribe + LLM formatting.
 
         Pipeline:
         1. TranscriptionService.create() + process()
         2. TranscriptProcessorService.process_transcript() (if journal type)
-        3. Update assignment with processed content
+        3. Update report with processed content
 
         Args:
-            assignment: Assignment with audio file
+            report: Report with audio file
             instructions: Optional processing instructions
 
         Returns:
-            Result containing processed assignment
+            Result containing processed report
         """
         if not self.transcription_service:
             return Result.fail(
@@ -260,16 +254,16 @@ class AssignmentProcessorService:
                 )
             )
 
-        self.logger.info(f"Processing audio assignment: {assignment.uid}")
+        self.logger.info(f"Processing audio report: {report.uid}")
 
         # Step 1: Create transcription record
         from core.models.transcription.transcription import TranscriptionCreateRequest
 
         create_request = TranscriptionCreateRequest(
-            audio_file_path=assignment.file_path,
-            original_filename=assignment.original_filename,
+            audio_file_path=report.file_path,
+            original_filename=report.original_filename,
         )
-        create_result = await self.transcription_service.create(create_request, assignment.user_uid)
+        create_result = await self.transcription_service.create(create_request, report.user_uid)
 
         if create_result.is_error:
             return create_result
@@ -284,18 +278,18 @@ class AssignmentProcessorService:
         transcription = process_result.value
         transcript_text = transcription.transcript_text
 
-        self.logger.info(f"Audio transcribed: {assignment.uid} ({len(transcript_text)} chars)")
+        self.logger.info(f"Audio transcribed: {report.uid} ({len(transcript_text)} chars)")
 
         # NOTE (January 2026): Journal-specific LLM processing REMOVED.
         # Journals are now a separate domain with their own processing pipeline.
-        # Assignments get the raw transcript as processed content.
+        # Reports get the raw transcript as processed content.
         # See: core/services/journals_core_service.py for journal processing
 
         processed_content = transcript_text
 
-        # Update assignment with processed content (raw transcript)
-        return await self.assignment_service.update_processed_content(
-            uid=assignment.uid, processed_content=processed_content
+        # Update report with processed content (raw transcript)
+        return await self.report_service.update_processed_content(
+            uid=report.uid, processed_content=processed_content
         )
 
     # ========================================================================
@@ -303,41 +297,41 @@ class AssignmentProcessorService:
     # ========================================================================
 
     async def _process_text(
-        self, assignment: Assignment, instructions: dict[str, Any] | None
-    ) -> Result[Assignment]:
+        self, report: Report, instructions: dict[str, Any] | None
+    ) -> Result[Report]:
         """
         Process text file: read content and store.
 
         Pipeline:
         1. Read text file content
-        2. Update assignment with processed content
+        2. Update report with processed content
 
         NOTE (January 2026): Journal-specific LLM processing REMOVED.
         Journals are now a separate domain with their own processing pipeline.
         See: core/services/journals_core_service.py
 
         Args:
-            assignment: Assignment with text file
+            report: Report with text file
             instructions: Optional processing instructions (unused after domain separation)
 
         Returns:
-            Result containing processed assignment
+            Result containing processed report
         """
         _ = instructions  # Unused after journal domain separation
 
-        self.logger.info(f"Processing text assignment: {assignment.uid}")
+        self.logger.info(f"Processing text report: {report.uid}")
 
         # Step 1: Read text content
-        file_content_result = await self.assignment_service.get_file_content(assignment.uid)
+        file_content_result = await self.report_service.get_file_content(report.uid)
 
         if file_content_result.is_error:
             return Result.fail(file_content_result.expect_error())
 
         text_content = file_content_result.value.decode("utf-8")
 
-        # Step 2: Update assignment with processed content (raw text)
-        return await self.assignment_service.update_processed_content(
-            uid=assignment.uid, processed_content=text_content
+        # Step 2: Update report with processed content (raw text)
+        return await self.report_service.update_processed_content(
+            uid=report.uid, processed_content=text_content
         )
 
     # ========================================================================
@@ -345,7 +339,7 @@ class AssignmentProcessorService:
     # ========================================================================
 
     async def _extract_activities(
-        self, assignment: Assignment, user_uid: str, instructions: dict[str, Any] | None
+        self, report: Report, user_uid: str, instructions: dict[str, Any] | None
     ) -> None:
         """
         Extract Activity Lines from processed content and create entities.
@@ -360,16 +354,16 @@ class AssignmentProcessorService:
         ```
 
         Args:
-            assignment: Processed assignment with content
+            report: Processed report with content
             user_uid: User UID for entity ownership
             instructions: Processing instructions (may contain extraction options)
         """
-        self.logger.info(f"Extracting activities from assignment {assignment.uid}")
+        self.logger.info(f"Extracting activities from report {report.uid}")
 
         try:
             # Extract and create entities
             result = await self.activity_extractor.extract_and_create(
-                assignment=assignment,
+                report=report,
                 user_uid=user_uid,
                 create_relationships=instructions.get("create_activity_relationships", True)
                 if instructions
@@ -379,7 +373,7 @@ class AssignmentProcessorService:
             if result.is_ok:
                 extraction = result.value
                 self.logger.info(
-                    f"Activity extraction complete for {assignment.uid}: "
+                    f"Activity extraction complete for {report.uid}: "
                     f"found {extraction.activities_found} activities, "
                     f"created {extraction.total_created} entities "
                     f"(tasks={extraction.tasks_created}, habits={extraction.habits_created}, "
@@ -388,19 +382,17 @@ class AssignmentProcessorService:
 
                 if extraction.has_errors:
                     self.logger.warning(
-                        f"Activity extraction had errors for {assignment.uid}: "
+                        f"Activity extraction had errors for {report.uid}: "
                         f"{len(extraction.parse_errors)} parse errors, "
                         f"{len(extraction.creation_errors)} creation errors"
                     )
             else:
-                self.logger.warning(
-                    f"Activity extraction failed for {assignment.uid}: {result.error}"
-                )
+                self.logger.warning(f"Activity extraction failed for {report.uid}: {result.error}")
 
         except Exception as e:
             # Activity extraction failure should not fail the entire processing
             self.logger.error(
-                f"Unexpected error during activity extraction for {assignment.uid}: {e}",
+                f"Unexpected error during activity extraction for {report.uid}: {e}",
                 exc_info=True,
             )
 
@@ -408,29 +400,27 @@ class AssignmentProcessorService:
     # REPROCESSING
     # ========================================================================
 
-    async def reprocess_assignment(
-        self, assignment_uid: str, new_instructions: dict[str, Any] | None = None
-    ) -> Result[Assignment]:
+    async def reprocess_report(
+        self, report_uid: str, new_instructions: dict[str, Any] | None = None
+    ) -> Result[Report]:
         """
-        Reprocess an existing assignment with new instructions.
+        Reprocess an existing report with new instructions.
 
         Resets status to SUBMITTED and processes again.
 
         Args:
-            assignment_uid: Assignment UID
+            report_uid: Report UID
             new_instructions: New processing instructions
 
         Returns:
-            Result containing reprocessed assignment
+            Result containing reprocessed report
         """
         # Reset status to SUBMITTED
-        await self.assignment_service.update_assignment_status(
-            assignment_uid, AssignmentStatus.SUBMITTED
-        )
+        await self.report_service.update_report_status(report_uid, ReportStatus.SUBMITTED)
 
         # Process with new instructions
-        return await self.process_assignment(assignment_uid, new_instructions)
+        return await self.process_report(report_uid, new_instructions)
 
 
 # Backward compatibility alias
-ProcessingPipelineService = AssignmentProcessorService
+ProcessingPipelineService = ReportsProcessingService

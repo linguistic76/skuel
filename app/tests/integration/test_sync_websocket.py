@@ -286,13 +286,16 @@ def test_multiple_concurrent_connections():
 
         # Test broadcasting to each
         for op_id in operation_ids:
-            broadcast_progress(op_id, {
-                "current": 10,
-                "total": 100,
-                "percentage": 10.0,
-                "current_file": f"file-{op_id}.md",
-                "eta_seconds": 90,
-            })
+            broadcast_progress(
+                op_id,
+                {
+                    "current": 10,
+                    "total": 100,
+                    "percentage": 10.0,
+                    "current_file": f"file-{op_id}.md",
+                    "eta_seconds": 90,
+                },
+            )
 
     finally:
         # Cleanup
@@ -406,8 +409,7 @@ def test_progress_tracker_with_one_file():
 
     callback_data = []
     tracker = ProgressTracker(
-        total_files=1,
-        websocket_callback=lambda data: callback_data.append(data)
+        total_files=1, websocket_callback=lambda data: callback_data.append(data)
     )
 
     tracker.update(0, "only_file.md")
@@ -429,13 +431,16 @@ def test_broadcast_progress_with_invalid_json():
     try:
         # Broadcast with valid JSON-serializable data
         # (Python objects are serialized by send_json)
-        broadcast_progress(operation_id, {
-            "current": 10,
-            "total": 100,
-            "percentage": 10.0,
-            "current_file": "/path/to/file.md",
-            "eta_seconds": 90,
-        })
+        broadcast_progress(
+            operation_id,
+            {
+                "current": 10,
+                "total": 100,
+                "percentage": 10.0,
+                "current_file": "/path/to/file.md",
+                "eta_seconds": 90,
+            },
+        )
 
         # Should not raise error
     finally:
@@ -461,8 +466,7 @@ def test_alpine_component_data_structure():
 
     callback_data = []
     tracker = ProgressTracker(
-        total_files=100,
-        websocket_callback=lambda data: callback_data.append(data)
+        total_files=100, websocket_callback=lambda data: callback_data.append(data)
     )
 
     tracker.update(50, "/vault/test.md")

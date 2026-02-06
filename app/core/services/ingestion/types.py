@@ -166,10 +166,16 @@ class DryRunPreview:
     """Preview of what would change during sync."""
 
     total_files: int = 0
-    files_to_create: list[dict[str, Any]] = field(default_factory=list)  # [{uid, title, entity_type, file_path}]
-    files_to_update: list[dict[str, Any]] = field(default_factory=list)  # [{uid, title, changes_summary}]
+    files_to_create: list[dict[str, Any]] = field(
+        default_factory=list
+    )  # [{uid, title, entity_type, file_path}]
+    files_to_update: list[dict[str, Any]] = field(
+        default_factory=list
+    )  # [{uid, title, changes_summary}]
     files_to_skip: list[str] = field(default_factory=list)
-    relationships_to_create: list[dict[str, Any]] = field(default_factory=list)  # [{source, target, type}]
+    relationships_to_create: list[dict[str, Any]] = field(
+        default_factory=list
+    )  # [{source, target, type}]
     validation_warnings: list[str] = field(default_factory=list)
     validation_errors: list[str] = field(default_factory=list)
 

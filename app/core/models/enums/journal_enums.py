@@ -22,8 +22,8 @@ class JournalType(str, Enum):
     - VOICE (PJ1): Ephemeral voice journals, max 3 stored, audio source
     - CURATED (PJ2): Permanent curated text/markdown journals
 
-    This enum replaces the journal-related values in AssignmentType,
-    providing proper domain separation between Journals and Assignments.
+    This enum replaces the journal-related values in ReportType,
+    providing proper domain separation between Journals and Reports.
     """
 
     VOICE = "voice"  # PJ1: Ephemeral, max 3, audio

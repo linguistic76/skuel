@@ -42,7 +42,9 @@ class KuUIComponents:
     """Centralized KU UI components - no more inline composition"""
 
     @staticmethod
-    async def render_ku_dashboard(knowledge_units=None, stats=None, domains=None, request=None) -> Any:
+    async def render_ku_dashboard(
+        knowledge_units=None, stats=None, domains=None, request=None
+    ) -> Any:
         """
         Main KU dashboard - REFACTORED to use SharedUIComponents.
 

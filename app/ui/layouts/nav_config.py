@@ -39,7 +39,7 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
     NavItem("Askesis", "/askesis", "askesis"),
     NavItem("Events", "/events", "events"),
     NavItem("Journals", "/journals", "journals"),
-    NavItem("Assignments", "/assignments", "assignments"),
+    NavItem("Reports", "/reports", "reports"),
     NavItem("Sel", "/sel", "sel"),
 )
 

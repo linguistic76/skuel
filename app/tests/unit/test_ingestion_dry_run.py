@@ -64,10 +64,14 @@ class SimpleMockDriver:
                 def make_get(data):
                     return lambda self, k, default=None: data.get(k, default)
 
-                record_obj = type("Record", (), {
-                    "__getitem__": make_getitem(record_data),
-                    "get": make_get(record_data),
-                })()
+                record_obj = type(
+                    "Record",
+                    (),
+                    {
+                        "__getitem__": make_getitem(record_data),
+                        "get": make_get(record_data),
+                    },
+                )()
                 records.append(record_obj)
 
             return type("Result", (), {"records": records})()
@@ -144,7 +148,9 @@ async def test_check_existing_entities_all_new(mock_driver_with_uids):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Integration test - requires real database or different mocking approach (@patch creates unpicklable MagicMock in async context)")
+@pytest.mark.skip(
+    reason="Integration test - requires real database or different mocking approach (@patch creates unpicklable MagicMock in async context)"
+)
 @patch("core.services.ingestion.batch.collect_files")
 @patch("core.services.ingestion.batch.parse_file_sync")
 async def test_dry_run_returns_preview(

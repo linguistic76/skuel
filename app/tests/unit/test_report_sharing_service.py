@@ -1,14 +1,14 @@
 """
-Unit Tests for AssignmentSharingService
-========================================
+Unit Tests for ReportSharingService
+====================================
 
 Tests all 6 service methods with mocked Neo4j driver:
-- share_assignment()
-- unshare_assignment()
+- share_report()
+- unshare_report()
 - set_visibility()
 - check_access()
 - get_shared_with_users()
-- get_assignments_shared_with_me()
+- get_reports_shared_with_me()
 
 Also tests helper methods:
 - _verify_ownership()
@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.metadata_enums import Visibility
-from core.services.assignments.assignment_sharing_service import AssignmentSharingService
+from core.services.reports.report_sharing_service import ReportSharingService
 
 
 @pytest.fixture
@@ -33,30 +33,30 @@ def mock_driver():
 
 @pytest.fixture
 def sharing_service(mock_driver):
-    """Create AssignmentSharingService with mocked driver."""
-    return AssignmentSharingService(driver=mock_driver)
+    """Create ReportSharingService with mocked driver."""
+    return ReportSharingService(driver=mock_driver)
 
 
 # ============================================================================
-# SHARE ASSIGNMENT TESTS
+# SHARE REPORT TESTS
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_share_assignment_success(sharing_service, mock_driver):
-    """Test successfully sharing an assignment."""
+async def test_share_report_success(sharing_service, mock_driver):
+    """Test successfully sharing a report."""
     # Mock verify_ownership (success)
     mock_driver.execute_query.side_effect = [
         # _verify_ownership query
         ([{"actual_owner": "user_owner"}], None, None),
         # _verify_shareable query
         ([{"status": "completed"}], None, None),
-        # share_assignment query
+        # share_report query
         ([{"success": True}], None, None),
     ]
 
-    result = await sharing_service.share_assignment(
-        assignment_uid="assignment_123",
+    result = await sharing_service.share_report(
+        report_uid="report_123",
         owner_uid="user_owner",
         recipient_uid="user_teacher",
         role="teacher",
@@ -70,7 +70,7 @@ async def test_share_assignment_success(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_share_assignment_not_owner(sharing_service, mock_driver):
+async def test_share_report_not_owner(sharing_service, mock_driver):
     """Test sharing fails if user is not owner."""
     # Mock ownership check (failure)
     mock_driver.execute_query.return_value = (
@@ -79,8 +79,8 @@ async def test_share_assignment_not_owner(sharing_service, mock_driver):
         None,
     )
 
-    result = await sharing_service.share_assignment(
-        assignment_uid="assignment_123",
+    result = await sharing_service.share_report(
+        report_uid="report_123",
         owner_uid="user_not_owner",
         recipient_uid="user_teacher",
         role="teacher",
@@ -91,8 +91,8 @@ async def test_share_assignment_not_owner(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_share_assignment_not_completed(sharing_service, mock_driver):
-    """Test sharing fails if assignment is not completed."""
+async def test_share_report_not_completed(sharing_service, mock_driver):
+    """Test sharing fails if report is not completed."""
     mock_driver.execute_query.side_effect = [
         # _verify_ownership query (success)
         ([{"actual_owner": "user_owner"}], None, None),
@@ -100,25 +100,25 @@ async def test_share_assignment_not_completed(sharing_service, mock_driver):
         ([{"status": "processing"}], None, None),
     ]
 
-    result = await sharing_service.share_assignment(
-        assignment_uid="assignment_123",
+    result = await sharing_service.share_report(
+        report_uid="report_123",
         owner_uid="user_owner",
         recipient_uid="user_teacher",
         role="teacher",
     )
 
     assert result.is_error
-    assert "Only completed assignments" in str(result.error)
+    assert "Only completed reports" in str(result.error)
 
 
 @pytest.mark.asyncio
-async def test_share_assignment_not_found(sharing_service, mock_driver):
-    """Test sharing fails if assignment doesn't exist."""
-    # Mock ownership check (assignment not found)
+async def test_share_report_not_found(sharing_service, mock_driver):
+    """Test sharing fails if report doesn't exist."""
+    # Mock ownership check (report not found)
     mock_driver.execute_query.return_value = ([], None, None)
 
-    result = await sharing_service.share_assignment(
-        assignment_uid="assignment_nonexistent",
+    result = await sharing_service.share_report(
+        report_uid="report_nonexistent",
         owner_uid="user_owner",
         recipient_uid="user_teacher",
         role="teacher",
@@ -129,13 +129,13 @@ async def test_share_assignment_not_found(sharing_service, mock_driver):
 
 
 # ============================================================================
-# UNSHARE ASSIGNMENT TESTS
+# UNSHARE REPORT TESTS
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_unshare_assignment_success(sharing_service, mock_driver):
-    """Test successfully unsharing an assignment."""
+async def test_unshare_report_success(sharing_service, mock_driver):
+    """Test successfully unsharing a report."""
     mock_driver.execute_query.side_effect = [
         # _verify_ownership query
         ([{"actual_owner": "user_owner"}], None, None),
@@ -143,8 +143,8 @@ async def test_unshare_assignment_success(sharing_service, mock_driver):
         ([{"deleted_count": 1}], None, None),
     ]
 
-    result = await sharing_service.unshare_assignment(
-        assignment_uid="assignment_123",
+    result = await sharing_service.unshare_report(
+        report_uid="report_123",
         owner_uid="user_owner",
         recipient_uid="user_teacher",
     )
@@ -154,7 +154,7 @@ async def test_unshare_assignment_success(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_unshare_assignment_not_shared(sharing_service, mock_driver):
+async def test_unshare_report_not_shared(sharing_service, mock_driver):
     """Test unsharing fails if no relationship exists."""
     mock_driver.execute_query.side_effect = [
         # _verify_ownership query
@@ -163,8 +163,8 @@ async def test_unshare_assignment_not_shared(sharing_service, mock_driver):
         ([{"deleted_count": 0}], None, None),
     ]
 
-    result = await sharing_service.unshare_assignment(
-        assignment_uid="assignment_123",
+    result = await sharing_service.unshare_report(
+        report_uid="report_123",
         owner_uid="user_owner",
         recipient_uid="user_teacher",
     )
@@ -174,7 +174,7 @@ async def test_unshare_assignment_not_shared(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_unshare_assignment_not_owner(sharing_service, mock_driver):
+async def test_unshare_report_not_owner(sharing_service, mock_driver):
     """Test unsharing fails if user is not owner."""
     mock_driver.execute_query.return_value = (
         [{"actual_owner": "user_other"}],
@@ -182,8 +182,8 @@ async def test_unshare_assignment_not_owner(sharing_service, mock_driver):
         None,
     )
 
-    result = await sharing_service.unshare_assignment(
-        assignment_uid="assignment_123",
+    result = await sharing_service.unshare_report(
+        report_uid="report_123",
         owner_uid="user_not_owner",
         recipient_uid="user_teacher",
     )
@@ -199,7 +199,7 @@ async def test_unshare_assignment_not_owner(sharing_service, mock_driver):
 
 @pytest.mark.asyncio
 async def test_get_shared_with_users_success(sharing_service, mock_driver):
-    """Test getting list of users assignment is shared with."""
+    """Test getting list of users report is shared with."""
     mock_driver.execute_query.return_value = (
         [
             {
@@ -219,7 +219,7 @@ async def test_get_shared_with_users_success(sharing_service, mock_driver):
         None,
     )
 
-    result = await sharing_service.get_shared_with_users(assignment_uid="assignment_123")
+    result = await sharing_service.get_shared_with_users(report_uid="report_123")
 
     assert not result.is_error
     assert len(result.value) == 2
@@ -233,28 +233,28 @@ async def test_get_shared_with_users_empty(sharing_service, mock_driver):
     """Test getting shared users when none exist."""
     mock_driver.execute_query.return_value = ([], None, None)
 
-    result = await sharing_service.get_shared_with_users(assignment_uid="assignment_123")
+    result = await sharing_service.get_shared_with_users(report_uid="report_123")
 
     assert not result.is_error
     assert len(result.value) == 0
 
 
 # ============================================================================
-# GET ASSIGNMENTS SHARED WITH ME TESTS
+# GET REPORTS SHARED WITH ME TESTS
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_get_assignments_shared_with_me_success(sharing_service, mock_driver):
-    """Test getting assignments shared with a user."""
+async def test_get_reports_shared_with_me_success(sharing_service, mock_driver):
+    """Test getting reports shared with a user."""
     mock_driver.execute_query.return_value = (
         [
             {
-                "assignment": {
-                    "uid": "assignment_123",
+                "report": {
+                    "uid": "report_123",
                     "user_uid": "user_owner",
                     "original_filename": "report.pdf",
-                    "assignment_type": "report",
+                    "report_type": "report",
                     "status": "completed",
                     "file_path": "/path/to/file",
                     "file_size": 1024,
@@ -270,23 +270,23 @@ async def test_get_assignments_shared_with_me_success(sharing_service, mock_driv
         None,
     )
 
-    result = await sharing_service.get_assignments_shared_with_me(
+    result = await sharing_service.get_reports_shared_with_me(
         user_uid="user_teacher",
         limit=50,
     )
 
     assert not result.is_error
     assert len(result.value) == 1
-    assert result.value[0].uid == "assignment_123"
+    assert result.value[0].uid == "report_123"
     assert result.value[0].original_filename == "report.pdf"
 
 
 @pytest.mark.asyncio
-async def test_get_assignments_shared_with_me_empty(sharing_service, mock_driver):
-    """Test getting shared assignments when none exist."""
+async def test_get_reports_shared_with_me_empty(sharing_service, mock_driver):
+    """Test getting shared reports when none exist."""
     mock_driver.execute_query.return_value = ([], None, None)
 
-    result = await sharing_service.get_assignments_shared_with_me(
+    result = await sharing_service.get_reports_shared_with_me(
         user_uid="user_teacher",
         limit=50,
     )
@@ -302,18 +302,18 @@ async def test_get_assignments_shared_with_me_empty(sharing_service, mock_driver
 
 @pytest.mark.asyncio
 async def test_set_visibility_to_public_success(sharing_service, mock_driver):
-    """Test setting assignment visibility to PUBLIC."""
+    """Test setting report visibility to PUBLIC."""
     mock_driver.execute_query.side_effect = [
         # _verify_ownership query
         ([{"actual_owner": "user_owner"}], None, None),
         # _verify_shareable query (PUBLIC requires completed)
         ([{"status": "completed"}], None, None),
         # set_visibility query
-        ([{"uid": "assignment_123"}], None, None),
+        ([{"uid": "report_123"}], None, None),
     ]
 
     result = await sharing_service.set_visibility(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         owner_uid="user_owner",
         visibility=Visibility.PUBLIC,
     )
@@ -330,11 +330,11 @@ async def test_set_visibility_to_private_no_shareable_check(sharing_service, moc
         ([{"actual_owner": "user_owner"}], None, None),
         # No _verify_shareable query (PRIVATE doesn't need it)
         # set_visibility query
-        ([{"uid": "assignment_123"}], None, None),
+        ([{"uid": "report_123"}], None, None),
     ]
 
     result = await sharing_service.set_visibility(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         owner_uid="user_owner",
         visibility=Visibility.PRIVATE,
     )
@@ -355,7 +355,7 @@ async def test_set_visibility_not_owner(sharing_service, mock_driver):
     )
 
     result = await sharing_service.set_visibility(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         owner_uid="user_not_owner",
         visibility=Visibility.PUBLIC,
     )
@@ -375,13 +375,13 @@ async def test_set_visibility_shared_not_completed(sharing_service, mock_driver)
     ]
 
     result = await sharing_service.set_visibility(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         owner_uid="user_owner",
         visibility=Visibility.SHARED,
     )
 
     assert result.is_error
-    assert "Only completed assignments" in str(result.error)
+    assert "Only completed reports" in str(result.error)
 
 
 # ============================================================================
@@ -405,7 +405,7 @@ async def test_check_access_owner(sharing_service, mock_driver):
     )
 
     result = await sharing_service.check_access(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         user_uid="user_owner",
     )
 
@@ -415,7 +415,7 @@ async def test_check_access_owner(sharing_service, mock_driver):
 
 @pytest.mark.asyncio
 async def test_check_access_public(sharing_service, mock_driver):
-    """Test anyone can access PUBLIC assignments."""
+    """Test anyone can access PUBLIC reports."""
     mock_driver.execute_query.return_value = (
         [
             {
@@ -429,7 +429,7 @@ async def test_check_access_public(sharing_service, mock_driver):
     )
 
     result = await sharing_service.check_access(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         user_uid="user_other",
     )
 
@@ -439,7 +439,7 @@ async def test_check_access_public(sharing_service, mock_driver):
 
 @pytest.mark.asyncio
 async def test_check_access_shared_with_relationship(sharing_service, mock_driver):
-    """Test user with SHARES_WITH relationship can access SHARED assignment."""
+    """Test user with SHARES_WITH relationship can access SHARED report."""
     mock_driver.execute_query.return_value = (
         [
             {
@@ -453,7 +453,7 @@ async def test_check_access_shared_with_relationship(sharing_service, mock_drive
     )
 
     result = await sharing_service.check_access(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         user_uid="user_teacher",
     )
 
@@ -463,7 +463,7 @@ async def test_check_access_shared_with_relationship(sharing_service, mock_drive
 
 @pytest.mark.asyncio
 async def test_check_access_shared_without_relationship(sharing_service, mock_driver):
-    """Test user without SHARES_WITH relationship cannot access SHARED assignment."""
+    """Test user without SHARES_WITH relationship cannot access SHARED report."""
     mock_driver.execute_query.return_value = (
         [
             {
@@ -477,7 +477,7 @@ async def test_check_access_shared_without_relationship(sharing_service, mock_dr
     )
 
     result = await sharing_service.check_access(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         user_uid="user_unauthorized",
     )
 
@@ -487,7 +487,7 @@ async def test_check_access_shared_without_relationship(sharing_service, mock_dr
 
 @pytest.mark.asyncio
 async def test_check_access_private_not_owner(sharing_service, mock_driver):
-    """Test non-owner cannot access PRIVATE assignment."""
+    """Test non-owner cannot access PRIVATE report."""
     mock_driver.execute_query.return_value = (
         [
             {
@@ -501,7 +501,7 @@ async def test_check_access_private_not_owner(sharing_service, mock_driver):
     )
 
     result = await sharing_service.check_access(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         user_uid="user_other",
     )
 
@@ -510,12 +510,12 @@ async def test_check_access_private_not_owner(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_check_access_assignment_not_found(sharing_service, mock_driver):
-    """Test check_access returns error if assignment doesn't exist."""
+async def test_check_access_report_not_found(sharing_service, mock_driver):
+    """Test check_access returns error if report doesn't exist."""
     mock_driver.execute_query.return_value = ([], None, None)
 
     result = await sharing_service.check_access(
-        assignment_uid="assignment_nonexistent",
+        report_uid="report_nonexistent",
         user_uid="user_owner",
     )
 
@@ -538,7 +538,7 @@ async def test_verify_ownership_success(sharing_service, mock_driver):
     )
 
     result = await sharing_service._verify_ownership(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         owner_uid="user_owner",
     )
 
@@ -556,7 +556,7 @@ async def test_verify_ownership_failure(sharing_service, mock_driver):
     )
 
     result = await sharing_service._verify_ownership(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         owner_uid="user_not_owner",
     )
 
@@ -566,7 +566,7 @@ async def test_verify_ownership_failure(sharing_service, mock_driver):
 
 @pytest.mark.asyncio
 async def test_verify_shareable_completed(sharing_service, mock_driver):
-    """Test _verify_shareable succeeds for completed assignments."""
+    """Test _verify_shareable succeeds for completed reports."""
     mock_driver.execute_query.return_value = (
         [{"status": "completed"}],
         None,
@@ -574,7 +574,7 @@ async def test_verify_shareable_completed(sharing_service, mock_driver):
     )
 
     result = await sharing_service._verify_shareable(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
     )
 
     assert not result.is_error
@@ -583,7 +583,7 @@ async def test_verify_shareable_completed(sharing_service, mock_driver):
 
 @pytest.mark.asyncio
 async def test_verify_shareable_not_completed(sharing_service, mock_driver):
-    """Test _verify_shareable fails for non-completed assignments."""
+    """Test _verify_shareable fails for non-completed reports."""
     mock_driver.execute_query.return_value = (
         [{"status": "processing"}],
         None,
@@ -591,11 +591,11 @@ async def test_verify_shareable_not_completed(sharing_service, mock_driver):
     )
 
     result = await sharing_service._verify_shareable(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
     )
 
     assert result.is_error
-    assert "Only completed assignments" in str(result.error)
+    assert "Only completed reports" in str(result.error)
 
 
 # ============================================================================
@@ -604,12 +604,12 @@ async def test_verify_shareable_not_completed(sharing_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_share_assignment_database_error(sharing_service, mock_driver):
-    """Test share_assignment handles database errors gracefully."""
+async def test_share_report_database_error(sharing_service, mock_driver):
+    """Test share_report handles database errors gracefully."""
     mock_driver.execute_query.side_effect = Exception("Database connection failed")
 
-    result = await sharing_service.share_assignment(
-        assignment_uid="assignment_123",
+    result = await sharing_service.share_report(
+        report_uid="report_123",
         owner_uid="user_owner",
         recipient_uid="user_teacher",
         role="teacher",
@@ -625,7 +625,7 @@ async def test_check_access_database_error(sharing_service, mock_driver):
     mock_driver.execute_query.side_effect = Exception("Query timeout")
 
     result = await sharing_service.check_access(
-        assignment_uid="assignment_123",
+        report_uid="report_123",
         user_uid="user_owner",
     )
 

@@ -33,8 +33,8 @@ DOMAINS SERVED BY THIS BACKEND (12 of 14)
 DOMAINS NOT USING THIS BACKEND (2 of 14)
 ----------------------------------------
 
-    13. LifePath - Uses cross-domain queries (ReportLifePathService)
-    14. Reports  - Read-only aggregation (no entity storage)
+    13. LifePath - Uses cross-domain queries (AnalyticsLifePathService)
+    14. Analytics - Read-only aggregation (no entity storage)
 
 THE 4 CROSS-CUTTING SYSTEMS
 ---------------------------

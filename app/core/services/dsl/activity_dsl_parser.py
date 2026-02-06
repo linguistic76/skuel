@@ -21,8 +21,8 @@ The DSL transforms freeform journal input into SKUEL's 15-domain + 1 destination
 - LearningPath (lp): Complete learning sequence
 
 **Meta Domains (3):**
-- Assignment: File uploads and processing
-- Report: Statistical aggregation requests
+- Report: File uploads and processing
+- Analytics: Statistical aggregation and report cards
 - Calendar: Scheduled activity views
 
 **+1 - The Destination:**
@@ -264,18 +264,9 @@ class ParsedActivityLine:
     # META DOMAINS (3) - Type-Safe Checks
     # ========================================================================
 
-    def is_assignment(self) -> bool:
-        """
-        Check if this is an Assignment activity.
-
-        Returns:
-            True if EntityType.ASSIGNMENT is in contexts
-        """
-        return EntityType.ASSIGNMENT in self.contexts
-
     def is_report(self) -> bool:
         """
-        Check if this is a Report request activity.
+        Check if this is a Report activity (file uploads, processing).
 
         Returns:
             True if EntityType.REPORT is in contexts
@@ -450,10 +441,6 @@ class ParsedJournal:
     # ========================================================================
     # META DOMAINS (3) - Filtered Accessors
     # ========================================================================
-
-    def get_assignments(self) -> list[ParsedActivityLine]:
-        """Get all Assignment activities."""
-        return [a for a in self.activities if a.is_assignment()]
 
     def get_reports(self) -> list[ParsedActivityLine]:
         """Get all Report activities."""

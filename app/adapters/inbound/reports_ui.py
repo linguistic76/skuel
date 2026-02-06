@@ -1,639 +1,348 @@
 """
-Reports Dashboard UI - Statistical Domain Analysis
-===================================================
+Reports UI Routes
+=====================
 
-Clean dashboard for viewing statistical reports.
-Following SKUEL principles: just numbers and charts, no AI recommendations.
+Clean dashboard for file submission and processing pipeline.
+Uses HTMX for dynamic updates (JavaScript-minimal approach).
 
-✅ MIGRATED TO SHARED UI COMPONENTS (October 10, 2025)
-- Previously: Custom metric_card() implementation
-- Now: Uses /core/ui/shared_components.py for MetricCard and QuickMetricCard
-- Benefit: Consistent styling across all dashboards
+Phase 1 Implementation:
+- File upload form (audio, text, future: PDF, images, video)
+- Reports grid with status badges
+- Filter by type and status
+- View processed content
+- Download original and processed files
+
+Future Enhancements:
+- Drag-and-drop file upload
+- Real-time status updates (WebSocket)
+- Batch operations
+- Manual review queue interface
 """
 
 from dataclasses import dataclass
-from datetime import date, timedelta
 from typing import Any
 
 from fasthtml.common import (
     H1,
-    H2,
     H3,
     H4,
+    A,
     Div,
     Form,
     Input,
     Label,
+    NotStr,
     Option,
     P,
+    Script,
     Select,
     Span,
-    Table,
-    Tbody,
-    Td,
-    Th,
-    Thead,
-    Tr,
 )
+from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
-from core.models.shared_enums import ReportType
+from core.auth import require_authenticated_user
 from core.ui.daisy_components import Button, ButtonT
-from core.ui.shared_components import MetricCard, QuickMetricCard
 from core.utils.logging import get_logger
-from ui.layouts.navbar import create_navbar_for_request
+from ui.layouts.base_page import BasePage
 
 logger = get_logger("skuel.routes.reports.ui")
 
 
 # ============================================================================
-# UI COMPONENT LIBRARY
+# HTMX FRAGMENT RENDERING FUNCTIONS
 # ============================================================================
 
 
-class ReportsUIComponents:
-    """Reusable report UI components"""
-
-    @staticmethod
-    def render_reports_dashboard(request) -> Any:
-        """Main reports dashboard - select domain and period"""
-        navbar = create_navbar_for_request(request, active_page="reports")
-
+def _render_upload_status(
+    status: str,
+    message: str,
+    report_uid: str | None = None,
+    is_error: bool = False,
+) -> Any:
+    """Render upload status as HTML fragment for HTMX swap."""
+    if is_error:
         return Div(
-            navbar,
-            H1("📊 Reports Dashboard", cls="text-2xl font-bold mb-6"),
-            P(
-                "Generate statistical reports for any domain. "
-                "Pure metrics - completion rates, totals, distributions. "
-                "No AI recommendations, just transparent data.",
-                cls="text-base-content/60 mb-6",
-            ),
-            # Report generator form
             Div(
-                H3("Generate Report", cls="text-lg font-semibold mb-4"),
-                Form(
-                    # Domain selection
-                    Div(
-                        Label("Domain", cls="label"),
-                        Select(
-                            Option("Tasks", value="tasks"),
-                            Option("Habits", value="habits"),
-                            Option("Goals", value="goals"),
-                            Option("Events", value="events"),
-                            Option("Finance", value="finance"),
-                            Option("Choices", value="choices"),
-                            name="report_type",
-                            id="report-type-select",
-                            cls="select select-bordered w-full",
-                        ),
-                        cls="mb-4",
-                    ),
-                    # Period selection
-                    Div(
-                        Label("Period", cls="label"),
-                        Select(
-                            Option("This Week", value="week_current"),
-                            Option("Last Week", value="week_last"),
-                            Option("This Month", value="month_current"),
-                            Option("Last Month", value="month_last"),
-                            Option("This Year", value="year_current"),
-                            Option("Custom Range", value="custom"),
-                            name="period",
-                            id="period-select",
-                            cls="select select-bordered w-full",
-                            **{
-                                "hx-get": "/ui/reports/period-fields",
-                                "hx-target": "#period-fields",
-                                "hx-trigger": "change",
-                            },
-                        ),
-                        cls="mb-4",
-                    ),
-                    # Dynamic period fields (for custom range)
-                    Div(id="period-fields"),
-                    # Submit button
-                    Div(
-                        Button(
-                            "📈 Generate Report",
-                            type="button",
-                            hx_get="/ui/reports/view",
-                            hx_include="[name='report_type'],[name='period'],[name='start_date'],[name='end_date']",
-                            hx_target="#report-display",
-                            variant=ButtonT.primary,
-                        ),
-                        cls="mb-4",
-                    ),
-                ),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                H4("Upload Failed", cls="mb-0"),
+                P(message, cls="mb-0"),
+                cls="alert alert-error",
             ),
-            # Report display area
-            Div(id="report-display", cls="mt-6"),
-            cls="container mx-auto p-6",
+            id="upload-status",
         )
 
-    @staticmethod
-    def render_period_fields(period) -> Any:
-        """Dynamic period input fields"""
-        if period == "custom":
-            return Div(
-                Div(
-                    Label("Start Date", cls="label"),
-                    Input(type="date", name="start_date", cls="input input-bordered w-full"),
-                    cls="mb-4",
-                ),
-                Div(
-                    Label("End Date", cls="label"),
-                    Input(type="date", name="end_date", cls="input input-bordered w-full"),
-                    cls="mb-4",
-                ),
-            )
-        return ""
+    return Div(
+        Div(
+            H4("File Uploaded Successfully!", cls="mb-0"),
+            P(f"Report ID: {report_uid}", cls="mb-0") if report_uid else None,
+            P(f"Status: {status}", cls="mb-0"),
+            cls="alert alert-success",
+        ),
+        id="upload-status",
+    )
 
-    @staticmethod
-    def render_report(report) -> Any:
-        """Render a generated report"""
-        return Div(
-            # Report header
+
+def _get_status_badge_class(status: str) -> str:
+    """Get DaisyUI badge class for report status."""
+    classes = {
+        "submitted": "badge-warning",
+        "queued": "badge-warning",
+        "processing": "badge-info",
+        "completed": "badge-success",
+        "failed": "badge-error",
+        "manual_review": "badge-ghost",
+    }
+    return classes.get(status, "badge-ghost")
+
+
+def _render_report_card(report: Any, is_pinned: bool = False) -> Any:
+    """
+    Render a single report card.
+
+    Args:
+        report: Report entity
+        is_pinned: Whether this report is pinned
+    """
+    from components.shared.pin_button import PinButton
+
+    file_size_mb = (report.file_size / 1024 / 1024) if hasattr(report, "file_size") else 0
+    return Div(
+        Div(
             Div(
-                H2(report.title, cls="text-xl font-bold mb-2"),
+                Div(
+                    H4(report.original_filename, cls="mb-0 font-semibold"),
+                    P(
+                        f"{report.report_type} \u2022 {file_size_mb:.2f} MB",
+                        cls="text-sm text-base-content/60 mb-0",
+                    ),
+                    cls="flex-1",
+                ),
+                Div(
+                    Span(
+                        report.status,
+                        cls=f"badge {_get_status_badge_class(report.status)}",
+                    ),
+                ),
+                Div(
+                    PinButton(entity_uid=report.uid, is_pinned=is_pinned, size="xs"),
+                    A(
+                        "View",
+                        href=f"/reports/{report.uid}",
+                        cls="btn btn-sm btn-ghost",
+                    ),
+                    cls="flex gap-2",
+                ),
+                cls="flex items-center gap-4",
+            ),
+            cls="card-body p-4",
+        ),
+        cls="card bg-base-100 shadow-sm mb-2",
+    )
+
+
+def _render_reports_grid(reports: list[Any]) -> Any:
+    """Render reports grid as HTML fragment for HTMX swap."""
+    if not reports:
+        return Div(
+            P("No reports found.", cls="text-center text-base-content/60"),
+            id="reports-grid-container",
+        )
+
+    return Div(
+        *[_render_report_card(a) for a in reports],
+        id="reports-grid-container",
+    )
+
+
+def _render_report_detail(report: Any) -> Any:
+    """Render report detail info as HTML fragment."""
+    file_size_mb = (report.file_size / 1024 / 1024) if hasattr(report, "file_size") else 0
+    processing_duration = getattr(report, "processing_duration_seconds", None)
+    created_at = getattr(report, "created_at", None)
+
+    return Div(
+        Div(
+            Div(
+                P("Filename", cls="text-xs text-base-content/60 mb-0"),
+                P(report.original_filename, cls="mb-0 font-bold"),
+            ),
+            Div(
+                P("Status", cls="text-xs text-base-content/60 mb-0"),
                 P(
-                    f"{report.format_period()} • Generated {report.generated_at.strftime('%Y-%m-%d %H:%M')}",
-                    cls="text-base-content/60 text-sm",
-                ),
-                cls="card bg-base-100 shadow-sm p-6 mb-4",
-            ),
-            # Metrics cards
-            ReportsUIComponents.render_metrics_cards(report),
-            # Markdown view toggle
-            Div(
-                Button(
-                    "📄 View as Markdown",
-                    hx_get=f"/ui/reports/{report.uid}/markdown",
-                    hx_target="#markdown-view",
-                    variant=ButtonT.ghost,
-                    cls="mb-4",
-                ),
-                Div(id="markdown-view"),
-            ),
-            cls="mt-6",
-        )
-
-    @staticmethod
-    def render_metrics_cards(report) -> Any:
-        """Render metric cards based on report type"""
-        metrics = report.metrics
-
-        if report.report_type == ReportType.TASKS:
-            return ReportsUIComponents.render_tasks_metrics(metrics)
-        elif report.report_type == ReportType.HABITS:
-            return ReportsUIComponents.render_habits_metrics(metrics)
-        elif report.report_type == ReportType.GOALS:
-            return ReportsUIComponents.render_goals_metrics(metrics)
-        elif report.report_type == ReportType.EVENTS:
-            return ReportsUIComponents.render_events_metrics(metrics)
-        elif report.report_type == ReportType.FINANCE:
-            return ReportsUIComponents.render_finance_metrics(metrics)
-        elif report.report_type == ReportType.CHOICES:
-            return ReportsUIComponents.render_choices_metrics(metrics)
-        else:
-            return ReportsUIComponents.render_generic_metrics(metrics)
-
-    @staticmethod
-    def render_tasks_metrics(metrics) -> Any:
-        """Render task metrics using shared components"""
-        return Div(
-            H3("📋 Task Metrics", cls="text-lg font-semibold mb-4"),
-            # Summary cards using shared QuickMetricCard
-            Div(
-                QuickMetricCard("Total Tasks", str(metrics.get("total_count", 0)), "primary"),
-                QuickMetricCard("Completed", str(metrics.get("completed_count", 0)), "success"),
-                QuickMetricCard("In Progress", str(metrics.get("in_progress_count", 0)), "accent"),
-                QuickMetricCard("Pending", str(metrics.get("pending_count", 0)), "secondary"),
-                cls="grid grid-cols-4 gap-4 mb-6",
-            ),
-            # Completion rate using shared MetricCard
-            MetricCard(
-                title="Completion Rate",
-                value=f"{metrics.get('completion_rate', 0)}%",
-                subtitle="Tasks completed in period",
-                color="green",
-            ),
-            # Priority distribution
-            (
-                Div(
-                    H4("Priority Distribution", cls="font-semibold mb-3"),
-                    Table(
-                        Thead(Tr(Th("Priority"), Th("Count"), cls="text-left")),
-                        Tbody(
-                            *[
-                                Tr(Td(priority.title()), Td(str(count)))
-                                for priority, count in metrics.get(
-                                    "priority_distribution", {}
-                                ).items()
-                            ]
-                        ),
-                        cls="table table-zebra",
+                    Span(
+                        report.status,
+                        cls=f"badge {_get_status_badge_class(report.status)}",
                     ),
-                    cls="card bg-base-100 shadow-sm p-4 mb-4",
-                )
-                if metrics.get("priority_distribution")
-                else ""
-            ),
-            # Overdue tasks
-            (
-                Div(
-                    Div(
-                        Span("⚠️", cls="text-2xl mr-2"),
-                        Span(
-                            f"{metrics.get('overdue_count', 0)} Overdue Tasks", cls="font-semibold"
-                        ),
-                        cls="flex items-center",
-                    ),
-                    cls="alert alert-warning",
-                )
-                if metrics.get("overdue_count", 0) > 0
-                else ""
-            ),
-        )
-
-    @staticmethod
-    def render_habits_metrics(metrics) -> Any:
-        """Render habit metrics using shared components"""
-        return Div(
-            H3("🎯 Habit Metrics", cls="text-lg font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Active Habits", str(metrics.get("total_active", 0)), "primary"),
-                QuickMetricCard("Consistency", f"{metrics.get('consistency_rate', 0)}%", "success"),
-                cls="grid grid-cols-2 gap-4 mb-6",
-            ),
-            # Streaks
-            (
-                Div(
-                    H4("Current Streaks", cls="font-semibold mb-3"),
-                    *[
-                        Div(
-                            Span(habit_name, cls="font-medium"),
-                            Span(f"{days} days", cls="text-success"),
-                            cls="flex justify-between py-2",
-                        )
-                        for habit_name, days in metrics.get("current_streaks", {}).items()
-                    ],
-                    cls="card bg-base-100 shadow-sm p-4",
-                )
-                if metrics.get("current_streaks")
-                else ""
-            ),
-        )
-
-    @staticmethod
-    def render_goals_metrics(metrics) -> Any:
-        """Render goal metrics using shared components"""
-        return Div(
-            H3("🎯 Goal Metrics", cls="text-lg font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Active Goals", str(metrics.get("total_active", 0)), "primary"),
-                QuickMetricCard("On Track", str(metrics.get("on_track_count", 0)), "success"),
-                QuickMetricCard("At Risk", str(metrics.get("at_risk_count", 0)), "error"),
-                QuickMetricCard(
-                    "Avg Progress", f"{metrics.get('avg_progress_percentage', 0)}%", "accent"
-                ),
-                cls="grid grid-cols-4 gap-4",
-            ),
-        )
-
-    @staticmethod
-    def render_events_metrics(metrics) -> Any:
-        """Render event metrics using shared components"""
-        return Div(
-            H3("📅 Event Metrics", cls="text-lg font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Total Events", str(metrics.get("total_count", 0)), "primary"),
-                QuickMetricCard("Upcoming", str(metrics.get("upcoming_count", 0)), "accent"),
-                QuickMetricCard("Completed", str(metrics.get("completed_count", 0)), "success"),
-                QuickMetricCard(
-                    "Hours Scheduled", str(metrics.get("total_hours_scheduled", 0)), "secondary"
-                ),
-                cls="grid grid-cols-4 gap-4",
-            ),
-        )
-
-    @staticmethod
-    def render_finance_metrics(metrics) -> Any:
-        """Render finance metrics using shared components"""
-        net_balance = metrics.get("net_balance", 0)
-        balance_color = "success" if net_balance >= 0 else "error"
-
-        return Div(
-            H3("💰 Finance Metrics", cls="text-lg font-semibold mb-4"),
-            Div(
-                QuickMetricCard(
-                    "Total Expenses", f"${metrics.get('total_expenses', 0):,.2f}", "error"
-                ),
-                QuickMetricCard(
-                    "Total Income", f"${metrics.get('total_income', 0):,.2f}", "success"
-                ),
-                QuickMetricCard("Net Balance", f"${net_balance:,.2f}", balance_color),
-                cls="grid grid-cols-3 gap-4",
-            ),
-        )
-
-    @staticmethod
-    def render_choices_metrics(metrics) -> Any:
-        """Render choice metrics using shared components"""
-        return Div(
-            H3("🤔 Choice Metrics", cls="text-lg font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Total Choices", str(metrics.get("total_choices", 0)), "primary"),
-                QuickMetricCard(
-                    "Reviewed", str(metrics.get("choices_reviewed_count", 0)), "success"
-                ),
-                cls="grid grid-cols-2 gap-4",
-            ),
-        )
-
-    @staticmethod
-    def render_generic_metrics(metrics) -> Any:
-        """Fallback for generic metrics display"""
-        return Div(
-            H4("Metrics", cls="font-semibold mb-3"),
-            Table(
-                Tbody(
-                    *[
-                        Tr(Td(key.replace("_", " ").title()), Td(str(value)))
-                        for key, value in metrics.items()
-                        if not isinstance(value, dict)
-                    ]
-                ),
-                cls="table table-zebra",
-            ),
-            cls="card bg-base-100 shadow-sm p-4",
-        )
-
-    # Note: metric_card() removed - now using QuickMetricCard from shared components
-
-    @staticmethod
-    def render_markdown_view(markdown_content) -> Any:
-        """Render markdown content"""
-        return Div(
-            Div(markdown_content, cls="prose max-w-none"), cls="card bg-base-100 shadow-sm p-6 mt-4"
-        )
-
-    # ========================================================================
-    # LIFE PATH ALIGNMENT DASHBOARD (Phase 1 - NEW)
-    # ========================================================================
-
-    @staticmethod
-    def render_life_path_alignment_dashboard(alignment_data: dict[str, Any]) -> Any:
-        """
-        Render Life Path alignment dashboard (Phase 1).
-
-        Shows comprehensive alignment analysis:
-        - Alignment score (0.0-1.0)
-        - Knowledge embodiment breakdown
-        - Domain contributions
-        - Gaps and recommendations
-        """
-        if not alignment_data or not alignment_data.get("life_path_uid"):
-            return Div(
-                P("No Life Path designated yet. Set your Life Path to track alignment."),
-                cls="text-base-content/60 p-4",
-            )
-
-        life_path_title = alignment_data.get("life_path_title", "Unknown")
-        alignment_score = alignment_data.get("alignment_score", 0.0)
-        knowledge_count = alignment_data.get("knowledge_count", 0)
-        embodied = alignment_data.get("embodied_knowledge", 0)
-        theoretical = alignment_data.get("theoretical_knowledge", 0)
-        domain_contributions = alignment_data.get("domain_contributions", {})
-        gaps = alignment_data.get("gaps", [])
-        recommendations = alignment_data.get("recommendations", [])
-
-        # Alignment score color
-        score_color = (
-            "red" if alignment_score < 0.5 else "yellow" if alignment_score < 0.7 else "green"
-        )
-        score_percentage = int(alignment_score * 100)
-
-        return Div(
-            # Header
-            H1(f"Life Path: {life_path_title}", cls="text-3xl font-bold mb-6"),
-            # Alignment Score Card
-            QuickMetricCard("Alignment Score", f"{score_percentage}%", score_color),
-            # Knowledge Breakdown
-            Div(
-                H2("Knowledge Embodiment", cls="text-xl font-semibold mb-4"),
-                Div(
-                    QuickMetricCard("Total Knowledge", str(knowledge_count), "primary"),
-                    QuickMetricCard("Embodied (0.8+)", str(embodied), "success"),
-                    QuickMetricCard("Theoretical (<0.5)", str(theoretical), "error"),
-                    cls="grid grid-cols-3 gap-4",
-                ),
-                cls="card bg-base-100 shadow-sm mb-6 p-6",
-            ),
-            # Domain Contributions
-            Div(
-                H2("Domain Contributions to Life Path", cls="text-xl font-semibold mb-4"),
-                Div(
-                    *[
-                        ReportsUIComponents._render_domain_contribution_bar(domain, contribution)
-                        for domain, contribution in domain_contributions.items()
-                    ],
-                    cls="space-y-3",
-                )
-                if domain_contributions
-                else P("No domain activity detected."),
-                cls="card bg-base-100 shadow-sm mb-6 p-6",
-            ),
-            # Gaps
-            Div(
-                H2("Knowledge Gaps", cls="text-xl font-semibold mb-4"),
-                Div(
-                    *[ReportsUIComponents._render_gap_item(gap) for gap in gaps[:5]],
-                    cls="space-y-2",
-                )
-                if gaps
-                else P("No gaps detected - excellent embodiment!", cls="text-success"),
-                cls="card bg-base-100 shadow-sm mb-6 p-6",
-            ),
-            # Recommendations
-            Div(
-                H2("Recommendations", cls="text-xl font-semibold mb-4"),
-                Div(*[P(f"• {rec}", cls="mb-2") for rec in recommendations], cls="space-y-1")
-                if recommendations
-                else P("Keep up the great work!", cls="text-success"),
-                cls="card bg-base-100 shadow-sm p-6",
-            ),
-            cls="max-w-4xl mx-auto p-6",
-        )
-
-    @staticmethod
-    def _render_domain_contribution_bar(domain: str, contribution: float) -> Any:
-        """Render single domain contribution bar"""
-        contribution_percentage = int(contribution * 100)
-        bar_width = f"{contribution_percentage}%"
-
-        return Div(
-            Div(
-                Span(domain.title(), cls="font-medium"),
-                Span(f"{contribution_percentage}%", cls="ml-auto text-base-content/60"),
-                cls="flex justify-between mb-1",
-            ),
-            Div(
-                Div(cls="bg-primary h-2 rounded", style=f"width: {bar_width}"),
-                cls="bg-base-200 h-2 rounded overflow-hidden",
-            ),
-        )
-
-    @staticmethod
-    def _render_gap_item(gap: dict[str, Any]) -> Any:
-        """Render single knowledge gap item"""
-        title = gap.get("title", "Unknown")
-        substance = gap.get("substance", 0.0)
-
-        return Div(
-            Span(title, cls="font-medium"),
-            Span(f"({substance:.1f} substance)", cls="ml-2 text-base-content/60 text-sm"),
-            cls="p-2 bg-error/10 rounded",
-        )
-
-    # ========================================================================
-    # CROSS-LAYER LIFE SUMMARY (Phase 3 - NEW)
-    # ========================================================================
-
-    @staticmethod
-    def render_weekly_life_summary(summary_data: dict[str, Any]) -> Any:
-        """
-        Render weekly life summary across ALL 4 layers (Phase 3).
-
-        Shows:
-        - Layer 1: Activity across 7 domains
-        - Layer 0: Knowledge substance
-        - Layer 2: Reflection patterns
-        - Cross-layer insights
-        """
-        if not summary_data:
-            return Div(P("No data available for this period."), cls="text-base-content/60 p-4")
-
-        period = summary_data.get("period", {})
-        start_date = period.get("start", "")
-        end_date = period.get("end", "")
-
-        total_activity = summary_data.get("total_activity_score", 0.0)
-        summary_text = summary_data.get("summary", "")
-
-        layer0_knowledge = summary_data.get("layer_0_knowledge", {})
-        layer2_reflection = summary_data.get("layer_2_reflection", {})
-        cross_layer_insights = summary_data.get("cross_layer_insights", {})
-
-        return Div(
-            # Header
-            H1("Weekly Life Summary", cls="text-3xl font-bold mb-2"),
-            P(f"{start_date} to {end_date}", cls="text-base-content/60 mb-6"),
-            # Overall Activity Score
-            QuickMetricCard("Overall Activity", str(int(total_activity)), "primary"),
-            # Summary Text
-            Div(
-                H2("Summary", cls="text-xl font-semibold mb-4"),
-                P(summary_text, cls="text-base-content/70"),
-                cls="card bg-base-100 shadow-sm mb-6 p-6",
-            ),
-            # Layer 0: Knowledge
-            ReportsUIComponents._render_knowledge_layer_card(layer0_knowledge),
-            # Layer 2: Reflection
-            ReportsUIComponents._render_reflection_layer_card(layer2_reflection),
-            # Cross-Layer Insights
-            ReportsUIComponents._render_cross_layer_insights_card(cross_layer_insights),
-            cls="max-w-4xl mx-auto p-6",
-        )
-
-    @staticmethod
-    def _render_knowledge_layer_card(layer0_data: dict[str, Any]) -> Any:
-        """Render Layer 0 knowledge metrics card"""
-        if not layer0_data:
-            return Div()
-
-        substance_metrics = layer0_data.get("substance_metrics", {})
-        curriculum_progress = layer0_data.get("curriculum_progress", {})
-
-        avg_substance = substance_metrics.get("avg_substance_score", 0.0)
-        embodied = substance_metrics.get("embodied_knowledge", 0)
-        active_paths = curriculum_progress.get("active_learning_paths", 0)
-        in_progress_steps = curriculum_progress.get("in_progress_learning_steps", 0)
-
-        return Div(
-            H2("Layer 0: Knowledge & Learning", cls="text-xl font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Avg Substance", f"{int(avg_substance * 100)}%", "primary"),
-                QuickMetricCard("Embodied", str(embodied), "success"),
-                QuickMetricCard("Active Paths", str(active_paths), "accent"),
-                QuickMetricCard("In-Progress Steps", str(in_progress_steps), "accent"),
-                cls="grid grid-cols-4 gap-4",
-            ),
-            cls="card bg-base-100 shadow-sm mb-6 p-6",
-        )
-
-    @staticmethod
-    def _render_reflection_layer_card(layer2_data: dict[str, Any]) -> Any:
-        """Render Layer 2 reflection metrics card"""
-        if not layer2_data:
-            return Div()
-
-        entry_count = layer2_data.get("total_entries", 0)
-        reflection_frequency = layer2_data.get("reflection_frequency", 0.0)
-        metacognition_score = layer2_data.get("metacognition_score", 0.0)
-        top_themes = layer2_data.get("top_themes", [])
-
-        return Div(
-            H2("Layer 2: Reflection & Journals", cls="text-xl font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Entries", str(entry_count), "primary"),
-                QuickMetricCard("Frequency", f"{reflection_frequency:.1f}/day", "accent"),
-                QuickMetricCard("Metacognition", f"{int(metacognition_score * 100)}%", "success"),
-                cls="grid grid-cols-3 gap-4 mb-4",
-            ),
-            Div(
-                P("Top Themes:", cls="font-medium mb-2"),
-                P(", ".join(top_themes[:3]) if top_themes else "None", cls="text-base-content/60"),
-            ),
-            cls="card bg-base-100 shadow-sm mb-6 p-6",
-        )
-
-    @staticmethod
-    def _render_cross_layer_insights_card(insights: dict[str, Any]) -> Any:
-        """Render cross-layer synthesis insights card"""
-        if not insights:
-            return Div()
-
-        knowledge_correlation = insights.get("knowledge_activity_correlation", {})
-        journal_impact = insights.get("journal_reflection_impact", {})
-        learning_doing = insights.get("learning_doing_alignment", {})
-
-        return Div(
-            H2("Cross-Layer Insights", cls="text-xl font-semibold mb-4"),
-            P(
-                "Synthesis across all architectural layers:",
-                cls="text-sm text-base-content/60 mb-4",
-            ),
-            # Knowledge-Activity Correlation
-            Div(
-                H3("Knowledge → Activity", cls="font-semibold mb-2"),
-                P(
-                    knowledge_correlation.get("insight", ""),
-                    cls="text-sm text-base-content/70 mb-4",
+                    cls="mb-0",
                 ),
             ),
-            # Journal Impact
             Div(
-                H3("Reflection Impact", cls="font-semibold mb-2"),
-                P(journal_impact.get("insight", ""), cls="text-sm text-base-content/70 mb-4"),
+                P("Type", cls="text-xs text-base-content/60 mb-0"),
+                P(report.report_type, cls="mb-0"),
             ),
-            # Learning-Doing Alignment
             Div(
-                H3("Learning ↔ Doing", cls="font-semibold mb-2"),
-                P(learning_doing.get("insight", ""), cls="text-sm text-base-content/70"),
+                P("File Size", cls="text-xs text-base-content/60 mb-0"),
+                P(f"{file_size_mb:.2f} MB", cls="mb-0"),
             ),
-            cls="card bg-secondary/10 mb-6 p-6",
+            Div(
+                P("Processing Duration", cls="text-xs text-base-content/60 mb-0"),
+                P(f"{processing_duration or 'N/A'} seconds", cls="mb-0"),
+            ),
+            Div(
+                P("Created", cls="text-xs text-base-content/60 mb-0"),
+                P(str(created_at) if created_at else "N/A", cls="mb-0"),
+            ),
+            cls="grid grid-cols-1 md:grid-cols-2 gap-4",
+        ),
+        id="report-info",
+    )
+
+
+def _render_processed_content(content: str | None, has_content: bool) -> Any:
+    """Render processed content as HTML fragment."""
+    if not has_content or not content:
+        return Div(
+            P("No processed content available.", cls="text-base-content/60"),
+            id="processed-content",
+            cls="p-4 bg-base-200 rounded-lg",
         )
+
+    return Div(
+        Div(content, cls="text-sm", style="white-space: pre-wrap"),
+        id="processed-content",
+        cls="p-4 bg-base-200 rounded-lg",
+        style="max-height: 600px; overflow-y: auto;",
+    )
+
+
+def _render_category_selector(report: Any) -> Any:
+    """Render category selector for report."""
+    current_category = (
+        getattr(report.metadata, "category", None) if hasattr(report, "metadata") else None
+    )
+    categories = ["daily", "weekly", "reflection", "work", "personal", "other"]
+
+    return Div(
+        Label("Category:", cls="label"),
+        Select(
+            *[
+                Option(cat.title(), value=cat, selected=(cat == current_category))
+                for cat in categories
+            ],
+            cls="select select-bordered w-full",
+            hx_post=f"/api/reports/categorize?report_uid={report.uid}&user_uid={report.user_uid}",
+            hx_trigger="change",
+            hx_target=f"#category-display-{report.uid}",
+            hx_swap="outerHTML",
+            hx_vals="js:{category: event.target.value}",
+        ),
+        id=f"category-selector-{report.uid}",
+        cls="form-control",
+    )
+
+
+def _render_category_display(report: Any) -> Any:
+    """Render category display with edit button."""
+    current_category = (
+        getattr(report.metadata, "category", "none") if hasattr(report, "metadata") else "none"
+    )
+
+    return Div(
+        Span(f"Category: {current_category.title()}", cls="badge badge-primary"),
+        Button(
+            "Change",
+            cls="btn btn-xs btn-ghost ml-2",
+            hx_get=f"/reports/{report.uid}/category-selector",
+            hx_target=f"#category-display-{report.uid}",
+            hx_swap="outerHTML",
+        ),
+        id=f"category-display-{report.uid}",
+    )
+
+
+def _render_tags_manager(report: Any) -> Any:
+    """Render tags manager for report."""
+    tags = getattr(report.metadata, "tags", []) if hasattr(report, "metadata") else []
+
+    tag_elements = [
+        Span(
+            tag,
+            Button(
+                "\u00d7",
+                cls="btn btn-xs btn-ghost ml-1",
+                hx_post=f"/api/reports/tags/remove?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_vals=f'js:{{tags: ["{tag}"]}}',
+                hx_target=f"#tags-manager-{report.uid}",
+                hx_swap="outerHTML",
+            ),
+            cls="badge badge-secondary mr-2 mb-2",
+        )
+        for tag in tags
+    ]
+
+    return Div(
+        Div(*tag_elements, cls="flex flex-wrap")
+        if tags
+        else Div("No tags", cls="text-sm text-base-content/60"),
+        Form(
+            Input(
+                type="text",
+                name="new_tag",
+                placeholder="Add tag...",
+                cls="input input-bordered input-sm w-full max-w-xs",
+            ),
+            Button("Add Tag", type="submit", cls="btn btn-primary btn-sm ml-2"),
+            cls="flex items-center mt-2",
+            hx_post=f"/api/reports/tags/add?report_uid={report.uid}&user_uid={report.user_uid}",
+            hx_vals="js:{tags: [document.querySelector('[name=\"new_tag\"]').value]}",
+            hx_target=f"#tags-manager-{report.uid}",
+            hx_swap="outerHTML",
+        ),
+        id=f"tags-manager-{report.uid}",
+        cls="p-4 bg-base-200 rounded-lg",
+    )
+
+
+def _render_status_buttons(report: Any) -> Any:
+    """Render status workflow buttons (publish/archive/draft)."""
+    current_status = report.status
+
+    return Div(
+        Div(
+            Button(
+                "Publish",
+                cls="btn btn-success btn-sm",
+                hx_post=f"/api/reports/publish?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_target=f"#status-buttons-{report.uid}",
+                hx_swap="outerHTML",
+                disabled=(current_status == "published"),
+            ),
+            Button(
+                "Archive",
+                cls="btn btn-warning btn-sm ml-2",
+                hx_post=f"/api/reports/archive?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_target=f"#status-buttons-{report.uid}",
+                hx_swap="outerHTML",
+                disabled=(current_status == "archived"),
+            ),
+            Button(
+                "Mark as Draft",
+                cls="btn btn-ghost btn-sm ml-2",
+                hx_post=f"/api/reports/draft?report_uid={report.uid}&user_uid={report.user_uid}",
+                hx_target=f"#status-buttons-{report.uid}",
+                hx_swap="outerHTML",
+                disabled=(current_status == "draft"),
+            ),
+            cls="flex gap-2",
+        ),
+        Div(
+            Span(
+                f"Current status: {current_status}", cls="text-xs text-base-content/60 mt-2 block"
+            ),
+        ),
+        id=f"status-buttons-{report.uid}",
+        cls="p-4 bg-base-200 rounded-lg",
+    )
 
 
 # ============================================================================
@@ -642,193 +351,824 @@ class ReportsUIComponents:
 
 
 @dataclass
-class PeriodParams:
-    """Typed parameters for period selection."""
+class ReportFilters:
+    """Typed filters for report list queries."""
 
-    period: str
-
-
-@dataclass
-class ReportViewParams:
-    """Typed parameters for report viewing."""
-
-    user_uid: str
     report_type: str
-    period: str
+    status: str
 
 
-@dataclass
-class UserReportParams:
-    """Typed parameters for user-specific reports."""
-
-    user_uid: str
-    start_date: str | None
-
-
-def parse_period_params(request: Request) -> PeriodParams:
-    """Extract period parameters from request query params."""
-    return PeriodParams(
-        period=request.query_params.get("period", ""),
-    )
-
-
-def parse_report_view_params(request: Request) -> ReportViewParams:
-    """Extract report view parameters from request query params."""
-    return ReportViewParams(
-        user_uid=request.query_params.get("user_uid", "user.default"),
-        report_type=request.query_params.get("report_type", "tasks"),
-        period=request.query_params.get("period", "month_current"),
-    )
-
-
-def parse_user_report_params(request: Request) -> UserReportParams:
-    """Extract user report parameters from request query params."""
-    return UserReportParams(
-        user_uid=request.query_params.get("user_uid", "user.default"),
-        start_date=request.query_params.get("start_date"),
-    )
-
-
-# ============================================================================
-# ROUTE HANDLERS
-# ============================================================================
-
-
-def create_reports_ui_routes(app, rt, reports_service):
+def parse_report_filters(request: Request) -> ReportFilters:
     """
-    Register report UI routes.
+    Extract report filter parameters from request query params.
 
     Args:
-        app: FastHTML app instance
-        rt: Route decorator
-        reports_service: Reports service instance
+        request: Starlette request object
 
     Returns:
-        List of registered route functions
+        Typed ReportFilters with defaults applied
+    """
+    return ReportFilters(
+        report_type=request.query_params.get("report_type", ""),
+        status=request.query_params.get("status", ""),
+    )
+
+
+# ============================================================================
+# SHARING UI COMPONENTS (Phase 1: Report Portfolio)
+# ============================================================================
+
+
+def _render_visibility_dropdown(report: Any) -> Any:
+    """
+    Render visibility level dropdown.
+
+    Only shows for completed reports (quality control).
+    Uses HTMX for instant updates.
+    """
+    current_visibility = getattr(report, "visibility", "private")
+    is_shareable = getattr(report, "status", "") == "completed"
+
+    if not is_shareable:
+        return Div(
+            Span("Private", cls="badge badge-ghost"),
+            P(
+                "Only completed reports can be shared",
+                cls="text-xs text-base-content/60 mt-1 mb-0",
+            ),
+            cls="mb-4",
+        )
+
+    visibility_options = [
+        ("private", "Private", "Only you can see"),
+        ("shared", "Shared", "Specific users only"),
+        ("public", "Public", "Portfolio showcase"),
+    ]
+
+    return Div(
+        Label("Visibility:", cls="label label-text font-bold"),
+        Select(
+            *[
+                Option(
+                    label,
+                    value=val,
+                    selected=(val == current_visibility),
+                )
+                for val, label, _desc in visibility_options
+            ],
+            name="visibility",
+            cls="select select-bordered w-full",
+            hx_post="/api/reports/set-visibility",
+            hx_trigger="change",
+            hx_vals=f"js:{{report_uid: '{report.uid}', visibility: event.target.value}}",
+            hx_target="#visibility-status",
+            hx_swap="innerHTML",
+        ),
+        Div(
+            P(
+                next(
+                    (desc for val, _lbl, desc in visibility_options if val == current_visibility),
+                    "",
+                ),
+                cls="text-xs text-base-content/60 mb-0",
+            ),
+            id="visibility-status",
+            cls="mt-1",
+        ),
+        cls="form-control mb-4",
+    )
+
+
+def _render_share_modal(report_uid: str) -> Any:
+    """
+    Render modal for sharing report with a user.
+
+    Uses Alpine.js for modal state management.
+    HTMX for form submission.
+    """
+    return Div(
+        # Modal structure (DaisyUI modal with Alpine.js x-show)
+        Div(
+            Div(
+                # Modal box
+                Div(
+                    # Close button
+                    Form(
+                        Button(
+                            "\u2715",
+                            cls="btn btn-sm btn-circle btn-ghost absolute right-2 top-2",
+                            **{"@click": "shareModal = false"},
+                        ),
+                        method="dialog",
+                    ),
+                    # Modal content
+                    H3("Share Report", cls="font-bold text-lg mb-4"),
+                    # Share form
+                    Form(
+                        Div(
+                            Label("User UID:", cls="label label-text"),
+                            Input(
+                                type="text",
+                                name="recipient_uid",
+                                placeholder="user_teacher",
+                                cls="input input-bordered w-full",
+                                required=True,
+                            ),
+                            cls="form-control mb-3",
+                        ),
+                        Div(
+                            Label("Role:", cls="label label-text"),
+                            Select(
+                                Option("Viewer", value="viewer", selected=True),
+                                Option("Teacher", value="teacher"),
+                                Option("Peer", value="peer"),
+                                Option("Mentor", value="mentor"),
+                                name="role",
+                                cls="select select-bordered w-full",
+                            ),
+                            cls="form-control mb-4",
+                        ),
+                        Div(
+                            Button(
+                                "Cancel",
+                                type="button",
+                                cls="btn btn-ghost",
+                                **{"@click": "shareModal = false"},
+                            ),
+                            Button(
+                                "Share",
+                                type="submit",
+                                cls="btn btn-primary",
+                            ),
+                            cls="flex gap-2 justify-end",
+                        ),
+                        hx_post="/api/reports/share",
+                        hx_vals=f"js:{{report_uid: '{report_uid}', recipient_uid: document.querySelector('input[name=recipient_uid]').value, role: document.querySelector('select[name=role]').value}}",
+                        hx_target="#shared-users-list",
+                        hx_swap="innerHTML",
+                        **{
+                            "@submit.prevent": "$el.dispatchEvent(new Event('htmx:trigger')); shareModal = false"
+                        },
+                    ),
+                    cls="modal-box",
+                ),
+                cls="modal-backdrop",
+                **{"@click": "shareModal = false"},
+            ),
+            cls="modal",
+            **{"x-show": "shareModal", "x-cloak": ""},
+        ),
+        # Open modal button
+        Button(
+            "Share with User",
+            cls="btn btn-primary btn-sm",
+            **{"@click": "shareModal = true"},
+        ),
+    )
+
+
+def _render_shared_users_list(report_uid: str) -> Any:
+    """
+    Render list of users report is shared with.
+
+    Loaded dynamically via HTMX on page load.
+    """
+    return Div(
+        H4("Shared With", cls="font-bold mb-2"),
+        Div(
+            P("Loading shared users...", cls="text-base-content/60 text-sm"),
+            id="shared-users-list",
+            hx_get=f"/reports/{report_uid}/shared-users",
+            hx_trigger="load",
+            hx_swap="innerHTML",
+        ),
+        cls="mt-4",
+    )
+
+
+def _render_sharing_section(report: Any) -> Any:
+    """
+    Render complete sharing section for report detail page.
+
+    Includes:
+    - Visibility dropdown
+    - Share button (opens modal)
+    - Shared users list
+
+    Only shown for report owner.
+    """
+    return Div(
+        H4("Sharing & Visibility", cls="font-bold text-lg mb-4"),
+        Div(
+            # Visibility controls
+            _render_visibility_dropdown(report),
+            # Share modal and button
+            Div(
+                _render_share_modal(report.uid),
+                cls="mb-4",
+            ),
+            # Shared users list
+            _render_shared_users_list(report.uid),
+            cls="space-y-2",
+        ),
+        id="sharing-section",
+        cls="card bg-base-200 p-4 rounded-lg mt-6",
+        **{
+            "x-data": "{ shareModal: false }",  # Alpine.js data for modal state
+        },
+    )
+
+
+# ============================================================================
+# ROUTE CREATION
+# ============================================================================
+
+
+def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
+    """
+    Create all report UI routes.
+
+    Args:
+        app: FastHTML application instance
+        rt: Router instance
+        report_service: ReportSubmissionService
+        processing_service: ReportProcessorService
     """
 
-    @app.get("/ui/reports")
-    async def reports_dashboard(request) -> Any:
-        """Reports dashboard"""
-        return ReportsUIComponents.render_reports_dashboard(request)
+    logger.info("Creating Reports UI routes")
 
-    @app.get("/ui/reports/period-fields")
-    async def get_period_fields(request) -> Any:
-        """Get dynamic period input fields"""
-        # Parse typed parameters
-        params = parse_period_params(request)
+    # ========================================================================
+    # MAIN DASHBOARD
+    # ========================================================================
 
-        return ReportsUIComponents.render_period_fields(params.period)
+    @rt("/reports")
+    async def reports_dashboard(request: Request) -> Any:
+        """
+        Main reports dashboard.
 
-    @app.get("/ui/reports/view")
-    async def view_report(request) -> Any:
-        """Generate and view a report"""
+        Layout:
+        - File upload form (top)
+        - Filters (type, status)
+        - Reports grid (main content)
+        - Statistics sidebar (optional)
+        """
+        require_authenticated_user(request)  # Enforce authentication
+
+        # File upload form - HTMX-powered
+        upload_form = Div(
+            Div(
+                H3("Upload File", cls="card-title"),
+                P(
+                    "Submit files for processing (audio, text, PDF, images, video)",
+                    cls="text-base-content/60",
+                ),
+                Form(
+                    # File input with label styling
+                    Div(
+                        Label(
+                            Div(
+                                P("Select File", cls="text-center mb-0"),
+                                P(
+                                    "Click to browse for files (audio, text, PDF, images, video)",
+                                    cls="text-sm text-base-content/60 text-center mt-0",
+                                ),
+                                cls="p-4 text-center bg-base-200 rounded-lg cursor-pointer border-2 border-dashed border-base-300",
+                            ),
+                            Input(
+                                type="file",
+                                name="file",
+                                accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
+                                cls="hidden",
+                                required=True,
+                            ),
+                            cls="w-full cursor-pointer",
+                        ),
+                        cls="mb-4",
+                    ),
+                    # Report type selector
+                    Div(
+                        Label("Report Type", cls="label"),
+                        Select(
+                            Option("Transcript", value="transcript", selected=True),
+                            Option("Report", value="report"),
+                            Option("Image Analysis", value="image_analysis"),
+                            Option("Video Summary", value="video_summary"),
+                            name="report_type",
+                            cls="select select-bordered w-full",
+                        ),
+                        cls="mb-4",
+                    ),
+                    # Processor type selector
+                    Div(
+                        Label("Processor", cls="label"),
+                        Select(
+                            Option("Automatic", value="automatic", selected=True),
+                            Option("LLM (AI Processing)", value="llm"),
+                            Option("Human Review", value="human"),
+                            Option("Hybrid (AI + Human)", value="hybrid"),
+                            name="processor_type",
+                            cls="select select-bordered w-full",
+                        ),
+                        cls="mb-4",
+                    ),
+                    # Knowledge Units selector (MVP - Phase C)
+                    Div(
+                        Label("Knowledge Units Applied (Optional)", cls="label"),
+                        P(
+                            "Link this report to Knowledge Units you're demonstrating",
+                            cls="text-sm text-base-content/60 mb-2",
+                        ),
+                        Input(
+                            type="text",
+                            name="ku_selector_display",
+                            placeholder="Search for Knowledge Units...",
+                            cls="input input-bordered w-full",
+                            **{
+                                "hx-get": "/api/search/unified?type=ku",
+                                "hx-trigger": "keyup changed delay:300ms",
+                                "hx-target": "#ku-results",
+                                "hx-include": "this",
+                            },
+                        ),
+                        # Selected KUs display
+                        Div(id="ku-selected", cls="flex flex-wrap gap-2 mt-2"),
+                        # Search results dropdown
+                        Div(id="ku-results", cls="mt-2"),
+                        # Hidden input for form submission (comma-separated UIDs)
+                        Input(
+                            type="hidden",
+                            name="applies_knowledge_uids",
+                            id="ku-uids-input",
+                            value="",
+                        ),
+                        cls="mb-4",
+                    ),
+                    # Auto-process checkbox
+                    Div(
+                        Label(
+                            Input(
+                                type="checkbox",
+                                name="auto_process",
+                                cls="checkbox checkbox-primary mr-2",
+                                checked=True,
+                            ),
+                            Span("Automatically process after upload"),
+                            cls="flex items-center cursor-pointer",
+                        ),
+                        cls="mb-4",
+                    ),
+                    # Upload button
+                    Div(
+                        Button(
+                            "Upload & Submit",
+                            variant=ButtonT.primary,
+                            type="submit",
+                        ),
+                        cls="text-center",
+                    ),
+                    # Upload status (HTMX target)
+                    Div(id="upload-status", cls="mt-4 text-center"),
+                    # HTMX attributes for form submission
+                    **{
+                        "hx-post": "/reports/upload",
+                        "hx-target": "#upload-status",
+                        "hx-swap": "outerHTML",
+                        "hx-encoding": "multipart/form-data",
+                    },
+                    id="upload-form",
+                ),
+                cls="card-body",
+            ),
+            cls="card bg-base-100 shadow-sm hover:shadow-md transition-shadow",
+        )
+
+        # Filters section - HTMX-powered
+        filters = Div(
+            Div(
+                H3("Filters", cls="card-title"),
+                Form(
+                    # Type filter
+                    Div(
+                        Label("Type", cls="label"),
+                        Select(
+                            Option("All Types", value="", selected=True),
+                            Option("Transcript", value="transcript"),
+                            Option("Report", value="report"),
+                            Option("Image Analysis", value="image_analysis"),
+                            Option("Video Summary", value="video_summary"),
+                            name="report_type",
+                            cls="select select-bordered w-full",
+                        ),
+                        cls="mb-2",
+                    ),
+                    # Status filter
+                    Div(
+                        Label("Status", cls="label"),
+                        Select(
+                            Option("All Status", value="", selected=True),
+                            Option("Submitted", value="submitted"),
+                            Option("Queued", value="queued"),
+                            Option("Processing", value="processing"),
+                            Option("Completed", value="completed"),
+                            Option("Failed", value="failed"),
+                            Option("Manual Review", value="manual_review"),
+                            name="status",
+                            cls="select select-bordered w-full",
+                        ),
+                        cls="mb-2",
+                    ),
+                    # HTMX: trigger grid reload on any change
+                    **{
+                        "hx-get": "/reports/grid",
+                        "hx-target": "#reports-grid-container",
+                        "hx-swap": "outerHTML",
+                        "hx-trigger": "change from:select",
+                    },
+                    id="filter-form",
+                ),
+                cls="card-body",
+            ),
+            cls="card bg-base-100 shadow-sm",
+        )
+
+        # Reports grid - HTMX-powered
+        reports_grid = Div(
+            Div(
+                H3("Your Reports", cls="card-title"),
+                P("View and manage your submitted files", cls="text-base-content/60"),
+                # Grid container (loaded via HTMX on page load)
+                Div(
+                    P("Loading reports...", cls="text-center text-base-content/60"),
+                    id="reports-grid-container",
+                    cls="mt-4",
+                    **{
+                        "hx-get": "/reports/grid",
+                        "hx-trigger": "load",
+                        "hx-swap": "outerHTML",
+                    },
+                ),
+                cls="card-body",
+            ),
+            cls="card bg-base-100 shadow-sm",
+        )
+
+        # Main page content
+        content = Div(
+            Div(
+                H1("Reports", cls="text-3xl font-bold"),
+                P(
+                    "Upload and process files (audio, text, documents, images, videos)",
+                    cls="text-lg text-base-content/60",
+                ),
+                cls="text-center mb-8",
+            ),
+            # Upload form (full width)
+            Div(upload_form, cls="mb-8"),
+            # Filters and reports grid (side by side)
+            Div(
+                Div(filters, cls="w-full md:w-1/4"),
+                Div(reports_grid, cls="w-full md:w-3/4"),
+                cls="flex flex-col md:flex-row gap-4",
+            ),
+            # HTMX event handlers for UX polish (not core functionality)
+            Script(
+                NotStr("""
+                document.body.addEventListener('htmx:beforeRequest', function(evt) {
+                    const form = evt.detail.elt;
+                    if (form.id === 'upload-form') {
+                        const btn = form.querySelector('button[type="submit"]');
+                        if (btn) {
+                            btn.disabled = true;
+                            btn.textContent = 'Uploading...';
+                        }
+                    }
+                });
+
+                document.body.addEventListener('htmx:afterRequest', function(evt) {
+                    const form = evt.detail.elt;
+                    if (form.id === 'upload-form') {
+                        form.reset();
+                        const btn = form.querySelector('button[type="submit"]');
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = 'Upload & Submit';
+                        }
+                        htmx.trigger('#reports-grid-container', 'load');
+                    }
+                });
+            """)
+            ),
+        )
+
+        return await BasePage(
+            content,
+            title="Reports",
+            request=request,
+            active_page="reports",
+        )
+
+    # ========================================================================
+    # HTMX ENDPOINTS
+    # ========================================================================
+
+    @rt("/reports/upload")
+    async def upload_report(request: Request) -> Any:
+        """HTMX endpoint for report file upload."""
         try:
-            # Parse typed parameters
-            params = parse_report_view_params(request)
+            form = await request.form()
+            uploaded_file = form.get("file")
+            report_type = form.get("report_type", "transcript")
+            processor_type = form.get("processor_type", "automatic")
+            auto_process = form.get("auto_process") == "on"
 
-            # Parse report type
-            report_type = ReportType(params.report_type)
+            if not uploaded_file or not isinstance(uploaded_file, UploadFile):
+                return _render_upload_status("error", "No file provided", is_error=True)
 
-            # Calculate dates based on period
-            if params.period == "week_current":
-                today = date.today()
-                week_start = today - timedelta(days=today.weekday())
-                result = await reports_service.generate_weekly_report(
-                    params.user_uid, report_type, week_start
-                )
-            elif params.period == "month_current":
-                today = date.today()
-                result = await reports_service.generate_monthly_report(
-                    params.user_uid, report_type, today.year, today.month
-                )
-            elif params.period == "year_current":
-                today = date.today()
-                result = await reports_service.generate_yearly_report(
-                    params.user_uid, report_type, today.year
-                )
-            # Add more period handling...
-            else:
-                return Div(P("Invalid period selection", cls="text-error"))
+            user_uid = require_authenticated_user(request)  # Enforce authentication
+            file_content = await uploaded_file.read()
+            filename = uploaded_file.filename or "unknown"
+
+            logger.info(f"Report upload: {filename} ({len(file_content)} bytes)")
+
+            # Submit the report
+            result = await _report_service.submit_file(
+                file_content=file_content,
+                original_filename=filename,
+                user_uid=user_uid,
+                report_type=report_type,
+                processor_type=processor_type,
+                auto_process=auto_process,
+            )
 
             if result.is_error:
-                return Div(P(f"Error generating report: {result.error}", cls="text-error"))
+                return _render_upload_status("error", str(result.error), is_error=True)
 
             report = result.value
-
-            return ReportsUIComponents.render_report(report)
+            return _render_upload_status(
+                status=report.status,
+                message="File uploaded successfully",
+                report_uid=report.uid,
+            )
 
         except Exception as e:
-            logger.error(f"Error viewing report: {e}")
-            return Div(P(f"Error: {e}", cls="text-error"))
+            logger.error(f"Error uploading report: {e}", exc_info=True)
+            return _render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
-    @app.get("/ui/reports/{uid}/markdown")
-    async def view_markdown(_request, _uid: str) -> Any:
-        """View report as markdown"""
-        # For now, just show the markdown from a stored report
-        # In production, you'd fetch the report from storage
-        return ReportsUIComponents.render_markdown_view("# Report markdown would go here...")
-
-    # ========================================================================
-    # LIFE PATH ALIGNMENT UI (Phase 1 - NEW)
-    # ========================================================================
-
-    @app.get("/ui/reports/life-path-alignment")
-    async def life_path_alignment_ui(request) -> Any:
-        """Render Life Path alignment dashboard UI"""
-        # Parse typed parameters
-        params = parse_user_report_params(request)
-
+    @rt("/reports/grid")
+    async def get_reports_grid(request: Request) -> Any:
+        """HTMX endpoint for loading reports grid with filters."""
         try:
-            # Get alignment data from service
-            result = await reports_service.calculate_life_path_alignment(params.user_uid)
+            user_uid = require_authenticated_user(request)  # Enforce authentication
+
+            # Parse typed filter parameters
+            filters = parse_report_filters(request)
+
+            # Build filter kwargs
+            kwargs = {"user_uid": user_uid, "limit": 50}
+            if filters.report_type:
+                kwargs["report_type"] = filters.report_type
+            if filters.status:
+                kwargs["status"] = filters.status
+
+            result = await _report_service.list_reports(**kwargs)
 
             if result.is_error:
-                return Div(P(f"Error: {result.expect_error().message}", cls="text-error p-4"))
-
-            # Render dashboard
-            return ReportsUIComponents.render_life_path_alignment_dashboard(result.value)
-
-        except Exception as e:
-            logger.error(f"Error rendering Life Path alignment: {e}")
-            return Div(P(f"Error: {e}", cls="text-error p-4"))
-
-    # ========================================================================
-    # CROSS-LAYER LIFE SUMMARY UI (Phase 3 - NEW)
-    # ========================================================================
-
-    @app.get("/ui/reports/weekly-life-summary")
-    async def weekly_life_summary_ui(request) -> Any:
-        """Render weekly life summary UI (ALL layers)"""
-        # Parse typed parameters
-        params = parse_user_report_params(request)
-
-        try:
-            # Parse start date if provided
-            if params.start_date:
-                try:
-                    start_date = date.fromisoformat(params.start_date)
-                except ValueError:
-                    return Div(P("Invalid date format. Use YYYY-MM-DD.", cls="text-error p-4"))
-
-                result = await reports_service.generate_weekly_life_summary(
-                    params.user_uid, week_start=start_date
+                return Div(
+                    P("Failed to load reports", cls="text-center text-error"),
+                    id="reports-grid-container",
                 )
-            else:
-                # Default to current week
-                result = await reports_service.generate_weekly_life_summary(params.user_uid)
 
-            if result.is_error:
-                return Div(P(f"Error: {result.expect_error().message}", cls="text-error p-4"))
-
-            # Render summary
-            return ReportsUIComponents.render_weekly_life_summary(result.value)
+            reports = result.value or []
+            return _render_reports_grid(reports)
 
         except Exception as e:
-            logger.error(f"Error rendering weekly life summary: {e}")
-            return Div(P(f"Error: {e}", cls="text-error p-4"))
+            logger.error(f"Error loading reports: {e}", exc_info=True)
+            return Div(
+                P(f"Error: {e}", cls="text-center text-error"),
+                id="reports-grid-container",
+            )
 
-    logger.info("✅ Reports UI routes registered (including Life Path + cross-layer)")
+    @rt("/reports/{uid}/info")
+    async def get_report_info(request: Request, uid: str) -> Any:
+        """HTMX endpoint for loading report detail info."""
+        try:
+            result = await _report_service.get_report(uid)
 
+            if result.is_error:
+                return Div(
+                    Div(
+                        P(f"Failed to load report: {result.error}"),
+                        cls="alert alert-error",
+                    ),
+                    id="report-info",
+                )
 
-__all__ = ["ReportsUIComponents", "create_reports_ui_routes"]
+            report = result.value
+            if not report:
+                return Div(
+                    Div(
+                        P(f"Report {uid} not found"),
+                        cls="alert alert-warning",
+                    ),
+                    id="report-info",
+                )
+            return _render_report_detail(report)
+
+        except Exception as e:
+            logger.error(f"Error loading report info: {e}", exc_info=True)
+            return Div(
+                Div(
+                    P(f"Error: {e}"),
+                    cls="alert alert-error",
+                ),
+                id="report-info",
+            )
+
+    @rt("/reports/{uid}/content")
+    async def get_report_content(request: Request, uid: str) -> Any:
+        """HTMX endpoint for loading report processed content."""
+        try:
+            result = await _report_service.get_report(uid)
+
+            if result.is_error or not result.value:
+                return _render_processed_content(None, False)
+
+            report = result.value
+            content = report.processed_content if report else None
+            return _render_processed_content(content, bool(content))
+
+        except Exception as e:
+            logger.error(f"Error loading report content: {e}", exc_info=True)
+            return _render_processed_content(None, False)
+
+    # ========================================================================
+    # CONTENT MANAGEMENT UI ROUTES
+    # ========================================================================
+
+    @rt("/reports/{uid}/category-selector")
+    async def get_category_selector(request: Request, uid: str) -> Any:
+        """HTMX endpoint for category selector."""
+        try:
+            result = await _report_service.get_report(uid)
+            if result.is_error:
+                return Div("Report not found", cls="text-error")
+
+            report = result.value
+            return _render_category_selector(report)
+
+        except Exception as e:
+            logger.error(f"Error loading category selector: {e}", exc_info=True)
+            return Div("Error loading category selector", cls="text-error")
+
+    @rt("/reports/{uid}/tags-manager")
+    async def get_tags_manager(request: Request, uid: str) -> Any:
+        """HTMX endpoint for tags manager."""
+        try:
+            result = await _report_service.get_report(uid)
+            if result.is_error:
+                return Div("Report not found", cls="text-error")
+
+            report = result.value
+            return _render_tags_manager(report)
+
+        except Exception as e:
+            logger.error(f"Error loading tags manager: {e}", exc_info=True)
+            return Div("Error loading tags manager", cls="text-error")
+
+    @rt("/reports/{uid}/shared-users")
+    async def get_shared_users_ui(request: Request, uid: str) -> Any:
+        """
+        HTMX endpoint for rendering shared users list.
+
+        Returns HTML fragment showing users the report is shared with.
+        """
+        try:
+            _user_uid = require_authenticated_user(request)
+
+            # Note: This would ideally use the sharing service
+            # For now, return placeholder UI that will be populated via API
+            return Div(
+                P(
+                    "Shared users list will appear here after sharing",
+                    cls="text-sm text-base-content/60",
+                ),
+                Span("No users yet", cls="badge badge-ghost"),
+                id="shared-users-content",
+            )
+
+        except Exception as e:
+            logger.error(f"Error loading shared users: {e}", exc_info=True)
+            return Div("Error loading shared users", cls="text-error text-sm")
+
+    # ========================================================================
+    # REPORT DETAIL VIEW - HTMX-powered
+    # ========================================================================
+    # IMPORTANT: This route MUST be defined LAST because /reports/{uid}
+    # is a catch-all pattern that would match specific routes like
+    # /reports/grid, /reports/upload, etc.
+    # ========================================================================
+
+    @rt("/reports/{uid}")
+    async def report_detail(request: Request, uid: str) -> Any:
+        """
+        Report detail view.
+
+        Shows:
+        - Report metadata (loaded via HTMX)
+        - Processing status and duration
+        - Processed content (formatted)
+        - Download links for original and processed files
+        - Sharing controls (visibility, share button, shared users)
+        """
+        user_uid = require_authenticated_user(request)  # Enforce authentication
+
+        # Fetch report to determine if user is owner (for sharing controls)
+        # Note: In production, this would use get_with_access_check()
+        report_result = await _report_service.get_report(uid)
+        is_owner = False
+        if not report_result.is_error and report_result.value is not None:
+            is_owner = report_result.value.user_uid == user_uid
+
+        # Detail view card with HTMX loading
+        detail_card = Div(
+            Div(
+                H3("Report Details", cls="card-title"),
+                # Report info container (loaded via HTMX)
+                Div(
+                    P("Loading report details...", cls="text-center text-base-content/60"),
+                    id="report-info",
+                    cls="mb-4",
+                    **{
+                        "hx-get": f"/reports/{uid}/info",
+                        "hx-trigger": "load",
+                        "hx-swap": "outerHTML",
+                    },
+                ),
+                # Processed content section (loaded via HTMX)
+                Div(
+                    H4("Processed Content", cls="mt-6 mb-4"),
+                    Div(
+                        P("Loading content...", cls="text-center text-base-content/60"),
+                        id="processed-content",
+                        cls="p-4 bg-base-200 rounded-lg",
+                        style="max-height: 600px; overflow-y: auto;",
+                        **{
+                            "hx-get": f"/reports/{uid}/content",
+                            "hx-trigger": "load",
+                            "hx-swap": "outerHTML",
+                        },
+                    ),
+                    id="content-section",
+                    cls="mb-4",
+                ),
+                # Sharing section (only for owner)
+                (
+                    _render_sharing_section(report_result.value)
+                    if is_owner and not report_result.is_error
+                    else None
+                ),
+                # Action buttons - use proper link instead of onclick
+                Div(
+                    A(
+                        "\u2190 Back to Reports",
+                        href="/reports",
+                        cls="btn btn-ghost",
+                    ),
+                    cls="mt-4",
+                ),
+                cls="card-body",
+            ),
+            cls="card bg-base-100 shadow-sm",
+        )
+
+        content = Div(
+            Div(
+                H1("Report Details", cls="text-3xl font-bold"),
+                P(f"UID: {uid}", cls="text-lg text-base-content/60"),
+                cls="text-center mb-8",
+            ),
+            detail_card,
+        )
+
+        return await BasePage(
+            content,
+            title="Report Details",
+            request=request,
+            active_page="reports",
+        )
+
+    logger.info("Reports UI routes created successfully")
+
+    # Route order matters! Specific routes must come BEFORE parameterized routes.
+    # Otherwise /reports/grid would match /reports/{uid} with uid="grid"
+    return [
+        reports_dashboard,  # /reports (exact)
+        upload_report,  # /reports/upload (specific)
+        get_reports_grid,  # /reports/grid (specific)
+        get_report_info,  # /reports/{uid}/info (pattern + suffix)
+        get_report_content,  # /reports/{uid}/content (pattern + suffix)
+        get_category_selector,  # /reports/{uid}/category-selector (pattern + suffix)
+        get_tags_manager,  # /reports/{uid}/tags-manager (pattern + suffix)
+        get_shared_users_ui,  # /reports/{uid}/shared-users (pattern + suffix)
+        report_detail,  # /reports/{uid} (catch-all - MUST BE LAST)
+    ]

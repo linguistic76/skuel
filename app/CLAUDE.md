@@ -194,7 +194,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 | 1-6 | Tasks, Goals, Habits, Events, Choices, Principles | Activity | `{type}_{slug}_{random}` | User activities |
 | 7 | Finance | Finance | `expense_{random}` | Admin-only bookkeeping |
 | 8-10 | KU, LS, LP | Curriculum | `ku_{slug}_{random}`, `ls:{random}`, `lp:{random}` | Knowledge organization |
-| 11-12 | Journals, Assignments | Content | `journal_{random}`, `assignment_{random}` | Processing |
+| 11-12 | Journals, Reports | Content | `journal_{random}`, `report_{random}` | Processing |
 | 13 | MOC | Organizational | `ku_{slug}_{random}` (MOC is a KU) | Non-linear KU navigation |
 | 14 | LifePath | Destination | `lp_{random}` | "Am I living my life path?" |
 
@@ -223,7 +223,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 
 **Content/Processing Domains (2)**:
 - `/journals` - Voice + text submission (type=JOURNAL hardcoded)
-- `/assignments` - All file types dashboard
+- `/reports` - All file types dashboard
 
 **Organizational Domain (1)** - MOC (Map of Content):
 - MOC is NOT a separate entity - it IS a KU with ORGANIZES relationships
@@ -348,7 +348,7 @@ Does the domain have 3+ business logic methods?
 
 | Pattern | Files | Tiers | Use For | Domains |
 |---------|-------|-------|---------|---------|
-| **A: Three-Tier** | 4-5 | Pydantic→DTO→Domain | Complex logic, immutability | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Assignments, User, LifePath (12 domains) |
+| **A: Three-Tier** | 4-5 | Pydantic→DTO→Domain | Complex logic, immutability | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, User, LifePath (12 domains) |
 | **B: Two-Tier** | 2 | Pydantic→DTO | Simple CRUD, minimal logic | Finance, Journals (2 domains) |
 
 **Rule**: Default to Pattern A unless domain is genuinely simple (admin-only bookkeeping, no business logic).
@@ -412,13 +412,13 @@ Use `context.require_rich_context("operation")` to validate rich context at runt
 
 **See:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`, `/docs/decisions/ADR-030-usercontext-file-consolidation.md`
 
-## Reports Architecture
+## Analytics Architecture
 
-**Core Principle:** "Reports aggregate, they don't create"
+**Core Principle:** "Analytics aggregate, they don't create"
 
-Reports is a meta-service, not a domain. No Report nodes in Neo4j. READ-ONLY queries across all domains.
+Analytics is a meta-service, not a domain. No Analytics nodes in Neo4j. READ-ONLY queries across all domains.
 
-**See:** `/docs/architecture/REPORTS_ARCHITECTURE.md`
+**See:** `/docs/architecture/ANALYTICS_ARCHITECTURE.md`
 
 ## Dynamic Enum Pattern
 
@@ -657,7 +657,7 @@ await service.get_for_user(uid, user_uid)      # Get with ownership check
 
 **See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`
 
-## Content Sharing (Phase 1: Assignments)
+## Content Sharing (Phase 1: Reports)
 
 **Core Principle:** "Three-level visibility with relationship-based access control"
 
@@ -668,38 +668,38 @@ SHARED            → Owner + users with SHARES_WITH relationship
 PUBLIC            → Anyone (portfolio showcase)
 ```
 
-**Use Case:** Student completes assignment → shares with teacher → teacher views in "Shared With Me" inbox.
+**Use Case:** Student completes report → shares with teacher → teacher views in "Shared With Me" inbox.
 
 **Service:**
 ```python
-from core.services.assignments import AssignmentSharingService
+from core.services.reports import ReportSharingService
 
-# Share assignment
-await sharing_service.share_assignment(
-    assignment_uid="assignment_123",
+# Share report
+await sharing_service.share_report(
+    report_uid="report_123",
     owner_uid="user_student",
     recipient_uid="user_teacher",
     role="teacher"  # teacher, peer, mentor, viewer
 )
 
 # Check access
-await sharing_service.check_access(assignment_uid, user_uid)  # Returns Result[bool]
+await sharing_service.check_access(report_uid, user_uid)  # Returns Result[bool]
 
 # Set visibility
-await sharing_service.set_visibility(assignment_uid, owner_uid, Visibility.PUBLIC)
+await sharing_service.set_visibility(report_uid, owner_uid, Visibility.PUBLIC)
 ```
 
 **UI Routes:**
-- `/assignments/{uid}` - Sharing controls (owner only)
+- `/reports/{uid}` - Sharing controls (owner only)
 - `/profile/shared` - "Shared With Me" inbox
-- `/api/assignments/share` - Share with user
-- `/api/assignments/shared-with-me` - Inbox API
+- `/api/reports/share` - Share with user
+- `/api/reports/shared-with-me` - Inbox API
 
-**Quality Control:** Only `COMPLETED` assignments can be shared (prevents sharing failed/processing work).
+**Quality Control:** Only `COMPLETED` reports can be shared (prevents sharing failed/processing work).
 
 **Graph Pattern:**
 ```cypher
-(user:User)-[:SHARES_WITH {shared_at, role}]->(assignment:Assignment)
+(user:User)-[:SHARES_WITH {shared_at, role}]->(report:Report)
 ```
 
 **Phase 2:** Extend to Events (same infrastructure, different entity type).
@@ -981,7 +981,7 @@ class KuSearchService(BaseService[KuOperations, KnowledgeUnit]):
 - Activity domains: 25 services (6 core, 6 search, 13 specialized)
 - Curriculum domains: 2 services (LS, LP core)
 - Content domains: 3 services (Transcript, Journal core/project)
-- Assignment domain: 3 services (core, search, submission)
+- Report domain: 3 services (core, search, submission)
 - Infrastructure: 1 service (UnifiedRelationshipService)
 
 **See:**
@@ -1404,11 +1404,11 @@ TASKS_CONFIG = create_activity_domain_route_config(
 
 **Current users:** 28 of 35 route files (80% adoption)
 - Activity domains (6): tasks, goals, habits, events, choices, principles — all using config-driven factories
-- Standard domains (9): learning, knowledge, context, reports, finance, askesis, journal_projects, lifepath, sel
+- Standard domains (9): learning, knowledge, context, analytics, finance, askesis, journal_projects, lifepath, sel
 - Phase 3 migrations (9): transcription, visualization, admin, auth, journals, system, ingestion, insights, nous
 - Phase 5 migration (1): calendar
 - Phase 6 migrations (2): orchestration, advanced
-- Phase 7 migration (1): assignments (Multi-factory — sharing routes use separate primary service)
+- Phase 7 migration (1): reports (Multi-factory — sharing routes use separate primary service)
 
 **Patterns proven:** Standard (API+UI), API-only, UI-only, Multi-factory, Config-Driven Factories
 

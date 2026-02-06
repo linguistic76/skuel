@@ -70,13 +70,13 @@ References:
 """
 
 # Base classes and protocols
-# Assignment events
-from core.events.assignment_events import (
-    AssignmentDeleted,
-    AssignmentProcessingCompleted,
-    AssignmentProcessingFailed,
-    AssignmentProcessingStarted,
-    AssignmentSubmitted,
+# Report events
+from core.events.report_events import (
+    ReportDeleted,
+    ReportProcessingCompleted,
+    ReportProcessingFailed,
+    ReportProcessingStarted,
+    ReportSubmitted,
 )
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
 
@@ -216,12 +216,12 @@ from core.events.user_events import (
 
 # Public API
 __all__ = [
-    # Assignment events
-    "AssignmentDeleted",
-    "AssignmentProcessingCompleted",
-    "AssignmentProcessingFailed",
-    "AssignmentProcessingStarted",
-    "AssignmentSubmitted",
+    # Report events
+    "ReportDeleted",
+    "ReportProcessingCompleted",
+    "ReportProcessingFailed",
+    "ReportProcessingStarted",
+    "ReportSubmitted",
     # Base
     "BaseEvent",
     # Calendar Events
@@ -327,12 +327,12 @@ __all__ = [
 
 # Map event type strings to event classes for deserialization
 EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
-    # Assignments
-    "assignment.submitted": AssignmentSubmitted,
-    "assignment.processing_started": AssignmentProcessingStarted,
-    "assignment.processing_completed": AssignmentProcessingCompleted,
-    "assignment.processing_failed": AssignmentProcessingFailed,
-    "assignment.deleted": AssignmentDeleted,
+    # Reports
+    "report.submitted": ReportSubmitted,
+    "report.processing_started": ReportProcessingStarted,
+    "report.processing_completed": ReportProcessingCompleted,
+    "report.processing_failed": ReportProcessingFailed,
+    "report.deleted": ReportDeleted,
     # Chunk embedding events (async background generation for RAG)
     "chunk.embedding_requested": ChunkEmbeddingRequested,
     "chunk.embeddings_completed": ChunkEmbeddingsCompleted,
@@ -503,12 +503,12 @@ def list_event_types() -> list[str]:
 # EVENT GROUPS
 # ============================================================================
 
-ASSIGNMENT_EVENTS = [
-    AssignmentSubmitted,
-    AssignmentProcessingStarted,
-    AssignmentProcessingCompleted,
-    AssignmentProcessingFailed,
-    AssignmentDeleted,
+REPORT_EVENTS = [
+    ReportSubmitted,
+    ReportProcessingStarted,
+    ReportProcessingCompleted,
+    ReportProcessingFailed,
+    ReportDeleted,
 ]
 
 TASK_EVENTS = [
@@ -619,7 +619,7 @@ TRANSCRIPTION_EVENTS = [
 
 # All events
 ALL_EVENTS = (
-    ASSIGNMENT_EVENTS
+    REPORT_EVENTS
     + TASK_EVENTS
     + GOAL_EVENTS
     + HABIT_EVENTS

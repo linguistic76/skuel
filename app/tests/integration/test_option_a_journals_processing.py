@@ -1,14 +1,14 @@
 """
-Integration Test: Assignment Processing Pipeline
-================================================
+Integration Test: Report Processing Pipeline
+=============================================
 
-Tests the Assignment processing pipeline for file submissions.
+Tests the Report processing pipeline for file submissions.
 
 NOTE (January 2026): Tests updated for domain separation.
 Journals are now a separate domain (JournalsCoreService).
-Assignments handle TRANSCRIPT, REPORT, IMAGE_ANALYSIS, VIDEO_SUMMARY types only.
+Reports handle TRANSCRIPT, REPORT, IMAGE_ANALYSIS, VIDEO_SUMMARY types only.
 
-The AssignmentProcessorService:
+The ReportsProcessingService:
 - Routes files to appropriate processors based on file type
 - Audio files: transcribed via TranscriptionService
 - Text files: read directly from storage
@@ -31,35 +31,35 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
-from core.models.assignment.assignment import (
-    Assignment,
-    AssignmentStatus,
-    AssignmentType,
+from core.models.report.report import (
+    Report,
+    ReportStatus,
+    ReportType,
     ProcessorType,
 )
-from core.services.assignments import AssignmentProcessorService
+from core.services.reports import ReportsProcessingService
 from core.utils.result_simplified import Errors, Result
 
 
 @pytest.mark.asyncio
 class TestOptionAJournalsProcessing:
-    """Integration tests for Assignment processing (post domain separation)."""
+    """Integration tests for Report processing (post domain separation)."""
 
     # ==========================================================================
     # FIXTURES
     # ==========================================================================
 
     @pytest_asyncio.fixture
-    async def mock_assignment_service(self):
-        """Mock AssignmentSubmissionService."""
+    async def mock_report_service(self):
+        """Mock ReportSubmissionService."""
         service = AsyncMock()
 
-        # Mock assignment with transcript type
-        assignment = Assignment(
-            uid="assignment.test_transcript",
+        # Mock report with transcript type
+        report = Report(
+            uid="report.test_transcript",
             user_uid="user.test",
-            assignment_type=AssignmentType.TRANSCRIPT,
-            status=AssignmentStatus.SUBMITTED,
+            report_type=ReportType.TRANSCRIPT,
+            status=ReportStatus.SUBMITTED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",
             file_size=1024000,
@@ -70,54 +70,54 @@ class TestOptionAJournalsProcessing:
         )
 
         # Track state changes (mutable reference)
-        current_state = {"assignment": assignment}
+        current_state = {"report": report}
 
-        # get_assignment returns current state
-        def mock_get_assignment(uid):
-            return Result.ok(current_state["assignment"])
+        # get_report returns current state
+        def mock_get_report(uid):
+            return Result.ok(current_state["report"])
 
-        # update_assignment_status tracks status changes
+        # update_report_status tracks status changes
         def mock_update_status(uid, status, error_message=None):
-            updated = Assignment(
-                uid=current_state["assignment"].uid,
-                user_uid=current_state["assignment"].user_uid,
-                assignment_type=current_state["assignment"].assignment_type,
+            updated = Report(
+                uid=current_state["report"].uid,
+                user_uid=current_state["report"].user_uid,
+                report_type=current_state["report"].report_type,
                 status=status,
-                file_path=current_state["assignment"].file_path,
-                file_type=current_state["assignment"].file_type,
-                file_size=current_state["assignment"].file_size,
-                original_filename=current_state["assignment"].original_filename,
-                processor_type=current_state["assignment"].processor_type,
-                created_at=current_state["assignment"].created_at,
+                file_path=current_state["report"].file_path,
+                file_type=current_state["report"].file_type,
+                file_size=current_state["report"].file_size,
+                original_filename=current_state["report"].original_filename,
+                processor_type=current_state["report"].processor_type,
+                created_at=current_state["report"].created_at,
                 updated_at=datetime.now(),
-                processed_content=current_state["assignment"].processed_content,
-                metadata=current_state["assignment"].metadata,
+                processed_content=current_state["report"].processed_content,
+                metadata=current_state["report"].metadata,
             )
-            current_state["assignment"] = updated
+            current_state["report"] = updated
             return Result.ok(updated)
 
         # update_processed_content stores the content
         def mock_update_content(uid, processed_content):
-            updated = Assignment(
-                uid=current_state["assignment"].uid,
-                user_uid=current_state["assignment"].user_uid,
-                assignment_type=current_state["assignment"].assignment_type,
-                status=current_state["assignment"].status,
-                file_path=current_state["assignment"].file_path,
-                file_type=current_state["assignment"].file_type,
-                file_size=current_state["assignment"].file_size,
-                original_filename=current_state["assignment"].original_filename,
-                processor_type=current_state["assignment"].processor_type,
-                created_at=current_state["assignment"].created_at,
+            updated = Report(
+                uid=current_state["report"].uid,
+                user_uid=current_state["report"].user_uid,
+                report_type=current_state["report"].report_type,
+                status=current_state["report"].status,
+                file_path=current_state["report"].file_path,
+                file_type=current_state["report"].file_type,
+                file_size=current_state["report"].file_size,
+                original_filename=current_state["report"].original_filename,
+                processor_type=current_state["report"].processor_type,
+                created_at=current_state["report"].created_at,
                 updated_at=datetime.now(),
                 processed_content=processed_content,
-                metadata=current_state["assignment"].metadata,
+                metadata=current_state["report"].metadata,
             )
-            current_state["assignment"] = updated
+            current_state["report"] = updated
             return Result.ok(updated)
 
-        service.get_assignment.side_effect = mock_get_assignment
-        service.update_assignment_status.side_effect = mock_update_status
+        service.get_report.side_effect = mock_get_report
+        service.update_report_status.side_effect = mock_update_status
         service.update_processed_content.side_effect = mock_update_content
 
         return service
@@ -152,19 +152,19 @@ class TestOptionAJournalsProcessing:
     @pytest_asyncio.fixture
     async def processing_pipeline(
         self,
-        mock_assignment_service,
+        mock_report_service,
         mock_transcription_service,
     ):
-        """Create AssignmentProcessorService with mocked dependencies.
+        """Create ReportsProcessingService with mocked dependencies.
 
-        Note: transcript_processor and assignment_relationship_service are NOT passed
+        Note: transcript_processor and report_relationship_service are NOT passed
         because they are NOT used after the January 2026 domain separation.
         """
-        return AssignmentProcessorService(
-            assignment_service=mock_assignment_service,
+        return ReportsProcessingService(
+            report_service=mock_report_service,
             transcription_service=mock_transcription_service,
             transcript_processor=None,  # Not used - journals have their own domain
-            assignment_relationship_service=None,  # Not used - journals have their own domain
+            report_relationship_service=None,  # Not used - journals have their own domain
             event_bus=None,
         )
 
@@ -177,10 +177,10 @@ class TestOptionAJournalsProcessing:
     ):
         """Test that audio files are transcribed via TranscriptionService."""
         # Arrange
-        assignment_uid = "assignment.test_transcript"
+        report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_assignment(assignment_uid)
+        result = await processing_pipeline.process_report(report_uid)
 
         # Assert
         assert result.is_ok
@@ -190,61 +190,61 @@ class TestOptionAJournalsProcessing:
         assert mock_transcription_service.process.called
 
     async def test_audio_processing_stores_raw_transcript(
-        self, processing_pipeline, mock_assignment_service
+        self, processing_pipeline, mock_report_service
     ):
         """Test that audio processing stores the raw transcript (no LLM formatting)."""
         # Arrange
-        assignment_uid = "assignment.test_transcript"
+        report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_assignment(assignment_uid)
+        result = await processing_pipeline.process_report(report_uid)
 
         # Assert
         assert result.is_ok
 
         # Verify update_processed_content was called with raw transcript
-        assert mock_assignment_service.update_processed_content.called
-        call_args = mock_assignment_service.update_processed_content.call_args
+        assert mock_report_service.update_processed_content.called
+        call_args = mock_report_service.update_processed_content.call_args
 
         # Should be raw transcript text, not LLM-formatted
         assert call_args[1]["processed_content"] == "This is the transcribed meeting content."
 
     async def test_audio_processing_status_transitions(
-        self, processing_pipeline, mock_assignment_service
+        self, processing_pipeline, mock_report_service
     ):
         """Test that audio processing follows correct status transitions."""
         # Arrange
-        assignment_uid = "assignment.test_transcript"
+        report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_assignment(assignment_uid)
+        result = await processing_pipeline.process_report(report_uid)
 
         # Assert
         assert result.is_ok
 
         # Verify status update calls
-        status_calls = mock_assignment_service.update_assignment_status.call_args_list
+        status_calls = mock_report_service.update_report_status.call_args_list
 
         # Should have: QUEUED, PROCESSING, COMPLETED
         assert len(status_calls) >= 2
         statuses = [call[0][1] for call in status_calls]
 
-        assert AssignmentStatus.QUEUED in statuses
-        assert AssignmentStatus.PROCESSING in statuses
-        assert AssignmentStatus.COMPLETED in statuses
+        assert ReportStatus.QUEUED in statuses
+        assert ReportStatus.PROCESSING in statuses
+        assert ReportStatus.COMPLETED in statuses
 
     # ==========================================================================
     # TEXT PROCESSING TESTS
     # ==========================================================================
 
-    async def test_text_processing_reads_content(self, mock_assignment_service):
+    async def test_text_processing_reads_content(self, mock_report_service):
         """Test that text files are read directly from storage."""
-        # Arrange - Create text file assignment
-        text_assignment = Assignment(
-            uid="assignment.test_text",
+        # Arrange - Create text file report
+        text_report = Report(
+            uid="report.test_text",
             user_uid="user.test",
-            assignment_type=AssignmentType.TRANSCRIPT,
-            status=AssignmentStatus.SUBMITTED,
+            report_type=ReportType.TRANSCRIPT,
+            status=ReportStatus.SUBMITTED,
             file_path="/tmp/test_notes.txt",
             file_type="text/plain",
             file_size=1024,
@@ -254,67 +254,67 @@ class TestOptionAJournalsProcessing:
             updated_at=datetime.now(),
         )
 
-        mock_assignment_service.get_assignment.side_effect = lambda _uid: Result.ok(text_assignment)
-        mock_assignment_service.get_file_content.return_value = Result.ok(
+        mock_report_service.get_report.side_effect = lambda _uid: Result.ok(text_report)
+        mock_report_service.get_file_content.return_value = Result.ok(
             b"This is the text file content."
         )
 
-        pipeline = AssignmentProcessorService(
-            assignment_service=mock_assignment_service,
+        pipeline = ReportsProcessingService(
+            report_service=mock_report_service,
             transcription_service=None,  # Not needed for text
         )
 
         # Act
-        result = await pipeline.process_assignment("assignment.test_text")
+        result = await pipeline.process_report("report.test_text")
 
         # Assert
         assert result.is_ok
 
         # Verify file content was read
-        assert mock_assignment_service.get_file_content.called
+        assert mock_report_service.get_file_content.called
 
         # Verify content was stored
-        assert mock_assignment_service.update_processed_content.called
-        call_args = mock_assignment_service.update_processed_content.call_args
+        assert mock_report_service.update_processed_content.called
+        call_args = mock_report_service.update_processed_content.call_args
         assert call_args[1]["processed_content"] == "This is the text file content."
 
     # ==========================================================================
     # ERROR HANDLING TESTS
     # ==========================================================================
 
-    async def test_transcription_failure_marks_assignment_failed(
-        self, mock_assignment_service, mock_transcription_service
+    async def test_transcription_failure_marks_report_failed(
+        self, mock_report_service, mock_transcription_service
     ):
-        """Test that transcription failure marks assignment as FAILED."""
+        """Test that transcription failure marks report as FAILED."""
         # Arrange
         mock_transcription_service.create.return_value = Result.fail(
             Errors.system(message="Transcription service unavailable", operation="create")
         )
 
-        pipeline = AssignmentProcessorService(
-            assignment_service=mock_assignment_service,
+        pipeline = ReportsProcessingService(
+            report_service=mock_report_service,
             transcription_service=mock_transcription_service,
         )
 
         # Act
-        result = await pipeline.process_assignment("assignment.test_transcript")
+        result = await pipeline.process_report("report.test_transcript")
 
         # Assert
         assert result.is_error
 
         # Verify status was set to FAILED
-        status_calls = mock_assignment_service.update_assignment_status.call_args_list
+        status_calls = mock_report_service.update_report_status.call_args_list
         final_status = status_calls[-1][0][1]
-        assert final_status == AssignmentStatus.FAILED
+        assert final_status == ReportStatus.FAILED
 
-    async def test_already_processing_assignment_rejected(self):
-        """Test that already-processing assignments are rejected."""
-        # Arrange - Assignment already in PROCESSING state
-        processing_assignment = Assignment(
-            uid="assignment.processing",
+    async def test_already_processing_report_rejected(self):
+        """Test that already-processing reports are rejected."""
+        # Arrange - Report already in PROCESSING state
+        processing_report = Report(
+            uid="report.processing",
             user_uid="user.test",
-            assignment_type=AssignmentType.TRANSCRIPT,
-            status=AssignmentStatus.PROCESSING,  # Already processing
+            report_type=ReportType.TRANSCRIPT,
+            status=ReportStatus.PROCESSING,  # Already processing
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
             file_size=1024,
@@ -326,14 +326,14 @@ class TestOptionAJournalsProcessing:
 
         # Create fresh mock without side_effect interference
         mock_service = AsyncMock()
-        mock_service.get_assignment.return_value = Result.ok(processing_assignment)
+        mock_service.get_report.return_value = Result.ok(processing_report)
 
-        pipeline = AssignmentProcessorService(
-            assignment_service=mock_service,
+        pipeline = ReportsProcessingService(
+            report_service=mock_service,
         )
 
         # Act
-        result = await pipeline.process_assignment("assignment.processing")
+        result = await pipeline.process_report("report.processing")
 
         # Assert
         assert result.is_error
@@ -341,12 +341,12 @@ class TestOptionAJournalsProcessing:
 
     async def test_unsupported_file_type_rejected(self):
         """Test that unsupported file types return an error."""
-        # Arrange - Assignment with unsupported file type
-        pdf_assignment = Assignment(
-            uid="assignment.pdf",
+        # Arrange - Report with unsupported file type
+        pdf_report = Report(
+            uid="report.pdf",
             user_uid="user.test",
-            assignment_type=AssignmentType.REPORT,
-            status=AssignmentStatus.SUBMITTED,
+            report_type=ReportType.REPORT,
+            status=ReportStatus.SUBMITTED,
             file_path="/tmp/test.pdf",
             file_type="application/pdf",  # Not yet supported
             file_size=1024,
@@ -358,14 +358,14 @@ class TestOptionAJournalsProcessing:
 
         # Create fresh mock without side_effect interference
         mock_service = AsyncMock()
-        mock_service.get_assignment.return_value = Result.ok(pdf_assignment)
+        mock_service.get_report.return_value = Result.ok(pdf_report)
 
-        pipeline = AssignmentProcessorService(
-            assignment_service=mock_service,
+        pipeline = ReportsProcessingService(
+            report_service=mock_service,
         )
 
         # Act
-        result = await pipeline.process_assignment("assignment.pdf")
+        result = await pipeline.process_report("report.pdf")
 
         # Assert
         assert result.is_error
@@ -375,14 +375,14 @@ class TestOptionAJournalsProcessing:
     # ARCHITECTURE VALIDATION TESTS
     # ==========================================================================
 
-    async def test_assignment_type_discriminator_works(self, mock_assignment_service):
-        """Test that assignment_type discriminator works correctly."""
+    async def test_report_type_discriminator_works(self, mock_report_service):
+        """Test that report_type discriminator works correctly."""
         # Arrange
-        transcript_assignment = Assignment(
-            uid="assignment.transcript_type",
+        transcript_report = Report(
+            uid="report.transcript_type",
             user_uid="user.test",
-            assignment_type=AssignmentType.TRANSCRIPT,  # Type discriminator
-            status=AssignmentStatus.SUBMITTED,
+            report_type=ReportType.TRANSCRIPT,  # Type discriminator
+            status=ReportStatus.SUBMITTED,
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
             file_size=1024,
@@ -393,14 +393,14 @@ class TestOptionAJournalsProcessing:
         )
 
         # Act & Assert
-        assert transcript_assignment.assignment_type == AssignmentType.TRANSCRIPT
+        assert transcript_report.report_type == ReportType.TRANSCRIPT
 
-        # Can differentiate from other assignment types
-        report_assignment = Assignment(
-            uid="assignment.report_type",
+        # Can differentiate from other report types
+        report_type_report = Report(
+            uid="report.report_type",
             user_uid="user.test",
-            assignment_type=AssignmentType.REPORT,  # Different type
-            status=AssignmentStatus.SUBMITTED,
+            report_type=ReportType.REPORT,  # Different type
+            status=ReportStatus.SUBMITTED,
             file_path="/tmp/test.pdf",
             file_type="application/pdf",
             file_size=1024,
@@ -410,47 +410,45 @@ class TestOptionAJournalsProcessing:
             updated_at=datetime.now(),
         )
 
-        assert report_assignment.assignment_type != AssignmentType.TRANSCRIPT
-        assert report_assignment.assignment_type == AssignmentType.REPORT
+        assert report_type_report.report_type != ReportType.TRANSCRIPT
+        assert report_type_report.report_type == ReportType.REPORT
 
-    async def test_no_llm_processing_in_assignment_pipeline(
-        self, processing_pipeline, mock_assignment_service
+    async def test_no_llm_processing_in_report_pipeline(
+        self, processing_pipeline, mock_report_service
     ):
-        """Test that assignment pipeline does NOT do LLM processing (domain separation)."""
+        """Test that report pipeline does NOT do LLM processing (domain separation)."""
         # Arrange
-        assignment_uid = "assignment.test_transcript"
+        report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_assignment(assignment_uid)
+        result = await processing_pipeline.process_report(report_uid)
 
         # Assert
         assert result.is_ok
 
         # Verify raw content stored, not LLM-formatted
-        call_args = mock_assignment_service.update_processed_content.call_args
+        call_args = mock_report_service.update_processed_content.call_args
         content = call_args[1]["processed_content"]
 
         # Raw transcript should be stored as-is
         assert content == "This is the transcribed meeting content."
         # NOT something like "# Meeting Notes\n\n## Summary\n..."
 
-    async def test_reprocess_assignment_resets_status(
-        self, processing_pipeline, mock_assignment_service
-    ):
-        """Test that reprocessing an assignment resets its status."""
+    async def test_reprocess_report_resets_status(self, processing_pipeline, mock_report_service):
+        """Test that reprocessing a report resets its status."""
         # First, complete initial processing
-        assignment_uid = "assignment.test_transcript"
-        await processing_pipeline.process_assignment(assignment_uid)
+        report_uid = "report.test_transcript"
+        await processing_pipeline.process_report(report_uid)
 
         # Reset the mock to track reprocessing calls
-        mock_assignment_service.update_assignment_status.reset_mock()
+        mock_report_service.update_report_status.reset_mock()
 
-        # Now, update the assignment to COMPLETED state for reprocessing test
-        completed_assignment = Assignment(
-            uid="assignment.test_transcript",
+        # Now, update the report to COMPLETED state for reprocessing test
+        completed_report = Report(
+            uid="report.test_transcript",
             user_uid="user.test",
-            assignment_type=AssignmentType.TRANSCRIPT,
-            status=AssignmentStatus.COMPLETED,
+            report_type=ReportType.TRANSCRIPT,
+            status=ReportStatus.COMPLETED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",
             file_size=1024000,
@@ -460,15 +458,15 @@ class TestOptionAJournalsProcessing:
             updated_at=datetime.now(),
             processed_content="Old content",
         )
-        mock_assignment_service.get_assignment.return_value = Result.ok(completed_assignment)
+        mock_report_service.get_report.return_value = Result.ok(completed_report)
 
         # Act - reprocess
-        result = await processing_pipeline.reprocess_assignment(assignment_uid)
+        result = await processing_pipeline.reprocess_report(report_uid)
 
         # Assert
         assert result.is_ok
 
         # Verify status was reset to SUBMITTED first
-        status_calls = mock_assignment_service.update_assignment_status.call_args_list
+        status_calls = mock_report_service.update_report_status.call_args_list
         first_status = status_calls[0][0][1]
-        assert first_status == AssignmentStatus.SUBMITTED
+        assert first_status == ReportStatus.SUBMITTED

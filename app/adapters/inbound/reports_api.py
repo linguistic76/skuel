@@ -1,300 +1,885 @@
 """
-Reports API - Read-Only Analytics Endpoints
-============================================
+Reports API Routes
+======================
 
-REST API for Reports meta-analysis (Layer 3).
+REST API for file submission and processing pipeline.
 
-Version: 1.0.0 (October 24, 2025)
-
-This provides analytical endpoints for:
-- Life Path alignment tracking (Phase 1)
-- Cross-layer life summaries (Phase 3)
-- Pattern detection across layers
-
-All endpoints are read-only (no CRUD operations).
-Reports synthesize data from all layers.
+Phase 1 Implementation:
+- File upload (audio, text)
+- List reports with filters
+- Get report details
+- Process report
+- Download original and processed files
+- Report statistics
 
 Routes:
-- GET /api/reports/life-path-alignment
-- GET /api/reports/weekly-life-summary
-- GET /api/reports/monthly-life-review
-- GET /api/reports/quarterly-progress
-- GET /api/reports/yearly-review
-- GET /api/reports/cross-domain-patterns
+- POST /api/reports/upload - Upload file
+- GET /api/reports - List reports
+- GET /api/reports/{uid} - Get report details
+- POST /api/reports/{uid}/process - Process report
+- GET /api/reports/{uid}/download - Download original file
+- GET /api/reports/{uid}/download-processed - Download processed file
+- GET /api/reports/statistics - Get user statistics
 """
 
-from datetime import date, timedelta
+import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
+if TYPE_CHECKING:
+    from core.services.reports.reports_core_service import ReportsCoreService
+    from core.services.reports.reports_processing_service import ReportsProcessingService
+    from core.services.reports.reports_search_service import ReportsSearchService
+    from core.services.reports.reports_submission_service import ReportSubmissionService
 
+from starlette.background import BackgroundTask
+from starlette.datastructures import UploadFile
+from starlette.requests import Request
+from starlette.responses import FileResponse
+
+from core.models.report import report_to_response
+from core.models.report.report import ProcessorType, ReportStatus, ReportType
+from core.models.report.report_request import (
+    AddTagsRequest,
+    BulkCategorizeRequest,
+    BulkDeleteRequest,
+    BulkTagRequest,
+    CategorizeReportRequest,
+    RemoveTagsRequest,
+)
 from core.utils.error_boundary import boundary_handler
+from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-if TYPE_CHECKING:
-    from core.services.report_service import ReportService
+logger = get_logger("skuel.routes.reports.api")
 
 
-def create_reports_api_routes(app, rt, reports_service: "ReportService"):
+# ============================================================================
+# TEMP FILE CLEANUP HELPER
+# ============================================================================
+
+
+def cleanup_temp_file(filepath: str):
+    """Background task to cleanup temp files after response"""
+    try:
+        Path(filepath).unlink()
+    except Exception as e:
+        logger.warning(f"Failed to cleanup temp file {filepath}: {e}")
+
+
+# ============================================================================
+# ROUTE CREATION
+# ============================================================================
+
+
+def create_reports_api_routes(
+    _app: Any,
+    rt: Any,
+    report_service: "ReportSubmissionService",
+    processing_service: "ReportsProcessingService",
+    reports_query_service: "ReportsSearchService | None" = None,
+    reports_core_service: "ReportsCoreService | None" = None,
+) -> list[Any]:
     """
-    Create Reports API routes (read-only analytics).
+    Create all report API routes.
 
     Args:
         app: FastHTML application instance
-        rt: Route decorator
-        reports_service: ReportsService facade instance
+        rt: Router instance
+        report_service: ReportSubmissionService
+        processing_service: ReportsProcessingService
+        reports_query_service: ReportsSearchService for cross-domain queries
+        reports_core_service: ReportsCoreService for content management
     """
 
+    # FAIL-FAST: Validate required services BEFORE any route registration
+    missing = []
+    if not report_service:
+        missing.append("report_service")
+    if not processing_service:
+        missing.append("processing_service")
+    if missing:
+        raise ValueError(f"Required services missing for reports API: {', '.join(missing)}")
+
+    logger.info("Creating Reports API routes")
+
     # ========================================================================
-    # LIFE PATH ALIGNMENT TRACKING (Phase 1)
+    # FILE UPLOAD
     # ========================================================================
 
-    @rt("/api/reports/life-path-alignment")
-    @boundary_handler()
-    async def get_life_path_alignment_route(request: Request) -> Result[dict[str, Any]]:
+    @rt("/api/reports/upload")
+    @boundary_handler(success_status=201)
+    async def upload_report_route(request: Request) -> Result[Any]:
         """
-        Get user's alignment with their ultimate life goal.
+        Upload file for processing.
 
-        Query params:
-            user_uid: User identifier (required)
+        Form data:
+        - file: File upload (required)
+        - user_uid: User identifier (required)
+        - report_type: Type (transcript, report, image_analysis, video_summary) (required)
+        - processor_type: Processor (llm, human, hybrid, automatic) (default: automatic)
+        - auto_process: Automatically process after upload (default: false)
 
         Returns:
-            Result containing comprehensive alignment analysis:
-            - alignment_score: 0.0-1.0
-            - embodied_knowledge: Count of mastered knowledge
-            - theoretical_knowledge: Count of unmastered knowledge
-            - domain_contributions: Which domains drive alignment
-            - gaps: Knowledge units needing practice
-            - recommendations: Actionable next steps
+        - 201 Created with report details
         """
-        user_uid = request.query_params.get("user_uid")
+        # Get form data
+        form = await request.form()
+        uploaded_file = form.get("file")
 
+        if not uploaded_file:
+            return Result.fail(Errors.validation("No file provided", field="file"))
+
+        # Extract parameters
+        user_uid = form.get("user_uid")
         if not user_uid:
             return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
-        return await reports_service.calculate_life_path_alignment(user_uid)
+        report_type_str = form.get("report_type", "transcript")
+
+        # Debug logging
+        logger.info(
+            f"Received report_type from form: '{report_type_str}' (type: {type(report_type_str).__name__})"
+        )
+        logger.info(f"All form fields: {dict(form)}")
+
+        # Validate report_type
+        try:
+            report_type = ReportType(report_type_str)
+        except ValueError:
+            return Result.fail(
+                Errors.validation(
+                    f"Invalid report type: '{report_type_str}' (received as {type(report_type_str).__name__})",
+                    field="report_type",
+                )
+            )
+
+        # Validate processor_type
+        processor_type_str = form.get("processor_type", "automatic")
+        try:
+            processor_type = ProcessorType(processor_type_str)
+        except ValueError:
+            return Result.fail(
+                Errors.validation(
+                    f"Invalid processor type: {processor_type_str}", field="processor_type"
+                )
+            )
+
+        # Type narrow auto_process to str
+        auto_process_val = form.get("auto_process", "false")
+        if isinstance(auto_process_val, str):
+            auto_process = auto_process_val.lower() == "true"
+        else:
+            auto_process = False
+
+        # Type narrow uploaded_file to UploadFile
+        if not isinstance(uploaded_file, UploadFile):
+            logger.error(
+                f"Invalid file upload object: expected UploadFile, got {type(uploaded_file)}"
+            )
+            return Result.fail(Errors.validation("Invalid file upload"))
+
+        file_content = await uploaded_file.read()
+        filename = uploaded_file.filename
+
+        # Size limit (100MB)
+        if len(file_content) > 100_000_000:
+            return Result.fail(Errors.validation("File too large (max 100MB)", field="file"))
+
+        # Extract applies_knowledge_uids (MVP - Phase C)
+        applies_knowledge_uids = []
+        applies_knowledge_str = form.get("applies_knowledge_uids", "")
+        if isinstance(applies_knowledge_str, str) and applies_knowledge_str:
+            # Parse comma-separated UIDs or JSON array
+            if applies_knowledge_str.startswith("["):
+                # JSON array format
+                import json
+
+                try:
+                    applies_knowledge_uids = json.loads(applies_knowledge_str)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        f"Failed to parse applies_knowledge_uids JSON: {applies_knowledge_str}"
+                    )
+            else:
+                # Comma-separated format
+                applies_knowledge_uids = [
+                    uid.strip() for uid in applies_knowledge_str.split(",") if uid.strip()
+                ]
+
+        logger.info(
+            f"File upload: {filename} ({len(file_content)} bytes, type={report_type.value}, "
+            f"applies_knowledge={len(applies_knowledge_uids)} KUs)"
+        )
+
+        # Submit file
+        result = await report_service.submit_file(
+            file_content=file_content,
+            original_filename=filename,
+            user_uid=user_uid,
+            report_type=report_type,
+            processor_type=processor_type,
+            applies_knowledge_uids=applies_knowledge_uids if applies_knowledge_uids else None,
+        )
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        report = result.value
+
+        # Auto-process if requested
+        if auto_process:
+            logger.info(f"Auto-processing report: {report.uid}")
+            process_result = await processing_service.process_report(report.uid)
+
+            if process_result.is_error:
+                # Return report anyway, but note processing failed
+                error = process_result.expect_error()
+                logger.warning(f"Auto-processing failed for {report.uid}: {error.message}")
+
+                # Processing failed but upload succeeded
+                return Result.ok(
+                    {
+                        "report": report_to_response(report),
+                        "processing_status": "failed",
+                        "processing_error": error.user_message or error.message,
+                        "message": "File uploaded but processing failed",
+                    }
+                )
+
+            report = process_result.value
+
+        # Return success response
+        return Result.ok(
+            {
+                "report": report_to_response(report),
+                "message": "File uploaded successfully",
+            }
+        )
 
     # ========================================================================
-    # CROSS-LAYER LIFE SUMMARIES (Phase 3)
+    # LIST & QUERY
     # ========================================================================
 
-    @rt("/api/reports/weekly-life-summary")
+    @rt("/api/reports")
     @boundary_handler()
-    async def get_weekly_life_summary_route(request: Request) -> Result[dict[str, Any]]:
+    async def list_reports_route(
+        request: Request,
+        user_uid: str | None = None,
+        report_type: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Result[Any]:
         """
-        Get weekly life summary across ALL 4 layers.
+        List reports for a user with filters.
 
-        Query params:
-            user_uid: User identifier (required)
-            start_date: Week start date (optional, defaults to current week Monday)
+        Query parameters:
+        - user_uid: User identifier (required)
+        - report_type: Filter by type (optional)
+        - status: Filter by status (optional)
+        - limit: Max results (default: 50)
+        - offset: Pagination offset (default: 0)
 
         Returns:
-            Result containing:
-            - layer_1_activities: 7 domain metrics
-            - layer_0_knowledge: Substance + curriculum metrics
-            - layer_2_reflection: Journal patterns
-            - cross_layer_insights: Synthesis across layers
-            - summary: Human-readable text
+        - List of reports
         """
-        user_uid = request.query_params.get("user_uid")
-
         if not user_uid:
             return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
-        # Parse start_date or default to current week Monday
-        start_date_str = request.query_params.get("start_date")
-        if start_date_str:
+        # Parse optional enum filters
+        parsed_report_type = None
+        if report_type:
             try:
-                start_date = date.fromisoformat(start_date_str)
+                parsed_report_type = ReportType(report_type)
             except ValueError:
                 return Result.fail(
-                    Errors.validation(
-                        "start_date must be ISO format (YYYY-MM-DD)",
-                        field="start_date",
-                        value=start_date_str,
-                    )
-                )
-        else:
-            # Default to current week Monday
-            today = date.today()
-            start_date = today - timedelta(days=today.weekday())
-
-        return await reports_service.generate_weekly_life_summary(user_uid, week_start=start_date)
-
-    @rt("/api/reports/monthly-life-review")
-    @boundary_handler()
-    async def get_monthly_life_review_route(request: Request) -> Result[dict[str, Any]]:
-        """
-        Get monthly life review across ALL 4 layers.
-
-        Query params:
-            user_uid: User identifier (required)
-            year: Year (required)
-            month: Month 1-12 (required)
-
-        Returns:
-            Result containing weekly summary plus:
-            - monthly_trends: Completion trends over month
-            - goal_progress_analysis: Goal achievement details
-        """
-        user_uid = request.query_params.get("user_uid")
-        year_str = request.query_params.get("year")
-        month_str = request.query_params.get("month")
-
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
-
-        if not year_str or not month_str:
-            return Result.fail(Errors.validation("year and month are required", field="year,month"))
-
-        try:
-            year = int(year_str)
-            month = int(month_str)
-
-            if month < 1 or month > 12:
-                return Result.fail(
-                    Errors.validation("month must be between 1 and 12", field="month", value=month)
+                    Errors.validation(f"Invalid report type: {report_type}", field="report_type")
                 )
 
-        except ValueError:
-            return Result.fail(
-                Errors.validation("year and month must be integers", field="year,month")
-            )
+        parsed_status = None
+        if status:
+            try:
+                parsed_status = ReportStatus(status)
+            except ValueError:
+                return Result.fail(Errors.validation(f"Invalid status: {status}", field="status"))
 
-        return await reports_service.generate_monthly_life_review(user_uid, year, month)
+        # List reports
+        result = await report_service.list_reports(
+            user_uid=user_uid,
+            report_type=parsed_report_type,
+            status=parsed_status,
+            limit=limit,
+            offset=offset,
+        )
 
-    @rt("/api/reports/quarterly-progress")
-    @boundary_handler()
-    async def get_quarterly_progress_route(request: Request) -> Result[dict[str, Any]]:
-        """
-        Get quarterly progress report across ALL 4 layers.
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-        Query params:
-            user_uid: User identifier (required)
-            year: Year (required)
-            quarter: Quarter 1-4 (required)
+        reports = result.value
 
-        Returns:
-            Result containing monthly review plus:
-            - strategic_insights: Long-term assessment
-            - quarter_summary: Strategic narrative
-        """
-        user_uid = request.query_params.get("user_uid")
-        year_str = request.query_params.get("year")
-        quarter_str = request.query_params.get("quarter")
-
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
-
-        if not year_str or not quarter_str:
-            return Result.fail(
-                Errors.validation("year and quarter are required", field="year,quarter")
-            )
-
-        try:
-            year = int(year_str)
-            quarter = int(quarter_str)
-
-            if quarter < 1 or quarter > 4:
-                return Result.fail(
-                    Errors.validation(
-                        "quarter must be between 1 and 4", field="quarter", value=quarter
-                    )
-                )
-
-        except ValueError:
-            return Result.fail(
-                Errors.validation("year and quarter must be integers", field="year,quarter")
-            )
-
-        return await reports_service.generate_quarterly_progress(user_uid, year, quarter)
-
-    @rt("/api/reports/yearly-review")
-    @boundary_handler()
-    async def get_yearly_review_route(request: Request) -> Result[dict[str, Any]]:
-        """
-        Get yearly review across ALL 4 layers.
-
-        Query params:
-            user_uid: User identifier (required)
-            year: Year (required)
-
-        Returns:
-            Result containing quarterly progress plus:
-            - year_achievements: Annual accomplishments
-            - growth_opportunities: Areas for improvement
-            - year_summary: Annual retrospective
-        """
-        user_uid = request.query_params.get("user_uid")
-        year_str = request.query_params.get("year")
-
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
-
-        if not year_str:
-            return Result.fail(Errors.validation("year is required", field="year"))
-
-        try:
-            year = int(year_str)
-        except ValueError:
-            return Result.fail(
-                Errors.validation("year must be an integer", field="year", value=year_str)
-            )
-
-        return await reports_service.generate_yearly_review(user_uid, year)
+        return Result.ok(
+            {
+                "reports": [report_to_response(a) for a in reports],
+                "count": len(reports),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     # ========================================================================
-    # PATTERN DETECTION
+    # GET REPORT DETAILS
     # ========================================================================
 
-    @rt("/api/reports/cross-domain-patterns")
+    @rt("/api/reports/get")
     @boundary_handler()
-    async def get_cross_domain_patterns_route(request: Request) -> Result[dict[str, Any]]:
+    async def get_report_route(request: Request, uid: str) -> Result[Any]:
         """
-        Detect patterns and relationships across domains.
+        Get report details by UID.
 
-        Query params:
-            user_uid: User identifier (required)
-            start_date: Period start (ISO format, required)
-            end_date: Period end (ISO format, required)
+        Query parameters:
+        - uid: Report UID
 
         Returns:
-            Result containing pattern analysis:
-            - expense_productivity_correlation
-            - choice_principle_alignment
-            - goal_habit_support
-            - time_allocation
-            - domain_balance
+        - Report details
         """
-        user_uid = request.query_params.get("user_uid")
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
+        result = await report_service.get_report(uid)
 
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        report = result.value
+        if not report:
+            return Result.fail(Errors.not_found(resource="Report", identifier=uid))
+
+        return Result.ok(report_to_response(report))
+
+    # ========================================================================
+    # GET REPORT PROCESSED CONTENT
+    # ========================================================================
+
+    @rt("/api/reports/content")
+    @boundary_handler()
+    async def get_report_content_route(request: Request, uid: str) -> Result[Any]:
+        """
+        Get processed content for a report.
+
+        Query parameters:
+        - uid: Report UID
+
+        Returns:
+        - Processed content (transcript text)
+        """
+        # Get report
+        report_result = await report_service.get_report(uid)
+        if report_result.is_error or not report_result.value:
+            return Result.fail(Errors.not_found(resource="Report", identifier=uid))
+
+        report = report_result.value
+
+        # If not completed, return pending status
+        if not report.is_completed:
+            return Result.ok({"content": None, "message": "Report not yet processed"})
+
+        # Return processed content
+        if report.processed_content:
+            return Result.ok(
+                {
+                    "content": report.processed_content,
+                    "source": "report",
+                }
+            )
+
+        # No processed_content
+        return Result.ok(
+            {
+                "content": None,
+                "message": "Processed content not available.",
+            }
+        )
+
+    # ========================================================================
+    # PROCESS REPORT
+    # ========================================================================
+
+    @rt("/api/reports/process")
+    @boundary_handler()
+    async def process_report_route(request: Request, uid: str) -> Result[Any]:
+        """
+        Process a report.
+
+        Query parameters:
+        - uid: Report UID
+
+        JSON body (optional):
+        - instructions: Processor-specific instructions
+
+        Returns:
+        - Updated report with processed content
+        """
+        # Get optional instructions
+        instructions = None
+        if request.method == "POST":
+            try:
+                body = await request.json()
+                instructions = body.get("instructions")
+            except Exception:
+                pass  # No body provided
+
+        result = await processing_service.process_report(uid, instructions)
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        report = result.value
+
+        return Result.ok(
+            {
+                "report": report_to_response(report),
+                "message": "Report processed successfully",
+            }
+        )
+
+    # ========================================================================
+    # FILE DOWNLOADS
+    # ========================================================================
+
+    @rt("/api/reports/download")
+    async def download_original_file_route(request: Request, uid: str):
+        """
+        Download original uploaded file.
+
+        Query parameters:
+        - uid: Report UID
+
+        Returns:
+        - File response with original file
+        """
+        from starlette.responses import Response
+
+        # Get report
+        report_result = await report_service.get_report(uid)
+        if report_result.is_error:
+            return Response(
+                content=f"Error: {report_result.error.user_message if report_result.error else 'Report not found'}",
+                status_code=404,
+                media_type="text/plain",
+            )
+
+        report = report_result.value
+        if not report:
+            return Response(
+                content="Error: Report not found", status_code=404, media_type="text/plain"
+            )
+
+        # Get file content
+        file_result = await report_service.get_file_content(uid)
+        if file_result.is_error:
+            return Response(
+                content=f"Error: {file_result.error.user_message if file_result.error else 'File not found'}",
+                status_code=404,
+                media_type="text/plain",
+            )
+
+        file_content = file_result.value
+
+        # Create temp file with context manager
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=Path(report.original_filename).suffix
+        ) as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
+
+        # Return file with background cleanup task
+        return FileResponse(
+            path=temp_file_path,
+            filename=report.original_filename,
+            media_type=report.file_type,
+            background=BackgroundTask(cleanup_temp_file, temp_file_path),
+        )
+
+    @rt("/api/reports/download-processed")
+    async def download_processed_file_route(request: Request, uid: str):
+        """
+        Download processed file (if available).
+
+        Query parameters:
+        - uid: Report UID
+
+        Returns:
+        - File response with processed file
+        """
+        from starlette.responses import Response
+
+        # Get report
+        report_result = await report_service.get_report(uid)
+        if report_result.is_error:
+            return Response(
+                content=f"Error: {report_result.error.user_message if report_result.error else 'Report not found'}",
+                status_code=404,
+                media_type="text/plain",
+            )
+
+        report = report_result.value
+        if not report:
+            return Response(
+                content="Error: Report not found", status_code=404, media_type="text/plain"
+            )
+
+        if not report.processed_file_path:
+            return Response(
+                content="Error: No processed file available",
+                status_code=404,
+                media_type="text/plain",
+            )
+
+        # Get processed file content
+        file_result = await report_service.get_processed_file_content(uid)
+        if file_result.is_error:
+            return Response(
+                content=f"Error: {file_result.error.user_message if file_result.error else 'Processed file not found'}",
+                status_code=404,
+                media_type="text/plain",
+            )
+
+        file_content = file_result.value
+
+        # Create temp file with context manager
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
+
+        processed_filename = f"processed_{report.original_filename}"
+
+        # Return file with background cleanup task
+        return FileResponse(
+            path=temp_file_path,
+            filename=processed_filename,
+            media_type="text/plain",
+            background=BackgroundTask(cleanup_temp_file, temp_file_path),
+        )
+
+    # ========================================================================
+    # STATISTICS
+    # ========================================================================
+
+    @rt("/api/reports/statistics")
+    @boundary_handler()
+    async def get_statistics_route(request: Request, user_uid: str | None = None) -> Result[Any]:
+        """
+        Get report statistics for a user.
+
+        Query parameters:
+        - user_uid: User identifier (required)
+
+        Returns:
+        - Statistics by type and status
+        """
         if not user_uid:
             return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
-        if not start_date_str or not end_date_str:
-            return Result.fail(
-                Errors.validation(
-                    "start_date and end_date are required", field="start_date,end_date"
-                )
+        result = await report_service.get_report_statistics(user_uid)
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        return Result.ok(result.value)
+
+    # ========================================================================
+    # CONTENT MANAGEMENT ROUTES
+    # ========================================================================
+
+    if reports_core_service:
+
+        @rt("/api/reports/categorize")
+        @boundary_handler()
+        async def categorize_report_route(
+            request: Request, report_uid: str, user_uid: str
+        ) -> Result[Any]:
+            """
+            Categorize a report.
+
+            Query parameters:
+            - report_uid: Report UID
+            - user_uid: User UID
+
+            JSON body:
+            - category: Category string
+            """
+            body = await request.json()
+            req = CategorizeReportRequest.model_validate(body)
+
+            # Verify ownership through get_report
+            report_result = await report_service.get_report(report_uid)
+            if report_result.is_error:
+                return Result.fail(report_result.expect_error())
+
+            report = report_result.value
+            if report is None or report.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
+
+            return await reports_core_service.categorize_report(
+                uid=report_uid, category=req.category
             )
 
-        try:
-            start_date = date.fromisoformat(start_date_str)
-            end_date = date.fromisoformat(end_date_str)
-        except ValueError as e:
-            return Result.fail(
-                Errors.validation(
-                    f"Dates must be ISO format (YYYY-MM-DD): {e!s}", field="start_date,end_date"
-                )
+        @rt("/api/reports/tags/add")
+        @boundary_handler()
+        async def add_tags_route(request: Request, report_uid: str, user_uid: str) -> Result[Any]:
+            """
+            Add tags to a report.
+
+            Query parameters:
+            - report_uid: Report UID
+            - user_uid: User UID
+
+            JSON body:
+            - tags: List of tag strings
+            """
+            body = await request.json()
+            req = AddTagsRequest.model_validate(body)
+
+            # Verify ownership
+            report_result = await report_service.get_report(report_uid)
+            if report_result.is_error:
+                return Result.fail(report_result.expect_error())
+
+            report = report_result.value
+            if report is None or report.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
+
+            return await reports_core_service.add_tags(uid=report_uid, tags=req.tags)
+
+        @rt("/api/reports/tags/remove")
+        @boundary_handler()
+        async def remove_tags_route(
+            request: Request, report_uid: str, user_uid: str
+        ) -> Result[Any]:
+            """
+            Remove tags from a report.
+
+            Query parameters:
+            - report_uid: Report UID
+            - user_uid: User UID
+
+            JSON body:
+            - tags: List of tag strings to remove
+            """
+            body = await request.json()
+            req = RemoveTagsRequest.model_validate(body)
+
+            # Verify ownership
+            report_result = await report_service.get_report(report_uid)
+            if report_result.is_error:
+                return Result.fail(report_result.expect_error())
+
+            report = report_result.value
+            if report is None or report.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
+
+            return await reports_core_service.remove_tags(uid=report_uid, tags=req.tags)
+
+        @rt("/api/reports/publish")
+        @boundary_handler()
+        async def publish_report_route(
+            request: Request, report_uid: str, user_uid: str
+        ) -> Result[Any]:
+            """
+            Publish a report.
+
+            Query parameters:
+            - report_uid: Report UID
+            - user_uid: User UID
+            """
+            # Verify ownership
+            report_result = await report_service.get_report(report_uid)
+            if report_result.is_error:
+                return Result.fail(report_result.expect_error())
+
+            report = report_result.value
+            if report is None or report.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
+
+            return await reports_core_service.publish_report(uid=report_uid)
+
+        @rt("/api/reports/archive")
+        @boundary_handler()
+        async def archive_report_route(
+            request: Request, report_uid: str, user_uid: str
+        ) -> Result[Any]:
+            """
+            Archive a report.
+
+            Query parameters:
+            - report_uid: Report UID
+            - user_uid: User UID
+            """
+            # Verify ownership
+            report_result = await report_service.get_report(report_uid)
+            if report_result.is_error:
+                return Result.fail(report_result.expect_error())
+
+            report = report_result.value
+            if report is None or report.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
+
+            return await reports_core_service.archive_report(uid=report_uid)
+
+        @rt("/api/reports/draft")
+        @boundary_handler()
+        async def mark_as_draft_route(
+            request: Request, report_uid: str, user_uid: str
+        ) -> Result[Any]:
+            """
+            Mark report as draft.
+
+            Query parameters:
+            - report_uid: Report UID
+            - user_uid: User UID
+            """
+            # Verify ownership
+            report_result = await report_service.get_report(report_uid)
+            if report_result.is_error:
+                return Result.fail(report_result.expect_error())
+
+            report = report_result.value
+            if report is None or report.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="Report", identifier=report_uid))
+
+            return await reports_core_service.mark_as_draft(uid=report_uid)
+
+        @rt("/api/reports/bulk/categorize")
+        @boundary_handler()
+        async def bulk_categorize_route(request: Request, user_uid: str) -> Result[Any]:
+            """
+            Bulk categorize reports.
+
+            Query parameters:
+            - user_uid: User UID
+
+            JSON body:
+            - report_uids: List of report UIDs
+            - category: Category string
+            """
+            body = await request.json()
+            req = BulkCategorizeRequest.model_validate(body)
+
+            # Verify user owns all reports
+            for uid in req.report_uids:
+                report_result = await report_service.get_report(uid)
+                if report_result.is_error:
+                    return Result.fail(report_result.expect_error())
+
+                report = report_result.value
+                if report is None or report.user_uid != user_uid:
+                    return Result.fail(
+                        Errors.validation(f"You do not own report {uid}", field="report_uids")
+                    )
+
+            return await reports_core_service.bulk_categorize(
+                uids=req.report_uids, category=req.category
             )
 
-        if end_date < start_date:
-            return Result.fail(
-                Errors.validation("end_date must be after start_date", field="end_date")
+        @rt("/api/reports/bulk/tag")
+        @boundary_handler()
+        async def bulk_tag_route(request: Request, user_uid: str) -> Result[Any]:
+            """
+            Bulk tag reports.
+
+            Query parameters:
+            - user_uid: User UID
+
+            JSON body:
+            - report_uids: List of report UIDs
+            - tags: List of tag strings
+            """
+            body = await request.json()
+            req = BulkTagRequest.model_validate(body)
+
+            # Verify ownership
+            for uid in req.report_uids:
+                report_result = await report_service.get_report(uid)
+                if report_result.is_error:
+                    return Result.fail(report_result.expect_error())
+
+                report = report_result.value
+                if report is None or report.user_uid != user_uid:
+                    return Result.fail(
+                        Errors.validation(f"You do not own report {uid}", field="report_uids")
+                    )
+
+            return await reports_core_service.bulk_tag(uids=req.report_uids, tags=req.tags)
+
+        @rt("/api/reports/bulk/delete")
+        @boundary_handler()
+        async def bulk_delete_route(request: Request, user_uid: str) -> Result[Any]:
+            """
+            Bulk delete reports.
+
+            Query parameters:
+            - user_uid: User UID
+
+            JSON body:
+            - report_uids: List of report UIDs
+            - soft_delete: Boolean (default True)
+            """
+            body = await request.json()
+            req = BulkDeleteRequest.model_validate(body)
+
+            # Verify ownership
+            for uid in req.report_uids:
+                report_result = await report_service.get_report(uid)
+                if report_result.is_error:
+                    return Result.fail(report_result.expect_error())
+
+                report = report_result.value
+                if report is None or report.user_uid != user_uid:
+                    return Result.fail(
+                        Errors.validation(f"You do not own report {uid}", field="report_uids")
+                    )
+
+            return await reports_core_service.bulk_delete(
+                uids=req.report_uids, soft_delete=req.soft_delete
             )
 
-        return await reports_service.detect_cross_domain_patterns(user_uid, start_date, end_date)
+        @rt("/api/reports/by-category")
+        @boundary_handler()
+        async def get_by_category_route(
+            request: Request, user_uid: str, category: str, limit: int = 50
+        ) -> Result[Any]:
+            """
+            Get reports by category.
 
-    return []
+            Query parameters:
+            - user_uid: User UID
+            - category: Category string
+            - limit: Max results (default 50)
+            """
+            return await reports_core_service.get_reports_by_category(
+                category=category, limit=limit, user_uid=user_uid
+            )
+
+        @rt("/api/reports/recent")
+        @boundary_handler()
+        async def get_recent_route(request: Request, user_uid: str, limit: int = 10) -> Result[Any]:
+            """
+            Get recent reports.
+
+            Query parameters:
+            - user_uid: User UID
+            - limit: Max results (default 10)
+            """
+            return await reports_core_service.get_recent_reports(limit=limit, user_uid=user_uid)
+
+        logger.info("Report content management routes registered (12 new routes)")
+
+    logger.info("Reports API routes created successfully")
+
+    return [
+        upload_report_route,
+        list_reports_route,
+        get_report_route,
+        process_report_route,
+        download_original_file_route,
+        download_processed_file_route,
+        get_statistics_route,
+    ]

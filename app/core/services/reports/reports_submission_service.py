@@ -1,17 +1,17 @@
 """
-Assignment Submission Service
+Report Submission Service
 ==============================
 
-Handles file uploads and assignment record creation.
+Handles file uploads and report record creation.
 
 Responsibilities:
 - Store uploaded files (local or cloud)
-- Create Assignment records in Neo4j
-- Basic CRUD for assignments
+- Create Report records in Neo4j
+- Basic CRUD for reports
 - Query by type, status, user
 
 Does NOT handle:
-- Processing logic (AssignmentProcessorService)
+- Processing logic (ReportsProcessingService)
 - AI transcript formatting (TranscriptProcessorService)
 """
 
@@ -22,31 +22,31 @@ from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
-from core.events.assignment_events import AssignmentSubmitted
-from core.models.assignment.assignment import (
-    Assignment,
-    AssignmentDTO,
-    AssignmentStatus,
-    AssignmentType,
+from core.events.report_events import ReportSubmitted
+from core.models.report.report import (
+    Report,
+    ReportDTO,
+    ReportStatus,
+    ReportType,
     ProcessorType,
 )
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations
-from core.services.protocols.query_types import AssignmentUpdatePayload
+from core.services.protocols.query_types import ReportUpdatePayload
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Assignment]):
+class ReportSubmissionService(BaseService[BackendOperations[Report], Report]):
     """
-    Service for file submission and assignment management.
+    Service for file submission and report management.
 
     Phase 1 Implementation:
     - File upload and storage
-    - Assignment record creation
+    - Report record creation
     - Basic CRUD operations
     - Query by type, status, user
 
@@ -57,9 +57,9 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
     - Webhook notifications
 
 
-    Source Tag: "assignment_submission_explicit"
-    - Format: "assignment_submission_explicit" for user-created relationships
-    - Format: "assignment_submission_inferred" for system-generated relationships
+    Source Tag: "report_submission_explicit"
+    - Format: "report_submission_explicit" for user-created relationships
+    - Format: "report_submission_inferred" for system-generated relationships
 
     Confidence Scoring:
     - 0.9+: User explicitly defined relationship
@@ -73,37 +73,37 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
     # DomainConfig (January 2026 Phase 3)
     # =========================================================================
     _config = DomainConfig(
-        dto_class=AssignmentDTO,
-        model_class=Assignment,
-        entity_label="Assignment",
+        dto_class=ReportDTO,
+        model_class=Report,
+        entity_label="Report",
         search_fields=("original_filename", "file_type", "processed_title"),
         search_order_by="submitted_at",
-        category_field="assignment_type",
+        category_field="report_type",
         user_ownership_relationship="OWNS",  # User-owned content
     )
 
     def __init__(
         self,
-        backend: UniversalNeo4jBackend[Assignment],
-        storage_path: str = "/tmp/skuel_assignments",
+        backend: UniversalNeo4jBackend[Report],
+        storage_path: str = "/tmp/skuel_reports",
         event_bus=None,
     ) -> None:
         """
-        Initialize assignment submission service.
+        Initialize report submission service.
 
         Args:
-            backend: UniversalNeo4jBackend for Assignment storage
-            storage_path: Base path for file storage (default: /tmp/skuel_assignments)
+            backend: UniversalNeo4jBackend for Report storage
+            storage_path: Base path for file storage (default: /tmp/skuel_reports)
             event_bus: Event bus for domain events (optional)
         """
-        super().__init__(backend, "AssignmentSubmissionService")
+        super().__init__(backend, "ReportSubmissionService")
         self.storage_path = Path(storage_path)
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.assignment_submission")
+        self.logger = get_logger("skuel.services.report_submission")
 
         # Ensure storage directory exists
         self.storage_path.mkdir(parents=True, exist_ok=True)
-        self.logger.info(f"Assignment storage path: {self.storage_path}")
+        self.logger.info(f"Report storage path: {self.storage_path}")
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -111,8 +111,8 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Assignment entities."""
-        return "Assignment"
+        """Return the graph label for Report entities."""
+        return "Report"
 
     # ========================================================================
     # FILE SUBMISSION
@@ -124,35 +124,35 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
         file_content: bytes,
         original_filename: str,
         user_uid: str,
-        assignment_type: AssignmentType,
+        report_type: ReportType,
         processor_type: ProcessorType = ProcessorType.AUTOMATIC,
         file_type: str | None = None,
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
-    ) -> Result[Assignment]:
+    ) -> Result[Report]:
         """
         Submit a file for processing.
 
         Steps:
         1. Store file to disk/cloud
-        2. Create Assignment record in Neo4j
-        3. Return Assignment with SUBMITTED status
+        2. Create Report record in Neo4j
+        3. Return Report with SUBMITTED status
 
         Args:
             file_content: Raw file bytes
             original_filename: Original filename from upload
             user_uid: User submitting the file
-            assignment_type: Type of assignment (journal, transcript, etc.)
+            report_type: Type of report (journal, transcript, etc.)
             processor_type: Processor to use (default: AUTOMATIC)
             file_type: MIME type (optional, will detect from filename)
             metadata: Additional metadata (optional)
             applies_knowledge_uids: Knowledge Units being applied (MVP - Phase C)
 
         Returns:
-            Result containing created Assignment
+            Result containing created Report
         """
         # Generate unique UID
-        uid = UIDGenerator.generate_random_uid("assignment")
+        uid = UIDGenerator.generate_random_uid("report")
 
         # Determine file type if not provided
         if not file_type:
@@ -160,7 +160,7 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
 
         # Store file
         file_path_result = await self._store_file(
-            file_content=file_content, filename=original_filename, assignment_uid=uid
+            file_content=file_content, filename=original_filename, report_uid=uid
         )
 
         if file_path_result.is_error:
@@ -168,12 +168,12 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
 
         file_path = file_path_result.value
 
-        # Create assignment record
-        assignment = Assignment(
+        # Create report record
+        report = Report(
             uid=uid,
             user_uid=user_uid,
-            assignment_type=assignment_type,
-            status=AssignmentStatus.SUBMITTED,
+            report_type=report_type,
+            status=ReportStatus.SUBMITTED,
             original_filename=original_filename,
             file_path=str(file_path),
             file_size=len(file_content),
@@ -183,7 +183,7 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
         )
 
         # Store in Neo4j
-        create_result = await self.backend.create(assignment)
+        create_result = await self.backend.create(report)
 
         if create_result.is_error:
             # Clean up file if Neo4j storage fails
@@ -210,16 +210,16 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
                 # Don't fail the whole submission, just log the warning
 
         self.logger.info(
-            f"Assignment submitted: {uid} "
-            f"(type={assignment_type.value}, size={len(file_content)} bytes, "
+            f"Report submitted: {uid} "
+            f"(type={report_type.value}, size={len(file_content)} bytes, "
             f"applies_knowledge={len(applies_knowledge_uids or [])} KUs)"
         )
 
-        # Publish AssignmentSubmitted event
-        event = AssignmentSubmitted(
-            assignment_uid=uid,
+        # Publish ReportSubmitted event
+        event = ReportSubmitted(
+            report_uid=uid,
             user_uid=user_uid,
-            assignment_type=assignment_type.value,
+            report_type=report_type.value,
             processor_type=processor_type.value,
             file_size=len(file_content),
             file_type=file_type,
@@ -232,7 +232,7 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
         return create_result
 
     async def _store_file(
-        self, file_content: bytes, filename: str, assignment_uid: str
+        self, file_content: bytes, filename: str, report_uid: str
     ) -> Result[Path]:
         """
         Store file to disk.
@@ -240,25 +240,25 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
         File organization:
         /storage_path/
             YYYY-MM/
-                assignment_uid/
+                report_uid/
                     original_filename
 
         Args:
             file_content: Raw file bytes
             filename: Original filename
-            assignment_uid: Assignment UID (for directory organization)
+            report_uid: Report UID (for directory organization)
 
         Returns:
             Result containing full file path
         """
         try:
-            # Organize by month: /storage/2025-11/assignment.abc123/file.mp3
+            # Organize by month: /storage/2025-11/report.abc123/file.mp3
             month_dir = self.storage_path / datetime.now().strftime("%Y-%m")
-            assignment_dir = month_dir / assignment_uid
-            assignment_dir.mkdir(parents=True, exist_ok=True)
+            report_dir = month_dir / report_uid
+            report_dir.mkdir(parents=True, exist_ok=True)
 
             # Store with original filename
-            file_path = assignment_dir / filename
+            file_path = report_dir / filename
 
             # Write file
             file_path.write_bytes(file_content)
@@ -285,35 +285,35 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
         return mime_type or "application/octet-stream"
 
     # ========================================================================
-    # ASSIGNMENT QUERIES
+    # REPORT QUERIES
     # ========================================================================
 
-    @with_error_handling("list_assignments")
-    async def list_assignments(
+    @with_error_handling("list_reports")
+    async def list_reports(
         self,
         user_uid: str,
-        assignment_type: AssignmentType | None = None,
-        status: AssignmentStatus | None = None,
+        report_type: ReportType | None = None,
+        status: ReportStatus | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Result[list[Assignment]]:
+    ) -> Result[list[Report]]:
         """
-        List assignments for a user with optional filters.
+        List reports for a user with optional filters.
 
         Args:
             user_uid: User UID
-            assignment_type: Filter by type (optional)
+            report_type: Filter by type (optional)
             status: Filter by status (optional)
             limit: Max results (default 50)
             offset: Pagination offset (default 0)
 
         Returns:
-            Result containing list of assignments
+            Result containing list of reports
         """
         filters = {"user_uid": user_uid}
 
-        if assignment_type:
-            filters["assignment_type"] = assignment_type.value
+        if report_type:
+            filters["report_type"] = report_type.value
 
         if status:
             filters["status"] = status.value
@@ -327,24 +327,24 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
 
         return Result.ok(result.value)
 
-    @with_error_handling("get_assignment")
-    async def get_assignment(self, uid: str) -> Result[Assignment | None]:
-        """Get assignment by UID."""
+    @with_error_handling("get_report")
+    async def get_report(self, uid: str) -> Result[Report | None]:
+        """Get report by UID."""
         return await self.backend.get(uid)
 
-    @with_error_handling("count_assignments")
-    async def count_assignments(
+    @with_error_handling("count_reports")
+    async def count_reports(
         self,
         user_uid: str,
-        assignment_type: AssignmentType | None = None,
-        status: AssignmentStatus | None = None,
+        report_type: ReportType | None = None,
+        status: ReportStatus | None = None,
     ) -> Result[int]:
         """
-        Count assignments for a user with optional filters.
+        Count reports for a user with optional filters.
 
         Args:
             user_uid: User UID
-            assignment_type: Filter by type (optional)
+            report_type: Filter by type (optional)
             status: Filter by status (optional)
 
         Returns:
@@ -352,8 +352,8 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
         """
         filters = {"user_uid": user_uid}
 
-        if assignment_type:
-            filters["assignment_type"] = assignment_type.value
+        if report_type:
+            filters["report_type"] = report_type.value
 
         if status:
             filters["status"] = status.value
@@ -361,52 +361,52 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
         return await self.backend.count(**filters)
 
     # ========================================================================
-    # ASSIGNMENT UPDATES
+    # REPORT UPDATES
     # ========================================================================
 
-    @with_error_handling("update_assignment_status")
-    async def update_assignment_status(
-        self, uid: str, new_status: AssignmentStatus, error_message: str | None = None
-    ) -> Result[Assignment]:
+    @with_error_handling("update_report_status")
+    async def update_report_status(
+        self, uid: str, new_status: ReportStatus, error_message: str | None = None
+    ) -> Result[Report]:
         """
-        Update assignment status.
+        Update report status.
 
         Args:
-            uid: Assignment UID
+            uid: Report UID
             new_status: New status
             error_message: Error message if status is FAILED
 
         Returns:
-            Result containing updated assignment
+            Result containing updated report
         """
-        updates: AssignmentUpdatePayload = {"status": new_status.value}
+        updates: ReportUpdatePayload = {"status": new_status.value}
 
         # Set timestamps based on status transitions
-        if new_status == AssignmentStatus.PROCESSING:
+        if new_status == ReportStatus.PROCESSING:
             updates["processing_started_at"] = datetime.now()
-        elif new_status in {AssignmentStatus.COMPLETED, AssignmentStatus.FAILED}:
+        elif new_status in {ReportStatus.COMPLETED, ReportStatus.FAILED}:
             updates["processing_completed_at"] = datetime.now()
 
-        if new_status == AssignmentStatus.FAILED and error_message:
+        if new_status == ReportStatus.FAILED and error_message:
             updates["processing_error"] = error_message
 
         result = await self.backend.update(uid, updates)
 
         if result.is_ok:
-            self.logger.info(f"Assignment {uid} status updated: {new_status.value}")
+            self.logger.info(f"Report {uid} status updated: {new_status.value}")
 
         return result
 
-    async def update_assignment(self, uid: str, updates: dict[str, Any]) -> Result[Assignment]:
+    async def update_report(self, uid: str, updates: dict[str, Any]) -> Result[Report]:
         """
-        Update assignment with arbitrary fields.
+        Update report with arbitrary fields.
 
         Args:
-            uid: Assignment UID
+            uid: Report UID
             updates: Dictionary of field updates (e.g., {"processed_content": ..., "metadata": ...})
 
         Returns:
-            Result containing updated assignment
+            Result containing updated report
         """
         # Serialize metadata to JSON string for Neo4j storage
         # Neo4j cannot store nested dicts/maps as property values
@@ -418,24 +418,24 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
 
         if result.is_ok:
             field_names = ", ".join(updates.keys())
-            self.logger.info(f"Assignment {uid} updated: {field_names}")
+            self.logger.info(f"Report {uid} updated: {field_names}")
 
         return result
 
     @with_error_handling("update_processed_content")
     async def update_processed_content(
         self, uid: str, processed_content: str, processed_file_path: str | None = None
-    ) -> Result[Assignment]:
+    ) -> Result[Report]:
         """
-        Update assignment with processed content.
+        Update report with processed content.
 
         Args:
-            uid: Assignment UID
+            uid: Report UID
             processed_content: Processed text content
             processed_file_path: Path to processed file (optional)
 
         Returns:
-            Result containing updated assignment
+            Result containing updated report
         """
         updates = {"processed_content": processed_content}
 
@@ -445,7 +445,7 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
         result = await self.backend.update(uid, updates)
 
         if result.is_ok:
-            self.logger.info(f"Assignment {uid} processed content updated")
+            self.logger.info(f"Report {uid} processed content updated")
 
         return result
 
@@ -453,31 +453,31 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
     # DELETION AND CLEANUP
     # ========================================================================
 
-    @with_error_handling("delete_assignment_with_file")
-    async def delete_assignment_with_file(self, uid: str) -> Result[bool]:
+    @with_error_handling("delete_report_with_file")
+    async def delete_report_with_file(self, uid: str) -> Result[bool]:
         """
-        Delete assignment record AND its associated file from disk.
+        Delete report record AND its associated file from disk.
 
         This is a hard delete - both the Neo4j record and the file are permanently removed.
         Used for FIFO cleanup of ephemeral journal types.
 
         Args:
-            uid: Assignment UID to delete
+            uid: Report UID to delete
 
         Returns:
             Result containing True if deleted successfully
         """
-        # Get assignment to retrieve file_path
-        assignment_result = await self.get_assignment(uid)
-        if assignment_result.is_error:
-            return Result.fail(assignment_result.expect_error())
+        # Get report to retrieve file_path
+        report_result = await self.get_report(uid)
+        if report_result.is_error:
+            return Result.fail(report_result.expect_error())
 
-        assignment = assignment_result.value
-        if not assignment:
-            return Result.fail(Errors.not_found("Assignment", uid))
+        report = report_result.value
+        if not report:
+            return Result.fail(Errors.not_found("Report", uid))
 
-        file_path = Path(assignment.file_path) if assignment.file_path else None
-        assignment_dir = file_path.parent if file_path else None
+        file_path = Path(report.file_path) if report.file_path else None
+        report_dir = file_path.parent if file_path else None
 
         # Delete Neo4j record first
         delete_result = await self.backend.delete(uid)
@@ -490,16 +490,16 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
                 file_path.unlink()
                 self.logger.info(f"Deleted file: {file_path}")
 
-                # Also delete the assignment directory if empty
-                if assignment_dir and assignment_dir.exists() and not any(assignment_dir.iterdir()):
-                    assignment_dir.rmdir()
-                    self.logger.debug(f"Removed empty directory: {assignment_dir}")
+                # Also delete the report directory if empty
+                if report_dir and report_dir.exists() and not any(report_dir.iterdir()):
+                    report_dir.rmdir()
+                    self.logger.debug(f"Removed empty directory: {report_dir}")
 
             except Exception as e:
                 # Log but don't fail - Neo4j record is already deleted
                 self.logger.warning(f"Failed to delete file {file_path}: {e}")
 
-        self.logger.info(f"Assignment deleted with file: {uid}")
+        self.logger.info(f"Report deleted with file: {uid}")
         return Result.ok(True)
 
     # ========================================================================
@@ -507,29 +507,29 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
     # ========================================================================
 
     @with_error_handling("get_file_content")
-    async def get_file_content(self, assignment_uid: str) -> Result[bytes]:
+    async def get_file_content(self, report_uid: str) -> Result[bytes]:
         """
         Retrieve original file content.
 
         Args:
-            assignment_uid: Assignment UID
+            report_uid: Report UID
 
         Returns:
             Result containing file bytes
         """
-        # Get assignment to find file path
-        assignment_result = await self.get_assignment(assignment_uid)
+        # Get report to find file path
+        report_result = await self.get_report(report_uid)
 
-        if assignment_result.is_error:
-            return Result.fail(assignment_result.expect_error())
+        if report_result.is_error:
+            return Result.fail(report_result.expect_error())
 
-        assignment = assignment_result.value
-        if not assignment:
-            return Result.fail(Errors.not_found("Assignment", assignment_uid))
+        report = report_result.value
+        if not report:
+            return Result.fail(Errors.not_found("Report", report_uid))
 
         # Read file
         try:
-            file_path = Path(assignment.file_path)
+            file_path = Path(report.file_path)
             if not file_path.exists():
                 return Result.fail(Errors.not_found(resource="File", identifier=str(file_path)))
 
@@ -544,37 +544,37 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
             )
 
     @with_error_handling("get_processed_file_content")
-    async def get_processed_file_content(self, assignment_uid: str) -> Result[bytes]:
+    async def get_processed_file_content(self, report_uid: str) -> Result[bytes]:
         """
         Retrieve processed file content.
 
         Args:
-            assignment_uid: Assignment UID
+            report_uid: Report UID
 
         Returns:
             Result containing processed file bytes
         """
-        # Get assignment to find processed file path
-        assignment_result = await self.get_assignment(assignment_uid)
+        # Get report to find processed file path
+        report_result = await self.get_report(report_uid)
 
-        if assignment_result.is_error:
-            return Result.fail(assignment_result.expect_error())
+        if report_result.is_error:
+            return Result.fail(report_result.expect_error())
 
-        assignment = assignment_result.value
-        if not assignment:
-            return Result.fail(Errors.not_found("Assignment", assignment_uid))
+        report = report_result.value
+        if not report:
+            return Result.fail(Errors.not_found("Report", report_uid))
 
-        if not assignment.processed_file_path:
+        if not report.processed_file_path:
             return Result.fail(
                 Errors.validation(
-                    message="No processed file available for this assignment",
+                    message="No processed file available for this report",
                     field="processed_file_path",
                 )
             )
 
         # Read processed file
         try:
-            file_path = Path(assignment.processed_file_path)
+            file_path = Path(report.processed_file_path)
             if not file_path.exists():
                 return Result.fail(
                     Errors.not_found(resource="ProcessedFile", identifier=str(file_path))
@@ -596,10 +596,10 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
     # STATISTICS
     # ========================================================================
 
-    @with_error_handling("get_assignment_statistics")
-    async def get_assignment_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
+    @with_error_handling("get_report_statistics")
+    async def get_report_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
         """
-        Get assignment statistics for a user.
+        Get report statistics for a user.
 
         Returns counts by type and status.
 
@@ -609,22 +609,22 @@ class AssignmentSubmissionService(BaseService[BackendOperations[Assignment], Ass
         Returns:
             Result containing statistics dictionary
         """
-        # Count total assignments
-        total_result = await self.count_assignments(user_uid)
+        # Count total reports
+        total_result = await self.count_reports(user_uid)
         if total_result.is_error:
             return Result.fail(total_result.expect_error())
 
         statistics: dict[str, Any] = {"total": total_result.value, "by_type": {}, "by_status": {}}
 
         # Count by type
-        for assignment_type in AssignmentType:
-            count_result = await self.count_assignments(user_uid, assignment_type=assignment_type)
+        for report_type in ReportType:
+            count_result = await self.count_reports(user_uid, report_type=report_type)
             if count_result.is_ok:
-                statistics["by_type"][assignment_type.value] = count_result.value
+                statistics["by_type"][report_type.value] = count_result.value
 
         # Count by status
-        for status in AssignmentStatus:
-            count_result = await self.count_assignments(user_uid, status=status)
+        for status in ReportStatus:
+            count_result = await self.count_reports(user_uid, status=status)
             if count_result.is_ok:
                 statistics["by_status"][status.value] = count_result.value
 

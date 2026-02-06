@@ -318,7 +318,9 @@ async def test_get_history_pagination(sync_history_service, mock_neo4j_driver):
 
 
 @pytest.mark.asyncio
-async def test_get_history_with_errors(sync_history_service, mock_neo4j_driver, mock_sync_history_data):
+async def test_get_history_with_errors(
+    sync_history_service, mock_neo4j_driver, mock_sync_history_data
+):
     """Test retrieval includes error nodes."""
     # Mock sync history with errors
     mock_sh_node = Mock()
@@ -522,12 +524,27 @@ async def test_complete_sync_workflow(sync_history_service, mock_neo4j_driver):
         "source_path": "/vault/docs",
         **stats,
     }[key]
-    mock_sh_node.get = lambda key, default=None: mock_sh_node[key] if key in [
-        "operation_id", "operation_type", "started_at", "completed_at",
-        "status", "user_uid", "source_path", "total_files", "successful",
-        "failed", "nodes_created", "nodes_updated", "relationships_created",
-        "duration_seconds",
-    ] else default
+    mock_sh_node.get = (
+        lambda key, default=None: mock_sh_node[key]
+        if key
+        in [
+            "operation_id",
+            "operation_type",
+            "started_at",
+            "completed_at",
+            "status",
+            "user_uid",
+            "source_path",
+            "total_files",
+            "successful",
+            "failed",
+            "nodes_created",
+            "nodes_updated",
+            "relationships_created",
+            "duration_seconds",
+        ]
+        else default
+    )
 
     mock_neo4j_driver.execute_query.return_value = Mock(
         records=[Mock(__getitem__=lambda self, key: {"sh": mock_sh_node, "errors": []}[key])]
@@ -565,9 +582,7 @@ async def test_update_entry_with_empty_stats(sync_history_service, mock_neo4j_dr
 @pytest.mark.asyncio
 async def test_create_entry_with_special_characters(sync_history_service, mock_neo4j_driver):
     """Test create_entry handles special characters in paths."""
-    mock_neo4j_driver.execute_query.return_value = Mock(
-        records=[Mock(operation_id="test-uuid")]
-    )
+    mock_neo4j_driver.execute_query.return_value = Mock(records=[Mock(operation_id="test-uuid")])
 
     result = await sync_history_service.create_entry(
         operation_type="directory",

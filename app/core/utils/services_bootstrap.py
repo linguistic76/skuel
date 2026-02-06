@@ -27,10 +27,10 @@ THE 14 DOMAINS COMPOSED HERE
     10. lp        → LpService         - Learning Paths (lp:)
 
 **Content/Organization Domain Services (4):**
-    11. journals/assignments → AssignmentsCoreService - File processing
+    11. journals/reports → ReportsCoreService - File processing
     12. moc       → MocService        - Map of Content organization
-    13. life_path → ReportLifePathService - Life goal alignment
-    14. reports   → ReportService     - Statistical aggregation
+    13. life_path → AnalyticsLifePathService - Life goal alignment
+    14. analytics → AnalyticsService     - Statistical aggregation
 
 THE 4 CROSS-CUTTING SYSTEMS
 ---------------------------
@@ -201,21 +201,23 @@ class Services:
     journal_feedback: Any = None  # JournalFeedbackService - LLM feedback on journals
     journal_projects: Any = None  # JournalProjectService - Reusable LLM project templates
 
-    # Assignment services (Phase 1 - File submission pipeline)
-    assignments: Any = None  # AssignmentSubmissionService - File upload and assignment management
-    assignments_core: Any = (
-        None  # AssignmentsCoreService - Content management (categories, tags, bulk operations)
+    # Report services (Phase 1 - File submission pipeline)
+    reports: Any = None  # ReportSubmissionService - File upload and report management
+    reports_core: Any = (
+        None  # ReportsCoreService - Content management (categories, tags, bulk operations)
     )
-    assignments_sharing: Any = (
-        None  # AssignmentSharingService - Content sharing and visibility control (Phase 1)
+    reports_sharing: Any = (
+        None  # ReportSharingService - Content sharing and visibility control (Phase 1)
     )
-    assignment_processor: Any = (
-        None  # AssignmentProcessorService - Orchestrates processing (LLM, human, hybrid)
+    report_processor: Any = (
+        None  # ReportsProcessingService - Orchestrates processing (LLM, human, hybrid)
     )
-    processing_pipeline: Any = None  # Alias for assignment_processor
+    processing_pipeline: Any = None  # Alias for report_processor
 
-    # Assignments query service (Unified query interface for all assignment types)
-    assignments_query: Any = None  # AssignmentsQueryService - Query all assignment types (journals, essays, projects, etc.)
+    # Reports query service (Unified query interface for all report types)
+    reports_query: Any = (
+        None  # ReportsSearchService - Query all report types (journals, essays, projects, etc.)
+    )
 
     # System services
     # Note: sync field REMOVED (January 2026) - use unified_ingestion instead
@@ -294,8 +296,8 @@ class Services:
     # Vision capture + alignment measurement + recommendations
     lifepath: Any = None  # LifePathService - Vision→Action bridge (January 2026)
 
-    # Report services (meta-service, not a domain)
-    reports: Any = None  # ReportService - Statistical report generation
+    # Analytics services (meta-service, not a domain)
+    analytics: Any = None  # AnalyticsService - Statistical report generation
     cross_domain_analytics: Any = (
         None  # CrossDomainAnalyticsService - Event-driven analytics (Phase 5)
     )
@@ -982,7 +984,7 @@ async def compose_services(
         # "The plant (models) grows on the lattice (UniversalNeo4jBackend)"
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.askesis.askesis import Askesis
-        from core.models.assignment.assignment import Assignment
+        from core.models.report.report import Report
         from core.models.choice.choice import Choice
         from core.models.event.event import Event
         from core.models.finance.finance_pure import ExpensePure
@@ -1064,8 +1066,8 @@ async def compose_services(
         # NOTE: MOC backend REMOVED (January 2026) - MOC is now KU-based
         # MOC is a KU with ORGANIZES relationships, uses KU backend via MOCService
         # See /docs/domains/moc.md for the KU-based architecture
-        assignments_backend = UniversalNeo4jBackend[Assignment](
-            driver, NeoLabel.ASSIGNMENT, Assignment, prometheus_metrics=prometheus_metrics
+        reports_backend = UniversalNeo4jBackend[Report](
+            driver, NeoLabel.REPORT, Report, prometheus_metrics=prometheus_metrics
         )
         askesis_backend = UniversalNeo4jBackend[Askesis](
             driver, NeoLabel.ASKESIS, Askesis, prometheus_metrics=prometheus_metrics
@@ -1563,7 +1565,7 @@ async def compose_services(
         logger.info("✅ Transcript processor service created")
 
         # Create journals core service for dedicated Journal node CRUD (January 2026)
-        # Domain Separation: Journals (personal reflections) vs Assignments (file submission)
+        # Domain Separation: Journals (personal reflections) vs Reports (file submission)
         from core.services.journals import JournalsCoreService
 
         journals_core_service = JournalsCoreService(
@@ -1619,57 +1621,57 @@ async def compose_services(
         except Exception as e:
             logger.warning(f"Failed to load default transcript project: {e}")
 
-        # Create assignment submission and processing pipeline services (Phase 1)
-        from core.services.assignments import (
-            AssignmentProcessorService,
-            AssignmentsCoreService,
-            AssignmentsQueryService,
-            AssignmentSubmissionService,
+        # Create report submission and processing pipeline services (Phase 1)
+        from core.services.reports import (
+            ReportsProcessingService,
+            ReportsCoreService,
+            ReportsSearchService,
+            ReportSubmissionService,
         )
 
-        # Get storage path from environment (default: /tmp/skuel_assignments)
-        storage_path = os.getenv("SKUEL_ASSIGNMENT_STORAGE", "/tmp/skuel_assignments")
+        # Get storage path from environment (default: /tmp/skuel_reports)
+        storage_path = os.getenv("SKUEL_REPORT_STORAGE", "/tmp/skuel_reports")
 
-        assignment_service = AssignmentSubmissionService(
-            backend=assignments_backend, storage_path=storage_path, event_bus=event_bus
+        report_service = ReportSubmissionService(
+            backend=reports_backend, storage_path=storage_path, event_bus=event_bus
         )
 
-        # Create assignment sharing service (Phase 1: Assignment Portfolio)
-        from core.services.assignments import AssignmentSharingService
+        # Create report sharing service (Phase 1: Report Portfolio)
+        from core.services.reports import ReportSharingService
 
-        assignment_sharing_service = AssignmentSharingService(driver=driver)
+        report_sharing_service = ReportSharingService(driver=driver)
 
-        # Create assignments core service (content management: categories, tags, bulk operations)
-        assignments_core_service = AssignmentsCoreService(
-            backend=assignments_backend,
+        # Create reports core service (content management: categories, tags, bulk operations)
+        reports_core_service = ReportsCoreService(
+            backend=reports_backend,
             event_bus=event_bus,
-            sharing_service=assignment_sharing_service,
+            sharing_service=report_sharing_service,
         )
 
-        assignment_processor = AssignmentProcessorService(
-            assignment_service=assignment_service,
+        report_processor = ReportsProcessingService(
+            report_service=report_service,
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
             transcript_processor=transcript_processor,  # For LLM formatting
             event_bus=event_bus,
         )
 
-        # Create assignments query service (unified query interface)
-        assignments_query_service = AssignmentsQueryService(
-            assignment_backend=assignments_backend, event_bus=event_bus
+        # Create reports query service (unified query interface)
+        reports_query_service = ReportsSearchService(
+            report_backend=reports_backend, event_bus=event_bus
         )
 
-        logger.info("✅ Assignment submission and processing pipeline services created (Phase 1)")
+        logger.info("✅ Report submission and processing pipeline services created (Phase 1)")
         logger.info(
-            "✅ Assignments core service created (content management: categories, tags, bulk ops)"
+            "✅ Reports core service created (content management: categories, tags, bulk ops)"
         )
         logger.info(
-            "✅ Assignments query service created (unified query interface for all assignment types)"
+            "✅ Reports query service created (unified query interface for all report types)"
         )
 
-        # Create report service
-        from core.services.report_service import ReportService
+        # Create analytics service
+        from core.services.analytics_service import AnalyticsService
 
-        report_service = ReportService(
+        analytics_service = AnalyticsService(
             tasks_service=activity_services["tasks"],
             habits_service=activity_services["habits"],
             goals_service=activity_services["goals"],
@@ -1683,7 +1685,7 @@ async def compose_services(
             lp_service=learning_services["learning_paths"],  # Layer 0 reporting
             event_bus=event_bus,  # Phase 4: Event-driven report generation
         )
-        logger.info("✅ Report service created")
+        logger.info("✅ Analytics service created")
 
         # =====================================================================
         # LIFEPATH SERVICE (Domain #14: The Destination)
@@ -2062,16 +2064,22 @@ async def compose_services(
         from core.events.habit_events import HabitCompleted
         from core.events.task_events import TaskCompleted
 
-        analytics_service = advanced["cross_domain_analytics"]
-        event_bus.subscribe(TaskCompleted, analytics_service.handle_task_completed)
-        event_bus.subscribe(HabitCompleted, analytics_service.handle_habit_completed)
-        event_bus.subscribe(CalendarEventCompleted, analytics_service.handle_event_completed)
-        event_bus.subscribe(ExpenseCreated, analytics_service.handle_expense_created)
-        event_bus.subscribe(ExpensePaid, analytics_service.handle_expense_paid)
-        event_bus.subscribe(GoalCreated, analytics_service.handle_goal_created)
-        event_bus.subscribe(KnowledgeMastered, analytics_service.handle_knowledge_mastered)
-        event_bus.subscribe(LearningPathCompleted, analytics_service.handle_path_completed)
-        event_bus.subscribe(JournalCreated, analytics_service.handle_journal_created)
+        cross_domain_analytics_service = advanced["cross_domain_analytics"]
+        event_bus.subscribe(TaskCompleted, cross_domain_analytics_service.handle_task_completed)
+        event_bus.subscribe(HabitCompleted, cross_domain_analytics_service.handle_habit_completed)
+        event_bus.subscribe(
+            CalendarEventCompleted, cross_domain_analytics_service.handle_event_completed
+        )
+        event_bus.subscribe(ExpenseCreated, cross_domain_analytics_service.handle_expense_created)
+        event_bus.subscribe(ExpensePaid, cross_domain_analytics_service.handle_expense_paid)
+        event_bus.subscribe(GoalCreated, cross_domain_analytics_service.handle_goal_created)
+        event_bus.subscribe(
+            KnowledgeMastered, cross_domain_analytics_service.handle_knowledge_mastered
+        )
+        event_bus.subscribe(
+            LearningPathCompleted, cross_domain_analytics_service.handle_path_completed
+        )
+        event_bus.subscribe(JournalCreated, cross_domain_analytics_service.handle_journal_created)
         logger.info(
             "✅ CrossDomainAnalyticsService subscribed to 9 event types "
             "(Tasks, Habits, Events, Expenses, Goals, Knowledge, Paths, Journals)"
@@ -2080,11 +2088,11 @@ async def compose_services(
         # Milestone achievements → Automatic report generation (Phase 4)
         from core.events.goal_events import GoalAchieved
 
-        event_bus.subscribe(GoalAchieved, report_service.handle_goal_achieved)
-        event_bus.subscribe(LearningPathCompleted, report_service.handle_learning_path_completed)
-        event_bus.subscribe(HabitStreakMilestone, report_service.handle_habit_streak_milestone)
+        event_bus.subscribe(GoalAchieved, analytics_service.handle_goal_achieved)
+        event_bus.subscribe(LearningPathCompleted, analytics_service.handle_learning_path_completed)
+        event_bus.subscribe(HabitStreakMilestone, analytics_service.handle_habit_streak_milestone)
         logger.info(
-            "✅ ReportService subscribed to 3 milestone events "
+            "✅ AnalyticsService subscribed to 3 milestone events "
             "(GoalAchieved, LearningPathCompleted, HabitStreakMilestone) for auto-report generation"
         )
 
@@ -2251,13 +2259,13 @@ async def compose_services(
             journal_feedback=journal_feedback_service,  # LLM feedback on journals
             journal_projects=journal_project_service,  # Reusable LLM project templates
             # Note: audio_service removed (Dec 2025) - use transcription service directly
-            # Assignments (Phase 1 - File submission pipeline)
-            assignments=assignment_service,
-            assignments_core=assignments_core_service,  # Content management (categories, tags, bulk ops)
-            assignments_sharing=assignment_sharing_service,  # Phase 1: Assignment portfolio sharing
-            assignment_processor=assignment_processor,
-            processing_pipeline=assignment_processor,  # Alias for assignment_processor
-            assignments_query=assignments_query_service,  # Phase 3 - Unified assignment queries
+            # Reports (Phase 1 - File submission pipeline)
+            reports=report_service,
+            reports_core=reports_core_service,  # Content management (categories, tags, bulk ops)
+            reports_sharing=report_sharing_service,  # Phase 1: Report portfolio sharing
+            report_processor=report_processor,
+            processing_pipeline=report_processor,  # Alias for report_processor
+            reports_query=reports_query_service,  # Phase 3 - Unified report queries
             # System
             # Note: sync field removed (January 2026) - use unified_ingestion
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion
@@ -2299,8 +2307,8 @@ async def compose_services(
             vector_search_service=vector_search_service,
             # Background workers (January 2026)
             embedding_worker=embedding_worker,
-            # Reports
-            reports=report_service,
+            # Analytics
+            analytics=analytics_service,
             cross_domain_analytics=advanced["cross_domain_analytics"],  # Phase 5
             # LifePath (Domain #14: The Destination)
             lifepath=lifepath_service,
@@ -2346,20 +2354,20 @@ async def compose_services(
         # The 13 Domains:
         # - Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
         # - Curriculum Domains (3): KU, LS, LP
-        # - Processing Domains (3): Assignments, Journals, Reports
+        # - Processing Domains (3): Reports, Journals, Analytics
         # - Temporal Domain (1): Calendar
 
-        from core.services.assignments import AssignmentRelationshipService
+        from core.services.reports import ReportsRelationshipService
         from core.services.journals import JournalRelationshipService
-        from core.services.report_relationship_service import ReportRelationshipService
+        from core.services.analytics_relationship_service import AnalyticsRelationshipService
         from core.services.user.intelligence import UserContextIntelligenceFactory
 
         # Create processing domain relationship services (Direct Driver pattern)
-        assignment_relationship_service = AssignmentRelationshipService(driver)
+        report_relationship_service = ReportsRelationshipService(driver)
         journal_relationship_service = JournalRelationshipService(driver)
-        report_relationship_service = ReportRelationshipService(driver)
+        analytics_relationship_service = AnalyticsRelationshipService(driver)
         logger.info(
-            "✅ Processing domain relationship services created (Assignments, Journals, Reports)"
+            "✅ Processing domain relationship services created (Reports, Journals, Analytics)"
         )
 
         # Create factory with all 13 domain services
@@ -2380,9 +2388,9 @@ async def compose_services(
                 "learning_paths"
             ].relationships,  # Factory expects 'lp' parameter name
             # Processing Domains (3)
-            assignments=assignment_relationship_service,
+            reports=report_relationship_service,  # ReportsRelationshipService
             journals=journal_relationship_service,
-            reports=report_relationship_service,
+            analytics=analytics_relationship_service,  # AnalyticsRelationshipService
             # Temporal Domain (1)
             calendar=calendar_service,
             # Optional: Vector search for semantic enhancements (Phase 1 - January 2026)

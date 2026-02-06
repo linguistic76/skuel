@@ -8,7 +8,7 @@ Canonical Location: core/models/enums/
 --------------------------------------
 Enums are now organized in focused modules:
 - activity_enums.py: Priority, ActivityStatus, ActivityType, CompletionStatus, GoalStatus
-- entity_enums.py: EntityType, Domain, ReportType, Context
+- entity_enums.py: EntityType, Domain, AnalyticsDomain, Context
 - scheduling_enums.py: RecurrencePattern, TimeOfDay, EnergyLevel
 - learning_enums.py: LearningLevel, EducationalLevel, MasteryStatus, ContentType, etc.
 - metadata_enums.py: RelationshipType, Intent, Visibility, SystemConstants, etc.
@@ -55,7 +55,7 @@ from core.models.enums import (
     Priority,
     RecurrencePattern,
     RelationshipType,
-    ReportType,
+    AnalyticsDomain,
     ResponseTone,
     SearchScope,
     SELCategory,
@@ -103,7 +103,7 @@ __all__ = [
     # Scheduling enums
     "RecurrencePattern",
     "RelationshipType",
-    "ReportType",
+    "AnalyticsDomain",
     # Metadata enums
     "ResponseTone",
     "SELCategory",

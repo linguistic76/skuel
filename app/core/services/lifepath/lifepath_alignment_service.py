@@ -6,7 +6,7 @@ Calculates alignment between user's life path and actual behavior.
 
 This service answers: "Am I living my life path?"
 
-Migrated from ReportLifePathService with enhancements for
+Migrated from AnalyticsLifePathService with enhancements for
 the new vision-based architecture.
 
 Core Philosophy: "Everything flows toward the life path"

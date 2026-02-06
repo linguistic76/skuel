@@ -1,6 +1,6 @@
 """
-Report Metrics Service
-======================
+Analytics Metrics Service
+==========================
 
 Calculates statistical metrics for all domains AND layers.
 
@@ -24,11 +24,11 @@ This service extracts metrics from:
 **Layer 2 Submissions (NEW):**
 - Journals: entry counts, reflection frequency, themes, metacognition
 
-Part of the 4-service Reports architecture:
-- ReportMetricsService: Domain & layer statistics (this file)
-- ReportAggregationService: Cross-domain synthesis
-- ReportLifePathService: Life Path alignment tracking
-- ReportsService: Facade orchestrating all
+Part of the 4-service Analytics architecture:
+- AnalyticsMetricsService: Domain & layer statistics (this file)
+- AnalyticsAggregationService: Cross-domain synthesis
+- AnalyticsLifePathService: Life Path alignment tracking
+- AnalyticsService: Facade orchestrating all
 """
 
 import contextlib
@@ -62,7 +62,7 @@ class HasDateRangeBackend(Protocol):
         ...
 
 
-class ReportMetricsService:
+class AnalyticsMetricsService:
     """
     Calculate statistical metrics for all domains and layers.
 
@@ -71,13 +71,13 @@ class ReportMetricsService:
     - Layer 0: Curriculum services (ku_service, lp_service)
     - Layer 2: Journal service
 
-    Used by single-domain reports, cross-domain Life Reports, and
+    Used by single-domain analytics, cross-domain Life Analytics, and
     cross-layer synthesis.
 
 
-    Source Tag: "report_metrics_explicit"
-    - Format: "report_metrics_explicit" for user-created relationships
-    - Format: "report_metrics_inferred" for system-generated relationships
+    Source Tag: "analytics_metrics_explicit"
+    - Format: "analytics_metrics_explicit" for user-created relationships
+    - Format: "analytics_metrics_inferred" for system-generated relationships
 
     Confidence Scoring:
     - 0.9+: User explicitly defined relationship
@@ -138,7 +138,7 @@ class ReportMetricsService:
         self.lp_service = lp_service
 
         self.logger = logger
-        logger.info("ReportMetricsService initialized with 7 domain + 3 layer services")
+        logger.info("AnalyticsMetricsService initialized with 7 domain + 3 layer services")
 
     # ========================================================================
     # TASKS METRICS
@@ -971,8 +971,8 @@ class ReportMetricsService:
         """
         Calculate journal reflection metrics (Layer 2).
 
-        UPDATED (January 2026): Queries Assignment nodes instead of Journal nodes.
-        This ensures new content created via the Assignment path is included in analytics.
+        UPDATED (January 2026): Queries Report nodes instead of Journal nodes.
+        This ensures new content created via the Report path is included in analytics.
 
         Analyzes journal entries for reflection patterns, themes,
         and metacognition quality.
@@ -1002,9 +1002,9 @@ class ReportMetricsService:
             )
 
         try:
-            # Query Assignment nodes directly instead of calling list_journals()
-            # This ensures we capture journals created via the Assignment path
-            journals = await self._get_journal_assignments(user_uid, start_date, end_date)
+            # Query Report nodes directly instead of calling list_journals()
+            # This ensures we capture journals created via the Report path
+            journals = await self._get_journal_reports(user_uid, start_date, end_date)
 
             if not journals:
                 return Result.ok(
@@ -1025,7 +1025,7 @@ class ReportMetricsService:
             action_items_count = 0
 
             for journal in journals:
-                # Entry length - use processed_content from Assignment
+                # Entry length - use processed_content from Report
                 content = journal.get("processed_content", "")
                 if content:
                     total_length += len(content)
@@ -1078,13 +1078,13 @@ class ReportMetricsService:
                 )
             )
 
-    async def _get_journal_assignments(
+    async def _get_journal_reports(
         self, user_uid: str, start_date: date, end_date: date
     ) -> list[dict[str, Any]]:
         """
-        Get journal Assignment nodes for a user within a date range.
+        Get journal Report nodes for a user within a date range.
 
-        ADDED (January 2026): Direct query to Assignment nodes for journal metrics.
+        ADDED (January 2026): Direct query to Report nodes for journal metrics.
 
         Args:
             user_uid: User identifier
@@ -1092,7 +1092,7 @@ class ReportMetricsService:
             end_date: End of date range
 
         Returns:
-            List of journal assignment dictionaries
+            List of journal report dictionaries
         """
         from datetime import datetime
 

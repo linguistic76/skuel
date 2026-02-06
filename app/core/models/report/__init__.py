@@ -1,20 +1,30 @@
 """
-Report Models Package
+Report Domain Models
 =====================
 
-Clean public API for report domain models following three-tier architecture.
+File submission and processing pipeline models.
+
+A Report represents any file submitted for processing:
+- Transcripts (meeting notes, voice memos)
+- Assignments (document processing)
+- Images (visual analysis)
+- Videos (content summarization)
 """
 
-from core.models.report.report import ReportDTO, ReportPure, dto_to_pure, pure_to_dto
-from core.models.report.report_request import WeeklyPlanningRequest, WeeklyReviewRequest
+from core.models.report.report import (
+    ProcessorType,
+    Report,
+    ReportDTO,
+    ReportStatus,
+    ReportType,
+)
+from core.models.report.report_converters import report_to_response
 
 __all__ = [
-    # Domain models
+    "Report",
     "ReportDTO",
-    "ReportPure",
-    # Request models (Pydantic)
-    "WeeklyPlanningRequest",
-    "WeeklyReviewRequest",
-    "dto_to_pure",
-    "pure_to_dto",
+    "ReportStatus",
+    "ReportType",
+    "ProcessorType",
+    "report_to_response",
 ]

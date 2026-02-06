@@ -52,7 +52,9 @@ class ProgressTracker:
             progress_data = {
                 "current": file_index,
                 "total": self.total_files,
-                "percentage": round((file_index / self.total_files) * 100, 1) if self.total_files > 0 else 0,
+                "percentage": round((file_index / self.total_files) * 100, 1)
+                if self.total_files > 0
+                else 0,
                 "current_file": file_path,
                 "eta_seconds": self._calculate_eta(),
             }

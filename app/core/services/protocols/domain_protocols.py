@@ -28,8 +28,8 @@ THE 14 DOMAINS AND THEIR PROTOCOLS
 **Content/Organization Domain Protocols (4):**
     11. JournalsOperations[JournalPure] - File processing (via Assignments)
     12. MocOperations[Moc]              - Map of Content organization
-    13. (ReportLifePathService)         - Life goal alignment (no protocol)
-    14. (ReportService)                 - Statistical aggregation (no protocol)
+    13. (AnalyticsLifePathService)       - Life goal alignment (no protocol)
+    14. (AnalyticsService)              - Statistical aggregation (no protocol)
 
 THE 4 CROSS-CUTTING SYSTEMS
 ---------------------------

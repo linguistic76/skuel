@@ -7,6 +7,8 @@ tags: [architecture, assignments, pipeline, transcription, journals, two-tier]
 related: [ADR-019-transcription-service-standalone]
 ---
 
+> **Note:** As of 2026-02-06, the Assignments domain has been renamed to Reports. See `/docs/domains/reports.md`.
+
 ## Implementation Status (January 2026)
 
 | Component | Status | Location |

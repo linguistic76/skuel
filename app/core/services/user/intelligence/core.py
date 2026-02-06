@@ -25,7 +25,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
     - LP (LearningPaths): Complete learning journeys
 
     Processing Domains (2 pairs):
-    - Assignments + Reports: Student submits / System reflects (like report cards)
+    - Reports + Analytics: Student submits / System reflects (like report cards)
     - Journals: The "fire in the engine" - where reflection happens
 
     Temporal Domain (1):
@@ -56,7 +56,7 @@ from core.services.user.intelligence.schedule_intelligence import ScheduleIntell
 from core.services.user.intelligence.synergy_intelligence import SynergyIntelligenceMixin
 
 if TYPE_CHECKING:
-    from core.services.assignments import AssignmentRelationshipService
+    from core.services.reports import ReportsRelationshipService
     from core.services.calendar_service import CalendarService
     from core.services.journals import JournalRelationshipService
     from core.services.ku.ku_graph_service import KuGraphService
@@ -64,7 +64,7 @@ if TYPE_CHECKING:
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
     from core.services.relationships import UnifiedRelationshipService
-    from core.services.report_relationship_service import ReportRelationshipService
+    from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.user.unified_user_context import UserContext
 
 
@@ -98,9 +98,9 @@ class UserContextIntelligence(
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
 
     Processing Domains (3):
-    - assignments: AssignmentRelationshipService - Student submissions
+    - reports: ReportsRelationshipService - Student submissions
     - journals: JournalRelationshipService - Reflection (fire in the engine)
-    - reports: ReportRelationshipService - System feedback (report cards)
+    - analytics: AnalyticsRelationshipService - System feedback (report cards)
 
     Temporal Domain (1):
     - calendar: CalendarService - Schedule-aware intelligence
@@ -138,9 +138,9 @@ class UserContextIntelligence(
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
-        assignments: AssignmentRelationshipService,
+        reports: ReportsRelationshipService,
         journals: JournalRelationshipService,
-        reports: ReportRelationshipService,
+        analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements (Phase 1 - January 2026)
@@ -166,9 +166,9 @@ class UserContextIntelligence(
                 lp: Learning path service for critical path analysis
 
             Processing Domains (3):
-                assignments: Assignment relationship service for student work
+                reports: Report relationship service for student work
                 journals: Journal relationship service (fire in the engine)
-                reports: Report relationship service for report cards
+                analytics: Analytics relationship service for report cards
 
             Temporal Domain (1):
                 calendar: Calendar service for schedule-aware intelligence
@@ -194,9 +194,9 @@ class UserContextIntelligence(
             "ls": ls,
             "lp": lp,
             # Processing Domains (3)
-            "assignments": assignments,
-            "journals": journals,
             "reports": reports,
+            "journals": journals,
+            "analytics": analytics,
             # Temporal Domain (1)
             "calendar": calendar,
         }
@@ -225,9 +225,9 @@ class UserContextIntelligence(
         self.lp = lp
 
         # Processing domains (3)
-        self.assignments = assignments
-        self.journals = journals
         self.reports = reports
+        self.journals = journals
+        self.analytics = analytics
 
         # Temporal domain (1)
         self.calendar = calendar

@@ -17,12 +17,12 @@ tags: [journals, content-domain, domain, voice, curated, two-tier, domain-separa
 
 ## Domain Separation (January 2026)
 
-Journals are now a **separate domain** from Assignments:
+Journals are now a **separate domain** from Reports:
 
 | Domain | Entity | Purpose |
 |--------|--------|---------|
 | **Journals** | `:Journal` | Personal reflections, metacognition, LLM feedback |
-| **Assignments** | `:Assignment` | File submission, processing, transcripts, reports |
+| **Reports** | `:Report` | File submission, processing, transcripts, reports |
 
 This separation provides:
 - Clean graph model (no type discriminator needed)
@@ -264,18 +264,18 @@ Tab-based interface:
     └── All Curated Journals
 ```
 
-## Migration from Assignment-Based Storage
+## Migration from Report-Based Storage
 
-Prior to January 2026, journals were stored as Assignment nodes with type discriminator.
+Prior to January 2026, journals were stored as Report nodes with type discriminator.
 Now journals are standalone `:Journal` nodes.
 
 **Changes:**
-- No more `AssignmentType.JOURNAL`, `JOURNAL_VOICE`, `JOURNAL_CURATED`
-- `JournalsCoreService` replaces journal methods in `AssignmentsCoreService`
-- Graph queries use `:Journal` label instead of `:Assignment` with type filter
-- FIFO cleanup moved from `AssignmentSubmissionService` to `JournalsCoreService`
+- No more `ReportType.JOURNAL`, `JOURNAL_VOICE`, `JOURNAL_CURATED`
+- `JournalsCoreService` replaces journal methods in `ReportsCoreService`
+- Graph queries use `:Journal` label instead of `:Report` with type filter
+- FIFO cleanup moved from `ReportSubmissionService` to `JournalsCoreService`
 
 ## See Also
 
-- [Assignments Domain](assignments.md) - File submission and processing (separate domain)
+- [Reports Domain](reports.md) - File submission and processing (separate domain)
 - [Domain Separation ADR](/docs/decisions/) - Architecture decision record

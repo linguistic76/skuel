@@ -1,12 +1,12 @@
 """
-Report Aggregation Service
-===========================
+Analytics Aggregation Service
+==============================
 
-Cross-layer synthesis and pattern detection for Life Reports.
+Cross-layer synthesis and pattern detection for Life Analytics.
 
 Version: 2.0.0 (October 24, 2025) - Phase 3: Cross-Layer Synthesis
 
-This service provides holistic reports that synthesize insights across
+This service provides holistic analytics that synthesize insights across
 ALL 4 architectural layers:
 - Layer 0: Curriculum (Knowledge, Learning Paths)
 - Layer 1: Activities (7 domains: Tasks, Habits, Goals, Events, Finance, Choices, Principles)
@@ -19,18 +19,18 @@ NEW in v2.0.0: Cross-Layer Synthesis
 - Curriculum progress integration: "Am I learning what I'm practicing?"
 - Complete 4-layer holistic view
 
-Life Reports answer questions like:
+Life Analytics answer questions like:
 - "Show me my weekly life summary across ALL layers"
 - "Which activities are driving my Life Path alignment?"
 - "How is reflection impacting my growth?"
 - "What patterns exist across knowledge, activities, and reflection?"
 - "Am I learning what I'm living?"
 
-Part of the 4-service Reports architecture:
-- ReportMetricsService: ALL layers metrics (0, 1, 2)
-- ReportAggregationService: Cross-layer synthesis (this file)
-- ReportLifePathService: Life Path alignment tracking
-- ReportsService: Facade orchestrating all services
+Part of the 4-service Analytics architecture:
+- AnalyticsMetricsService: ALL layers metrics (0, 1, 2)
+- AnalyticsAggregationService: Cross-layer synthesis (this file)
+- AnalyticsLifePathService: Life Path alignment tracking
+- AnalyticsService: Facade orchestrating all services
 
 Philosophy: "Everything flows toward the life path"
 """
@@ -45,9 +45,9 @@ from core.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-class ReportAggregationService:
+class AnalyticsAggregationService:
     """
-    Cross-layer aggregation and pattern detection for Life Reports.
+    Cross-layer aggregation and pattern detection for Life Analytics.
 
     Version 2.0.0: Synthesizes data from ALL 4 layers to generate
     holistic insights about the user's life, learning, and growth.
@@ -56,12 +56,12 @@ class ReportAggregationService:
     - Layer 0 + Layer 1: Knowledge-activity correlations
     - Layer 2 + Layer 1: Journal-reflection impact on activities
     - Layer 0 + Layer 2: Learning-reflection patterns
-    - Layer 3: Life Path alignment synthesis (via ReportLifePathService)
+    - Layer 3: Life Path alignment synthesis (via AnalyticsLifePathService)
 
 
-    Source Tag: "report_aggregation_explicit"
-    - Format: "report_aggregation_explicit" for user-created relationships
-    - Format: "report_aggregation_inferred" for system-generated relationships
+    Source Tag: "analytics_aggregation_explicit"
+    - Format: "analytics_aggregation_explicit" for user-created relationships
+    - Format: "analytics_aggregation_inferred" for system-generated relationships
 
     Confidence Scoring:
     - 0.9+: User explicitly defined relationship
@@ -82,11 +82,11 @@ class ReportAggregationService:
         Initialize with metrics service.
 
         Args:
-            metrics_service: ReportMetricsService for domain statistics
+            metrics_service: AnalyticsMetricsService for domain statistics
         """
         self.metrics = metrics_service
         self.logger = logger
-        logger.info("ReportAggregationService initialized")
+        logger.info("AnalyticsAggregationService initialized")
 
     # ========================================================================
     # LIFE SUMMARIES (ALL 7 DOMAINS)

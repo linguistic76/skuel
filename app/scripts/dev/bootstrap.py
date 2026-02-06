@@ -611,18 +611,14 @@ async def _wire_all_routes(
     # Note: Journals API routes are registered via create_journals_routes() above
     # using DomainRouteConfig pattern (migrated February 2026)
 
-    # Assignments routes (Primary interface for file submission and processing)
-    if services.assignments and services.processing_pipeline:
-        from adapters.inbound.assignments_routes import create_assignments_routes
+    # Reports routes (Primary interface for file submission and processing)
+    if services.reports and services.processing_pipeline:
+        from adapters.inbound.reports_routes import create_reports_routes
 
-        create_assignments_routes(app, rt, services, None)
+        create_reports_routes(app, rt, services, None)
 
-        logger.info(
-            "✅ Assignments routes registered (Primary interface for audio/text processing)"
-        )
-        logger.info(
-            "📋 Assignments handles all file types: audio → transcription → journal formatting"
-        )
+        logger.info("✅ Reports routes registered (Primary interface for audio/text processing)")
+        logger.info("📋 Reports handles all file types: audio → transcription → journal formatting")
 
     # Journals UI routes (dedicated journal submission interface)
     if services.journals_core:
@@ -655,11 +651,13 @@ async def _wire_all_routes(
         create_choices_routes(app, rt, services, None)  # sync removed Jan 2026
         logger.info("✅ Choices routes registered")
 
-    if services.reports:
-        from adapters.inbound.reports_routes import create_reports_routes
+    if services.analytics:
+        from adapters.inbound.analytics_routes import create_analytics_routes
 
-        create_reports_routes(app, rt, services)
-        logger.info("✅ Reports routes registered (Layer 3 meta-analysis: Life Path + cross-layer)")
+        create_analytics_routes(app, rt, services)
+        logger.info(
+            "✅ Analytics routes registered (Layer 3 meta-analysis: Life Path + cross-layer)"
+        )
 
     # LifePath routes (Domain #14: The Destination)
     if services.lifepath:

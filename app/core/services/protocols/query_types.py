@@ -560,11 +560,11 @@ class FinanceUpdatePayload(BaseUpdatePayload, total=False):
     payment_method: str
 
 
-class AssignmentUpdatePayload(BaseUpdatePayload, total=False):
+class ReportUpdatePayload(BaseUpdatePayload, total=False):
     """
-    Update payload for Assignment entities.
+    Update payload for Report entities.
 
-    Assignment-Specific Fields:
+    Report-Specific Fields:
         processing_started_at: ISO timestamp when processing began
         processing_completed_at: ISO timestamp when processing finished
         processing_error: Error message if processing failed
@@ -574,11 +574,11 @@ class AssignmentUpdatePayload(BaseUpdatePayload, total=False):
         original_filename: Original uploaded filename
 
     Usage:
-        updates: AssignmentUpdatePayload = {
+        updates: ReportUpdatePayload = {
             "status": "completed",
             "processing_completed_at": "2026-01-21T10:30:00Z",
         }
-        result = await assignments_service.update(uid, updates)
+        result = await reports_service.update(uid, updates)
     """
 
     processing_started_at: str | datetime
@@ -1186,7 +1186,7 @@ __all__ = [
     "LpUpdatePayload",
     # Update Payloads - Other Domains
     "FinanceUpdatePayload",
-    "AssignmentUpdatePayload",
+    "ReportUpdatePayload",
     # Query Building Types
     "WhereClauseSpec",
     "OrderBySpec",

@@ -1,30 +1,30 @@
 """
-Assignment Relationship Service
+Reports Relationship Service
 =================================
 
-Creates graph relationships for Assignment nodes (file submissions).
+Creates graph relationships for Report nodes (file submissions).
 
 Domain Separation (January 2026):
-- Assignments: File submission, teacher review, gradebook
+- Reports: File submission, teacher review, gradebook
 - Journals: Personal reflections - use JournalRelationshipService for :Journal nodes
 
-This service handles relationships for :Assignment nodes only.
+This service handles relationships for :Report nodes only.
 
 Relationships Created:
-1. FOLLOWS → Previous assignment of same type (temporal continuity)
-2. RELATED_TO → Assignments with shared topics (thematic connections)
-3. SUPPORTS_GOAL → Goals mentioned in content (goal progress tracking)
+1. FOLLOWS -> Previous report of same type (temporal continuity)
+2. RELATED_TO -> Reports with shared topics (thematic connections)
+3. SUPPORTS_GOAL -> Goals mentioned in content (goal progress tracking)
 """
 
-from core.models.assignment.assignment import Assignment
+from core.models.report.report import Report
 from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 
-class AssignmentRelationshipService:
+class ReportsRelationshipService:
     """
-    Service for creating graph relationships on Assignment nodes.
+    Service for creating graph relationships on Report nodes.
 
     Handles file submission relationships (transcripts, reports, etc.).
     For Journal relationships, use JournalRelationshipService.
@@ -32,29 +32,29 @@ class AssignmentRelationshipService:
 
     def __init__(self, driver) -> None:
         """
-        Initialize assignment relationship service.
+        Initialize reports relationship service.
 
         Args:
             driver: Neo4j driver for database access
         """
         self.driver = driver
-        self.logger = get_logger("skuel.services.assignment_relationship")
+        self.logger = get_logger("skuel.services.reports_relationship")
 
     # ========================================================================
     # RELATIONSHIP CREATION
     # ========================================================================
 
-    async def create_assignment_relationships(
+    async def create_report_relationships(
         self,
-        assignment: Assignment,
+        report: Report,
         themes: list[str] | None = None,
         active_goals: list[dict[str, str]] | None = None,
     ) -> Result[dict[str, int]]:
         """
-        Create graph relationships for an assignment.
+        Create graph relationships for a report.
 
         Args:
-            assignment: The newly created/updated assignment
+            report: The newly created/updated report
             themes: Optional list of themes for thematic relationships
             active_goals: Optional list of active goals for goal-support relationships
 
@@ -65,12 +65,12 @@ class AssignmentRelationshipService:
 
         try:
             async with self.driver.session() as session:
-                # 1. Temporal Relationship: FOLLOWS (previous assignment of same type)
+                # 1. Temporal Relationship: FOLLOWS (previous report of same type)
                 temporal_result = await self._create_temporal_relationship(
                     session,
-                    assignment.uid,
-                    assignment.user_uid,
-                    assignment.assignment_type.value,
+                    report.uid,
+                    report.user_uid,
+                    report.report_type.value,
                 )
                 relationships_created["temporal"] = temporal_result
 
@@ -78,21 +78,21 @@ class AssignmentRelationshipService:
                 if themes:
                     thematic_result = await self._create_thematic_relationships(
                         session,
-                        assignment.uid,
-                        assignment.user_uid,
+                        report.uid,
+                        report.user_uid,
                         themes,
                     )
                     relationships_created["thematic"] = thematic_result
 
                 # 3. Goal Support Relationships: SUPPORTS_GOAL
-                if active_goals and assignment.processed_content:
+                if active_goals and report.processed_content:
                     goal_result = await self._create_goal_relationships(
-                        session, assignment.uid, assignment.processed_content, active_goals
+                        session, report.uid, report.processed_content, active_goals
                     )
                     relationships_created["goal_support"] = goal_result
 
             self.logger.info(
-                f"Created assignment relationships: {relationships_created['temporal']} temporal, "
+                f"Created report relationships: {relationships_created['temporal']} temporal, "
                 f"{relationships_created['thematic']} thematic, {relationships_created['goal_support']} goal_support"
             )
 
@@ -101,7 +101,7 @@ class AssignmentRelationshipService:
         except Exception as e:
             return Result.fail(
                 Errors.database(
-                    operation="create_assignment_relationships",
+                    operation="create_report_relationships",
                     message=f"Failed to create relationships: {e!s}",
                 )
             )
@@ -111,26 +111,26 @@ class AssignmentRelationshipService:
     # ========================================================================
 
     async def _create_temporal_relationship(
-        self, session, assignment_uid: str, user_uid: str, assignment_type: str
+        self, session, report_uid: str, user_uid: str, report_type: str
     ) -> int:
         """
-        Create FOLLOWS relationship to most recent previous assignment of same type.
+        Create FOLLOWS relationship to most recent previous report of same type.
 
-        Links assignments in temporal order for continuity.
+        Links reports in temporal order for continuity.
 
         Args:
             session: Neo4j session
-            assignment_uid: UID of the new assignment
+            report_uid: UID of the new report
             user_uid: User identifier
-            assignment_type: Type of assignment for filtering
+            report_type: Type of report for filtering
 
         Returns:
             Count of relationships created (0 or 1)
         """
         cypher = """
-        MATCH (new:Assignment {uid: $assignment_uid})
-        MATCH (prev:Assignment {user_uid: $user_uid, assignment_type: $assignment_type})
-        WHERE prev.uid <> $assignment_uid
+        MATCH (new:Report {uid: $report_uid})
+        MATCH (prev:Report {user_uid: $user_uid, report_type: $report_type})
+        WHERE prev.uid <> $report_uid
           AND prev.created_at <= new.created_at
         WITH new, prev
         ORDER BY prev.created_at DESC
@@ -142,9 +142,9 @@ class AssignmentRelationshipService:
         result = await session.run(
             cypher,
             {
-                "assignment_uid": assignment_uid,
+                "report_uid": report_uid,
                 "user_uid": user_uid,
-                "assignment_type": assignment_type,
+                "report_type": report_type,
             },
         )
         record = await result.single()
@@ -157,18 +157,18 @@ class AssignmentRelationshipService:
     async def _create_thematic_relationships(
         self,
         session,
-        assignment_uid: str,
+        report_uid: str,
         user_uid: str,
         themes: list[str],
     ) -> int:
         """
-        Create RELATED_TO relationships for assignments sharing topics.
+        Create RELATED_TO relationships for reports sharing topics.
 
-        Connects assignments with similar themes for discovery.
+        Connects reports with similar themes for discovery.
 
         Args:
             session: Neo4j session
-            assignment_uid: UID of the new assignment
+            report_uid: UID of the new report
             user_uid: User identifier
             themes: List of themes to match
 
@@ -179,9 +179,9 @@ class AssignmentRelationshipService:
             return 0
 
         cypher = """
-        MATCH (new:Assignment {uid: $assignment_uid})
-        MATCH (other:Assignment {user_uid: $user_uid})
-        WHERE other.uid <> $assignment_uid
+        MATCH (new:Report {uid: $report_uid})
+        MATCH (other:Report {user_uid: $user_uid})
+        WHERE other.uid <> $report_uid
           AND other.metadata IS NOT NULL
         WITH new, other, other.metadata.themes as other_themes
         WHERE other_themes IS NOT NULL
@@ -195,7 +195,7 @@ class AssignmentRelationshipService:
         result = await session.run(
             cypher,
             {
-                "assignment_uid": assignment_uid,
+                "report_uid": report_uid,
                 "user_uid": user_uid,
                 "themes": themes,
                 "shared_topics_str": ", ".join(themes[:3]),
@@ -211,19 +211,19 @@ class AssignmentRelationshipService:
     async def _create_goal_relationships(
         self,
         session,
-        assignment_uid: str,
+        report_uid: str,
         processed_content: str,
         active_goals: list[dict[str, str]],
     ) -> int:
         """
         Create SUPPORTS_GOAL relationships for mentioned goals.
 
-        Connects assignments to goals mentioned in content.
+        Connects reports to goals mentioned in content.
 
         Args:
             session: Neo4j session
-            assignment_uid: UID of the assignment
-            processed_content: Processed assignment content
+            report_uid: UID of the report
+            processed_content: Processed report content
             active_goals: List of active goals from context
 
         Returns:
@@ -246,7 +246,7 @@ class AssignmentRelationshipService:
 
         # Build relationship tuples for batch creation
         relationships = [
-            (assignment_uid, goal_uid, RelationshipName.SUPPORTS_GOAL.value, None)
+            (report_uid, goal_uid, RelationshipName.SUPPORTS_GOAL.value, None)
             for goal_uid in mentioned_goal_uids
         ]
 
@@ -265,58 +265,58 @@ class AssignmentRelationshipService:
     # RELATIONSHIP QUERIES
     # ========================================================================
 
-    async def get_related_assignments(self, assignment_uid: str) -> Result[list[str]]:
+    async def get_related_reports(self, report_uid: str) -> Result[list[str]]:
         """
-        Get UIDs of related assignments.
+        Get UIDs of related reports.
 
-        Graph relationship: (assignment)-[:RELATED_TO]->(assignment)
+        Graph relationship: (report)-[:RELATED_TO]->(report)
 
         Args:
-            assignment_uid: UID of the assignment
+            report_uid: UID of the report
 
         Returns:
-            Result containing list of related assignment UIDs
+            Result containing list of related report UIDs
         """
         cypher = """
-        MATCH (a:Assignment {uid: $assignment_uid})-[:RELATED_TO]->(related:Assignment)
+        MATCH (a:Report {uid: $report_uid})-[:RELATED_TO]->(related:Report)
         RETURN related.uid as uid
         ORDER BY related.uid
         """
 
         try:
             async with self.driver.session() as session:
-                result = await session.run(cypher, {"assignment_uid": assignment_uid})
+                result = await session.run(cypher, {"report_uid": report_uid})
                 records = [r async for r in result]
                 return Result.ok([r["uid"] for r in records if r["uid"]])
         except Exception as e:
             return Result.fail(
                 Errors.database(
-                    operation="get_related_assignments",
-                    message=f"Failed to get related assignments: {e!s}",
+                    operation="get_related_reports",
+                    message=f"Failed to get related reports: {e!s}",
                 )
             )
 
-    async def get_supported_goals(self, assignment_uid: str) -> Result[list[str]]:
+    async def get_supported_goals(self, report_uid: str) -> Result[list[str]]:
         """
-        Get UIDs of goals supported by this assignment.
+        Get UIDs of goals supported by this report.
 
-        Graph relationship: (assignment)-[:SUPPORTS_GOAL]->(goal)
+        Graph relationship: (report)-[:SUPPORTS_GOAL]->(goal)
 
         Args:
-            assignment_uid: UID of the assignment
+            report_uid: UID of the report
 
         Returns:
             Result containing list of supported goal UIDs
         """
         cypher = """
-        MATCH (a:Assignment {uid: $assignment_uid})-[:SUPPORTS_GOAL]->(goal:Goal)
+        MATCH (a:Report {uid: $report_uid})-[:SUPPORTS_GOAL]->(goal:Goal)
         RETURN goal.uid as uid
         ORDER BY goal.uid
         """
 
         try:
             async with self.driver.session() as session:
-                result = await session.run(cypher, {"assignment_uid": assignment_uid})
+                result = await session.run(cypher, {"report_uid": report_uid})
                 records = [r async for r in result]
                 return Result.ok([r["uid"] for r in records if r["uid"]])
         except Exception as e:
@@ -327,20 +327,20 @@ class AssignmentRelationshipService:
                 )
             )
 
-    async def get_assignment_summary(self, assignment_uid: str) -> Result[dict[str, int]]:
+    async def get_report_summary(self, report_uid: str) -> Result[dict[str, int]]:
         """
-        Get comprehensive relationship summary for an assignment.
+        Get comprehensive relationship summary for a report.
 
         Returns counts for all relationship types.
 
         Args:
-            assignment_uid: UID of the assignment
+            report_uid: UID of the report
 
         Returns:
             Result containing dict with relationship counts
         """
         cypher = """
-        MATCH (a:Assignment {uid: $assignment_uid})
+        MATCH (a:Report {uid: $report_uid})
         OPTIONAL MATCH (a)-[:RELATED_TO]->(related)
         OPTIONAL MATCH (a)-[:SUPPORTS_GOAL]->(goal)
         OPTIONAL MATCH (a)-[:FOLLOWS]->(prev)
@@ -351,13 +351,13 @@ class AssignmentRelationshipService:
 
         try:
             async with self.driver.session() as session:
-                result = await session.run(cypher, {"assignment_uid": assignment_uid})
+                result = await session.run(cypher, {"report_uid": report_uid})
                 record = await result.single()
 
                 if not record:
                     return Result.ok(
                         {
-                            "related_assignment_count": 0,
+                            "related_report_count": 0,
                             "supported_goal_count": 0,
                             "follows_count": 0,
                         }
@@ -365,7 +365,7 @@ class AssignmentRelationshipService:
 
                 return Result.ok(
                     {
-                        "related_assignment_count": record["related_count"],
+                        "related_report_count": record["related_count"],
                         "supported_goal_count": record["goal_count"],
                         "follows_count": record["follows_count"],
                     }
@@ -373,7 +373,7 @@ class AssignmentRelationshipService:
         except Exception as e:
             return Result.fail(
                 Errors.database(
-                    operation="get_assignment_summary",
-                    message=f"Failed to get assignment summary: {e!s}",
+                    operation="get_report_summary",
+                    message=f"Failed to get report summary: {e!s}",
                 )
             )

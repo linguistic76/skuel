@@ -1,42 +1,42 @@
 """
-Report Service - Facade Pattern (4-Service Architecture)
-=========================================================
+Analytics Service - Facade Pattern (4-Service Architecture)
+============================================================
 
 **ARCHITECTURAL PATTERN: Meta-Service (Statistical Aggregator)**
 ----------------------------------------------------------------
-Reports is NOT a domain - it's a meta-layer service that sits ABOVE all domains.
+Analytics is NOT a domain - it's a meta-layer service that sits ABOVE all domains.
 
 **Unique Characteristics:**
-- NOT in Domain enum (no Domain.REPORTS)
-- NO graph entities (Report nodes don't exist in Neo4j)
-- NO relationship service (reports don't create edges)
+- NOT in Domain enum (no Domain.ANALYTICS)
+- NO graph entities (Analytics nodes don't exist in Neo4j)
+- NO relationship service (analytics don't create edges)
 - READ-ONLY aggregation (queries domains, never writes)
 - Spans ALL layers (0: Curriculum, 1: Activity, 2: Pipeline, 3: Life Path)
 
-**What Reports Does:**
+**What Analytics Does:**
 - Queries ALL domain services (tasks, habits, goals, events, finance, choices, etc.)
 - Aggregates data into statistical metrics (completion rates, totals, averages)
-- Generates cross-domain synthesis (Life Reports)
+- Generates cross-domain synthesis (Life Analytics)
 - Tracks life path alignment (Layer 3 meta-metric)
-- Optionally stores markdown reports (file-based, NOT in graph)
+- Optionally stores markdown analytics (file-based, NOT in graph)
 
-**What Reports Does NOT Do:**
-- ❌ Create graph entities
-- ❌ Modify domain data
-- ❌ Create relationships
-- ❌ Store in Neo4j
-- ❌ Provide AI recommendations (metrics only)
+**What Analytics Does NOT Do:**
+- Create graph entities
+- Modify domain data
+- Create relationships
+- Store in Neo4j
+- Provide AI recommendations (metrics only)
 
 **See:** /docs/architecture/REPORTS_ARCHITECTURE.md for complete documentation
 
 ---
 
-Generates purely statistical reports across ALL layers.
+Generates purely statistical analytics across ALL layers.
 
 Version: 3.1.0 - Cross-Layer Metrics (October 24, 2025)
-- v3.1.0: Extended ReportMetricsService with Layer 0 and Layer 2 metrics (Phase 2)
-- v3.0.0: Added ReportLifePathService for Life Path alignment tracking (Phase 1)
-- v2.0.0: Facade pattern with ReportMetricsService + ReportAggregationService
+- v3.1.0: Extended AnalyticsMetricsService with Layer 0 and Layer 2 metrics (Phase 2)
+- v3.0.0: Added AnalyticsLifePathService for Life Path alignment tracking (Phase 1)
+- v2.0.0: Facade pattern with AnalyticsMetricsService + AnalyticsAggregationService
 - v1.0.0: Monolithic implementation
 
 NEW in v3.1.0: Cross-Layer Metrics (Phase 2 Complete)
@@ -46,19 +46,19 @@ NEW in v3.1.0: Cross-Layer Metrics (Phase 2 Complete)
 - Complete metrics coverage across ALL 4 layers
 
 Architecture:
-ReportsService (Facade, ~530 lines) - this file
-├── ReportMetricsService (~863 lines) - ALL layers: Layer 0, Layer 1, Layer 2
-├── ReportAggregationService (~570 lines) - Cross-domain synthesis
-└── ReportLifePathService (~500 lines) - Life Path alignment tracking
+AnalyticsService (Facade, ~530 lines) - this file
+├── AnalyticsMetricsService (~863 lines) - ALL layers: Layer 0, Layer 1, Layer 2
+├── AnalyticsAggregationService (~570 lines) - Cross-domain synthesis
+└── AnalyticsLifePathService (~500 lines) - Life Path alignment tracking
 
 This facade:
-1. Orchestrates report generation for ALL layers (0, 1, 2, 3)
-2. Enables cross-domain Life Reports (Layer 1 synthesis)
+1. Orchestrates analytics generation for ALL layers (0, 1, 2, 3)
+2. Enables cross-domain Life Analytics (Layer 1 synthesis)
 3. Enables Life Path alignment tracking (cross-layer synthesis)
 4. Handles markdown rendering and file storage
 5. Maintains backward compatibility
 
-SKUEL's approach: Listen and respond. User asks for report, system provides data.
+SKUEL's approach: Listen and respond. User asks for analytics, system provides data.
 Philosophy: "Everything flows toward the life path"
 """
 
@@ -67,12 +67,12 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from core.models.report import ReportDTO, ReportPure, dto_to_pure
-from core.models.shared_enums import ReportType
-from core.services.reports import (
-    ReportAggregationService,
-    ReportLifePathService,
-    ReportMetricsService,
+from core.models.analytics import AnalyticsSummary, AnalyticsSummaryDTO, dto_to_summary
+from core.models.shared_enums import AnalyticsDomain
+from core.services.analytics import (
+    AnalyticsAggregationService,
+    AnalyticsLifePathService,
+    AnalyticsMetricsService,
 )
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -82,15 +82,15 @@ from core.utils.uid_generator import UIDGenerator
 logger = get_logger(__name__)
 
 
-class ReportService:
+class AnalyticsService:
     """
-    Reports service facade with specialized sub-services.
+    Analytics service facade with specialized sub-services.
 
     This facade:
-    1. Delegates to ReportMetricsService for domain-specific statistics
-    2. Delegates to ReportAggregationService for cross-domain Life Reports
-    3. Delegates to ReportLifePathService for Life Path alignment tracking (NEW!)
-    4. Orchestrates report generation, rendering, and storage
+    1. Delegates to AnalyticsMetricsService for domain-specific statistics
+    2. Delegates to AnalyticsAggregationService for cross-domain Life Analytics
+    3. Delegates to AnalyticsLifePathService for Life Path alignment tracking (NEW!)
+    4. Orchestrates analytics generation, rendering, and storage
     5. Maintains backward compatibility with existing code
 
     NEW in v3.0.0: Life Path Alignment (Layer 3 Cross-Layer Metric!)
@@ -99,7 +99,7 @@ class ReportService:
     - identify_knowledge_gaps()
     - analyze_domain_contributions()
 
-    Cross-Domain Life Reports (Layer 1 Synthesis):
+    Cross-Domain Life Analytics (Layer 1 Synthesis):
     - aggregate_weekly_life_summary()
     - aggregate_monthly_life_review()
     - aggregate_quarterly_progress()
@@ -107,9 +107,9 @@ class ReportService:
     - detect_cross_domain_patterns()
 
 
-    Source Tag: "report_explicit"
-    - Format: "report_explicit" for user-created relationships
-    - Format: "report_inferred" for system-generated relationships
+    Source Tag: "analytics_explicit"
+    - Format: "analytics_explicit" for user-created relationships
+    - Format: "analytics_inferred" for system-generated relationships
 
     Confidence Scoring:
     - 0.9+: User explicitly defined relationship
@@ -142,7 +142,7 @@ class ReportService:
         event_bus=None,
     ) -> None:
         """
-        Initialize reports facade with all domain and curriculum services.
+        Initialize analytics facade with all domain and curriculum services.
 
         Args:
             tasks_service: TasksService facade (Layer 1)
@@ -156,13 +156,13 @@ class ReportService:
             user_service: UserService for getting UserContext (Layer 3 - for Life Path)
             ku_service: KuService for knowledge substance scores (Layer 0 - for Phase 2)
             lp_service: LpService for Learning Path details (Layer 0 - for Phase 2)
-            report_dir: Directory for storing generated reports
-            event_bus: Event bus for automatic report generation (Phase 4)
+            report_dir: Directory for storing generated analytics
+            event_bus: Event bus for automatic analytics generation (Phase 4)
         """
         self.event_bus = event_bus
         self.user_service = user_service
         # Initialize sub-services
-        self.metrics = ReportMetricsService(
+        self.metrics = AnalyticsMetricsService(
             # Layer 1: Activity domains
             tasks_service=tasks_service,
             habits_service=habits_service,
@@ -178,20 +178,20 @@ class ReportService:
             lp_service=lp_service,
         )
 
-        self.aggregation = ReportAggregationService(metrics_service=self.metrics)
+        self.aggregation = AnalyticsAggregationService(metrics_service=self.metrics)
 
         # NEW: Life Path alignment tracking (Layer 3 cross-layer metric!)
-        self.life_path = ReportLifePathService(
+        self.life_path = AnalyticsLifePathService(
             user_service=user_service, ku_service=ku_service, lp_service=lp_service
         )
 
-        # Report storage
+        # Analytics storage
         self.report_dir = report_dir or Path("/home/mike/skuel/app/data/reports")
         self.report_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger = logger
         logger.info(
-            "ReportsService facade initialized (v3.1.0): "
+            "AnalyticsService facade initialized (v3.1.0): "
             "metrics (ALL layers), aggregation (cross-domain), life_path (alignment)"
         )
 
@@ -230,7 +230,7 @@ class ReportService:
             # Generate and save report file
             result = await self.generate_report(
                 user_uid=event.user_uid,
-                report_type=ReportType.GOALS,
+                analytics_domain=AnalyticsDomain.GOALS,
                 period_start=period_start,
                 period_end=period_end,
             )
@@ -280,10 +280,10 @@ class ReportService:
             period_start = period_end - timedelta(days=30)
 
             # Generate and save report file
-            # NOTE: Using TASKS as placeholder until ReportType.LEARNING is added
+            # NOTE: Using TASKS as placeholder until AnalyticsDomain.LEARNING is added
             result = await self.generate_report(
                 user_uid=event.user_uid,
-                report_type=ReportType.TASKS,
+                analytics_domain=AnalyticsDomain.TASKS,
                 period_start=period_start,
                 period_end=period_end,
             )
@@ -342,7 +342,7 @@ class ReportService:
             # Generate and save report file
             result = await self.generate_report(
                 user_uid=event.user_uid,
-                report_type=ReportType.HABITS,
+                analytics_domain=AnalyticsDomain.HABITS,
                 period_start=period_start,
                 period_end=period_end,
             )
@@ -369,52 +369,54 @@ class ReportService:
 
     @with_error_handling("generate_report", error_type="system")
     async def generate_report(
-        self, user_uid: str, report_type: ReportType, period_start: date, period_end: date
-    ) -> Result[ReportPure]:
+        self, user_uid: str, analytics_domain: AnalyticsDomain, period_start: date, period_end: date
+    ) -> Result[AnalyticsSummary]:
         """
         Generate statistical report for any domain and period.
 
         Args:
             user_uid: User requesting the report,
-            report_type: Which domain to report on,
+            analytics_domain: Which domain to report on,
             period_start: Start of reporting period,
             period_end: End of reporting period (inclusive)
 
         Returns:
-            Result[ReportPure] containing statistical metrics
+            Result[AnalyticsSummary] containing statistical metrics
         """
         self.logger.info(
-            f"Generating {report_type.value} report for user {user_uid}, "
+            f"Generating {analytics_domain.value} report for user {user_uid}, "
             f"period {period_start} to {period_end}"
         )
 
         # Calculate metrics based on report type (delegate to metrics service)
         metrics_result = await self._calculate_metrics(
-            user_uid, report_type, period_start, period_end
+            user_uid, analytics_domain, period_start, period_end
         )
         if metrics_result.is_error:
             return Result.fail(metrics_result.expect_error())
         metrics = metrics_result.value
 
         # Generate markdown content
-        markdown_content = self._render_markdown(report_type, metrics, period_start, period_end)
+        markdown_content = self._render_markdown(
+            analytics_domain, metrics, period_start, period_end
+        )
 
         # Build DTO
-        dto = ReportDTO(
+        dto = AnalyticsSummaryDTO(
             uid=UIDGenerator.generate_uid("report"),
             user_uid=user_uid,
-            report_type=report_type,
+            analytics_domain=analytics_domain,
             period_start=period_start,
             period_end=period_end,
             metrics=metrics,
             generated_at=datetime.now(),
-            title=self._generate_title(report_type, period_start, period_end),
+            title=self._generate_title(analytics_domain, period_start, period_end),
             markdown_content=markdown_content,
-            metadata={"source": "ReportService"},
+            metadata={"source": "AnalyticsService"},
         )
 
         # Convert to immutable domain model
-        report = dto_to_pure(dto)
+        report = dto_to_summary(dto)
 
         # Save to file
         await self._save_report(report)
@@ -427,30 +429,30 @@ class ReportService:
     # ========================================================================
 
     async def generate_monthly_report(
-        self, user_uid: str, report_type: ReportType, year: int, month: int
-    ) -> Result[ReportPure]:
+        self, user_uid: str, analytics_domain: AnalyticsDomain, year: int, month: int
+    ) -> Result[AnalyticsSummary]:
         """Generate report for a specific month"""
         start_date = date(year, month, 1)
         end_date = date(year, month, monthrange(year, month)[1])
-        return await self.generate_report(user_uid, report_type, start_date, end_date)
+        return await self.generate_report(user_uid, analytics_domain, start_date, end_date)
 
     async def generate_yearly_report(
-        self, user_uid: str, report_type: ReportType, year: int
-    ) -> Result[ReportPure]:
+        self, user_uid: str, analytics_domain: AnalyticsDomain, year: int
+    ) -> Result[AnalyticsSummary]:
         """Generate report for a full year"""
         start_date = date(year, 1, 1)
         end_date = date(year, 12, 31)
-        return await self.generate_report(user_uid, report_type, start_date, end_date)
+        return await self.generate_report(user_uid, analytics_domain, start_date, end_date)
 
     async def generate_weekly_report(
-        self, user_uid: str, report_type: ReportType, week_start: date | None = None
-    ) -> Result[ReportPure]:
+        self, user_uid: str, analytics_domain: AnalyticsDomain, week_start: date | None = None
+    ) -> Result[AnalyticsSummary]:
         """Generate report for a week (defaults to current week)"""
         if not week_start:
             today = date.today()
             week_start = today - timedelta(days=today.weekday())
         week_end = week_start + timedelta(days=6)
-        return await self.generate_report(user_uid, report_type, week_start, week_end)
+        return await self.generate_report(user_uid, analytics_domain, week_start, week_end)
 
     # ========================================================================
     # NEW: CROSS-DOMAIN LIFE REPORTS ✨
@@ -542,26 +544,26 @@ class ReportService:
         return Result.ok(patterns)
 
     # ========================================================================
-    # METRIC CALCULATION (Delegate to ReportMetricsService)
+    # METRIC CALCULATION (Delegate to AnalyticsMetricsService)
     # ========================================================================
 
     async def _calculate_metrics(
-        self, user_uid: str, report_type: ReportType, start_date: date, end_date: date
+        self, user_uid: str, analytics_domain: AnalyticsDomain, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """Calculate metrics based on report type (delegates to metrics service)"""
-        if report_type == ReportType.TASKS:
+        if analytics_domain == AnalyticsDomain.TASKS:
             return await self.metrics.calculate_task_metrics(user_uid, start_date, end_date)
-        elif report_type == ReportType.HABITS:
+        elif analytics_domain == AnalyticsDomain.HABITS:
             return await self.metrics.calculate_habit_metrics(user_uid, start_date, end_date)
-        elif report_type == ReportType.GOALS:
+        elif analytics_domain == AnalyticsDomain.GOALS:
             return await self.metrics.calculate_goal_metrics(user_uid, start_date, end_date)
-        elif report_type == ReportType.EVENTS:
+        elif analytics_domain == AnalyticsDomain.EVENTS:
             return await self.metrics.calculate_event_metrics(user_uid, start_date, end_date)
-        elif report_type == ReportType.FINANCE:
+        elif analytics_domain == AnalyticsDomain.FINANCE:
             return await self.metrics.calculate_finance_metrics(user_uid, start_date, end_date)
-        elif report_type == ReportType.CHOICES:
+        elif analytics_domain == AnalyticsDomain.CHOICES:
             return await self.metrics.calculate_choice_metrics(user_uid, start_date, end_date)
-        elif report_type == ReportType.PRINCIPLES:
+        elif analytics_domain == AnalyticsDomain.PRINCIPLES:
             return await self.metrics.calculate_principle_metrics(user_uid, start_date, end_date)
         else:
             return Result.ok({})
@@ -571,13 +573,17 @@ class ReportService:
     # ========================================================================
 
     def _render_markdown(
-        self, report_type: ReportType, metrics: dict[str, Any], start_date: date, end_date: date
+        self,
+        analytics_domain: AnalyticsDomain,
+        metrics: dict[str, Any],
+        start_date: date,
+        end_date: date,
     ) -> str:
         """Render metrics as markdown report"""
         lines = []
 
         # Header
-        title = self._generate_title(report_type, start_date, end_date)
+        title = self._generate_title(analytics_domain, start_date, end_date)
         lines.append(f"# {title}")
         lines.append("")
         lines.append(f"**Period**: {start_date} to {end_date}")
@@ -602,13 +608,15 @@ class ReportService:
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("*Generated by SKUEL Report Service*")
+        lines.append("*Generated by SKUEL Analytics Service*")
 
         return "\n".join(lines)
 
-    def _generate_title(self, report_type: ReportType, start_date: date, end_date: date) -> str:
+    def _generate_title(
+        self, analytics_domain: AnalyticsDomain, start_date: date, end_date: date
+    ) -> str:
         """Generate human-readable report title"""
-        domain = report_type.value.title()
+        domain = analytics_domain.value.title()
 
         # Determine period type
         if (end_date - start_date).days == 6:
@@ -637,7 +645,7 @@ class ReportService:
         This is THE most important metric in SKUEL - measures whether
         user is LIVING their life path or just learning about it.
 
-        Delegates to ReportLifePathService.
+        Delegates to AnalyticsLifePathService.
 
         Args:
             user_uid: User identifier
@@ -663,11 +671,11 @@ class ReportService:
     # FILE STORAGE
     # ========================================================================
 
-    async def _save_report(self, report: ReportPure) -> None:
+    async def _save_report(self, report: AnalyticsSummary) -> None:
         """Save report markdown to file"""
         try:
             # Create domain-specific subdirectory
-            domain_dir = self.report_dir / report.report_type.value
+            domain_dir = self.report_dir / report.analytics_domain.value
             domain_dir.mkdir(parents=True, exist_ok=True)
 
             # Generate filename

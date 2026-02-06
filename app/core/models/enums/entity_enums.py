@@ -92,13 +92,13 @@ class EntityType(str, Enum):
         KU (Knowledge Unit), LS (Learning Step), LP (Learning Path)
 
     Content/Organization Domains (3) - How I ORGANIZE:
-        ASSIGNMENT, JOURNAL, MOC (Map of Content)
+        REPORT, JOURNAL, MOC (Map of Content)
 
     LifePath (1) - The Destination:
         LIFEPATH
 
     Cross-Cutting Systems (not domains, but may appear in search):
-        REPORT, CALENDAR
+        CALENDAR
     """
 
     # Activity Domains (7) - What I DO
@@ -120,7 +120,7 @@ class EntityType(str, Enum):
     LEARNING = "learning"  # General learning context
 
     # Content/Organization Domains (3) - How I ORGANIZE
-    ASSIGNMENT = "assignment"
+    REPORT = "report"
     JOURNAL = "journal"
     MOC = "moc"  # Map of Content - non-linear knowledge navigation
 
@@ -129,7 +129,6 @@ class EntityType(str, Enum):
     LIFE_PATH = "life_path"  # Alias for LIFEPATH
 
     # Cross-Cutting Systems (not domains, but may appear in search)
-    REPORT = "report"
     CALENDAR = "calendar"
 
     def is_lifepath(self) -> bool:
@@ -165,11 +164,11 @@ class EntityType(str, Enum):
             return None
 
 
-class ReportType(str, Enum):
+class AnalyticsDomain(str, Enum):
     """
-    Core system domains that can generate statistical reports.
+    Core system domains that can generate statistical analytics.
 
-    Reports provide quantitative assessment of user data within each domain.
+    Analytics provide quantitative assessment of user data within each domain.
     """
 
     TASKS = "tasks"
@@ -180,9 +179,9 @@ class ReportType(str, Enum):
     CHOICES = "choices"
 
     def get_metrics(self) -> list[str]:
-        """Get available metrics for this report type"""
+        """Get available metrics for this analytics domain"""
         metrics = {
-            ReportType.TASKS: [
+            AnalyticsDomain.TASKS: [
                 "completion_rate",
                 "total_count",
                 "completed_count",
@@ -192,7 +191,7 @@ class ReportType(str, Enum):
                 "priority_distribution",
                 "avg_completion_time_days",
             ],
-            ReportType.HABITS: [
+            AnalyticsDomain.HABITS: [
                 "total_active",
                 "completion_rate",
                 "current_streaks",
@@ -200,7 +199,7 @@ class ReportType(str, Enum):
                 "consistency_rate",
                 "completion_by_day_of_week",
             ],
-            ReportType.GOALS: [
+            AnalyticsDomain.GOALS: [
                 "total_active",
                 "total_completed",
                 "on_track_count",
@@ -208,7 +207,7 @@ class ReportType(str, Enum):
                 "avg_progress_percentage",
                 "completion_rate",
             ],
-            ReportType.EVENTS: [
+            AnalyticsDomain.EVENTS: [
                 "total_count",
                 "upcoming_count",
                 "completed_count",
@@ -216,7 +215,7 @@ class ReportType(str, Enum):
                 "total_hours_scheduled",
                 "events_by_type",
             ],
-            ReportType.FINANCE: [
+            AnalyticsDomain.FINANCE: [
                 "total_expenses",
                 "total_income",
                 "net_balance",
@@ -224,7 +223,7 @@ class ReportType(str, Enum):
                 "budget_adherence",
                 "avg_daily_expense",
             ],
-            ReportType.CHOICES: [
+            AnalyticsDomain.CHOICES: [
                 "total_choices",
                 "choices_by_domain",
                 "decision_quality_avg",

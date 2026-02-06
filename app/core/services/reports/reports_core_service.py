@@ -1,26 +1,26 @@
 """
-Assignments Core Service
+Reports Core Service
 ========================
 
-Content management operations for Assignment entities.
+Content management operations for Report entities.
 Handles categories, tags, publish/archive workflow, and bulk operations.
 
-This service provides the content management layer for Assignments,
-complementing AssignmentSubmissionService (file upload) and
-AssignmentProcessorService (content processing).
+This service provides the content management layer for Reports,
+complementing ReportSubmissionService (file upload) and
+ReportsProcessingService (content processing).
 
 ARCHITECTURE (November 2025):
 -----------------------------
-Assignment nodes are the SINGLE SOURCE OF TRUTH for submitted content.
-Content metadata (categories, tags, status) is stored in Assignment.metadata.
+Report nodes are the SINGLE SOURCE OF TRUTH for submitted content.
+Content metadata (categories, tags, status) is stored in Report.metadata.
 
 Services:
-- AssignmentSubmissionService: File upload and storage
-- AssignmentProcessorService: Content processing orchestration
-- AssignmentsCoreService: Content management (THIS FILE)
-- AssignmentsQueryService: Read-only queries
+- ReportSubmissionService: File upload and storage
+- ReportsProcessingService: Content processing orchestration
+- ReportsCoreService: Content management (THIS FILE)
+- ReportsSearchService: Read-only queries
 
-This pattern mirrors JournalCoreService but operates on Assignment entities.
+This pattern mirrors JournalCoreService but operates on Report entities.
 """
 
 import json
@@ -29,31 +29,31 @@ from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
-from core.events.assignment_events import AssignmentDeleted
-from core.models.assignment.assignment import (
-    Assignment,
-    AssignmentDTO,
-    AssignmentStatus,
-    AssignmentType,
+from core.events.report_events import ReportDeleted
+from core.models.report.report import (
+    Report,
+    ReportDTO,
+    ReportStatus,
+    ReportType,
 )
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations
 from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_assignment_date
+from core.utils.sort_functions import get_report_date
 
 # ============================================================================
-# ASSIGNMENT CATEGORY ENUM
+# REPORT CATEGORY ENUM
 # ============================================================================
 # Categories for content organization (stored in metadata.category)
 
 
-class AssignmentCategory:
+class ReportCategory:
     """
-    Categories for assignment content organization.
+    Categories for report content organization.
 
-    Stored in Assignment.metadata['category'].
+    Stored in Report.metadata['category'].
     Using constants instead of Enum for flexibility with existing data.
     """
 
@@ -100,23 +100,23 @@ class AssignmentCategory:
         ]
 
 
-class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignment]):
+class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
     """
-    Core assignment service for content management operations.
+    Core report service for content management operations.
 
     This service focuses on:
-    - Retrieving assignments with content
+    - Retrieving reports with content
     - Status workflow (publish, archive, draft)
     - Category management
     - Tag management
     - Bulk operations
     - Export functionality
 
-    NOTE: For file submission, use AssignmentSubmissionService.
-    NOTE: For processing, use AssignmentProcessorService.
+    NOTE: For file submission, use ReportSubmissionService.
+    NOTE: For processing, use ReportsProcessingService.
 
 
-    Source Tag: "assignments_core_service_explicit"
+    Source Tag: "reports_core_service_explicit"
 
     Confidence Scoring:
     - 0.9+: User explicitly defined relationship
@@ -129,30 +129,30 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
     # DomainConfig (January 2026 Phase 3)
     # =========================================================================
     _config = DomainConfig(
-        dto_class=AssignmentDTO,
-        model_class=Assignment,
-        entity_label="Assignment",
+        dto_class=ReportDTO,
+        model_class=Report,
+        entity_label="Report",
         search_fields=("original_filename", "processed_title", "processed_content"),
         search_order_by="submitted_at",
-        category_field="assignment_type",
+        category_field="report_type",
         user_ownership_relationship="OWNS",  # User-owned content
     )
 
     def __init__(
         self,
-        backend: UniversalNeo4jBackend[Assignment] | None = None,
+        backend: UniversalNeo4jBackend[Report] | None = None,
         event_bus: EventBusOperations | None = None,
         sharing_service: Any | None = None,
     ) -> None:
         """
-        Initialize assignments core service.
+        Initialize reports core service.
 
         Args:
-            backend: Backend for Assignment persistence
+            backend: Backend for Report persistence
             event_bus: Optional event bus for publishing events
             sharing_service: Optional sharing service for access control
         """
-        super().__init__(backend, "AssignmentsCoreService")
+        super().__init__(backend, "ReportsCoreService")
         self.event_bus = event_bus
         self.sharing_service = sharing_service
 
@@ -162,59 +162,59 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Assignment entities."""
-        return "Assignment"
+        """Return the graph label for Report entities."""
+        return "Report"
 
-    def _validate_assignment_exists(self, assignment: Assignment | None) -> Result[Assignment]:
-        """Validate assignment exists."""
-        if assignment:
-            return Result.ok(assignment)
-        return Result.fail(Errors.not_found("Assignment not found"))
+    def _validate_report_exists(self, report: Report | None) -> Result[Report]:
+        """Validate report exists."""
+        if report:
+            return Result.ok(report)
+        return Result.fail(Errors.not_found("Report not found"))
 
     # ========================================================================
     # RETRIEVE
     # ========================================================================
 
-    async def get_assignment(self, uid: str) -> Result[Assignment]:
+    async def get_report(self, uid: str) -> Result[Report]:
         """
-        Get an assignment by UID.
+        Get a report by UID.
 
         Args:
-            uid: Assignment unique identifier
+            uid: Report unique identifier
 
         Returns:
-            Result containing the assignment or an error
+            Result containing the report or an error
         """
         result = await self.backend.get(uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        assignment = result.value
-        if not assignment:
-            return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
+        report = result.value
+        if not report:
+            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
 
-        return Result.ok(assignment)
+        return Result.ok(report)
 
-    async def get_with_access_check(self, uid: str, user_uid: str) -> Result[Assignment]:
+    async def get_with_access_check(self, uid: str, user_uid: str) -> Result[Report]:
         """
-        Get an assignment with access control verification.
+        Get a report with access control verification.
 
-        Checks if the user can view the assignment based on:
-        - Ownership (user owns the assignment)
-        - Visibility (PUBLIC assignments visible to all)
-        - Sharing (SHARED assignments with SHARES_WITH relationship)
+        Checks if the user can view the report based on:
+        - Ownership (user owns the report)
+        - Visibility (PUBLIC reports visible to all)
+        - Sharing (SHARED reports with SHARES_WITH relationship)
 
         Args:
-            uid: Assignment unique identifier
+            uid: Report unique identifier
             user_uid: User requesting access
 
         Returns:
-            Result containing the assignment or an error if access denied
+            Result containing the report or an error if access denied
         """
         if not self.sharing_service:
             # Fall back to simple get if no sharing service
-            return await self.get_assignment(uid)
+            return await self.get_report(uid)
 
         # Check access
         access_result = await self.sharing_service.check_access(uid, user_uid)
@@ -222,23 +222,23 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
             return Result.fail(access_result.expect_error())
 
         if not access_result.value:
-            return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
 
-        # User has access, fetch the assignment
-        return await self.get_assignment(uid)
+        # User has access, fetch the report
+        return await self.get_report(uid)
 
-    async def get_assignment_for_date(
+    async def get_report_for_date(
         self, target_date: date, user_uid: str | None = None
-    ) -> Result[Assignment | None]:
+    ) -> Result[Report | None]:
         """
-        Get the assignment for a specific date.
+        Get the report for a specific date.
 
         Args:
-            target_date: Date to find assignment for
+            target_date: Date to find report for
             user_uid: Optional user filter
 
         Returns:
-            Result containing the assignment if found, None otherwise
+            Result containing the report if found, None otherwise
         """
         filters: dict[str, Any] = {}
 
@@ -251,76 +251,76 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        assignments = result.value
-        if not assignments:
+        reports = result.value
+        if not reports:
             return Result.ok(None)
 
         # Filter by date (checking created_at date portion)
-        for assignment in assignments:
-            if assignment.created_at:
-                assignment_date = assignment.created_at.date()
-                if assignment_date == target_date:
-                    return Result.ok(assignment)
+        for report in reports:
+            if report.created_at:
+                report_date = report.created_at.date()
+                if report_date == target_date:
+                    return Result.ok(report)
 
         return Result.ok(None)
 
-    async def get_recent_assignments(
+    async def get_recent_reports(
         self,
         limit: int = 10,
         user_uid: str | None = None,
-        assignment_type: AssignmentType | None = None,
-    ) -> Result[list[Assignment]]:
+        report_type: ReportType | None = None,
+    ) -> Result[list[Report]]:
         """
-        Get recent assignments.
+        Get recent reports.
 
         Args:
-            limit: Maximum number of assignments to return
+            limit: Maximum number of reports to return
             user_uid: Optional user filter
-            assignment_type: Optional type filter (e.g., JOURNAL, TRANSCRIPT)
+            report_type: Optional type filter (e.g., JOURNAL, TRANSCRIPT)
 
         Returns:
-            Result containing list of assignments
+            Result containing list of reports
         """
         filters: dict[str, Any] = {}
 
         if user_uid:
             filters["user_uid"] = user_uid
-        if assignment_type:
-            filters["assignment_type"] = assignment_type.value
+        if report_type:
+            filters["report_type"] = report_type.value
 
         if filters:
             result = await self.backend.find_by(**filters)
         else:
             result = await self.backend.list(limit=limit)
             if result.is_ok:
-                assignments_list = result.value
-                assignments_list.sort(key=get_assignment_date, reverse=True)
-                return Result.ok(assignments_list[:limit])
+                reports_list = result.value
+                reports_list.sort(key=get_report_date, reverse=True)
+                return Result.ok(reports_list[:limit])
             return Result.ok([])
 
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        assignments = result.value or []
+        reports = result.value or []
         # Sort by created_at descending
-        assignments.sort(key=get_assignment_date, reverse=True)
+        reports.sort(key=get_report_date, reverse=True)
 
-        return Result.ok(assignments[:limit])
+        return Result.ok(reports[:limit])
 
     # ========================================================================
     # UPDATE
     # ========================================================================
 
-    async def update_assignment(self, uid: str, updates: dict[str, Any]) -> Result[Assignment]:
+    async def update_report(self, uid: str, updates: dict[str, Any]) -> Result[Report]:
         """
-        Update an assignment.
+        Update a report.
 
         Args:
-            uid: Assignment UID
+            uid: Report UID
             updates: Dictionary of updates to apply
 
         Returns:
-            Result containing updated assignment or error
+            Result containing updated report or error
         """
         # Define allowed fields
         allowed_fields = {
@@ -352,7 +352,7 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
 
         updated = result.value
         if not updated:
-            return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
 
         return Result.ok(updated)
 
@@ -360,24 +360,24 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
     # DELETE
     # ========================================================================
 
-    async def delete_assignment(self, uid: str) -> Result[bool]:
+    async def delete_report(self, uid: str) -> Result[bool]:
         """
-        Delete an assignment.
+        Delete a report.
 
         Args:
-            uid: Assignment UID to delete
+            uid: Report UID to delete
 
         Returns:
             Result indicating success or failure
         """
-        # Get assignment for event data before deletion
+        # Get report for event data before deletion
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        assignment = get_result.value
-        if not assignment:
-            return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
+        report = get_result.value
+        if not report:
+            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
 
         # Delete
         delete_result = await self.backend.delete(uid)
@@ -387,52 +387,50 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
 
         if delete_result.value:
             # Publish event
-            event = AssignmentDeleted(
-                assignment_uid=uid,
-                user_uid=assignment.user_uid,
-                assignment_type=assignment.assignment_type.value,
+            event = ReportDeleted(
+                report_uid=uid,
+                user_uid=report.user_uid,
+                report_type=report.report_type.value,
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
-            self.logger.debug(f"Published AssignmentDeleted event for {uid}")
+            self.logger.debug(f"Published ReportDeleted event for {uid}")
             return Result.ok(True)
 
-        return Result.fail(Errors.system("Failed to delete assignment"))
+        return Result.fail(Errors.system("Failed to delete report"))
 
     # ========================================================================
     # STATUS MANAGEMENT
     # ========================================================================
 
-    async def publish_assignment(self, uid: str) -> Result[Assignment]:
-        """Publish an assignment (set status to completed/published)."""
-        return await self._update_assignment_status(uid, AssignmentStatus.COMPLETED)
+    async def publish_report(self, uid: str) -> Result[Report]:
+        """Publish a report (set status to completed/published)."""
+        return await self._update_report_status(uid, ReportStatus.COMPLETED)
 
-    async def archive_assignment(self, uid: str) -> Result[Assignment]:
-        """Archive an assignment by updating status in metadata."""
-        # Get current assignment
+    async def archive_report(self, uid: str) -> Result[Report]:
+        """Archive a report by updating status in metadata."""
+        # Get current report
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        assignment = get_result.value
-        if not assignment:
-            return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
+        report = get_result.value
+        if not report:
+            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
 
         # Update metadata to include archived flag
-        current_metadata = assignment.metadata or {}
+        current_metadata = report.metadata or {}
         current_metadata["archived"] = True
         current_metadata["archived_at"] = datetime.now().isoformat()
 
-        return await self.update_assignment(uid, {"metadata": current_metadata})
+        return await self.update_report(uid, {"metadata": current_metadata})
 
-    async def mark_as_draft(self, uid: str) -> Result[Assignment]:
-        """Mark an assignment as draft (submitted, not yet processed)."""
-        return await self._update_assignment_status(uid, AssignmentStatus.SUBMITTED)
+    async def mark_as_draft(self, uid: str) -> Result[Report]:
+        """Mark a report as draft (submitted, not yet processed)."""
+        return await self._update_report_status(uid, ReportStatus.SUBMITTED)
 
-    async def _update_assignment_status(
-        self, uid: str, status: AssignmentStatus
-    ) -> Result[Assignment]:
-        """Update assignment status."""
+    async def _update_report_status(self, uid: str, status: ReportStatus) -> Result[Report]:
+        """Update report status."""
         result = await self.backend.update(uid, {"status": status.value})
 
         if result.is_error:
@@ -440,52 +438,52 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
 
         updated = result.value
         if not updated:
-            return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
 
-        self.logger.info(f"Updated assignment {uid} status to {status.value}")
+        self.logger.info(f"Updated report {uid} status to {status.value}")
         return Result.ok(updated)
 
     # ========================================================================
     # CATEGORY MANAGEMENT
     # ========================================================================
 
-    async def categorize_assignment(self, uid: str, category: str) -> Result[Assignment]:
+    async def categorize_report(self, uid: str, category: str) -> Result[Report]:
         """
-        Categorize an assignment.
+        Categorize a report.
 
-        Categories are stored in Assignment.metadata['category'].
+        Categories are stored in Report.metadata['category'].
 
         Args:
-            uid: Assignment UID
-            category: Category to assign (use AssignmentCategory constants)
+            uid: Report UID
+            category: Category to assign (use ReportCategory constants)
 
         Returns:
-            Updated assignment
+            Updated report
         """
         # Validate category
-        if category not in AssignmentCategory.all_categories():
+        if category not in ReportCategory.all_categories():
             self.logger.warning(f"Unknown category '{category}', using anyway")
 
-        # Get current assignment to preserve metadata
+        # Get current report to preserve metadata
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        assignment = get_result.value
-        if not assignment:
-            return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
+        report = get_result.value
+        if not report:
+            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
 
         # Update metadata with category
-        current_metadata = assignment.metadata or {}
+        current_metadata = report.metadata or {}
         current_metadata["category"] = category
 
-        return await self.update_assignment(uid, {"metadata": current_metadata})
+        return await self.update_report(uid, {"metadata": current_metadata})
 
-    async def get_assignments_by_category(
+    async def get_reports_by_category(
         self, category: str, limit: int = 50, user_uid: str | None = None
-    ) -> Result[list[Assignment]]:
+    ) -> Result[list[Report]]:
         """
-        Get assignments by category.
+        Get reports by category.
 
         Args:
             category: Category to filter by
@@ -493,9 +491,9 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
             user_uid: Optional user filter
 
         Returns:
-            List of assignments in category
+            List of reports in category
         """
-        # Get all assignments and filter by metadata.category
+        # Get all reports and filter by metadata.category
         filters: dict[str, Any] = {}
         if user_uid:
             filters["user_uid"] = user_uid
@@ -505,12 +503,10 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
         else:
             result = await self.backend.list(limit=limit * 2)  # Fetch more, filter down
             if result.is_ok:
-                assignments_list = result.value
+                reports_list = result.value
                 # Filter by category in metadata
                 filtered = [
-                    a
-                    for a in assignments_list
-                    if a.metadata and a.metadata.get("category") == category
+                    a for a in reports_list if a.metadata and a.metadata.get("category") == category
                 ]
                 return Result.ok(filtered[:limit])
             return Result.ok([])
@@ -518,9 +514,9 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        assignments = result.value or []
+        reports = result.value or []
         # Filter by category in metadata
-        filtered = [a for a in assignments if a.metadata and a.metadata.get("category") == category]
+        filtered = [a for a in reports if a.metadata and a.metadata.get("category") == category]
 
         return Result.ok(filtered[:limit])
 
@@ -528,71 +524,71 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
     # TAG MANAGEMENT
     # ========================================================================
 
-    async def add_tags(self, uid: str, tags: list[str]) -> Result[Assignment]:
+    async def add_tags(self, uid: str, tags: list[str]) -> Result[Report]:
         """
-        Add tags to an assignment.
+        Add tags to a report.
 
-        Tags are stored in Assignment.metadata['tags'].
+        Tags are stored in Report.metadata['tags'].
 
         Args:
-            uid: Assignment UID
+            uid: Report UID
             tags: Tags to add
 
         Returns:
-            Updated assignment
+            Updated report
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        assignment = get_result.value
-        if not assignment:
-            return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
+        report = get_result.value
+        if not report:
+            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
 
         # Merge with existing tags
-        current_metadata = assignment.metadata or {}
+        current_metadata = report.metadata or {}
         current_tags = current_metadata.get("tags", [])
         if not isinstance(current_tags, list):
             current_tags = []
         new_tags = list(set(current_tags + tags))
         current_metadata["tags"] = new_tags
 
-        return await self.update_assignment(uid, {"metadata": current_metadata})
+        return await self.update_report(uid, {"metadata": current_metadata})
 
-    async def remove_tags(self, uid: str, tags: list[str]) -> Result[Assignment]:
+    async def remove_tags(self, uid: str, tags: list[str]) -> Result[Report]:
         """
-        Remove tags from an assignment.
+        Remove tags from a report.
 
         Args:
-            uid: Assignment UID
+            uid: Report UID
             tags: Tags to remove
 
         Returns:
-            Updated assignment
+            Updated report
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        assignment = get_result.value
-        if not assignment:
-            return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
+        report = get_result.value
+        if not report:
+            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
 
         # Remove specified tags
-        current_metadata = assignment.metadata or {}
+        current_metadata = report.metadata or {}
         current_tags = current_metadata.get("tags", [])
         if not isinstance(current_tags, list):
             current_tags = []
         updated_tags = [t for t in current_tags if t not in tags]
         current_metadata["tags"] = updated_tags
 
-        return await self.update_assignment(uid, {"metadata": current_metadata})
+        return await self.update_report(uid, {"metadata": current_metadata})
 
-    async def get_assignments_by_tag(
+    async def get_reports_by_tag(
         self, tag: str, limit: int = 50, user_uid: str | None = None
-    ) -> Result[list[Assignment]]:
+    ) -> Result[list[Report]]:
         """
-        Get assignments with a specific tag.
+        Get reports with a specific tag.
 
         Args:
             tag: Tag to search for
@@ -600,9 +596,9 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
             user_uid: Optional user filter
 
         Returns:
-            List of assignments with the tag
+            List of reports with the tag
         """
-        # Get all assignments and filter by metadata.tags
+        # Get all reports and filter by metadata.tags
         filters: dict[str, Any] = {}
         if user_uid:
             filters["user_uid"] = user_uid
@@ -612,12 +608,10 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
         else:
             result = await self.backend.list(limit=limit * 2)
             if result.is_ok:
-                assignments_list = result.value
+                reports_list = result.value
                 # Filter by tag in metadata
                 filtered = [
-                    a
-                    for a in assignments_list
-                    if a.metadata and tag in (a.metadata.get("tags") or [])
+                    a for a in reports_list if a.metadata and tag in (a.metadata.get("tags") or [])
                 ]
                 return Result.ok(filtered[:limit])
             return Result.ok([])
@@ -625,9 +619,9 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        assignments = result.value or []
+        reports = result.value or []
         # Filter by tag in metadata
-        filtered = [a for a in assignments if a.metadata and tag in (a.metadata.get("tags") or [])]
+        filtered = [a for a in reports if a.metadata and tag in (a.metadata.get("tags") or [])]
 
         return Result.ok(filtered[:limit])
 
@@ -637,27 +631,27 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
 
     async def bulk_categorize(self, uids: list[str], category: str) -> Result[int]:
         """
-        Bulk categorize multiple assignments.
+        Bulk categorize multiple reports.
 
         Args:
-            uids: List of assignment UIDs to categorize
-            category: Category to assign to all assignments
+            uids: List of report UIDs to categorize
+            category: Category to assign to all reports
 
         Returns:
-            Result containing count of successfully updated assignments
+            Result containing count of successfully updated reports
         """
-        self.logger.info(f"Bulk categorizing {len(uids)} assignments to category: {category}")
+        self.logger.info(f"Bulk categorizing {len(uids)} reports to category: {category}")
 
         updated_count = 0
         errors = []
 
         for uid in uids:
-            result = await self.categorize_assignment(uid, category)
+            result = await self.categorize_report(uid, category)
             if result.is_ok:
                 updated_count += 1
-                self.logger.debug(f"Updated assignment {uid} to category {category}")
+                self.logger.debug(f"Updated report {uid} to category {category}")
             else:
-                error_msg = f"Failed to update assignment {uid}: {result.error}"
+                error_msg = f"Failed to update report {uid}: {result.error}"
                 errors.append(error_msg)
                 self.logger.warning(error_msg)
 
@@ -665,22 +659,22 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
             self.logger.warning(f"Bulk categorization completed with {len(errors)} errors")
 
         self.logger.info(
-            f"Bulk categorization completed: {updated_count}/{len(uids)} assignments updated"
+            f"Bulk categorization completed: {updated_count}/{len(uids)} reports updated"
         )
         return Result.ok(updated_count)
 
     async def bulk_tag(self, uids: list[str], tags: list[str]) -> Result[int]:
         """
-        Bulk add tags to multiple assignments.
+        Bulk add tags to multiple reports.
 
         Args:
-            uids: List of assignment UIDs to tag
-            tags: List of tags to add to all assignments
+            uids: List of report UIDs to tag
+            tags: List of tags to add to all reports
 
         Returns:
-            Result containing count of successfully updated assignments
+            Result containing count of successfully updated reports
         """
-        self.logger.info(f"Bulk tagging {len(uids)} assignments with tags: {tags}")
+        self.logger.info(f"Bulk tagging {len(uids)} reports with tags: {tags}")
 
         updated_count = 0
         errors = []
@@ -689,56 +683,54 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
             result = await self.add_tags(uid, tags)
             if result.is_ok:
                 updated_count += 1
-                self.logger.debug(f"Added tags {tags} to assignment {uid}")
+                self.logger.debug(f"Added tags {tags} to report {uid}")
             else:
-                error_msg = f"Failed to tag assignment {uid}: {result.error}"
+                error_msg = f"Failed to tag report {uid}: {result.error}"
                 errors.append(error_msg)
                 self.logger.warning(error_msg)
 
         if errors:
             self.logger.warning(f"Bulk tagging completed with {len(errors)} errors")
 
-        self.logger.info(f"Bulk tagging completed: {updated_count}/{len(uids)} assignments updated")
+        self.logger.info(f"Bulk tagging completed: {updated_count}/{len(uids)} reports updated")
         return Result.ok(updated_count)
 
     async def bulk_delete(self, uids: list[str], soft_delete: bool = True) -> Result[int]:
         """
-        Bulk delete multiple assignments.
+        Bulk delete multiple reports.
 
         Args:
-            uids: List of assignment UIDs to delete
+            uids: List of report UIDs to delete
             soft_delete: If True, archive instead of permanent delete
 
         Returns:
-            Result containing count of successfully deleted assignments
+            Result containing count of successfully deleted reports
         """
-        self.logger.info(f"Bulk deleting {len(uids)} assignments (soft_delete={soft_delete})")
+        self.logger.info(f"Bulk deleting {len(uids)} reports (soft_delete={soft_delete})")
 
         deleted_count = 0
         errors = []
 
         for uid in uids:
             if soft_delete:
-                result = await self.archive_assignment(uid)
+                result = await self.archive_report(uid)
                 success = result.is_ok
             else:
-                delete_result = await self.delete_assignment(uid)
+                delete_result = await self.delete_report(uid)
                 success = delete_result.is_ok and bool(delete_result.value)
 
             if success:
                 deleted_count += 1
-                self.logger.debug(f"Deleted assignment {uid}")
+                self.logger.debug(f"Deleted report {uid}")
             else:
-                error_msg = f"Failed to delete assignment {uid}"
+                error_msg = f"Failed to delete report {uid}"
                 errors.append(error_msg)
                 self.logger.warning(error_msg)
 
         if errors:
             self.logger.warning(f"Bulk deletion completed with {len(errors)} errors")
 
-        self.logger.info(
-            f"Bulk deletion completed: {deleted_count}/{len(uids)} assignments deleted"
-        )
+        self.logger.info(f"Bulk deletion completed: {deleted_count}/{len(uids)} reports deleted")
         return Result.ok(deleted_count)
 
     # ========================================================================
@@ -747,39 +739,39 @@ class AssignmentsCoreService(BaseService[BackendOperations[Assignment], Assignme
 
     async def export_to_markdown(self, uid: str) -> Result[str]:
         """
-        Export assignment to markdown format.
+        Export report to markdown format.
 
         Args:
-            uid: Assignment UID
+            uid: Report UID
 
         Returns:
-            Markdown formatted assignment content
+            Markdown formatted report content
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        assignment = get_result.value
-        if not assignment:
-            return Result.fail(Errors.not_found("resource", f"Assignment {uid} not found"))
+        report = get_result.value
+        if not report:
+            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
 
         # Extract metadata
-        metadata = assignment.metadata or {}
+        metadata = report.metadata or {}
         category = metadata.get("category", "")
         tags = metadata.get("tags", [])
-        title = metadata.get("title", assignment.original_filename)
+        title = metadata.get("title", report.original_filename)
 
         # Format as markdown
         md_lines = [
             f"# {title}",
-            f"*{assignment.created_at.strftime('%Y-%m-%d')}*" if assignment.created_at else "",
+            f"*{report.created_at.strftime('%Y-%m-%d')}*" if report.created_at else "",
             "",
-            assignment.processed_content or "",
+            report.processed_content or "",
             "",
-            f"**Type:** {assignment.assignment_type.value}" if assignment.assignment_type else "",
+            f"**Type:** {report.report_type.value}" if report.report_type else "",
             f"**Category:** {category}" if category else "",
             f"**Tags:** {', '.join(tags)}" if tags else "",
-            f"**Status:** {assignment.status.value}" if assignment.status else "",
+            f"**Status:** {report.status.value}" if report.status else "",
         ]
 
         markdown = "\n".join(line for line in md_lines if line)

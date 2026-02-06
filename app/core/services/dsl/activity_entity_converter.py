@@ -985,39 +985,39 @@ def activity_to_lp_dict(activity: ParsedActivityLine) -> Result[ConversionResult
 # ============================================================================
 
 
-@with_error_handling(error_type="system", operation="activity_to_assignment_dict")
-def activity_to_assignment_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
+@with_error_handling(error_type="system", operation="activity_to_report_dict")
+def activity_to_report_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
     """
-    Convert ParsedActivityLine to Assignment creation dict.
+    Convert ParsedActivityLine to Report creation dict.
 
-    Assignments are file uploads and processing requests - the entry point
+    Reports are file uploads and processing requests - the entry point
     for content into SKUEL.
 
     **DSL Example:**
     ```markdown
-    - [ ] Process my voice memo @context(assignment) @when(2025-11-27)
+    - [ ] Process my voice memo @context(report) @when(2025-11-27)
           @link(goal:daily-reflection)
     ```
 
     Args:
-        activity: Parsed activity line with context containing "assignment"
+        activity: Parsed activity line with context containing "report"
 
     Returns:
-        Result containing dict for Assignment creation
+        Result containing dict for Report creation
     """
-    if not activity.is_assignment():
+    if not activity.is_report():
         return Result.fail(
             Errors.validation(
-                message="Activity is not an Assignment (missing 'assignment' in @context)",
+                message="Activity is not a Report (missing 'report' in @context)",
                 field="context",
                 value=",".join(activity.context_values),
             )
         )
 
-    # Infer assignment type from description keywords
+    # Infer report type from description keywords
     # NOTE (January 2026): Default changed from "journal" to "transcript"
     # Journal is now a separate domain (JournalsCoreService).
-    assignment_type = "transcript"  # default
+    report_type = "transcript"  # default
     type_keywords = {
         "voice": "transcript",
         "audio": "transcript",
@@ -1029,13 +1029,13 @@ def activity_to_assignment_dict(activity: ParsedActivityLine) -> Result[Conversi
         "video": "video_summary",
     }
     desc_lower = activity.description.lower()
-    for keyword, atype in type_keywords.items():
+    for keyword, rtype in type_keywords.items():
         if keyword in desc_lower:
-            assignment_type = atype
+            report_type = rtype
             break
 
-    assignment_dict = {
-        "assignment_type": assignment_type,
+    report_dict = {
+        "report_type": report_type,
         "processor_type": "automatic",  # LLM processing
         "metadata": {
             "description": activity.description,
@@ -1044,40 +1044,31 @@ def activity_to_assignment_dict(activity: ParsedActivityLine) -> Result[Conversi
         },
     }
 
-    logger.debug(f"Converted activity to Assignment dict: {assignment_type}")
-    return Result.ok(assignment_dict)
+    logger.debug(f"Converted activity to Report dict: {report_type}")
+    return Result.ok(report_dict)
 
 
-@with_error_handling(error_type="system", operation="activity_to_report_dict")
-def activity_to_report_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
+@with_error_handling(error_type="system", operation="activity_to_analytics_dict")
+def activity_to_analytics_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
     """
-    Convert ParsedActivityLine to Report request dict.
+    Convert ParsedActivityLine to Analytics request dict.
 
-    Reports are statistical aggregation requests - analyzing activity
+    Analytics are statistical aggregation requests - analyzing activity
     patterns and progress across domains.
 
     **DSL Example:**
     ```markdown
-    - [ ] Generate weekly habit report @context(report) @when(2025-11-27)
+    - [ ] Generate weekly habit analytics @context(analytics) @when(2025-11-27)
     ```
 
     Args:
-        activity: Parsed activity line with context containing "report"
+        activity: Parsed activity line with context containing analytics request
 
     Returns:
-        Result containing dict for Report generation request
+        Result containing dict for Analytics generation request
     """
-    if not activity.is_report():
-        return Result.fail(
-            Errors.validation(
-                message="Activity is not a Report (missing 'report' in @context)",
-                field="context",
-                value=",".join(activity.context_values),
-            )
-        )
-
-    # Infer report type from description
-    report_type = "summary"  # default
+    # Infer analytics type from description
+    analytics_type = "summary"  # default
     type_keywords = {
         "habit": "habits",
         "task": "tasks",
@@ -1089,25 +1080,25 @@ def activity_to_report_dict(activity: ParsedActivityLine) -> Result[ConversionRe
         "life": "life_path",
     }
     desc_lower = activity.description.lower()
-    for keyword, rtype in type_keywords.items():
+    for keyword, atype in type_keywords.items():
         if keyword in desc_lower:
-            report_type = rtype
+            analytics_type = atype
             break
 
-    # Report date from @when
-    report_date = activity.when.date() if activity.when else date.today()
+    # Analytics date from @when
+    analytics_date = activity.when.date() if activity.when else date.today()
 
-    report_dict = {
-        "report_type": report_type,
-        "report_date": report_date,
+    analytics_dict = {
+        "analytics_type": analytics_type,
+        "analytics_date": analytics_date,
         "description": activity.description,
         "metadata": {
             "tags": activity.energy_states if activity.energy_states else [],
         },
     }
 
-    logger.debug(f"Converted activity to Report dict: {report_type}")
-    return Result.ok(report_dict)
+    logger.debug(f"Converted activity to Analytics dict: {analytics_type}")
+    return Result.ok(analytics_dict)
 
 
 @with_error_handling(error_type="system", operation="activity_to_calendar_dict")
@@ -1282,8 +1273,8 @@ class ActivityEntityConverter:
         - "learning_paths": list of LP dicts
 
         **Meta Domains (3) - How I ORGANIZE:**
-        - "assignments": list of assignment dicts
         - "reports": list of report dicts
+        - "analytics": list of analytics dicts
         - "calendar_items": list of calendar dicts
 
         **The Destination (+1) - Where I'm GOING:**
@@ -1306,8 +1297,8 @@ class ActivityEntityConverter:
             "learning_steps": [],
             "learning_paths": [],
             # Meta Domains (3)
-            "assignments": [],
             "reports": [],
+            "analytics": [],
             "calendar_items": [],
             # The Destination (+1)
             "lifepath_items": [],
@@ -1401,13 +1392,6 @@ class ActivityEntityConverter:
             # META DOMAINS (3) - How I ORGANIZE
             # ================================================================
 
-            if activity.is_assignment():
-                result = activity_to_assignment_dict(activity)
-                if result.is_ok:
-                    results["assignments"].append(result.value)
-                else:
-                    results["errors"].append(f"Assignment conversion: {result.error}")
-
             if activity.is_report():
                 result = activity_to_report_dict(activity)
                 if result.is_ok:
@@ -1449,8 +1433,8 @@ class ActivityEntityConverter:
             f"{len(results['learning_steps'])} LSs, "
             f"{len(results['learning_paths'])} LPs, "
             # Meta domains
-            f"{len(results['assignments'])} assignments, "
             f"{len(results['reports'])} reports, "
+            f"{len(results['analytics'])} analytics, "
             f"{len(results['calendar_items'])} calendar items, "
             # Destination
             f"{len(results['lifepath_items'])} lifepath items, "
@@ -1575,9 +1559,6 @@ class ActivityEntityConverter:
             # ================================================================
             # META DOMAINS (3)
             # ================================================================
-            case EntityType.ASSIGNMENT:
-                return activity_to_assignment_dict(activity)
-
             case EntityType.REPORT:
                 return activity_to_report_dict(activity)
 

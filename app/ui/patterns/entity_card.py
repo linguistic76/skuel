@@ -180,7 +180,7 @@ def EntityCard(
 
     This card pattern is designed to work with all 14 domains:
     Tasks, Goals, Habits, Events, Choices, Principles, Finance,
-    KU, LS, LP, MOC, Journals, Assignments, and LifePath.
+    KU, LS, LP, MOC, Journals, Reports, and LifePath.
 
     Supports three display variants via CardConfig:
     - DEFAULT: Full layout (description, metadata, actions)

@@ -6,7 +6,7 @@ This module provides unified access to all SKUEL enumerations.
 
 Module Organization:
 - activity_enums: Priority, ActivityStatus, ActivityType, CompletionStatus, GoalStatus
-- entity_enums: EntityType, Domain, ReportType, Context
+- entity_enums: EntityType, Domain, AnalyticsDomain, Context
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
 - learning_enums: LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus,
                   ContentType, PracticeLevel, KnowledgeType, SELCategory
@@ -33,7 +33,7 @@ from .entity_enums import (
     Context,
     Domain,
     EntityType,
-    ReportType,
+    AnalyticsDomain,
 )
 
 # Learning enums - education, knowledge, and mastery tracking
@@ -125,7 +125,7 @@ __all__ = [
     # Scheduling enums
     "RecurrencePattern",
     "RelationshipType",
-    "ReportType",
+    "AnalyticsDomain",
     # Metadata enums
     "ResponseTone",
     "SELCategory",

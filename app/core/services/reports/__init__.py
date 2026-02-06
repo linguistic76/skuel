@@ -1,28 +1,49 @@
 """
-Reports Package - 4-Service Architecture
-=========================================
+Reports Service Sub-Services
+=================================
 
-Cross-domain and cross-layer report generation with specialized sub-services.
+This package contains focused sub-services for the Reports domain.
 
-Architecture (October 24, 2025):
-- ReportMetricsService: Domain-specific statistical calculations
-- ReportAggregationService: Cross-domain synthesis and Life Reports
-- ReportLifePathService: Life Path alignment tracking (NEW - Layer 3 critical!)
-- ReportsService: Facade orchestrating all services (in parent directory)
+Architecture: Processing Domain (not Activity Domain)
+- Handles file submission, processing pipelines, and content management
+- Different from Activity domains (Tasks, Goals, etc.) which use facade pattern
+- Shares patterns with Journals domain
 
-This package enables:
-1. Single-domain reports (Tasks, Habits, Goals, Events, Finance, Choices, Principles)
-2. Cross-domain Life Reports (Weekly/Monthly/Quarterly/Yearly summaries)
-3. Life Path alignment tracking (THE most important metric!)
-4. Pattern detection across domains and layers
+Sub-services:
+- ReportsSubmissionService: File upload and storage
+- ReportsProcessingService: Processing orchestration (audio, text, future: PDF, image)
+- ReportsCoreService: Content management (categories, tags, status workflow)
+- ReportsSearchService: Query and search operations
+- ReportsRelationshipService: Graph relationship creation
+
+Domain Separation (January 2026):
+- Reports: File submission, teacher review, processing
+- Journals: Personal reflections, separate processing pipeline
+
+Version: 1.0.0
+Date: 2026-01-21
 """
 
-from core.services.reports.report_aggregation_service import ReportAggregationService
-from core.services.reports.report_life_path_service import ReportLifePathService
-from core.services.reports.report_metrics_service import ReportMetricsService
+from core.services.reports.report_sharing_service import (
+    ReportSharingService,
+)
+from core.services.reports.reports_core_service import ReportsCoreService
+from core.services.reports.reports_processing_service import (
+    ReportsProcessingService,
+)
+from core.services.reports.reports_relationship_service import (
+    ReportsRelationshipService,
+)
+from core.services.reports.reports_search_service import ReportsSearchService
+from core.services.reports.reports_submission_service import (
+    ReportSubmissionService,
+)
 
 __all__ = [
-    "ReportAggregationService",
-    "ReportLifePathService",
-    "ReportMetricsService",
+    "ReportsCoreService",
+    "ReportsProcessingService",
+    "ReportsSearchService",
+    "ReportSubmissionService",
+    "ReportsRelationshipService",
+    "ReportSharingService",
 ]

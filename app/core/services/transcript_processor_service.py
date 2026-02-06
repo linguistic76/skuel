@@ -64,7 +64,7 @@ class TranscriptProcessorService(BaseService[JournalsOperations, JournalPure]):
     ARCHITECTURE NOTE:
     =================
     This service processes transcripts according to instruction sets stored in Neo4j.
-    The output is stored in Assignment.processed_content (Option A architecture).
+    The output is stored in Report.processed_content (Option A architecture).
 
     Semantic Types Used:
     - APPLIES_KNOWLEDGE: Processed documents apply knowledge units practically
@@ -154,8 +154,8 @@ class TranscriptProcessorService(BaseService[JournalsOperations, JournalPure]):
         REFACTORED (November 10, 2025) - Option A Implementation:
         - No longer creates or stores JournalPure entities
         - Returns JournalAIInsights (formatted data only)
-        - AssignmentProcessorService stores insights in Assignment.processed_content
-        - AssignmentRelationshipService creates graph relationships
+        - ReportsProcessingService stores insights in Report.processed_content
+        - ReportsRelationshipService creates graph relationships
 
         Steps:
         1. Pull relevant context from Neo4j (UserContext, recent journals, goals, tasks)
@@ -260,7 +260,7 @@ class TranscriptProcessorService(BaseService[JournalsOperations, JournalPure]):
         Get comprehensive context for intelligent journal processing.
 
         Step 3 Implementation (November 2025): Single Query Context Retrieval
-        UPDATED (January 2026): Queries Assignment nodes instead of Journal nodes
+        UPDATED (January 2026): Queries Report nodes instead of Journal nodes
 
         This single Cypher query replaces multiple separate queries, gathering:
         - Recent journals (last 7 days) from Journal nodes
@@ -268,7 +268,7 @@ class TranscriptProcessorService(BaseService[JournalsOperations, JournalPure]):
         - Trending topics (last 30 days) for thematic continuity
         - Recent mood averages for emotional awareness
 
-        NOTE (January 2026): Updated to query :Journal nodes instead of :Assignment nodes.
+        NOTE (January 2026): Updated to query :Journal nodes instead of :Report nodes.
         Journals are now a separate domain with JournalsCoreService.
 
         Args:
@@ -491,7 +491,7 @@ class TranscriptProcessorService(BaseService[JournalsOperations, JournalPure]):
         """
         Get recent journal entries for context awareness.
 
-        UPDATED (January 2026): Queries Assignment nodes instead of Journal nodes.
+        UPDATED (January 2026): Queries Report nodes instead of Journal nodes.
 
         Args:
             user_uid: User identifier

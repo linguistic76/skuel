@@ -753,40 +753,40 @@ def setup_user_profile_routes(rt, services):
             )
             return await error_page(str(e), 500)
 
-        # Fetch shared assignments
+        # Fetch shared reports
         from fasthtml.common import H2, H4, A, Button, Div, P, Span
 
-        shared_assignments = []
-        if services.assignments_sharing:
-            assignments_result = await services.assignments_sharing.get_assignments_shared_with_me(
+        shared_reports = []
+        if services.reports_sharing:
+            reports_result = await services.reports_sharing.get_reports_shared_with_me(
                 user_uid=user_uid,
                 limit=50,
             )
-            if not assignments_result.is_error:
-                shared_assignments = assignments_result.value
+            if not reports_result.is_error:
+                shared_reports = reports_result.value
 
         # Build shared content view
-        def shared_content_card(assignment: Any) -> Any:
-            """Render a shared assignment card."""
+        def shared_content_card(report: Any) -> Any:
+            """Render a shared report card."""
             return Div(
                 Div(
                     # Header with filename and status
                     Div(
-                        H4(assignment.original_filename, cls="card-title text-sm"),
+                        H4(report.original_filename, cls="card-title text-sm"),
                         Span(
-                            assignment.status,
-                            cls=f"badge badge-sm {_get_status_badge_class(assignment.status)}",
+                            report.status,
+                            cls=f"badge badge-sm {_get_status_badge_class(report.status)}",
                         ),
                         cls="flex items-center justify-between",
                     ),
                     # Metadata
                     Div(
                         P(
-                            f"Shared by: {assignment.user_uid}",
+                            f"Shared by: {report.user_uid}",
                             cls="text-xs text-base-content/60 mb-1",
                         ),
                         P(
-                            f"Type: {assignment.assignment_type}",
+                            f"Type: {report.report_type}",
                             cls="text-xs text-base-content/60 mb-0",
                         ),
                         cls="mt-2",
@@ -795,7 +795,7 @@ def setup_user_profile_routes(rt, services):
                     Div(
                         A(
                             "View",
-                            href=f"/assignments/{assignment.uid}",
+                            href=f"/reports/{report.uid}",
                             cls="btn btn-xs btn-primary",
                         ),
                         cls="mt-3",
@@ -806,7 +806,7 @@ def setup_user_profile_routes(rt, services):
             )
 
         def _get_status_badge_class(status: str) -> str:
-            """Get DaisyUI badge class for assignment status."""
+            """Get DaisyUI badge class for report status."""
             classes = {
                 "submitted": "badge-warning",
                 "queued": "badge-warning",
@@ -821,23 +821,23 @@ def setup_user_profile_routes(rt, services):
         content = Div(
             H2("📥 Shared With Me", cls="text-2xl font-bold mb-4"),
             P(
-                "Assignments and events shared with you by teachers, peers, and mentors.",
+                "Reports and events shared with you by teachers, peers, and mentors.",
                 cls="text-base-content/70 mb-6",
             ),
-            # Filter tabs (Phase 1: only Assignments active)
+            # Filter tabs (Phase 1: only Reports active)
             Div(
                 Button("All", cls="btn btn-sm btn-ghost", disabled=True),
-                Button("Assignments", cls="btn btn-sm btn-primary"),
+                Button("Reports", cls="btn btn-sm btn-primary"),
                 Button("Events", cls="btn btn-sm btn-ghost", disabled=True),
                 cls="flex gap-2 mb-6",
             ),
             # Shared content grid
             (
                 Div(
-                    *[shared_content_card(a) for a in shared_assignments],
+                    *[shared_content_card(a) for a in shared_reports],
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
                 )
-                if shared_assignments
+                if shared_reports
                 else Div(
                     P(
                         "No content shared with you yet.",

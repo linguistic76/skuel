@@ -225,7 +225,7 @@ def build_profile_sidebar(
                 **{"hx-boost": "false"},
             )
         ),
-        # Shared With Me link (Phase 1: Assignment Portfolio)
+        # Shared With Me link (Phase 1: Report Portfolio)
         Li(
             Anchor(
                 Span("📥", cls="text-lg", aria_hidden="true"),  # Decorative emoji

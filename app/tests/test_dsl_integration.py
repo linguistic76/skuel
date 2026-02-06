@@ -10,10 +10,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.assignment.assignment import (
-    Assignment,
-    AssignmentStatus,
-    AssignmentType,
+from core.models.report.report import (
+    Report,
+    ReportStatus,
+    ReportType,
     ProcessorType,
 )
 from core.services.dsl import (
@@ -124,19 +124,19 @@ class TestJournalActivityExtractor:
         return service
 
     @pytest.fixture
-    def mock_assignment(self):
-        """Create a mock assignment with journal content."""
+    def mock_report(self):
+        """Create a mock report with journal content."""
         # ✅ Use dynamic future date to avoid validation errors
         from datetime import timedelta
 
         future_date = date.today() + timedelta(days=30)
         when_str = future_date.strftime("%Y-%m-%dT10:00")
 
-        return Assignment(
-            uid="assignment:test",
+        return Report(
+            uid="report:test",
             user_uid="user:mike",
-            assignment_type=AssignmentType.TRANSCRIPT,
-            status=AssignmentStatus.COMPLETED,
+            report_type=ReportType.TRANSCRIPT,
+            status=ReportStatus.COMPLETED,
             processor_type=ProcessorType.LLM,
             original_filename="journal.md",
             file_path="/tmp/journal.md",
@@ -164,14 +164,14 @@ Some reflections on the day...
             habits_service=None,  # Not testing habit creation
             goals_service=None,
             events_service=None,
-            assignment_service=None,
+            report_service=None,
         )
 
     @pytest.mark.asyncio
-    async def test_extract_finds_activities(self, extractor, mock_assignment):
+    async def test_extract_finds_activities(self, extractor, mock_report):
         """Extractor finds all activity lines."""
         result = await extractor.extract_and_create(
-            assignment=mock_assignment,
+            report=mock_report,
             user_uid="user:mike",
         )
 
@@ -182,10 +182,10 @@ Some reflections on the day...
         assert extraction.habits_found == 1
 
     @pytest.mark.asyncio
-    async def test_extract_creates_tasks(self, extractor, mock_assignment, mock_tasks_service):
+    async def test_extract_creates_tasks(self, extractor, mock_report, mock_tasks_service):
         """Extractor creates tasks via service."""
         result = await extractor.extract_and_create(
-            assignment=mock_assignment,
+            report=mock_report,
             user_uid="user:mike",
         )
 
@@ -200,11 +200,11 @@ Some reflections on the day...
     @pytest.mark.asyncio
     async def test_extract_handles_empty_content(self, extractor):
         """Extractor handles empty content gracefully."""
-        empty_assignment = Assignment(
-            uid="assignment:empty",
+        empty_report = Report(
+            uid="report:empty",
             user_uid="user:mike",
-            assignment_type=AssignmentType.TRANSCRIPT,
-            status=AssignmentStatus.COMPLETED,
+            report_type=ReportType.TRANSCRIPT,
+            status=ReportStatus.COMPLETED,
             processor_type=ProcessorType.LLM,
             original_filename="empty.md",
             file_path="/tmp/empty.md",
@@ -215,7 +215,7 @@ Some reflections on the day...
         )
 
         result = await extractor.extract_and_create(
-            assignment=empty_assignment,
+            report=empty_report,
             user_uid="user:mike",
         )
 
@@ -245,7 +245,7 @@ class TestExtractionResult:
     def test_total_created(self):
         """total_created sums all entity counts."""
         result = ActivityExtractionResult(
-            assignment_uid="test",
+            report_uid="test",
             user_uid="user",
             tasks_created=3,
             habits_created=2,
@@ -258,20 +258,20 @@ class TestExtractionResult:
     def test_has_errors(self):
         """has_errors detects any error lists."""
         result_clean = ActivityExtractionResult(
-            assignment_uid="test",
+            report_uid="test",
             user_uid="user",
         )
         assert not result_clean.has_errors
 
         result_parse_error = ActivityExtractionResult(
-            assignment_uid="test",
+            report_uid="test",
             user_uid="user",
             parse_errors=["Line 5: Invalid @context"],
         )
         assert result_parse_error.has_errors
 
         result_create_error = ActivityExtractionResult(
-            assignment_uid="test",
+            report_uid="test",
             user_uid="user",
             creation_errors=["Task creation failed"],
         )
@@ -280,7 +280,7 @@ class TestExtractionResult:
     def test_to_dict(self):
         """to_dict produces serializable output."""
         result = ActivityExtractionResult(
-            assignment_uid="test",
+            report_uid="test",
             user_uid="user",
             activities_found=5,
             tasks_created=2,

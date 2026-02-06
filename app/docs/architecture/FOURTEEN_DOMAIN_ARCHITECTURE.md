@@ -33,7 +33,7 @@ SKUEL is built on a **14-domain + 5 cross-cutting systems architecture** that re
 - **Activity Domains (6)** - What I DO
 - **Finance Domain (1)** - What I MANAGE (standalone)
 - **Curriculum Domains (3)** - What I LEARN (three grouping patterns: KU, LS, LP)
-- **Content/Processing Domains (2)** - How I PROCESS (Journals, Assignments)
+- **Content/Processing Domains (2)** - How I PROCESS (Journals, Reports)
 - **Organizational Domain (1)** - How I ORGANIZE (MOC = KU-based organization)
 - **LifePath (1)** - Where I'm GOING (The Destination)
 - **Cross-Cutting Systems (5)** - The infrastructure that enables everything (4 active + 1 planned)
@@ -67,7 +67,7 @@ SKUEL is built on a **14-domain + 5 cross-cutting systems architecture** that re
 │ How I         │           │ What I DO       │           │ What I LEARN  │
 │ PROCESS       │           │                 │           │               │
 │               │           │ • Tasks         │           │ • KU (point)  │
-│ • Assignments │◄─────────►│ • Habits        │◄─────────►│ • LS (edge)   │
+│ • Reports     │◄─────────►│ • Habits        │◄─────────►│ • LS (edge)   │
 │ • Journals    │           │ • Goals         │           │ • LP (path)   │
 │               │           │ • Events        │           │               │
 │───────────────│           │ • Principles    │           │───────────────│
@@ -316,24 +316,24 @@ Content/Processing domains handle **input processing and AI transformation** acr
 
 | Domain | Type | Purpose | Data Flow |
 |--------|------|---------|-----------|
-| **Assignments** | Processing | User-facing assignment interface | Input → Processing → Activities |
+| **Reports** | Processing | User-facing report interface | Input → Processing → Activities |
 | **Journals** | Processing | Two-tier journal system | Voice/Text → AI → Formatted Output |
 
 **Journals Two-Tier System (December 2025):**
 
-| Tier | Name | Input | Retention | AssignmentType |
-|------|------|-------|-----------|----------------|
+| Tier | Name | Input | Retention | ReportType |
+|------|------|-------|-----------|------------|
 | **PJ1** | Voice Journals | Audio files | Ephemeral (max 3, FIFO) | `JOURNAL_VOICE` |
 | **PJ2** | Curated Journals | Text/Markdown | Permanent | `JOURNAL_CURATED` |
 
 - **PJ1 (Voice)**: Quick capture, auto-cleaned to prevent Neo4j clutter
 - **PJ2 (Curated)**: Intentional, refined content worth preserving permanently
 
-**Assignments Architecture**:
+**Reports Architecture**:
 ```
-User Upload → AssignmentSubmissionService
+User Upload → ReportSubmissionService
                     ↓
-            AssignmentProcessorService
+            ReportsProcessingService
                     ↓
             [Processor Selection]
             ├→ Audio → TranscriptionService (Deepgram) → TranscriptProcessorService
@@ -350,7 +350,7 @@ audio → Deepgram → transcript. It publishes TranscriptionCompleted events fo
 processing. See `/docs/decisions/ADR-019-transcription-service-standalone.md`.
 
 **Key Distinction**:
-- **Assignments** = User-facing interface (file uploads, submissions)
+- **Reports** = User-facing interface (file uploads, submissions)
 - **Journals** = AI processing engine (returns `JournalAIInsights`, no entity creation)
 
 ---
@@ -830,7 +830,7 @@ The **Activity DSL** enables natural language parsing into all 14 domains:
 - [ ] Master async programming @context(lp) @link(goal:python-expert)
 
 # Content/Organization Domains (3)
-- [ ] Process voice memo @context(assignment) @type(audio)
+- [ ] Process voice memo @context(report) @type(audio)
 - [ ] Format journal entry @context(journal) @type(text)
 - [ ] Organize Python knowledge @context(moc) @parent(moc:tech)
 
@@ -946,7 +946,7 @@ The LLM is instructed to recognize all 14 SKUEL domains:
 | `@context(ku)` | Knowledge to acquire |
 | `@context(ls)` | Learning activities |
 | `@context(lp)` | Learning paths |
-| `@context(assignment)` | Content to process |
+| `@context(report)` | Content to process |
 | `@context(journal)` | AI-processed journal entries |
 | `@context(moc)` | Knowledge hierarchy organization |
 | `@context(lifepath)` | Life vision alignment |
@@ -1094,7 +1094,6 @@ class ParsedActivityLine:
     def is_lp(self) -> bool: ...
 
     # Meta Domains (3)
-    def is_assignment(self) -> bool: ...
     def is_report(self) -> bool: ...
     def is_calendar(self) -> bool: ...
 
@@ -1126,7 +1125,7 @@ class ParsedActivityLine:
 (:Lp {uid, name, goal, difficulty, ...})
 
 // Content/Processing Domains (2)
-(:Assignment {uid, assignment_type, status, ...})
+(:Report {uid, report_type, status, ...})
 (:Journal {uid, content, processed_at, ...})
 
 // Organizational Domain (1) - MOC is KU-based
@@ -1307,13 +1306,13 @@ core/services/
 
 ```
 core/services/
-├── assignments/                              # Assignment domain (January 2026)
+├── reports/                                  # Reports domain (January 2026)
 │   ├── __init__.py
-│   ├── assignments_submission_service.py
-│   ├── assignments_processing_service.py
-│   ├── assignments_core_service.py
-│   ├── assignments_search_service.py
-│   └── assignments_relationship_service.py
+│   ├── reports_submission_service.py
+│   ├── reports_processing_service.py
+│   ├── reports_core_service.py
+│   ├── reports_search_service.py
+│   └── reports_relationship_service.py
 ├── report_service.py
 ├── reports/
 │   ├── report_metrics_service.py
@@ -1431,7 +1430,7 @@ async def on_mastery_increased(ku_uid: str, new_mastery: float):
 | Search Service | ✅ Complete | `core/services/search/` |
 | Report Service | ✅ Complete | `core/services/report_service.py` |
 | Calendar Service | ✅ Complete | `core/services/calendar_service.py` |
-| Assignment Pipeline | ✅ Complete | `core/services/assignments/` |
+| Reports Pipeline | ✅ Complete | `core/services/reports/` |
 
 ### In Development
 
@@ -1450,7 +1449,7 @@ The **14-domain + 5 cross-cutting systems architecture** provides a complete fra
 1. **What I DO** (Activity Domains) - 6 domains for concrete action
 2. **What I MANAGE** (Finance) - 1 domain for resource management
 3. **What I LEARN** (Curriculum Domains) - 3 domains for knowledge acquisition
-4. **How I PROCESS** (Content/Processing) - 2 domains for input processing
+4. **How I PROCESS** (Content/Processing) - 2 domains for input processing (Reports, Journals)
 5. **How I ORGANIZE** (Organizational Domain) - 1 domain for knowledge organization (MOC)
 6. **Where I'm GOING** (LifePath) - Domain #14, the destination
 7. **The Infrastructure** (Cross-Cutting Systems) - 4 active + 1 planned system
@@ -1459,7 +1458,7 @@ The **14-domain + 5 cross-cutting systems architecture** provides a complete fra
 - Activity: 6 (Tasks, Habits, Goals, Events, Principles, Choices)
 - Finance: 1 (standalone)
 - Curriculum: 3 (KU, LS, LP)
-- Content/Processing: 2 (Assignments, Journals)
+- Content/Processing: 2 (Reports, Journals)
 - Organizational: 1 (MOC - KU-based, not a separate entity)
 - LifePath: 1 (The Destination)
 - **Total: 14 domains**
@@ -1498,7 +1497,7 @@ The **14-domain + 5 cross-cutting systems architecture** provides a complete fra
 | Finance | [/docs/domains/finance.md](../domains/finance.md) |
 | Curriculum | [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) |
 | Journals | [/docs/domains/journals.md](../domains/journals.md) |
-| Assignments | [ASSIGNMENTS_PIPELINE.md](ASSIGNMENTS_PIPELINE.md) |
+| Reports | [ASSIGNMENTS_PIPELINE.md](ASSIGNMENTS_PIPELINE.md) |
 
 ### Related Patterns
 

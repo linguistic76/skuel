@@ -1,16 +1,16 @@
 """
-Assignment Sharing API Routes
+Report Sharing API Routes
 ==============================
 
-REST API for assignment sharing, visibility control, and access management.
+REST API for report sharing, visibility control, and access management.
 
 Routes:
-- POST /api/assignments/share - Share assignment with user
-- POST /api/assignments/unshare - Revoke sharing
-- POST /api/assignments/set-visibility - Set visibility level
-- GET /api/assignments/shared-with-me - Get assignments shared with current user
-- GET /api/assignments/shared-users - Get users assignment is shared with
-- GET /api/assignments/public - Browse public assignments (portfolio showcase)
+- POST /api/reports/share - Share report with user
+- POST /api/reports/unshare - Revoke sharing
+- POST /api/reports/set-visibility - Set visibility level
+- GET /api/reports/shared-with-me - Get reports shared with current user
+- GET /api/reports/shared-users - Get users report is shared with
+- GET /api/reports/public - Browse public reports (portfolio showcase)
 
 See: /docs/patterns/SHARING_PATTERNS.md (to be created)
 """
@@ -18,8 +18,8 @@ See: /docs/patterns/SHARING_PATTERNS.md (to be created)
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.assignments.assignment_sharing_service import AssignmentSharingService
-    from core.services.assignments.assignments_core_service import AssignmentsCoreService
+    from core.services.reports.report_sharing_service import ReportSharingService
+    from core.services.reports.reports_core_service import ReportsCoreService
 
 from pydantic import BaseModel
 from starlette.requests import Request
@@ -30,7 +30,7 @@ from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
-logger = get_logger("skuel.routes.assignments.sharing")
+logger = get_logger("skuel.routes.reports.sharing")
 
 
 # ============================================================================
@@ -38,25 +38,25 @@ logger = get_logger("skuel.routes.assignments.sharing")
 # ============================================================================
 
 
-class ShareAssignmentRequest(BaseModel):
-    """Request to share an assignment with a user."""
+class ShareReportRequest(BaseModel):
+    """Request to share a report with a user."""
 
-    assignment_uid: str
+    report_uid: str
     recipient_uid: str
     role: str = "viewer"  # Role: teacher, peer, mentor, viewer
 
 
-class UnshareAssignmentRequest(BaseModel):
+class UnshareReportRequest(BaseModel):
     """Request to revoke sharing access."""
 
-    assignment_uid: str
+    report_uid: str
     recipient_uid: str
 
 
 class SetVisibilityRequest(BaseModel):
-    """Request to set assignment visibility."""
+    """Request to set report visibility."""
 
-    assignment_uid: str
+    report_uid: str
     visibility: str  # private, shared, public
 
 
@@ -65,51 +65,51 @@ class SetVisibilityRequest(BaseModel):
 # ============================================================================
 
 
-def create_assignments_sharing_api_routes(
+def create_reports_sharing_api_routes(
     _app: Any,
     rt: Any,
-    sharing_service: "AssignmentSharingService",
-    core_service: "AssignmentsCoreService | None" = None,
+    sharing_service: "ReportSharingService",
+    core_service: "ReportsCoreService | None" = None,
 ) -> list[Any]:
     """
-    Create all assignment sharing API routes.
+    Create all report sharing API routes.
 
     Args:
         _app: FastHTML app instance
         rt: Route decorator
-        sharing_service: AssignmentSharingService instance
-        core_service: Optional AssignmentsCoreService for additional operations
+        sharing_service: ReportSharingService instance
+        core_service: Optional ReportsCoreService for additional operations
 
     Returns:
         List of route handlers
     """
 
-    @rt("/api/assignments/share", methods=["POST"])
+    @rt("/api/reports/share", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def share_assignment(
+    async def share_report(
         request: Request,
-        body: ShareAssignmentRequest,
+        body: ShareReportRequest,
     ) -> Result[dict[str, Any]]:
         """
-        Share an assignment with a specific user.
+        Share a report with a specific user.
 
         Creates SHARES_WITH relationship and notifies recipient.
-        Only completed assignments can be shared.
+        Only completed reports can be shared.
 
         Request body:
             {
-                "assignment_uid": "assignment_abc123",
+                "report_uid": "report_abc123",
                 "recipient_uid": "user_teacher",
                 "role": "teacher"  // Optional: teacher, peer, mentor, viewer
             }
 
         Returns:
-            {"success": true, "message": "Assignment shared successfully"}
+            {"success": true, "message": "Report shared successfully"}
         """
         user_uid: UserUID = require_authenticated_user(request)
 
-        result = await sharing_service.share_assignment(
-            assignment_uid=body.assignment_uid,
+        result = await sharing_service.share_report(
+            report_uid=body.report_uid,
             owner_uid=user_uid,
             recipient_uid=body.recipient_uid,
             role=body.role,
@@ -121,15 +121,15 @@ def create_assignments_sharing_api_routes(
         return Result.ok(
             {
                 "success": True,
-                "message": f"Assignment shared with {body.recipient_uid}",
+                "message": f"Report shared with {body.recipient_uid}",
             }
         )
 
-    @rt("/api/assignments/unshare", methods=["POST"])
+    @rt("/api/reports/unshare", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def unshare_assignment(
+    async def unshare_report(
         request: Request,
-        body: UnshareAssignmentRequest,
+        body: UnshareReportRequest,
     ) -> Result[dict[str, Any]]:
         """
         Revoke sharing access for a user.
@@ -138,7 +138,7 @@ def create_assignments_sharing_api_routes(
 
         Request body:
             {
-                "assignment_uid": "assignment_abc123",
+                "report_uid": "report_abc123",
                 "recipient_uid": "user_teacher"
             }
 
@@ -147,8 +147,8 @@ def create_assignments_sharing_api_routes(
         """
         user_uid: UserUID = require_authenticated_user(request)
 
-        result = await sharing_service.unshare_assignment(
-            assignment_uid=body.assignment_uid,
+        result = await sharing_service.unshare_report(
+            report_uid=body.report_uid,
             owner_uid=user_uid,
             recipient_uid=body.recipient_uid,
         )
@@ -163,20 +163,20 @@ def create_assignments_sharing_api_routes(
             }
         )
 
-    @rt("/api/assignments/set-visibility", methods=["POST"])
+    @rt("/api/reports/set-visibility", methods=["POST"])
     @boundary_handler(success_status=200)
     async def set_visibility(
         request: Request,
         body: SetVisibilityRequest,
     ) -> Result[dict[str, Any]]:
         """
-        Set assignment visibility level.
+        Set report visibility level.
 
-        Only completed assignments can be made SHARED or PUBLIC.
+        Only completed reports can be made SHARED or PUBLIC.
 
         Request body:
             {
-                "assignment_uid": "assignment_abc123",
+                "report_uid": "report_abc123",
                 "visibility": "public"  // private, shared, public
             }
 
@@ -197,7 +197,7 @@ def create_assignments_sharing_api_routes(
             )
 
         result = await sharing_service.set_visibility(
-            assignment_uid=body.assignment_uid,
+            report_uid=body.report_uid,
             owner_uid=user_uid,
             visibility=visibility,
         )
@@ -212,18 +212,18 @@ def create_assignments_sharing_api_routes(
             }
         )
 
-    @rt("/api/assignments/shared-with-me")
+    @rt("/api/reports/shared-with-me")
     @boundary_handler(success_status=200)
     async def get_shared_with_me(request: Request) -> Result[dict[str, Any]]:
         """
-        Get assignments shared with current user.
+        Get reports shared with current user.
 
         Query params:
-            limit: Maximum assignments to return (default: 50)
+            limit: Maximum reports to return (default: 50)
 
         Returns:
             {
-                "assignments": [AssignmentDTO, ...],
+                "reports": [ReportDTO, ...],
                 "count": 5
             }
         """
@@ -233,7 +233,7 @@ def create_assignments_sharing_api_routes(
         params = dict(request.query_params)
         limit = int(params.get("limit", 50))
 
-        result = await sharing_service.get_assignments_shared_with_me(
+        result = await sharing_service.get_reports_shared_with_me(
             user_uid=user_uid,
             limit=limit,
         )
@@ -241,16 +241,16 @@ def create_assignments_sharing_api_routes(
         if result.is_error:
             return Result.fail(result)
 
-        assignments = result.value
+        reports = result.value
 
         return Result.ok(
             {
-                "assignments": [
+                "reports": [
                     {
                         "uid": a.uid,
                         "user_uid": a.user_uid,
                         "original_filename": a.original_filename,
-                        "assignment_type": a.assignment_type,
+                        "report_type": a.report_type,
                         "status": a.status,
                         "processed_content": a.processed_content,
                         "created_at": a.created_at.isoformat() if a.created_at else None,
@@ -259,20 +259,20 @@ def create_assignments_sharing_api_routes(
                         "shared_role": getattr(a, "shared_role", None),
                         "shared_at": getattr(a, "shared_at", None),
                     }
-                    for a in assignments
+                    for a in reports
                 ],
-                "count": len(assignments),
+                "count": len(reports),
             }
         )
 
-    @rt("/api/assignments/shared-users")
+    @rt("/api/reports/shared-users")
     @boundary_handler(success_status=200)
     async def get_shared_users(request: Request) -> Result[dict[str, Any]]:
         """
-        Get list of users an assignment is shared with.
+        Get list of users a report is shared with.
 
         Query params:
-            uid: Assignment UID
+            uid: Report UID
 
         Returns:
             {
@@ -292,9 +292,9 @@ def create_assignments_sharing_api_routes(
 
         # Parse query params
         params = dict(request.query_params)
-        assignment_uid = params.get("uid")
+        report_uid = params.get("uid")
 
-        if not assignment_uid:
+        if not report_uid:
             return Result.fail(
                 {
                     "error": "validation",
@@ -302,23 +302,23 @@ def create_assignments_sharing_api_routes(
                 }
             )
 
-        # Verify ownership (only owner can see who assignment is shared with)
+        # Verify ownership (only owner can see who report is shared with)
         if core_service:
-            assignment_result = await core_service.get_assignment(assignment_uid)
-            if assignment_result.is_error:
-                return Result.fail(assignment_result)
+            report_result = await core_service.get_report(report_uid)
+            if report_result.is_error:
+                return Result.fail(report_result)
 
-            assignment = assignment_result.value
-            if assignment.user_uid != user_uid:
+            report = report_result.value
+            if report.user_uid != user_uid:
                 return Result.fail(
                     {
                         "error": "forbidden",
-                        "message": "You do not own this assignment",
+                        "message": "You do not own this report",
                     }
                 )
 
         result = await sharing_service.get_shared_with_users(
-            assignment_uid=assignment_uid,
+            report_uid=report_uid,
         )
 
         if result.is_error:
@@ -333,19 +333,19 @@ def create_assignments_sharing_api_routes(
             }
         )
 
-    @rt("/api/assignments/public")
+    @rt("/api/reports/public")
     @boundary_handler(success_status=200)
-    async def get_public_assignments(request: Request) -> Result[dict[str, Any]]:
+    async def get_public_reports(request: Request) -> Result[dict[str, Any]]:
         """
-        Browse public assignments (portfolio showcase).
+        Browse public reports (portfolio showcase).
 
         Query params:
             user_uid: Optional filter by owner
-            limit: Maximum assignments to return (default: 50)
+            limit: Maximum reports to return (default: 50)
 
         Returns:
             {
-                "assignments": [AssignmentDTO, ...],
+                "reports": [ReportDTO, ...],
                 "count": 10
             }
         """
@@ -356,7 +356,7 @@ def create_assignments_sharing_api_routes(
         filter_user_uid = params.get("user_uid")
         limit = int(params.get("limit", 50))
 
-        # Query public assignments
+        # Query public reports
         # Note: This uses the core service's search capabilities
         # We filter by visibility=public
         if not core_service:
@@ -377,37 +377,37 @@ def create_assignments_sharing_api_routes(
         if search_result.is_error:
             return Result.fail(search_result)
 
-        assignments = search_result.value
+        reports = search_result.value
 
         # Filter by user if specified
         if filter_user_uid:
-            assignments = [a for a in assignments if a.user_uid == filter_user_uid]
+            reports = [a for a in reports if a.user_uid == filter_user_uid]
 
         return Result.ok(
             {
-                "assignments": [
+                "reports": [
                     {
                         "uid": a.uid,
                         "user_uid": a.user_uid,
                         "original_filename": a.original_filename,
-                        "assignment_type": a.assignment_type,
+                        "report_type": a.report_type,
                         "status": a.status,
                         "processed_content": a.processed_content,
                         "created_at": a.created_at.isoformat() if a.created_at else None,
                         "visibility": a.visibility,
                     }
-                    for a in assignments
+                    for a in reports
                 ],
-                "count": len(assignments),
+                "count": len(reports),
             }
         )
 
     # Return route handlers
     return [
-        share_assignment,
-        unshare_assignment,
+        share_report,
+        unshare_report,
         set_visibility,
         get_shared_with_me,
         get_shared_users,
-        get_public_assignments,
+        get_public_reports,
     ]

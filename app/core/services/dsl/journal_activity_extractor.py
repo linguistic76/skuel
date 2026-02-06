@@ -13,12 +13,12 @@ corresponding SKUEL entities across ALL 13 SKUEL domains:
 - KnowledgeUnit (KU), LearningStep (LS), LearningPath (LP)
 
 **Meta Domains (3) - How I ORGANIZE:**
-- Assignments, Reports, Calendar
+- Reports, Analytics, Calendar
 
 **The Destination (+1) - Where I'm GOING:**
 - LifePath (the ultimate life goal)
 
-This service integrates with the AssignmentProcessorService pipeline:
+This service integrates with the ReportProcessorService pipeline:
 
 ```
 Audio/Text → Transcription → LLM Formatting → **Activity Extraction** → Entity Creation
@@ -34,13 +34,13 @@ Audio/Text → Transcription → LLM Formatting → **Activity Extraction** → 
 
 **Integration Point:**
 
-Called after LLM formatting in AssignmentProcessorService._process_audio/text():
+Called after LLM formatting in ReportProcessorService._process_audio/text():
 ```python
 # After LLM formatting succeeds
 if instructions.get("extract_activities", False):
     await activity_extractor.extract_and_create(
-        assignment=updated_assignment,
-        user_uid=assignment.user_uid,
+        report=updated_report,
+        user_uid=report.user_uid,
     )
 ```
 
@@ -52,7 +52,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
-from core.models.assignment.assignment import Assignment
+from core.models.report.report import Report
 from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,
     ParsedActivityLine,
@@ -61,7 +61,6 @@ from core.services.dsl.activity_dsl_parser import (
 from core.services.dsl.activity_entity_converter import (
     ActivityEntityConverter,
     # Meta Domains (3)
-    activity_to_assignment_dict,
     activity_to_calendar_dict,
     activity_to_choice_dict,
     activity_to_event_dict,
@@ -75,6 +74,7 @@ from core.services.dsl.activity_entity_converter import (
     activity_to_lp_dict,
     activity_to_ls_dict,
     activity_to_principle_dict,
+    activity_to_analytics_dict,
     activity_to_report_dict,
     # Activity Domains (7)
     activity_to_task_request,
@@ -141,12 +141,12 @@ class ActivityExtractionResult:
     **Domain Categories:**
     - Activity Domains (7): Tasks, Habits, Goals, Events, Principles, Choices, Finance
     - Curriculum Domains (3): KU, LS, LP
-    - Meta Domains (3): Assignments, Reports, Calendar
+    - Meta Domains (3): Reports, Analytics, Calendar
     - The Destination (+1): LifePath
     """
 
     # Source
-    assignment_uid: str
+    report_uid: str
     user_uid: str
 
     # ========================================================================
@@ -169,8 +169,8 @@ class ActivityExtractionResult:
     learning_paths_found: int = 0
 
     # Meta Domains (3)
-    assignments_found: int = 0
     reports_found: int = 0
+    analytics_found: int = 0
     calendar_items_found: int = 0
 
     # The Destination (+1)
@@ -195,8 +195,8 @@ class ActivityExtractionResult:
     learning_paths_created: int = 0
 
     # Meta Domains (3)
-    assignments_created: int = 0
     reports_created: int = 0
+    analytics_created: int = 0
     calendar_items_created: int = 0
 
     # The Destination (+1)
@@ -221,8 +221,8 @@ class ActivityExtractionResult:
     created_lp_uids: list[str] = field(default_factory=list)
 
     # Meta Domains (3)
-    created_assignment_uids: list[str] = field(default_factory=list)
     created_report_uids: list[str] = field(default_factory=list)
+    created_analytics_uids: list[str] = field(default_factory=list)
     created_calendar_uids: list[str] = field(default_factory=list)
 
     # The Destination (+1)
@@ -253,8 +253,8 @@ class ActivityExtractionResult:
             + self.learning_steps_created
             + self.learning_paths_created
             # Meta Domains (3)
-            + self.assignments_created
             + self.reports_created
+            + self.analytics_created
             + self.calendar_items_created
             # The Destination (+1)
             + self.lifepath_items_created
@@ -266,7 +266,7 @@ class ActivityExtractionResult:
         return len(self.parse_errors) > 0 or len(self.creation_errors) > 0
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for storage in assignment metadata."""
+        """Convert to dictionary for storage in report metadata."""
         return {
             "activities_found": self.activities_found,
             # ================================================================
@@ -284,8 +284,8 @@ class ActivityExtractionResult:
             "learning_steps_found": self.learning_steps_found,
             "learning_paths_found": self.learning_paths_found,
             # Meta Domains (3)
-            "assignments_found": self.assignments_found,
             "reports_found": self.reports_found,
+            "analytics_found": self.analytics_found,
             "calendar_items_found": self.calendar_items_found,
             # The Destination (+1)
             "lifepath_items_found": self.lifepath_items_found,
@@ -304,8 +304,8 @@ class ActivityExtractionResult:
             "learning_steps_created": self.learning_steps_created,
             "learning_paths_created": self.learning_paths_created,
             # Meta Domains (3)
-            "assignments_created": self.assignments_created,
             "reports_created": self.reports_created,
+            "analytics_created": self.analytics_created,
             "calendar_items_created": self.calendar_items_created,
             # The Destination (+1)
             "lifepath_items_created": self.lifepath_items_created,
@@ -324,8 +324,8 @@ class ActivityExtractionResult:
             "created_ls_uids": self.created_ls_uids,
             "created_lp_uids": self.created_lp_uids,
             # Meta Domains (3)
-            "created_assignment_uids": self.created_assignment_uids,
             "created_report_uids": self.created_report_uids,
+            "created_analytics_uids": self.created_analytics_uids,
             "created_calendar_uids": self.created_calendar_uids,
             # The Destination (+1)
             "created_lifepath_uids": self.created_lifepath_uids,
@@ -367,7 +367,7 @@ class JournalActivityExtractorService:
     - LearningPath (LP): Complete learning sequence
 
     **Meta Domains (3) - How I ORGANIZE:**
-    - Assignments: File uploads and processing requests
+    - Reports: File uploads and processing requests
     - Reports: Statistical aggregation and analysis
     - Calendar: Scheduled activity views
 
@@ -391,8 +391,8 @@ class JournalActivityExtractorService:
         ls_service=ls_service,
         lp_service=lp_service,
         # Meta Domains (3)
-        assignment_service=assignment_service,
         report_service=report_service,
+        analytics_service=analytics_service,
         calendar_service=calendar_service,
         # The Destination (+1)
         lifepath_service=lifepath_service,
@@ -400,7 +400,7 @@ class JournalActivityExtractorService:
 
     # Extract and create entities from a processed journal
     result = await extractor.extract_and_create(
-        assignment=assignment,
+        report=report,
         user_uid="user:mike",
     )
 
@@ -417,8 +417,8 @@ class JournalActivityExtractorService:
     1. Parse processed_content for Activity Lines (@context)
     2. Convert each activity to domain-specific create request
     3. Call appropriate service to create entity
-    4. Create EXTRACTED_FROM relationship: Entity → Assignment
-    5. Store extraction results in assignment metadata
+    4. Create EXTRACTED_FROM relationship: Entity → Report
+    5. Store extraction results in report metadata
     """
 
     def __init__(
@@ -436,8 +436,8 @@ class JournalActivityExtractorService:
         ls_service=None,  # LsCoreService
         lp_service=None,  # LpCoreService
         # Meta Domains (3)
-        assignment_service=None,  # AssignmentSubmissionService (for metadata updates)
-        report_service=None,  # ReportService
+        report_service=None,  # ReportSubmissionService (for metadata updates)
+        analytics_service=None,  # AnalyticsService
         calendar_service=None,  # CalendarService
         # The Destination (+1)
         lifepath_service=None,  # LifePathService
@@ -464,8 +464,8 @@ class JournalActivityExtractorService:
             lp_service: Service for creating learning paths
 
             # Meta Domains (3)
-            assignment_service: Service for updating assignment metadata
-            report_service: Service for generating reports
+            report_service: Service for updating report metadata
+            analytics_service: Service for generating analytics
             calendar_service: Service for creating calendar items
 
             # The Destination (+1)
@@ -486,8 +486,8 @@ class JournalActivityExtractorService:
         self.lp_service = lp_service
 
         # Meta Domains (3)
-        self.assignment_service = assignment_service
         self.report_service = report_service
+        self.analytics_service = analytics_service
         self.calendar_service = calendar_service
 
         # The Destination (+1)
@@ -503,7 +503,7 @@ class JournalActivityExtractorService:
 
     async def extract_and_create(
         self,
-        assignment: Assignment,
+        report: Report,
         user_uid: str,
         create_relationships: bool = True,
     ) -> Result[ActivityExtractionResult]:
@@ -513,7 +513,7 @@ class JournalActivityExtractorService:
         This is the main entry point for the extraction pipeline.
 
         Args:
-            assignment: Processed assignment with content to extract from
+            report: Processed report with content to extract from
             user_uid: User UID for entity ownership
             create_relationships: Whether to create EXTRACTED_FROM relationships
 
@@ -521,19 +521,19 @@ class JournalActivityExtractorService:
             Result containing ActivityExtractionResult with counts and UIDs
         """
         extraction = ActivityExtractionResult(
-            assignment_uid=assignment.uid,
+            report_uid=report.uid,
             user_uid=user_uid,
         )
 
         # Get content to parse
-        content = assignment.processed_content or ""
+        content = report.processed_content or ""
         if not content:
-            self.logger.warning(f"No processed content in assignment {assignment.uid}")
+            self.logger.warning(f"No processed content in report {report.uid}")
             extraction.extraction_completed_at = datetime.now()
             return Result.ok(extraction)
 
         # Step 1: Parse for Activity Lines
-        parse_result = self.parser.parse_journal(content, source_file=assignment.uid)
+        parse_result = self.parser.parse_journal(content, source_file=report.uid)
 
         if parse_result.is_error:
             return Result.fail(parse_result.expect_error())
@@ -561,7 +561,6 @@ class JournalActivityExtractorService:
         extraction.learning_paths_found = len(parsed.get_learning_paths())
 
         # Meta Domains (3)
-        extraction.assignments_found = len(parsed.get_assignments())
         extraction.reports_found = len(parsed.get_reports())
         extraction.calendar_items_found = len(parsed.get_calendar_items())
 
@@ -569,7 +568,7 @@ class JournalActivityExtractorService:
         extraction.lifepath_items_found = len(parsed.get_lifepath_items())
 
         self.logger.info(
-            f"Parsed {extraction.activities_found} activities from assignment {assignment.uid}: "
+            f"Parsed {extraction.activities_found} activities from report {report.uid}: "
             # Activity Domains (7)
             f"{extraction.tasks_found} tasks, {extraction.habits_found} habits, "
             f"{extraction.goals_found} goals, {extraction.events_found} events, "
@@ -579,7 +578,7 @@ class JournalActivityExtractorService:
             f"{extraction.kus_found} KUs, {extraction.learning_steps_found} LSs, "
             f"{extraction.learning_paths_found} LPs, "
             # Meta Domains (3)
-            f"{extraction.assignments_found} assignments, {extraction.reports_found} reports, "
+            f"{extraction.reports_found} reports, "
             f"{extraction.calendar_items_found} calendar items, "
             # The Destination (+1)
             f"{extraction.lifepath_items_found} lifepath items"
@@ -596,7 +595,7 @@ class JournalActivityExtractorService:
         # Tasks
         if self.tasks_service and extraction.tasks_found > 0:
             for activity in parsed.get_tasks():
-                result = await self._create_task(activity, user_uid, assignment.uid)
+                result = await self._create_task(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.tasks_created += 1
                     extraction.created_task_uids.append(result.value)
@@ -608,7 +607,7 @@ class JournalActivityExtractorService:
         # Habits
         if self.habits_service and extraction.habits_found > 0:
             for activity in parsed.get_habits():
-                result = await self._create_habit(activity, user_uid, assignment.uid)
+                result = await self._create_habit(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.habits_created += 1
                     extraction.created_habit_uids.append(result.value)
@@ -620,7 +619,7 @@ class JournalActivityExtractorService:
         # Goals
         if self.goals_service and extraction.goals_found > 0:
             for activity in parsed.get_goals():
-                result = await self._create_goal(activity, user_uid, assignment.uid)
+                result = await self._create_goal(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.goals_created += 1
                     extraction.created_goal_uids.append(result.value)
@@ -632,7 +631,7 @@ class JournalActivityExtractorService:
         # Events
         if self.events_service and extraction.events_found > 0:
             for activity in parsed.get_events():
-                result = await self._create_event(activity, user_uid, assignment.uid)
+                result = await self._create_event(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.events_created += 1
                     extraction.created_event_uids.append(result.value)
@@ -644,7 +643,7 @@ class JournalActivityExtractorService:
         # Principles
         if self.principles_service and extraction.principles_found > 0:
             for activity in parsed.get_principles():
-                result = await self._create_principle(activity, user_uid, assignment.uid)
+                result = await self._create_principle(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.principles_created += 1
                     extraction.created_principle_uids.append(result.value)
@@ -656,7 +655,7 @@ class JournalActivityExtractorService:
         # Choices
         if self.choices_service and extraction.choices_found > 0:
             for activity in parsed.get_choices():
-                result = await self._create_choice(activity, user_uid, assignment.uid)
+                result = await self._create_choice(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.choices_created += 1
                     extraction.created_choice_uids.append(result.value)
@@ -668,7 +667,7 @@ class JournalActivityExtractorService:
         # Finance
         if self.finance_service and extraction.finances_found > 0:
             for activity in parsed.get_finances():
-                result = await self._create_finance(activity, user_uid, assignment.uid)
+                result = await self._create_finance(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.finances_created += 1
                     extraction.created_finance_uids.append(result.value)
@@ -684,7 +683,7 @@ class JournalActivityExtractorService:
         # Knowledge Units (KU)
         if self.ku_service and extraction.kus_found > 0:
             for activity in parsed.get_knowledge_units():
-                result = await self._create_ku(activity, user_uid, assignment.uid)
+                result = await self._create_ku(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.kus_created += 1
                     extraction.created_ku_uids.append(result.value)
@@ -696,7 +695,7 @@ class JournalActivityExtractorService:
         # Learning Steps (LS)
         if self.ls_service and extraction.learning_steps_found > 0:
             for activity in parsed.get_learning_steps():
-                result = await self._create_ls(activity, user_uid, assignment.uid)
+                result = await self._create_ls(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.learning_steps_created += 1
                     extraction.created_ls_uids.append(result.value)
@@ -708,7 +707,7 @@ class JournalActivityExtractorService:
         # Learning Paths (LP)
         if self.lp_service and extraction.learning_paths_found > 0:
             for activity in parsed.get_learning_paths():
-                result = await self._create_lp(activity, user_uid, assignment.uid)
+                result = await self._create_lp(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.learning_paths_created += 1
                     extraction.created_lp_uids.append(result.value)
@@ -721,24 +720,12 @@ class JournalActivityExtractorService:
         # META DOMAINS (3) - How I ORGANIZE
         # ================================================================
 
-        # Note: Assignments extracted from journals create new assignments
-        # This is a recursive pattern - content extracted from one assignment
-        # can trigger creation of new assignments
-        if self.assignment_service and extraction.assignments_found > 0:
-            for activity in parsed.get_assignments():
-                result = await self._create_assignment(activity, user_uid, assignment.uid)
-                if result.is_ok and result.value:
-                    extraction.assignments_created += 1
-                    extraction.created_assignment_uids.append(result.value)
-                elif result.is_error:
-                    extraction.creation_errors.append(
-                        f"Assignment '{activity.description[:30]}...': {result.error}"
-                    )
-
-        # Reports
+        # Note: Reports extracted from journals create new reports
+        # This is a recursive pattern - content extracted from one report
+        # can trigger creation of new reports
         if self.report_service and extraction.reports_found > 0:
             for activity in parsed.get_reports():
-                result = await self._create_report(activity, user_uid, assignment.uid)
+                result = await self._create_report(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.reports_created += 1
                     extraction.created_report_uids.append(result.value)
@@ -750,7 +737,7 @@ class JournalActivityExtractorService:
         # Calendar Items
         if self.calendar_service and extraction.calendar_items_found > 0:
             for activity in parsed.get_calendar_items():
-                result = await self._create_calendar_item(activity, user_uid, assignment.uid)
+                result = await self._create_calendar_item(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.calendar_items_created += 1
                     extraction.created_calendar_uids.append(result.value)
@@ -766,7 +753,7 @@ class JournalActivityExtractorService:
         # LifePath Items
         if self.lifepath_service and extraction.lifepath_items_found > 0:
             for activity in parsed.get_lifepath_items():
-                result = await self._create_lifepath(activity, user_uid, assignment.uid)
+                result = await self._create_lifepath(activity, user_uid, report.uid)
                 if result.is_ok and result.value:
                     extraction.lifepath_items_created += 1
                     extraction.created_lifepath_uids.append(result.value)
@@ -777,12 +764,12 @@ class JournalActivityExtractorService:
 
         extraction.extraction_completed_at = datetime.now()
 
-        # Step 3: Store extraction results in assignment metadata
-        if self.assignment_service:
-            await self._update_assignment_metadata(assignment.uid, extraction)
+        # Step 3: Store extraction results in report metadata
+        if self.report_service:
+            await self._update_report_metadata(report.uid, extraction)
 
         self.logger.info(
-            f"Extraction complete for {assignment.uid}: "
+            f"Extraction complete for {report.uid}: "
             f"created {extraction.total_created} entities across 13 domains "
             f"({len(extraction.creation_errors)} errors)"
         )
@@ -795,7 +782,7 @@ class JournalActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_task")
     async def _create_task(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create a task from parsed activity.
@@ -822,7 +809,7 @@ class JournalActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_habit")
     async def _create_habit(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create a habit from parsed activity.
@@ -876,7 +863,7 @@ class JournalActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_goal")
     async def _create_goal(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create a goal from parsed activity.
@@ -929,7 +916,7 @@ class JournalActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_event")
     async def _create_event(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create an event from parsed activity.
@@ -982,7 +969,7 @@ class JournalActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_principle")
     async def _create_principle(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create a principle from parsed activity.
@@ -1021,7 +1008,7 @@ class JournalActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_choice")
     async def _create_choice(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create a choice from parsed activity.
@@ -1060,7 +1047,7 @@ class JournalActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_finance")
     async def _create_finance(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create a finance entry (expense) from parsed activity.
@@ -1103,7 +1090,7 @@ class JournalActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_ku")
     async def _create_ku(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create a KnowledgeUnit from parsed activity.
@@ -1140,7 +1127,7 @@ class JournalActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_ls")
     async def _create_ls(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create a LearningStep from parsed activity.
@@ -1177,7 +1164,7 @@ class JournalActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_lp")
     async def _create_lp(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create a LearningPath from parsed activity.
@@ -1216,64 +1203,18 @@ class JournalActivityExtractorService:
     # META DOMAIN CREATION METHODS (3) - How I ORGANIZE
     # ========================================================================
 
-    @with_error_handling(error_type="system", operation="create_assignment")
-    async def _create_assignment(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
-    ) -> Result[str | None]:
-        """
-        Create an Assignment from parsed activity.
-
-        Note: This creates NEW assignments extracted from journal content.
-        This is a recursive pattern where assignments can contain
-        requests for more assignments (e.g., "Process my voice memo").
-
-        Returns the created assignment UID or None if creation failed.
-        """
-        convert_result = activity_to_assignment_dict(activity)
-        if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
-
-        assignment_dict = convert_result.value
-
-        # Create assignment via service
-        if getattr(self.assignment_service, "create_assignment", None):
-            create_result = await self.assignment_service.create_assignment(
-                assignment_dict, user_uid
-            )
-        elif getattr(self.assignment_service, "create", None):
-            create_result = await self.assignment_service.create(assignment_dict, user_uid)
-        else:
-            return Result.fail(
-                Errors.system(
-                    message="Assignment service has no create method",
-                    operation="create_assignment",
-                )
-            )
-
-        if create_result.is_error:
-            return Result.fail(create_result.expect_error())
-
-        new_assignment = create_result.value
-        new_assignment_uid = (
-            new_assignment.uid
-            if getattr(new_assignment, "uid", None)
-            else new_assignment.get("uid")
-        )
-        self.logger.debug(f"Created Assignment: {new_assignment_uid}")
-
-        return Result.ok(new_assignment_uid)
-
     @with_error_handling(error_type="system", operation="create_report")
     async def _create_report(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
-        Create/trigger a Report from parsed activity.
+        Create a Report from parsed activity.
 
-        Note: Reports are typically generated, not stored. This method
-        triggers report generation based on the parsed request.
+        Note: This creates NEW reports extracted from journal content.
+        This is a recursive pattern where reports can contain
+        requests for more reports (e.g., "Process my voice memo").
 
-        Returns a report ID or None if creation failed.
+        Returns the created report UID or None if creation failed.
         """
         convert_result = activity_to_report_dict(activity)
         if convert_result.is_error:
@@ -1281,15 +1222,15 @@ class JournalActivityExtractorService:
 
         report_dict = convert_result.value
 
-        # Generate report via service
-        if getattr(self.report_service, "generate_report", None):
-            create_result = await self.report_service.generate_report(report_dict, user_uid)
+        # Create report via service
+        if getattr(self.report_service, "create_report", None):
+            create_result = await self.report_service.create_report(report_dict, user_uid)
         elif getattr(self.report_service, "create", None):
             create_result = await self.report_service.create(report_dict, user_uid)
         else:
             return Result.fail(
                 Errors.system(
-                    message="Report service has no generate/create method",
+                    message="Report service has no create method",
                     operation="create_report",
                 )
             )
@@ -1297,17 +1238,61 @@ class JournalActivityExtractorService:
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        report = create_result.value
-        report_uid = (
-            report.uid if getattr(report, "uid", None) else report.get("uid", "report_generated")
+        new_report = create_result.value
+        new_report_uid = (
+            new_report.uid if getattr(new_report, "uid", None) else new_report.get("uid")
         )
-        self.logger.debug(f"Created/Generated Report: {report_uid}")
+        self.logger.debug(f"Created Report: {new_report_uid}")
 
-        return Result.ok(report_uid)
+        return Result.ok(new_report_uid)
+
+    @with_error_handling(error_type="system", operation="create_analytics")
+    async def _create_analytics(
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+    ) -> Result[str | None]:
+        """
+        Create/trigger an Analytics report from parsed activity.
+
+        Note: Analytics are typically generated, not stored. This method
+        triggers analytics generation based on the parsed request.
+
+        Returns an analytics ID or None if creation failed.
+        """
+        convert_result = activity_to_analytics_dict(activity)
+        if convert_result.is_error:
+            return Result.fail(convert_result.expect_error())
+
+        analytics_dict = convert_result.value
+
+        # Generate analytics via service
+        if getattr(self.analytics_service, "generate_report", None):
+            create_result = await self.analytics_service.generate_report(analytics_dict, user_uid)
+        elif getattr(self.analytics_service, "create", None):
+            create_result = await self.analytics_service.create(analytics_dict, user_uid)
+        else:
+            return Result.fail(
+                Errors.system(
+                    message="Analytics service has no generate/create method",
+                    operation="create_analytics",
+                )
+            )
+
+        if create_result.is_error:
+            return Result.fail(create_result.expect_error())
+
+        analytics = create_result.value
+        analytics_uid = (
+            analytics.uid
+            if getattr(analytics, "uid", None)
+            else analytics.get("uid", "analytics_generated")
+        )
+        self.logger.debug(f"Created/Generated Analytics: {analytics_uid}")
+
+        return Result.ok(analytics_uid)
 
     @with_error_handling(error_type="system", operation="create_calendar_item")
     async def _create_calendar_item(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create a Calendar item from parsed activity.
@@ -1352,7 +1337,7 @@ class JournalActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_lifepath")
     async def _create_lifepath(
-        self, activity: ParsedActivityLine, user_uid: str, source_assignment_uid: str
+        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
     ) -> Result[str | None]:
         """
         Create/update a LifePath alignment from parsed activity.
@@ -1401,37 +1386,37 @@ class JournalActivityExtractorService:
     # METADATA UPDATES
     # ========================================================================
 
-    @with_error_handling("update_assignment_metadata", error_type="system")
-    async def _update_assignment_metadata(
-        self, assignment_uid: str, extraction: ActivityExtractionResult
+    @with_error_handling("update_report_metadata", error_type="system")
+    async def _update_report_metadata(
+        self, report_uid: str, extraction: ActivityExtractionResult
     ) -> None:
         """
-        Store extraction results in assignment metadata.
+        Store extraction results in report metadata.
 
         This allows tracking which entities were extracted from which journal.
         Note: Uses suppress_errors=True since metadata updates are non-critical.
         """
-        # Get current assignment
-        get_result = await self.assignment_service.get_assignment(assignment_uid)
+        # Get current report
+        get_result = await self.report_service.get_report(report_uid)
         if get_result.is_error:
-            self.logger.warning(f"Could not get assignment for metadata update: {get_result.error}")
+            self.logger.warning(f"Could not get report for metadata update: {get_result.error}")
             return
 
-        assignment = get_result.value
-        if not assignment:
+        report = get_result.value
+        if not report:
             return
 
         # Update metadata with extraction results
-        current_metadata = assignment.metadata or {}
+        current_metadata = report.metadata or {}
         current_metadata["activity_extraction"] = extraction.to_dict()
 
-        # Update assignment
-        await self.assignment_service.update_assignment(
-            uid=assignment_uid,
+        # Update report
+        await self.report_service.update_report(
+            uid=report_uid,
             updates={"metadata": current_metadata},
         )
 
-        self.logger.debug(f"Updated assignment metadata with extraction results: {assignment_uid}")
+        self.logger.debug(f"Updated report metadata with extraction results: {report_uid}")
 
     # ========================================================================
     # EXTRACTION-ONLY (NO ENTITY CREATION)
@@ -1551,17 +1536,10 @@ class JournalActivityExtractorService:
             # ================================================================
             # META DOMAINS (3) - How I ORGANIZE
             # ================================================================
-            "assignments": [
-                {
-                    "description": a.description,
-                    "linked_goals": a.get_linked_goals(),
-                }
-                for a in parsed.get_assignments()
-            ],
             "reports": [
                 {
                     "description": a.description,
-                    "when": str(a.when) if a.when else None,
+                    "linked_goals": a.get_linked_goals(),
                 }
                 for a in parsed.get_reports()
             ],

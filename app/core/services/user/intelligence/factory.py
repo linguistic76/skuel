@@ -16,7 +16,7 @@ UserContextIntelligence instances when given a UserContext.
 **The 13 Domains:**
 - Activity Domains (6): tasks, goals, habits, events, choices, principles
 - Curriculum Domains (3): ku, ls, lp
-- Processing Domains (3): assignments, journals, reports
+- Processing Domains (3): reports, journals, analytics
 - Temporal Domain (1): calendar
 
 **Usage:**
@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING, Any
 from core.services.user.intelligence.core import UserContextIntelligence
 
 if TYPE_CHECKING:
-    from core.services.assignments import AssignmentRelationshipService
+    from core.services.reports import ReportsRelationshipService
     from core.services.calendar_service import CalendarService
     from core.services.journals import JournalRelationshipService
     from core.services.ku.ku_graph_service import KuGraphService
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
     from core.services.relationships import UnifiedRelationshipService
-    from core.services.report_relationship_service import ReportRelationshipService
+    from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.user.unified_user_context import UserContext
 
 
@@ -71,7 +71,7 @@ class UserContextIntelligenceFactory:
     **The 13 Domains:**
     - Activity Domains (6): tasks, goals, habits, events, choices, principles
     - Curriculum Domains (3): ku, ls, lp
-    - Processing Domains (3): assignments, journals, reports
+    - Processing Domains (3): reports, journals, analytics
     - Temporal Domain (1): calendar
 
     **Usage:**
@@ -105,9 +105,9 @@ class UserContextIntelligenceFactory:
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
-        assignments: AssignmentRelationshipService,
+        reports: ReportsRelationshipService,
         journals: JournalRelationshipService,
-        reports: ReportRelationshipService,
+        analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements (Phase 1 - January 2026)
@@ -131,9 +131,9 @@ class UserContextIntelligenceFactory:
                 lp: Learning path relationship service
 
             Processing Domains (3):
-                assignments: Assignment relationship service
+                reports: Report relationship service
                 journals: Journal relationship service (fire in the engine)
-                reports: Report relationship service (report cards)
+                analytics: Analytics relationship service (report cards)
 
             Temporal Domain (1):
                 calendar: Calendar service for schedule awareness
@@ -157,9 +157,9 @@ class UserContextIntelligenceFactory:
             "ls": ls,
             "lp": lp,
             # Processing Domains (3)
-            "assignments": assignments,
-            "journals": journals,
             "reports": reports,
+            "journals": journals,
+            "analytics": analytics,
             # Temporal Domain (1)
             "calendar": calendar,
         }
@@ -184,9 +184,9 @@ class UserContextIntelligenceFactory:
         self._ls = ls
         self._lp = lp
         # Processing domains (3)
-        self._assignments = assignments
-        self._journals = journals
         self._reports = reports
+        self._journals = journals
+        self._analytics = analytics
         # Temporal domain (1)
         self._calendar = calendar
         # Optional: Vector search (Phase 1 enhancement)
@@ -216,9 +216,9 @@ class UserContextIntelligenceFactory:
             ls=self._ls,
             lp=self._lp,
             # Processing domains (3)
-            assignments=self._assignments,
-            journals=self._journals,
             reports=self._reports,
+            journals=self._journals,
+            analytics=self._analytics,
             # Temporal domain (1)
             calendar=self._calendar,
             # Optional: Vector search (Phase 1 enhancement)

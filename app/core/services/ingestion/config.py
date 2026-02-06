@@ -253,9 +253,9 @@ ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
         required_fields=("content",),
         requires_user_uid=True,  # Content/Processing domain - user-owned
     ),
-    EntityType.ASSIGNMENT: EntityIngestionConfig(
-        entity_label="Assignment",
-        uid_prefix="assignment",
+    EntityType.REPORT: EntityIngestionConfig(
+        entity_label="Report",
+        uid_prefix="report",
         required_fields=("title",),
         requires_user_uid=True,  # Content/Processing domain - user-owned
     ),

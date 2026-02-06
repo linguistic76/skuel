@@ -50,7 +50,7 @@ def create_journals_api_routes(
     app: Any,
     rt: Any,
     transcript_processor: Any,
-    assignments_core: Any = None,
+    reports_core: Any = None,
     user_service: Any = None,
     audio: Any = None,
 ) -> list[Any]:
@@ -61,14 +61,14 @@ def create_journals_api_routes(
         app: FastHTML application instance
         rt: Router instance
         transcript_processor: TranscriptProcessorService - AI transcript processing
-        assignments_core: AssignmentsCoreService for content management
+        reports_core: ReportsCoreService for content management
         user_service: Optional user service
         audio: Optional audio service
 
     SERVICE ARCHITECTURE:
     --------------------
     - TranscriptProcessorService: AI transcript processing (process_transcript, search_journals)
-    - AssignmentsCoreService: Content management (categories, tags, publish/archive, bulk ops)
+    - ReportsCoreService: Content management (categories, tags, publish/archive, bulk ops)
     - JournalRelationshipService: Graph relationship queries for journals
 
     Returns:
@@ -79,15 +79,15 @@ def create_journals_api_routes(
     # FAIL-FAST: Validate required services BEFORE any route registration
     if not transcript_processor:
         raise ValueError("transcript_processor required for journals API - fail-fast")
-    if not assignments_core:
-        raise ValueError("assignments_core required for content management routes - fail-fast")
+    if not reports_core:
+        raise ValueError("reports_core required for content management routes - fail-fast")
 
     # Initialize relationship services for fetching graph relationships
     driver = None
     if transcript_processor and transcript_processor.backend:
         driver = transcript_processor.backend.driver
-    elif assignments_core and assignments_core.backend:
-        driver = assignments_core.backend.driver
+    elif reports_core and reports_core.backend:
+        driver = reports_core.backend.driver
 
     # Use JournalRelationshipService for journal-related queries
     journal_relationships = JournalRelationshipService(driver=driver) if driver else None
@@ -247,12 +247,12 @@ def create_journals_api_routes(
         params = dict(request.query_params)
         user_uid = params.get("user_uid")
 
-        # Use AssignmentsCoreService for journal lookup
-        if not assignments_core:
+        # Use ReportsCoreService for journal lookup
+        if not reports_core:
             return Result.fail(Errors.system("Content management service not available"))
 
         # Call service (filters by JOURNAL type internally)
-        result = await assignments_core.get_journal_for_date(parsed_date, user_uid)
+        result = await reports_core.get_journal_for_date(parsed_date, user_uid)
 
         if result.is_ok:
             if result.value:
@@ -271,10 +271,10 @@ def create_journals_api_routes(
     @boundary_handler()
     async def publish_journal_route(request, uid: str) -> Result[Any]:
         """Publish a journal entry"""
-        if not assignments_core:
+        if not reports_core:
             return Result.fail(Errors.system("Content management service not available"))
 
-        result = await assignments_core.publish_journal(uid)
+        result = await reports_core.publish_journal(uid)
 
         if result.is_ok:
             journal_view = await to_journal_view(result.value)
@@ -289,10 +289,10 @@ def create_journals_api_routes(
     @boundary_handler()
     async def archive_journal_route(request, uid: str) -> Result[Any]:
         """Archive a journal entry"""
-        if not assignments_core:
+        if not reports_core:
             return Result.fail(Errors.system("Content management service not available"))
 
-        result = await assignments_core.archive_journal(uid)
+        result = await reports_core.archive_journal(uid)
 
         if result.is_ok:
             journal_view = await to_journal_view(result.value)
@@ -317,11 +317,11 @@ def create_journals_api_routes(
         limit = int(params.get("limit", 50))
         user_uid = params.get("user_uid")
 
-        if not assignments_core:
+        if not reports_core:
             return Result.fail(Errors.system("Content management service not available"))
 
         # Call service (uses string category, stored in metadata)
-        result = await assignments_core.get_journals_by_category(
+        result = await reports_core.get_journals_by_category(
             category=category, limit=limit, user_uid=user_uid
         )
 
@@ -527,11 +527,11 @@ def create_journals_api_routes(
         if not tags:
             return Result.fail(Errors.validation("No tags provided", field="tags"))
 
-        if not assignments_core:
+        if not reports_core:
             return Result.fail(Errors.system("Content management service not available"))
 
         # Call service
-        result = await assignments_core.add_tags(uid, tags)
+        result = await reports_core.add_tags(uid, tags)
 
         if result.is_ok:
             journal_view = await to_journal_view(result.value)
@@ -551,16 +551,16 @@ def create_journals_api_routes(
         limit = int(params.get("limit", 50))
         user_uid = params.get("user_uid")
 
-        if not assignments_core:
+        if not reports_core:
             return Result.fail(Errors.system("Content management service not available"))
 
-        result = await assignments_core.get_assignments_by_tag(tag, limit, user_uid)
+        result = await reports_core.get_reports_by_tag(tag, limit, user_uid)
 
         if result.is_ok:
-            assignments = result.value
+            reports = result.value
             # Convert to summary format for response
-            summaries = journals_pure_to_summary_list(assignments)
-            return Result.ok({"assignments": summaries, "tag": tag, "count": len(summaries)})
+            summaries = journals_pure_to_summary_list(reports)
+            return Result.ok({"reports": summaries, "tag": tag, "count": len(summaries)})
         else:
             return Result.fail(Errors.system(result.error.user_message))
 
@@ -582,11 +582,11 @@ def create_journals_api_routes(
                 Errors.validation("journal_uids and category are required", field="journal_uids")
             )
 
-        if not assignments_core:
+        if not reports_core:
             return Result.fail(Errors.system("Content management service not available"))
 
         # Call service (uses string category, stored in metadata)
-        result = await assignments_core.bulk_categorize(journal_uids, category)
+        result = await reports_core.bulk_categorize(journal_uids, category)
 
         if result.is_ok:
             logger.info(f"Bulk categorized {result.value} journals to {category}")
@@ -613,11 +613,11 @@ def create_journals_api_routes(
                 Errors.validation("journal_uids and tags are required", field="journal_uids")
             )
 
-        if not assignments_core:
+        if not reports_core:
             return Result.fail(Errors.system("Content management service not available"))
 
         # Call service
-        result = await assignments_core.bulk_tag(journal_uids, tags)
+        result = await reports_core.bulk_tag(journal_uids, tags)
 
         if result.is_ok:
             logger.info(f"Bulk tagged {result.value} journals")
@@ -638,10 +638,10 @@ def create_journals_api_routes(
     @boundary_handler()
     async def export_markdown_route(request, uid: str) -> Result[Any]:
         """Export journal to markdown format"""
-        if not assignments_core:
+        if not reports_core:
             return Result.fail(Errors.system("Content management service not available"))
 
-        result = await assignments_core.export_to_markdown(uid)
+        result = await reports_core.export_to_markdown(uid)
 
         if result.is_ok:
             return Result.ok({"markdown": result.value, "journal_uid": uid})
@@ -720,7 +720,7 @@ def create_journals_api_routes(
                         "transcription_text": transcription.transcript_text,
                         "uid": transcription.uid,
                         "status": status_value,
-                        "message": "Transcription complete. Use /api/assignments/process-transcription to format with LLM.",
+                        "message": "Transcription complete. Use /api/reports/process-transcription to format with LLM.",
                     }
                 )
             else:

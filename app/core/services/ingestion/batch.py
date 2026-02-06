@@ -562,21 +562,25 @@ async def ingest_directory(
 
                 if exists_map.get(uid, False):
                     # Entity exists - would be updated
-                    files_to_update.append({
-                        "uid": uid,
-                        "title": title,
-                        "entity_type": entity_type.value,
-                        "file_path": file_path,
-                        "changes_summary": "Content would be updated",
-                    })
+                    files_to_update.append(
+                        {
+                            "uid": uid,
+                            "title": title,
+                            "entity_type": entity_type.value,
+                            "file_path": file_path,
+                            "changes_summary": "Content would be updated",
+                        }
+                    )
                 else:
                     # New entity - would be created
-                    files_to_create.append({
-                        "uid": uid,
-                        "title": title,
-                        "entity_type": entity_type.value,
-                        "file_path": file_path,
-                    })
+                    files_to_create.append(
+                        {
+                            "uid": uid,
+                            "title": title,
+                            "entity_type": entity_type.value,
+                            "file_path": file_path,
+                        }
+                    )
 
                 # Track relationships that would be created
                 rel_config = config.relationship_config or {}
@@ -586,11 +590,13 @@ async def ingest_directory(
                         target_uids = [target_uids]
                     for target_uid in target_uids:
                         if target_uid:
-                            relationships_to_create.append({
-                                "source": uid,
-                                "target": target_uid,
-                                "type": rel_type,
-                            })
+                            relationships_to_create.append(
+                                {
+                                    "source": uid,
+                                    "target": target_uid,
+                                    "type": rel_type,
+                                }
+                            )
 
         # Build preview
         duration = (datetime.now() - start_time).total_seconds()

@@ -1,8 +1,8 @@
 """
-Report Relationship Service
-============================
+Analytics Relationship Service
+================================
 
-Cross-domain relationship management for Report entities.
+Cross-domain relationship management for Analytics entities.
 
 **ARCHITECTURAL PATTERN: Direct Driver (Graph-Native)**
 --------------------------------------------------------
@@ -16,18 +16,18 @@ This service uses the DIRECT DRIVER pattern, matching JournalRelationshipService
 - Simpler, more direct graph operations
 
 **Why This Pattern:**
-- Report relationships are simple (aggregation and coverage)
+- Analytics relationships are simple (aggregation and coverage)
 - Direct Cypher provides maximum clarity for graph traversal
-- Reports are meta-entities that summarize other domains
+- Analytics are meta-entities that summarize other domains
 
 **Note:** This service is NOT compatible with GenericRelationshipService base class.
 See: /docs/patterns/GENERIC_RELATIONSHIP_SERVICE_HONEST_ASSESSMENT.md
 
 Graph Relationships Managed:
 ----------------------------
-- (report)-[:AGGREGATES_DOMAIN]->(domain) - Which domain this report covers
-- (report)-[:INCLUDES_ENTITY]->(entity) - Specific entities included in report
-- (report)-[:REPORTS_ON_GOAL]->(goal) - Goals covered by this report
+- (report)-[:AGGREGATES_DOMAIN]->(domain) - Which domain this analytics covers
+- (report)-[:INCLUDES_ENTITY]->(entity) - Specific entities included in analytics
+- (report)-[:REPORTS_ON_GOAL]->(goal) - Goals covered by this analytics
 
 Date: November 26, 2025
 """
@@ -45,29 +45,29 @@ from core.utils.processor_functions import (
 from core.utils.result_simplified import Result
 
 
-class ReportRelationshipService:
+class AnalyticsRelationshipService:
     """
-    Cross-domain relationship service for Report entities.
+    Cross-domain relationship service for Analytics entities.
 
-    Provides graph traversal and relationship management for report relationships.
-    Reports aggregate data from activity domains (tasks, habits, goals, etc.)
+    Provides graph traversal and relationship management for analytics relationships.
+    Analytics aggregate data from activity domains (tasks, habits, goals, etc.)
     into statistical summaries ("report cards").
 
     Semantic Types Used:
-    - AGGREGATES_DOMAIN: Which domain the report covers (TASKS, HABITS, etc.)
-    - INCLUDES_ENTITY: Specific entities included in the report metrics
-    - REPORTS_ON_GOAL: Goals this report tracks progress on
+    - AGGREGATES_DOMAIN: Which domain the analytics covers (TASKS, HABITS, etc.)
+    - INCLUDES_ENTITY: Specific entities included in the analytics metrics
+    - REPORTS_ON_GOAL: Goals this analytics tracks progress on
 
-    Source Tag: "report_service_explicit"
-    - All relationships are system-generated during report creation
+    Source Tag: "analytics_service_explicit"
+    - All relationships are system-generated during analytics creation
 
     Confidence Scoring:
-    - 1.0: All report relationships are deterministic (based on report_type)
+    - 1.0: All analytics relationships are deterministic (based on analytics_domain)
     """
 
     def __init__(self, driver: AsyncDriver | None = None) -> None:
         """
-        Initialize Report relationship service.
+        Initialize Analytics relationship service.
 
         Args:
             driver: Neo4j async driver for graph queries

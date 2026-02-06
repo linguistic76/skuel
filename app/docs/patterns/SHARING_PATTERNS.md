@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-02-02'
+updated: '2026-02-06'
 category: patterns
 related_skills:
 - pytest
@@ -8,8 +8,8 @@ related_docs: []
 ---
 # Content Sharing Patterns
 
-**Status:** Phase 1 Complete (Assignments)
-**Last Updated:** 2026-02-02
+**Status:** Phase 1 Complete (Reports)
+**Last Updated:** 2026-02-06
 **See Also:** [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
 
 ---
@@ -21,9 +21,9 @@ For implementation guidance, see:
 
 ## Overview
 
-SKUEL's content sharing system enables users to share assignments and events with specific users (teachers, peers, mentors). Built on a three-level visibility model with Neo4j relationship-based access control.
+SKUEL's content sharing system enables users to share reports and events with specific users (teachers, peers, mentors). Built on a three-level visibility model with Neo4j relationship-based access control.
 
-**Current Support:** Assignments (Phase 1)
+**Current Support:** Reports (Phase 1)
 **Planned:** Events (Phase 2)
 
 ---
@@ -40,9 +40,9 @@ PUBLIC            → Anyone can view (portfolio showcase)
 
 ### Quality Control
 
-**Only completed assignments can be shared.** This prevents:
-- Sharing failed assignments
-- Sharing assignments still processing
+**Only completed reports can be shared.** This prevents:
+- Sharing failed reports
+- Sharing reports still processing
 - Low-quality portfolio content
 
 Enforced at service layer via `is_shareable()` method.
@@ -50,12 +50,12 @@ Enforced at service layer via `is_shareable()` method.
 ### Access Control Query Pattern
 
 ```cypher
-MATCH (assignment:Assignment {uid: $uid})
-WHERE assignment.user_uid = $current_user
-   OR assignment.visibility = 'public'
-   OR (assignment.visibility = 'shared' AND
-       EXISTS(($current_user)-[:SHARES_WITH]->(assignment)))
-RETURN assignment
+MATCH (report:Report {uid: $uid})
+WHERE report.user_uid = $current_user
+   OR report.visibility = 'public'
+   OR (report.visibility = 'shared' AND
+       EXISTS(($current_user)-[:SHARES_WITH]->(report)))
+RETURN report
 ```
 
 **Key Features:**
@@ -70,50 +70,50 @@ RETURN assignment
 
 ### Pattern 1: Student-Teacher Workflow
 
-**Use Case:** Student submits assignment and shares with teacher for review.
+**Use Case:** Student submits report and shares with teacher for review.
 
 ```python
-from core.services.assignments import AssignmentSharingService
+from core.services.reports import ReportSharingService
 from core.models.enums.metadata_enums import Visibility
 
-# Student completes assignment (handled by submission service)
-assignment_uid = "assignment_abc123"
+# Student completes report (handled by submission service)
+report_uid = "report_abc123"
 student_uid = "user_alice"
 teacher_uid = "user_teacher_bob"
 
 # Step 1: Student sets visibility to SHARED
 visibility_result = await sharing_service.set_visibility(
-    assignment_uid=assignment_uid,
+    report_uid=report_uid,
     owner_uid=student_uid,
     visibility=Visibility.SHARED,
 )
 
 # Step 2: Student shares with teacher
-share_result = await sharing_service.share_assignment(
-    assignment_uid=assignment_uid,
+share_result = await sharing_service.share_report(
+    report_uid=report_uid,
     owner_uid=student_uid,
     recipient_uid=teacher_uid,
     role="teacher",
 )
 
-# Step 3: Teacher fetches shared assignments
-shared_assignments = await sharing_service.get_assignments_shared_with_me(
+# Step 3: Teacher fetches shared reports
+shared_reports = await sharing_service.get_reports_shared_with_me(
     user_uid=teacher_uid,
     limit=50,
 )
 
-# Step 4: Teacher views assignment (access control automatic)
-assignment = await assignments_core_service.get_with_access_check(
-    uid=assignment_uid,
+# Step 4: Teacher views report (access control automatic)
+report = await reports_core_service.get_with_access_check(
+    uid=report_uid,
     user_uid=teacher_uid,
 )
 ```
 
 **UI Flow:**
-1. Student: `/assignments/{uid}` → Set visibility dropdown to "Shared"
+1. Student: `/reports/{uid}` → Set visibility dropdown to "Shared"
 2. Student: Click "Share with User" → Enter teacher UID → Submit
-3. Teacher: Navigate to `/profile/shared` → See assignment in inbox
-4. Teacher: Click "View" → Access assignment detail page
+3. Teacher: Navigate to `/profile/shared` → See report in inbox
+4. Teacher: Click "View" → Access report detail page
 
 ---
 
@@ -122,17 +122,17 @@ assignment = await assignments_core_service.get_with_access_check(
 **Use Case:** Student showcases best work publicly.
 
 ```python
-# Student sets assignment to PUBLIC
+# Student sets report to PUBLIC
 await sharing_service.set_visibility(
-    assignment_uid="assignment_best_work",
+    report_uid="report_best_work",
     owner_uid="user_alice",
     visibility=Visibility.PUBLIC,
 )
 
-# Anyone can now view this assignment
+# Anyone can now view this report
 # No SHARES_WITH relationship needed
 access_result = await sharing_service.check_access(
-    assignment_uid="assignment_best_work",
+    report_uid="report_best_work",
     user_uid="user_anyone",
 )
 assert access_result.value is True  # ✅ Public access
@@ -140,16 +140,16 @@ assert access_result.value is True  # ✅ Public access
 
 **API Endpoint:**
 ```http
-GET /api/assignments/public?user_uid=user_alice&limit=10
+GET /api/reports/public?user_uid=user_alice&limit=10
 ```
 
-Returns all public assignments for user's portfolio.
+Returns all public reports for user's portfolio.
 
 ---
 
 ### Pattern 3: Peer Review
 
-**Use Case:** Student shares assignment with classmates for feedback.
+**Use Case:** Student shares report with classmates for feedback.
 
 ```python
 # Share with multiple peers
@@ -161,23 +161,23 @@ peers = [
 
 # Set visibility to SHARED first
 await sharing_service.set_visibility(
-    assignment_uid=assignment_uid,
+    report_uid=report_uid,
     owner_uid=student_uid,
     visibility=Visibility.SHARED,
 )
 
 # Share with each peer
 for peer_uid, role in peers:
-    await sharing_service.share_assignment(
-        assignment_uid=assignment_uid,
+    await sharing_service.share_report(
+        report_uid=report_uid,
         owner_uid=student_uid,
         recipient_uid=peer_uid,
         role=role,
     )
 
-# List all users assignment is shared with
+# List all users report is shared with
 shared_users = await sharing_service.get_shared_with_users(
-    assignment_uid=assignment_uid,
+    report_uid=report_uid,
 )
 # Returns: [{"user_uid": "user_charlie", "role": "peer", ...}, ...]
 ```
@@ -186,19 +186,19 @@ shared_users = await sharing_service.get_shared_with_users(
 
 ### Pattern 4: Access Revocation
 
-**Use Case:** Student removes teacher access after assignment is graded.
+**Use Case:** Student removes teacher access after report is graded.
 
 ```python
 # Unshare from teacher
-unshare_result = await sharing_service.unshare_assignment(
-    assignment_uid=assignment_uid,
+unshare_result = await sharing_service.unshare_report(
+    report_uid=report_uid,
     owner_uid=student_uid,
     recipient_uid=teacher_uid,
 )
 
 # Teacher immediately loses access
 access_result = await sharing_service.check_access(
-    assignment_uid=assignment_uid,
+    report_uid=report_uid,
     user_uid=teacher_uid,
 )
 assert access_result.value is False  # ✅ Access revoked
@@ -212,8 +212,8 @@ assert access_result.value is False  # ✅ Access revoked
 
 ```python
 # Share with mentor (different role than teacher)
-await sharing_service.share_assignment(
-    assignment_uid="assignment_draft",
+await sharing_service.share_report(
+    report_uid="report_draft",
     owner_uid=student_uid,
     recipient_uid="user_mentor",
     role="mentor",  # Distinguishes from teacher role
@@ -232,33 +232,33 @@ Roles are stored in relationship metadata for future feature expansion (e.g., ro
 
 ## API Reference
 
-### Share Assignment
+### Share Report
 
 ```http
-POST /api/assignments/share
+POST /api/reports/share
 Content-Type: application/json
 
 {
-  "assignment_uid": "assignment_123",
+  "report_uid": "report_123",
   "recipient_uid": "user_teacher",
   "role": "teacher"
 }
 ```
 
 **Auth:** Owner only
-**Quality Check:** Assignment must be completed
+**Quality Check:** Report must be completed
 **Returns:** `{"success": true, "message": "..."}`
 
 ---
 
-### Unshare Assignment
+### Unshare Report
 
 ```http
-POST /api/assignments/unshare
+POST /api/reports/unshare
 Content-Type: application/json
 
 {
-  "assignment_uid": "assignment_123",
+  "report_uid": "report_123",
   "recipient_uid": "user_teacher"
 }
 ```
@@ -271,11 +271,11 @@ Content-Type: application/json
 ### Set Visibility
 
 ```http
-POST /api/assignments/set-visibility
+POST /api/reports/set-visibility
 Content-Type: application/json
 
 {
-  "assignment_uid": "assignment_123",
+  "report_uid": "report_123",
   "visibility": "public"
 }
 ```
@@ -290,17 +290,17 @@ Content-Type: application/json
 ### Get Shared With Me
 
 ```http
-GET /api/assignments/shared-with-me?limit=50
+GET /api/reports/shared-with-me?limit=50
 ```
 
 **Auth:** Authenticated user
-**Returns:** List of assignments shared with current user
+**Returns:** List of reports shared with current user
 
 ```json
 {
-  "assignments": [
+  "reports": [
     {
-      "uid": "assignment_123",
+      "uid": "report_123",
       "user_uid": "user_alice",
       "original_filename": "report.pdf",
       "status": "completed",
@@ -317,11 +317,11 @@ GET /api/assignments/shared-with-me?limit=50
 ### Get Shared Users
 
 ```http
-GET /api/assignments/shared-users?uid=assignment_123
+GET /api/reports/shared-users?uid=report_123
 ```
 
 **Auth:** Owner only
-**Returns:** List of users assignment is shared with
+**Returns:** List of users report is shared with
 
 ```json
 {
@@ -339,22 +339,22 @@ GET /api/assignments/shared-users?uid=assignment_123
 
 ---
 
-### Browse Public Assignments
+### Browse Public Reports
 
 ```http
-GET /api/assignments/public?user_uid=user_alice&limit=10
+GET /api/reports/public?user_uid=user_alice&limit=10
 ```
 
 **Auth:** None (public content)
-**Returns:** Public assignments (optionally filtered by user)
+**Returns:** Public reports (optionally filtered by user)
 
 ---
 
 ## UI Components
 
-### Sharing Section (Assignment Detail Page)
+### Sharing Section (Report Detail Page)
 
-Located at `/assignments/{uid}`, visible only to owner.
+Located at `/reports/{uid}`, visible only to owner.
 
 **Components:**
 1. **Visibility Dropdown** - Select PRIVATE/SHARED/PUBLIC
@@ -363,17 +363,17 @@ Located at `/assignments/{uid}`, visible only to owner.
 
 **Usage:**
 ```python
-from adapters.inbound.assignments_ui import _render_sharing_section
+from adapters.inbound.reports_ui import _render_sharing_section
 
-# In assignment detail route
-sharing_section = _render_sharing_section(assignment)
+# In report detail route
+sharing_section = _render_sharing_section(report)
 ```
 
 **Features:**
 - Alpine.js modal for sharing
 - HTMX for instant updates
 - DaisyUI styling
-- Quality control: disabled for incomplete assignments
+- Quality control: disabled for incomplete reports
 
 ---
 
@@ -382,39 +382,39 @@ sharing_section = _render_sharing_section(assignment)
 Route: `/profile/shared`
 
 **Features:**
-- Card grid of shared assignments
-- Filter tabs (All/Assignments/Events)
+- Card grid of shared reports
+- Filter tabs (All/Reports/Events)
 - Empty state message
 - Owner info and metadata
-- "View" button for each assignment
+- "View" button for each report
 
 **Navigation:**
-Accessible from profile hub sidebar (📥 icon).
+Accessible from profile hub sidebar (icon).
 
 ---
 
 ## Service Layer
 
-### AssignmentSharingService
+### ReportSharingService
 
 ```python
-from core.services.assignments import AssignmentSharingService
+from core.services.reports import ReportSharingService
 
-class AssignmentSharingService:
-    """Manages assignment sharing and access control."""
+class ReportSharingService:
+    """Manages report sharing and access control."""
 
-    async def share_assignment(
+    async def share_report(
         self,
-        assignment_uid: str,
+        report_uid: str,
         owner_uid: str,
         recipient_uid: str,
         role: str = "viewer",
     ) -> Result[bool]:
-        """Share assignment with user."""
+        """Share report with user."""
 
-    async def unshare_assignment(
+    async def unshare_report(
         self,
-        assignment_uid: str,
+        report_uid: str,
         owner_uid: str,
         recipient_uid: str,
     ) -> Result[bool]:
@@ -422,7 +422,7 @@ class AssignmentSharingService:
 
     async def set_visibility(
         self,
-        assignment_uid: str,
+        report_uid: str,
         owner_uid: str,
         visibility: Visibility,
     ) -> Result[bool]:
@@ -430,42 +430,42 @@ class AssignmentSharingService:
 
     async def check_access(
         self,
-        assignment_uid: str,
+        report_uid: str,
         user_uid: str,
     ) -> Result[bool]:
-        """Check if user can access assignment."""
+        """Check if user can access report."""
 
     async def get_shared_with_users(
         self,
-        assignment_uid: str,
+        report_uid: str,
     ) -> Result[list[dict[str, Any]]]:
-        """Get users assignment is shared with."""
+        """Get users report is shared with."""
 
-    async def get_assignments_shared_with_me(
+    async def get_reports_shared_with_me(
         self,
         user_uid: str,
         limit: int = 50,
-    ) -> Result[list[AssignmentDTO]]:
-        """Get assignments shared with user."""
+    ) -> Result[list[ReportDTO]]:
+        """Get reports shared with user."""
 ```
 
-**Location:** `/core/services/assignments/assignment_sharing_service.py`
+**Location:** `/core/services/reports/report_sharing_service.py`
 
 ---
 
 ### Integration with Core Service
 
 ```python
-from core.services.assignments import AssignmentsCoreService
+from core.services.reports import ReportsCoreService
 
 # Access-controlled retrieval
-assignment = await assignments_core_service.get_with_access_check(
-    uid=assignment_uid,
+report = await reports_core_service.get_with_access_check(
+    uid=report_uid,
     user_uid=current_user_uid,
 )
 
 # Returns 404 if:
-# - Assignment doesn't exist
+# - Report doesn't exist
 # - User doesn't have access (ownership or sharing)
 ```
 
@@ -475,20 +475,20 @@ assignment = await assignments_core_service.get_with_access_check(
 
 ## Database Schema
 
-### Assignment Model
+### Report Model
 
 ```python
 @dataclass(frozen=True)
-class Assignment:
+class Report:
     uid: str
     user_uid: str  # Owner
     visibility: Visibility = Visibility.PRIVATE  # NEW
-    status: AssignmentStatus
+    status: ReportStatus
     # ... other fields
 
     def is_shareable(self) -> bool:
-        """Only completed assignments can be shared."""
-        return self.status == AssignmentStatus.COMPLETED
+        """Only completed reports can be shared."""
+        return self.status == ReportStatus.COMPLETED
 ```
 
 ### Relationship
@@ -497,7 +497,7 @@ class Assignment:
 CREATE (user:User)-[r:SHARES_WITH {
     shared_at: datetime(),
     role: 'teacher'
-}]->(assignment:Assignment)
+}]->(report:Report)
 ```
 
 **Properties:**
@@ -514,7 +514,7 @@ All mutation operations verify ownership:
 
 ```python
 # Before sharing/unsharing/changing visibility
-ownership_check = await self._verify_ownership(assignment_uid, owner_uid)
+ownership_check = await self._verify_ownership(report_uid, owner_uid)
 if ownership_check.is_error:
     return ownership_check  # Returns error if not owner
 ```
@@ -523,18 +523,18 @@ if ownership_check.is_error:
 
 ```python
 # Before sharing or setting visibility to SHARED/PUBLIC
-shareable_check = await self._verify_shareable(assignment_uid)
+shareable_check = await self._verify_shareable(report_uid)
 if shareable_check.is_error:
-    return shareable_check  # Only completed assignments can be shared
+    return shareable_check  # Only completed reports can be shared
 ```
 
 ### Access Control
 
 ```python
 # All read operations check access
-access_check = await sharing_service.check_access(assignment_uid, user_uid)
+access_check = await sharing_service.check_access(report_uid, user_uid)
 if not access_check.value:
-    return Result.fail(Errors.not_found("Assignment not found"))  # 404
+    return Result.fail(Errors.not_found("Report not found"))  # 404
 ```
 
 **No information leakage:** Both "not found" and "forbidden" return 404.
@@ -553,14 +553,14 @@ def mock_driver():
     return driver
 
 @pytest.mark.asyncio
-async def test_share_assignment_success(sharing_service, mock_driver):
+async def test_share_report_success(sharing_service, mock_driver):
     mock_driver.execute_query.side_effect = [
         ([{"actual_owner": "user_owner"}], None, None),  # ownership check
         ([{"status": "completed"}], None, None),          # shareable check
         ([{"success": True}], None, None),                # share query
     ]
 
-    result = await sharing_service.share_assignment(...)
+    result = await sharing_service.share_report(...)
     assert not result.is_error
 ```
 
@@ -568,21 +568,21 @@ async def test_share_assignment_success(sharing_service, mock_driver):
 
 ```python
 @pytest.mark.integration
-async def test_complete_sharing_workflow(sharing_service, test_assignment):
+async def test_complete_sharing_workflow(sharing_service, test_report):
     # Set visibility → Share → Check access → Unshare → Verify revoked
     await sharing_service.set_visibility(...)
-    await sharing_service.share_assignment(...)
+    await sharing_service.share_report(...)
 
     access = await sharing_service.check_access(...)
     assert access.value is True  # ✅ Has access
 
-    await sharing_service.unshare_assignment(...)
+    await sharing_service.unshare_report(...)
 
     access = await sharing_service.check_access(...)
     assert access.value is False  # ✅ Access revoked
 ```
 
-**See:** `/tests/unit/test_assignment_sharing_service.py`, `/tests/integration/test_sharing_workflows.py`
+**See:** `/tests/unit/test_report_sharing_service.py`, `/tests/integration/test_sharing_workflows.py`
 
 ---
 
@@ -591,7 +591,7 @@ async def test_complete_sharing_workflow(sharing_service, test_assignment):
 Same infrastructure, different entity type.
 
 **Changes Needed:**
-1. Create `EventSharingService` (copy pattern from assignments)
+1. Create `EventSharingService` (copy pattern from reports)
 2. Add `Event.visibility` field (already exists!)
 3. Extend `/profile/shared` to include events
 4. Calendar UI integration (show shared events)
@@ -609,45 +609,45 @@ Same infrastructure, different entity type.
 
 ## Common Pitfalls
 
-### ❌ Forgetting to Set Visibility
+### Forgetting to Set Visibility
 
 ```python
 # BAD: Sharing without setting visibility to SHARED
-await sharing_service.share_assignment(...)  # Creates relationship
-# But assignment visibility is still PRIVATE!
+await sharing_service.share_report(...)  # Creates relationship
+# But report visibility is still PRIVATE!
 # User still can't access (access control checks visibility first)
 ```
 
 ```python
 # GOOD: Set visibility first
 await sharing_service.set_visibility(..., Visibility.SHARED)
-await sharing_service.share_assignment(...)
+await sharing_service.share_report(...)
 ```
 
-### ❌ Sharing Incomplete Assignments
+### Sharing Incomplete Reports
 
 ```python
-# BAD: Trying to share processing assignment
-assignment.status == "processing"
-result = await sharing_service.share_assignment(...)
-# Returns error: "Only completed assignments can be shared"
+# BAD: Trying to share processing report
+report.status == "processing"
+result = await sharing_service.share_report(...)
+# Returns error: "Only completed reports can be shared"
 ```
 
 ```python
 # GOOD: Check is_shareable() first
-if assignment.is_shareable():
-    await sharing_service.share_assignment(...)
+if report.is_shareable():
+    await sharing_service.share_report(...)
 ```
 
-### ❌ Not Handling Result[T] Errors
+### Not Handling Result[T] Errors
 
 ```python
 # BAD: Assuming success
-result = await sharing_service.share_assignment(...)
+result = await sharing_service.share_report(...)
 # If result.is_error, accessing result.value will raise
 
 # GOOD: Check for errors
-result = await sharing_service.share_assignment(...)
+result = await sharing_service.share_report(...)
 if result.is_error:
     logger.error(f"Sharing failed: {result.error}")
     return  # Handle error
@@ -658,7 +658,7 @@ if result.is_error:
 ## Migration & Backward Compatibility
 
 **Phase 1 Implementation (2026-02-02):**
-- All existing assignments default to `visibility=PRIVATE`
+- All existing reports default to `visibility=PRIVATE`
 - No breaking changes to existing routes
 - Access control is additive (ownership still works)
 - Service is optional (graceful degradation if not available)
@@ -670,24 +670,24 @@ if result.is_error:
 ## References
 
 ### Implementation Files
-- **Service:** `/core/services/assignments/assignment_sharing_service.py`
-- **API Routes:** `/adapters/inbound/assignments_sharing_api.py`
-- **UI Components:** `/adapters/inbound/assignments_ui.py`
+- **Service:** `/core/services/reports/report_sharing_service.py`
+- **API Routes:** `/adapters/inbound/reports_sharing_api.py`
+- **UI Components:** `/adapters/inbound/reports_ui.py`
 - **Profile Tab:** `/adapters/inbound/user_profile_ui.py`
-- **Model:** `/core/models/assignment/assignment.py`
+- **Model:** `/core/models/report/report.py`
 
 ### Documentation
 - **ADR:** `/docs/decisions/ADR-038-content-sharing-model.md`
-- **Implementation Summary:** `/PHASE1_ASSIGNMENT_SHARING_COMPLETE.md`
+- **Implementation Summary:** `/PHASE1_REPORT_SHARING_COMPLETE.md`
 - **Test Documentation:** `/PHASE1_TESTS_COMPLETE.md`
 - **Quick Reference:** `/CLAUDE.md` (Content Sharing section)
 
 ### Tests
-- **Unit Tests:** `/tests/unit/test_assignment_sharing_service.py` (27 tests)
+- **Unit Tests:** `/tests/unit/test_report_sharing_service.py` (27 tests)
 - **Integration Tests:** `/tests/integration/test_sharing_workflows.py` (12 tests)
 
 ---
 
-**Last Updated:** 2026-02-02
-**Status:** Phase 1 Complete ✅
+**Last Updated:** 2026-02-06
+**Status:** Phase 1 Complete
 **Next:** Phase 2 - Event Sharing

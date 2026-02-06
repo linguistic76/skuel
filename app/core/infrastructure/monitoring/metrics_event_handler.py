@@ -86,10 +86,10 @@ class MetricsEventHandler:
         self.event_bus.subscribe(LearningStepCreated, self._on_ls_created)
         self.event_bus.subscribe(LearningPathStarted, self._on_lp_started)
 
-        # Assignment domain (1)
-        from core.events.assignment_events import AssignmentSubmitted
+        # Report domain (1)
+        from core.events.report_events import ReportSubmitted
 
-        self.event_bus.subscribe(AssignmentSubmitted, self._on_assignment_submitted)
+        self.event_bus.subscribe(ReportSubmitted, self._on_report_submitted)
 
     def _subscribe_to_completion_events(self) -> None:
         """Subscribe to entity completion events."""
@@ -183,11 +183,11 @@ class MetricsEventHandler:
             entity_type="lp", user_uid=event.user_uid
         ).inc()
 
-    async def _on_assignment_submitted(self, event) -> None:
-        """Track assignment submission (proxy for creation)."""
+    async def _on_report_submitted(self, event) -> None:
+        """Track report submission (proxy for creation)."""
 
         self.prometheus_metrics.domains.entities_created.labels(
-            entity_type="assignment", user_uid=event.user_uid
+            entity_type="report", user_uid=event.user_uid
         ).inc()
 
     # === Completion Event Handlers ===

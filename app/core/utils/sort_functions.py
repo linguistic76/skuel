@@ -547,22 +547,22 @@ def get_schedule_recommendation_score(recommendation: Any) -> float:
     return recommendation.overall_score
 
 
-def get_assignment_date(assignment: Any) -> Any:
+def get_report_date(report: Any) -> Any:
     """
-    Get created_at date from Assignment object, with fallback to datetime.min.
+    Get created_at date from Report object, with fallback to datetime.min.
 
-    Used for sorting assignments by creation date.
-    Example: assignments.sort(key=get_assignment_date, reverse=True)
+    Used for sorting reports by creation date.
+    Example: reports.sort(key=get_report_date, reverse=True)
 
     Args:
-        assignment: Assignment object with created_at attribute
+        report: Report object with created_at attribute
 
     Returns:
         The created_at datetime, or datetime.min if None
     """
     from datetime import datetime
 
-    return assignment.created_at or datetime.min
+    return report.created_at or datetime.min
 
 
 def get_principle_strength_order(principle: Any) -> int:

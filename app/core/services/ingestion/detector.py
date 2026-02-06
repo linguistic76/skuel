@@ -43,7 +43,7 @@ TYPE_MAPPING: dict[str, EntityType] = {
     "finance": EntityType.FINANCE,
     # Content/Processing
     "journal": EntityType.JOURNAL,
-    "assignment": EntityType.ASSIGNMENT,
+    "report": EntityType.REPORT,
     # Destination
     "lifepath": EntityType.LIFEPATH,
 }

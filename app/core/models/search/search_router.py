@@ -226,7 +226,7 @@ class SearchRouter:
         EntityType.LS: "learning_steps",
         EntityType.LP: "learning_paths",
         # Content/Organization Domains (3)
-        EntityType.ASSIGNMENT: "assignments",
+        EntityType.REPORT: "reports",
         EntityType.JOURNAL: "journals",  # Processing domain
         EntityType.MOC: "moc",  # Non-linear knowledge navigation
         # The Destination - LifePath (Domain #14)

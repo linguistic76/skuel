@@ -1,23 +1,23 @@
 """
-Assignments Query Service
+Reports Search Service
 ==========================
 
-Service for querying assignments across all types (transcripts, reports, etc.).
+Service for querying reports across all types (transcripts, reports, etc.).
 
 Core Capabilities:
-- Query assignments by type, date range, status
+- Query reports by type, date range, status
 - Filter by metadata (category, mood, tags)
-- Search assignment content
+- Search report content
 - Calculate statistics (streaks, word count, etc.)
 
-Assignment Types Supported:
+Report Types Supported:
 - TRANSCRIPT: Meeting notes and transcriptions
 - REPORT: Formal reports and documentation
 - IMAGE_ANALYSIS: Visual content analysis
 - VIDEO_SUMMARY: Video content summaries
 
-This service provides a unified query interface for the Assignments domain.
-It operates on Assignment nodes regardless of their specific type.
+This service provides a unified query interface for the Reports domain.
+It operates on Report nodes regardless of their specific type.
 """
 
 from datetime import date, timedelta
@@ -25,7 +25,7 @@ from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import QueryLimit
-from core.models.assignment.assignment import Assignment, AssignmentDTO, AssignmentType
+from core.models.report.report import Report, ReportDTO, ReportType
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations
@@ -33,30 +33,30 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
-logger = get_logger("skuel.services.assignments_query")
+logger = get_logger("skuel.services.reports_search")
 
 
-class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignment]):
+class ReportsSearchService(BaseService[BackendOperations[Report], Report]):
     """
-    Assignments query service - unified interface for all assignment types.
+    Reports search service - unified interface for all report types.
 
-    Provides queries for assignments of any type:
-    - Get assignment for specific date
-    - List assignments by date range
+    Provides queries for reports of any type:
+    - Get report for specific date
+    - List reports by date range
     - Filter by type, category, mood, tags
     - Calculate statistics (streaks, word count)
-    - Search assignment content
+    - Search report content
 
-    Supports Assignment types:
+    Supports Report types:
     - Transcripts
     - Reports
     - Image analysis
     - Video summaries
 
     Does NOT handle:
-    - File uploads (use AssignmentSubmissionService)
+    - File uploads (use ReportSubmissionService)
     - Audio processing (use TranscriptionService)
-    - Content processing (use AssignmentProcessorService)
+    - Content processing (use ReportsProcessingService)
     - AI formatting (use TranscriptProcessorService)
     """
 
@@ -64,26 +64,24 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
     # DomainConfig (January 2026 Phase 3)
     # =========================================================================
     _config = DomainConfig(
-        dto_class=AssignmentDTO,
-        model_class=Assignment,
-        entity_label="Assignment",
+        dto_class=ReportDTO,
+        model_class=Report,
+        entity_label="Report",
         search_fields=("original_filename", "processed_title", "processed_content"),
         search_order_by="submitted_at",
-        category_field="assignment_type",
+        category_field="report_type",
         user_ownership_relationship="OWNS",  # User-owned content
     )
 
-    def __init__(
-        self, assignment_backend: UniversalNeo4jBackend[Assignment], event_bus=None
-    ) -> None:
+    def __init__(self, report_backend: UniversalNeo4jBackend[Report], event_bus=None) -> None:
         """
-        Initialize assignments query service.
+        Initialize reports search service.
 
         Args:
-            assignment_backend: UniversalNeo4jBackend[Assignment] for storage
+            report_backend: UniversalNeo4jBackend[Report] for storage
             event_bus: Event bus for domain events (optional)
         """
-        super().__init__(assignment_backend, "AssignmentsQueryService")
+        super().__init__(report_backend, "ReportsSearchService")
         self.event_bus = event_bus
         self.logger = logger
 
@@ -93,76 +91,76 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Assignment entities."""
-        return "Assignment"
+        """Return the graph label for Report entities."""
+        return "Report"
 
     # ========================================================================
-    # ASSIGNMENT QUERIES (Generalized)
+    # REPORT QUERIES (Generalized)
     # ========================================================================
 
-    @with_error_handling("get_assignment_for_date")
-    async def get_assignment_for_date(
+    @with_error_handling("get_report_for_date")
+    async def get_report_for_date(
         self,
         user_uid: str,
         target_date: date,
-        assignment_type: AssignmentType | None = None,
-    ) -> Result[Assignment | None]:
+        report_type: ReportType | None = None,
+    ) -> Result[Report | None]:
         """
-        Get assignment for a specific date.
+        Get report for a specific date.
 
-        Searches for assignments with:
+        Searches for reports with:
         - user_uid = user_uid
         - created_at date matches target_date
-        - assignment_type = assignment_type (if provided)
+        - report_type = report_type (if provided)
 
         Args:
             user_uid: User identifier
             target_date: Date to search for
-            assignment_type: Optional type filter (JOURNAL, ESSAY, etc.)
+            report_type: Optional type filter (JOURNAL, ESSAY, etc.)
 
         Returns:
-            Result containing assignment or None if not found
+            Result containing report or None if not found
         """
         # Build query filters
         filters = {"user_uid": user_uid, "limit": 1}
-        if assignment_type:
-            filters["assignment_type"] = assignment_type.value
+        if report_type:
+            filters["report_type"] = report_type.value
 
         result = await self.backend.find_by(**filters)
 
         if result.is_error:
             return Result.fail(result)
 
-        assignments = result.value
+        reports = result.value
 
         # Filter by date in Python (Neo4j datetime comparison is complex)
-        for assignment in assignments:
-            if assignment.created_at.date() == target_date:
-                return Result.ok(assignment)
+        for report in reports:
+            if report.created_at.date() == target_date:
+                return Result.ok(report)
 
         return Result.ok(None)
 
-    @with_error_handling("list_assignments_by_date_range")
-    async def list_assignments_by_date_range(
+    @with_error_handling("list_reports_by_date_range")
+    async def list_reports_by_date_range(
         self,
         user_uid: str,
         start_date: date,
         end_date: date,
-        assignment_type: AssignmentType | None = None,
+        report_type: ReportType | None = None,
         limit: int = 100,
-    ) -> Result[list[Assignment]]:
+    ) -> Result[list[Report]]:
         """
-        List assignments within a date range.
+        List reports within a date range.
 
         Args:
             user_uid: User identifier
             start_date: Start date (inclusive)
             end_date: End date (inclusive)
-            assignment_type: Optional type filter (JOURNAL, ESSAY, etc.)
+            report_type: Optional type filter (JOURNAL, ESSAY, etc.)
             limit: Max results (default 100)
 
         Returns:
-            Result containing list of assignments
+            Result containing list of reports
         """
         # Build query filters
         filters = {
@@ -171,42 +169,42 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
             "sort_by": "created_at",
             "sort_order": "desc",
         }
-        if assignment_type:
-            filters["assignment_type"] = assignment_type.value
+        if report_type:
+            filters["report_type"] = report_type.value
 
         result = await self.backend.find_by(**filters)
 
         if result.is_error:
             return result
 
-        assignments = result.value
+        reports = result.value
 
         # Filter by date range in Python
-        filtered = [a for a in assignments if start_date <= a.created_at.date() <= end_date]
+        filtered = [a for a in reports if start_date <= a.created_at.date() <= end_date]
 
         return Result.ok(filtered)
 
-    @with_error_handling("get_assignments_by_category")
-    async def get_assignments_by_category(
+    @with_error_handling("get_reports_by_category")
+    async def get_reports_by_category(
         self,
         user_uid: str,
         category: str,
-        assignment_type: AssignmentType | None = None,
+        report_type: ReportType | None = None,
         limit: int = 50,
-    ) -> Result[list[Assignment]]:
+    ) -> Result[list[Report]]:
         """
-        Get assignments filtered by category.
+        Get reports filtered by category.
 
-        Categories are stored in assignment metadata.
+        Categories are stored in report metadata.
 
         Args:
             user_uid: User identifier
             category: Category name (e.g., "personal", "work", "reflection", "research")
-            assignment_type: Optional type filter (JOURNAL, ESSAY, etc.)
+            report_type: Optional type filter (JOURNAL, ESSAY, etc.)
             limit: Max results
 
         Returns:
-            Result containing list of assignments
+            Result containing list of reports
         """
         # Build query filters
         filters = {
@@ -215,35 +213,35 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
             "sort_by": "created_at",
             "sort_order": "desc",
         }
-        if assignment_type:
-            filters["assignment_type"] = assignment_type.value
+        if report_type:
+            filters["report_type"] = report_type.value
 
         result = await self.backend.find_by(**filters)
 
         if result.is_error:
             return result
 
-        assignments = result.value
+        reports = result.value
 
         # Filter by category in metadata
-        filtered = [
-            a for a in assignments if a.metadata and a.metadata.get("category") == category
-        ][:limit]
+        filtered = [a for a in reports if a.metadata and a.metadata.get("category") == category][
+            :limit
+        ]
 
         return Result.ok(filtered)
 
-    @with_error_handling("get_assignments_by_mood")
-    async def get_assignments_by_mood(
+    @with_error_handling("get_reports_by_mood")
+    async def get_reports_by_mood(
         self,
         user_uid: str,
         mood: str,
         start_date: date | None = None,
         end_date: date | None = None,
-        assignment_type: AssignmentType | None = None,
+        report_type: ReportType | None = None,
         limit: int = 50,
-    ) -> Result[list[Assignment]]:
+    ) -> Result[list[Report]]:
         """
-        Get assignments filtered by mood.
+        Get reports filtered by mood.
 
         Moods are extracted during processing and stored in metadata.
 
@@ -252,11 +250,11 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
             mood: Mood name (e.g., "happy", "reflective", "stressed", "focused")
             start_date: Optional start date filter
             end_date: Optional end date filter
-            assignment_type: Optional type filter (JOURNAL, ESSAY, etc.)
+            report_type: Optional type filter (JOURNAL, ESSAY, etc.)
             limit: Max results
 
         Returns:
-            Result containing list of assignments
+            Result containing list of reports
         """
         # Build query filters
         filters = {
@@ -265,19 +263,19 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
             "sort_by": "created_at",
             "sort_order": "desc",
         }
-        if assignment_type:
-            filters["assignment_type"] = assignment_type.value
+        if report_type:
+            filters["report_type"] = report_type.value
 
         result = await self.backend.find_by(**filters)
 
         if result.is_error:
             return result
 
-        assignments = result.value
+        reports = result.value
 
         # Filter by mood in metadata
         filtered = []
-        for a in assignments:
+        for a in reports:
             if not a.metadata or a.metadata.get("mood") != mood:
                 continue
 
@@ -294,27 +292,27 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
 
         return Result.ok(filtered)
 
-    @with_error_handling("search_assignments")
-    async def search_assignments(
+    @with_error_handling("search_reports")
+    async def search_reports(
         self,
         user_uid: str,
         query: str,
-        assignment_type: AssignmentType | None = None,
+        report_type: ReportType | None = None,
         limit: int = 50,
-    ) -> Result[list[Assignment]]:
+    ) -> Result[list[Report]]:
         """
-        Search assignment content using text search.
+        Search report content using text search.
 
         Searches in processed_content field.
 
         Args:
             user_uid: User identifier
             query: Search query string
-            assignment_type: Optional type filter (JOURNAL, ESSAY, etc.)
+            report_type: Optional type filter (JOURNAL, ESSAY, etc.)
             limit: Max results
 
         Returns:
-            Result containing list of matching assignments
+            Result containing list of matching reports
         """
         # Build query filters
         filters = {
@@ -323,22 +321,20 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
             "sort_by": "created_at",
             "sort_order": "desc",
         }
-        if assignment_type:
-            filters["assignment_type"] = assignment_type.value
+        if report_type:
+            filters["report_type"] = report_type.value
 
         result = await self.backend.find_by(**filters)
 
         if result.is_error:
             return result
 
-        assignments = result.value
+        reports = result.value
 
         # Filter by content search (simple substring match)
         query_lower = query.lower()
         filtered = [
-            a
-            for a in assignments
-            if a.processed_content and query_lower in a.processed_content.lower()
+            a for a in reports if a.processed_content and query_lower in a.processed_content.lower()
         ][:limit]
 
         return Result.ok(filtered)
@@ -347,21 +343,21 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
     # STATISTICS (Generalized)
     # ========================================================================
 
-    @with_error_handling("get_assignment_statistics")
-    async def get_assignment_statistics(
+    @with_error_handling("get_report_statistics")
+    async def get_report_statistics(
         self,
         user_uid: str,
         start_date: date,
         end_date: date,
-        assignment_type: AssignmentType | None = None,
+        report_type: ReportType | None = None,
     ) -> Result[dict[str, Any]]:
         """
-        Calculate assignment statistics for date range.
+        Calculate report statistics for date range.
 
         Statistics include:
-        - Total assignments submitted
+        - Total reports submitted
         - Total words written
-        - Average words per assignment
+        - Average words per report
         - Longest streak (consecutive days)
         - Current streak
         - Most productive day of week
@@ -372,82 +368,82 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
             user_uid: User identifier
             start_date: Start date for analysis
             end_date: End date for analysis
-            assignment_type: Optional type filter (JOURNAL, ESSAY, etc.)
+            report_type: Optional type filter (JOURNAL, ESSAY, etc.)
 
         Returns:
             Result containing statistics dictionary
         """
-        # Get all assignments in date range
-        assignments_result = await self.list_assignments_by_date_range(
+        # Get all reports in date range
+        reports_result = await self.list_reports_by_date_range(
             user_uid=user_uid,
             start_date=start_date,
             end_date=end_date,
-            assignment_type=assignment_type,
+            report_type=report_type,
             limit=QueryLimit.COMPREHENSIVE,  # Large enough for most use cases
         )
 
-        if assignments_result.is_error:
-            return Result.fail(assignments_result.expect_error())
+        if reports_result.is_error:
+            return Result.fail(reports_result.expect_error())
 
-        assignments = assignments_result.value
+        reports = reports_result.value
 
         # Calculate statistics
-        total_assignments = len(assignments)
-        if total_assignments == 0:
+        total_reports = len(reports)
+        if total_reports == 0:
             return Result.ok(
                 {
-                    "total_assignments": 0,
+                    "total_reports": 0,
                     "total_words": 0,
                     "average_words": 0,
                     "longest_streak": 0,
                     "current_streak": 0,
-                    "assignments_by_day_of_week": {},
-                    "assignments_by_category": {},
-                    "assignments_by_type": {},
+                    "reports_by_day_of_week": {},
+                    "reports_by_category": {},
+                    "reports_by_type": {},
                 }
             )
 
         # Total words
         total_words = sum(
-            len(a.processed_content.split()) if a.processed_content else 0 for a in assignments
+            len(a.processed_content.split()) if a.processed_content else 0 for a in reports
         )
-        average_words = total_words / total_assignments if total_assignments > 0 else 0
+        average_words = total_words / total_reports if total_reports > 0 else 0
 
         # Streak calculation
-        assignment_dates = sorted([a.created_at.date() for a in assignments])
-        longest_streak = self._calculate_longest_streak(assignment_dates)
-        current_streak = self._calculate_current_streak(assignment_dates)
+        report_dates = sorted([a.created_at.date() for a in reports])
+        longest_streak = self._calculate_longest_streak(report_dates)
+        current_streak = self._calculate_current_streak(report_dates)
 
         # Day of week distribution
         day_of_week_counts = {}
-        for a in assignments:
+        for a in reports:
             day_name = a.created_at.strftime("%A")
             day_of_week_counts[day_name] = day_of_week_counts.get(day_name, 0) + 1
 
         # Category distribution
         category_counts = {}
-        for a in assignments:
+        for a in reports:
             if a.metadata and "category" in a.metadata:
                 category = a.metadata["category"]
                 category_counts[category] = category_counts.get(category, 0) + 1
 
         # Type distribution (only if not filtered by type)
         type_counts = {}
-        if not assignment_type:
-            for a in assignments:
-                type_name = a.assignment_type.value
+        if not report_type:
+            for a in reports:
+                type_name = a.report_type.value
                 type_counts[type_name] = type_counts.get(type_name, 0) + 1
 
         return Result.ok(
             {
-                "total_assignments": total_assignments,
+                "total_reports": total_reports,
                 "total_words": total_words,
                 "average_words": round(average_words, 1),
                 "longest_streak": longest_streak,
                 "current_streak": current_streak,
-                "assignments_by_day_of_week": day_of_week_counts,
-                "assignments_by_category": category_counts,
-                "assignments_by_type": type_counts,
+                "reports_by_day_of_week": day_of_week_counts,
+                "reports_by_category": category_counts,
+                "reports_by_type": type_counts,
             }
         )
 
@@ -478,7 +474,7 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
         today = date.today()
         yesterday = today - timedelta(days=1)
 
-        # Check if last assignment was today or yesterday
+        # Check if last report was today or yesterday
         last_date = dates[-1]
         if last_date not in {today, yesterday}:
             return 0
@@ -495,26 +491,26 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
         return streak
 
     # ========================================================================
-    # RECENT ASSIGNMENTS
+    # RECENT REPORTS
     # ========================================================================
 
-    @with_error_handling("get_recent_assignments")
-    async def get_recent_assignments(
+    @with_error_handling("get_recent_reports")
+    async def get_recent_reports(
         self,
         user_uid: str,
-        assignment_type: AssignmentType | None = None,
+        report_type: ReportType | None = None,
         limit: int = 10,
-    ) -> Result[list[Assignment]]:
+    ) -> Result[list[Report]]:
         """
-        Get most recent assignments.
+        Get most recent reports.
 
         Args:
             user_uid: User identifier
-            assignment_type: Optional type filter (JOURNAL, ESSAY, etc.)
+            report_type: Optional type filter (JOURNAL, ESSAY, etc.)
             limit: Max results (default 10)
 
         Returns:
-            Result containing list of recent assignments
+            Result containing list of recent reports
         """
         # Build query filters
         filters = {
@@ -523,8 +519,8 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
             "sort_by": "created_at",
             "sort_order": "desc",
         }
-        if assignment_type:
-            filters["assignment_type"] = assignment_type.value
+        if report_type:
+            filters["report_type"] = report_type.value
 
         return await self.backend.find_by(**filters)
 
@@ -532,20 +528,20 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
     # CROSS-DOMAIN QUERIES
     # ========================================================================
 
-    @with_error_handling("get_journal_for_assignment")
-    async def get_journal_for_assignment(
+    @with_error_handling("get_journal_for_report")
+    async def get_journal_for_report(
         self,
-        assignment_uid: str,
+        report_uid: str,
         user_uid: str,
     ) -> Result[dict[str, Any] | None]:
         """
-        Get the Journal created from processing this assignment.
+        Get the Journal created from processing this report.
 
-        Journals store source assignment UID in metadata.source_assignment_uid.
-        This is a cross-domain query serving the Assignment use case.
+        Journals store source report UID in metadata.source_report_uid.
+        This is a cross-domain query serving the Report use case.
 
         Args:
-            assignment_uid: The assignment UID to find journal for
+            report_uid: The report UID to find journal for
             user_uid: User UID for ownership verification
 
         Returns:
@@ -556,7 +552,7 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
         cypher = """
         MATCH (j:Journal {user_uid: $user_uid})
         WHERE j.metadata IS NOT NULL
-          AND j.metadata CONTAINS $assignment_uid
+          AND j.metadata CONTAINS $report_uid
         RETURN j.uid as uid, j.content as content,
                j.metadata as metadata, j.created_at as created_at
         ORDER BY j.created_at DESC
@@ -564,7 +560,7 @@ class AssignmentsQueryService(BaseService[BackendOperations[Assignment], Assignm
         """
 
         async with driver.session() as session:
-            result = await session.run(cypher, user_uid=user_uid, assignment_uid=assignment_uid)
+            result = await session.run(cypher, user_uid=user_uid, report_uid=report_uid)
             records = [r async for r in result]
 
             if records:

@@ -82,7 +82,7 @@ class NeoLabel(str, Enum):
     # =========================================================================
     JOURNAL = "Journal"
     JOURNAL_PROJECT = "JournalProject"
-    ASSIGNMENT = "Assignment"
+    REPORT = "Report"
     TRANSCRIPTION = "Transcription"
 
     # =========================================================================
@@ -137,7 +137,7 @@ class NeoLabel(str, Enum):
             EntityType.MOC: cls.MOC,
             # Content Domains
             EntityType.JOURNAL: cls.JOURNAL,
-            EntityType.ASSIGNMENT: cls.ASSIGNMENT,
+            EntityType.REPORT: cls.REPORT,
         }
 
         return mapping.get(canonical)

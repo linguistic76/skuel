@@ -37,8 +37,8 @@ DOMAINS NOT USING THIS BASE SERVICE (8 of 14)
 **Content/Organization Domains (4)** - Cross-domain composition:
     11. JournalsService        - File processing
     12. MocService             - Map of Content organization
-    13. ReportLifePathService  - Life goal alignment
-    14. ReportService          - Statistical aggregation
+    13. AnalyticsLifePathService  - Life goal alignment
+    14. AnalyticsService          - Statistical aggregation
 
 THE 4 CROSS-CUTTING SYSTEMS
 ---------------------------

@@ -49,21 +49,21 @@ Every mypy error falls into one of five categories. Fix the root cause, not the 
 ### ❌ Before (Untyped - Causes no-any-return Errors)
 
 ```python
-def create_assignments_api_routes(
+def create_reports_api_routes(
     _app,                           # No type
     rt,                             # No type
-    assignment_service,             # No type → mypy treats as Any
+    report_service,                 # No type → mypy treats as Any
     processing_service,             # No type → mypy treats as Any
-    assignments_query_service=None, # No type → mypy treats as Any
-    assignments_core_service=None,  # No type → mypy treats as Any
+    reports_query_service=None,     # No type → mypy treats as Any
+    reports_core_service=None,      # No type → mypy treats as Any
 ):
-    """Create assignment API routes."""
+    """Create report API routes."""
 
-    @rt("/api/assignments/categorize")
+    @rt("/api/reports/categorize")
     async def categorize_route(request, uid: str) -> Result[Any]:
         # ERROR: Returning Any from function declared to return Result[Any]
-        # Because assignments_core_service is type Any, its return type is unknown
-        return await assignments_core_service.categorize_assignment(uid, category)
+        # Because reports_core_service is type Any, its return type is unknown
+        return await reports_core_service.categorize_report(uid, category)
 ```
 
 **Problems:**
@@ -78,25 +78,25 @@ def create_assignments_api_routes(
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.assignments.assignments_core_service import AssignmentsCoreService
-    from core.services.assignments.assignments_processing_service import AssignmentsProcessingService
-    from core.services.assignments.assignments_search_service import AssignmentsSearchService
-    from core.services.assignments.assignments_submission_service import AssignmentSubmissionService
+    from core.services.reports.reports_core_service import ReportsCoreService
+    from core.services.reports.reports_processing_service import ReportsProcessingService
+    from core.services.reports.reports_search_service import ReportsSearchService
+    from core.services.reports.reports_submission_service import ReportSubmissionService
 
-def create_assignments_api_routes(
+def create_reports_api_routes(
     _app: Any,
     rt: Any,
-    assignment_service: "AssignmentSubmissionService",      # Type-safe
-    processing_service: "AssignmentsProcessingService",     # Type-safe
-    assignments_query_service: "AssignmentsSearchService | None" = None,
-    assignments_core_service: "AssignmentsCoreService | None" = None,
+    report_service: "ReportSubmissionService",              # Type-safe
+    processing_service: "ReportsProcessingService",         # Type-safe
+    reports_query_service: "ReportsSearchService | None" = None,
+    reports_core_service: "ReportsCoreService | None" = None,
 ) -> list[Any]:
-    """Create assignment API routes."""
+    """Create report API routes."""
 
-    @rt("/api/assignments/categorize")
+    @rt("/api/reports/categorize")
     async def categorize_route(request, uid: str) -> Result[Any]:
         # ✅ No error - mypy knows the return type
-        return await assignments_core_service.categorize_assignment(uid, category)
+        return await reports_core_service.categorize_report(uid, category)
 ```
 
 **Benefits:**
@@ -137,7 +137,7 @@ def create_api_routes(
 In SKUEL's codebase:
 - **21 errors fixed** across 3 route factory files
 - **60% reduction** in `no-any-return` errors (42 → 17)
-- **Files updated:** assignments_api.py, askesis_api.py, assignments_sharing_api.py
+- **Files updated:** reports_api.py, askesis_api.py, reports_sharing_api.py
 
 ---
 
@@ -461,25 +461,25 @@ In SKUEL's codebase:
 ### ❌ Before (Unsafe Access)
 
 ```python
-@rt("/assignments/categorize")
-async def categorize_route(request, assignment_uid: str) -> Result[Any]:
-    # Get assignment
-    assignment_result = await assignment_service.get_assignment(assignment_uid)
+@rt("/reports/categorize")
+async def categorize_route(request, report_uid: str) -> Result[Any]:
+    # Get report
+    report_result = await report_service.get_report(report_uid)
 
     # Check for errors
-    if assignment_result.is_error:
-        return Result.fail(assignment_result.expect_error())
+    if report_result.is_error:
+        return Result.fail(report_result.expect_error())
 
     # Extract value
-    assignment = assignment_result.value
+    report = report_result.value
 
-    # ERROR: Item "None" of "Assignment | None" has no attribute "user_uid"
-    # Problem: get_assignment returns Result[Assignment | None]
+    # ERROR: Item "None" of "Report | None" has no attribute "user_uid"
+    # Problem: get_report returns Result[Report | None]
     # Even though is_error is False, value can still be None (not found case)
-    if assignment.user_uid != user_uid:
-        return Result.fail(Errors.not_found(resource="Assignment"))
+    if report.user_uid != user_uid:
+        return Result.fail(Errors.not_found(resource="Report"))
 
-    return await assignments_core_service.categorize_assignment(assignment_uid, category)
+    return await reports_core_service.categorize_report(report_uid, category)
 ```
 
 **The Issue:** `Result[T | None]` pattern is common for "not found" cases:
@@ -490,24 +490,24 @@ async def categorize_route(request, assignment_uid: str) -> Result[Any]:
 ### ✅ After (Safe with Guard)
 
 ```python
-@rt("/assignments/categorize")
-async def categorize_route(request, assignment_uid: str) -> Result[Any]:
-    # Get assignment
-    assignment_result = await assignment_service.get_assignment(assignment_uid)
+@rt("/reports/categorize")
+async def categorize_route(request, report_uid: str) -> Result[Any]:
+    # Get report
+    report_result = await report_service.get_report(report_uid)
 
     # Check for errors
-    if assignment_result.is_error:
-        return Result.fail(assignment_result.expect_error())
+    if report_result.is_error:
+        return Result.fail(report_result.expect_error())
 
     # Extract value
-    assignment = assignment_result.value
+    report = report_result.value
 
     # ✅ Guard: Check for both error AND None
-    if assignment is None or assignment.user_uid != user_uid:
-        return Result.fail(Errors.not_found(resource="Assignment"))
+    if report is None or report.user_uid != user_uid:
+        return Result.fail(Errors.not_found(resource="Report"))
 
-    # After this point, mypy knows assignment is not None
-    return await assignments_core_service.categorize_assignment(assignment_uid, category)
+    # After this point, mypy knows report is not None
+    return await reports_core_service.categorize_report(report_uid, category)
 ```
 
 ### Alternative: Early Return Pattern
@@ -591,7 +591,7 @@ This is cleaner than using error results for "not found" cases.
 In SKUEL's codebase:
 - **24 errors fixed** across 3 UI/API files
 - **100% elimination** of `union-attr` errors (24 → 0) ✨
-- **Files updated:** assignments_api.py (9 fixes), choice_ui.py (14 fixes), goals_ui.py (1 fix)
+- **Files updated:** reports_api.py (9 fixes), choice_ui.py (14 fixes), goals_ui.py (1 fix)
 
 ---
 
@@ -610,7 +610,7 @@ In SKUEL's codebase:
 
 ### Files Modified
 
-- **Route factories:** 3 files (assignments_api.py, askesis_api.py, assignments_sharing_api.py)
+- **Route factories:** 3 files (reports_api.py, askesis_api.py, reports_sharing_api.py)
 - **Route infrastructure:** 2 files (lateral_route_factory.py, lateral_routes.py)
 - **Protocols:** 2 files (domain_protocols.py, facade_protocols.py)
 - **API routes:** 1 file (insights_api.py)
@@ -674,7 +674,7 @@ type safety while avoiding circular imports.
 
 Errors fixed: 21
 Pattern: TYPE_CHECKING with forward references
-Files: assignments_api.py, askesis_api.py, assignments_sharing_api.py"
+Files: reports_api.py, askesis_api.py, reports_sharing_api.py"
 ```
 
 ---

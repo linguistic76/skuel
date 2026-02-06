@@ -1,10 +1,10 @@
 """
-Report Life Path Service
-=========================
+Analytics Life Path Service
+============================
 
-Life Path alignment tracking and reporting for Layer 3 meta-analysis.
+Life Path alignment tracking and analytics for Layer 3 meta-analysis.
 
-This service provides the CRITICAL missing piece for Reports to become
+This service provides the CRITICAL missing piece for Analytics to become
 true Layer 3: calculating how well user's activities align with their
 ultimate life goal (Life Path).
 
@@ -16,11 +16,11 @@ This service answers:
 - "Which activities drive alignment?" → Domain contribution breakdown
 - "Where should I focus?" → Gap identification + recommendations
 
-Part of the 4-service Reports architecture:
-- ReportService: Facade orchestrating all reports
-- ReportMetricsService: Domain-specific statistics
-- ReportAggregationService: Cross-domain synthesis
-- ReportLifePathService: Life Path alignment tracking (this file)
+Part of the 4-service Analytics architecture:
+- AnalyticsService: Facade orchestrating all analytics
+- AnalyticsMetricsService: Domain-specific statistics
+- AnalyticsAggregationService: Cross-domain synthesis
+- AnalyticsLifePathService: Life Path alignment tracking (this file)
 
 Implementation Date: October 24, 2025
 """
@@ -44,7 +44,7 @@ class KnowledgeSubstanceInfo(TypedDict):
     substance: float  # Substance score (0.0-1.0)
 
 
-class ReportLifePathService:
+class AnalyticsLifePathService:
     """
     Life Path alignment tracking and analysis.
 
@@ -54,9 +54,9 @@ class ReportLifePathService:
     Substance tracking measures whether knowledge is LIVED, not just learned.
 
 
-    Source Tag: "report_life_path_explicit"
-    - Format: "report_life_path_explicit" for user-created relationships
-    - Format: "report_life_path_inferred" for system-generated relationships
+    Source Tag: "analytics_life_path_explicit"
+    - Format: "analytics_life_path_explicit" for user-created relationships
+    - Format: "analytics_life_path_inferred" for system-generated relationships
 
     Confidence Scoring:
     - 0.9+: User explicitly defined relationship
@@ -74,7 +74,7 @@ class ReportLifePathService:
 
     def __init__(self, user_service=None, ku_service=None, lp_service=None) -> None:
         """
-        Initialize Life Path reporting service.
+        Initialize Life Path analytics service.
 
         Args:
             user_service: UserService for getting UserContext
@@ -85,7 +85,7 @@ class ReportLifePathService:
         self.ku_service = ku_service
         self.lp_service = lp_service
         self.logger = logger
-        logger.info("ReportLifePathService initialized")
+        logger.info("AnalyticsLifePathService initialized")
 
     async def calculate_life_path_alignment(self, user_uid: str) -> Result[dict[str, Any]]:
         """

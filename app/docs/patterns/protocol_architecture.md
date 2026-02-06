@@ -249,9 +249,9 @@ class JournalsCoreService(BaseService[JournalsOperations, JournalPure]):
 - `JournalsCoreService` → `JournalsOperations`
 - `TranscriptProcessorService` → `JournalsOperations`
 - `KuSearchService` → `KuOperations`
-- `AssignmentsCoreService` → `BackendOperations[Assignment]`
-- `AssignmentsQueryService` → `BackendOperations[Assignment]`
-- `AssignmentSubmissionService` → `BackendOperations[Assignment]`
+- `ReportsCoreService` → `BackendOperations[Report]`
+- `ReportsQueryService` → `BackendOperations[Report]`
+- `ReportSubmissionService` → `BackendOperations[Report]`
 
 ### Results
 - **Zero concrete type dependencies** in route signatures

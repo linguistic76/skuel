@@ -410,7 +410,7 @@ class TestBuildRelationshipCreateQueries:
     def test_rels_data_format(self):
         """Test that rels_data has correct format for Neo4j."""
         relationships = [
-            ("assignment:123", "goal:456", "SUPPORTS_GOAL", None),
+            ("report:123", "goal:456", "SUPPORTS_GOAL", None),
         ]
 
         queries = BatchOperationHelper.build_relationship_create_queries(relationships)
@@ -423,7 +423,7 @@ class TestBuildRelationshipCreateQueries:
         assert "from_uid" in entry
         assert "to_uid" in entry
         assert "properties" in entry
-        assert entry["from_uid"] == "assignment:123"
+        assert entry["from_uid"] == "report:123"
         assert entry["to_uid"] == "goal:456"
         assert entry["properties"] == {}
 

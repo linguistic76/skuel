@@ -1,13 +1,13 @@
 """
-Assignment Domain Events
+Report Domain Events
 ========================
 
-Events published when assignment operations occur.
+Events published when report operations occur.
 
 These events enable:
-- Processing pipeline trigger when assignments are submitted
+- Processing pipeline trigger when reports are submitted
 - User context updates when content is processed
-- Assignment lifecycle tracking
+- Report lifecycle tracking
 - Cross-service coordination
 
 Version: 1.0.0
@@ -22,19 +22,19 @@ from core.events.base import BaseEvent
 
 
 @dataclass(frozen=True)
-class AssignmentSubmitted(BaseEvent):
+class ReportSubmitted(BaseEvent):
     """
-    Published when a new assignment file is submitted.
+    Published when a new report file is submitted.
 
     Triggers:
     - Processing pipeline to start processing the file
     - User activity tracking
-    - Assignment lifecycle monitoring
+    - Report lifecycle monitoring
     """
 
-    assignment_uid: str
+    report_uid: str
     user_uid: str
-    assignment_type: str  # AssignmentType enum value
+    report_type: str  # ReportType enum value
     processor_type: str  # ProcessorType enum value
     file_size: int
     file_type: str
@@ -44,20 +44,20 @@ class AssignmentSubmitted(BaseEvent):
 
     @property
     def event_type(self) -> str:
-        return "assignment.submitted"
+        return "report.submitted"
 
 
 @dataclass(frozen=True)
-class AssignmentProcessingStarted(BaseEvent):
+class ReportProcessingStarted(BaseEvent):
     """
-    Published when processing begins for an assignment.
+    Published when processing begins for a report.
 
     Triggers:
     - User notification that processing has started
     - Progress tracking updates
     """
 
-    assignment_uid: str
+    report_uid: str
     user_uid: str
     processor_type: str
     occurred_at: datetime
@@ -65,11 +65,11 @@ class AssignmentProcessingStarted(BaseEvent):
 
     @property
     def event_type(self) -> str:
-        return "assignment.processing_started"
+        return "report.processing_started"
 
 
 @dataclass(frozen=True)
-class AssignmentProcessingCompleted(BaseEvent):
+class ReportProcessingCompleted(BaseEvent):
     """
     Published when processing completes successfully.
 
@@ -79,9 +79,9 @@ class AssignmentProcessingCompleted(BaseEvent):
     - Related entity creation (journals, transcripts, etc.)
     """
 
-    assignment_uid: str
+    report_uid: str
     user_uid: str
-    assignment_type: str
+    report_type: str
     has_processed_content: bool
     processing_duration_seconds: float | None
     occurred_at: datetime
@@ -89,11 +89,11 @@ class AssignmentProcessingCompleted(BaseEvent):
 
     @property
     def event_type(self) -> str:
-        return "assignment.processing_completed"
+        return "report.processing_completed"
 
 
 @dataclass(frozen=True)
-class AssignmentProcessingFailed(BaseEvent):
+class ReportProcessingFailed(BaseEvent):
     """
     Published when processing fails.
 
@@ -103,7 +103,7 @@ class AssignmentProcessingFailed(BaseEvent):
     - Retry scheduling (if applicable)
     """
 
-    assignment_uid: str
+    report_uid: str
     user_uid: str
     error_message: str
     occurred_at: datetime
@@ -111,13 +111,13 @@ class AssignmentProcessingFailed(BaseEvent):
 
     @property
     def event_type(self) -> str:
-        return "assignment.processing_failed"
+        return "report.processing_failed"
 
 
 @dataclass(frozen=True)
-class AssignmentDeleted(BaseEvent):
+class ReportDeleted(BaseEvent):
     """
-    Published when an assignment is deleted.
+    Published when a report is deleted.
 
     Triggers:
     - File cleanup operations
@@ -125,12 +125,12 @@ class AssignmentDeleted(BaseEvent):
     - Storage reclamation
     """
 
-    assignment_uid: str
+    report_uid: str
     user_uid: str
-    assignment_type: str
+    report_type: str
     occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
     def event_type(self) -> str:
-        return "assignment.deleted"
+        return "report.deleted"
