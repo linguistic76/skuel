@@ -20,12 +20,13 @@ Usage:
 
 from typing import Any
 
-from fasthtml.common import A, Button, Div, Nav, NotStr, Span
+from fasthtml.common import A, Button, Div, Li, Nav, NotStr, Span, Ul
 from starlette.requests import Request
 
 from ui.layouts.nav_config import (
     ADMIN_NAV_ITEM,
     MAIN_NAV_ITEMS,
+    PROFILE_DROPDOWN_ITEMS,
     NavItem,
 )
 
@@ -146,31 +147,64 @@ def _avatar_hue(name: str) -> int:
     return h
 
 
-def _profile_avatar_link(current_user: str) -> A:
-    """Create profile avatar link — navigates directly to /profile.
+_DOMAIN_ICONS: dict[str, str] = {
+    "tasks": "✅",
+    "goals": "🎯",
+    "habits": "🔄",
+    "choices": "🔀",
+    "principles": "⚖️",
+}
 
-    Avatar circle color is derived from the username so each user gets a
-    consistent, unique color across sessions.  Settings and sign-out live
-    at the bottom of the profile sidebar.
+
+def _dropdown_link(item: NavItem, active_page: str) -> Li:
+    """Single dropdown menu item with domain icon."""
+    is_active = item.page_key == active_page
+    icon = _DOMAIN_ICONS.get(item.page_key, "")
+    active_cls = "active" if is_active else ""
+
+    return Li(
+        A(
+            Span(icon, cls="text-base", aria_hidden="true"),
+            item.label,
+            href=item.href,
+            cls=active_cls,
+            **{"hx-boost": "false"},
+        )
+    )
+
+
+def _profile_dropdown(current_user: str, active_page: str) -> Div:
+    """Profile avatar with activity domains dropdown menu.
+
+    Desktop: DaisyUI dropdown appears on click via CSS :focus-within.
+    Mobile: Hidden — activity domains appear in hamburger menu instead.
     """
     initial = current_user[0].upper() if current_user else "U"
     hue = _avatar_hue(current_user)
 
-    avatar_cls = (
-        "size-8 rounded-full flex items-center justify-center text-white font-medium text-sm"
+    avatar = Div(
+        initial,
+        cls="size-8 rounded-full flex items-center justify-center text-white font-medium text-sm",
+        style=f"background-color: hsl({hue}, 65%, 45%);",
+        aria_hidden="true",
     )
 
-    return A(
+    menu_items = [_dropdown_link(item, active_page) for item in PROFILE_DROPDOWN_ITEMS]
+
+    return Div(
         Div(
-            initial,
-            cls=avatar_cls,
-            style=f"background-color: hsl({hue}, 65%, 45%);",
-            aria_hidden="true",
+            avatar,
+            tabindex="0",
+            role="button",
+            cls="btn btn-ghost btn-circle",
+            aria_label="Activity domains menu",
         ),
-        href="/profile",
-        cls="btn btn-ghost btn-circle",
-        aria_label="Your profile",
-        **{"hx-boost": "false"},
+        Ul(
+            *menu_items,
+            tabindex="0",
+            cls="dropdown-content menu bg-base-100 rounded-box z-[1] w-48 p-2 shadow-lg border border-base-200",
+        ),
+        cls="dropdown dropdown-end hidden sm:block",
     )
 
 
@@ -226,11 +260,27 @@ def create_navbar(
         **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
     )
 
+    # Mobile activity domain links (shown in hamburger menu for authenticated users)
+    mobile_domain_links: Div | str = ""
+    if is_authenticated:
+        mobile_domain_links = Div(
+            Div(
+                Span(
+                    "Activity Domains",
+                    cls="text-xs font-semibold uppercase tracking-wider opacity-60 px-3 pt-3 pb-1 block",
+                ),
+                *[_nav_link(item, active_page, mobile=True) for item in PROFILE_DROPDOWN_ITEMS],
+                cls="space-y-1 px-2 pb-3 border-t border-base-200 mt-2 pt-2",
+            ),
+            cls="sm:hidden",
+            **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
+        )
+
     # Profile section (authenticated vs not)
     if is_authenticated and current_user:
         profile_section = Div(
-            _notification_button(unread_insights),  # Pass unread count (Phase 1 integration)
-            _profile_avatar_link(current_user),
+            _notification_button(unread_insights),
+            _profile_dropdown(current_user, active_page),
             cls="flex items-center gap-2",
         )
     else:
@@ -268,6 +318,8 @@ def create_navbar(
         ),
         # Mobile menu (collapsible)
         mobile_links,
+        # Mobile activity domains (below main nav items)
+        mobile_domain_links,
         # Alpine.js state management
         **{"x-data": "navbar()"},
         cls="navbar bg-white border-b border-gray-200 sticky top-0 z-50",

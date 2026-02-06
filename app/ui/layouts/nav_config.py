@@ -51,8 +51,19 @@ ADMIN_NAV_ITEM = NavItem(
     requires_admin=True,
 )
 
+# Profile dropdown items - activity domains accessible from navbar avatar
+# Events is already a top-level nav item in MAIN_NAV_ITEMS
+PROFILE_DROPDOWN_ITEMS: tuple[NavItem, ...] = (
+    NavItem("Tasks", "/tasks", "tasks"),
+    NavItem("Goals", "/goals", "goals"),
+    NavItem("Habits", "/habits", "habits"),
+    NavItem("Choices", "/choices", "choices"),
+    NavItem("Principles", "/principles", "principles"),
+)
+
 __all__ = [
     "NavItem",
     "MAIN_NAV_ITEMS",
     "ADMIN_NAV_ITEM",
+    "PROFILE_DROPDOWN_ITEMS",
 ]

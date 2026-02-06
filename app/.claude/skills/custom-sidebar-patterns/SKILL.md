@@ -20,14 +20,14 @@ SKUEL uses **BasePage** for most layouts, but complex navigation requirements (l
 
 - **State persistence** via localStorage (survives page reloads)
 - **Responsive transforms** (desktop collapse vs mobile drawer)
-- **Domain-specific structure** (activity domains, curriculum sections, insights)
+- **Domain-specific structure** (curriculum sections, account actions, insights)
 - **Smooth animations** with pure CSS transitions
 
 ## When to Use This Skill
 
 Choose custom sidebar patterns when:
 
-- ✅ Navigation requires **multi-level sections** (Activity Domains, Curriculum, etc.)
+- ✅ Navigation requires **multi-level sections** (Curriculum, Account, etc.)
 - ✅ Sidebar state must **persist across sessions** (localStorage)
 - ✅ Need **fine-grained control** over collapse behavior (desktop vs mobile)
 - ✅ Domain items have **dynamic badges/indicators** (counts, status, insights)
@@ -42,7 +42,7 @@ Use **BasePage HUB** instead when:
 **Decision Tree:**
 
 ```
-Does sidebar need multi-section structure (Activity + Curriculum)?
+Does sidebar need multi-section structure (Curriculum + Account)?
 ├─ YES → Custom Sidebar Pattern ✓
 └─ NO → Does sidebar state need localStorage persistence?
     ├─ YES → Custom Sidebar Pattern ✓
@@ -73,8 +73,8 @@ The **Profile Hub** (`/ui/profile/layout.py`) is SKUEL's canonical custom sideba
 - Fixed sidebar (256px) collapses to 48px edge on desktop
 - Full-width drawer with overlay on mobile
 - localStorage persists collapsed state
-- Multi-section navigation (Activity Domains, Curriculum)
-- Dynamic badges (count, status, insights)
+- Multi-section navigation (Overview, Shared With Me, Curriculum, Account)
+- Dynamic badges (count, status, insights) for curriculum domains
 
 **Files:**
 - `/ui/profile/layout.py` - `build_profile_sidebar()`, `create_profile_page()`

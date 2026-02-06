@@ -1,16 +1,19 @@
 """
-User Profile UI Routes - Profile Hub with Domain Sidebar
-=========================================================
+User Profile UI Routes - Profile Hub with Sidebar Navigation
+=============================================================
 
-Routes for the user profile pages with Activity Domain navigation sidebar.
+Routes for the user profile pages with /nous-style sidebar navigation.
+
+Activity Domains (Tasks, Goals, Habits, Choices, Principles) are accessed via
+the navbar avatar dropdown (ui/layouts/navbar.py), not the profile sidebar.
 
 Key Routes:
-- GET /profile - Profile with sidebar navigation (all 6 domains summary)
-- GET /profile/{domain} - Domain-specific view (tasks, events, goals, habits, principles, choices)
+- GET /profile - Profile overview (sidebar: Overview, Shared With Me, Curriculum, Account)
+- GET /profile/{domain} - Domain-specific view (learning, shared)
 - GET /profile/settings - User settings/preferences
 
 Architecture:
-- /profile is THE main entry point with domain sidebar navigation
+- /profile is THE main entry point with sidebar navigation
 - Uses UserContext (~240 fields) as the authoritative source for user state
 - Uses BasePage with /nous-style sidebar for modern, consistent UX
 """

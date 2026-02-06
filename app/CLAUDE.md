@@ -112,6 +112,8 @@ async def get_learning_opportunities(
 | user-context-intelligence | `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` | — |
 | **Testing** | | |
 | pytest | `/docs/patterns/TESTING_PATTERNS.md`, `/TESTING.md` | GRAPH_ACCESS_PATTERNS.md |
+| **Mobile** | | |
+| hyperview (ADR-039) | `/docs/architecture/HYPERVIEW_STRATEGY.md`, `/docs/decisions/ADR-039-hyperview-mobile-strategy.md` | `core/hxml/` |
 | **Meta** | | |
 | docs-skills-evolution | `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/decisions/ADR-TEMPLATE.md` | Cross-reference validation |
 
@@ -766,26 +768,21 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 | HUB | Left (w-64) | Flexible | Admin Dashboard |
 | CUSTOM | STANDARD + custom | Flexible | Profile Hub (/nous-style sidebar) |
 
-**Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `BasePage` with custom `/nous`-style sidebar. This provides explicit control while maintaining consistency.
+**Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `BasePage` with custom `/nous`-style sidebar.
+
+**Evolution (2026-02-06):** Activity Domains moved from profile sidebar to **navbar avatar dropdown**. Profile sidebar now contains: Overview, Shared With Me, Curriculum, Account. Events remains a top-level nav item.
 
 **Key Files:**
 - `/ui/layouts/base_page.py` - Unified page wrapper (`BasePage`)
 - `/ui/layouts/page_types.py` - Page type enum and config
+- `/ui/layouts/navbar.py` - Navbar with profile dropdown (`_profile_dropdown`)
+- `/ui/layouts/nav_config.py` - `PROFILE_DROPDOWN_ITEMS` (5 activity domains)
 - `/ui/profile/layout.py` - Profile Hub custom sidebar (`build_profile_sidebar`, `create_profile_page`)
-- `/ui/profile/domain_stats_config.py` - Configuration-driven domain statistics (eliminates 80-line if-elif blocks)
 - `/ui/tokens.py` - Spacing, container, card tokens
 - `/ui/patterns/` - PageHeader, SectionHeader components
 
-**Profile Hub Pattern:**
-```python
-from ui.profile.layout import create_profile_page
-
-return create_profile_page(
-    content=main_content,
-    domains=domain_items,
-    request=request,  # Auto-detects auth/admin
-)
-```
+**Navbar Profile Dropdown (Desktop):**
+Avatar click opens DaisyUI dropdown with Tasks, Goals, Habits, Choices, Principles. On mobile (<640px), these appear in the hamburger menu under "Activity Domains" section.
 
 **See:** `/docs/patterns/UI_COMPONENT_PATTERNS.md`
 
@@ -804,6 +801,32 @@ return create_profile_page(
 - `/static/vendor/alpinejs/alpine.3.14.8.min.js` - Self-hosted, version-pinned
 
 **See:** `/.claude/skills/js-alpine/`
+
+## Hyperview Mobile Strategy
+
+**Core Principle:** "One backend, two formats — HTML for web, HXML for mobile"
+
+SKUEL adopts [Hyperview](https://hyperview.org/) as its mobile strategy. Hyperview is a server-driven mobile framework using HXML — a purpose-built XML format for native mobile UIs rendered by React Native. Same philosophy as HTMX but for native mobile.
+
+**Status:** Groundwork phase (Feb 2026)
+
+| Platform | Format | Client | Framework |
+|----------|--------|--------|-----------|
+| Web | HTML | Browser | HTMX |
+| Mobile | HXML | React Native | Hyperview |
+
+**Key Files:**
+- `/core/hxml/elements.py` — HXML element builders (Doc, Screen, View, Text, Style, Behavior)
+- `/core/hxml/negotiation.py` — Content negotiation (`is_hyperview_client()`)
+
+**Content Negotiation:**
+```python
+from core.hxml import is_hyperview_client
+if is_hyperview_client(request):
+    return hxml_response(...)
+```
+
+**See:** `/docs/decisions/ADR-039-hyperview-mobile-strategy.md`, `/docs/architecture/HYPERVIEW_STRATEGY.md`
 
 ## Lateral Relationships & Vis.js Graph Visualization
 

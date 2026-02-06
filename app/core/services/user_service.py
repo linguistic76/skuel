@@ -617,8 +617,8 @@ class UserService:
         # ========================================================================
         # STEP 1: Check cache first (5-minute TTL with event-driven invalidation)
         # ========================================================================
-        if self.user_activity_service:
-            cached_context = self.user_activity_service.get_valid_context(user_uid)
+        if self.activity:
+            cached_context = self.activity.get_valid_context(user_uid)
             if cached_context:
                 logger.debug(
                     "Rich context cache HIT", extra={"user_uid": user_uid, "cache_age_seconds": 0}
@@ -656,8 +656,8 @@ class UserService:
         # STEP 3: Cache the freshly-built context
         # ========================================================================
         context = context_result.value
-        if self.user_activity_service:
-            self.user_activity_service.cache_context(user_uid, context)
+        if self.activity:
+            self.activity.cache_context(user_uid, context)
             logger.debug(
                 "Rich context cached",
                 extra={"user_uid": user_uid, "cache_ttl_seconds": 300},  # 5 minutes

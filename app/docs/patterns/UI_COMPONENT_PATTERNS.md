@@ -66,7 +66,9 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 | `HUB` | Left (w-64) | Flexible | Multi-domain dashboards (Admin Dashboard) |
 | `CUSTOM` | STANDARD + custom layout | Flexible | Complex layouts (Profile Hub with /nous-style sidebar) |
 
-**Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `STANDARD` page type with custom sidebar implementation. This provides more control while maintaining BasePage consistency.
+**Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `STANDARD` page type with custom sidebar implementation.
+
+**Evolution (2026-02-06):** Activity Domains (Tasks, Goals, Habits, Choices, Principles) moved from profile sidebar to navbar avatar dropdown. Profile sidebar now contains: Overview, Shared With Me, Curriculum, Account. Events remains a top-level nav item.
 
 **Background Convention (2026-02-05):** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
 
@@ -108,8 +110,17 @@ return create_profile_page(
 ### Profile Hub Custom Sidebar Pattern
 
 **Added:** 2026-02-01
+**Updated:** 2026-02-06 — Activity domains moved to navbar dropdown
 
 The Profile Hub uses a custom `/nous`-style sidebar implementation that provides more control than the standard `PageType.HUB` pattern.
+
+**Sidebar Sections (2026-02-06):**
+- Overview (profile summary)
+- Shared With Me (assignment portfolio)
+- Curriculum (KU, LS, LP)
+- Account (Settings, Sign out)
+
+Activity Domains (Tasks, Goals, Habits, Choices, Principles) are now in the **navbar avatar dropdown** (`ui/layouts/navbar.py`), not the profile sidebar.
 
 **Key Features:**
 - Fixed sidebar (256px) with smooth collapse animation
@@ -120,32 +131,16 @@ The Profile Hub uses a custom `/nous`-style sidebar implementation that provides
 
 **Implementation:**
 ```python
-from ui.profile.layout import build_profile_sidebar, create_profile_page
-from ui.profile.layout import ProfileDomainItem
+from ui.profile.layout import create_profile_page
 
-# Build domain items for sidebar
-domains = [
-    ProfileDomainItem(
-        name="Tasks",
-        slug="tasks",
-        icon="✅",
-        count=10,
-        active_count=3,
-        status="healthy",
-        href="/profile/tasks",
-        insight_count=2,
-    ),
-    # ... more domains
-]
-
-# Create page with custom sidebar
+# Create page with custom sidebar (domains parameter kept for backward compat)
 return create_profile_page(
     content=main_content,
-    domains=domains,
-    active_domain="tasks",  # Highlight active
+    domains=[],  # Activity domains now in navbar dropdown
     user_display_name="John Doe",
     title="Profile Hub",
     request=request,  # Enables auto-detection
+    curriculum_domains=curriculum_items,  # Optional curriculum section
 )
 ```
 
