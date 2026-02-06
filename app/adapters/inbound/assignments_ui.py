@@ -870,99 +870,6 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
         )
 
     # ========================================================================
-    # ASSIGNMENT DETAIL VIEW - HTMX-powered
-    # ========================================================================
-
-    @rt("/assignments/{uid}")
-    async def assignment_detail(request: Request, uid: str) -> Any:
-        """
-        Assignment detail view.
-
-        Shows:
-        - Assignment metadata (loaded via HTMX)
-        - Processing status and duration
-        - Processed content (formatted)
-        - Download links for original and processed files
-        - Sharing controls (visibility, share button, shared users)
-        """
-        user_uid = require_authenticated_user(request)  # Enforce authentication
-
-        # Fetch assignment to determine if user is owner (for sharing controls)
-        # Note: In production, this would use get_with_access_check()
-        assignment_result = await _assignment_service.get_assignment(uid)
-        is_owner = False
-        if not assignment_result.is_error and assignment_result.value is not None:
-            is_owner = assignment_result.value.user_uid == user_uid
-
-        # Detail view card with HTMX loading
-        detail_card = Div(
-            Div(
-                H3("Assignment Details", cls="card-title"),
-                # Assignment info container (loaded via HTMX)
-                Div(
-                    P("Loading assignment details...", cls="text-center text-base-content/60"),
-                    id="assignment-info",
-                    cls="mb-4",
-                    **{
-                        "hx-get": f"/assignments/{uid}/info",
-                        "hx-trigger": "load",
-                        "hx-swap": "outerHTML",
-                    },
-                ),
-                # Processed content section (loaded via HTMX)
-                Div(
-                    H4("Processed Content", cls="mt-6 mb-4"),
-                    Div(
-                        P("Loading content...", cls="text-center text-base-content/60"),
-                        id="processed-content",
-                        cls="p-4 bg-base-200 rounded-lg",
-                        style="max-height: 600px; overflow-y: auto;",
-                        **{
-                            "hx-get": f"/assignments/{uid}/content",
-                            "hx-trigger": "load",
-                            "hx-swap": "outerHTML",
-                        },
-                    ),
-                    id="content-section",
-                    cls="mb-4",
-                ),
-                # Sharing section (only for owner)
-                (
-                    _render_sharing_section(assignment_result.value)
-                    if is_owner and not assignment_result.is_error
-                    else None
-                ),
-                # Action buttons - use proper link instead of onclick
-                Div(
-                    A(
-                        "← Back to Assignments",
-                        href="/assignments",
-                        cls="btn btn-ghost",
-                    ),
-                    cls="mt-4",
-                ),
-                cls="card-body",
-            ),
-            cls="card bg-base-100 shadow-sm",
-        )
-
-        content = Div(
-            Div(
-                H1("Assignment Details", cls="text-3xl font-bold"),
-                P(f"UID: {uid}", cls="text-lg text-base-content/60"),
-                cls="text-center mb-8",
-            ),
-            detail_card,
-        )
-
-        return await BasePage(
-            content,
-            title="Assignment Details",
-            request=request,
-            active_page="assignments",
-        )
-
-    # ========================================================================
     # HTMX ENDPOINTS
     # ========================================================================
 
@@ -1059,6 +966,14 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
                 )
 
             assignment = result.value
+            if not assignment:
+                return Div(
+                    Div(
+                        P(f"Assignment {uid} not found"),
+                        cls="alert alert-warning",
+                    ),
+                    id="assignment-info",
+                )
             return _render_assignment_detail(assignment)
 
         except Exception as e:
@@ -1077,7 +992,7 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
         try:
             result = await _assignment_service.get_assignment(uid)
 
-            if result.is_error:
+            if result.is_error or not result.value:
                 return _render_processed_content(None, False)
 
             assignment = result.value
@@ -1147,16 +1062,115 @@ def create_assignments_ui_routes(_app, rt, _assignment_service, _processing_serv
             logger.error(f"Error loading shared users: {e}", exc_info=True)
             return Div("Error loading shared users", cls="text-error text-sm")
 
+    # ========================================================================
+    # ASSIGNMENT DETAIL VIEW - HTMX-powered
+    # ========================================================================
+    # IMPORTANT: This route MUST be defined LAST because /assignments/{uid}
+    # is a catch-all pattern that would match specific routes like
+    # /assignments/grid, /assignments/upload, etc.
+    # ========================================================================
+
+    @rt("/assignments/{uid}")
+    async def assignment_detail(request: Request, uid: str) -> Any:
+        """
+        Assignment detail view.
+
+        Shows:
+        - Assignment metadata (loaded via HTMX)
+        - Processing status and duration
+        - Processed content (formatted)
+        - Download links for original and processed files
+        - Sharing controls (visibility, share button, shared users)
+        """
+        user_uid = require_authenticated_user(request)  # Enforce authentication
+
+        # Fetch assignment to determine if user is owner (for sharing controls)
+        # Note: In production, this would use get_with_access_check()
+        assignment_result = await _assignment_service.get_assignment(uid)
+        is_owner = False
+        if not assignment_result.is_error and assignment_result.value is not None:
+            is_owner = assignment_result.value.user_uid == user_uid
+
+        # Detail view card with HTMX loading
+        detail_card = Div(
+            Div(
+                H3("Assignment Details", cls="card-title"),
+                # Assignment info container (loaded via HTMX)
+                Div(
+                    P("Loading assignment details...", cls="text-center text-base-content/60"),
+                    id="assignment-info",
+                    cls="mb-4",
+                    **{
+                        "hx-get": f"/assignments/{uid}/info",
+                        "hx-trigger": "load",
+                        "hx-swap": "outerHTML",
+                    },
+                ),
+                # Processed content section (loaded via HTMX)
+                Div(
+                    H4("Processed Content", cls="mt-6 mb-4"),
+                    Div(
+                        P("Loading content...", cls="text-center text-base-content/60"),
+                        id="processed-content",
+                        cls="p-4 bg-base-200 rounded-lg",
+                        style="max-height: 600px; overflow-y: auto;",
+                        **{
+                            "hx-get": f"/assignments/{uid}/content",
+                            "hx-trigger": "load",
+                            "hx-swap": "outerHTML",
+                        },
+                    ),
+                    id="content-section",
+                    cls="mb-4",
+                ),
+                # Sharing section (only for owner)
+                (
+                    _render_sharing_section(assignment_result.value)
+                    if is_owner and not assignment_result.is_error
+                    else None
+                ),
+                # Action buttons - use proper link instead of onclick
+                Div(
+                    A(
+                        "← Back to Assignments",
+                        href="/assignments",
+                        cls="btn btn-ghost",
+                    ),
+                    cls="mt-4",
+                ),
+                cls="card-body",
+            ),
+            cls="card bg-base-100 shadow-sm",
+        )
+
+        content = Div(
+            Div(
+                H1("Assignment Details", cls="text-3xl font-bold"),
+                P(f"UID: {uid}", cls="text-lg text-base-content/60"),
+                cls="text-center mb-8",
+            ),
+            detail_card,
+        )
+
+        return await BasePage(
+            content,
+            title="Assignment Details",
+            request=request,
+            active_page="assignments",
+        )
+
     logger.info("Assignments UI routes created successfully")
 
+    # Route order matters! Specific routes must come BEFORE parameterized routes.
+    # Otherwise /assignments/grid would match /assignments/{uid} with uid="grid"
     return [
-        assignments_dashboard,
-        assignment_detail,
-        upload_assignment,
-        get_assignments_grid,
-        get_assignment_info,
-        get_assignment_content,
-        get_category_selector,
-        get_tags_manager,
-        get_shared_users_ui,
+        assignments_dashboard,        # /assignments (exact)
+        upload_assignment,            # /assignments/upload (specific)
+        get_assignments_grid,         # /assignments/grid (specific)
+        get_assignment_info,          # /assignments/{uid}/info (pattern + suffix)
+        get_assignment_content,       # /assignments/{uid}/content (pattern + suffix)
+        get_category_selector,        # /assignments/{uid}/category-selector (pattern + suffix)
+        get_tags_manager,             # /assignments/{uid}/tags-manager (pattern + suffix)
+        get_shared_users_ui,          # /assignments/{uid}/shared-users (pattern + suffix)
+        assignment_detail,            # /assignments/{uid} (catch-all - MUST BE LAST)
     ]

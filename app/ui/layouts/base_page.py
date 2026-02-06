@@ -39,14 +39,18 @@ def _build_head(
     title: str,
     extra_css: list[str] | None = None,
 ) -> "FT":
-    """Build consistent HTML head with all required includes.
+    """Build complete HTML head for BasePage (complete document).
 
     Args:
         title: Page title (appended with " - SKUEL")
         extra_css: Additional CSS file paths to include
 
     Returns:
-        Head element with all standard includes
+        Head element with all required includes
+
+    Note:
+        BasePage returns complete Html() documents, so it provides its own <head>.
+        Routes that return partial HTML use fast_app headers instead.
     """
     css_links = []
     if extra_css:
@@ -77,7 +81,7 @@ def _build_head(
         Link(rel="stylesheet", href="/static/css/hierarchy.css"),
         # Extra CSS for specific pages
         *css_links,
-        # SKUEL JavaScript (Alpine components)
+        # SKUEL JavaScript (Alpine components) - LOAD ONLY ONCE
         Script(src="/static/js/focus_trap.js"),
         Script(src="/static/js/skuel.js"),
         Script(src="/static/js/profile_sidebar.js"),
