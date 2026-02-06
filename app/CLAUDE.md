@@ -173,7 +173,7 @@ SKUEL is developed through analog-to-digital collaboration where domain ideas ar
 
 ```
 Analog (Human)              Digital (Code)
-"14 domains"           ->   EntityType enum
+"15 domains"           ->   EntityType enum
 "Tasks have deadlines" ->   Task.due_date: date
 "Everything flows      ->   SERVES_LIFE_PATH
  toward life path"          relationship type
@@ -183,11 +183,11 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`
 
-## SKUEL's 14-Domain + 5-System Architecture
+## SKUEL's 15-Domain + 5-System Architecture
 
 **Core Principle:** "Everything flows toward the life path"
 
-### The 14 Domains
+### The 15 Domains
 
 | # | Domain | Group | UID Format | Purpose |
 |---|--------|-------|-----------|---------|
@@ -195,8 +195,9 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 | 7 | Finance | Finance | `expense_{random}` | Admin-only bookkeeping |
 | 8-10 | KU, LS, LP | Curriculum | `ku_{slug}_{random}`, `ls:{random}`, `lp:{random}` | Knowledge organization |
 | 11-12 | Journals, Reports | Content | `journal_{random}`, `report_{random}` | Processing |
-| 13 | MOC | Organizational | `ku_{slug}_{random}` (MOC is a KU) | Non-linear KU navigation |
-| 14 | LifePath | Destination | `lp_{random}` | "Am I living my life path?" |
+| 13 | Groups | Organizational | `group_{slug}_{random}` | Teacher-student class management |
+| 14 | MOC | Organizational | `ku_{slug}_{random}` (MOC is a KU) | Non-linear KU navigation |
+| 15 | LifePath | Destination | `lp_{random}` | "Am I living my life path?" |
 
 ### Domain Category Details
 
@@ -225,11 +226,9 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - `/journals` - Voice + text submission (type=JOURNAL hardcoded)
 - `/reports` - All file types dashboard
 
-**Organizational Domain (1)** - MOC (Map of Content):
-- MOC is NOT a separate entity - it IS a KU with ORGANIZES relationships
-- A KU "is" a MOC when it has outgoing ORGANIZES to other KUs (emergent identity)
-- Two paths to knowledge: LS (structured) vs MOC (exploratory, Montessori-inspired)
-- Same KU accessible via both paths; progress tracked on KU itself
+**Organizational Domains (2)**:
+- **Groups** - Teacher-student class management (ADR-040). Teacher creates group, adds students via MEMBER_OF. Assignments target groups via FOR_GROUP.
+- **MOC** - KU-based non-linear knowledge navigation. MOC is NOT a separate entity - it IS a KU with ORGANIZES relationships.
 
 **LifePath Domain (1)** - The Destination:
 - Philosophy: "The user's vision is understood via words, UserContext via actions"
@@ -261,7 +260,7 @@ All domains use `UniversalNeo4jBackend[T]` directly. Activity domains use `creat
 
 ### Cross-Domain Relationships
 
-All 14 domains connect through Neo4j graph relationships:
+All 15 domains connect through Neo4j graph relationships:
 
 ```
 Knowledge (ku:) <--> Activity Domains
@@ -280,6 +279,13 @@ Principles <--> Goals, Choices
     |
     +-- GUIDES_GOAL (Principles inform Goal setting)
     +-- GUIDES_CHOICE (Principles inform decisions)
+
+Groups <--> ReportProjects, Users
+    |
+    +-- FOR_GROUP (ReportProject targets Group)
+    +-- FULFILLS_PROJECT (Report fulfills ReportProject)
+    +-- MEMBER_OF (Student belongs to Group)
+    +-- OWNS (Teacher owns Group)
 
 LifePath <--> All Domains
     |
@@ -668,13 +674,15 @@ SHARED            → Owner + users with SHARES_WITH relationship
 PUBLIC            → Anyone (portfolio showcase)
 ```
 
-**Use Case:** Student completes report → shares with teacher → teacher views in "Shared With Me" inbox.
+**Two Sharing Modes:**
+1. **Manual sharing** — Student completes report → shares with teacher → teacher views in "Shared With Me" inbox
+2. **Assignment auto-sharing (ADR-040)** — Student submits report against ASSIGNED ReportProject → SHARES_WITH auto-created to teacher → appears in teacher review queue
 
 **Service:**
 ```python
 from core.services.reports import ReportSharingService
 
-# Share report
+# Manual share
 await sharing_service.share_report(
     report_uid="report_123",
     owner_uid="user_student",
@@ -689,11 +697,27 @@ await sharing_service.check_access(report_uid, user_uid)  # Returns Result[bool]
 await sharing_service.set_visibility(report_uid, owner_uid, Visibility.PUBLIC)
 ```
 
+**Teacher Review (ADR-040):**
+```python
+from core.services.reports import TeacherReviewService
+
+# Get pending reviews (queries SHARES_WITH role='teacher')
+queue = await teacher_review.get_review_queue(teacher_uid)
+
+# Provide feedback
+await teacher_review.submit_feedback(report_uid, teacher_uid, feedback_text)
+await teacher_review.request_revision(report_uid, teacher_uid, notes)
+await teacher_review.approve_report(report_uid, teacher_uid)
+```
+
 **UI Routes:**
 - `/reports/{uid}` - Sharing controls (owner only)
 - `/profile/shared` - "Shared With Me" inbox
 - `/api/reports/share` - Share with user
 - `/api/reports/shared-with-me` - Inbox API
+- `/api/teaching/review-queue` - Teacher's pending reviews
+- `/api/teaching/review/{uid}/feedback` - Submit feedback
+- `/api/teaching/review/{uid}/approve` - Approve report
 
 **Quality Control:** Only `COMPLETED` reports can be shared (prevents sharing failed/processing work).
 
@@ -704,7 +728,7 @@ await sharing_service.set_visibility(report_uid, owner_uid, Visibility.PUBLIC)
 
 **Phase 2:** Extend to Events (same infrastructure, different entity type).
 
-**See:** `/docs/patterns/SHARING_PATTERNS.md`, `/docs/decisions/ADR-038-content-sharing-model.md`
+**See:** `/docs/patterns/SHARING_PATTERNS.md`, `/docs/decisions/ADR-038-content-sharing-model.md`, `/docs/decisions/ADR-040-teacher-assignment-workflow.md`
 
 ## Generic Programming Patterns
 

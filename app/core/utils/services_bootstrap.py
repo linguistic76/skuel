@@ -215,6 +215,12 @@ class Services:
         None  # ReportsSearchService - Query all report types (journals, essays, projects, etc.)
     )
 
+    # ========================================================================
+    # GROUP & TEACHING (ADR-040) - Teacher assignment workflow
+    # ========================================================================
+    group_service: Any = None  # GroupService - CRUD + membership for groups
+    teacher_review: Any = None  # TeacherReviewService - review queue + feedback
+
     # System services
     # Note: sync field REMOVED (January 2026) - use unified_ingestion instead
     # Note: events moved to Activity Domains section above
@@ -1577,6 +1583,26 @@ async def compose_services(
         report_project_service = ReportProjectService(backend=report_projects_backend)
         logger.info("✅ Report feedback and project services created")
 
+        # Create group service (ADR-040: Teacher Assignment Workflow)
+        from core.models.group.group import Group
+        from core.services.groups import GroupService
+
+        group_backend = UniversalNeo4jBackend[Group](
+            driver=driver,
+            label=NeoLabel.GROUP,
+            entity_class=Group,
+            prometheus_metrics=prometheus_metrics,
+        )
+
+        group_service = GroupService(backend=group_backend, event_bus=event_bus)
+        logger.info("✅ GroupService created (ADR-040)")
+
+        # Create teacher review service (ADR-040: Teacher Assignment Workflow)
+        from core.services.reports.teacher_review_service import TeacherReviewService
+
+        teacher_review_service = TeacherReviewService(driver=driver)
+        logger.info("✅ TeacherReviewService created (ADR-040)")
+
         # Load default transcript instructions from file
         # This creates/updates a reusable project that users can edit by modifying the file
         default_instructions_path = "/home/mike/skuel/app/data/instructions - transcripts 0.md"
@@ -2231,6 +2257,9 @@ async def compose_services(
             transcript_processor=transcript_processor,
             report_feedback=report_feedback_service,  # LLM feedback on reports/journals
             report_projects=report_project_service,  # Reusable LLM project templates
+            # Group & Teaching (ADR-040: Teacher assignment workflow)
+            group_service=group_service,
+            teacher_review=teacher_review_service,
             # Note: audio_service removed (Dec 2025) - use transcription service directly
             # Reports (Phase 1 - File submission pipeline)
             reports=report_service,

@@ -125,6 +125,9 @@ class EntityType(str, Enum):
     JOURNAL = "journal"  # Alias for REPORT (migration aid — journal is a ReportType)
     MOC = "moc"  # Map of Content - non-linear knowledge navigation
 
+    # Organizational (1) - How I ORGANIZE people
+    GROUP = "group"  # Teacher-student class management (ADR-040)
+
     # The Destination (1) - Where I'm GOING
     LIFEPATH = "lifepath"
     LIFE_PATH = "life_path"  # Alias for LIFEPATH

@@ -78,6 +78,11 @@ class NeoLabel(str, Enum):
     MOC_SECTION = "MOCSection"  # MOC hierarchical section
 
     # =========================================================================
+    # Organizational
+    # =========================================================================
+    GROUP = "Group"  # Teacher-student class management (ADR-040)
+
+    # =========================================================================
     # Content/Processing Domains
     # =========================================================================
     JOURNAL = "Journal"  # Legacy — migration target is Report
@@ -138,6 +143,8 @@ class NeoLabel(str, Enum):
             EntityType.MOC: cls.MOC,
             # Content Domains (JOURNAL canonicalizes to REPORT)
             EntityType.REPORT: cls.REPORT,
+            # Organizational
+            EntityType.GROUP: cls.GROUP,
         }
 
         return mapping.get(canonical)

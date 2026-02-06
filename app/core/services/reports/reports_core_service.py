@@ -1020,6 +1020,106 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
     # FIFO CLEANUP FOR VOICE JOURNALS
     # ========================================================================
 
+    async def process_assignment_submission(
+        self,
+        report_uid: str,
+        project_uid: str,
+    ) -> Result[bool]:
+        """
+        Process a report submitted against an ASSIGNED ReportProject.
+
+        When a student submits against an assigned project:
+        1. Create FULFILLS_PROJECT relationship
+        2. Look up the project's owner (teacher)
+        3. Auto-create SHARES_WITH from teacher to report
+        4. Set report status to MANUAL_REVIEW if processor_type is HUMAN
+
+        Called by routes after report creation when project_uid is provided.
+
+        Args:
+            report_uid: The submitted report UID
+            project_uid: The ReportProject UID this report fulfills
+
+        Returns:
+            Result[bool]: True if assignment processing was applied
+        """
+        from core.models.relationship_names import RelationshipName
+
+        try:
+            # Check if the project is ASSIGNED scope
+            records, _, _ = await self.backend.driver.execute_query(
+                """
+                MATCH (project:ReportProject {uid: $project_uid})
+                RETURN project.scope as scope,
+                       project.user_uid as teacher_uid,
+                       project.processor_type as processor_type
+                """,
+                project_uid=project_uid,
+            )
+
+            if not records:
+                return Result.ok(False)  # Project not found — not an error, just not an assignment
+
+            scope = records[0]["scope"]
+            if scope != "assigned":
+                return Result.ok(False)  # Not an assigned project
+
+            teacher_uid = records[0]["teacher_uid"]
+            processor_type = records[0]["processor_type"]
+
+            # 1. Create FULFILLS_PROJECT relationship
+            await self.backend.driver.execute_query(
+                f"""
+                MATCH (report:Report {{uid: $report_uid}})
+                MATCH (project:ReportProject {{uid: $project_uid}})
+                MERGE (report)-[:{RelationshipName.FULFILLS_PROJECT}]->(project)
+                RETURN true as success
+                """,
+                report_uid=report_uid,
+                project_uid=project_uid,
+            )
+
+            # 2. Auto-share with teacher
+            await self.backend.driver.execute_query(
+                """
+                MATCH (teacher:User {uid: $teacher_uid})
+                MATCH (report:Report {uid: $report_uid})
+                MERGE (teacher)-[r:SHARES_WITH]->(report)
+                SET r.shared_at = datetime($now),
+                    r.role = 'teacher'
+                RETURN true as success
+                """,
+                teacher_uid=teacher_uid,
+                report_uid=report_uid,
+                now=datetime.now().isoformat(),
+            )
+
+            # 3. Set status to MANUAL_REVIEW if processor_type is HUMAN
+            if processor_type in ("human", "hybrid"):
+                await self.backend.driver.execute_query(
+                    """
+                    MATCH (report:Report {uid: $report_uid})
+                    SET report.status = $status,
+                        report.processor_type = $processor_type,
+                        report.updated_at = datetime($now)
+                    RETURN true as success
+                    """,
+                    report_uid=report_uid,
+                    status=ReportStatus.MANUAL_REVIEW.value,
+                    processor_type=processor_type,
+                    now=datetime.now().isoformat(),
+                )
+
+            self.logger.info(
+                f"Assignment submission processed: report={report_uid} -> project={project_uid}, "
+                f"teacher={teacher_uid}, processor={processor_type}"
+            )
+            return Result.ok(True)
+
+        except Exception as e:
+            self.logger.error(f"Error processing assignment submission: {e}")
+            return Result.ok(False)  # Non-fatal — report was still created
+
     async def _enforce_voice_fifo(self, user_uid: str) -> Result[int]:
         """
         Enforce FIFO cleanup for voice journals.

@@ -786,6 +786,20 @@ async def _wire_all_routes(
         create_report_projects_routes(app, rt, services)
         logger.info("✅ Report projects routes registered")
 
+    # Group routes (ADR-040: Teacher Assignment Workflow)
+    if services.group_service:
+        from adapters.inbound.groups_routes import create_groups_routes
+
+        create_groups_routes(app, rt, services)
+        logger.info("✅ Group routes registered (ADR-040)")
+
+    # Teaching review routes (ADR-040: Teacher Assignment Workflow)
+    if services.teacher_review:
+        from adapters.inbound.teaching_routes import create_teaching_routes
+
+        create_teaching_routes(app, rt, services)
+        logger.info("✅ Teaching review routes registered (ADR-040)")
+
     # GraphQL API routes (REQUIRED - fail-fast)
     # One Path Forward: GraphQL uses SearchRouter (January 2026)
     from adapters.inbound.graphql_routes import create_graphql_routes_manual

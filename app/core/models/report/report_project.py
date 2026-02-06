@@ -14,10 +14,11 @@ Works with any report type, not just journals.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
+from core.models.enums.report_enums import ProcessorType, ProjectScope
 from core.models.shared_enums import Domain
 
 # ============================================================================
@@ -44,6 +45,12 @@ class ReportProjectDTO:
     context_notes: list[str] = (field(default_factory=list),)
     domain: Domain | None = (None,)
     is_active: bool = True
+    # Assignment fields (ADR-040)
+    scope: str = "personal"  # ProjectScope value
+    due_date: date | None = None
+    processor_type: str = "llm"  # ProcessorType value
+    group_uid: str | None = None
+    # Timestamps
     created_at: datetime = (field(default_factory=datetime.now),)
     updated_at: datetime = (field(default_factory=datetime.now),)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -59,6 +66,10 @@ class ReportProjectDTO:
             "context_notes": self.context_notes,
             "domain": self.domain.value if isinstance(self.domain, Enum) else self.domain,
             "is_active": self.is_active,
+            "scope": self.scope,
+            "due_date": self.due_date.isoformat() if self.due_date else None,
+            "processor_type": self.processor_type,
+            "group_uid": self.group_uid,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "metadata": self.metadata,
@@ -95,6 +106,12 @@ class ReportProjectPure:
     domain: Domain | None = (None,)
 
     is_active: bool = True
+    # Assignment fields (ADR-040)
+    scope: ProjectScope = ProjectScope.PERSONAL
+    due_date: date | None = None
+    processor_type: ProcessorType = ProcessorType.LLM
+    group_uid: str | None = None
+    # Timestamps
     created_at: datetime = (field(default_factory=datetime.now),)
     updated_at: datetime = (field(default_factory=datetime.now),)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -129,8 +146,21 @@ class ReportProjectPure:
         return "\n".join(prompt_parts)
 
     def is_valid(self) -> bool:
-        """Check if project has minimum required fields"""
-        return bool(self.name and self.instructions and self.model)
+        """Check if project has minimum required fields."""
+        base_valid = bool(self.name and self.instructions and self.model)
+        if self.scope == ProjectScope.ASSIGNED:
+            return base_valid and bool(self.group_uid)
+        return base_valid
+
+    def is_assignment(self) -> bool:
+        """Check if this is a teacher-assigned project."""
+        return self.scope == ProjectScope.ASSIGNED
+
+    def is_overdue(self) -> bool:
+        """Check if assignment is past due date."""
+        if not self.due_date:
+            return False
+        return date.today() > self.due_date
 
     def get_summary(self) -> str:
         """Get one-line summary of project"""
@@ -156,6 +186,12 @@ def report_project_dto_to_pure(dto: ReportProjectDTO) -> ReportProjectPure:
         context_notes=dto.context_notes.copy() if dto.context_notes else [],
         domain=dto.domain,
         is_active=dto.is_active,
+        scope=ProjectScope(dto.scope) if dto.scope else ProjectScope.PERSONAL,
+        due_date=dto.due_date,
+        processor_type=ProcessorType(dto.processor_type)
+        if dto.processor_type
+        else ProcessorType.LLM,
+        group_uid=dto.group_uid,
         created_at=dto.created_at,
         updated_at=dto.updated_at,
         metadata=dto.metadata.copy() if dto.metadata else {},
@@ -173,6 +209,12 @@ def report_project_pure_to_dto(pure: ReportProjectPure) -> ReportProjectDTO:
         context_notes=list(pure.context_notes),
         domain=pure.domain,
         is_active=pure.is_active,
+        scope=pure.scope.value if isinstance(pure.scope, ProjectScope) else pure.scope,
+        due_date=pure.due_date,
+        processor_type=pure.processor_type.value
+        if isinstance(pure.processor_type, ProcessorType)
+        else pure.processor_type,
+        group_uid=pure.group_uid,
         created_at=pure.created_at,
         updated_at=pure.updated_at,
         metadata=dict(pure.metadata),
@@ -192,6 +234,10 @@ def create_report_project(
     model: str = "claude-3-5-sonnet-20241022",
     context_notes: list[str] | None = None,
     domain: Domain | None = None,
+    scope: ProjectScope = ProjectScope.PERSONAL,
+    due_date: date | None = None,
+    processor_type: ProcessorType = ProcessorType.LLM,
+    group_uid: str | None = None,
 ) -> ReportProjectPure:
     """
     Factory function to create a new report project.
@@ -204,6 +250,10 @@ def create_report_project(
         model: LLM model to use
         context_notes: Optional reference materials
         domain: Optional domain categorization
+        scope: PERSONAL (default) or ASSIGNED (teacher assignment)
+        due_date: Due date for ASSIGNED scope
+        processor_type: LLM, HUMAN, or HYBRID
+        group_uid: Target group UID for ASSIGNED scope
 
     Returns:
         Immutable ReportProjectPure instance
@@ -217,6 +267,10 @@ def create_report_project(
         context_notes=context_notes or [],
         domain=domain,
         is_active=True,
+        scope=scope,
+        due_date=due_date,
+        processor_type=processor_type,
+        group_uid=group_uid,
         created_at=datetime.now(),
         updated_at=datetime.now(),
         metadata={},

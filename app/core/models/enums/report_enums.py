@@ -73,6 +73,7 @@ class ReportStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     MANUAL_REVIEW = "manual_review"
+    REVISION_REQUESTED = "revision_requested"  # Teacher requests changes (ADR-040)
     ARCHIVED = "archived"
 
     def is_terminal(self) -> bool:
@@ -82,6 +83,18 @@ class ReportStatus(str, Enum):
             ReportStatus.FAILED,
             ReportStatus.ARCHIVED,
         }
+
+
+class ProjectScope(str, Enum):
+    """
+    Scope of a ReportProject.
+
+    PERSONAL: User's own AI feedback template (default)
+    ASSIGNED: Teacher-created, assigned to a group (ADR-040)
+    """
+
+    PERSONAL = "personal"
+    ASSIGNED = "assigned"
 
 
 class ProcessorType(str, Enum):

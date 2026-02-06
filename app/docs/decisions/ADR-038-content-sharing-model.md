@@ -25,7 +25,7 @@ class Visibility(str, Enum):
     PRIVATE = "private"  # Only owner can see (default)
     SHARED = "shared"    # Visible to specific users via SHARES_WITH
     PUBLIC = "public"    # Anyone can view (portfolio showcase)
-    TEAM = "team"        # Reserved for future team features
+    TEAM = "team"        # Reserved for Group-based visibility (see ADR-040)
 ```
 
 ### 2. Access Control via Neo4j Relationships
@@ -209,6 +209,7 @@ report.shared_with = ["user_1", "user_2"]
 - ADR-022: Graph-Native Authentication (relationship-based auth model)
 - ADR-030: UserContext File Consolidation (context-aware features)
 - ADR-037: Embedding Infrastructure Separation (content processing)
+- ADR-040: Teacher Assignment Workflow (auto-sharing via SHARES_WITH for teacher review)
 
 ---
 

@@ -23,7 +23,7 @@ related: []
 
 ## Quick Links
 
-- [Domains](#domains) - The 14-domain architecture documentation
+- [Domains](#domains) - The 15-domain architecture documentation
 - [Architecture](#architecture) - System design and domain structure
 - [Patterns](#patterns) - Implementation patterns and coding standards
 - [DSL](#dsl) - Activity DSL specification and usage
@@ -47,7 +47,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 ## Domains
 
-*The 14-domain architecture: 6 Activity + 1 Finance + 3 Curriculum + 2 Processing + 1 Organizational + 1 Destination*
+*The 15-domain architecture: 6 Activity + 1 Finance + 3 Curriculum + 2 Processing + 2 Organizational + 1 Destination*
 
 | Document | Category | Description |
 |----------|----------|-------------|
@@ -92,7 +92,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Neo4j Database Architecture in SKUEL](architecture/NEO4J_DATABASE_ARCHITECTURE.md) | 2025-11-27 | 1519 |
 | [Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md) | 2025-11-27 | 630 |
 | [Reports Architecture - Statistical Aggregation Met...](architecture/REPORTS_ARCHITECTURE.md) | 2025-11-27 | 522 |
-| [SKUEL 14-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | 2026-01-20 | 1360 |
+| [SKUEL 15-Domain Architecture](architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md) | 2026-02-06 | 1560 |
 | [SKUEL Architecture Guide](architecture/ARCHITECTURE_OVERVIEW.md) | 2025-11-29 | 650 |
 | [SKUEL Routing Architecture: Routes, Services, and ...](architecture/ROUTING_ARCHITECTURE.md) | 2025-11-27 | 647 |
 | [Search Architecture - Unified Search System](architecture/SEARCH_ARCHITECTURE.md) | 2026-01-04 | 544 |
@@ -220,6 +220,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-037: Lateral Relationships Visualization (Phase 5)](decisions/ADR-037-lateral-relationships-visualization-phase5.md)** | **2026-02-01** | **1330** |
 | **[ADR-038: Content Sharing Model](decisions/ADR-038-content-sharing-model.md)** | **2026-02-02** | **480** |
 | **[ADR-039: Hyperview Mobile Strategy](decisions/ADR-039-hyperview-mobile-strategy.md)** | **2026-02-06** | **130** |
+| **[ADR-040: Teacher Assignment Workflow](decisions/ADR-040-teacher-assignment-workflow.md)** | **2026-02-06** | **102** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Guides

@@ -4,13 +4,17 @@ Journal Project Request Models (Tier 1 - External)
 
 Pydantic models for journal project API validation and serialization.
 Handles input validation at the API boundary.
+
+Also used for ReportProject (journal projects renamed to report projects, Feb 2026).
 """
 
-from pydantic import BaseModel, Field
+from datetime import date
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class JournalProjectCreateRequest(BaseModel):
-    """Request to create a new journal project."""
+    """Request to create a new journal/report project."""
 
     user_uid: str = Field(..., description="User UID who owns this project")
 
@@ -35,6 +39,35 @@ class JournalProjectCreateRequest(BaseModel):
     )
 
     domain: str | None = Field(default=None, description="Optional domain categorization")
+
+    # Assignment fields (ADR-040)
+    scope: str = Field(
+        default="personal",
+        description="Project scope: 'personal' (default) or 'assigned' (teacher assignment)",
+    )
+
+    due_date: date | None = Field(
+        default=None,
+        description="Due date for assigned projects",
+    )
+
+    processor_type: str = Field(
+        default="llm",
+        description="Processor type: 'llm' (default), 'human', or 'hybrid'",
+    )
+
+    group_uid: str | None = Field(
+        default=None,
+        description="Target group UID (required for scope=assigned)",
+    )
+
+    @model_validator(mode="after")
+    def validate_assignment_fields(self) -> "JournalProjectCreateRequest":
+        """If scope=assigned, group_uid is required."""
+        if self.scope == "assigned" and not self.group_uid:
+            msg = "group_uid is required when scope is 'assigned'"
+            raise ValueError(msg)
+        return self
 
 
 class JournalProjectUpdateRequest(BaseModel):

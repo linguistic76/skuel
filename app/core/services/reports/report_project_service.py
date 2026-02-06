@@ -16,9 +16,11 @@ Migrated from JournalProjectService (February 2026 — Journal->Report merge).
 """
 
 import json
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
+from core.models.enums.report_enums import ProcessorType, ProjectScope
+from core.models.relationship_names import RelationshipName
 from core.models.report.report_project import (
     ReportProjectDTO,
     ReportProjectPure,
@@ -83,9 +85,17 @@ class ReportProjectService(BaseService):
         model: str = "claude-3-5-sonnet-20241022",
         context_notes: list[str] | None = None,
         domain: Domain | None = None,
+        scope: ProjectScope = ProjectScope.PERSONAL,
+        due_date: date | None = None,
+        processor_type: ProcessorType = ProcessorType.LLM,
+        group_uid: str | None = None,
     ) -> Result[ReportProjectPure]:
         """
         Create a new report project.
+
+        For ASSIGNED scope (teacher assignments):
+        - group_uid is required
+        - Creates a FOR_GROUP relationship to the target group
 
         Args:
             user_uid: User who owns this project
@@ -94,10 +104,20 @@ class ReportProjectService(BaseService):
             model: LLM model to use
             context_notes: Optional reference materials
             domain: Optional domain categorization
+            scope: PERSONAL (default) or ASSIGNED (teacher assignment)
+            due_date: Due date for ASSIGNED scope
+            processor_type: LLM, HUMAN, or HYBRID
+            group_uid: Target group UID for ASSIGNED scope
 
         Returns:
             Result[ReportProjectPure] - The created project
         """
+        # Validate assignment fields
+        if scope == ProjectScope.ASSIGNED and not group_uid:
+            return Result.fail(
+                Errors.validation("group_uid is required for assigned projects", field="group_uid")
+            )
+
         uid = UIDGenerator.generate_uid("rp")
 
         project = create_report_project(
@@ -108,6 +128,10 @@ class ReportProjectService(BaseService):
             model=model,
             context_notes=context_notes,
             domain=domain,
+            scope=scope,
+            due_date=due_date,
+            processor_type=processor_type,
+            group_uid=group_uid,
         )
 
         result = await self.backend.create(project)
@@ -116,7 +140,24 @@ class ReportProjectService(BaseService):
             self.logger.error(f"Failed to create project: {result.error}")
             return result
 
-        self.logger.info(f"Report project created: {uid} - {name}")
+        # Create FOR_GROUP relationship for ASSIGNED scope
+        if scope == ProjectScope.ASSIGNED and group_uid:
+            try:
+                await self.backend.driver.execute_query(
+                    f"""
+                    MATCH (project:ReportProject {{uid: $project_uid}})
+                    MATCH (group:Group {{uid: $group_uid}})
+                    MERGE (project)-[:{RelationshipName.FOR_GROUP}]->(group)
+                    RETURN true as success
+                    """,
+                    project_uid=uid,
+                    group_uid=group_uid,
+                )
+                self.logger.info(f"FOR_GROUP relationship created: {uid} -> {group_uid}")
+            except Exception as e:
+                self.logger.warning(f"Failed to create FOR_GROUP relationship: {e}")
+
+        self.logger.info(f"Report project created: {uid} - {name} (scope={scope.value})")
         return Result.ok(project)
 
     # ========================================================================
@@ -198,6 +239,63 @@ class ReportProjectService(BaseService):
 
         self.logger.info(f"Report project updated: {uid}")
         return result
+
+    # ========================================================================
+    # ASSIGNMENT QUERIES (ADR-040)
+    # ========================================================================
+
+    @with_error_handling("list_group_assignments", error_type="database")
+    async def list_group_assignments(self, group_uid: str) -> Result[list[ReportProjectPure]]:
+        """
+        Get all ASSIGNED projects for a group.
+
+        Args:
+            group_uid: Group UID
+
+        Returns:
+            Result containing list of assigned projects
+        """
+        result = await self.backend.find_by(group_uid=group_uid, scope="assigned", is_active=True)
+        if result.is_error:
+            return result
+
+        projects = result.value or []
+        self.logger.info(f"Found {len(projects)} assignments for group {group_uid}")
+        return Result.ok(projects)
+
+    @with_error_handling("get_student_assignments", error_type="database")
+    async def get_student_assignments(self, user_uid: str) -> Result[list[ReportProjectPure]]:
+        """
+        Get all assignments for a student (via MEMBER_OF -> Group <- FOR_GROUP -> ReportProject).
+
+        Args:
+            user_uid: Student UID
+
+        Returns:
+            Result containing list of assigned projects
+        """
+        records, _, _ = await self.backend.driver.execute_query(
+            f"""
+            MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
+            MATCH (project:ReportProject)-[:{RelationshipName.FOR_GROUP}]->(group)
+            WHERE project.is_active = true AND project.scope = 'assigned'
+            RETURN project
+            ORDER BY project.due_date ASC, project.created_at DESC
+            """,
+            user_uid=user_uid,
+        )
+
+        projects = []
+        for record in records:
+            props = dict(record["project"])
+            try:
+                project = ReportProjectPure(**props)
+                projects.append(project)
+            except Exception as e:
+                self.logger.warning(f"Failed to deserialize assignment project: {e}")
+
+        self.logger.info(f"Found {len(projects)} assignments for student {user_uid}")
+        return Result.ok(projects)
 
     # ========================================================================
     # FILE-BASED PROJECT LOADING

@@ -135,3 +135,50 @@ class ReportDeleted(BaseEvent):
     @property
     def event_type(self) -> str:
         return "report.deleted"
+
+
+@dataclass(frozen=True)
+class ReportReviewed(BaseEvent):
+    """
+    Published when a teacher provides feedback on a report.
+
+    Triggers:
+    - Student notification
+    - Report status update
+
+    See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+    """
+
+    report_uid: str
+    teacher_uid: str
+    student_uid: str
+    occurred_at: datetime
+    metadata: dict[str, Any] | None = None
+
+    @property
+    def event_type(self) -> str:
+        return "report.reviewed"
+
+
+@dataclass(frozen=True)
+class ReportRevisionRequested(BaseEvent):
+    """
+    Published when a teacher requests revision on a report.
+
+    Triggers:
+    - Student notification
+    - Report status update to REVISION_REQUESTED
+
+    See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+    """
+
+    report_uid: str
+    teacher_uid: str
+    student_uid: str
+    occurred_at: datetime
+    revision_notes: str | None = None
+    metadata: dict[str, Any] | None = None
+
+    @property
+    def event_type(self) -> str:
+        return "report.revision_requested"

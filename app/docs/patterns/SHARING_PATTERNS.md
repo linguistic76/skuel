@@ -117,7 +117,62 @@ report = await reports_core_service.get_with_access_check(
 
 ---
 
-### Pattern 2: Public Portfolio Showcase
+### Pattern 2: Teacher Assignment Auto-Sharing (ADR-040)
+
+**Use Case:** Teacher assigns work to a group. When a student submits, the report is automatically shared with the assigning teacher.
+
+```python
+from core.services.reports import ReportsCoreService, TeacherReviewService
+
+# Step 1: Teacher creates assigned ReportProject (targets a group)
+# (handled by ReportProjectService.create_project with scope=ASSIGNED)
+
+# Step 2: Student submits report against assigned project
+# Auto-sharing happens inside process_assignment_submission()
+await reports_core_service.process_assignment_submission(
+    report_uid=report_uid,
+    project_uid=project_uid,
+    student_uid=student_uid,
+)
+# This automatically:
+# - Creates FULFILLS_PROJECT relationship (report → project)
+# - Creates SHARES_WITH {role: "teacher"} relationship (teacher → report)
+# - Sets status to MANUAL_REVIEW for HUMAN/HYBRID processor types
+
+# Step 3: Teacher views review queue
+queue_result = await teacher_review.get_review_queue(teacher_uid)
+
+# Step 4: Teacher provides feedback
+await teacher_review.submit_feedback(report_uid, teacher_uid, "Great work!")
+# OR
+await teacher_review.request_revision(report_uid, teacher_uid, "Please expand section 2")
+# OR
+await teacher_review.approve_report(report_uid, teacher_uid)
+```
+
+**Graph Pattern:**
+```cypher
+// Assignment structure
+(teacher:User)-[:OWNS]->(group:Group)
+(student:User)-[:MEMBER_OF]->(group:Group)
+(project:ReportProject {scope: "assigned"})-[:FOR_GROUP]->(group:Group)
+
+// On student submission (auto-created)
+(report:Report)-[:FULFILLS_PROJECT]->(project:ReportProject)
+(teacher:User)-[:SHARES_WITH {role: "teacher"}]->(report:Report)
+```
+
+**Key Differences from Manual Sharing:**
+- No explicit `share_report()` call — auto-created on submission
+- Visibility is NOT changed to SHARED — teacher access is via SHARES_WITH regardless
+- Report ownership stays with the student
+- Teacher's review queue = `SHARES_WITH` filtered by `role="teacher"` and pending status
+
+**See:** `/docs/decisions/ADR-040-teacher-assignment-workflow.md`
+
+---
+
+### Pattern 3: Public Portfolio Showcase
 
 **Use Case:** Student showcases best work publicly.
 
@@ -147,7 +202,7 @@ Returns all public reports for user's portfolio.
 
 ---
 
-### Pattern 3: Peer Review
+### Pattern 4: Peer Review
 
 **Use Case:** Student shares report with classmates for feedback.
 
@@ -184,7 +239,7 @@ shared_users = await sharing_service.get_shared_with_users(
 
 ---
 
-### Pattern 4: Access Revocation
+### Pattern 5: Access Revocation
 
 **Use Case:** Student removes teacher access after report is graded.
 
@@ -206,7 +261,7 @@ assert access_result.value is False  # ✅ Access revoked
 
 ---
 
-### Pattern 5: Mentor Collaboration
+### Pattern 6: Mentor Collaboration
 
 **Use Case:** Student shares draft work with mentor for guidance.
 

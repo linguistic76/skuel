@@ -1,6 +1,6 @@
 ---
 title: SKUEL 14-Domain Architecture
-updated: 2026-01-19
+updated: 2026-02-06
 status: current
 category: architecture
 tags:
@@ -12,14 +12,15 @@ related:
 - ADR-023-curriculum-baseservice-migration
 - ADR-024-baseintellligence-service-migration
 - ADR-025-service-consolidation-patterns
+- ADR-040-teacher-assignment-workflow
 related_skills:
 - activity-domains
 ---
 
 # SKUEL 14-Domain Architecture
 
-**Last Updated**: January 20, 2026
-**Version**: 2.4.0
+**Last Updated**: February 6, 2026
+**Version**: 3.0.0 (ADR-040: Groups + Teacher Assignment Workflow)
 ## Related Skills
 
 For implementation guidance, see:
@@ -28,13 +29,13 @@ For implementation guidance, see:
 
 ## Executive Summary
 
-SKUEL is built on a **14-domain + 5 cross-cutting systems architecture** that represents the complete spectrum of human activity and learning. This document defines the foundational mental model:
+SKUEL is built on a **15-domain + 5 cross-cutting systems architecture** that represents the complete spectrum of human activity and learning. This document defines the foundational mental model:
 
 - **Activity Domains (6)** - What I DO
 - **Finance Domain (1)** - What I MANAGE (standalone)
 - **Curriculum Domains (3)** - What I LEARN (three grouping patterns: KU, LS, LP)
 - **Content/Processing Domains (2)** - How I PROCESS (Journals, Reports)
-- **Organizational Domain (1)** - How I ORGANIZE (MOC = KU-based organization)
+- **Organizational Domains (2)** - How I ORGANIZE (Groups for classes, MOC for knowledge)
 - **LifePath (1)** - Where I'm GOING (The Destination)
 - **Cross-Cutting Systems (5)** - The infrastructure that enables everything (4 active + 1 planned)
 
@@ -72,9 +73,10 @@ SKUEL is built on a **14-domain + 5 cross-cutting systems architecture** that re
 │               │           │ • Events        │           │               │
 │───────────────│           │ • Principles    │           │───────────────│
 │ORGANIZATIONAL │           │ • Choices       │           │Two Access     │
-│ DOMAIN (1)    │           │ ─────────────── │           │Paths to KU:   │
-│ • MOC (KU-    │           │ • Finance (1)   │           │ • LS (linear) │
-│   based org)  │           │                 │           │ • MOC (graph) │
+│ DOMAINS (2)   │           │ ─────────────── │           │Paths to KU:   │
+│ • Groups      │           │ • Finance (1)   │           │ • LS (linear) │
+│ • MOC (KU-    │           │                 │           │ • MOC (graph) │
+│   based org)  │           │                 │           │               │
 └───────────────┘           └─────────────────┘           └───────────────┘
         │                             │                             │
         └─────────────────────────────┼─────────────────────────────┘
@@ -85,7 +87,7 @@ SKUEL is built on a **14-domain + 5 cross-cutting systems architecture** that re
         │                                                              │
         │  UserContext • Search • Calendar • Askesis • Messaging      │
         │                                                              │
-        │  + Reports (meta-service aggregation, not a domain)         │
+        │  + Analytics (meta-service aggregation, not a domain)       │
         │                                                              │
         │   The infrastructure that enables cross-domain intelligence  │
         └─────────────────────────────────────────────────────────────┘
@@ -355,9 +357,46 @@ processing. See `/docs/decisions/ADR-019-transcription-service-standalone.md`.
 
 ---
 
-### 5. Organizational Domain (1) - How I ORGANIZE
+### 5. Organizational Domains (2) - How I ORGANIZE
 
-**MOC (Map of Content)** provides **non-linear knowledge organization** using KUs organized via ORGANIZES relationships.
+#### Groups (ADR-040)
+
+**Groups** mediate ALL teacher-student relationships. A teacher creates a group, adds students, and assigns work to the group. No direct TEACHES relationship.
+
+| Aspect | Description |
+|--------|-------------|
+| **Purpose** | Teacher-student class management |
+| **Key Insight** | Groups are the ONE PATH for teacher-student relationships |
+| **UID Format** | `group_{slug}_{random}` |
+| **Access** | TEACHER role required for creation; members can view |
+
+**Group Service Architecture:**
+```
+GroupService (standalone)
+├── create_group()          - TEACHER creates group
+├── add_member()            - Add student via MEMBER_OF
+├── remove_member()         - Remove student
+├── get_members()           - List group members
+├── list_teacher_groups()   - Teacher's groups
+└── get_user_groups()       - Student's groups
+```
+
+**Key Relationships:**
+```cypher
+(teacher:User)-[:OWNS]->(group:Group)
+(student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
+(project:ReportProject)-[:FOR_GROUP]->(group:Group)        // Assignment targeting
+(report:Report)-[:FULFILLS_PROJECT]->(project:ReportProject)  // Student submission
+```
+
+**Assignment Workflow (ReportProject evolution):**
+ReportProject evolved with `scope`, `due_date`, `processor_type`, `group_uid` fields. When `scope=ASSIGNED`, the project targets a group via FOR_GROUP. Students submit reports that auto-share with the teacher via SHARES_WITH.
+
+**See:** `/docs/decisions/ADR-040-teacher-assignment-workflow.md`
+
+#### MOC (Map of Content)
+
+**MOC** provides **non-linear knowledge organization** using KUs organized via ORGANIZES relationships.
 
 **January 2026 - KU-Based Architecture:**
 - **MOC is NOT a separate entity** - it IS a KU with ORGANIZES relationships
@@ -490,7 +529,7 @@ Cross-cutting systems provide **foundation and infrastructure** without being do
 
 **Note:** 4 cross-cutting systems are fully implemented; Messaging is planned for future development.
 
-**Reports** is a meta-service (statistical aggregation), not a cross-cutting system. See `/docs/architecture/REPORTS_ARCHITECTURE.md`.
+**Analytics** is a meta-service (statistical aggregation), not a cross-cutting system. See `/docs/architecture/REPORTS_ARCHITECTURE.md`.
 
 **UserContext - The Source of Truth**:
 ```python
@@ -1105,7 +1144,7 @@ class ParsedActivityLine:
 
 ## Graph Architecture
 
-### Node Types (14 domains)
+### Node Types (15 domains)
 
 ```cypher
 // Activity Domains (6)
@@ -1128,7 +1167,10 @@ class ParsedActivityLine:
 (:Report {uid, report_type, status, ...})
 (:Journal {uid, content, processed_at, ...})
 
-// Organizational Domain (1) - MOC is KU-based
+// Organizational Domains (2) - Groups + MOC
+(:Group {uid, name, description, owner_uid, is_active, max_members, created_at, ...})
+(:ReportProject {uid, name, instructions, scope, due_date, processor_type, group_uid, ...})
+// MOC is KU-based
 // MOC is NOT a separate node type - it IS a :Ku with ORGANIZES relationships
 // A KU "is" a MOC when: EXISTS((ku:Ku)-[:ORGANIZES]->(:Ku))
 
@@ -1168,6 +1210,13 @@ class ParsedActivityLine:
 
 // MOC Organizational Relationships (KU organizing KUs)
 (ku)-[:ORGANIZES {order: int}]->(ku)  // MOC hierarchy
+
+// Group & Assignment Relationships (ADR-040)
+(teacher)-[:OWNS]->(group)                    // Teacher owns group
+(student)-[:MEMBER_OF {joined_at, role}]->(group)  // Student membership
+(project)-[:FOR_GROUP]->(group)               // Assignment targets group
+(report)-[:FULFILLS_PROJECT]->(project)       // Student submission
+(teacher)-[:SHARES_WITH {role: "teacher"}]->(report)  // Auto-shared on assignment submit
 
 // Life Path Relationships
 (user)-[:ULTIMATE_PATH]->(lp)             // User's designated life path
@@ -1312,7 +1361,12 @@ core/services/
 │   ├── reports_processing_service.py
 │   ├── reports_core_service.py
 │   ├── reports_search_service.py
-│   └── reports_relationship_service.py
+│   ├── reports_relationship_service.py
+│   ├── report_project_service.py            # ReportProject CRUD + assignment scope
+│   └── teacher_review_service.py            # Teacher review queue + feedback (ADR-040)
+├── groups/                                   # Groups domain (ADR-040)
+│   ├── __init__.py
+│   └── group_service.py                     # CRUD + membership management
 ├── report_service.py
 ├── reports/
 │   ├── report_metrics_service.py
@@ -1444,14 +1498,14 @@ async def on_mastery_increased(ku_uid: str, new_mastery: float):
 
 ## Summary
 
-The **14-domain + 5 cross-cutting systems architecture** provides a complete framework for:
+The **15-domain + 5 cross-cutting systems architecture** provides a complete framework for:
 
 1. **What I DO** (Activity Domains) - 6 domains for concrete action
 2. **What I MANAGE** (Finance) - 1 domain for resource management
 3. **What I LEARN** (Curriculum Domains) - 3 domains for knowledge acquisition
 4. **How I PROCESS** (Content/Processing) - 2 domains for input processing (Reports, Journals)
-5. **How I ORGANIZE** (Organizational Domain) - 1 domain for knowledge organization (MOC)
-6. **Where I'm GOING** (LifePath) - Domain #14, the destination
+5. **How I ORGANIZE** (Organizational Domains) - 2 domains (Groups for classes, MOC for knowledge)
+6. **Where I'm GOING** (LifePath) - Domain #15, the destination
 7. **The Infrastructure** (Cross-Cutting Systems) - 4 active + 1 planned system
 
 **Domain Count Breakdown**:
@@ -1459,13 +1513,13 @@ The **14-domain + 5 cross-cutting systems architecture** provides a complete fra
 - Finance: 1 (standalone)
 - Curriculum: 3 (KU, LS, LP)
 - Content/Processing: 2 (Reports, Journals)
-- Organizational: 1 (MOC - KU-based, not a separate entity)
+- Organizational: 2 (Groups for teacher-student classes, MOC for knowledge navigation)
 - LifePath: 1 (The Destination)
-- **Total: 14 domains**
+- **Total: 15 domains**
 
 **Cross-Cutting Systems**: UserContext (✅), Search (✅), Calendar (✅), Askesis (✅), Messaging (📋 planned)
 
-**Core Insight**: By categorizing all human activity into 14 domains + 5 cross-cutting systems, SKUEL can:
+**Core Insight**: By categorizing all human activity into 15 domains + 5 cross-cutting systems, SKUEL can:
 - Parse natural language into structured entities
 - Track progress across all life dimensions
 - Provide intelligent recommendations
@@ -1486,8 +1540,8 @@ The **14-domain + 5 cross-cutting systems architecture** provides a complete fra
 | [NEO4J_DATABASE_ARCHITECTURE.md](NEO4J_DATABASE_ARCHITECTURE.md) | Database schema, constraints, indexes |
 | [RELATIONSHIPS_ARCHITECTURE.md](RELATIONSHIPS_ARCHITECTURE.md) | Cross-domain relationships |
 | [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) | KU/LS/LP/MOC curriculum patterns |
-| [REPORTS_ARCHITECTURE.md](REPORTS_ARCHITECTURE.md) | Reports meta-service pattern |
-| [SEARCH_ARCHITECTURE.md](SEARCH_ARCHITECTURE.md) | Unified search across all 14 domains |
+| [REPORTS_ARCHITECTURE.md](REPORTS_ARCHITECTURE.md) | Analytics meta-service pattern |
+| [SEARCH_ARCHITECTURE.md](SEARCH_ARCHITECTURE.md) | Unified search across all domains |
 
 ### Domain Documentation
 
@@ -1506,6 +1560,6 @@ The **14-domain + 5 cross-cutting systems architecture** provides a complete fra
 
 ---
 
-*Last Updated: January 20, 2026*
-*Architecture: 14-Domain + 5 Cross-Cutting Systems (4 active + 1 planned)*
+*Last Updated: February 6, 2026*
+*Architecture: 15-Domain + 5 Cross-Cutting Systems (4 active + 1 planned)*
 *Status: Production-Ready*

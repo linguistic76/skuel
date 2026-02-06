@@ -288,26 +288,26 @@ class UserRelationshipService:
         )
 
     # ========================================================================
-    # Team Membership (1 method)
+    # Group Membership (1 method)
     # ========================================================================
 
     async def get_teams(self, user_uid: str) -> Result[set[str]]:
         """
-        Get UIDs of teams/groups this user belongs to.
+        Get UIDs of groups this user belongs to.
 
         Replaces: user.team_uids (removed from User model)
-        Graph relationship: (user)-[:MEMBER_OF]->(team)
+        Graph relationship: (user)-[:MEMBER_OF]->(group:Group)
 
         Args:
             user_uid: UID of the user
 
         Returns:
-            Result containing set of team UIDs
+            Result containing set of group UIDs
         """
         return await self.executor.execute(
             query=f"""
-                MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(team:Team)
-                RETURN team.uid as uid
+                MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
+                RETURN group.uid as uid
             """,
             params={"user_uid": user_uid},
             processor=extract_uids_set,
@@ -372,17 +372,17 @@ class UserRelationshipService:
 
     async def is_team_member(self, user_uid: str, team_uid: str) -> Result[bool]:
         """
-        Check if user is a member of a team.
+        Check if user is a member of a group.
 
         Args:
             user_uid: UID of the user
-            team_uid: UID of the team
+            team_uid: UID of the group
 
         Returns:
-            Result containing True if user is team member
+            Result containing True if user is a group member
         """
         return await self.executor.execute_exists(
-            query=f"MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(team:Team {{uid: $team_uid}}) RETURN user",
+            query=f"MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group {{uid: $team_uid}}) RETURN user",
             params={"user_uid": user_uid, "team_uid": team_uid},
             operation="is_team_member",
         )
@@ -463,12 +463,12 @@ class UserRelationshipService:
                 OPTIONAL MATCH (user)-[:{RelationshipName.PURSUING_GOAL}]->(goal)
                 OPTIONAL MATCH (user)-[:{RelationshipName.FOLLOWS}]->(following)
                 OPTIONAL MATCH (follower)-[:{RelationshipName.FOLLOWS}]->(user)
-                OPTIONAL MATCH (user)-[:{RelationshipName.MEMBER_OF}]->(team)
+                OPTIONAL MATCH (user)-[:{RelationshipName.MEMBER_OF}]->(group:Group)
                 RETURN count(DISTINCT pinned) as pinned_count,
                        count(DISTINCT goal) as goal_count,
                        count(DISTINCT following) as following_count,
                        count(DISTINCT follower) as follower_count,
-                       count(DISTINCT team) as team_count
+                       count(DISTINCT group) as team_count
             """,
             params={"user_uid": user_uid},
             processor=extract_dict_from_first_record(
