@@ -3,14 +3,21 @@ Report Request Models
 ======================
 
 Pydantic models for API boundary validation (Tier 1).
+Includes journal-type report request models (merged February 2026).
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from core.models.report.report import ReportStatus, ReportType, ProcessorType
+from core.models.enums.report_enums import (
+    JournalCategory,
+    JournalType,
+    ProcessorType,
+    ReportStatus,
+    ReportType,
+)
 
 
 class ReportCreateRequest(BaseModel):
@@ -144,3 +151,50 @@ class BulkDeleteRequest(BaseModel):
         default=True,
         description="If True, archive instead of permanent delete",
     )
+
+
+# ========================================================================
+# JOURNAL-TYPE REPORT REQUEST MODELS
+# ========================================================================
+
+
+class JournalReportCreateRequest(BaseModel):
+    """
+    Request model for creating a journal-type report.
+
+    Journals are reports with report_type=JOURNAL.
+    """
+
+    title: str = Field(..., min_length=1, max_length=500, description="Journal entry title")
+    content: str = Field(..., min_length=1, description="Journal body text")
+    journal_type: JournalType = Field(
+        default=JournalType.CURATED, description="VOICE (ephemeral) or CURATED (permanent)"
+    )
+    category: JournalCategory = Field(default=JournalCategory.DAILY, description="Journal category")
+    entry_date: date | None = Field(None, description="Date of the journal entry")
+    tags: list[str] = Field(default_factory=list, description="Tags for categorization")
+    mood: str | None = Field(None, description="Current mood")
+    energy_level: int | None = Field(None, ge=1, le=10, description="Energy level 1-10")
+    key_topics: list[str] = Field(default_factory=list, description="Key topics")
+    action_items: list[str] = Field(default_factory=list, description="Action items")
+    project_uid: str | None = Field(None, description="Associated report project UID")
+    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
+
+
+class JournalReportUpdateRequest(BaseModel):
+    """
+    Request model for updating a journal-type report.
+
+    All fields optional for PATCH-style updates.
+    """
+
+    title: str | None = Field(None, min_length=1, max_length=500, description="Journal title")
+    content: str | None = Field(None, min_length=1, description="Journal body text")
+    category: JournalCategory | None = Field(None, description="Journal category")
+    tags: list[str] | None = Field(None, description="Tags for categorization")
+    mood: str | None = Field(None, description="Current mood")
+    energy_level: int | None = Field(None, ge=1, le=10, description="Energy level 1-10")
+    key_topics: list[str] | None = Field(None, description="Key topics")
+    action_items: list[str] | None = Field(None, description="Action items")
+    status: ReportStatus | None = Field(None, description="New status")
+    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")

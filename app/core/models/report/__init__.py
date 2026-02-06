@@ -2,29 +2,55 @@
 Report Domain Models
 =====================
 
-File submission and processing pipeline models.
-
-A Report represents any file submitted for processing:
-- Transcripts (meeting notes, voice memos)
-- Assignments (document processing)
-- Images (visual analysis)
-- Videos (content summarization)
+Unified domain for all user-submitted content:
+- File submissions (transcripts, assignments, images, videos)
+- Journal entries (voice, curated text) — merged February 2026
+- Report Projects (LLM feedback instruction sets)
 """
 
-from core.models.report.report import (
+from core.models.enums.report_enums import (
+    ContentStatus,
+    ContentType,
+    JournalCategory,
+    JournalType,
     ProcessorType,
-    Report,
-    ReportDTO,
     ReportStatus,
     ReportType,
 )
+from core.models.report.report import (
+    Report,
+    ReportDTO,
+    report_dto_to_pure,
+    report_pure_to_dto,
+)
 from core.models.report.report_converters import report_to_response
+from core.models.report.report_project import (
+    ReportProjectDTO,
+    ReportProjectPure,
+    create_report_project,
+    report_project_dto_to_pure,
+    report_project_pure_to_dto,
+)
 
 __all__ = [
-    "Report",
-    "ReportDTO",
+    # Enums
+    "ContentStatus",
+    "ContentType",
+    "JournalCategory",
+    "JournalType",
+    "ProcessorType",
     "ReportStatus",
     "ReportType",
-    "ProcessorType",
+    # Domain models
+    "Report",
+    "ReportDTO",
+    "report_dto_to_pure",
+    "report_pure_to_dto",
     "report_to_response",
+    # Report Projects
+    "ReportProjectDTO",
+    "ReportProjectPure",
+    "create_report_project",
+    "report_project_dto_to_pure",
+    "report_project_pure_to_dto",
 ]

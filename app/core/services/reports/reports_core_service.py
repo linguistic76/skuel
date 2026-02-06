@@ -3,45 +3,46 @@ Reports Core Service
 ========================
 
 Content management operations for Report entities.
-Handles categories, tags, publish/archive workflow, and bulk operations.
+Handles categories, tags, publish/archive workflow, bulk operations,
+and journal-specific CRUD (create_journal_report, FIFO cleanup, etc.).
 
-This service provides the content management layer for Reports,
-complementing ReportSubmissionService (file upload) and
-ReportsProcessingService (content processing).
-
-ARCHITECTURE (November 2025):
------------------------------
-Report nodes are the SINGLE SOURCE OF TRUTH for submitted content.
-Content metadata (categories, tags, status) is stored in Report.metadata.
+ARCHITECTURE (February 2026):
+------------------------------
+Report nodes are the SINGLE SOURCE OF TRUTH for all submitted content.
+Journals are reports with report_type=JOURNAL (merged February 2026).
 
 Services:
 - ReportSubmissionService: File upload and storage
 - ReportsProcessingService: Content processing orchestration
-- ReportsCoreService: Content management (THIS FILE)
+- ReportsCoreService: Content management + journal CRUD (THIS FILE)
 - ReportsSearchService: Read-only queries
-
-This pattern mirrors JournalCoreService but operates on Report entities.
+- ReportProjectService: LLM instruction projects
+- ReportFeedbackService: AI feedback generation
 """
 
 import json
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from core.events.transcription_events import TranscriptionCompleted
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
 from core.events.report_events import ReportDeleted
+from core.models.enums.report_enums import JournalType, ReportStatus, ReportType
 from core.models.report.report import (
     Report,
     ReportDTO,
-    ReportStatus,
-    ReportType,
 )
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations
 from core.services.protocols.infrastructure_protocols import EventBusOperations
+from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_report_date
+from core.utils.uid_generator import UIDGenerator
 
 # ============================================================================
 # REPORT CATEGORY ENUM
@@ -143,6 +144,7 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         backend: UniversalNeo4jBackend[Report] | None = None,
         event_bus: EventBusOperations | None = None,
         sharing_service: Any | None = None,
+        transcript_processor: Any | None = None,
     ) -> None:
         """
         Initialize reports core service.
@@ -151,10 +153,12 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             backend: Backend for Report persistence
             event_bus: Optional event bus for publishing events
             sharing_service: Optional sharing service for access control
+            transcript_processor: Optional TranscriptProcessorService for AI processing
         """
         super().__init__(backend, "ReportsCoreService")
         self.event_bus = event_bus
         self.sharing_service = sharing_service
+        self.transcript_processor = transcript_processor
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -329,6 +333,25 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             "processed_file_path",
             "metadata",
             "processing_error",
+            # Journal fields
+            "title",
+            "content",
+            "tags",
+            "journal_category",
+            "journal_type",
+            "content_type",
+            "entry_date",
+            "mood",
+            "energy_level",
+            "key_topics",
+            "mentioned_people",
+            "mentioned_places",
+            "action_items",
+            "project_uid",
+            "feedback",
+            "feedback_generated_at",
+            "word_count",
+            "reading_time_minutes",
         }
 
         # Filter updates to allowed fields
@@ -776,3 +799,370 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
 
         markdown = "\n".join(line for line in md_lines if line)
         return Result.ok(markdown)
+
+    # ========================================================================
+    # JOURNAL CRUD (merged from JournalsCoreService — February 2026)
+    # ========================================================================
+
+    @with_error_handling("create_journal_report", error_type="database")
+    async def create_journal_report(
+        self,
+        user_uid: str,
+        title: str,
+        content: str,
+        journal_type: JournalType = JournalType.CURATED,
+        journal_category: str | None = None,
+        entry_date: date | None = None,
+        tags: list[str] | None = None,
+        mood: str | None = None,
+        energy_level: int | None = None,
+        key_topics: list[str] | None = None,
+        action_items: list[str] | None = None,
+        project_uid: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        enforce_fifo: bool = True,
+        # Source info (for transcribed audio journals)
+        source_type: str | None = None,
+        source_file: str | None = None,
+        transcription_uid: str | None = None,
+    ) -> Result[Report]:
+        """
+        Create a journal-type report.
+
+        Journals are Reports with report_type=JOURNAL. This method handles
+        journal-specific creation logic including FIFO cleanup for VOICE journals.
+
+        Args:
+            user_uid: User who owns this journal
+            title: Journal entry title
+            content: Journal body text
+            journal_type: VOICE (ephemeral, max 3) or CURATED (permanent)
+            journal_category: Optional category for organization
+            entry_date: Date of entry (defaults to today)
+            tags: Optional tags
+            mood: Optional mood indicator
+            energy_level: Optional energy level (1-10)
+            key_topics: Optional extracted topics
+            action_items: Optional action items
+            project_uid: Optional ReportProject UID for AI feedback
+            metadata: Optional additional metadata
+            enforce_fifo: If True, enforce FIFO cleanup for VOICE journals
+
+        Returns:
+            Result containing the created Report
+        """
+        from core.models.enums.report_enums import JournalCategory as JCat
+
+        uid = UIDGenerator.generate_uid("report")
+
+        # Build journal category enum if provided
+        category_enum = None
+        if journal_category:
+            try:
+                category_enum = JCat(journal_category)
+            except ValueError:
+                self.logger.warning(f"Unknown journal category '{journal_category}', ignoring")
+
+        journal = Report(
+            uid=uid,
+            user_uid=user_uid,
+            report_type=ReportType.JOURNAL,
+            status=ReportStatus.DRAFT,
+            title=title,
+            content=content,
+            journal_type=journal_type,
+            journal_category=category_enum,
+            entry_date=entry_date or date.today(),
+            tags=tags or [],
+            mood=mood,
+            energy_level=energy_level,
+            key_topics=key_topics or [],
+            action_items=action_items or [],
+            project_uid=project_uid,
+            metadata=metadata,
+            source_type=source_type,
+            source_file=source_file,
+            transcription_uid=transcription_uid,
+        )
+
+        result = await self.backend.create(journal)
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        self.logger.info(f"Created journal report: {uid} - {title}")
+
+        # Enforce FIFO for voice journals
+        if enforce_fifo and journal_type == JournalType.VOICE:
+            await self._enforce_voice_fifo(user_uid)
+
+        return Result.ok(journal)
+
+    @with_error_handling("get_journals_by_type", error_type="database")
+    async def get_journals_by_type(
+        self,
+        user_uid: str,
+        journal_type: JournalType,
+        limit: int = 50,
+    ) -> Result[list[Report]]:
+        """
+        Get journal reports by type for a user.
+
+        Args:
+            user_uid: User identifier
+            journal_type: VOICE or CURATED
+            limit: Maximum number of journals to return
+
+        Returns:
+            Result containing list of journal reports, newest first
+        """
+        result = await self.backend.find_by(
+            user_uid=user_uid,
+            report_type=ReportType.JOURNAL.value,
+            journal_type=journal_type.value,
+            limit=limit,
+        )
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        journals = result.value or []
+        journals.sort(key=_get_entry_date_key, reverse=True)
+        return Result.ok(journals[:limit])
+
+    @with_error_handling("get_voice_journals", error_type="database")
+    async def get_voice_journals(self, user_uid: str, limit: int = 3) -> Result[list[Report]]:
+        """Get voice journals (ephemeral, max 3) for a user."""
+        return await self.get_journals_by_type(user_uid, JournalType.VOICE, limit)
+
+    @with_error_handling("get_curated_journals", error_type="database")
+    async def get_curated_journals(self, user_uid: str, limit: int = 50) -> Result[list[Report]]:
+        """Get curated journals (permanent) for a user."""
+        return await self.get_journals_by_type(user_uid, JournalType.CURATED, limit)
+
+    @with_error_handling("get_journals_by_date_range", error_type="database")
+    async def get_journals_by_date_range(
+        self,
+        user_uid: str,
+        start_date: date,
+        end_date: date,
+        journal_type: JournalType | None = None,
+        limit: int = 100,
+    ) -> Result[list[Report]]:
+        """
+        Get journal reports within a date range.
+
+        Args:
+            user_uid: User identifier
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (inclusive)
+            journal_type: Optional filter by type
+            limit: Maximum number to return
+
+        Returns:
+            Result containing list of journal reports
+        """
+        filters: dict[str, Any] = {
+            "user_uid": user_uid,
+            "report_type": ReportType.JOURNAL.value,
+            "entry_date__gte": start_date,
+            "entry_date__lte": end_date,
+        }
+
+        if journal_type:
+            filters["journal_type"] = journal_type.value
+
+        result = await self.backend.find_by(**filters, limit=limit)
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        journals = result.value or []
+        journals.sort(key=_get_entry_date_key, reverse=True)
+        return Result.ok(journals)
+
+    @with_error_handling("promote_to_curated", error_type="database")
+    async def promote_to_curated(self, uid: str) -> Result[Report]:
+        """
+        Promote a voice journal to curated (permanent).
+
+        Changes journal_type from VOICE to CURATED.
+        This removes the journal from FIFO cleanup.
+
+        Args:
+            uid: Report UID to promote
+
+        Returns:
+            Result containing the promoted report
+        """
+        return await self.update_report(uid, {"journal_type": JournalType.CURATED.value})
+
+    async def get_journal_with_insights(self, uid: str) -> Result[Report | None]:
+        """
+        Get a journal report with its extracted insights.
+
+        Args:
+            uid: Report UID
+
+        Returns:
+            Result containing the report (includes insights in model fields)
+        """
+        result = await self.backend.get(uid)
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        report = result.value
+        if not report or not report.is_journal:
+            return Result.ok(None)
+
+        return Result.ok(report)
+
+    # ========================================================================
+    # FIFO CLEANUP FOR VOICE JOURNALS
+    # ========================================================================
+
+    async def _enforce_voice_fifo(self, user_uid: str) -> Result[int]:
+        """
+        Enforce FIFO cleanup for voice journals.
+
+        Voice journals have a max retention of 3. When a new voice journal is
+        created, delete oldest entries to maintain the limit.
+
+        Args:
+            user_uid: User identifier
+
+        Returns:
+            Result containing count of journals deleted
+        """
+        max_retention = JournalType.VOICE.max_retention_count()
+        if max_retention is None:
+            return Result.ok(0)
+
+        result = await self.backend.find_by(
+            user_uid=user_uid,
+            report_type=ReportType.JOURNAL.value,
+            journal_type=JournalType.VOICE.value,
+        )
+
+        if result.is_error:
+            self.logger.warning(f"Failed to get voice journals for FIFO: {result.error}")
+            return Result.ok(0)
+
+        journals = result.value or []
+        if len(journals) <= max_retention:
+            return Result.ok(0)
+
+        # Sort by created_at ascending (oldest first)
+        journals.sort(key=_get_created_at_key)
+
+        # Delete oldest journals that exceed the limit
+        to_delete = journals[: len(journals) - max_retention]
+        deleted_count = 0
+
+        for journal in to_delete:
+            delete_result = await self.backend.delete(journal.uid, cascade=True)
+            if delete_result.is_ok and delete_result.value:
+                deleted_count += 1
+                self.logger.info(f"FIFO cleanup: deleted voice journal {journal.uid}")
+
+        return Result.ok(deleted_count)
+
+    # ========================================================================
+    # EVENT HANDLERS
+    # ========================================================================
+
+    async def handle_transcription_completed(self, event: "TranscriptionCompleted") -> None:
+        """
+        Create journal-type report when transcription completes.
+
+        Pipeline:
+        1. Try AI processing via TranscriptProcessorService (if available)
+        2. Fall back to raw transcript if AI fails
+        3. Create Report with report_type=JOURNAL via create_journal_report()
+        4. Triggers FIFO cleanup for VOICE journals
+
+        Args:
+            event: TranscriptionCompleted event with transcript data
+
+        Note:
+            Errors logged but not raised — journal creation is best-effort
+            to prevent transcription failure if journal creation fails.
+        """
+        from core.models.enums.report_enums import JournalType
+
+        try:
+            self.logger.info(
+                f"Creating journal report from transcription {event.transcription_uid} "
+                f"for user {event.user_uid}"
+            )
+
+            # Default to raw transcript
+            title = f"Voice Journal - {event.occurred_at.strftime('%Y-%m-%d %H:%M')}"
+            content = event.transcript_text
+            key_topics: list[str] = []
+            action_items: list[str] = []
+            summary: str | None = None
+
+            # Try AI processing if available
+            if self.transcript_processor:
+                insights_result = await self.transcript_processor.process_transcript(
+                    raw_transcript=event.transcript_text,
+                    user_uid=event.user_uid,
+                )
+
+                if insights_result.is_ok:
+                    insights = insights_result.value
+                    title = insights.title or title
+                    content = insights.formatted_content or content
+                    key_topics = insights.themes or []
+                    action_items = insights.action_items or []
+                    summary = insights.summary
+                    self.logger.debug(f"AI processing successful for {event.transcription_uid}")
+                else:
+                    self.logger.warning(
+                        f"AI processing failed for {event.transcription_uid}: "
+                        f"{insights_result.error}. Using raw transcript."
+                    )
+
+            # Build metadata
+            metadata: dict[str, str] = {}
+            if summary:
+                metadata["summary"] = summary
+
+            # Create journal report (triggers FIFO for VOICE journals)
+            result = await self.create_journal_report(
+                user_uid=event.user_uid,
+                title=title,
+                content=content,
+                journal_type=JournalType.VOICE,
+                key_topics=key_topics if key_topics else None,
+                action_items=action_items if action_items else None,
+                source_type="audio",
+                source_file=event.audio_file_path,
+                transcription_uid=event.transcription_uid,
+            )
+
+            if result.is_ok:
+                self.logger.info(
+                    f"Created journal report {result.value.uid} from transcription "
+                    f"{event.transcription_uid}"
+                )
+            else:
+                self.logger.error(
+                    f"Failed to create journal report from {event.transcription_uid}: "
+                    f"{result.error}"
+                )
+
+        except Exception as e:
+            self.logger.error(
+                f"Error handling TranscriptionCompleted for {event.transcription_uid}: {e!s}"
+            )
+
+
+def _get_entry_date_key(report: Report) -> date:
+    """Get entry_date from report for sorting, with fallback to date.min."""
+    return report.entry_date if report.entry_date else date.min
+
+
+def _get_created_at_key(report: Report) -> datetime:
+    """Get created_at from report for sorting, with fallback to datetime.min."""
+    return report.created_at if report.created_at else datetime.min

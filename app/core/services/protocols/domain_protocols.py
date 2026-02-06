@@ -25,8 +25,8 @@ THE 14 DOMAINS AND THEIR PROTOCOLS
     9. LearningStepOperations[LS]      - Learning Steps (ls:)
     10. LearningPathsOperations[LP]    - Learning Paths (lp:)
 
-**Content/Organization Domain Protocols (4):**
-    11. JournalsOperations[JournalPure] - File processing (via Assignments)
+**Content/Organization Domain Protocols (3):**
+    11. (JournalsOperations removed Feb 2026 — Journal merged into Reports)
     12. MocOperations[Moc]              - Map of Content organization
     13. (AnalyticsLifePathService)       - Life goal alignment (no protocol)
     14. (AnalyticsService)              - Statistical aggregation (no protocol)
@@ -89,7 +89,8 @@ if TYPE_CHECKING:
     from core.models.finance.invoice import InvoicePure
     from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
-    from core.models.journal.journal_pure import JournalPure
+
+    # NOTE: JournalPure import REMOVED (February 2026) - Journal merged into Reports
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
     from core.models.type_hints import EntityUID, Metadata
@@ -871,63 +872,8 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
 
-@runtime_checkable
-class JournalsOperations(BackendOperations["JournalPure"], Protocol):
-    """Core journal management operations.
-
-    Inherits base CRUD operations from BackendOperations:
-    - create, get, update, DETACH DELETE, list
-    - find_by, count, search
-    - add_relationship, get_relationships, traverse
-    - health_check
-
-    Adds journal-specific operations below.
-
-    Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
-    """
-
-    async def create_journal(self, journal: Any) -> Result[JournalPure]:
-        """Create a new journal entry. Returns Result[Journal]."""
-        ...
-
-    async def get_journal_by_uid(self, uid: str) -> Result[JournalPure | None]:
-        """Get a journal by UID. Returns Result[Journal | None]."""
-        ...
-
-    async def update_journal(self, uid: str, updates: Metadata) -> Result[JournalPure | None]:
-        """Update an existing journal. Returns Result[Journal | None]."""
-        ...
-
-    async def delete_journal(self, uid: str) -> Result[bool]:
-        """DETACH DELETE a journal. Returns Result[bool]."""
-        ...
-
-    async def find_journals(
-        self,
-        filters: Metadata | None = None,
-        limit: int = 50,
-        offset: int = 0,
-        order_by: str | None = None,
-        order_desc: bool = False,
-    ) -> Result[list[JournalPure]]:
-        """Find journals with filters. Returns Result[list[Journal]]."""
-        ...
-
-    async def get_journals_by_date(self, date: datetime) -> Result[list[JournalPure]]:
-        """Get all journals for a specific date. Returns Result[list[Journal]]."""
-        ...
-
-    async def get_journals_by_category(self, category: str) -> Result[list[JournalPure]]:
-        """Get all journals for a specific category. Returns Result[list[Journal]]."""
-        ...
-
-    async def get_journal_count(self, filters: Metadata | None = None) -> Result[int]:
-        """Get count of journals matching filters. Returns Result[int]."""
-        ...
-
-    async def get_recent_journals(self, limit: int = 10) -> Result[list[JournalPure]]:
-        """Get most recent journal entries. Returns Result[list[Journal]]."""
-        ...
+# NOTE: JournalsOperations REMOVED (February 2026) - Journal merged into Reports
+# Use ReportsCoreService for journal CRUD (report_type=JOURNAL)
 
 
 @runtime_checkable

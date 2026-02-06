@@ -113,7 +113,7 @@ def generate_domain_filter_options() -> list[dict[str, Any]]:
         Domain.GOALS,
         Domain.CHOICES,
         Domain.PRINCIPLES,
-        Domain.JOURNALS,
+        Domain.REPORTS,
     ]
 
     return [
@@ -275,7 +275,7 @@ def generate_filter_options_for_domain(domain: Domain) -> dict[str, list[dict[st
         Domain.GOALS: ["status"],
         Domain.CHOICES: [],
         Domain.PRINCIPLES: [],
-        Domain.JOURNALS: [],
+        Domain.REPORTS: [],
     }
 
     # Get all filter options
@@ -371,7 +371,7 @@ def _get_domain_icon(domain: Domain) -> str:
         Domain.GOALS: "🎯",
         Domain.CHOICES: "⚖️",
         Domain.PRINCIPLES: "💎",
-        Domain.JOURNALS: "📔",
+        Domain.REPORTS: "📄",
     }
     return icons.get(domain, "📋")
 

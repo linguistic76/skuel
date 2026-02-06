@@ -207,6 +207,8 @@ class ReportsProcessingService:
         await self.report_service.update_report_status(report.uid, ReportStatus.PROCESSING)
 
         # Route based on file type
+        if not report.file_type:
+            return Result.fail(Errors.validation("Cannot process report without file_type"))
         file_type = report.file_type.lower()
 
         if file_type.startswith("audio/"):

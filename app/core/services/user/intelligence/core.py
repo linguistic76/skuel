@@ -56,15 +56,15 @@ from core.services.user.intelligence.schedule_intelligence import ScheduleIntell
 from core.services.user.intelligence.synergy_intelligence import SynergyIntelligenceMixin
 
 if TYPE_CHECKING:
-    from core.services.reports import ReportsRelationshipService
+    from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
-    from core.services.journals import JournalRelationshipService
     from core.services.ku.ku_graph_service import KuGraphService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
+    # JournalRelationshipService deleted - Journal merged into Reports (February 2026)
     from core.services.relationships import UnifiedRelationshipService
-    from core.services.analytics_relationship_service import AnalyticsRelationshipService
+    from core.services.reports import ReportsRelationshipService
     from core.services.user.unified_user_context import UserContext
 
 
@@ -97,16 +97,15 @@ class UserContextIntelligence(
     - ls: UnifiedRelationshipService - Learning step relationships (unified)
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
 
-    Processing Domains (3):
-    - reports: ReportsRelationshipService - Student submissions
-    - journals: JournalRelationshipService - Reflection (fire in the engine)
+    Processing Domains (2) - journals merged into reports Feb 2026:
+    - reports: ReportsRelationshipService - Student submissions + journals
     - analytics: AnalyticsRelationshipService - System feedback (report cards)
 
     Temporal Domain (1):
     - calendar: CalendarService - Schedule-aware intelligence
 
     **Philosophy:**
-    SKUEL runs at full capacity or not at all. All 13 domains are REQUIRED
+    SKUEL runs at full capacity or not at all. All 12 domains are REQUIRED
     because each contributes unique intelligence to the daily planning.
     The symmetric domain architecture reflects the complete educational
     support system.
@@ -137,9 +136,8 @@ class UserContextIntelligence(
         ku: KuGraphService,
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
-        # Processing Domains (3) - REQUIRED
+        # Processing Domains (2) - REQUIRED (journals merged into reports Feb 2026)
         reports: ReportsRelationshipService,
-        journals: JournalRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
@@ -147,7 +145,7 @@ class UserContextIntelligence(
         vector_search: Any = None,
     ) -> None:
         """
-        Initialize with user context and all 13 required relationship services.
+        Initialize with user context and all 12 required relationship services.
 
         Args:
             context: Complete UserContext snapshot (~240 fields)
@@ -165,9 +163,8 @@ class UserContextIntelligence(
                 ls: Learning step service for step sequencing
                 lp: Learning path service for critical path analysis
 
-            Processing Domains (3):
-                reports: Report relationship service for student work
-                journals: Journal relationship service (fire in the engine)
+            Processing Domains (2) - journals merged into reports Feb 2026:
+                reports: Report relationship service (student work + journals)
                 analytics: Analytics relationship service for report cards
 
             Temporal Domain (1):
@@ -179,7 +176,7 @@ class UserContextIntelligence(
         Raises:
             ValueError: If any required service is None
         """
-        # Validate all required dependencies (12 entity domains + 1 meta-service)
+        # Validate all required dependencies (11 entity domains + 1 meta-service)
         required = {
             "context": context,
             # Activity Domains (6)
@@ -193,9 +190,8 @@ class UserContextIntelligence(
             "ku": ku,
             "ls": ls,
             "lp": lp,
-            # Processing Domains (3)
+            # Processing Domains (2) - journals merged into reports Feb 2026
             "reports": reports,
-            "journals": journals,
             "analytics": analytics,
             # Temporal Domain (1)
             "calendar": calendar,
@@ -204,7 +200,7 @@ class UserContextIntelligence(
         missing = [name for name, service in required.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligence requires all 13 domain services. "
+                f"UserContextIntelligence requires all 12 domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 
@@ -224,9 +220,8 @@ class UserContextIntelligence(
         self.ls = ls
         self.lp = lp
 
-        # Processing domains (3)
+        # Processing domains (2) - journals merged into reports Feb 2026
         self.reports = reports
-        self.journals = journals
         self.analytics = analytics
 
         # Temporal domain (1)

@@ -27,7 +27,7 @@ THE 14 DOMAINS COMPOSED HERE
     10. lp        → LpService         - Learning Paths (lp:)
 
 **Content/Organization Domain Services (4):**
-    11. journals/reports → ReportsCoreService - File processing
+    11. reports → ReportsCoreService - File processing + journals (merged Feb 2026)
     12. moc       → MocService        - Map of Content organization
     13. life_path → AnalyticsLifePathService - Life goal alignment
     14. analytics → AnalyticsService     - Statistical aggregation
@@ -124,11 +124,11 @@ from core.services.protocols import (
     GoalsOperations,
     HabitsOperations,
     IntelligenceOperations,
-    JournalsOperations,
     # Knowledge operations
     KuOperations,
     # NOTE: LearningOperations DELETED January 2026 - was dead code (type hint wrong)
     # NOTE: LearningPathsOperations DELETED January 2026 - replaced by LpOperations
+    # NOTE: JournalsOperations DELETED February 2026 - Journal merged into Reports
     LpOperations,
     LsOperations,
     PrinciplesOperations,
@@ -187,19 +187,15 @@ class Services:
     )
     cross_domain: Any = None  # AdaptiveLpCrossDomainService - Cross-domain learning opportunities
 
-    # Content services (Protocol-typed)
-    journals: JournalsOperations | None = None
-    journals_core: JournalsOperations | None = (
-        None  # JournalsCoreService - CRUD for Journal nodes (January 2026)
-    )
+    # Content services
     transcript_processor: Any = (
         None  # TranscriptProcessorService - Processes transcripts into documents
     )
     transcription: Any = None  # TranscriptionService (simplified, Dec 2025)
 
-    # Journal services (LLM-based journal processing)
-    journal_feedback: Any = None  # JournalFeedbackService - LLM feedback on journals
-    journal_projects: Any = None  # JournalProjectService - Reusable LLM project templates
+    # Report feedback services (LLM-based processing for any report type)
+    report_feedback: Any = None  # ReportFeedbackService - LLM feedback on reports/journals
+    report_projects: Any = None  # ReportProjectService - Reusable LLM project templates
 
     # Report services (Phase 1 - File submission pipeline)
     reports: Any = None  # ReportSubmissionService - File upload and report management
@@ -408,7 +404,7 @@ class Services:
             ("tasks", self.tasks),
             ("events", self.events),
             ("finance", self.finance),
-            ("journals", self.journals),
+            ("transcript_processor", self.transcript_processor),
             ("habits", self.habits),
             ("transcription", self.transcription),
             ("performance_optimization", self.performance_optimization),
@@ -984,7 +980,6 @@ async def compose_services(
         # "The plant (models) grows on the lattice (UniversalNeo4jBackend)"
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.askesis.askesis import Askesis
-        from core.models.report.report import Report
         from core.models.choice.choice import Choice
         from core.models.event.event import Event
         from core.models.finance.finance_pure import ExpensePure
@@ -992,7 +987,6 @@ async def compose_services(
         from core.models.goal.goal import Goal
         from core.models.habit.completion import HabitCompletion
         from core.models.habit.habit import Habit
-        from core.models.journal.journal_pure import JournalPure
         from core.models.ku.ku import Ku
 
         # NOTE: MapOfContent import removed (January 2026) - MOC is now KU-based
@@ -1000,6 +994,7 @@ async def compose_services(
         from core.models.principle.principle import Principle
         from core.models.principle.reflection import PrincipleReflection
         from core.models.progress import UserProgress
+        from core.models.report.report import Report
         from core.models.task.task import Task
         from core.models.transcription.transcription import Transcription
 
@@ -1031,9 +1026,8 @@ async def compose_services(
         invoice_backend = UniversalNeo4jBackend[InvoicePure](
             driver, NeoLabel.INVOICE, InvoicePure, prometheus_metrics=prometheus_metrics
         )
-        journals_backend = UniversalNeo4jBackend[JournalPure](
-            driver, NeoLabel.JOURNAL, JournalPure, prometheus_metrics=prometheus_metrics
-        )
+        # NOTE: journals_backend REMOVED (February 2026) - Journal merged into Reports
+        # Journal entries are now Report nodes with report_type="journal"
         transcription_backend = UniversalNeo4jBackend[Transcription](
             driver, NeoLabel.TRANSCRIPTION, Transcription, prometheus_metrics=prometheus_metrics
         )
@@ -1557,44 +1551,31 @@ async def compose_services(
         ai_service = OpenAIService(api_key=openai_api_key)
 
         transcript_processor = TranscriptProcessorService(
-            backend=journals_backend,
+            backend=reports_backend,  # February 2026: Uses reports backend (journal merged into reports)
             transcription_service=core_services["transcription"],
             ai_service=ai_service,  # REQUIRED - always available
             event_bus=event_bus,  # Event-driven architecture
         )
         logger.info("✅ Transcript processor service created")
 
-        # Create journals core service for dedicated Journal node CRUD (January 2026)
-        # Domain Separation: Journals (personal reflections) vs Reports (file submission)
-        from core.services.journals import JournalsCoreService
+        # Create report feedback and project services (February 2026: Journal merged into Reports)
+        from core.models.report.report_project import ReportProjectPure
+        from core.services.reports import ReportFeedbackService, ReportProjectService
 
-        journals_core_service = JournalsCoreService(
-            backend=journals_backend,
-            event_bus=event_bus,
-            transcript_processor=transcript_processor,
-        )
-        logger.info("✅ Journals core service created (domain separation)")
-
-        # Create journal feedback and project services for LLM processing
-        from core.services.journals import JournalFeedbackService, JournalProjectService
-
-        journal_feedback_service = JournalFeedbackService(
+        report_feedback_service = ReportFeedbackService(
             openai_service=ai_service,
             anthropic_service=None,  # Only OpenAI configured for now
         )
 
-        # Create journal project backend
-        from core.models.journal import JournalProjectPure
-
-        journal_projects_backend = UniversalNeo4jBackend[JournalProjectPure](
+        report_projects_backend = UniversalNeo4jBackend[ReportProjectPure](
             driver=driver,
-            label=NeoLabel.JOURNAL_PROJECT,
-            entity_class=JournalProjectPure,
+            label=NeoLabel.REPORT_PROJECT,
+            entity_class=ReportProjectPure,
             prometheus_metrics=prometheus_metrics,
         )
 
-        journal_project_service = JournalProjectService(backend=journal_projects_backend)
-        logger.info("✅ Journal feedback and project services created")
+        report_project_service = ReportProjectService(backend=report_projects_backend)
+        logger.info("✅ Report feedback and project services created")
 
         # Load default transcript instructions from file
         # This creates/updates a reusable project that users can edit by modifying the file
@@ -1606,7 +1587,7 @@ async def compose_services(
 
             if Path(default_instructions_path).exists():
                 # load_project_from_file handles both create and update
-                result = await journal_project_service.load_project_from_file(
+                result = await report_project_service.load_project_from_file(
                     file_path=default_instructions_path,
                     user_uid="user_system",  # System-owned default project (UID follows user_{username} pattern)
                     project_uid=default_project_uid,
@@ -1623,8 +1604,8 @@ async def compose_services(
 
         # Create report submission and processing pipeline services (Phase 1)
         from core.services.reports import (
-            ReportsProcessingService,
             ReportsCoreService,
+            ReportsProcessingService,
             ReportsSearchService,
             ReportSubmissionService,
         )
@@ -1642,10 +1623,12 @@ async def compose_services(
         report_sharing_service = ReportSharingService(driver=driver)
 
         # Create reports core service (content management: categories, tags, bulk operations)
+        # February 2026: transcript_processor for handle_transcription_completed
         reports_core_service = ReportsCoreService(
             backend=reports_backend,
             event_bus=event_bus,
             sharing_service=report_sharing_service,
+            transcript_processor=transcript_processor,
         )
 
         report_processor = ReportsProcessingService(
@@ -1764,9 +1747,8 @@ async def compose_services(
             HabitMissed,
             HabitStreakBroken,
             HabitStreakMilestone,
-            JournalCreated,
-            JournalDeleted,
-            JournalUpdated,
+            # NOTE: JournalCreated/Updated/Deleted REMOVED (February 2026) - Journal merged into Reports
+            # Journal operations now fire ReportSubmitted/ReportDeleted events
             KnowledgeCreated,
             KnowledgeMastered,
             LearningPathCompleted,
@@ -1839,12 +1821,8 @@ async def compose_services(
             )
             await user_service.invalidate_context(event.user_uid)
 
-        async def invalidate_context_on_journal_event(event) -> None:
-            """Invalidate user context when journal events occur."""
-            logger.debug(
-                f"Journal event received: {event.__class__.__name__} for user {event.user_uid}"
-            )
-            await user_service.invalidate_context(event.user_uid)
+        # NOTE: invalidate_context_on_journal_event REMOVED (February 2026)
+        # Journal merged into Reports — context invalidation via report events
 
         async def invalidate_context_on_learning_event(event) -> None:
             """Invalidate user context when learning events occur."""
@@ -1943,24 +1921,19 @@ async def compose_services(
             "✅ UserService subscribed to finance events (ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid)"
         )
 
-        # Subscribe to journal events
-        event_bus.subscribe(JournalCreated, invalidate_context_on_journal_event)
-        event_bus.subscribe(JournalUpdated, invalidate_context_on_journal_event)
-        event_bus.subscribe(JournalDeleted, invalidate_context_on_journal_event)
-        logger.info(
-            "✅ UserService subscribed to journal events (JournalCreated, JournalUpdated, JournalDeleted)"
-        )
+        # NOTE: Journal event subscriptions REMOVED (February 2026)
+        # Journal merged into Reports — context invalidation via report events
 
-        # Subscribe to transcription events for automatic journal creation
+        # Subscribe to transcription events for automatic journal-type report creation
         from core.events.transcription_events import TranscriptionCompleted
 
         event_bus.subscribe(
             TranscriptionCompleted,
-            journals_core_service.handle_transcription_completed,
+            reports_core_service.handle_transcription_completed,
         )
         logger.info(
-            "✅ JournalsCoreService subscribed to TranscriptionCompleted "
-            "(automatic journal creation from voice transcriptions)"
+            "✅ ReportsCoreService subscribed to TranscriptionCompleted "
+            "(automatic journal report creation from voice transcriptions)"
         )
 
         # Subscribe to learning events
@@ -2079,10 +2052,12 @@ async def compose_services(
         event_bus.subscribe(
             LearningPathCompleted, cross_domain_analytics_service.handle_path_completed
         )
-        event_bus.subscribe(JournalCreated, cross_domain_analytics_service.handle_journal_created)
+        # NOTE: JournalCreated subscription REMOVED (February 2026)
+        # Journal merged into Reports — cross_domain_analytics needs update in Phase 5
+        # to subscribe to ReportSubmitted and filter for report_type="journal"
         logger.info(
-            "✅ CrossDomainAnalyticsService subscribed to 9 event types "
-            "(Tasks, Habits, Events, Expenses, Goals, Knowledge, Paths, Journals)"
+            "✅ CrossDomainAnalyticsService subscribed to 8 event types "
+            "(Tasks, Habits, Events, Expenses, Goals, Knowledge, Paths)"
         )
 
         # Milestone achievements → Automatic report generation (Phase 4)
@@ -2253,11 +2228,9 @@ async def compose_services(
             adaptive_sel=learning_services["adaptive_sel"],
             cross_domain=learning_services["cross_domain"],
             # Content
-            journals=transcript_processor,  # TranscriptProcessorService
-            journals_core=journals_core_service,  # JournalsCoreService - CRUD for Journal nodes
             transcript_processor=transcript_processor,
-            journal_feedback=journal_feedback_service,  # LLM feedback on journals
-            journal_projects=journal_project_service,  # Reusable LLM project templates
+            report_feedback=report_feedback_service,  # LLM feedback on reports/journals
+            report_projects=report_project_service,  # Reusable LLM project templates
             # Note: audio_service removed (Dec 2025) - use transcription service directly
             # Reports (Phase 1 - File submission pipeline)
             reports=report_service,
@@ -2354,23 +2327,21 @@ async def compose_services(
         # The 13 Domains:
         # - Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
         # - Curriculum Domains (3): KU, LS, LP
-        # - Processing Domains (3): Reports, Journals, Analytics
+        # - Processing Domains (2): Reports (includes journals), Analytics
         # - Temporal Domain (1): Calendar
 
-        from core.services.reports import ReportsRelationshipService
-        from core.services.journals import JournalRelationshipService
         from core.services.analytics_relationship_service import AnalyticsRelationshipService
+        from core.services.reports import ReportsRelationshipService
         from core.services.user.intelligence import UserContextIntelligenceFactory
 
         # Create processing domain relationship services (Direct Driver pattern)
+        # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Reports
+        # ReportsRelationshipService handles both report and journal relationships
         report_relationship_service = ReportsRelationshipService(driver)
-        journal_relationship_service = JournalRelationshipService(driver)
         analytics_relationship_service = AnalyticsRelationshipService(driver)
-        logger.info(
-            "✅ Processing domain relationship services created (Reports, Journals, Analytics)"
-        )
+        logger.info("✅ Processing domain relationship services created (Reports, Analytics)")
 
-        # Create factory with all 13 domain services
+        # Create factory with all 12 domain services
         context_intelligence_factory = UserContextIntelligenceFactory(
             # Activity Domains (6) - All from unified activity_services
             tasks=activity_services["tasks"].relationships,
@@ -2387,9 +2358,8 @@ async def compose_services(
             lp=learning_services[
                 "learning_paths"
             ].relationships,  # Factory expects 'lp' parameter name
-            # Processing Domains (3)
+            # Processing Domains (2) - journals merged into reports Feb 2026
             reports=report_relationship_service,  # ReportsRelationshipService
-            journals=journal_relationship_service,
             analytics=analytics_relationship_service,  # AnalyticsRelationshipService
             # Temporal Domain (1)
             calendar=calendar_service,
@@ -2397,7 +2367,7 @@ async def compose_services(
             vector_search_service=vector_search_service,
         )
         services.context_intelligence = context_intelligence_factory
-        logger.info("✅ UserContextIntelligence factory created (13 domain services wired)")
+        logger.info("✅ UserContextIntelligence factory created (12 domain services wired)")
 
         # Wire intelligence factory to UserService (post-construction wiring)
         user_service.intelligence_factory = context_intelligence_factory

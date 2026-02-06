@@ -11,16 +11,9 @@ Three-Tier Architecture:
 - Tier 3 (Core): Pure domain models (frozen, immutable)
 
 View Layer sits between Tier 3 (Pure) and API responses.
+
+NOTE: Journal views REMOVED (February 2026) - Journal merged into Reports.
+Use Reports domain views for journal-type reports.
 """
 
-from .journal_view import (
-    journal_pure_to_view,
-    journals_pure_to_summary_list,
-    journals_pure_to_view_list,
-)
-
-__all__ = [
-    "journal_pure_to_view",
-    "journals_pure_to_summary_list",
-    "journals_pure_to_view_list",
-]
+__all__: list[str] = []

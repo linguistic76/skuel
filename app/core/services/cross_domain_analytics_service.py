@@ -27,7 +27,8 @@ from core.events import (
     ExpenseCreated,
     ExpensePaid,
     GoalCreated,
-    JournalCreated,
+    # NOTE: JournalCreated REMOVED (February 2026) - Journal merged into Reports
+    # Journal mood tracking now handled via report events
     KnowledgeMastered,
     LearningPathCompleted,
 )
@@ -114,7 +115,7 @@ class CrossDomainAnalyticsService:
 
         event_bus.subscribe(ExpenseCreated, analytics.handle_expense_created)
         event_bus.subscribe(GoalCreated, analytics.handle_goal_created)
-        event_bus.subscribe(JournalCreated, analytics.handle_journal_created)
+        # NOTE: JournalCreated subscription removed (February 2026)
         event_bus.subscribe(KnowledgeMastered, analytics.handle_knowledge_mastered)
         event_bus.subscribe(LearningPathCompleted, analytics.handle_path_completed)
 
@@ -149,7 +150,7 @@ class CrossDomainAnalyticsService:
         # In-memory caches for fast analytics (could be Redis in production)
         self._expense_cache: defaultdict[str, list[dict]] = defaultdict(list)
         self._learning_cache: defaultdict[str, list[dict]] = defaultdict(list)
-        self._journal_cache: defaultdict[str, list[dict]] = defaultdict(list)
+        # NOTE: _journal_cache removed (February 2026) - Journal merged into Reports
 
     # ========================================================================
     # EVENT HANDLERS - Financial Goal Tracking
@@ -310,55 +311,11 @@ class CrossDomainAnalyticsService:
             )
 
     # ========================================================================
-    # EVENT HANDLERS - Journal Mood Analysis
+    # EVENT HANDLERS - Journal/Report Mood Analysis
+    # NOTE: handle_journal_created removed (February 2026) - Journal merged into Reports
+    # JournalCreated event no longer fired. Mood analysis can be re-added
+    # by subscribing to ReportSubmitted and filtering report_type="journal".
     # ========================================================================
-
-    async def handle_journal_created(self, event: JournalCreated) -> Result[None]:
-        """
-        Track journal entries for mood and sentiment analysis.
-
-        Builds:
-        - Mood trends over time
-        - Writing frequency
-        - Common themes and topics
-        """
-        try:
-            journal_data = {
-                "journal_uid": event.journal_uid,
-                "user_uid": event.user_uid,
-                "title": event.title,
-                "occurred_at": event.occurred_at,
-            }
-
-            # Cache for trend analysis
-            self._journal_cache[event.user_uid].append(journal_data)
-
-            # Track frequency
-            query = """
-            MERGE (analytics:JournalAnalytics {user_uid: $user_uid})
-            ON CREATE SET
-                analytics.total_entries = 1,
-                analytics.first_entry_at = datetime($occurred_at)
-            ON MATCH SET
-                analytics.total_entries = analytics.total_entries + 1,
-                analytics.last_entry_at = datetime($occurred_at)
-            """
-
-            async with self.driver.session() as session:
-                await session.run(
-                    query, user_uid=event.user_uid, occurred_at=event.occurred_at.isoformat()
-                )
-
-            self.logger.debug(f"Tracked journal entry for mood analysis: {event.journal_uid}")
-            return Result.ok(None)
-
-        except Exception as e:
-            self.logger.error(f"Error tracking journal: {e}")
-            return Result.fail(
-                Errors.system(
-                    message=f"Failed to track journal: {e!s}", operation="handle_journal_created"
-                )
-            )
 
     # ========================================================================
     # EVENT HANDLERS - Activity Domain Tracking (Phase 4)

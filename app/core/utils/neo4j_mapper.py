@@ -593,8 +593,8 @@ def to_neo4j_node(entity: Any) -> dict[str, Any]:
         # Replaces task_to_node()
         node_props = to_neo4j_node(task)
 
-        # Replaces journal_to_node()
-        node_props = to_neo4j_node(journal)
+        # Replaces report_to_node()
+        node_props = to_neo4j_node(report)
 
         # Replaces habit_to_node()
         node_props = to_neo4j_node(habit)
@@ -613,8 +613,8 @@ def from_neo4j_node[T](data: dict[str, Any], entity_class: type[T]) -> T:
         # Replaces node_to_pure()
         task = from_neo4j_node(node_data, TaskPure)
 
-        # Replaces journal_node_to_pure()
-        journal = from_neo4j_node(node_data, JournalPure)
+        # Replaces report_node_to_pure()
+        report = from_neo4j_node(node_data, Report)
 
         # Replaces node_to_pure() for habits
         habit = from_neo4j_node(node_data, HabitPure)
@@ -645,23 +645,9 @@ class Neo4jTasksBackend:
             return from_neo4j_node(dict(records[0]["t"]), TaskPure)  # NEW
         return task
 
-# In journals_neo4j_backend.py:
-
-from core.utils.neo4j_mapper import to_neo4j_node, from_neo4j_node
-from core.models.journal.journal_pure import JournalPure
-
-class Neo4jJournalsBackend:
-    async def create_journal(self, journal: JournalPure) -> JournalPure:
-        # OLD: props = journal_to_node(journal)
-        props = to_neo4j_node(journal)  # NEW: Same generic function!
-
-        cypher = "CREATE (j:Journal $props) RETURN j"
-        records = await self.neo4j.execute_query(cypher, {"props": props})
-
-        if records:
-            # OLD: return journal_node_to_pure(dict(records[0]["j"]))
-            return from_neo4j_node(dict(records[0]["j"]), JournalPure)  # NEW
-        return journal
+# In reports backend (generic example):
+# NOTE: Journal backend removed (February 2026) — journals are Report nodes
+# with report_type="journal". All use UniversalNeo4jBackend[Report].
 
 # Benefits:
 # 1. Single implementation for all entities - no more duplication

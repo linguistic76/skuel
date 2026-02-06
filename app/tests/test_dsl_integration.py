@@ -11,10 +11,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.report.report import (
+    ProcessorType,
     Report,
     ReportStatus,
     ReportType,
-    ProcessorType,
 )
 from core.services.dsl import (
     ActivityExtractionResult,

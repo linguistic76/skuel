@@ -24,8 +24,8 @@ from typing import Any
 
 from neo4j import Driver
 
-from core.models.report.report import ReportDTO
 from core.models.enums.metadata_enums import Visibility
+from core.models.report.report import ReportDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

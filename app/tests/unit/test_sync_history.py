@@ -19,14 +19,11 @@ Uses mock Neo4j driver to test service logic without database dependency.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from core.services.ingestion.sync_history import SyncHistoryEntry, SyncHistoryService
-from core.utils.result_simplified import Result
-
 
 # ============================================================================
 # TEST FIXTURES - Mock Neo4j Driver

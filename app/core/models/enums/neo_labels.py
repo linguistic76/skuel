@@ -78,11 +78,12 @@ class NeoLabel(str, Enum):
     MOC_SECTION = "MOCSection"  # MOC hierarchical section
 
     # =========================================================================
-    # Content/Processing Domains (2)
+    # Content/Processing Domains
     # =========================================================================
-    JOURNAL = "Journal"
-    JOURNAL_PROJECT = "JournalProject"
+    JOURNAL = "Journal"  # Legacy — migration target is Report
+    JOURNAL_PROJECT = "JournalProject"  # Legacy — migration target is ReportProject
     REPORT = "Report"
+    REPORT_PROJECT = "ReportProject"
     TRANSCRIPTION = "Transcription"
 
     # =========================================================================
@@ -135,8 +136,7 @@ class NeoLabel(str, Enum):
             EntityType.LS: cls.LS,
             EntityType.LP: cls.LP,
             EntityType.MOC: cls.MOC,
-            # Content Domains
-            EntityType.JOURNAL: cls.JOURNAL,
+            # Content Domains (JOURNAL canonicalizes to REPORT)
             EntityType.REPORT: cls.REPORT,
         }
 

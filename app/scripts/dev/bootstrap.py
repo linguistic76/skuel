@@ -602,14 +602,8 @@ async def _wire_all_routes(
         create_finance_routes(app, rt, services, None)  # sync removed Jan 2026
         logger.info("✅ Finance routes registered")
 
-    if services.journals:
-        from adapters.inbound.journals_routes import create_journals_routes
-
-        create_journals_routes(app, rt, services, None)  # sync removed Jan 2026
-        logger.info("✅ Journals routes registered")
-
-    # Note: Journals API routes are registered via create_journals_routes() above
-    # using DomainRouteConfig pattern (migrated February 2026)
+    # NOTE: Journals routes REMOVED (February 2026) - Journal merged into Reports
+    # Journal API routes are now part of reports routes
 
     # Reports routes (Primary interface for file submission and processing)
     if services.reports and services.processing_pipeline:
@@ -620,12 +614,8 @@ async def _wire_all_routes(
         logger.info("✅ Reports routes registered (Primary interface for audio/text processing)")
         logger.info("📋 Reports handles all file types: audio → transcription → journal formatting")
 
-    # Journals UI routes (dedicated journal submission interface)
-    if services.journals_core:
-        from adapters.inbound.journals_ui import create_journals_ui_routes
-
-        create_journals_ui_routes(app, rt, services.journals_core, services.processing_pipeline)
-        logger.info("✅ Journals UI routes registered (/journals)")
+    # NOTE: Journals UI routes REMOVED (February 2026) - Journal merged into Reports
+    # Journal UI is now part of reports UI
 
     if services.habits:
         from adapters.inbound.habits_routes import create_habits_routes
@@ -789,11 +779,12 @@ async def _wire_all_routes(
     create_advanced_routes(app, rt, services)
     logger.info("✅ Advanced API routes registered (Phase 2 - Optional)")
 
-    # Journal Projects routes (Factory pattern)
-    from adapters.inbound.journal_projects_routes import create_journal_projects_routes
+    # Report Projects routes (renamed from Journal Projects, February 2026)
+    if services.report_projects:
+        from adapters.inbound.report_projects_routes import create_report_projects_routes
 
-    create_journal_projects_routes(app, rt, services)
-    logger.info("✅ Journal projects routes registered (Factory pattern)")
+        create_report_projects_routes(app, rt, services)
+        logger.info("✅ Report projects routes registered")
 
     # GraphQL API routes (REQUIRED - fail-fast)
     # One Path Forward: GraphQL uses SearchRouter (January 2026)

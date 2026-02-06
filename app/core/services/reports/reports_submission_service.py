@@ -24,11 +24,11 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
 from core.events.report_events import ReportSubmitted
 from core.models.report.report import (
+    ProcessorType,
     Report,
     ReportDTO,
     ReportStatus,
     ReportType,
-    ProcessorType,
 )
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig

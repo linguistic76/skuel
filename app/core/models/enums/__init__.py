@@ -29,11 +29,11 @@ from .activity_enums import (
 
 # Entity enums - entity type identification and domain categorization
 from .entity_enums import (
+    AnalyticsDomain,
     ContentScope,
     Context,
     Domain,
     EntityType,
-    AnalyticsDomain,
 )
 
 # Learning enums - education, knowledge, and mastery tracking

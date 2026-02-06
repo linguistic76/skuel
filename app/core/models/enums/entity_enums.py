@@ -21,7 +21,8 @@ class Domain(str, Enum):
     HABITS = "habits"
     FINANCE = "finance"
     EVENTS = "events"
-    JOURNALS = "journals"
+    REPORTS = "reports"
+    JOURNALS = "journals"  # Alias for REPORTS (migration aid)
     PRINCIPLES = "principles"
     GOALS = "goals"
     CHOICES = "choices"
@@ -49,7 +50,7 @@ class Domain(str, Enum):
             Domain.HABITS: ("habit", "routine", "practice", "behavior", "pattern"),
             Domain.FINANCE: ("finance", "money", "budget", "expense", "income"),
             Domain.EVENTS: ("event", "calendar", "meeting", "appointment", "schedule"),
-            Domain.JOURNALS: ("journal", "entry", "log", "diary", "reflection"),
+            Domain.REPORTS: ("report", "journal", "entry", "log", "diary", "reflection"),
             Domain.PRINCIPLES: ("principle", "value", "belief", "philosophy", "guideline"),
             Domain.GOALS: ("goal", "objective", "target", "aim", "milestone"),
             Domain.CHOICES: ("choice", "decision", "option", "selection"),
@@ -83,7 +84,7 @@ class EntityType(str, Enum):
     When users write `@context(task)` or `@context(habit,learning)`, the parser
     converts these strings to EntityType values, enabling compile-time verification.
 
-    Maps directly to SKUEL's 14-domain + 5-system architecture:
+    Maps directly to SKUEL's 13-domain + 5-system architecture:
 
     Activity Domains (7) - What I DO:
         TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE, FINANCE
@@ -91,8 +92,8 @@ class EntityType(str, Enum):
     Curriculum Domains (3) - What I LEARN:
         KU (Knowledge Unit), LS (Learning Step), LP (Learning Path)
 
-    Content/Organization Domains (3) - How I ORGANIZE:
-        REPORT, JOURNAL, MOC (Map of Content)
+    Content/Organization Domains (2) - How I ORGANIZE:
+        REPORT (includes journals), MOC (Map of Content)
 
     LifePath (1) - The Destination:
         LIFEPATH
@@ -119,9 +120,9 @@ class EntityType(str, Enum):
     LEARNINGPATH = "learningpath"  # Alias for LP
     LEARNING = "learning"  # General learning context
 
-    # Content/Organization Domains (3) - How I ORGANIZE
+    # Content/Organization Domains (2) - How I ORGANIZE
     REPORT = "report"
-    JOURNAL = "journal"
+    JOURNAL = "journal"  # Alias for REPORT (migration aid — journal is a ReportType)
     MOC = "moc"  # Map of Content - non-linear knowledge navigation
 
     # The Destination (1) - Where I'm GOING
@@ -140,13 +141,15 @@ class EntityType(str, Enum):
         Get the canonical (non-alias) form of this entity type.
 
         Aliases are normalized to their canonical form:
-            KNOWLEDGE -> KU, LEARNINGSTEP -> LS, LEARNINGPATH -> LP, LIFE_PATH -> LIFEPATH
+            KNOWLEDGE -> KU, LEARNINGSTEP -> LS, LEARNINGPATH -> LP,
+            LIFE_PATH -> LIFEPATH, JOURNAL -> REPORT
         """
         alias_map = {
             EntityType.KNOWLEDGE: EntityType.KU,
             EntityType.LEARNINGSTEP: EntityType.LS,
             EntityType.LEARNINGPATH: EntityType.LP,
             EntityType.LIFE_PATH: EntityType.LIFEPATH,
+            EntityType.JOURNAL: EntityType.REPORT,
         }
         return alias_map.get(self, self)
 

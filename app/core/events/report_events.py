@@ -35,11 +35,12 @@ class ReportSubmitted(BaseEvent):
     report_uid: str
     user_uid: str
     report_type: str  # ReportType enum value
-    processor_type: str  # ProcessorType enum value
-    file_size: int
-    file_type: str
-    original_filename: str
     occurred_at: datetime
+    # File fields - optional (journals don't have files)
+    processor_type: str | None = None  # ProcessorType enum value
+    file_size: int | None = None
+    file_type: str | None = None
+    original_filename: str | None = None
     metadata: dict[str, Any] | None = None
 
     @property

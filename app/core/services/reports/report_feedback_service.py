@@ -1,23 +1,19 @@
 """
-Journal Feedback Service
-=========================
+Report Feedback Service
+========================
 
-Generates transparent AI feedback for journal entries using Journal Projects.
+Generates transparent AI feedback for report/journal entries using Report Projects.
 
 Following SKUEL principles:
 - Transparent: User sees exact prompt sent to LLM
 - User-controlled: User provides instructions, selects model
-- Simple: Instructions + content → LLM → feedback
-- No black boxes: Everything is visible and editable
+- Simple: Instructions + content -> LLM -> feedback
 
-This service:
-1. Takes a journal entry + project
-2. Builds prompt from project instructions + entry content
-3. Sends to LLM (user's choice of model)
-4. Returns feedback
+Migrated from JournalFeedbackService (February 2026 — Journal->Report merge).
 """
 
-from core.models.journal import JournalProjectPure, JournalPure
+from core.models.report.report import Report
+from core.models.report.report_project import ReportProjectPure
 from core.services.ai_service import AnthropicService, OpenAIService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -25,30 +21,12 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger(__name__)
 
 
-class JournalFeedbackService:
+class ReportFeedbackService:
     """
-    Generates AI feedback for journal entries using project instructions.
+    Generates AI feedback for report entries using project instructions.
 
     Supports both OpenAI and Anthropic models.
-    User selects which model to use via JournalProject.model field.
-
-
-    Source Tag: "journal_feedback_service_explicit"
-    - Format: "journal_feedback_service_explicit" for user-created relationships
-    - Format: "journal_feedback_service_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from journal_feedback metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
-    SKUEL Architecture:
-    - Uses CypherGenerator for ALL graph queries
-    - No APOC calls (Phase 5 eliminated those)
-    - Returns Result[T] for error handling
-    - Logs operations with structured logging
-
+    User selects which model to use via ReportProject.model field.
     """
 
     def __init__(
@@ -58,10 +36,6 @@ class JournalFeedbackService:
     ) -> None:
         """
         Initialize with AI services.
-
-        Args:
-            openai_service: OpenAI service (optional),
-            anthropic_service: Anthropic service (optional)
 
         At least one service must be provided.
         """
@@ -78,47 +52,48 @@ class JournalFeedbackService:
         if self.anthropic:
             available.append("Anthropic")
 
-        logger.info(f"JournalFeedbackService initialized with: {', '.join(available)}")
+        logger.info(f"ReportFeedbackService initialized with: {', '.join(available)}")
 
     async def generate_feedback(
         self,
-        entry: JournalPure,
-        project: JournalProjectPure,
+        entry: Report,
+        project: ReportProjectPure,
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[str]:
         """
-        Generate AI feedback for a journal entry using project instructions.
-
-        This is the core transparency: user's instructions + entry → LLM → feedback.
+        Generate AI feedback for a report entry using project instructions.
 
         Args:
-            entry: Journal entry to analyze,
-            project: Project with instructions and model selection,
-            temperature: Sampling temperature (0-1, default 0.7),
+            entry: Report to analyze (uses content for journals, processed_content for others)
+            project: Project with instructions and model selection
+            temperature: Sampling temperature (0-1, default 0.7)
             max_tokens: Maximum tokens to generate (default 4000)
 
         Returns:
             Result[str] containing the generated feedback
         """
         try:
-            # Validate project
             if not project.is_valid():
                 return Result.fail(
                     Errors.validation("Invalid project: missing required fields", field="project")
                 )
 
-            # Build prompt using project's transparent method
-            prompt = project.get_feedback_prompt(entry.content)
+            # Use content for journals, processed_content for file-based reports
+            entry_content = entry.content or entry.processed_content or ""
+            if not entry_content:
+                return Result.fail(
+                    Errors.validation("Report has no content for feedback", field="content")
+                )
+
+            prompt = project.get_feedback_prompt(entry_content)
 
             self.logger.info(
                 f"Generating feedback for entry {entry.uid} using project {project.uid}"
             )
             self.logger.debug(f"Model: {project.model}, Prompt length: {len(prompt)} chars")
 
-            # Route to appropriate AI service based on model
             if project.model.startswith("gpt"):
-                # OpenAI model
                 if not self.openai:
                     return Result.fail(
                         Errors.integration(
@@ -127,7 +102,6 @@ class JournalFeedbackService:
                             message="OpenAI service not configured, but GPT model requested",
                         )
                     )
-
                 result = await self.openai.generate_completion(
                     prompt=prompt,
                     max_tokens=max_tokens,
@@ -136,7 +110,6 @@ class JournalFeedbackService:
                 )
 
             elif project.model.startswith("claude"):
-                # Anthropic model
                 if not self.anthropic:
                     return Result.fail(
                         Errors.integration(
@@ -145,7 +118,6 @@ class JournalFeedbackService:
                             message="Anthropic service not configured, but Claude model requested",
                         )
                     )
-
                 result = await self.anthropic.generate_completion(
                     prompt=prompt,
                     max_tokens=max_tokens,
@@ -166,8 +138,7 @@ class JournalFeedbackService:
                 return result
 
             feedback = result.value
-
-            self.logger.info(f"✅ Feedback generated: {len(feedback)} chars")
+            self.logger.info(f"Feedback generated: {len(feedback)} chars")
             return Result.ok(feedback)
 
         except Exception as e:
@@ -177,17 +148,10 @@ class JournalFeedbackService:
             )
 
     def get_supported_models(self) -> dict[str, list[str]]:
-        """
-        Get list of supported models by provider.
-
-        Returns:
-            Dict mapping provider to list of model names
-        """
+        """Get list of supported models by provider."""
         models = {}
-
         if self.openai:
             models["openai"] = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"]
-
         if self.anthropic:
             models["anthropic"] = [
                 "claude-3-5-sonnet-20241022",
@@ -196,19 +160,10 @@ class JournalFeedbackService:
                 "claude-3-sonnet-20240229",
                 "claude-3-haiku-20240307",
             ]
-
         return models
 
     def is_model_supported(self, model: str) -> bool:
-        """
-        Check if a model is supported by available services.
-
-        Args:
-            model: Model name to check
-
-        Returns:
-            True if supported, False otherwise
-        """
+        """Check if a model is supported by available services."""
         if model.startswith("gpt") and self.openai:
             return True
         return bool(model.startswith("claude") and self.anthropic)

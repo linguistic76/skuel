@@ -2,13 +2,9 @@
 Reports Relationship Service
 =================================
 
-Creates graph relationships for Report nodes (file submissions).
+Creates graph relationships for Report nodes.
 
-Domain Separation (January 2026):
-- Reports: File submission, teacher review, gradebook
-- Journals: Personal reflections - use JournalRelationshipService for :Journal nodes
-
-This service handles relationships for :Report nodes only.
+Unified service for all report types including journals (February 2026 merge).
 
 Relationships Created:
 1. FOLLOWS -> Previous report of same type (temporal continuity)
@@ -16,8 +12,8 @@ Relationships Created:
 3. SUPPORTS_GOAL -> Goals mentioned in content (goal progress tracking)
 """
 
-from core.models.report.report import Report
 from core.models.relationship_names import RelationshipName
+from core.models.report.report import Report
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -26,8 +22,7 @@ class ReportsRelationshipService:
     """
     Service for creating graph relationships on Report nodes.
 
-    Handles file submission relationships (transcripts, reports, etc.).
-    For Journal relationships, use JournalRelationshipService.
+    Handles all report relationships including journals (merged February 2026).
     """
 
     def __init__(self, driver) -> None:

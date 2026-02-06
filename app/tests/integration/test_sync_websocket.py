@@ -18,15 +18,11 @@ Requires running server for WebSocket tests.
 
 from __future__ import annotations
 
-import asyncio
-import json
-from typing import Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from adapters.inbound.ingestion_api import broadcast_progress
-
 
 # ============================================================================
 # TEST FIXTURES
@@ -183,8 +179,9 @@ def test_progress_tracker_update_with_callback():
 
 def test_progress_tracker_eta_calculation():
     """Test ETA calculation accuracy."""
-    from core.services.ingestion.progress_tracker import ProgressTracker
     import time
+
+    from core.services.ingestion.progress_tracker import ProgressTracker
 
     tracker = ProgressTracker(total_files=100)
 
@@ -511,8 +508,9 @@ def test_progress_broadcast_frequency():
 
 def test_eta_calculation_performance():
     """Test that ETA calculation is fast."""
-    from core.services.ingestion.progress_tracker import ProgressTracker
     import time
+
+    from core.services.ingestion.progress_tracker import ProgressTracker
 
     tracker = ProgressTracker(total_files=10000)
 

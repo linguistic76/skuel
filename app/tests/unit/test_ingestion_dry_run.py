@@ -20,14 +20,12 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
 from core.services.ingestion.batch import check_existing_entities, ingest_directory
 from core.services.ingestion.types import DryRunPreview
-from core.utils.result_simplified import Result
-
 
 # ============================================================================
 # TEST FIXTURES - Mock Neo4j Driver and Responses

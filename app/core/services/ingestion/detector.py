@@ -41,8 +41,8 @@ TYPE_MAPPING: dict[str, EntityType] = {
     # Finance
     "expense": EntityType.FINANCE,
     "finance": EntityType.FINANCE,
-    # Content/Processing
-    "journal": EntityType.JOURNAL,
+    # Content/Processing (journal maps to REPORT since Feb 2026 merge)
+    "journal": EntityType.REPORT,
     "report": EntityType.REPORT,
     # Destination
     "lifepath": EntityType.LIFEPATH,

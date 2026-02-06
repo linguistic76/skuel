@@ -187,7 +187,7 @@ from .domain_protocols import (
     FinancesOperations,
     GoalsOperations,
     HabitsOperations,
-    JournalsOperations,
+    # NOTE: JournalsOperations REMOVED (February 2026) - Journal merged into Reports
     PrinciplesOperations,
     TasksOperations,
     UserContextOperations,
@@ -408,7 +408,7 @@ __all__ = [
     # ========== MOCK/STUB ENDPOINT PROTOCOLS (2) ==========
     "IsMockEndpoint",
     "IsStubEndpoint",
-    "JournalsOperations",
+    # "JournalsOperations", - REMOVED February 2026 - Journal merged into Reports
     "KnowledgeAwareness",
     "KuOperations",  # Knowledge Unit operations (point)
     # KuOperationsLegacy, KuQueryOperations DELETED January 2026

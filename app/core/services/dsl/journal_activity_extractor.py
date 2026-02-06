@@ -60,6 +60,7 @@ from core.services.dsl.activity_dsl_parser import (
 )
 from core.services.dsl.activity_entity_converter import (
     ActivityEntityConverter,
+    activity_to_analytics_dict,
     # Meta Domains (3)
     activity_to_calendar_dict,
     activity_to_choice_dict,
@@ -74,7 +75,6 @@ from core.services.dsl.activity_entity_converter import (
     activity_to_lp_dict,
     activity_to_ls_dict,
     activity_to_principle_dict,
-    activity_to_analytics_dict,
     activity_to_report_dict,
     # Activity Domains (7)
     activity_to_task_request,

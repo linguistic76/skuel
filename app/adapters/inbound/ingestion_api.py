@@ -471,13 +471,11 @@ def create_ingestion_api_routes(
         except WebSocketDisconnect:
             logger.info(f"WebSocket disconnected for operation: {operation_id}")
             # Remove connection
-            if operation_id in _active_connections:
-                del _active_connections[operation_id]
+            _active_connections.pop(operation_id, None)
         except Exception as e:
             logger.error(f"WebSocket error for operation {operation_id}: {e}")
             # Remove connection
-            if operation_id in _active_connections:
-                del _active_connections[operation_id]
+            _active_connections.pop(operation_id, None)
 
     # Collect all routes
     routes.extend(

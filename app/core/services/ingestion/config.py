@@ -247,9 +247,11 @@ ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
         required_fields=("description", "amount"),
         requires_user_uid=True,  # Finance domain - user-owned
     ),
+    # NOTE: EntityType.JOURNAL maps to REPORT via get_canonical() (February 2026)
+    # Journal ingestion creates Report nodes with report_type="journal"
     EntityType.JOURNAL: EntityIngestionConfig(
-        entity_label="Journal",
-        uid_prefix="journal",
+        entity_label="Report",
+        uid_prefix="report",
         required_fields=("content",),
         requires_user_uid=True,  # Content/Processing domain - user-owned
     ),

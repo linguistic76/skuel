@@ -53,9 +53,6 @@ Calendar Events:
 Finance:
     ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid,
 
-Journals:
-    JournalCreated, JournalUpdated, JournalDeleted
-
 User:
     UserContextInvalidated, UserPreferencesChanged,
 
@@ -70,14 +67,6 @@ References:
 """
 
 # Base classes and protocols
-# Report events
-from core.events.report_events import (
-    ReportDeleted,
-    ReportProcessingCompleted,
-    ReportProcessingFailed,
-    ReportProcessingStarted,
-    ReportSubmitted,
-)
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
 
 # Calendar Event events
@@ -151,13 +140,8 @@ from core.events.habit_events import (
     HabitStreakMilestone,
 )
 
-# Journal events
-from core.events.journal_events import (
-    JournalCreated,
-    JournalDeleted,
-    JournalUpdated,
-)
-
+# NOTE: Journal events DELETED (February 2026) - Journal merged into Reports
+# Journal operations now fire ReportSubmitted/ReportDeleted events with report_type="journal"
 # Knowledge substance events (tracking real-world application)
 from core.events.ku_events import (
     KnowledgeAppliedInTask,
@@ -188,6 +172,15 @@ from core.events.principle_events import (
     PrincipleDeleted,
     PrincipleStrengthChanged,
     PrincipleUpdated,
+)
+
+# Report events
+from core.events.report_events import (
+    ReportDeleted,
+    ReportProcessingCompleted,
+    ReportProcessingFailed,
+    ReportProcessingStarted,
+    ReportSubmitted,
 )
 
 # Task events
@@ -268,10 +261,7 @@ __all__ = [
     "HabitMissed",
     "HabitStreakBroken",
     "HabitStreakMilestone",
-    # Journals
-    "JournalCreated",
-    "JournalDeleted",
-    "JournalUpdated",
+    # NOTE: Journal events removed (February 2026) - Journal merged into Reports
     # Knowledge substance events
     "KnowledgeAppliedInTask",
     "KnowledgeBulkAppliedInTask",
@@ -415,10 +405,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "expense.updated": ExpenseUpdated,
     "expense.deleted": ExpenseDeleted,
     "expense.paid": ExpensePaid,
-    # Journals
-    "journal.created": JournalCreated,
-    "journal.updated": JournalUpdated,
-    "journal.deleted": JournalDeleted,
+    # NOTE: Journal events removed (February 2026) - Journal merged into Reports
     # Transcriptions
     "transcription.created": TranscriptionCreated,
     "transcription.completed": TranscriptionCompleted,
@@ -605,11 +592,7 @@ FINANCE_EVENTS = [
     ExpensePaid,
 ]
 
-JOURNAL_EVENTS = [
-    JournalCreated,
-    JournalUpdated,
-    JournalDeleted,
-]
+JOURNAL_EVENTS: list = []  # Removed (February 2026) — Journal merged into Reports
 
 TRANSCRIPTION_EVENTS = [
     TranscriptionCreated,

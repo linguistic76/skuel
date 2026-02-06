@@ -32,10 +32,10 @@ import pytest
 import pytest_asyncio
 
 from core.models.report.report import (
+    ProcessorType,
     Report,
     ReportStatus,
     ReportType,
-    ProcessorType,
 )
 from core.services.reports import ReportsProcessingService
 from core.utils.result_simplified import Errors, Result

@@ -33,8 +33,6 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
-from core.models.journal.journal_pure import JournalPure
-from core.models.journal.journal_request import JournalCreateRequest, JournalUpdateRequest
 from core.models.ku.ku import Ku
 from core.models.ku.ku_request import KuCreateRequest, KuUpdateRequest
 from core.models.principle.principle import Principle as PrinciplePure
@@ -508,20 +506,8 @@ class ConversionServiceV2:
         """Apply BudgetUpdateRequest to existing BudgetPure using generic method."""
         return cls.update_to_pure(existing, schema)
 
-    # --- Journal Conversions (three-tier migrated) ---
-    @classmethod
-    def journal_create_to_pure(
-        cls, schema: JournalCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> JournalPure:
-        """Convert JournalCreateRequest to JournalPure using generic method."""
-        return cls.create_to_pure(schema, JournalPure, uid, **kwargs)
-
-    @classmethod
-    def journal_update_to_pure(
-        cls, existing: JournalPure, schema: JournalUpdateRequest
-    ) -> JournalPure:
-        """Apply JournalUpdateRequest to existing JournalPure using generic method."""
-        return cls.update_to_pure(existing, schema)
+    # NOTE: Journal conversions REMOVED (February 2026) - Journal merged into Reports
+    # Use ReportsCoreService.create_journal_report() instead
 
     # --- Transcription Conversions (three-tier migrated) ---
     @classmethod

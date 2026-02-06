@@ -11,11 +11,11 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
-# Journal enums consolidated in /core/models/enums/journal_enums.py (January 2026)
-from core.models.enums.journal_enums import (
+# Journal enums consolidated in /core/models/enums/report_enums.py (February 2026)
+from core.models.enums.metadata_enums import Visibility as ContentVisibility
+from core.models.enums.report_enums import (
     ContentStatus,
     ContentType,
-    ContentVisibility,
     JournalCategory,
     JournalType,
 )
