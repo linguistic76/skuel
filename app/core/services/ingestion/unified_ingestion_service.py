@@ -45,7 +45,7 @@ from .config import DEFAULT_MAX_FILE_SIZE_BYTES, DEFAULT_USER_UID, ENTITY_CONFIG
 from .detector import detect_entity_type, detect_format
 from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import generate_uid, normalize_uid, prepare_entity_data
-from .types import BundleStats, IngestionStats, SyncStats
+from .types import BundleStats, DryRunPreview, IngestionStats, SyncStats
 from .validator import (
     validate_directory,
     validate_entity_data,
@@ -349,7 +349,8 @@ class UnifiedIngestionService:
         sync_mode: Literal["full", "incremental", "smart"] = "full",
         validate_targets: bool = False,
         progress_callback: ProgressCallback | None = None,
-    ) -> Result[IngestionStats | SyncStats]:
+        dry_run: bool = False,
+    ) -> Result[IngestionStats | SyncStats | DryRunPreview]:
         """
         Ingest all supported files in a directory.
 
@@ -364,9 +365,10 @@ class UnifiedIngestionService:
                 - "smart": Skip files with unchanged mtime (fast), verify with hash if changed
             validate_targets: If True, validate relationship targets exist before ingestion
             progress_callback: Optional callback for progress reporting (current, total, current_file)
+            dry_run: If True, validates and previews changes without writing to Neo4j
 
         Returns:
-            Result with IngestionStats (full mode) or SyncStats (incremental/smart mode)
+            Result with IngestionStats (full mode), SyncStats (incremental/smart mode), or DryRunPreview (dry-run mode)
 
         Delegates to batch.ingest_directory.
         """
@@ -383,6 +385,7 @@ class UnifiedIngestionService:
             sync_mode=sync_mode,
             validate_targets=validate_targets,
             progress_callback=progress_callback,
+            dry_run=dry_run,
         )
 
     async def ingest_vault(

@@ -33,7 +33,7 @@ from .detector import detect_entity_type, detect_format
 from .parser import FRONTMATTER_PATTERN, check_file_size, parse_markdown, parse_yaml
 from .preparer import normalize_uid, prepare_entity_data
 from .sync_tracker import SyncTracker
-from .types import BundleStats, IngestionError, IngestionStats, SyncStats
+from .types import BundleStats, DryRunPreview, IngestionError, IngestionStats, SyncStats
 from .validator import validate_entity_data, validate_relationship_targets, validate_required_fields
 
 logger = get_logger("skuel.services.ingestion.batch")
@@ -126,6 +126,39 @@ def create_error(
         field=field,
         suggestion=suggestion,
     )
+
+
+async def check_existing_entities(
+    driver: Any,
+    uids: list[str],
+) -> dict[str, bool]:
+    """
+    Check which UIDs already exist in Neo4j.
+
+    Args:
+        driver: Neo4j async driver
+        uids: List of UIDs to check
+
+    Returns:
+        Dictionary mapping uid -> exists (bool)
+    """
+    if not uids:
+        return {}
+
+    query = """
+    UNWIND $uids AS uid
+    OPTIONAL MATCH (n {uid: uid})
+    RETURN uid, n IS NOT NULL AS exists
+    """
+
+    result = await driver.execute_query(
+        query,
+        {"uids": uids},
+        database_="neo4j",
+    )
+
+    exists_map = {record["uid"]: record["exists"] for record in result.records}
+    return exists_map
 
 
 def parse_file_sync(
@@ -334,7 +367,8 @@ async def ingest_directory(
     sync_mode: Literal["full", "incremental", "smart"] = "full",
     validate_targets: bool = False,
     progress_callback: ProgressCallback | None = None,
-) -> Result[IngestionStats | SyncStats]:
+    dry_run: bool = False,
+) -> Result[IngestionStats | SyncStats | DryRunPreview]:
     """
     Ingest all supported files in a directory.
 
@@ -357,20 +391,29 @@ async def ingest_directory(
             - "smart": Skip files with unchanged mtime (fast), verify with hash if changed
         validate_targets: If True, validate relationship targets exist before ingestion
         progress_callback: Optional callback for progress reporting (current, total, current_file)
+        dry_run: If True, validates and previews changes without writing to Neo4j
 
     Returns:
-        Result with IngestionStats (full mode) or SyncStats (incremental/smart mode)
+        Result with IngestionStats (full mode), SyncStats (incremental/smart mode), or DryRunPreview (dry-run mode)
     """
     start_time = datetime.now()
 
     if not directory.exists():
         return Result.fail(Errors.not_found(f"Directory not found: {directory}"))
 
-    # Validate driver is provided for incremental modes
+    # Validate driver is provided for incremental modes and dry-run
     if sync_mode != "full" and driver is None:
         return Result.fail(
             Errors.validation(
                 "Neo4j driver required for incremental/smart sync mode",
+                field="driver",
+            )
+        )
+
+    if dry_run and driver is None:
+        return Result.fail(
+            Errors.validation(
+                "Neo4j driver required for dry-run mode (to check existing entities)",
                 field="driver",
             )
         )
@@ -479,6 +522,7 @@ async def ingest_directory(
             file_entity_map[str(files_to_process[i])] = (entity_type, entity_data.get("uid", ""))
 
     # Optional: Validate relationship targets before ingestion
+    validation_warnings: list[str] = []
     if validate_targets and driver is not None:
         for entity_type, entities in entities_by_type.items():
             config = ENTITY_CONFIGS.get(entity_type)
@@ -489,6 +533,84 @@ async def ingest_directory(
                 if validation_result.is_ok and not validation_result.value.valid:
                     for warning in validation_result.value.warnings:
                         logger.warning(f"[{entity_type.value}] {warning}")
+                        validation_warnings.append(warning)
+
+    # DRY-RUN MODE: Preview changes without writing to Neo4j
+    if dry_run and driver is not None:
+        # Collect all UIDs to check existence
+        all_uids = []
+        for entities in entities_by_type.values():
+            all_uids.extend(entity.get("uid", "") for entity in entities if entity.get("uid"))
+
+        # Check which entities already exist
+        exists_map = await check_existing_entities(driver, all_uids)
+
+        # Categorize files
+        files_to_create: list[dict[str, Any]] = []
+        files_to_update: list[dict[str, Any]] = []
+        relationships_to_create: list[dict[str, Any]] = []
+
+        for entity_type, entities in entities_by_type.items():
+            config = ENTITY_CONFIGS.get(entity_type)
+            if not config:
+                continue
+
+            for entity in entities:
+                uid = entity.get("uid", "")
+                title = entity.get("title") or entity.get("name", "")
+                file_path = entity.get("_file_path", "")
+
+                if exists_map.get(uid, False):
+                    # Entity exists - would be updated
+                    files_to_update.append({
+                        "uid": uid,
+                        "title": title,
+                        "entity_type": entity_type.value,
+                        "file_path": file_path,
+                        "changes_summary": "Content would be updated",
+                    })
+                else:
+                    # New entity - would be created
+                    files_to_create.append({
+                        "uid": uid,
+                        "title": title,
+                        "entity_type": entity_type.value,
+                        "file_path": file_path,
+                    })
+
+                # Track relationships that would be created
+                rel_config = config.relationship_config or {}
+                for rel_type, source_field in rel_config.items():
+                    target_uids = entity.get(source_field, [])
+                    if isinstance(target_uids, str):
+                        target_uids = [target_uids]
+                    for target_uid in target_uids:
+                        if target_uid:
+                            relationships_to_create.append({
+                                "source": uid,
+                                "target": target_uid,
+                                "type": rel_type,
+                            })
+
+        # Build preview
+        duration = (datetime.now() - start_time).total_seconds()
+        preview = DryRunPreview(
+            total_files=len(all_files),
+            files_to_create=files_to_create,
+            files_to_update=files_to_update,
+            files_to_skip=[str(fp) for fp in all_files if str(fp) not in file_entity_map],
+            relationships_to_create=relationships_to_create,
+            validation_warnings=validation_warnings,
+            validation_errors=[str(e) for e in errors],
+        )
+
+        logger.info(
+            f"DRY-RUN: Would create {len(files_to_create)} entities, "
+            f"update {len(files_to_update)} entities, "
+            f"skip {len(preview.files_to_skip)} files"
+        )
+
+        return Result.ok(preview)
 
     # Batch ingest by entity type
     total_nodes_created = 0

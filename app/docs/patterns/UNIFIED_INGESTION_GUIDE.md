@@ -44,6 +44,179 @@ stats = await service.ingest_bundle(Path("/bundles/mindfulness"))
 
 ---
 
+## UX Guide: Using Sync Features (2026-02-06)
+
+### Dry-Run Preview
+
+Preview changes before syncing to Neo4j:
+
+```python
+# Preview without writing
+result = await service.ingest_directory(
+    Path("/docs"),
+    dry_run=True  # Preview mode
+)
+
+preview = result.value  # DryRunPreview object
+
+# Inspect what would change
+print(f"Would create: {len(preview.files_to_create)} files")
+print(f"Would update: {len(preview.files_to_update)} files")
+print(f"Would skip: {len(preview.files_to_skip)} files")
+print(f"Relationships: {len(preview.relationships_to_create)}")
+```
+
+**Use Cases:**
+- Verify file detection before large sync
+- Check entity type classification
+- Validate relationship targets
+- Estimate sync impact (nodes/edges)
+
+### Sync History & Audit Trail
+
+Track all sync operations in Neo4j:
+
+```python
+from core.services.ingestion import SyncHistoryService
+
+history = SyncHistoryService(driver)
+
+# Create history entry before sync
+operation_id = await history.create_entry(
+    operation_type="directory",
+    user_uid="user_admin",
+    source_path="/vault/docs"
+)
+
+# Perform sync
+result = await service.ingest_directory(Path("/vault/docs"))
+
+# Update history with results
+await history.update_entry(
+    operation_id=operation_id,
+    status="completed" if result.is_ok else "failed",
+    stats=result.value.__dict__,
+    errors=result.value.errors if result.is_ok else []
+)
+
+# Retrieve history (paginated)
+entries = await history.get_history(limit=50, offset=0)
+for entry in entries.value:
+    print(f"{entry.started_at}: {entry.operation_type} - {entry.status}")
+    print(f"  Files: {entry.stats['successful']}/{entry.stats['total_files']}")
+```
+
+**Graph Model:**
+```cypher
+(:SyncHistory {
+  operation_id: "uuid",
+  operation_type: "directory",
+  started_at: datetime(),
+  completed_at: datetime(),
+  status: "completed",
+  total_files: 1000,
+  successful: 995,
+  failed: 5
+})-[:HAD_ERROR]->(:IngestionError {
+  file: "/vault/bad.md",
+  error: "Missing title",
+  stage: "validation"
+})
+```
+
+### Real-Time Progress (WebSocket)
+
+Monitor sync progress in real-time:
+
+```python
+from core.services.ingestion import ProgressTracker
+
+# Create progress tracker with WebSocket callback
+def broadcast_progress(operation_id, progress_data):
+    # Broadcast to connected WebSocket clients
+    # See /adapters/inbound/ingestion_api.py for implementation
+    pass
+
+# Use progress callback during sync
+result = await service.ingest_directory(
+    Path("/vault/docs"),
+    progress_callback=lambda current, total, file: broadcast_progress(
+        operation_id,
+        {
+            "current": current,
+            "total": total,
+            "percentage": round((current / total) * 100, 1),
+            "current_file": str(file),
+        }
+    )
+)
+```
+
+**WebSocket Endpoint:**
+```
+ws://localhost:5001/ws/ingest/progress/{operation_id}
+```
+
+**Progress Data Format:**
+```json
+{
+  "current": 100,
+  "total": 1000,
+  "percentage": 10.0,
+  "current_file": "/vault/docs/file.md",
+  "eta_seconds": 90
+}
+```
+
+**Client-Side (Alpine.js):**
+```html
+<div x-data="syncProgress('operation-uuid')">
+  <div x-text="percentage + '%'"></div>
+  <div x-text="currentFile"></div>
+  <div x-text="formatEta()"></div>
+</div>
+```
+
+### Domain-Integrated Sync (Admin)
+
+Trigger syncs from domain list pages:
+
+```python
+from ui.patterns.domain_sync_trigger import DomainSyncTrigger, DomainSyncModal
+
+@rt("/ku")
+async def ku_list_page(request: Request):
+    is_admin = has_admin_role(request)
+    kus = await ku_service.list_all()
+
+    return BasePage(
+        content=Div(
+            Div(
+                H1("Knowledge Units"),
+                DomainSyncTrigger("ku", is_admin),  # Admin-only button
+                cls="flex justify-between items-center mb-4"
+            ),
+            KuListTable(kus),
+            DomainSyncModal("ku"),  # Modal with form
+        ),
+        title="Knowledge Units",
+        request=request,
+    )
+```
+
+**Admin Experience:**
+1. Click "🔄 Sync KU" button
+2. Modal opens with form:
+   - Source directory (pre-filled)
+   - File pattern (default: `*.md`)
+   - Dry-run checkbox
+3. Submit form
+4. See results in modal (formatted stats or preview)
+
+**See:** `/DOMAIN_SYNC_INTEGRATION_GUIDE.md` for complete guide
+
+---
+
 ## Package Structure
 
 ```

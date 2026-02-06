@@ -17,11 +17,13 @@ Routes:
 - POST /api/ingest/bundle - Ingest domain bundle with manifest
 """
 
+import asyncio
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from starlette.requests import Request
+from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from core.auth import require_admin
 from core.utils.error_boundary import boundary_handler
@@ -32,6 +34,25 @@ if TYPE_CHECKING:
     from core.services.ingestion import UnifiedIngestionService
 
 logger = get_logger("skuel.routes.ingestion")
+
+# Global dictionary to store active WebSocket connections by operation_id
+_active_connections: dict[str, WebSocket] = {}
+
+
+def broadcast_progress(operation_id: str, progress_data: dict[str, Any]) -> None:
+    """
+    Broadcast progress update to WebSocket connection.
+
+    Args:
+        operation_id: UUID of the sync operation
+        progress_data: Progress data to send
+    """
+    if operation_id in _active_connections:
+        ws = _active_connections[operation_id]
+        try:
+            asyncio.create_task(ws.send_json(progress_data))
+        except Exception as e:
+            logger.error(f"Failed to broadcast progress: {e}")
 
 
 def _validate_ingestion_path(path_str: str) -> Result[Path]:
@@ -338,6 +359,126 @@ def create_ingestion_api_routes(
                 Errors.system("Bundle ingestion failed", exception=e, operation="ingest_bundle")
             )
 
+    # Domain-specific sync endpoint
+    @rt("/api/ingest/domain/{domain_name}", methods=["POST"])
+    @require_admin(get_user_service)
+    @boundary_handler(success_status=200)
+    async def domain_sync(request: Request, domain_name: str, current_user):
+        """
+        Domain-specific sync endpoint.
+
+        Request form:
+            source_path: str - Path to directory to sync
+            pattern: str - File pattern (default: "*.md")
+            dry_run: str - "true" for preview mode
+
+        Returns:
+            Result with DryRunPreview or IngestionStats
+        """
+        try:
+            form_data = await request.form()
+            source_path_str = form_data.get("source_path")
+            pattern = form_data.get("pattern", "*.md")
+            dry_run = form_data.get("dry_run") == "true"
+
+            # Validate path
+            path_result = _validate_ingestion_path(source_path_str)
+            if path_result.is_error:
+                return path_result
+
+            source_path = path_result.value
+            if not source_path.exists() or not source_path.is_dir():
+                return Result.fail(Errors.not_found("Directory", str(source_path)))
+
+            # Map domain to entity type
+            from core.models.shared_enums import EntityType
+
+            domain_to_entity = {
+                "ku": EntityType.KU,
+                "ls": EntityType.LS,
+                "lp": EntityType.LP,
+                "tasks": EntityType.TASK,
+                "goals": EntityType.GOAL,
+                "habits": EntityType.HABIT,
+                "events": EntityType.EVENT,
+                "choices": EntityType.CHOICE,
+                "principles": EntityType.PRINCIPLE,
+            }
+
+            if domain_name not in domain_to_entity:
+                return Result.fail(Errors.validation(f"Unknown domain: {domain_name}"))
+
+            entity_type = domain_to_entity[domain_name]
+
+            # Perform sync (with entity type filter would be added to batch.py in future)
+            # For now, sync all files in the directory
+            result = await unified_ingestion.ingest_directory(
+                source_path,
+                pattern=pattern,
+                dry_run=dry_run,
+            )
+
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
+            # Return appropriate component based on mode
+            if dry_run:
+                from ui.patterns.sync_preview import DryRunPreviewComponent
+
+                preview = result.value
+                return Result.ok(DryRunPreviewComponent(preview, operation_id=None))
+            else:
+                from ui.patterns.sync_results import SyncResultsSummary
+
+                stats = result.value
+                return Result.ok(SyncResultsSummary(stats))
+
+        except Exception as e:
+            logger.error(f"Domain sync failed for {domain_name}: {e}")
+            return Result.fail(
+                Errors.system(
+                    f"Domain sync failed for {domain_name}",
+                    exception=e,
+                    operation="domain_sync",
+                )
+            )
+
+    # WebSocket route for real-time progress
+    @rt("/ws/ingest/progress/{operation_id}")
+    async def sync_progress_websocket(ws: WebSocket, operation_id: str):
+        """
+        WebSocket for real-time sync progress updates.
+
+        Clients connect with the operation_id and receive JSON progress updates:
+        {
+            "current": 100,
+            "total": 1000,
+            "percentage": 10.0,
+            "current_file": "/path/to/file.md",
+            "eta_seconds": 90
+        }
+        """
+        await ws.accept()
+        logger.info(f"WebSocket connected for operation: {operation_id}")
+
+        # Store connection
+        _active_connections[operation_id] = ws
+
+        try:
+            # Keep connection alive
+            while True:
+                await ws.receive_text()
+        except WebSocketDisconnect:
+            logger.info(f"WebSocket disconnected for operation: {operation_id}")
+            # Remove connection
+            if operation_id in _active_connections:
+                del _active_connections[operation_id]
+        except Exception as e:
+            logger.error(f"WebSocket error for operation {operation_id}: {e}")
+            # Remove connection
+            if operation_id in _active_connections:
+                del _active_connections[operation_id]
+
     # Collect all routes
     routes.extend(
         [
@@ -345,6 +486,8 @@ def create_ingestion_api_routes(
             ingest_directory_route,
             ingest_vault_route,
             ingest_bundle_route,
+            domain_sync,
+            sync_progress_websocket,
         ]
     )
 

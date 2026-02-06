@@ -58,13 +58,18 @@ from .parser import parse_markdown, parse_yaml
 # Preparer functions
 from .preparer import generate_uid, normalize_uid, prepare_entity_data
 
+# Progress tracking
+from .progress_tracker import ProgressTracker
+
 # Sync tracking
+from .sync_history import SyncHistoryEntry, SyncHistoryService
 from .sync_tracker import FileSyncMetadata, SyncDecision, SyncTracker
 
 # Data types
 from .types import (
     BundleStats,
     DirectoryValidationResult,
+    DryRunPreview,
     IngestionError,
     IngestionStats,
     RelationshipValidationResult,
@@ -94,15 +99,21 @@ __all__ = [
     # Data types
     "BundleStats",
     "DirectoryValidationResult",
+    "DryRunPreview",
     "IngestionError",
     "IngestionStats",
     "RelationshipValidationResult",
     "SyncStats",
     "ValidationResult",
+    # Progress tracking
+    "ProgressTracker",
     # Sync tracking
     "FileSyncMetadata",
     "SyncDecision",
     "SyncTracker",
+    # Sync history
+    "SyncHistoryEntry",
+    "SyncHistoryService",
     # Primary service
     "UnifiedIngestionService",
     # Detector

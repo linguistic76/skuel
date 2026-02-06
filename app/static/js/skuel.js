@@ -3055,6 +3055,132 @@
             };
         });
 
+        // =====================================================================
+        // Sync Progress - Real-Time WebSocket Progress Tracking
+        // =====================================================================
+
+        /**
+         * Sync Progress Component
+         * Connects to WebSocket for real-time sync operation progress updates.
+         *
+         * Usage:
+         *   <div x-data="syncProgress('operation-uuid')">
+         *     <span x-text="percentage + '%'"></span>
+         *     <span x-text="formatEta()"></span>
+         *   </div>
+         *
+         * @param {string} operationId - UUID of the sync operation
+         * @returns {object} Alpine.js component data
+         */
+        Alpine.data('syncProgress', function(operationId) {
+            return {
+                // Progress data
+                current: 0,
+                total: 100,
+                percentage: 0,
+                currentFile: '',
+                etaSeconds: 0,
+
+                // Connection state
+                connected: false,
+                error: null,
+
+                // WebSocket instance
+                ws: null,
+
+                /**
+                 * Initialize component and connect to WebSocket.
+                 */
+                init: function() {
+                    this.connectWebSocket();
+                },
+
+                /**
+                 * Connect to WebSocket endpoint for progress updates.
+                 */
+                connectWebSocket: function() {
+                    // Determine WebSocket protocol based on current page protocol
+                    var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    var host = window.location.host;
+                    var wsUrl = protocol + '//' + host + '/ws/ingest/progress/' + operationId;
+
+                    SKUEL.debug('Connecting to WebSocket:', wsUrl);
+
+                    try {
+                        this.ws = new WebSocket(wsUrl);
+
+                        // Connection opened
+                        this.ws.onopen = function() {
+                            this.connected = true;
+                            this.error = null;
+                            SKUEL.debug('WebSocket connected for operation:', operationId);
+                        }.bind(this);
+
+                        // Message received
+                        this.ws.onmessage = function(event) {
+                            try {
+                                var data = JSON.parse(event.data);
+                                this.current = data.current || 0;
+                                this.total = data.total || 100;
+                                this.percentage = data.percentage || 0;
+                                this.currentFile = data.current_file || '';
+                                this.etaSeconds = data.eta_seconds || 0;
+
+                                SKUEL.debug('Progress update:', {
+                                    current: this.current,
+                                    total: this.total,
+                                    percentage: this.percentage
+                                });
+                            } catch (e) {
+                                console.error('[SKUEL] Failed to parse WebSocket message:', e);
+                            }
+                        }.bind(this);
+
+                        // Connection error
+                        this.ws.onerror = function(error) {
+                            this.error = 'WebSocket connection failed';
+                            this.connected = false;
+                            console.error('[SKUEL] WebSocket error:', error);
+                        }.bind(this);
+
+                        // Connection closed
+                        this.ws.onclose = function() {
+                            this.connected = false;
+                            SKUEL.debug('WebSocket disconnected for operation:', operationId);
+                        }.bind(this);
+
+                    } catch (e) {
+                        this.error = 'Failed to initialize WebSocket';
+                        console.error('[SKUEL] WebSocket initialization failed:', e);
+                    }
+                },
+
+                /**
+                 * Format ETA in human-readable format.
+                 *
+                 * @returns {string} Formatted ETA (e.g., "2m 30s" or "45s")
+                 */
+                formatEta: function() {
+                    if (this.etaSeconds < 60) {
+                        return this.etaSeconds + 's';
+                    }
+                    var minutes = Math.floor(this.etaSeconds / 60);
+                    var seconds = this.etaSeconds % 60;
+                    return minutes + 'm ' + seconds + 's';
+                },
+
+                /**
+                 * Close WebSocket connection (cleanup).
+                 */
+                destroy: function() {
+                    if (this.ws) {
+                        this.ws.close();
+                        this.ws = null;
+                    }
+                }
+            };
+        });
+
     });
 
 })();
