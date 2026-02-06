@@ -204,7 +204,22 @@
       "Bash(git mv:*)",
       "Bash(/home/mike/skuel/app/scripts/install_git_hooks.sh:*)",
       "Bash(/home/mike/skuel/app/.git/hooks/pre-commit)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(1)",
+      "Bash(awk:*)",
+      "Bash(cut:*)",
+      "Bash(git push:*)",
+      "Bash(git stash:*)",
+      "Bash(claude mcp add:*)",
+      "mcp__neo4j-cypher__read_neo4j_cypher",
+      "mcp__neo4j-cypher__get_neo4j_schema",
+      "Bash(sudo rm:*)",
+      "Bash(sudo -S rm:*)",
+      "Bash(git -C /home/mike/skuel/app status)",
+      "Bash(git -C /home/mike/skuel/app diff)",
+      "Bash(git -C /home/mike/skuel/app log --oneline -5)",
+      "Bash(git -C /home/mike/skuel/app commit -m \"$\\(cat <<''EOF''\nRemove stale /home/mike/infra references, point all docs to ~/skuel/infrastructure\n\n/home/mike/infra contained only leftover Neo4j runtime data from before the\ninfrastructure consolidation; the running container already mounts exclusively\nfrom ~/skuel/infrastructure. Deleted the directory and updated 48 path\nreferences across docker-compose files, SETUP.md, README.md, docs/README.md,\nand infrastructure/README.md. Also corrected ~/skuel00 → ~/skuel/app in\ninfrastructure/README.md. MIGRATION_SUMMARY.md left unchanged \\(historical\nrecord\\).\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(true echo \"\" echo \"=== Summary of last requests ===\" grep -E \"\\(GET|POST\\).*assignments\" /tmp/server_clean.log)"
     ]
   }
 }
