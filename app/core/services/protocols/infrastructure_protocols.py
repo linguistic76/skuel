@@ -5,7 +5,8 @@ Infrastructure Service Protocols
 Interfaces for infrastructure and system services.
 """
 
-from typing import Any, Protocol, runtime_checkable
+from pathlib import Path
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from core.models.type_hints import Metadata
 from core.utils.result_simplified import Result
@@ -244,4 +245,45 @@ class AsyncCloseable(Protocol):
 
     async def close(self) -> None:
         """Close the resource asynchronously."""
+        ...
+
+
+@runtime_checkable
+class IngestionOperations(Protocol):
+    """Content ingestion operations for MD/YAML → Neo4j pipeline.
+
+    Covers the public async API surface of UnifiedIngestionService.
+    All methods return Result[T] for consistent error handling.
+
+    See: /docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md
+    """
+
+    async def ingest_file(self, file_path: Path) -> Result[dict[str, Any]]:
+        """Ingest a single MD or YAML file into Neo4j."""
+        ...
+
+    async def ingest_directory(
+        self,
+        directory: Path,
+        pattern: str = "*",
+        batch_size: int = 500,
+        max_concurrent: int = 20,
+        ingestion_mode: Literal["full", "incremental", "smart"] = "full",
+        validate_targets: bool = False,
+        progress_callback: Any | None = None,
+        dry_run: bool = False,
+    ) -> Result[Any]:
+        """Ingest all supported files in a directory."""
+        ...
+
+    async def ingest_vault(
+        self,
+        vault_path: Path,
+        subdirs: list[str] | None = None,
+    ) -> Result[Any]:
+        """Ingest an Obsidian vault or specific subdirectories."""
+        ...
+
+    async def ingest_bundle(self, bundle_path: Path) -> Result[Any]:
+        """Ingest a domain bundle using manifest file."""
         ...

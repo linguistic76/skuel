@@ -31,7 +31,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.ingestion import UnifiedIngestionService
+    from core.services.protocols import IngestionOperations
 
 logger = get_logger("skuel.routes.ingestion")
 
@@ -105,7 +105,7 @@ def _validate_ingestion_path(path_str: str) -> Result[Path]:
 def create_ingestion_api_routes(
     app,
     rt,
-    unified_ingestion: "UnifiedIngestionService",
+    unified_ingestion: "IngestionOperations",
     user_service=None,
 ):
     """

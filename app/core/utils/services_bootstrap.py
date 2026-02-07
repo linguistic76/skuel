@@ -123,6 +123,7 @@ from core.services.protocols import (
     FinancesOperations,
     GoalsOperations,
     HabitsOperations,
+    IngestionOperations,
     IntelligenceOperations,
     # Knowledge operations
     KuOperations,
@@ -289,7 +290,7 @@ class Services:
     apoc_adapter: Any = None
 
     # Unified Ingestion Service (ADR-014: Merged MD + YAML ingestion)
-    unified_ingestion: Any = (
+    unified_ingestion: IngestionOperations | None = (
         None  # UnifiedIngestionService - handles both MD and YAML for all 14 entity types
     )
 

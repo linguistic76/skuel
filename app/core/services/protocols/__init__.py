@@ -216,6 +216,7 @@ from .infrastructure_protocols import (
     AsyncCloseable,
     Closeable,
     EventBusOperations,
+    IngestionOperations,
     SchemaOperations,
     UserOperations,
 )
@@ -313,7 +314,7 @@ __all__ = [
     "AskesisQueryOperations",
     "AskesisRecommendationOperations",
     "AskesisStateAnalysisOperations",
-    # ========== INFRASTRUCTURE PROTOCOLS (6) ==========
+    # ========== INFRASTRUCTURE PROTOCOLS (7) ==========
     "AsyncCloseable",
     # Full protocol (composes all 7 sub-protocols)
     "BackendOperations",  # THE protocol for UniversalNeo4jBackend
@@ -344,6 +345,7 @@ __all__ = [
     "EventsOperations",
     "FinancesOperations",
     "FullAwareness",
+    "IngestionOperations",
     # ========== PYDANTIC CONSTRAINT PROTOCOLS (7) ==========
     "GeConstraint",
     "GoalAwareness",
