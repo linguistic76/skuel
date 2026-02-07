@@ -92,10 +92,10 @@ Migrated all remaining BaseService subclasses outside Activity domains to achiev
 - `core/services/journals/journals_core_service.py` - Journal entry management
 - `core/services/journals/journal_project_service.py` - Journal project operations
 
-**Assignment Domain (3):**
-- `core/services/assignments/assignments_core_service.py` - Assignment core operations
-- `core/services/assignments/assignments_search_service.py` - Assignment search/query
-- `core/services/assignments/assignments_submission_service.py` - Submission handling
+**Reports Domain (3):**
+- `core/services/reports/reports_core_service.py` - Report core operations
+- `core/services/reports/reports_search_service.py` - Report search/query
+- `core/services/reports/reports_submission_service.py` - Submission handling
 
 **Infrastructure Services (1):**
 - `core/services/relationships/unified_relationship_service.py` - Added `_get_config_value()` override for graceful degradation pattern
@@ -216,10 +216,10 @@ GOALS_CONFIG = create_activity_domain_config(
 - `core/services/journals/journals_core_service.py`
 - `core/services/journals/journal_project_service.py`
 
-### Assignment Services (Phase 4) - 3 files
-- `core/services/assignments/assignments_core_service.py`
-- `core/services/assignments/assignments_search_service.py`
-- `core/services/assignments/assignments_submission_service.py`
+### Reports Services (Phase 4) - 3 files
+- `core/services/reports/reports_core_service.py`
+- `core/services/reports/reports_search_service.py`
+- `core/services/reports/reports_submission_service.py`
 
 ### Infrastructure Services (Phase 4) - 1 file
 - `core/services/relationships/unified_relationship_service.py`
@@ -469,7 +469,7 @@ The DomainConfig migration and optimization is **production ready** and represen
 
 **Key Achievements:**
 - ✅ 100% of BaseService subclasses migrated (34 total services)
-- ✅ Complete domain coverage: Activity (25), Curriculum (2), Content (3), Assignments (3), Infrastructure (1)
+- ✅ Complete domain coverage: Activity (25), Curriculum (2), Content (3), Reports (3), Infrastructure (1)
 - ✅ Single configuration source established across entire codebase
 - ✅ Architecture health improved 8.5 → 9.8 (migration) → 9.9 (optimization)
 - ✅ Performance optimized: 60-120x faster property access
