@@ -141,7 +141,7 @@ The `enforce_voice_journal_fifo()` method:
 | **Services** | `/core/services/journals/` |
 | Core Service | `/core/services/journals/journals_core_service.py` |
 | Feedback Service | `/core/services/journals/journal_feedback_service.py` |
-| Project Service | `/core/services/journals/journal_project_service.py` |
+| Project Service | `/core/services/reports/report_project_service.py` (migrated to Reports) |
 | Relationship Service | `/core/services/journals/journal_relationship_service.py` |
 | Types | `/core/services/journals/journals_types.py` |
 | **Models** | `/core/models/journal/` |
@@ -180,7 +180,7 @@ The `enforce_voice_journal_fifo()` method:
 ├── __init__.py                      # Package exports
 ├── journals_core_service.py         # CRUD, FIFO cleanup, search
 ├── journal_feedback_service.py      # AI feedback generation
-├── journal_project_service.py       # Project CRUD
+├── (deleted)                        # Project CRUD → core/services/reports/report_project_service.py
 ├── journal_relationship_service.py  # Graph relationships
 └── journals_types.py                # AI processing types
 ```
@@ -213,12 +213,13 @@ JournalFeedbackService
 └── is_model_supported(model) -> bool
 ```
 
-### JournalProjectService
+### ReportProjectService (migrated to Reports domain)
 
-CRUD for Journal Projects (Claude/ChatGPT-style instruction sets).
+CRUD for Report Projects (Claude/ChatGPT-style instruction sets).
+Now lives at `core/services/reports/report_project_service.py`.
 
 ```
-JournalProjectService (BaseService)
+ReportProjectService (BaseService)
 ├── create_project(user_uid, name, instructions, model, ...)
 ├── get_project(uid)
 ├── list_user_projects(user_uid, active_only)
@@ -226,7 +227,8 @@ JournalProjectService (BaseService)
 ├── delete_project(uid)
 ├── deactivate_project(uid)
 ├── load_project_from_file(file_path, user_uid, ...)
-└── reload_project_from_file(uid)
+├── list_group_assignments(group_uid)
+└── get_student_assignments(user_uid)
 ```
 
 ### JournalRelationshipService

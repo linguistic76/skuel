@@ -90,7 +90,7 @@ Migrated all remaining BaseService subclasses outside Activity domains to achiev
 **Content/Processing Domains (3):**
 - `core/services/transcript_processor_service.py` - Audio transcription processing
 - `core/services/journals/journals_core_service.py` - Journal entry management
-- `core/services/journals/journal_project_service.py` - Journal project operations
+- `core/services/reports/report_project_service.py` - Report project operations
 
 **Reports Domain (3):**
 - `core/services/reports/reports_core_service.py` - Report core operations
@@ -214,7 +214,7 @@ GOALS_CONFIG = create_activity_domain_config(
 ### Content Services (Phase 4) - 3 files
 - `core/services/transcript_processor_service.py`
 - `core/services/journals/journals_core_service.py`
-- `core/services/journals/journal_project_service.py`
+- `core/services/reports/report_project_service.py`
 
 ### Reports Services (Phase 4) - 3 files
 - `core/services/reports/reports_core_service.py`
