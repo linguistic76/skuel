@@ -3,8 +3,8 @@
 Modern implementation using BasePage architecture for consistent UX.
 Sidebar collapses smoothly on desktop, slides in as drawer on mobile.
 
-Sidebar sections: Overview, Shared With Me, Curriculum, Account.
-Activity Domains are in the navbar avatar dropdown (ui/layouts/navbar.py).
+Sidebar sections: Overview, Shared With Me, Curriculum.
+Activity Domains, Settings, and Sign out are in the navbar avatar dropdown (ui/layouts/navbar.py).
 """
 
 from dataclasses import dataclass
@@ -238,33 +238,7 @@ def build_profile_sidebar(
         # Activity Domains moved to navbar profile dropdown (2026-02-06)
         # Curriculum section (if provided)
         *curriculum_section,
-        # Account actions (pinned at bottom)
-        Li(cls="divider my-0"),
-        Li(
-            Span(
-                "Account",
-                cls="text-xs font-semibold uppercase tracking-wider opacity-60",
-            ),
-            cls="menu-title",
-        ),
-        Li(
-            Anchor(
-                Span("⚙️", cls="text-lg", aria_hidden="true"),
-                "Settings",
-                href="/settings",
-                cls="flex items-center gap-2",
-                **{"hx-boost": "false"},
-            )
-        ),
-        Li(
-            Anchor(
-                Span("🚪", cls="text-lg", aria_hidden="true"),
-                "Sign out",
-                href="/logout",
-                cls="flex items-center gap-2",
-                **{"hx-boost": "false"},
-            )
-        ),
+        # Account actions (Settings, Sign out) moved to navbar profile dropdown
         cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
         id="profile-sidebar-nav",
     )

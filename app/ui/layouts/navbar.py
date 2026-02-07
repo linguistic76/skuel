@@ -26,6 +26,7 @@ from starlette.requests import Request
 from ui.layouts.nav_config import (
     ADMIN_NAV_ITEM,
     MAIN_NAV_ITEMS,
+    PROFILE_ACCOUNT_ITEMS,
     PROFILE_DROPDOWN_ITEMS,
     NavItem,
 )
@@ -153,6 +154,8 @@ _DOMAIN_ICONS: dict[str, str] = {
     "habits": "🔄",
     "choices": "🔀",
     "principles": "⚖️",
+    "settings": "⚙️",
+    "logout": "🚪",
 }
 
 
@@ -189,7 +192,8 @@ def _profile_dropdown(current_user: str, active_page: str) -> Div:
         aria_hidden="true",
     )
 
-    menu_items = [_dropdown_link(item, active_page) for item in PROFILE_DROPDOWN_ITEMS]
+    domain_items = [_dropdown_link(item, active_page) for item in PROFILE_DROPDOWN_ITEMS]
+    account_items = [_dropdown_link(item, active_page) for item in PROFILE_ACCOUNT_ITEMS]
 
     return Div(
         Div(
@@ -197,10 +201,12 @@ def _profile_dropdown(current_user: str, active_page: str) -> Div:
             tabindex="0",
             role="button",
             cls="btn btn-ghost btn-circle",
-            aria_label="Activity domains menu",
+            aria_label="Profile menu",
         ),
         Ul(
-            *menu_items,
+            *domain_items,
+            Li(cls="divider my-1"),
+            *account_items,
             tabindex="0",
             cls="dropdown-content menu bg-base-100 rounded-box z-[1] w-48 p-2 shadow-lg border border-base-200",
         ),
@@ -270,6 +276,11 @@ def create_navbar(
                     cls="text-xs font-semibold uppercase tracking-wider opacity-60 px-3 pt-3 pb-1 block",
                 ),
                 *[_nav_link(item, active_page, mobile=True) for item in PROFILE_DROPDOWN_ITEMS],
+                Span(
+                    "Account",
+                    cls="text-xs font-semibold uppercase tracking-wider opacity-60 px-3 pt-3 pb-1 block",
+                ),
+                *[_nav_link(item, active_page, mobile=True) for item in PROFILE_ACCOUNT_ITEMS],
                 cls="space-y-1 px-2 pb-3 border-t border-base-200 mt-2 pt-2",
             ),
             cls="sm:hidden",

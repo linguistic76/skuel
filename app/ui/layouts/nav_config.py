@@ -61,9 +61,16 @@ PROFILE_DROPDOWN_ITEMS: tuple[NavItem, ...] = (
     NavItem("Principles", "/principles", "principles"),
 )
 
+# Account items shown below a divider in the profile dropdown
+PROFILE_ACCOUNT_ITEMS: tuple[NavItem, ...] = (
+    NavItem("Settings", "/settings", "settings"),
+    NavItem("Sign out", "/logout", "logout"),
+)
+
 __all__ = [
     "NavItem",
     "MAIN_NAV_ITEMS",
     "ADMIN_NAV_ITEM",
     "PROFILE_DROPDOWN_ITEMS",
+    "PROFILE_ACCOUNT_ITEMS",
 ]
