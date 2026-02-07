@@ -72,9 +72,15 @@ from core.services.relationships.domain_configs import (
     EVENT_CONFIG,
     GOAL_CONFIG,
     HABIT_CONFIG,
+    KU_CONFIG,
+    LP_CONFIG,
+    LS_CONFIG,
     PRINCIPLE_CONFIG,
     TASK_CONFIG,
     get_config_for_domain,
+    get_ku_config,
+    get_lp_config,
+    get_ls_config,
 )
 from core.services.relationships.extended_config import (
     CrossContextSpec,
@@ -111,6 +117,10 @@ __all__ = [
     "EVENT_CONFIG",
     "GOAL_CONFIG",
     "HABIT_CONFIG",
+    # Curriculum Domain configs (3 + MOC via KU)
+    "KU_CONFIG",
+    "LP_CONFIG",
+    "LS_CONFIG",
     "PATH_AWARE_TYPE_MAP",
     "PRINCIPLE_CONFIG",
     # Activity Domain configs (6 domains - User-owned)
@@ -137,4 +147,7 @@ __all__ = [
     "create_path_aware_entity",
     "get_config_for_domain",
     "get_domain_from_label",
+    "get_ku_config",
+    "get_lp_config",
+    "get_ls_config",
 ]

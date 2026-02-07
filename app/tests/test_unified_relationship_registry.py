@@ -19,6 +19,7 @@ from core.models.unified_relationship_registry import (
     generate_graph_enrichment,
     generate_prerequisite_relationships,
     generate_relationship_config,
+    generate_relationship_config_by_label,
     get_unified_config,
     get_unified_config_by_label,
 )
@@ -300,3 +301,127 @@ class TestActivityDomainIntegration:
         ]
         for label in all_labels:
             assert len(GRAPH_ENRICHMENT_REGISTRY[label]) > 0, f"{label} missing enrichment"
+
+
+class TestGenerateRelationshipConfigByLabel:
+    """Test curriculum config generation via generate_relationship_config_by_label()."""
+
+    def test_generate_ku_config(self):
+        """Verify KU config is generated from label-based lookup."""
+        config = generate_relationship_config_by_label("Ku")
+        assert config is not None
+        assert isinstance(config, RelationshipConfig)
+        assert config.entity_label == "Ku"
+        assert config.domain == Domain.KNOWLEDGE
+
+    def test_generate_ls_config(self):
+        """Verify LS config is generated from label-based lookup."""
+        config = generate_relationship_config_by_label("Ls")
+        assert config is not None
+        assert isinstance(config, RelationshipConfig)
+        assert config.entity_label == "Ls"
+        assert config.domain == Domain.LEARNING
+
+    def test_generate_lp_config(self):
+        """Verify LP config is generated from label-based lookup."""
+        config = generate_relationship_config_by_label("Lp")
+        assert config is not None
+        assert isinstance(config, RelationshipConfig)
+        assert config.entity_label == "Lp"
+        assert config.domain == Domain.LEARNING
+
+    def test_generate_unknown_label_returns_none(self):
+        """Verify unknown labels return None."""
+        config = generate_relationship_config_by_label("Unknown")
+        assert config is None
+
+    def test_lp_steps_have_ordering(self):
+        """Verify LP config has order_by_property on steps spec."""
+        config = generate_relationship_config_by_label("Lp")
+        assert config is not None
+        steps_spec = config.outgoing_relationships["steps"]
+        assert steps_spec.order_by_property == "sequence"
+        assert steps_spec.order_direction == "ASC"
+        assert steps_spec.include_edge_properties == ("sequence", "completed")
+
+    def test_ku_organizes_have_ordering(self):
+        """Verify KU config has order_by_property on organizes spec."""
+        config = generate_relationship_config_by_label("Ku")
+        assert config is not None
+        organizes_spec = config.outgoing_relationships["organizes"]
+        assert organizes_spec.order_by_property == "order"
+        assert organizes_spec.order_direction == "ASC"
+        assert organizes_spec.include_edge_properties == ("order",)
+
+    def test_ls_has_expected_method_keys(self):
+        """Verify LS config has all expected outgoing method_keys."""
+        config = generate_relationship_config_by_label("Ls")
+        assert config is not None
+        expected_outgoing = {
+            "knowledge",
+            "prerequisite_steps",
+            "prerequisite_knowledge",
+            "principles",
+            "choices",
+            "practice_habits",
+            "practice_tasks",
+            "practice_events",
+        }
+        assert set(config.outgoing_relationships.keys()) == expected_outgoing
+
+    def test_ls_has_incoming_in_paths(self):
+        """Verify LS config has in_paths incoming relationship."""
+        config = generate_relationship_config_by_label("Ls")
+        assert config is not None
+        assert "in_paths" in config.incoming_relationships
+
+    def test_ku_has_expected_outgoing_keys(self):
+        """Verify KU config outgoing relationship keys."""
+        config = generate_relationship_config_by_label("Ku")
+        assert config is not None
+        # Outgoing: requires, enables, related, organizes
+        assert "requires" in config.outgoing_relationships
+        assert "enables" in config.outgoing_relationships
+        assert "organizes" in config.outgoing_relationships
+
+    def test_ku_has_expected_incoming_keys(self):
+        """Verify KU config incoming relationship keys."""
+        config = generate_relationship_config_by_label("Ku")
+        assert config is not None
+        assert "required_by" in config.incoming_relationships
+        assert "in_steps" in config.incoming_relationships
+        assert "enabled_by" in config.incoming_relationships
+        assert "organized_by" in config.incoming_relationships
+
+    def test_lp_has_expected_outgoing_keys(self):
+        """Verify LP config outgoing relationship keys."""
+        config = generate_relationship_config_by_label("Lp")
+        assert config is not None
+        expected_outgoing = {"steps", "prerequisites", "goals", "principles", "milestones"}
+        assert set(config.outgoing_relationships.keys()) == expected_outgoing
+
+    def test_lp_has_expected_incoming_keys(self):
+        """Verify LP config incoming relationship keys."""
+        config = generate_relationship_config_by_label("Lp")
+        assert config is not None
+        assert "opened_by" in config.incoming_relationships
+        assert "in_mocs" in config.incoming_relationships
+
+    def test_curriculum_configs_match_domain_configs(self):
+        """Verify generated curriculum configs match domain_configs module."""
+        from core.services.relationships.domain_configs import (
+            KU_CONFIG,
+            LP_CONFIG,
+            LS_CONFIG,
+        )
+
+        assert isinstance(KU_CONFIG, RelationshipConfig)
+        assert isinstance(LS_CONFIG, RelationshipConfig)
+        assert isinstance(LP_CONFIG, RelationshipConfig)
+
+        # Should have same structure as direct generation
+        ku_direct = generate_relationship_config_by_label("Ku")
+        assert KU_CONFIG.entity_label == ku_direct.entity_label
+        assert set(KU_CONFIG.outgoing_relationships.keys()) == set(
+            ku_direct.outgoing_relationships.keys()
+        )

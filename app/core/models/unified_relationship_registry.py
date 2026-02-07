@@ -233,6 +233,15 @@ class UnifiedRelationshipDefinition:
     # Shared-neighbor pattern (for related_* queries - January 2026)
     shared_neighbor_config: SharedNeighborConfig | None = None
 
+    # Ordering support (February 2026 - Curriculum Domains)
+    # Enables ordered relationship queries (e.g., HAS_STEP ordered by sequence)
+    order_by_property: str | None = None
+    order_direction: str = "ASC"
+
+    # Edge metadata (February 2026 - Curriculum Domains)
+    # Specifies which edge properties to include in generated RelationshipSpec
+    include_edge_properties: tuple[str, ...] = ()
+
     def to_graph_enrichment_tuple(self) -> tuple[str, str, str, str]:
         """Generate graph enrichment pattern tuple for BaseService._graph_enrichment_patterns."""
         return (
@@ -1549,7 +1558,7 @@ KU_UNIFIED = DomainRelationshipConfig(
             "Ku",
             "outgoing",
             "prerequisites",
-            "prerequisites",
+            "requires",
             use_confidence=True,  # Context: filter by confidence
         ),
         UnifiedRelationshipDefinition(
@@ -1565,7 +1574,7 @@ KU_UNIFIED = DomainRelationshipConfig(
             "Ku",
             "incoming",
             "dependents",
-            "dependents",
+            "required_by",
         ),
         # Related KUs (bidirectional)
         UnifiedRelationshipDefinition(
@@ -1610,7 +1619,15 @@ KU_UNIFIED = DomainRelationshipConfig(
             "Ls",
             "incoming",
             "in_learning_steps",
-            "learning_steps",
+            "in_steps",
+        ),
+        # Incoming: enables (other KU enables this KU)
+        UnifiedRelationshipDefinition(
+            RelationshipName.ENABLES_KNOWLEDGE,
+            "Ku",
+            "incoming",
+            "enabled_by_kus",
+            "enabled_by",
         ),
         # MOC Navigation (January 2026 - KU-based MOC)
         # A KU "is" a MOC when it has outgoing ORGANIZES relationships
@@ -1619,14 +1636,17 @@ KU_UNIFIED = DomainRelationshipConfig(
             "Ku",
             "outgoing",
             "organized_children",
-            "children",
+            "organizes",
+            order_by_property="order",
+            order_direction="ASC",
+            include_edge_properties=("order",),
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ORGANIZES,
             "Ku",
             "incoming",
             "organized_by",
-            "parents",
+            "organized_by",
         ),
     ),
     prerequisite_relationship_names=(RelationshipName.REQUIRES_KNOWLEDGE,),
@@ -1667,7 +1687,14 @@ LS_UNIFIED = DomainRelationshipConfig(
             "Ls",
             "outgoing",
             "prerequisites",
-            "prerequisites",
+            "prerequisite_steps",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.REQUIRES_KNOWLEDGE,
+            "Ku",
+            "outgoing",
+            "prerequisite_knowledge_units",
+            "prerequisite_knowledge",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDED_BY_PRINCIPLE,
@@ -1676,27 +1703,34 @@ LS_UNIFIED = DomainRelationshipConfig(
             "guiding_principles",
             "principles",
         ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.INFORMS_CHOICE,
+            "Choice",
+            "outgoing",
+            "informed_choices",
+            "choices",
+        ),
         # Practice patterns
         UnifiedRelationshipDefinition(
             RelationshipName.BUILDS_HABIT,
             "Habit",
             "outgoing",
             "builds_habits",
-            "habits",
+            "practice_habits",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ASSIGNS_TASK,
             "Task",
             "outgoing",
             "assigned_tasks",
-            "tasks",
+            "practice_tasks",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SCHEDULES_EVENT,
             "Event",
             "outgoing",
             "scheduled_events",
-            "events",
+            "practice_events",
         ),
         # Incoming: Other → Ls
         UnifiedRelationshipDefinition(
@@ -1742,13 +1776,16 @@ LP_UNIFIED = DomainRelationshipConfig(
             "outgoing",
             "learning_steps",
             "steps",
+            order_by_property="sequence",
+            order_direction="ASC",
+            include_edge_properties=("sequence", "completed"),
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
             "Ku",
             "outgoing",
             "required_knowledge",
-            "knowledge",
+            "prerequisites",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ALIGNED_WITH_GOAL,
@@ -1914,31 +1951,20 @@ def generate_enables_relationships(entity_label: str) -> list[str]:
     return [rel.value for rel in config.enables_relationship_names]
 
 
-def generate_relationship_config(domain: Domain) -> "RelationshipConfig | None":
+def _generate_from_config(config: DomainRelationshipConfig) -> "RelationshipConfig":
     """
-    Generate a RelationshipConfig object for UnifiedRelationshipService.
+    Generate a RelationshipConfig from a DomainRelationshipConfig.
 
-    Args:
-        domain: Domain enum value
-
-    Returns:
-        RelationshipConfig object or None if domain not in registry
-
-    Note:
-        This performs a lazy import of RelationshipConfig to avoid circular imports.
+    Core logic shared by generate_relationship_config() and
+    generate_relationship_config_by_label().
     """
-    # Avoid circular import
     from core.services.relationships.relationship_config import (
         CrossDomainMapping,
         RelationshipConfig,
         RelationshipSpec,
     )
 
-    config = UNIFIED_REGISTRY.get(domain)
-    if not config:
-        return None
-
-    # Build outgoing relationships dict
+    # Build outgoing/incoming relationships dicts
     outgoing: dict[str, RelationshipSpec] = {}
     incoming: dict[str, RelationshipSpec] = {}
 
@@ -1948,6 +1974,9 @@ def generate_relationship_config(domain: Domain) -> "RelationshipConfig | None":
             direction=rel.direction,
             filter_property=rel.filter_property,
             filter_value=rel.filter_value,
+            order_by_property=rel.order_by_property,
+            order_direction=rel.order_direction,
+            include_edge_properties=rel.include_edge_properties,
         )
         if rel.direction == "outgoing":
             outgoing[rel.method_key] = spec
@@ -1991,6 +2020,41 @@ def generate_relationship_config(domain: Domain) -> "RelationshipConfig | None":
         intent_mappings=dict(config.intent_mappings),
         relationship_creation_map=dict(config.relationship_creation_map),
     )
+
+
+def generate_relationship_config(domain: Domain) -> "RelationshipConfig | None":
+    """
+    Generate a RelationshipConfig object for UnifiedRelationshipService.
+
+    Args:
+        domain: Domain enum value
+
+    Returns:
+        RelationshipConfig object or None if domain not in registry
+    """
+    config = UNIFIED_REGISTRY.get(domain)
+    if not config:
+        return None
+    return _generate_from_config(config)
+
+
+def generate_relationship_config_by_label(label: str) -> "RelationshipConfig | None":
+    """
+    Generate a RelationshipConfig by Neo4j node label.
+
+    Uses UNIFIED_REGISTRY_BY_LABEL for unambiguous lookup (e.g., "Lp" vs Domain.LEARNING
+    which maps to LS).
+
+    Args:
+        label: Neo4j node label (e.g., "Ku", "Ls", "Lp")
+
+    Returns:
+        RelationshipConfig object or None if label not in registry
+    """
+    config = UNIFIED_REGISTRY_BY_LABEL.get(label)
+    if not config:
+        return None
+    return _generate_from_config(config)
 
 
 def get_unified_config(domain: Domain) -> DomainRelationshipConfig | None:

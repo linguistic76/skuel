@@ -375,14 +375,15 @@ class KuRelationships:
             if you need semantic context or are working with existing KuGraphService code.
         """
         # Execute all relationship queries in parallel via UnifiedRelationshipService
+        # Method keys match generated config from UnifiedRelationshipRegistry
         results = await asyncio.gather(
-            relationship_service.get_related_uids("prerequisites", ku_uid),
-            relationship_service.get_related_uids("enables_learning", ku_uid),
+            relationship_service.get_related_uids("requires", ku_uid),
+            relationship_service.get_related_uids("enables", ku_uid),
             # Note: "related" may not be defined - check config
             _safe_get_related(relationship_service, "related", ku_uid),
             _safe_get_related(relationship_service, "broader", ku_uid),
             _safe_get_related(relationship_service, "narrower", ku_uid),
-            relationship_service.get_related_uids("in_learning_steps", ku_uid),
+            relationship_service.get_related_uids("in_steps", ku_uid),
             relationship_service.get_related_uids("applied_in_tasks", ku_uid),
             _safe_get_related(relationship_service, "practiced_in_events", ku_uid),
             relationship_service.get_related_uids("reinforced_by_habits", ku_uid),
