@@ -114,17 +114,17 @@ class RelationshipValidationResult:
 
 
 @dataclass
-class SyncStats:
+class IncrementalStats:
     """
-    Statistics from an incremental sync operation.
+    Statistics from an incremental ingestion operation.
 
-    Extends IngestionStats with sync-specific metrics.
+    Extends IngestionStats with incremental-ingestion-specific metrics.
     """
 
     total_files: int = 0
     files_checked: int = 0
     files_skipped: int = 0  # Unchanged files
-    files_synced: int = 0  # Actually processed
+    files_ingested: int = 0  # Actually processed
     files_failed: int = 0
     nodes_created: int = 0
     nodes_updated: int = 0
@@ -136,7 +136,7 @@ class SyncStats:
     errors: list[dict[str, Any]] | None = field(default_factory=list)
 
     @property
-    def sync_efficiency(self) -> float:
+    def skip_efficiency(self) -> float:
         """Calculate efficiency (what % of files were skipped)."""
         if self.total_files == 0:
             return 0.0
@@ -145,8 +145,8 @@ class SyncStats:
     # Compatibility properties to match IngestionStats interface
     @property
     def successful(self) -> int:
-        """Alias for files_synced - matches IngestionStats interface."""
-        return self.files_synced
+        """Alias for files_ingested - matches IngestionStats interface."""
+        return self.files_ingested
 
     @property
     def failed(self) -> int:
@@ -163,7 +163,7 @@ class SyncStats:
 
 @dataclass
 class DryRunPreview:
-    """Preview of what would change during sync."""
+    """Preview of what would change during ingestion."""
 
     total_files: int = 0
     files_to_create: list[dict[str, Any]] = field(
@@ -236,6 +236,6 @@ __all__ = [
     "IngestionError",
     "IngestionStats",
     "RelationshipValidationResult",
-    "SyncStats",
+    "IncrementalStats",
     "ValidationResult",
 ]

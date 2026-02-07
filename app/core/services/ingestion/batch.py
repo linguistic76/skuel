@@ -6,7 +6,7 @@ Handles concurrent file parsing and batch ingestion operations.
 Contains thread-pool workers and async semaphore-controlled processing.
 
 Key Features:
-- Incremental sync support via SyncTracker (skip unchanged files)
+- Incremental ingestion support via IngestionTracker (skip unchanged files)
 - Parallel file parsing with configurable concurrency
 - Progress callback for large operations
 - Relationship target validation before ingestion
@@ -32,8 +32,8 @@ from .config import DEFAULT_MAX_CONCURRENT_PARSING, DEFAULT_MAX_FILE_SIZE_BYTES,
 from .detector import detect_entity_type, detect_format
 from .parser import FRONTMATTER_PATTERN, check_file_size, parse_markdown, parse_yaml
 from .preparer import normalize_uid, prepare_entity_data
-from .sync_tracker import SyncTracker
-from .types import BundleStats, DryRunPreview, IngestionError, IngestionStats, SyncStats
+from .ingestion_tracker import IngestionTracker
+from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionError, IngestionStats
 from .validator import validate_entity_data, validate_relationship_targets, validate_required_fields
 
 logger = get_logger("skuel.services.ingestion.batch")
@@ -358,17 +358,17 @@ async def ingest_directory(
     directory: Path,
     engines: dict[EntityType, BulkIngestionEngine[Any]],  # noqa: ARG001 - Modified by get_engine
     get_engine: Any,  # Callable to get/create engine
-    driver: Any = None,  # Neo4j driver for sync tracking
+    driver: Any = None,  # Neo4j driver for ingestion tracking
     pattern: str = "*",
     batch_size: int = 500,
     max_concurrent: int = DEFAULT_MAX_CONCURRENT_PARSING,
     default_user_uid: str = "user:system",
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
-    sync_mode: Literal["full", "incremental", "smart"] = "full",
+    ingestion_mode: Literal["full", "incremental", "smart"] = "full",
     validate_targets: bool = False,
     progress_callback: ProgressCallback | None = None,
     dry_run: bool = False,
-) -> Result[IngestionStats | SyncStats | DryRunPreview]:
+) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
     """
     Ingest all supported files in a directory.
 
@@ -379,13 +379,13 @@ async def ingest_directory(
         directory: Directory to scan
         engines: Engine cache (keyed by EntityType) - populated by get_engine as side effect
         get_engine: Function to get/create engine for entity type (modifies engines dict)
-        driver: Neo4j driver (required for sync_mode != "full")
+        driver: Neo4j driver (required for ingestion_mode != "full")
         pattern: Glob pattern for files (default: "*" for all supported)
         batch_size: Batch size for bulk operations
         max_concurrent: Maximum concurrent file parsing operations (default: 20)
         default_user_uid: Default user UID
         max_file_size_bytes: Maximum file size
-        sync_mode: Sync strategy:
+        ingestion_mode: Ingestion strategy:
             - "full": Process all files (default, backward compatible)
             - "incremental": Skip files with unchanged content hash
             - "smart": Skip files with unchanged mtime (fast), verify with hash if changed
@@ -394,7 +394,7 @@ async def ingest_directory(
         dry_run: If True, validates and previews changes without writing to Neo4j
 
     Returns:
-        Result with IngestionStats (full mode), SyncStats (incremental/smart mode), or DryRunPreview (dry-run mode)
+        Result with IngestionStats (full mode), IncrementalStats (incremental/smart mode), or DryRunPreview (dry-run mode)
     """
     start_time = datetime.now()
 
@@ -402,10 +402,10 @@ async def ingest_directory(
         return Result.fail(Errors.not_found(f"Directory not found: {directory}"))
 
     # Validate driver is provided for incremental modes and dry-run
-    if sync_mode != "full" and driver is None:
+    if ingestion_mode != "full" and driver is None:
         return Result.fail(
             Errors.validation(
-                "Neo4j driver required for incremental/smart sync mode",
+                "Neo4j driver required for incremental/smart ingestion mode",
                 field="driver",
             )
         )
@@ -422,7 +422,7 @@ async def ingest_directory(
     all_files = collect_files(directory, pattern)
 
     if not all_files:
-        if sync_mode == "full":
+        if ingestion_mode == "full":
             return Result.ok(
                 IngestionStats(
                     total_files=0,
@@ -432,34 +432,36 @@ async def ingest_directory(
             )
         else:
             return Result.ok(
-                SyncStats(
+                IncrementalStats(
                     total_files=0,
                     duration_seconds=0,
                     errors=[{"message": "No files found"}],
                 )
             )
 
-    # Initialize sync tracking for incremental modes
+    # Initialize ingestion tracking for incremental modes
     files_to_process = all_files
     files_skipped = 0
     skipped_unchanged = 0
     skipped_hash_match = 0
-    tracker: SyncTracker | None = None
+    tracker: IngestionTracker | None = None
 
-    if sync_mode != "full" and driver is not None:
-        tracker = SyncTracker(driver)
+    if ingestion_mode != "full" and driver is not None:
+        tracker = IngestionTracker(driver)
         await tracker.ensure_constraints()
 
-        # Get existing sync metadata
-        metadata_result = await tracker.get_sync_metadata(all_files)
+        # Get existing ingestion metadata
+        metadata_result = await tracker.get_ingestion_metadata(all_files)
         metadata_map = metadata_result.value if metadata_result.is_ok else {}
 
-        # Filter to only files needing sync
-        files_to_process, decisions = tracker.filter_files_needing_sync(all_files, metadata_map)
+        # Filter to only files needing ingestion
+        files_to_process, decisions = tracker.filter_files_needing_ingestion(
+            all_files, metadata_map
+        )
 
         # Count skip reasons
         for decision in decisions:
-            if not decision.needs_sync:
+            if not decision.needs_ingestion:
                 files_skipped += 1
                 if decision.reason == "unchanged":
                     if (
@@ -472,7 +474,7 @@ async def ingest_directory(
                         skipped_hash_match += 1
 
         logger.info(
-            f"Incremental sync: {len(files_to_process)}/{len(all_files)} files need processing "
+            f"Incremental ingestion: {len(files_to_process)}/{len(all_files)} files need processing "
             f"({files_skipped} skipped: {skipped_unchanged} unchanged, {skipped_hash_match} hash match)"
         )
 
@@ -480,11 +482,11 @@ async def ingest_directory(
         # All files are up to date
         duration = (datetime.now() - start_time).total_seconds()
         return Result.ok(
-            SyncStats(
+            IncrementalStats(
                 total_files=len(all_files),
                 files_checked=len(all_files),
                 files_skipped=files_skipped,
-                files_synced=0,
+                files_ingested=0,
                 duration_seconds=duration,
                 skipped_unchanged=skipped_unchanged,
                 skipped_hash_match=skipped_hash_match,
@@ -518,7 +520,7 @@ async def ingest_directory(
             if entity_type not in entities_by_type:
                 entities_by_type[entity_type] = []
             entities_by_type[entity_type].append(entity_data)
-            # Track file -> entity mapping for sync metadata updates
+            # Track file -> entity mapping for ingestion metadata updates
             file_entity_map[str(files_to_process[i])] = (entity_type, entity_data.get("uid", ""))
 
     # Optional: Validate relationship targets before ingestion
@@ -659,24 +661,24 @@ async def ingest_directory(
             )
             errors.append(batch_error.to_dict())
 
-    # Update sync metadata for successfully processed files
-    if tracker is not None and sync_mode != "full":
-        sync_updates: list[tuple[Path, str, str]] = []
+    # Update ingestion metadata for successfully processed files
+    if tracker is not None and ingestion_mode != "full":
+        ingestion_updates: list[tuple[Path, str, str]] = []
         for file_path in files_to_process:
             file_str = str(file_path)
             if file_str in file_entity_map:
                 _, uid = file_entity_map[file_str]
                 content_hash = tracker.compute_file_hash(file_path)
-                sync_updates.append((file_path, uid, content_hash))
+                ingestion_updates.append((file_path, uid, content_hash))
 
-        if sync_updates:
-            await tracker.update_sync_metadata_batch(sync_updates)
-            logger.info(f"Updated sync metadata for {len(sync_updates)} files")
+        if ingestion_updates:
+            await tracker.update_ingestion_metadata_batch(ingestion_updates)
+            logger.info(f"Updated ingestion metadata for {len(ingestion_updates)} files")
 
     duration = (datetime.now() - start_time).total_seconds()
 
-    # Return appropriate stats type based on sync mode
-    if sync_mode == "full":
+    # Return appropriate stats type based on ingestion mode
+    if ingestion_mode == "full":
         return Result.ok(
             IngestionStats(
                 total_files=len(all_files),
@@ -691,11 +693,11 @@ async def ingest_directory(
         )
     else:
         return Result.ok(
-            SyncStats(
+            IncrementalStats(
                 total_files=len(all_files),
                 files_checked=len(all_files),
                 files_skipped=files_skipped,
-                files_synced=len(files_to_process) - len(errors),
+                files_ingested=len(files_to_process) - len(errors),
                 files_failed=len(errors),
                 nodes_created=total_nodes_created,
                 nodes_updated=total_nodes_updated,
@@ -719,7 +721,7 @@ async def ingest_vault(
     Args:
         vault_path: Root path of Obsidian vault
         ingest_directory_fn: Function to call for directory ingestion
-        subdirs: Optional list of subdirectories to sync
+        subdirs: Optional list of subdirectories to ingest
 
     Returns:
         Result with aggregated IngestionStats
@@ -727,14 +729,14 @@ async def ingest_vault(
     if not vault_path.exists():
         return Result.fail(Errors.not_found(f"Vault not found: {vault_path}"))
 
-    # Determine directories to sync
-    dirs_to_sync = [vault_path / subdir for subdir in subdirs] if subdirs else [vault_path]
+    # Determine directories to ingest
+    dirs_to_ingest = [vault_path / subdir for subdir in subdirs] if subdirs else [vault_path]
 
     # Aggregate stats
     aggregated = IngestionStats()
     all_errors: list[dict[str, str]] = []
 
-    for directory in dirs_to_sync:
+    for directory in dirs_to_ingest:
         if not directory.exists():
             logger.warning(f"Directory does not exist: {directory}")
             continue
@@ -755,7 +757,7 @@ async def ingest_vault(
     aggregated.errors = all_errors if all_errors else None
 
     logger.info(
-        f"Vault sync complete: {aggregated.total_files} files, "
+        f"Vault ingestion complete: {aggregated.total_files} files, "
         f"{aggregated.nodes_created} created, "
         f"{aggregated.nodes_updated} updated"
     )

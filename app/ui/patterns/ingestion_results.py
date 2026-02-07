@@ -1,14 +1,14 @@
 """
-Sync Results UI Components
-===========================
+Ingestion Results UI Components
+================================
 
-Formatted sync results with cards and tables, replacing raw JSON displays.
+Formatted ingestion results with cards and tables, replacing raw JSON displays.
 
 Components:
-- SyncResultsSummary: Main results view with stats cards and breakdowns
+- IngestionResultsSummary: Main results view with stats cards and breakdowns
 - StatCard: DaisyUI stat card for individual metrics
 - EntityBreakdownTable: Table showing entities by type
-- ErrorsTable: Table showing sync errors with suggestions
+- ErrorsTable: Table showing ingestion errors with suggestions
 """
 
 from typing import Any
@@ -16,12 +16,12 @@ from typing import Any
 from fasthtml.common import *
 
 
-def SyncResultsSummary(stats: Any) -> FT:
+def IngestionResultsSummary(stats: Any) -> FT:
     """
-    Formatted sync results with cards and tables.
+    Formatted ingestion results with cards and tables.
 
     Args:
-        stats: IngestionStats, SyncStats, or dict with stats data
+        stats: IngestionStats or dict with stats data
 
     Returns:
         FastHTML component with formatted results
@@ -33,7 +33,7 @@ def SyncResultsSummary(stats: Any) -> FT:
         stats_dict = stats
 
     total_files = stats_dict.get("total_files", 0)
-    successful = stats_dict.get("successful", 0) or stats_dict.get("files_synced", 0)
+    successful = stats_dict.get("successful", 0) or stats_dict.get("files_ingested", 0)
     failed = stats_dict.get("failed", 0) or stats_dict.get("files_failed", 0)
     duration = stats_dict.get("duration_seconds", 0.0)
     nodes_created = stats_dict.get("nodes_created", 0)
@@ -41,10 +41,10 @@ def SyncResultsSummary(stats: Any) -> FT:
     relationships_created = stats_dict.get("relationships_created", 0)
     errors = stats_dict.get("errors") or []
 
-    # Check if this is SyncStats (has sync-specific fields)
-    is_sync_stats = "files_skipped" in stats_dict
-    files_skipped = stats_dict.get("files_skipped", 0) if is_sync_stats else None
-    sync_efficiency = stats_dict.get("sync_efficiency", 0.0) if is_sync_stats else None
+    # Check if this has incremental ingestion fields
+    has_incremental_stats = "files_skipped" in stats_dict
+    files_skipped = stats_dict.get("files_skipped", 0) if has_incremental_stats else None
+    ingestion_efficiency = stats_dict.get("skip_efficiency", 0.0) if has_incremental_stats else None
 
     return Div(
         # Summary cards
@@ -55,17 +55,17 @@ def SyncResultsSummary(stats: Any) -> FT:
             StatCard("Duration", f"{duration:.1f}s", "⏱️"),
             cls="stats stats-vertical lg:stats-horizontal shadow mb-4 w-full",
         ),
-        # Sync-specific stats (if present)
+        # Incremental ingestion stats (if present)
         (
             Div(
-                H3("Sync Efficiency", cls="text-lg font-semibold mb-2"),
+                H3("Ingestion Efficiency", cls="text-lg font-semibold mb-2"),
                 Div(
                     StatCard("Files Skipped", files_skipped, "⏭️", "text-info"),
-                    StatCard("Efficiency", f"{sync_efficiency:.1f}%", "🎯", "text-success"),
+                    StatCard("Efficiency", f"{ingestion_efficiency:.1f}%", "🎯", "text-success"),
                     cls="stats stats-vertical lg:stats-horizontal shadow mb-4 w-full",
                 ),
             )
-            if is_sync_stats
+            if has_incremental_stats
             else None
         ),
         # Graph changes section
@@ -78,7 +78,7 @@ def SyncResultsSummary(stats: Any) -> FT:
         ),
         # Errors table (if any)
         ErrorsTable(errors) if errors else None,
-        cls="sync-results-summary",
+        cls="ingestion-results-summary",
     )
 
 
@@ -140,7 +140,7 @@ def EntityBreakdownTable(entity_counts: dict[str, int]) -> FT:
 
 def ErrorsTable(errors: list[dict[str, Any]]) -> FT:
     """
-    Table showing sync errors with suggestions.
+    Table showing ingestion errors with suggestions.
 
     Args:
         errors: List of error dicts
@@ -199,7 +199,7 @@ def ProgressIndicator(operation_id: str) -> FT:
     Real-time progress bar with Alpine.js WebSocket connection.
 
     Args:
-        operation_id: UUID of the sync operation
+        operation_id: UUID of the ingestion operation
 
     Returns:
         FastHTML component with Alpine.js data binding
@@ -254,13 +254,13 @@ def ProgressIndicator(operation_id: str) -> FT:
             **{"x-show": "error"},
             cls="text-sm mt-2",
         ),
-        **{"x-data": f"syncProgress('{operation_id}')"},
-        cls="sync-progress-indicator p-4 bg-base-200 rounded-lg",
+        **{"x-data": f"ingestionProgress('{operation_id}')"},
+        cls="ingestion-progress-indicator p-4 bg-base-200 rounded-lg",
     )
 
 
 __all__ = [
-    "SyncResultsSummary",
+    "IngestionResultsSummary",
     "StatCard",
     "EntityBreakdownTable",
     "ErrorsTable",

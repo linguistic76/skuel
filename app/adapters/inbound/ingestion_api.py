@@ -13,7 +13,7 @@ Security:
 Routes:
 - POST /api/ingest/file - Ingest single file (MD or YAML)
 - POST /api/ingest/directory - Ingest directory with pattern
-- POST /api/ingest/vault - Sync Obsidian vault
+- POST /api/ingest/vault - Ingest Obsidian vault
 - POST /api/ingest/bundle - Ingest domain bundle with manifest
 """
 
@@ -44,7 +44,7 @@ def broadcast_progress(operation_id: str, progress_data: dict[str, Any]) -> None
     Broadcast progress update to WebSocket connection.
 
     Args:
-        operation_id: UUID of the sync operation
+        operation_id: UUID of the ingestion operation
         progress_data: Progress data to send
     """
     if operation_id in _active_connections:
@@ -249,7 +249,7 @@ def create_ingestion_api_routes(
 
         Request body:
             vault_path: str - Root path of vault
-            subdirs: list[str] - Optional subdirectories to sync
+            subdirs: list[str] - Optional subdirectories to ingest
 
         Returns:
             Result with aggregated IngestionStats
@@ -359,16 +359,16 @@ def create_ingestion_api_routes(
                 Errors.system("Bundle ingestion failed", exception=e, operation="ingest_bundle")
             )
 
-    # Domain-specific sync endpoint
+    # Domain-specific ingestion endpoint
     @rt("/api/ingest/domain/{domain_name}", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler(success_status=200)
-    async def domain_sync(request: Request, domain_name: str, current_user):
+    async def domain_ingest(request: Request, domain_name: str, current_user):
         """
-        Domain-specific sync endpoint.
+        Domain-specific ingestion endpoint.
 
         Request form:
-            source_path: str - Path to directory to sync
+            source_path: str - Path to directory to ingest
             pattern: str - File pattern (default: "*.md")
             dry_run: str - "true" for preview mode
 
@@ -410,8 +410,8 @@ def create_ingestion_api_routes(
 
             entity_type = domain_to_entity[domain_name]
 
-            # Perform sync (with entity type filter would be added to batch.py in future)
-            # For now, sync all files in the directory
+            # Perform ingestion (entity type filter would be added to batch.py in future)
+            # For now, ingest all files in the directory
             result = await unified_ingestion.ingest_directory(
                 source_path,
                 pattern=pattern,
@@ -423,31 +423,31 @@ def create_ingestion_api_routes(
 
             # Return appropriate component based on mode
             if dry_run:
-                from ui.patterns.sync_preview import DryRunPreviewComponent
+                from ui.patterns.ingestion_preview import DryRunPreviewComponent
 
                 preview = result.value
                 return Result.ok(DryRunPreviewComponent(preview, operation_id=None))
             else:
-                from ui.patterns.sync_results import SyncResultsSummary
+                from ui.patterns.ingestion_results import IngestionResultsSummary
 
                 stats = result.value
-                return Result.ok(SyncResultsSummary(stats))
+                return Result.ok(IngestionResultsSummary(stats))
 
         except Exception as e:
-            logger.error(f"Domain sync failed for {domain_name}: {e}")
+            logger.error(f"Domain ingestion failed for {domain_name}: {e}")
             return Result.fail(
                 Errors.system(
-                    f"Domain sync failed for {domain_name}",
+                    f"Domain ingestion failed for {domain_name}",
                     exception=e,
-                    operation="domain_sync",
+                    operation="domain_ingest",
                 )
             )
 
     # WebSocket route for real-time progress
     @rt("/ws/ingest/progress/{operation_id}")
-    async def sync_progress_websocket(ws: WebSocket, operation_id: str):
+    async def ingestion_progress_websocket(ws: WebSocket, operation_id: str):
         """
-        WebSocket for real-time sync progress updates.
+        WebSocket for real-time ingestion progress updates.
 
         Clients connect with the operation_id and receive JSON progress updates:
         {
@@ -484,8 +484,8 @@ def create_ingestion_api_routes(
             ingest_directory_route,
             ingest_vault_route,
             ingest_bundle_route,
-            domain_sync,
-            sync_progress_websocket,
+            domain_ingest,
+            ingestion_progress_websocket,
         ]
     )
 

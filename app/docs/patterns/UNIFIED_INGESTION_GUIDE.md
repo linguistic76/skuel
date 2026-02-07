@@ -25,13 +25,13 @@ service = UnifiedIngestionService(driver)
 # Ingest a single file
 result = await service.ingest_file(Path("ku.machine-learning.md"))
 
-# Ingest a directory (full sync)
+# Ingest a directory (full ingestion)
 stats = await service.ingest_directory(Path("/docs"), pattern="*.md")
 
-# Incremental sync - skip unchanged files (recommended for large vaults)
+# Incremental ingestion - skip unchanged files (recommended for large vaults)
 stats = await service.ingest_directory(
     Path("/docs"),
-    sync_mode="incremental",      # Skip files with unchanged content hash
+    ingestion_mode="incremental",      # Skip files with unchanged content hash
     validate_targets=True,        # Validate relationship UIDs exist
 )
 
@@ -44,11 +44,11 @@ stats = await service.ingest_bundle(Path("/bundles/mindfulness"))
 
 ---
 
-## UX Guide: Using Sync Features (2026-02-06)
+## UX Guide: Using Ingestion Features (2026-02-06)
 
 ### Dry-Run Preview
 
-Preview changes before syncing to Neo4j:
+Preview changes before ingesting to Neo4j:
 
 ```python
 # Preview without writing
@@ -67,28 +67,28 @@ print(f"Relationships: {len(preview.relationships_to_create)}")
 ```
 
 **Use Cases:**
-- Verify file detection before large sync
+- Verify file detection before large ingestion
 - Check entity type classification
 - Validate relationship targets
-- Estimate sync impact (nodes/edges)
+- Estimate ingestion impact (nodes/edges)
 
-### Sync History & Audit Trail
+### Ingestion History & Audit Trail
 
-Track all sync operations in Neo4j:
+Track all ingestion operations in Neo4j:
 
 ```python
-from core.services.ingestion import SyncHistoryService
+from core.services.ingestion import IngestionHistoryService
 
-history = SyncHistoryService(driver)
+history = IngestionHistoryService(driver)
 
-# Create history entry before sync
+# Create history entry before ingestion
 operation_id = await history.create_entry(
     operation_type="directory",
     user_uid="user_admin",
     source_path="/vault/docs"
 )
 
-# Perform sync
+# Perform ingestion
 result = await service.ingest_directory(Path("/vault/docs"))
 
 # Update history with results
@@ -108,7 +108,7 @@ for entry in entries.value:
 
 **Graph Model:**
 ```cypher
-(:SyncHistory {
+(:IngestionHistory {
   operation_id: "uuid",
   operation_type: "directory",
   started_at: datetime(),
@@ -126,7 +126,7 @@ for entry in entries.value:
 
 ### Real-Time Progress (WebSocket)
 
-Monitor sync progress in real-time:
+Monitor ingestion progress in real-time:
 
 ```python
 from core.services.ingestion import ProgressTracker
@@ -137,7 +137,7 @@ def broadcast_progress(operation_id, progress_data):
     # See /adapters/inbound/ingestion_api.py for implementation
     pass
 
-# Use progress callback during sync
+# Use progress callback during ingestion
 result = await service.ingest_directory(
     Path("/vault/docs"),
     progress_callback=lambda current, total, file: broadcast_progress(
@@ -170,19 +170,19 @@ ws://localhost:5001/ws/ingest/progress/{operation_id}
 
 **Client-Side (Alpine.js):**
 ```html
-<div x-data="syncProgress('operation-uuid')">
+<div x-data="ingestionProgress('operation-uuid')">
   <div x-text="percentage + '%'"></div>
   <div x-text="currentFile"></div>
   <div x-text="formatEta()"></div>
 </div>
 ```
 
-### Domain-Integrated Sync (Admin)
+### Domain-Integrated Ingestion (Admin)
 
-Trigger syncs from domain list pages:
+Trigger ingestion from domain list pages:
 
 ```python
-from ui.patterns.domain_sync_trigger import DomainSyncTrigger, DomainSyncModal
+from ui.patterns.domain_ingestion_trigger import DomainIngestionTrigger, DomainIngestionModal
 
 @rt("/ku")
 async def ku_list_page(request: Request):
@@ -193,11 +193,11 @@ async def ku_list_page(request: Request):
         content=Div(
             Div(
                 H1("Knowledge Units"),
-                DomainSyncTrigger("ku", is_admin),  # Admin-only button
+                DomainIngestionTrigger("ku", is_admin),  # Admin-only button
                 cls="flex justify-between items-center mb-4"
             ),
             KuListTable(kus),
-            DomainSyncModal("ku"),  # Modal with form
+            DomainIngestionModal("ku"),  # Modal with form
         ),
         title="Knowledge Units",
         request=request,
@@ -205,7 +205,7 @@ async def ku_list_page(request: Request):
 ```
 
 **Admin Experience:**
-1. Click "🔄 Sync KU" button
+1. Click "Ingest KU" button
 2. Modal opens with form:
    - Source directory (pre-filled)
    - File pattern (default: `*.md`)
@@ -230,7 +230,7 @@ core/services/ingestion/
 ├── preparer.py                    # Data preparation
 ├── validator.py                   # Validation pipeline
 ├── batch.py                       # Concurrent operations
-└── sync_tracker.py                # Incremental sync state
+└── ingestion_tracker.py           # Incremental ingestion state
 ```
 
 **Import (One Path Forward):**
@@ -240,47 +240,47 @@ from core.services.ingestion import UnifiedIngestionService
 
 ---
 
-## Sync Modes
+## Ingestion Modes
 
-The service supports three sync strategies for directory and vault operations:
+The service supports three ingestion strategies for directory and vault operations:
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
 | `"full"` | Process all files (default) | Initial import, clean slate |
-| `"incremental"` | Skip files with unchanged content hash | Regular syncs after initial import |
-| `"smart"` | Use mtime for fast filtering, verify with hash | Large vaults, frequent syncs |
+| `"incremental"` | Skip files with unchanged content hash | Regular ingestion after initial import |
+| `"smart"` | Use mtime for fast filtering, verify with hash | Large vaults, frequent ingestion |
 
-### Incremental Sync
+### Incremental Ingestion
 
 Tracks file state in Neo4j to skip unchanged files:
 
 ```python
-# First sync - processes all files, stores sync metadata
-stats = await service.ingest_directory(Path("/vault"), sync_mode="incremental")
-# SyncStats: total_files=1000, files_synced=1000, files_skipped=0
+# First ingestion - processes all files, stores ingestion metadata
+stats = await service.ingest_directory(Path("/vault"), ingestion_mode="incremental")
+# IncrementalStats: total_files=1000, files_ingested=1000, files_skipped=0
 
-# Second sync - skips unchanged files
-stats = await service.ingest_directory(Path("/vault"), sync_mode="incremental")
-# SyncStats: total_files=1000, files_synced=5, files_skipped=995, sync_efficiency=99.5%
+# Second ingestion - skips unchanged files
+stats = await service.ingest_directory(Path("/vault"), ingestion_mode="incremental")
+# IncrementalStats: total_files=1000, files_ingested=5, files_skipped=995, skip_efficiency=99.5%
 ```
 
 **How it works:**
 1. Computes SHA-256 hash of file content
-2. Stores hash + mtime in Neo4j `SyncMetadata` nodes
-3. On subsequent syncs, compares current hash/mtime to stored values
+2. Stores hash + mtime in Neo4j `IngestionMetadata` nodes
+3. On subsequent ingestion, compares current hash/mtime to stored values
 4. Only processes files where content has changed
 
-### SyncStats Response
+### IncrementalStats Response
 
-Incremental syncs return `SyncStats` instead of `IngestionStats`:
+Incremental ingestion returns `IncrementalStats` instead of `IngestionStats`:
 
 ```python
 @dataclass
-class SyncStats:
+class IncrementalStats:
     total_files: int          # Total files found
     files_checked: int        # Files examined for changes
     files_skipped: int        # Unchanged files (skipped)
-    files_synced: int         # Files actually processed
+    files_ingested: int       # Files actually processed
     files_failed: int         # Files with errors
     nodes_created: int
     nodes_updated: int
@@ -291,7 +291,7 @@ class SyncStats:
     errors: list[dict]
 
     @property
-    def sync_efficiency(self) -> float:  # Percentage of files skipped
+    def skip_efficiency(self) -> float:  # Percentage of files skipped
 ```
 
 ---
@@ -331,7 +331,7 @@ if not result.value.valid:
 
 ## Progress Reporting
 
-Monitor progress during large sync operations:
+Monitor progress during large ingestion operations:
 
 ```python
 def on_progress(current: int, total: int, file_path: str):
@@ -369,13 +369,13 @@ Batch ingest all matching files in a directory.
 stats = await service.ingest_directory(
     Path("/docs/curriculum"),
     pattern="*.md",              # Or "*.yaml" or "*" for all
-    sync_mode="incremental",     # Skip unchanged files
+    ingestion_mode="incremental",     # Skip unchanged files
     validate_targets=True,       # Validate relationship UIDs exist
     progress_callback=on_progress,
 )
 
 if stats.is_ok:
-    print(f"Synced: {stats.value.files_synced}")
+    print(f"Ingested: {stats.value.files_ingested}")
     print(f"Skipped: {stats.value.files_skipped}")
     for error in stats.value.errors or []:
         print(f"  - {error['file']}: {error['error']}")
@@ -383,7 +383,7 @@ if stats.is_ok:
 
 ### ingest_vault(path, subdirs=None)
 
-Sync an Obsidian vault. Optionally limit to specific subdirectories.
+Ingest an Obsidian vault. Optionally limit to specific subdirectories.
 
 ```python
 stats = await service.ingest_vault(
@@ -576,25 +576,25 @@ connections:
 | Endpoint | Method | Request Body | Response |
 |----------|--------|--------------|----------|
 | `/api/ingest/file` | POST | `{"file_path": "/path/to/file"}` | Entity dict |
-| `/api/ingest/directory` | POST | `{"path": "/dir", "pattern": "*.md", "sync_mode": "incremental"}` | IngestionStats/SyncStats |
+| `/api/ingest/directory` | POST | `{"path": "/dir", "pattern": "*.md", "ingestion_mode": "incremental"}` | IngestionStats/IncrementalStats |
 | `/api/ingest/vault` | POST | `{"path": "/vault", "subdirs": ["docs"]}` | IngestionStats |
 | `/api/ingest/bundle` | POST | `{"path": "/bundle"}` | BundleStats |
 | `/ingest` | GET | - | Dashboard UI |
 
-### Example: Incremental sync via curl
+### Example: Incremental ingestion via curl
 
 ```bash
-# Incremental directory sync
+# Incremental directory ingestion
 curl -X POST http://localhost:5001/api/ingest/directory \
   -H "Content-Type: application/json" \
-  -d '{"path": "/docs/curriculum", "pattern": "*.md", "sync_mode": "incremental"}'
+  -d '{"path": "/docs/curriculum", "pattern": "*.md", "ingestion_mode": "incremental"}'
 ```
 
 ---
 
 ## Response Types
 
-### IngestionStats (Full Sync)
+### IngestionStats (Full Ingestion)
 
 ```python
 @dataclass
@@ -609,15 +609,15 @@ class IngestionStats:
     errors: list[dict] | None
 ```
 
-### SyncStats (Incremental Sync)
+### IncrementalStats (Incremental Ingestion)
 
 ```python
 @dataclass
-class SyncStats:
+class IncrementalStats:
     total_files: int
     files_checked: int
     files_skipped: int
-    files_synced: int
+    files_ingested: int
     files_failed: int
     nodes_created: int
     nodes_updated: int
@@ -628,7 +628,7 @@ class SyncStats:
     errors: list[dict] | None
 
     @property
-    def sync_efficiency(self) -> float
+    def skip_efficiency(self) -> float
 ```
 
 ### RelationshipValidationResult
@@ -712,10 +712,10 @@ from core.services.ingestion import (
     validate_required_fields,
     validate_relationship_targets,
 
-    # Sync tracking
-    SyncTracker,
-    FileSyncMetadata,
-    SyncDecision,
+    # Ingestion tracking
+    IngestionTracker,
+    FileIngestionMetadata,
+    IngestionDecision,
 
     # Configuration
     ENTITY_CONFIGS,
@@ -723,11 +723,11 @@ from core.services.ingestion import (
     DEFAULT_USER_UID,
 )
 
-# Example: Check if file needs sync
-tracker = SyncTracker(driver)
-metadata_map = await tracker.get_sync_metadata([Path("/docs/ku.test.md")])
-decision = tracker.needs_sync(Path("/docs/ku.test.md"), metadata_map.get("/docs/ku.test.md"))
-print(f"Needs sync: {decision.needs_sync} ({decision.reason})")
+# Example: Check if file needs ingestion
+tracker = IngestionTracker(driver)
+metadata_map = await tracker.get_ingestion_metadata([Path("/docs/ku.test.md")])
+decision = tracker.needs_ingestion(Path("/docs/ku.test.md"), metadata_map.get("/docs/ku.test.md"))
+print(f"Needs ingestion: {decision.needs_ingestion} ({decision.reason})")
 ```
 
 ---

@@ -1,5 +1,5 @@
 """
-Integration Test Suite for Sync Progress WebSocket
+Integration Test Suite for Ingestion Progress WebSocket
 ===================================================
 
 Tests the real-time progress tracking via WebSocket connections.
@@ -11,7 +11,7 @@ Test Categories:
 4. Connection Lifecycle (connect/disconnect/error)
 5. ETA Calculation Accuracy
 6. Alpine.js Component Integration
-7. Concurrent Sync Operations
+7. Concurrent Ingestion Operations
 
 Requires running server for WebSocket tests.
 """
@@ -262,7 +262,7 @@ async def test_websocket_connection_cleanup():
 
 
 def test_multiple_concurrent_connections():
-    """Test multiple sync operations can have concurrent WebSocket connections."""
+    """Test multiple ingestion operations can have concurrent WebSocket connections."""
     from adapters.inbound import ingestion_api
 
     operation_ids = ["op-1", "op-2", "op-3"]
@@ -451,10 +451,10 @@ def test_broadcast_progress_with_invalid_json():
 
 
 def test_alpine_component_data_structure():
-    """Test that progress data structure matches Alpine.js component expectations."""
+    """Test that progress data structure matches Alpine.js ingestionProgress component expectations."""
     from core.services.ingestion.progress_tracker import ProgressTracker
 
-    # Alpine.js component expects these fields (from skuel.js):
+    # Alpine.js ingestionProgress component expects these fields (from skuel.js):
     # - current: int
     # - total: int
     # - percentage: float
@@ -477,7 +477,7 @@ def test_alpine_component_data_structure():
     assert "current_file" in data  # Python uses snake_case
     assert "eta_seconds" in data  # Python uses snake_case
 
-    # Note: Alpine.js component should handle snake_case → camelCase mapping
+    # Note: Alpine.js component should handle snake_case -> camelCase mapping
     # or accept snake_case directly
 
 
@@ -530,17 +530,17 @@ def test_eta_calculation_performance():
 # ============================================================================
 """
 Test Coverage Summary:
-- ✅ Progress broadcasting (with/without connection, error handling)
-- ✅ ProgressTracker initialization and updates
-- ✅ ProgressTracker with/without callbacks
-- ✅ ETA calculation accuracy
-- ✅ WebSocket connection lifecycle (storage, cleanup)
-- ✅ Concurrent connections for multiple operations
-- ✅ Progress data format and types
-- ✅ Percentage calculation
-- ✅ Edge cases (zero files, single file, invalid data)
-- ✅ Alpine.js component integration
-- ✅ Performance considerations
+- Progress broadcasting (with/without connection, error handling)
+- ProgressTracker initialization and updates
+- ProgressTracker with/without callbacks
+- ETA calculation accuracy
+- WebSocket connection lifecycle (storage, cleanup)
+- Concurrent connections for multiple operations
+- Progress data format and types
+- Percentage calculation
+- Edge cases (zero files, single file, invalid data)
+- Alpine.js component integration
+- Performance considerations
 
 Total Tests: 25
 
@@ -548,8 +548,8 @@ Note: These are integration tests that use mocks. For full end-to-end testing,
 you would need to:
 1. Start the SKUEL server
 2. Connect real WebSocket client
-3. Trigger actual sync operation
+3. Trigger actual ingestion operation
 4. Verify progress messages received
 
-See manual testing section in SYNC_EVOLUTION_COMPLETE.md for E2E test plan.
+See manual testing section in INGESTION_EVOLUTION_COMPLETE.md for E2E test plan.
 """

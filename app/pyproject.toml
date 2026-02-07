@@ -93,7 +93,6 @@ types-markdown = "^3.10.0.20251106"
 [tool.poetry.scripts]
 skuel = "skuel:app"
 skuel-dev = "start_dev:run"
-sync-vault = "services.sync_service:main"
 
 [build-system]
 requires = ["poetry-core"]

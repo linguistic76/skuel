@@ -1,8 +1,8 @@
-# Sync System Architecture Diagrams
+# Ingestion System Architecture Diagrams
 
 **Last Updated:** 2026-02-06
 
-Visual architecture diagrams for SKUEL's MD/YAML → Neo4j sync system.
+Visual architecture diagrams for SKUEL's MD/YAML → Neo4j ingestion system.
 
 **See:** `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md` for full context.
 
@@ -45,16 +45,16 @@ flowchart TD
 
 ---
 
-## 2. Sync Modes Decision Flow
+## 2. Ingestion Modes Decision Flow
 
-How the system decides which files to process based on sync mode.
+How the system decides which files to process based on ingestion mode.
 
 ```mermaid
 flowchart TD
-    A["Files in Directory"] --> B{"Sync Mode?"}
+    A["Files in Directory"] --> B{"Ingestion Mode?"}
 
     B -->|"full"| C["Process ALL Files"]
-    B -->|"incremental"| D["Query SyncMetadata<br/>from Neo4j"]
+    B -->|"incremental"| D["Query IngestionMetadata<br/>from Neo4j"]
     B -->|"smart"| E["Check file mtime<br/>(filesystem)"]
     B -->|"dry_run=True"| F["Validate Only<br/>(no writes)"]
 
@@ -67,12 +67,12 @@ flowchart TD
     I --> J{"Hash matches<br/>stored hash?"}
     J -->|"Yes"| K["Skip File<br/>(unchanged)"]
     J -->|"No"| L["Process File"]
-    L --> M["Update SyncMetadata<br/>(new hash + mtime)"]
-    M --> N["Return SyncStats<br/>(with sync_efficiency)"]
+    L --> M["Update IngestionMetadata<br/>(new hash + mtime)"]
+    M --> N["Return IncrementalStats<br/>(with skip_efficiency)"]
     K --> N
 
     %% Smart mode
-    E --> O{"mtime changed<br/>since last sync?"}
+    E --> O{"mtime changed<br/>since last ingestion?"}
     O -->|"No"| K
     O -->|"Yes"| I
 
@@ -90,20 +90,20 @@ flowchart TD
     style T fill:#e3f2fd,stroke:#2196f3
 ```
 
-### Sync Modes Comparison
+### Ingestion Modes Comparison
 
 | Mode | Speed | Use Case | Return Type | Writes to DB |
 |------|-------|----------|-------------|--------------|
-| **Full** | Slowest | First sync, clean slate | `IngestionStats` | Yes |
-| **Incremental** | Fast | Regular syncs, large vaults | `SyncStats` | Yes (changed only) |
-| **Smart** | Fastest | Frequent syncs, optimization | `SyncStats` | Yes (changed only) |
+| **Full** | Slowest | First ingestion, clean slate | `IngestionStats` | Yes |
+| **Incremental** | Fast | Regular ingestion, large vaults | `IncrementalStats` | Yes (changed only) |
+| **Smart** | Fastest | Frequent ingestion, optimization | `IncrementalStats` | Yes (changed only) |
 | **Dry-Run** | Fast | Preview before execution | `DryRunPreview` | No |
 
 ---
 
 ## 3. WebSocket Real-Time Progress Architecture
 
-Sequence diagram showing how real-time sync progress flows from backend to UI.
+Sequence diagram showing how real-time ingestion progress flows from backend to UI.
 
 ```mermaid
 sequenceDiagram
@@ -115,7 +115,7 @@ sequenceDiagram
     participant Tracker as ProgressTracker
     participant Neo4j as Neo4j Database
 
-    Admin->>UI: Click "Sync Directory"
+    Admin->>UI: Click "Ingest Directory"
     UI->>API: POST /api/ingest/directory<br/>{directory, pattern, dry_run}
 
     Note over API: Validate path (traversal protection)
@@ -126,7 +126,7 @@ sequenceDiagram
     UI->>WS: Connect to /ws/ingest/progress/{operation_id}
     WS-->>UI: Connection accepted
 
-    Note over UI: Alpine.js syncProgress component<br/>initializes WebSocket
+    Note over UI: Alpine.js ingestionProgress component<br/>initializes WebSocket
 
     loop For each file in directory
         Service->>Tracker: tracker.update(file_index, file_path)
@@ -137,8 +137,8 @@ sequenceDiagram
         Service->>Neo4j: Batch UPSERT (per batch_size)
     end
 
-    Service-->>API: Return IngestionStats/SyncStats
-    API-->>UI: HTTP Response with SyncResultsSummary
+    Service-->>API: Return IngestionStats/IncrementalStats
+    API-->>UI: HTTP Response with IngestionResultsSummary
     UI-->>Admin: Display formatted results<br/>(DaisyUI stat cards + tables)
     WS--xUI: Connection closed
 ```
@@ -162,20 +162,20 @@ sequenceDiagram
 | `ProgressTracker` | `core/services/ingestion/progress_tracker.py` | Calculates progress + ETA, calls callback |
 | `broadcast_progress()` | `adapters/inbound/ingestion_api.py` | Sends JSON to WebSocket connection |
 | `_active_connections` | `adapters/inbound/ingestion_api.py` | Global dict mapping operation_id to WebSocket |
-| `syncProgress` | `static/js/skuel.js` | Alpine.js component, auto-connects WebSocket |
-| `ProgressIndicator` | `ui/patterns/sync_results.py` | Server-rendered HTML with Alpine.js bindings |
+| `ingestionProgress` | `static/js/skuel.js` | Alpine.js component, auto-connects WebSocket |
+| `ProgressIndicator` | `ui/patterns/ingestion_results.py` | Server-rendered HTML with Alpine.js bindings |
 
 ---
 
-## 4. Sync History Graph Model
+## 4. Ingestion History Graph Model
 
-How sync operations are tracked as Neo4j nodes for audit trail.
+How ingestion operations are tracked as Neo4j nodes for audit trail.
 
 ```mermaid
 graph LR
     Admin["(:User)<br/>user_admin"] -->|"triggers"| SH
 
-    SH["(:SyncHistory)<br/>operation_id: uuid<br/>operation_type: directory<br/>started_at: datetime<br/>completed_at: datetime<br/>status: completed<br/>source_path: /vault/docs<br/>total_files: 1000<br/>successful: 995<br/>failed: 5"]
+    SH["(:IngestionHistory)<br/>operation_id: uuid<br/>operation_type: directory<br/>started_at: datetime<br/>completed_at: datetime<br/>status: completed<br/>source_path: /vault/docs<br/>total_files: 1000<br/>successful: 995<br/>failed: 5"]
 
     SH -->|"HAD_ERROR"| E1["(:IngestionError)<br/>file: /vault/bad.md<br/>error: Missing title<br/>stage: validation<br/>suggestion: Add title"]
 
@@ -187,14 +187,14 @@ graph LR
     style Admin fill:#e8f5e9,stroke:#4caf50
 ```
 
-### SyncHistoryService API
+### IngestionHistoryService API
 
 ```python
-from core.services.ingestion import SyncHistoryService
+from core.services.ingestion import IngestionHistoryService
 
-history = SyncHistoryService(driver)
+history = IngestionHistoryService(driver)
 
-# Create entry before sync
+# Create entry before ingestion
 op_id = await history.create_entry("directory", "user_admin", "/vault/docs")
 
 # Update with results
@@ -212,24 +212,24 @@ total = await history.get_total_count()
 
 ---
 
-## 5. Domain-Integrated Sync Trigger Flow
+## 5. Domain-Integrated Ingestion Trigger Flow
 
-How admin users trigger syncs from domain list pages.
+How admin users trigger ingestion from domain list pages.
 
 ```mermaid
 flowchart TD
     A["Admin visits /ku page"] --> B{"is_admin?"}
-    B -->|"No"| C["Normal list page<br/>(no sync button)"]
-    B -->|"Yes"| D["List page with<br/>DomainSyncTrigger button"]
+    B -->|"No"| C["Normal list page<br/>(no ingest button)"]
+    B -->|"Yes"| D["List page with<br/>DomainIngestionTrigger button"]
 
-    D --> E["Admin clicks<br/>'Sync KU' button"]
-    E --> F["DomainSyncModal opens<br/>(source dir, pattern, dry-run)"]
+    D --> E["Admin clicks<br/>'Ingest KU' button"]
+    E --> F["DomainIngestionModal opens<br/>(source dir, pattern, dry-run)"]
     F --> G["Admin submits form"]
 
     G -->|"HTMX POST"| H["/api/ingest/domain/ku"]
     H --> I{"dry_run?"}
     I -->|"Yes"| J["Return DryRunPreviewComponent<br/>(creates, updates, skips)"]
-    I -->|"No"| K["Return SyncResultsSummary<br/>(stat cards + tables)"]
+    I -->|"No"| K["Return IngestionResultsSummary<br/>(stat cards + tables)"]
 
     J --> L["Results shown in modal"]
     K --> L
@@ -260,5 +260,3 @@ flowchart TD
 
 - **Architecture:** `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md`
 - **Implementation Guide:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md`
-- **Integration Guide:** `/DOMAIN_SYNC_INTEGRATION_GUIDE.md`
-- **Implementation Summary:** `/SYNC_SYSTEM_IMPLEMENTATION_SUMMARY.md`

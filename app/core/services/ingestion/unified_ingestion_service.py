@@ -45,7 +45,7 @@ from .config import DEFAULT_MAX_FILE_SIZE_BYTES, DEFAULT_USER_UID, ENTITY_CONFIG
 from .detector import detect_entity_type, detect_format
 from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import generate_uid, normalize_uid, prepare_entity_data
-from .types import BundleStats, DryRunPreview, IngestionStats, SyncStats
+from .types import BundleStats, DryRunPreview, IngestionStats, IncrementalStats
 from .validator import (
     validate_directory,
     validate_entity_data,
@@ -346,11 +346,11 @@ class UnifiedIngestionService:
         pattern: str = "*",
         batch_size: int = 500,
         max_concurrent: int = 20,
-        sync_mode: Literal["full", "incremental", "smart"] = "full",
+        ingestion_mode: Literal["full", "incremental", "smart"] = "full",
         validate_targets: bool = False,
         progress_callback: ProgressCallback | None = None,
         dry_run: bool = False,
-    ) -> Result[IngestionStats | SyncStats | DryRunPreview]:
+    ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
         """
         Ingest all supported files in a directory.
 
@@ -359,7 +359,7 @@ class UnifiedIngestionService:
             pattern: Glob pattern for files (default: "*" for all supported)
             batch_size: Batch size for bulk operations
             max_concurrent: Maximum concurrent file parsing operations
-            sync_mode: Sync strategy:
+            ingestion_mode: Ingestion strategy:
                 - "full": Process all files (default, backward compatible)
                 - "incremental": Skip files with unchanged content hash
                 - "smart": Skip files with unchanged mtime (fast), verify with hash if changed
@@ -368,7 +368,7 @@ class UnifiedIngestionService:
             dry_run: If True, validates and previews changes without writing to Neo4j
 
         Returns:
-            Result with IngestionStats (full mode), SyncStats (incremental/smart mode), or DryRunPreview (dry-run mode)
+            Result with IngestionStats (full mode), IncrementalStats (incremental/smart mode), or DryRunPreview (dry-run mode)
 
         Delegates to batch.ingest_directory.
         """
@@ -382,7 +382,7 @@ class UnifiedIngestionService:
             max_concurrent=max_concurrent,
             default_user_uid=self.default_user_uid,
             max_file_size_bytes=self.max_file_size_bytes,
-            sync_mode=sync_mode,
+            ingestion_mode=ingestion_mode,
             validate_targets=validate_targets,
             progress_callback=progress_callback,
             dry_run=dry_run,

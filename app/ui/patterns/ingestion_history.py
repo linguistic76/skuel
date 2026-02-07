@@ -1,12 +1,12 @@
 """
-Sync History Dashboard UI Components
-=====================================
+Ingestion History Dashboard UI Components
+==========================================
 
-Paginated list of past sync operations with details.
+Paginated list of past ingestion operations with details.
 
 Components:
-- SyncHistoryDashboard: Main history view with pagination
-- SyncHistoryRow: Single row in history table
+- IngestionHistoryDashboard: Main history view with pagination
+- IngestionHistoryRow: Single row in history table
 - PaginationControls: Page navigation
 """
 
@@ -15,12 +15,12 @@ from typing import Any
 from fasthtml.common import *
 
 
-def SyncHistoryDashboard(entries: list[Any], page: int, total_pages: int) -> FT:
+def IngestionHistoryDashboard(entries: list[Any], page: int, total_pages: int) -> FT:
     """
-    Sync history with pagination.
+    Ingestion history with pagination.
 
     Args:
-        entries: List of SyncHistoryEntry objects or dicts
+        entries: List of IngestionHistoryEntry objects or dicts
         page: Current page number (1-indexed)
         total_pages: Total number of pages
 
@@ -28,9 +28,9 @@ def SyncHistoryDashboard(entries: list[Any], page: int, total_pages: int) -> FT:
         FastHTML component
     """
     return Div(
-        H2("Sync History", cls="text-2xl font-bold mb-4"),
+        H2("Ingestion History", cls="text-2xl font-bold mb-4"),
         P(
-            "Audit trail of all sync operations",
+            "Audit trail of all ingestion operations",
             cls="text-sm text-base-content/70 mb-4",
         ),
         # History table
@@ -48,12 +48,12 @@ def SyncHistoryDashboard(entries: list[Any], page: int, total_pages: int) -> FT:
                     )
                 ),
                 Tbody(
-                    *[SyncHistoryRow(entry) for entry in entries]
+                    *[IngestionHistoryRow(entry) for entry in entries]
                     if entries
                     else [
                         Tr(
                             Td(
-                                "No sync history found",
+                                "No ingestion history found",
                                 colspan="7",
                                 cls="text-center text-base-content/50 py-8",
                             )
@@ -66,16 +66,16 @@ def SyncHistoryDashboard(entries: list[Any], page: int, total_pages: int) -> FT:
         ),
         # Pagination
         PaginationControls(page, total_pages, "/ingest/history") if total_pages > 1 else None,
-        cls="sync-history-dashboard",
+        cls="ingestion-history-dashboard",
     )
 
 
-def SyncHistoryRow(entry: Any) -> FT:
+def IngestionHistoryRow(entry: Any) -> FT:
     """
-    Single row in sync history table.
+    Single row in ingestion history table.
 
     Args:
-        entry: SyncHistoryEntry object or dict
+        entry: IngestionHistoryEntry object or dict
 
     Returns:
         FastHTML component (Tr)
@@ -230,7 +230,7 @@ def PaginationControls(page: int, total_pages: int, base_url: str) -> FT:
 
 
 __all__ = [
-    "SyncHistoryDashboard",
-    "SyncHistoryRow",
+    "IngestionHistoryDashboard",
+    "IngestionHistoryRow",
     "PaginationControls",
 ]

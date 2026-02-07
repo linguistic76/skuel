@@ -6,7 +6,7 @@ This package contains the inbound adapters implementing HTTP routes and web inte
 following the hexagonal architecture pattern.
 
 Structure - Consolidated Route Modules:
-- system_routes.py     - Main dashboard, health, operations, sync
+- system_routes.py     - Main dashboard, health, operations
 - core_routes.py       - Tasks, habits, timeline (core productivity)
 - content_routes.py    - Journals, audio transcription (content creation)
 - knowledge_routes.py  - Discovery, hierarchical search, askesis (knowledge management)
@@ -29,7 +29,7 @@ Example:
     from adapters.inbound.core_routes import create_core_routes
 
     # Services explicitly injected
-    create_system_routes(app, rt, services, sync_service)
+    create_system_routes(app, rt, services)
     create_core_routes(app, rt, tasks_service, habits_service)
 """
 

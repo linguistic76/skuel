@@ -1067,32 +1067,30 @@ capabilities = await get_service_capabilities(any_service)
 
 **Core Principle:** "The hips of SKUEL - one of three foundational systems"
 
-The UnifiedIngestionService is not just a feature—it's a foundational core that bridges analog (Markdown/YAML) and digital (Neo4j graph). Without this sync, SKUEL has no knowledge graph.
+The UnifiedIngestionService is not just a feature—it's a foundational core that bridges analog (Markdown/YAML) and digital (Neo4j graph). Without ingestion, SKUEL has no knowledge graph. This is a one-way pipeline: Markdown/YAML files are the authoring source, Neo4j owns the data once ingested.
 
 **Import:**
 ```python
 from core.services.ingestion import UnifiedIngestionService
 ```
 
-**Key Capabilities (2026-02-06):**
-- **Dry-Run Mode:** Preview changes before syncing (`dry_run=True`)
-- **Incremental Sync:** Skip unchanged files (95%+ efficiency)
-- **Sync History:** Full audit trail in Neo4j
+**Key Capabilities (2026-02-08):**
+- **Dry-Run Mode:** Preview changes before ingesting (`dry_run=True`)
+- **Incremental Ingestion:** Skip unchanged files (95%+ efficiency)
+- **Ingestion History:** Full audit trail in Neo4j (`:IngestionHistory` nodes)
 - **Real-Time Progress:** WebSocket-based updates
-- **Domain Integration:** Admin-only sync triggers on list pages
+- **Domain Integration:** Admin-only ingestion triggers on list pages
 
 **API Endpoints:**
 - `POST /api/ingest/file` - Single file
 - `POST /api/ingest/directory` - Batch with optional dry-run
-- `POST /api/ingest/vault` - Obsidian vault sync
-- `POST /api/ingest/domain/{domain_name}` - Domain-specific sync (admin-only)
+- `POST /api/ingest/vault` - Obsidian vault ingestion
+- `POST /api/ingest/domain/{domain_name}` - Domain-specific ingestion (admin-only)
 - `WS /ws/ingest/progress/{operation_id}` - Real-time progress updates
 
 **See:**
-- `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md` - Why sync is foundational
+- `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md` - Why ingestion is foundational
 - `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` - Complete usage guide
-- `/SYNC_SYSTEM_IMPLEMENTATION_SUMMARY.md` - Implementation details
-- `/DOMAIN_SYNC_INTEGRATION_GUIDE.md` - Domain integration guide
 
 ## Curriculum Grouping Patterns
 

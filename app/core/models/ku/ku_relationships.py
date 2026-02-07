@@ -505,7 +505,10 @@ class KuRelationships:
         high_conf_prereqs = []
 
         for rel in relationships:
-            if rel.get("type") == "REQUIRES_KNOWLEDGE" and rel.get("confidence", 0.0) >= min_confidence:
+            if (
+                rel.get("type") == "REQUIRES_KNOWLEDGE"
+                and rel.get("confidence", 0.0) >= min_confidence
+            ):
                 target_uid = rel.get("target_uid")
                 if target_uid:
                     high_conf_prereqs.append(target_uid)

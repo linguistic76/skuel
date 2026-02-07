@@ -25,7 +25,7 @@ INGESTION_CONFIG = DomainRouteConfig(
 )
 
 
-def create_ingestion_routes(app, rt, services, _sync_service=None):
+def create_ingestion_routes(app, rt, services):
     """Wire ingestion API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, INGESTION_CONFIG)
 

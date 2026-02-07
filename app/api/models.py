@@ -49,13 +49,6 @@ class CreateTransactionRequest(BaseModel):
     date: str | None = None
 
 
-class SyncRequest(BaseModel):
-    """Request model for sync operations"""
-
-    domains: list[str] | None = None
-    force: bool = False
-
-
 class HabitCreateRequest(BaseModel):
     """Request model for creating a habit"""
 

@@ -3060,19 +3060,19 @@
         // =====================================================================
 
         /**
-         * Sync Progress Component
-         * Connects to WebSocket for real-time sync operation progress updates.
+         * Ingestion Progress Component
+         * Connects to WebSocket for real-time ingestion operation progress updates.
          *
          * Usage:
-         *   <div x-data="syncProgress('operation-uuid')">
+         *   <div x-data="ingestionProgress('operation-uuid')">
          *     <span x-text="percentage + '%'"></span>
          *     <span x-text="formatEta()"></span>
          *   </div>
          *
-         * @param {string} operationId - UUID of the sync operation
+         * @param {string} operationId - UUID of the ingestion operation
          * @returns {object} Alpine.js component data
          */
-        Alpine.data('syncProgress', function(operationId) {
+        Alpine.data('ingestionProgress', function(operationId) {
             return {
                 // Progress data
                 current: 0,

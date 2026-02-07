@@ -49,8 +49,7 @@ class TestIngestionRelationshipConfig:
         config = ENTITY_CONFIGS[EntityType.KU].relationship_config
         assert config is not None
         assert (
-            config["connections.requires"]["rel_type"]
-            == RelationshipName.REQUIRES_KNOWLEDGE.value
+            config["connections.requires"]["rel_type"] == RelationshipName.REQUIRES_KNOWLEDGE.value
         )
         assert config["connections.requires"]["direction"] == "outgoing"
 
@@ -61,10 +60,7 @@ class TestIngestionRelationshipConfig:
         """
         config = ENTITY_CONFIGS[EntityType.KU].relationship_config
         assert config is not None
-        assert (
-            config["connections.enables"]["rel_type"]
-            == RelationshipName.ENABLES_KNOWLEDGE.value
-        )
+        assert config["connections.enables"]["rel_type"] == RelationshipName.ENABLES_KNOWLEDGE.value
 
     def test_all_rel_types_are_valid_relationship_names(self):
         """Every rel_type in ingestion config must be a valid RelationshipName."""

@@ -2,7 +2,7 @@
 Dry-Run Preview UI Components
 ==============================
 
-Preview of sync changes before execution.
+Preview of ingestion changes before execution.
 
 Components:
 - DryRunPreviewComponent: Main preview view
@@ -18,11 +18,11 @@ from fasthtml.common import *
 
 def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
     """
-    Preview of sync changes before execution.
+    Preview of ingestion changes before execution.
 
     Args:
         preview: DryRunPreview object or dict
-        operation_id: Optional operation ID for executing the sync
+        operation_id: Optional operation ID for executing the ingestion
 
     Returns:
         FastHTML component with preview
@@ -94,11 +94,11 @@ def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
         (
             Div(
                 Button(
-                    "Execute Sync",
+                    "Execute Ingestion",
                     cls="btn btn-primary",
                     hx_post="/api/ingest/execute",
                     hx_vals=f'{{"operation_id": "{operation_id}"}}',
-                    hx_target="#sync-results",
+                    hx_target="#ingestion-results",
                 ),
                 Button("Cancel", cls="btn btn-ghost", onclick="window.history.back()"),
                 cls="flex gap-2 mt-4",

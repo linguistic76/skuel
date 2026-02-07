@@ -1,18 +1,18 @@
 # Core Systems Architecture
 
-**Last Updated:** 2026-02-06
+**Last Updated:** 2026-02-08
 
 ## Philosophy: Parts → Whole
 
 SKUEL is built on the principle that **systems emerge from their foundational parts**, not from top-down domain logic. This document describes the three foundational systems that form the base upon which all domain services are built.
 
-The sync system isn't just a feature — it's **"the hips of SKUEL"** that provide stability through clarity by bridging human knowledge (analog) with machine understanding (digital).
+The ingestion system isn't just a feature — it's **"the hips of SKUEL"** that provide stability through clarity by bridging human knowledge (analog) with machine understanding (digital).
 
 ---
 
 ## The Three Core Systems
 
-### 1. Content Sync: MD/YAML → Neo4j (The Bridge)
+### 1. Content Ingestion: MD/YAML → Neo4j (The Bridge)
 
 **Metaphor:** "The hips of SKUEL" - provides stability through clarity.
 
@@ -32,18 +32,18 @@ Neo4j Graph (digital)
 ```
 
 **Why It's Core:**
-- Without this sync, SKUEL has no knowledge graph
+- Without ingestion, SKUEL has no knowledge graph
 - All 14 entity types enter the system through this path
 - Relationships (PREREQUISITE, ENABLES, APPLIES_KNOWLEDGE, etc.) are created here
 - Enables the analog-to-digital transformation that is SKUEL's defining characteristic
 
 **Key Capabilities (2026-02-06):**
 - **Dry-Run Mode:** Preview changes without writing to Neo4j
-- **Incremental Sync:** Skip unchanged files (95%+ efficiency)
+- **Incremental Ingestion:** Skip unchanged files (95%+ efficiency)
 - **Batch Processing:** 10-100x faster than per-file operations
-- **Sync History:** Full audit trail in Neo4j
+- **Ingestion History:** Full audit trail in Neo4j
 - **Real-Time Progress:** WebSocket-based progress updates
-- **Admin Integration:** Domain-specific sync triggers on list pages
+- **Admin Integration:** Domain-specific ingestion triggers on list pages
 
 **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md`
 
@@ -186,9 +186,9 @@ async def ku_detail(request: Request, uid: str):
 
 ## The Analog-to-Digital Bridge in Detail
 
-### Content Sync Evolution (2026-02-06)
+### Content Ingestion Evolution (2026-02-06)
 
-The sync system has evolved from a basic file importer to a sophisticated content bridge:
+The ingestion system has evolved from a basic file importer to a sophisticated content bridge:
 
 #### Phase 1: Foundation (2025)
 - Single-file ingestion
@@ -196,33 +196,33 @@ The sync system has evolved from a basic file importer to a sophisticated conten
 - Entity type detection
 - Relationship creation
 
-#### Phase 2: Incremental Sync (January 2026)
+#### Phase 2: Incremental Ingestion (January 2026)
 - Hash-based change detection (SHA-256)
 - mtime optimization (smart mode)
 - 95%+ file skip efficiency
-- SyncTracker with Neo4j metadata
+- IngestionTracker with Neo4j metadata
 
 #### Phase 3: UX Enhancement (February 2026)
 - **Dry-Run Mode:** Preview changes before execution
-- **Sync History:** Full audit trail in Neo4j graph
+- **Ingestion History:** Full audit trail in Neo4j graph
 - **Real-Time Progress:** WebSocket-based updates
 - **Formatted Results:** DaisyUI stat cards and tables
-- **Domain Integration:** Admin-only sync triggers on list pages
+- **Domain Integration:** Admin-only ingestion triggers on list pages
 
-### Sync Modes
+### Ingestion Modes
 
 | Mode | When to Use | Performance | Data Safety |
 |------|-------------|-------------|-------------|
-| **Full** | First sync, small datasets | Processes all files | Creates + updates |
-| **Incremental** | Repeat syncs, large vaults | Skips unchanged (hash) | Only changed files |
-| **Smart** | Frequent syncs, optimization | Skips unchanged (mtime) | Fast + accurate |
+| **Full** | First ingestion, small datasets | Processes all files | Creates + updates |
+| **Incremental** | Repeat ingestion, large vaults | Skips unchanged (hash) | Only changed files |
+| **Smart** | Frequent ingestion, optimization | Skips unchanged (mtime) | Fast + accurate |
 | **Dry-Run** | Preview before execution | Read-only queries | Zero risk |
 
-### Example: Obsidian Vault Sync
+### Example: Obsidian Vault Ingestion
 
-**Scenario:** 1000 markdown files in `/vault/docs/`, synced daily
+**Scenario:** 1000 markdown files in `/vault/docs/`, ingested daily
 
-**First Sync (Full Mode):**
+**First Ingestion (Full Mode):**
 ```
 Duration: 45 seconds
 Files processed: 1000
@@ -230,22 +230,22 @@ Nodes created: 1200 (entities + chunks)
 Relationships: 800
 ```
 
-**Second Sync (Incremental Mode):**
+**Second Ingestion (Incremental Mode):**
 ```
 Duration: 2 seconds
 Files checked: 1000
 Files processed: 50 (5% changed)
 Files skipped: 950 (95% unchanged)
-Sync efficiency: 95%
+Skip efficiency: 95%
 ```
 
-**Third Sync (Smart Mode):**
+**Third Ingestion (Smart Mode):**
 ```
 Duration: 1 second
 Files checked: 1000 (mtime scan)
 Files processed: 20 (2% changed)
 Files skipped: 980 (98% unchanged + hash verified)
-Sync efficiency: 98%
+Skip efficiency: 98%
 ```
 
 **Dry-Run Preview:**
@@ -262,19 +262,19 @@ No database writes
 
 ## Design Principles Embodied
 
-1. **One Path Forward** - Single sync service (UnifiedIngestionService), single backend (UniversalNeo4jBackend[T])
+1. **One Path Forward** - Single ingestion service (UnifiedIngestionService), single backend (UniversalNeo4jBackend[T])
 2. **Graph-Native** - Relationships are edges, not properties
 3. **Analog-to-Digital** - Markdown → Neo4j → UX without loss of information
 4. **Protocol-Based** - Services use interfaces, not concrete types
 5. **Configuration-Driven** - Route factories + DomainRouteConfig eliminate boilerplate
 6. **Progressive Enhancement** - WebSocket progress is optional, graceful degradation
-7. **Admin-Only Security** - Sync operations require admin role
+7. **Admin-Only Security** - Ingestion operations require admin role
 
 ---
 
 ## Architectural Decisions
 
-### Why Content Sync is Foundational (Not Just a Feature)
+### Why Content Ingestion is Foundational (Not Just a Feature)
 
 **Traditional View (Wrong):**
 ```
@@ -289,7 +289,7 @@ Content import is a feature
 ```
 Content (human knowledge) is the foundation
     ↓
-Sync bridges analog → digital
+Ingestion bridges analog → digital
     ↓
 Graph enables services
     ↓
@@ -297,10 +297,10 @@ UX exposes the whole
 ```
 
 **Implications:**
-- Content files are the source of truth (not database)
-- Sync is bidirectional (export planned for future)
+- Content files are the authoring source, Neo4j owns the data once ingested
+- Ingestion is one-way (Markdown/YAML → Neo4j)
 - Graph is a projection of content + user actions
-- No sync = no knowledge graph = no SKUEL
+- No ingestion = no knowledge graph = no SKUEL
 
 ### Why Graph-Native (Not Relational)
 
@@ -343,10 +343,9 @@ RETURN path
 
 ## Related Documentation
 
-**Sync System:**
+**Ingestion System:**
 - `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` - Complete ingestion guide
-- `/SYNC_SYSTEM_IMPLEMENTATION_SUMMARY.md` - Implementation details
-- `/DOMAIN_SYNC_INTEGRATION_GUIDE.md` - How to add sync to domain pages
+- `/docs/diagrams/ingestion_architecture.md` - Architecture diagrams
 
 **Graph Architecture:**
 - `/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md` - Database design
@@ -412,14 +411,14 @@ RETURN path
 └──────────────┘
 ```
 
-### Sync History Graph Model
+### Ingestion History Graph Model
 
 ```cypher
-// Admin triggers sync
+// Admin triggers ingestion
 (admin:User {uid: "user_admin"})
 
-// Sync operation node
-(sh:SyncHistory {
+// Ingestion operation node
+(sh:IngestionHistory {
   operation_id: "uuid-123",
   operation_type: "directory",
   started_at: datetime("2026-02-06T10:00:00"),
@@ -450,8 +449,8 @@ RETURN path
 ### System Health
 - ✅ Zero database downtime in 6 months
 - ✅ Sub-second query response times (p95)
-- ✅ 95%+ sync efficiency (incremental mode)
-- ✅ Zero data loss in sync operations
+- ✅ 95%+ skip efficiency (incremental mode)
+- ✅ Zero data loss in ingestion operations
 
 ### Developer Experience
 - ✅ Protocol-based architecture (zero concrete dependencies)
@@ -460,7 +459,7 @@ RETURN path
 - ✅ Testable (mocked backends, protocol compliance)
 
 ### User Experience
-- ✅ Real-time progress during sync
+- ✅ Real-time progress during ingestion
 - ✅ Formatted results (not raw JSON)
 - ✅ Dry-run preview (zero risk)
 - ✅ Admin-integrated triggers (no CLI needed)

@@ -40,7 +40,6 @@ def create_system_api_routes(
     rt: Any,
     system_service: Any,
     user_service: Any = None,
-    sync_service: Any = None,
 ) -> list[Any]:
     """
     Create system API routes for the application.
@@ -50,7 +49,6 @@ def create_system_api_routes(
         rt: The router instance
         system_service: System service instance
         user_service: Optional user service for admin role checks
-        sync_service: Optional sync service instance
 
     Returns:
         List of registered routes

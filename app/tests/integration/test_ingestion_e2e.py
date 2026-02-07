@@ -1,14 +1,14 @@
 """
-End-to-End Sync System Integration Tests
+End-to-End Ingestion System Integration Tests
 ==========================================
 
 Converts testable manual scenarios from tests/SYNC_SYSTEM_TEST_PLAN.md
 into automated integration tests.
 
 Covers:
-- Test 3: Sync History (create/update/get roundtrip)
+- Test 3: Ingestion History (create/update/get roundtrip)
 - Test 6: Error Handling (malformed files, missing fields, invalid paths)
-- Test 7: Performance (full sync then incremental sync efficiency)
+- Test 7: Performance (full ingestion then incremental ingestion efficiency)
 
 Requires: Docker running with Neo4j testcontainer.
 """
@@ -23,8 +23,8 @@ import pytest
 import pytest_asyncio
 
 from core.services.ingestion.batch import ingest_directory
-from core.services.ingestion.sync_history import SyncHistoryService
-from core.services.ingestion.types import DryRunPreview, IngestionStats, SyncStats
+from core.services.ingestion.ingestion_history import IngestionHistoryService
+from core.services.ingestion.types import DryRunPreview, IngestionStats, IncrementalStats
 
 
 # ============================================================================
@@ -33,20 +33,20 @@ from core.services.ingestion.types import DryRunPreview, IngestionStats, SyncSta
 
 
 @pytest_asyncio.fixture
-async def sync_history_service(neo4j_driver):
-    """Create a real SyncHistoryService connected to test Neo4j."""
-    service = SyncHistoryService(driver=neo4j_driver)
+async def ingestion_history_service(neo4j_driver):
+    """Create a real IngestionHistoryService connected to test Neo4j."""
+    service = IngestionHistoryService(driver=neo4j_driver)
     await service.ensure_constraints()
     return service
 
 
 @pytest_asyncio.fixture
-async def cleanup_sync_history(neo4j_driver):
-    """Clean up all SyncHistory and IngestionError nodes after test."""
+async def cleanup_ingestion_history(neo4j_driver):
+    """Clean up all IngestionHistory and IngestionError nodes after test."""
     yield
     async with neo4j_driver.session() as session:
         await session.run("MATCH (e:IngestionError) DETACH DELETE e")
-        await session.run("MATCH (sh:SyncHistory) DETACH DELETE sh")
+        await session.run("MATCH (ih:IngestionHistory) DETACH DELETE ih")
 
 
 @pytest.fixture
@@ -121,15 +121,17 @@ def _mock_get_engine(entity_type: Any) -> Mock:
 
 
 # ============================================================================
-# TEST 3: Sync History — Create/Update/Get Roundtrip
+# TEST 3: Ingestion History — Create/Update/Get Roundtrip
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_sync_history_create_and_get(sync_history_service, cleanup_sync_history):
-    """Test creating and retrieving a sync history entry."""
+async def test_ingestion_history_create_and_get(
+    ingestion_history_service, cleanup_ingestion_history
+):
+    """Test creating and retrieving an ingestion history entry."""
     # Create entry
-    result = await sync_history_service.create_entry(
+    result = await ingestion_history_service.create_entry(
         operation_type="directory",
         user_uid="user_admin",
         source_path="/vault/docs/ku",
@@ -139,7 +141,7 @@ async def test_sync_history_create_and_get(sync_history_service, cleanup_sync_hi
     assert operation_id  # non-empty UUID
 
     # Retrieve it
-    entry_result = await sync_history_service.get_entry(operation_id)
+    entry_result = await ingestion_history_service.get_entry(operation_id)
     assert entry_result.is_ok
     entry = entry_result.value
     assert entry is not None
@@ -150,10 +152,12 @@ async def test_sync_history_create_and_get(sync_history_service, cleanup_sync_hi
 
 
 @pytest.mark.asyncio
-async def test_sync_history_update_with_stats(sync_history_service, cleanup_sync_history):
-    """Test updating a sync history entry with completion stats."""
+async def test_ingestion_history_update_with_stats(
+    ingestion_history_service, cleanup_ingestion_history
+):
+    """Test updating an ingestion history entry with completion stats."""
     # Create
-    result = await sync_history_service.create_entry(
+    result = await ingestion_history_service.create_entry(
         operation_type="vault",
         user_uid="user_admin",
         source_path="/vault",
@@ -171,7 +175,7 @@ async def test_sync_history_update_with_stats(sync_history_service, cleanup_sync
         "relationships_created": 100,
         "duration_seconds": 5.2,
     }
-    update_result = await sync_history_service.update_entry(
+    update_result = await ingestion_history_service.update_entry(
         operation_id=operation_id,
         status="completed",
         stats=stats,
@@ -179,7 +183,7 @@ async def test_sync_history_update_with_stats(sync_history_service, cleanup_sync
     assert update_result.is_ok
 
     # Verify update
-    entry_result = await sync_history_service.get_entry(operation_id)
+    entry_result = await ingestion_history_service.get_entry(operation_id)
     assert entry_result.is_ok
     entry = entry_result.value
     assert entry.status == "completed"
@@ -189,10 +193,10 @@ async def test_sync_history_update_with_stats(sync_history_service, cleanup_sync
 
 
 @pytest.mark.asyncio
-async def test_sync_history_with_errors(sync_history_service, cleanup_sync_history):
-    """Test sync history with linked error nodes."""
+async def test_ingestion_history_with_errors(ingestion_history_service, cleanup_ingestion_history):
+    """Test ingestion history with linked error nodes."""
     # Create
-    result = await sync_history_service.create_entry(
+    result = await ingestion_history_service.create_entry(
         operation_type="directory",
         user_uid="user_admin",
         source_path="/vault/mixed",
@@ -220,7 +224,7 @@ async def test_sync_history_with_errors(sync_history_service, cleanup_sync_histo
         },
     ]
     stats = {"total_files": 10, "successful": 8, "failed": 2}
-    update_result = await sync_history_service.update_entry(
+    update_result = await ingestion_history_service.update_entry(
         operation_id=operation_id,
         status="completed",
         stats=stats,
@@ -229,7 +233,7 @@ async def test_sync_history_with_errors(sync_history_service, cleanup_sync_histo
     assert update_result.is_ok
 
     # Verify errors are linked
-    entry_result = await sync_history_service.get_entry(operation_id)
+    entry_result = await ingestion_history_service.get_entry(operation_id)
     assert entry_result.is_ok
     entry = entry_result.value
     assert len(entry.errors) == 2
@@ -237,11 +241,13 @@ async def test_sync_history_with_errors(sync_history_service, cleanup_sync_histo
 
 
 @pytest.mark.asyncio
-async def test_sync_history_paginated_list(sync_history_service, cleanup_sync_history):
-    """Test retrieving paginated sync history."""
+async def test_ingestion_history_paginated_list(
+    ingestion_history_service, cleanup_ingestion_history
+):
+    """Test retrieving paginated ingestion history."""
     # Create 3 entries
     for i in range(3):
-        result = await sync_history_service.create_entry(
+        result = await ingestion_history_service.create_entry(
             operation_type="directory",
             user_uid="user_admin",
             source_path=f"/vault/batch-{i}",
@@ -249,18 +255,18 @@ async def test_sync_history_paginated_list(sync_history_service, cleanup_sync_hi
         assert result.is_ok
 
     # Get all
-    history_result = await sync_history_service.get_history(limit=10)
+    history_result = await ingestion_history_service.get_history(limit=10)
     assert history_result.is_ok
     entries = history_result.value
     assert len(entries) == 3
 
     # Get first page only
-    page_result = await sync_history_service.get_history(limit=2, offset=0)
+    page_result = await ingestion_history_service.get_history(limit=2, offset=0)
     assert page_result.is_ok
     assert len(page_result.value) == 2
 
     # Get total count
-    count_result = await sync_history_service.get_total_count()
+    count_result = await ingestion_history_service.get_total_count()
     assert count_result.is_ok
     assert count_result.value == 3
 
@@ -331,48 +337,48 @@ async def test_error_handling_driver_required_for_dry_run(tmp_path):
 
 
 # ============================================================================
-# TEST 7: Performance — Full Sync + Incremental Efficiency
+# TEST 7: Performance — Full Ingestion + Incremental Efficiency
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_incremental_sync_skips_unchanged_files(ingestion_service, valid_ku_directory):
-    """Test that incremental sync skips unchanged files after initial sync.
+async def test_incremental_ingestion_skips_unchanged_files(ingestion_service, valid_ku_directory):
+    """Test that incremental ingestion skips unchanged files after initial ingestion.
 
-    Both syncs use incremental mode because only incremental/smart modes
-    write SyncMetadata nodes that enable skip detection on subsequent runs.
+    Both ingestions use incremental mode because only incremental/smart modes
+    write IngestionMetadata nodes that enable skip detection on subsequent runs.
     """
-    # First sync — incremental mode, processes all files (no metadata yet)
+    # First ingestion — incremental mode, processes all files (no metadata yet)
     result1 = await ingestion_service.ingest_directory(
         directory=valid_ku_directory,
         pattern="*.md",
-        sync_mode="incremental",
+        ingestion_mode="incremental",
     )
     assert result1.is_ok
     stats1 = result1.value
-    assert isinstance(stats1, SyncStats)
+    assert isinstance(stats1, IncrementalStats)
     assert stats1.total_files == 5
     assert stats1.files_synced == 5  # All processed on first run
 
-    # Second sync — incremental mode, should skip unchanged files
+    # Second ingestion — incremental mode, should skip unchanged files
     result2 = await ingestion_service.ingest_directory(
         directory=valid_ku_directory,
         pattern="*.md",
-        sync_mode="incremental",
+        ingestion_mode="incremental",
     )
     assert result2.is_ok
     stats2 = result2.value
-    assert isinstance(stats2, SyncStats)
+    assert isinstance(stats2, IncrementalStats)
 
-    # All files should be skipped (none changed since first sync)
+    # All files should be skipped (none changed since first ingestion)
     assert stats2.files_skipped == 5
     assert stats2.files_synced == 0
     assert stats2.sync_efficiency > 90.0  # >90% skipped
 
 
 @pytest.mark.asyncio
-async def test_dry_run_faster_than_full_sync(ingestion_service, valid_ku_directory):
-    """Test that dry-run is faster than full sync (read-only queries)."""
+async def test_dry_run_faster_than_full_ingestion(ingestion_service, valid_ku_directory):
+    """Test that dry-run is faster than full ingestion (read-only queries)."""
     import time
 
     # Dry-run timing
@@ -385,12 +391,12 @@ async def test_dry_run_faster_than_full_sync(ingestion_service, valid_ku_directo
     dry_duration = time.monotonic() - start_dry
     assert dry_result.is_ok
 
-    # Full sync timing
+    # Full ingestion timing
     start_full = time.monotonic()
     full_result = await ingestion_service.ingest_directory(
         directory=valid_ku_directory,
         pattern="*.md",
-        sync_mode="full",
+        ingestion_mode="full",
     )
     full_duration = time.monotonic() - start_full
     assert full_result.is_ok
@@ -398,5 +404,5 @@ async def test_dry_run_faster_than_full_sync(ingestion_service, valid_ku_directo
     # Dry-run should be faster (or at least not significantly slower)
     # We use a generous tolerance — just verifying dry-run doesn't hang or timeout
     assert dry_duration < full_duration * 5, (
-        f"Dry-run ({dry_duration:.2f}s) was >5x slower than full sync ({full_duration:.2f}s)"
+        f"Dry-run ({dry_duration:.2f}s) was >5x slower than full ingestion ({full_duration:.2f}s)"
     )

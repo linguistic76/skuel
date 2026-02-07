@@ -495,7 +495,7 @@ async def _wire_all_routes(
     - core_routes.py (tasks + habits + timeline)
     - content_routes.py (journals + audio transcription)
     - ku_routes.py (discovery + hierarchical + askesis)
-    - system_routes.py (main + health + operations + sync)
+    - system_routes.py (main + health + operations)
     - finance_routes.py (standalone)
 
     IMPORT BOUNDARY: Route modules are imported here to prevent them from importing

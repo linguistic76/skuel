@@ -1,26 +1,26 @@
 """
-Sync Tracker - Incremental Sync State Management
-=================================================
+Ingestion Tracker - Incremental Ingestion State Management
+==========================================================
 
-Tracks file sync state in Neo4j for incremental operations.
-Enables delta sync by detecting changed files based on content hash and mtime.
+Tracks file ingestion state in Neo4j for incremental operations.
+Enables delta ingestion by detecting changed files based on content hash and mtime.
 
 Key Design Decisions:
 - Content hash (SHA-256) for definitive change detection
 - File mtime as fast pre-filter before hash computation
-- SyncMetadata nodes stored in Neo4j alongside entity nodes
-- Supports both "incremental" and "smart" sync modes
+- IngestionMetadata nodes stored in Neo4j alongside entity nodes
+- Supports both "incremental" and "smart" ingestion modes
 
 Usage:
-    tracker = SyncTracker(driver)
+    tracker = IngestionTracker(driver)
 
-    # Check which files need sync
-    result = await tracker.get_sync_metadata(file_paths)
+    # Check which files need ingestion
+    result = await tracker.get_ingestion_metadata(file_paths)
     metadata = result.value if result.is_ok else {}
-    files_to_sync = [f for f in files if tracker.needs_sync(f, metadata.get(str(f)))]
+    files_to_ingest = [f for f in files if tracker.needs_ingestion(f, metadata.get(str(f)))]
 
     # After successful ingestion, update metadata
-    await tracker.update_sync_metadata(file_path, entity_uid, content_hash)
+    await tracker.update_ingestion_metadata(file_path, entity_uid, content_hash)
 """
 
 import hashlib
@@ -34,41 +34,41 @@ from neo4j.time import DateTime as Neo4jDateTime
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
-logger = get_logger("skuel.services.ingestion.sync_tracker")
+logger = get_logger("skuel.services.ingestion.ingestion_tracker")
 
 
 @dataclass
-class FileSyncMetadata:
-    """Sync state for a single file."""
+class FileIngestionMetadata:
+    """Ingestion state for a single file."""
 
     file_path: str
     content_hash: str  # SHA-256 of file content
     file_mtime: float  # File modification timestamp (Unix epoch)
-    last_synced_at: datetime
+    last_ingested_at: datetime
     entity_uid: str
 
 
 @dataclass
-class SyncDecision:
-    """Result of sync decision for a file."""
+class IngestionDecision:
+    """Result of ingestion decision for a file."""
 
     file_path: Path
-    needs_sync: bool
+    needs_ingestion: bool
     reason: str  # "new", "modified", "hash_changed", "unchanged"
-    existing_metadata: FileSyncMetadata | None = None
+    existing_metadata: FileIngestionMetadata | None = None
 
 
-class SyncTracker:
+class IngestionTracker:
     """
-    Track sync state in Neo4j for incremental operations.
+    Track ingestion state in Neo4j for incremental operations.
 
-    Stores SyncMetadata nodes with file path, content hash, and timestamps.
+    Stores IngestionMetadata nodes with file path, content hash, and timestamps.
     Used by ingest_directory() to skip unchanged files.
     """
 
     def __init__(self, driver: AsyncDriver) -> None:
         """
-        Initialize sync tracker.
+        Initialize ingestion tracker.
 
         Args:
             driver: Neo4j async driver
@@ -78,13 +78,13 @@ class SyncTracker:
 
     async def ensure_constraints(self) -> Result[None]:
         """
-        Ensure Neo4j constraints exist for SyncMetadata nodes.
+        Ensure Neo4j constraints exist for IngestionMetadata nodes.
 
         Creates unique constraint on file_path for fast lookups.
         """
         query = """
-        CREATE CONSTRAINT sync_metadata_file_path IF NOT EXISTS
-        FOR (s:SyncMetadata) REQUIRE s.file_path IS UNIQUE
+        CREATE CONSTRAINT ingestion_metadata_file_path IF NOT EXISTS
+        FOR (s:IngestionMetadata) REQUIRE s.file_path IS UNIQUE
         """
         try:
             async with self.driver.session() as session:
@@ -92,7 +92,7 @@ class SyncTracker:
             return Result.ok(None)
         except Exception as e:
             self.logger.error(
-                "Failed to create SyncMetadata constraint",
+                "Failed to create IngestionMetadata constraint",
                 extra={
                     "error_type": type(e).__name__,
                     "error_message": str(e),
@@ -100,17 +100,17 @@ class SyncTracker:
             )
             return Result.fail(str(e))
 
-    async def get_sync_metadata(
+    async def get_ingestion_metadata(
         self, file_paths: list[Path]
-    ) -> Result[dict[str, FileSyncMetadata]]:
+    ) -> Result[dict[str, FileIngestionMetadata]]:
         """
-        Fetch existing sync metadata from Neo4j for given files.
+        Fetch existing ingestion metadata from Neo4j for given files.
 
         Args:
             file_paths: List of file paths to query
 
         Returns:
-            Result containing dict mapping file path strings to FileSyncMetadata
+            Result containing dict mapping file path strings to FileIngestionMetadata
         """
         if not file_paths:
             return Result.ok({})
@@ -119,15 +119,15 @@ class SyncTracker:
 
         query = """
         UNWIND $paths AS path
-        MATCH (s:SyncMetadata {file_path: path})
+        MATCH (s:IngestionMetadata {file_path: path})
         RETURN s.file_path AS file_path,
                s.content_hash AS content_hash,
                s.file_mtime AS file_mtime,
-               s.last_synced_at AS last_synced_at,
+               s.last_ingested_at AS last_ingested_at,
                s.entity_uid AS entity_uid
         """
 
-        result_map: dict[str, FileSyncMetadata] = {}
+        result_map: dict[str, FileIngestionMetadata] = {}
 
         try:
             async with self.driver.session() as session:
@@ -136,27 +136,27 @@ class SyncTracker:
 
                 for record in records:
                     # Handle datetime - Neo4j returns neo4j.time.DateTime
-                    last_synced = record["last_synced_at"]
-                    if isinstance(last_synced, Neo4jDateTime):
-                        last_synced = last_synced.to_native()
+                    last_ingested = record["last_ingested_at"]
+                    if isinstance(last_ingested, Neo4jDateTime):
+                        last_ingested = last_ingested.to_native()
 
-                    metadata = FileSyncMetadata(
+                    metadata = FileIngestionMetadata(
                         file_path=record["file_path"],
                         content_hash=record["content_hash"],
                         file_mtime=record["file_mtime"],
-                        last_synced_at=last_synced,
+                        last_ingested_at=last_ingested,
                         entity_uid=record["entity_uid"],
                     )
                     result_map[record["file_path"]] = metadata
 
             self.logger.debug(
-                f"Retrieved sync metadata for {len(result_map)}/{len(file_paths)} files"
+                f"Retrieved ingestion metadata for {len(result_map)}/{len(file_paths)} files"
             )
             return Result.ok(result_map)
 
         except Exception as e:
             self.logger.error(
-                "Failed to fetch sync metadata",
+                "Failed to fetch ingestion metadata",
                 extra={
                     "file_count": len(file_paths),
                     "error_type": type(e).__name__,
@@ -165,27 +165,27 @@ class SyncTracker:
             )
             return Result.fail(str(e))
 
-    async def update_sync_metadata(
+    async def update_ingestion_metadata(
         self,
         file_path: Path,
         entity_uid: str,
         content_hash: str,
     ) -> Result[None]:
         """
-        Update sync metadata after successful ingestion.
+        Update ingestion metadata after successful ingestion.
 
         Uses MERGE for idempotent upsert.
 
         Args:
-            file_path: Path to the synced file
+            file_path: Path to the ingested file
             entity_uid: UID of the entity created/updated
             content_hash: SHA-256 hash of file content
         """
         query = """
-        MERGE (s:SyncMetadata {file_path: $file_path})
+        MERGE (s:IngestionMetadata {file_path: $file_path})
         SET s.content_hash = $content_hash,
             s.file_mtime = $file_mtime,
-            s.last_synced_at = datetime(),
+            s.last_ingested_at = datetime(),
             s.entity_uid = $entity_uid
         """
 
@@ -204,7 +204,7 @@ class SyncTracker:
             return Result.ok(None)
         except Exception as e:
             self.logger.error(
-                "Failed to update sync metadata",
+                "Failed to update ingestion metadata",
                 extra={
                     "file_path": str(file_path),
                     "entity_uid": entity_uid,
@@ -214,14 +214,14 @@ class SyncTracker:
             )
             return Result.fail(str(e))
 
-    async def update_sync_metadata_batch(
+    async def update_ingestion_metadata_batch(
         self,
         updates: list[tuple[Path, str, str]],  # (file_path, entity_uid, content_hash)
     ) -> Result[int]:
         """
-        Batch update sync metadata for multiple files.
+        Batch update ingestion metadata for multiple files.
 
-        More efficient than individual updates for large syncs.
+        More efficient than individual updates for large ingestion operations.
 
         Args:
             updates: List of (file_path, entity_uid, content_hash) tuples
@@ -234,10 +234,10 @@ class SyncTracker:
 
         query = """
         UNWIND $items AS item
-        MERGE (s:SyncMetadata {file_path: item.file_path})
+        MERGE (s:IngestionMetadata {file_path: item.file_path})
         SET s.content_hash = item.content_hash,
             s.file_mtime = item.file_mtime,
-            s.last_synced_at = datetime(),
+            s.last_ingested_at = datetime(),
             s.entity_uid = item.entity_uid
         RETURN count(s) AS updated
         """
@@ -255,7 +255,7 @@ class SyncTracker:
                     }
                 )
             except OSError:
-                # File may have been deleted/moved during sync
+                # File may have been deleted/moved during ingestion
                 continue
 
         if not items:
@@ -269,7 +269,7 @@ class SyncTracker:
             return Result.ok(updated_count)
         except Exception as e:
             self.logger.error(
-                "Failed to batch update sync metadata",
+                "Failed to batch update ingestion metadata",
                 extra={
                     "batch_size": len(items),
                     "error_type": type(e).__name__,
@@ -278,9 +278,9 @@ class SyncTracker:
             )
             return Result.fail(str(e))
 
-    async def delete_sync_metadata(self, file_paths: list[Path]) -> Result[int]:
+    async def delete_ingestion_metadata(self, file_paths: list[Path]) -> Result[int]:
         """
-        Delete sync metadata for removed files.
+        Delete ingestion metadata for removed files.
 
         Call this when files are deleted from the vault.
 
@@ -295,7 +295,7 @@ class SyncTracker:
 
         query = """
         UNWIND $paths AS path
-        MATCH (s:SyncMetadata {file_path: path})
+        MATCH (s:IngestionMetadata {file_path: path})
         DETACH DELETE s
         RETURN count(*) AS deleted
         """
@@ -308,7 +308,7 @@ class SyncTracker:
             return Result.ok(deleted_count)
         except Exception as e:
             self.logger.error(
-                "Failed to delete sync metadata",
+                "Failed to delete ingestion metadata",
                 extra={
                     "file_count": len(file_paths),
                     "error_type": type(e).__name__,
@@ -334,31 +334,31 @@ class SyncTracker:
                 sha256.update(chunk)
         return sha256.hexdigest()
 
-    def needs_sync(
+    def needs_ingestion(
         self,
         file_path: Path,
-        metadata: FileSyncMetadata | None,
-    ) -> SyncDecision:
+        metadata: FileIngestionMetadata | None,
+    ) -> IngestionDecision:
         """
-        Determine if file needs re-sync based on hash/mtime.
+        Determine if file needs re-ingestion based on hash/mtime.
 
         Strategy:
-        1. If no metadata exists → needs sync (new file)
-        2. If file mtime unchanged → skip (fast path)
-        3. If mtime changed, check content hash → sync only if hash differs
+        1. If no metadata exists -> needs ingestion (new file)
+        2. If file mtime unchanged -> skip (fast path)
+        3. If mtime changed, check content hash -> ingest only if hash differs
 
         Args:
             file_path: Path to check
-            metadata: Existing sync metadata (or None if new)
+            metadata: Existing ingestion metadata (or None if new)
 
         Returns:
-            SyncDecision with needs_sync flag and reason
+            IngestionDecision with needs_ingestion flag and reason
         """
-        # New file - always needs sync
+        # New file - always needs ingestion
         if metadata is None:
-            return SyncDecision(
+            return IngestionDecision(
                 file_path=file_path,
-                needs_sync=True,
+                needs_ingestion=True,
                 reason="new",
             )
 
@@ -367,9 +367,9 @@ class SyncTracker:
 
             # Fast path: mtime unchanged means file hasn't been touched
             if current_mtime == metadata.file_mtime:
-                return SyncDecision(
+                return IngestionDecision(
                     file_path=file_path,
-                    needs_sync=False,
+                    needs_ingestion=False,
                     reason="unchanged",
                     existing_metadata=metadata,
                 )
@@ -380,17 +380,17 @@ class SyncTracker:
 
             if current_hash == metadata.content_hash:
                 # Content unchanged despite mtime change (e.g., file was touched)
-                return SyncDecision(
+                return IngestionDecision(
                     file_path=file_path,
-                    needs_sync=False,
+                    needs_ingestion=False,
                     reason="unchanged",
                     existing_metadata=metadata,
                 )
 
             # Content actually changed
-            return SyncDecision(
+            return IngestionDecision(
                 file_path=file_path,
-                needs_sync=True,
+                needs_ingestion=True,
                 reason="hash_changed",
                 existing_metadata=metadata,
             )
@@ -398,53 +398,53 @@ class SyncTracker:
         except OSError as e:
             # File may have been deleted - treat as needing removal
             self.logger.warning(
-                "Cannot access file for sync check - treating as modified",
+                "Cannot access file for ingestion check - treating as modified",
                 extra={
                     "file_path": str(file_path),
                     "error_type": type(e).__name__,
                     "error_message": str(e),
                 },
             )
-            return SyncDecision(
+            return IngestionDecision(
                 file_path=file_path,
-                needs_sync=True,
+                needs_ingestion=True,
                 reason="modified",  # Will fail during ingestion, handled there
                 existing_metadata=metadata,
             )
 
-    def filter_files_needing_sync(
+    def filter_files_needing_ingestion(
         self,
         file_paths: list[Path],
-        metadata_map: dict[str, FileSyncMetadata],
-    ) -> tuple[list[Path], list[SyncDecision]]:
+        metadata_map: dict[str, FileIngestionMetadata],
+    ) -> tuple[list[Path], list[IngestionDecision]]:
         """
-        Filter files to only those needing sync.
+        Filter files to only those needing ingestion.
 
-        Convenience method that applies needs_sync to all files.
+        Convenience method that applies needs_ingestion to all files.
 
         Args:
             file_paths: All file paths to consider
             metadata_map: Existing metadata keyed by file path string
 
         Returns:
-            Tuple of (files_to_sync, all_decisions)
+            Tuple of (files_to_ingest, all_decisions)
         """
-        files_to_sync: list[Path] = []
-        all_decisions: list[SyncDecision] = []
+        files_to_ingest: list[Path] = []
+        all_decisions: list[IngestionDecision] = []
 
         for file_path in file_paths:
             metadata = metadata_map.get(str(file_path))
-            decision = self.needs_sync(file_path, metadata)
+            decision = self.needs_ingestion(file_path, metadata)
             all_decisions.append(decision)
 
-            if decision.needs_sync:
-                files_to_sync.append(file_path)
+            if decision.needs_ingestion:
+                files_to_ingest.append(file_path)
 
-        return files_to_sync, all_decisions
+        return files_to_ingest, all_decisions
 
 
 __all__ = [
-    "FileSyncMetadata",
-    "SyncDecision",
-    "SyncTracker",
+    "FileIngestionMetadata",
+    "IngestionDecision",
+    "IngestionTracker",
 ]

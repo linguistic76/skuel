@@ -21,7 +21,6 @@ SYSTEM_CONFIG = DomainRouteConfig(
     ui_factory=create_system_ui_routes,
     api_related_services={
         "user_service": "user_service",
-        "sync_service": "sync_service",
     },
     ui_related_services={},
 )

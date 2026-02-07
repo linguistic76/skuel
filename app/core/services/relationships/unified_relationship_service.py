@@ -1294,9 +1294,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         raw_context = raw_result.value
 
         # Step 2: Categorize raw context using relationship definitions
-        cross_domain_rels = [
-            r for r in self.config.relationships if r.is_cross_domain_mapping
-        ]
+        cross_domain_rels = [r for r in self.config.relationships if r.is_cross_domain_mapping]
         categorized: dict[str, list[dict]] = {
             rel.context_field_name: [] for rel in cross_domain_rels
         }
@@ -1702,9 +1700,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
         # Build category → domain mapping from config
         category_domain_map: dict[str, Any] = {}
-        cross_domain_rels = [
-            r for r in self.config.relationships if r.is_cross_domain_mapping
-        ]
+        cross_domain_rels = [r for r in self.config.relationships if r.is_cross_domain_mapping]
         for rel in cross_domain_rels:
             target_domain = get_domain_from_label(rel.target_label)
             if target_domain:

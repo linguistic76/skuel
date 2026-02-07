@@ -14,12 +14,12 @@ Architecture (January 2026):
 - preparer.py - Data preparation (~100 lines)
 - validator.py - Validation pipeline (~550 lines)
 - batch.py - Concurrent operations (~800 lines)
-- sync_tracker.py - Incremental sync state (~300 lines)
+- ingestion_tracker.py - Incremental ingestion state (~300 lines)
 
 Total: ~2,700 lines across 9 focused modules
 
 Key Features (2026):
-- Incremental sync: Skip unchanged files using content hash/mtime
+- Incremental ingestion: Skip unchanged files using content hash/mtime
 - Relationship validation: Verify target UIDs exist before ingestion
 - Progress reporting: Callback-based progress for large operations
 - Configurable user UID: Via SKUEL_DEFAULT_USER_UID env var
@@ -29,13 +29,13 @@ Usage:
 
     service = UnifiedIngestionService(driver)
 
-    # Full sync (default, processes all files)
+    # Full ingestion (default, processes all files)
     result = await service.ingest_directory(Path("/vault"))
 
-    # Incremental sync (skip unchanged files)
+    # Incremental ingestion (skip unchanged files)
     result = await service.ingest_directory(
         Path("/vault"),
-        sync_mode="incremental",  # or "smart" for mtime-first detection
+        ingestion_mode="incremental",  # or "smart" for mtime-first detection
         validate_targets=True,    # validate relationship UIDs exist
     )
 """
@@ -52,6 +52,12 @@ from .config import (
 # Detector functions
 from .detector import detect_entity_type, detect_format
 
+# Ingestion history
+from .ingestion_history import IngestionHistoryEntry, IngestionHistoryService
+
+# Ingestion tracking
+from .ingestion_tracker import FileIngestionMetadata, IngestionDecision, IngestionTracker
+
 # Parser functions (for direct use if needed)
 from .parser import parse_markdown, parse_yaml
 
@@ -61,19 +67,15 @@ from .preparer import generate_uid, normalize_uid, prepare_entity_data
 # Progress tracking
 from .progress_tracker import ProgressTracker
 
-# Sync tracking
-from .sync_history import SyncHistoryEntry, SyncHistoryService
-from .sync_tracker import FileSyncMetadata, SyncDecision, SyncTracker
-
 # Data types
 from .types import (
     BundleStats,
     DirectoryValidationResult,
     DryRunPreview,
+    IncrementalStats,
     IngestionError,
     IngestionStats,
     RelationshipValidationResult,
-    SyncStats,
     ValidationResult,
 )
 
@@ -100,20 +102,20 @@ __all__ = [
     "BundleStats",
     "DirectoryValidationResult",
     "DryRunPreview",
+    "IncrementalStats",
     "IngestionError",
     "IngestionStats",
     "RelationshipValidationResult",
-    "SyncStats",
     "ValidationResult",
     # Progress tracking
     "ProgressTracker",
-    # Sync tracking
-    "FileSyncMetadata",
-    "SyncDecision",
-    "SyncTracker",
-    # Sync history
-    "SyncHistoryEntry",
-    "SyncHistoryService",
+    # Ingestion tracking
+    "FileIngestionMetadata",
+    "IngestionDecision",
+    "IngestionTracker",
+    # Ingestion history
+    "IngestionHistoryEntry",
+    "IngestionHistoryService",
     # Primary service
     "UnifiedIngestionService",
     # Detector
