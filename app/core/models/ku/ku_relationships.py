@@ -375,7 +375,7 @@ class KuRelationships:
             if you need semantic context or are working with existing KuGraphService code.
         """
         # Execute all relationship queries in parallel via UnifiedRelationshipService
-        # Method keys match generated config from UnifiedRelationshipRegistry
+        # Method keys match generated config from RelationshipRegistry
         results = await asyncio.gather(
             relationship_service.get_related_uids("requires", ku_uid),
             relationship_service.get_related_uids("enables", ku_uid),

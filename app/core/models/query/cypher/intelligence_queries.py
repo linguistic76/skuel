@@ -315,7 +315,7 @@ def build_registry_validated_query(
     Raises:
         ValueError: If relationship_type is not valid for source_label
     """
-    from core.models.unified_relationship_registry import (
+    from core.models.relationship_registry import (
         get_relationship_metadata,
         get_valid_relationships,
         validate_relationship,
@@ -433,7 +433,7 @@ def build_impact_chain_query(
     Returns:
         Tuple of (cypher_query, parameters)
     """
-    from core.models.unified_relationship_registry import get_valid_relationships
+    from core.models.relationship_registry import get_valid_relationships
 
     # Discover valid relationships for this path
     if relationship_filter:
@@ -530,7 +530,7 @@ def build_bidirectional_impact_query(
     Returns:
         Tuple of (cypher_query, parameters)
     """
-    from core.models.unified_relationship_registry import (
+    from core.models.relationship_registry import (
         get_all_labels,
         get_valid_relationships,
     )

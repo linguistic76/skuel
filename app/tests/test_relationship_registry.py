@@ -1,8 +1,8 @@
 """
-Tests for UnifiedRelationshipRegistry
-=====================================
+Tests for RelationshipRegistry
+===============================
 
-Verifies that the unified registry correctly generates relationship
+Verifies that the relationship registry correctly generates relationship
 configurations for Activity domains.
 
 January 2026 Consolidation (ADR-026)
@@ -10,7 +10,7 @@ January 2026 Consolidation (ADR-026)
 
 from core.models.relationship_names import RelationshipName
 from core.models.shared_enums import Domain
-from core.models.unified_relationship_registry import (
+from core.models.relationship_registry import (
     UNIFIED_REGISTRY,
     UNIFIED_REGISTRY_BY_LABEL,
     DomainRelationshipConfig,
@@ -270,7 +270,7 @@ class TestActivityDomainIntegration:
 
     def test_relationship_registry_integration(self):
         """Verify generator functions produce patterns for all domains."""
-        from core.models.unified_relationship_registry import (
+        from core.models.relationship_registry import (
             generate_enables_relationships,
             generate_graph_enrichment,
             generate_prerequisite_relationships,

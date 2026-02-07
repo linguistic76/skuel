@@ -819,7 +819,7 @@ class ContextOperations(Protocol[T]):
         min_confidence: float = 0.7,
     ) -> Result[T]:
         """
-        Basic get_with_context for entities not in UnifiedRelationshipRegistry.
+        Basic get_with_context for entities not in RelationshipRegistry.
 
         Args:
             uid: Entity UID

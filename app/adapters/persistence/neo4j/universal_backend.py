@@ -2160,7 +2160,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             - get_relationship_metadata(): Retrieve relationship properties
             - RelationshipRegistry: Valid relationship types per domain
         """
-        from core.models.unified_relationship_registry import (
+        from core.models.relationship_registry import (
             get_relationship_metadata,
             get_valid_relationships,
             validate_relationship,
@@ -2256,7 +2256,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                 )
 
         # Note: Property validation and cardinality constraints were removed in January 2026
-        # during the UnifiedRelationshipRegistry migration. The new registry focuses on
+        # during the RelationshipRegistry migration. The new registry focuses on
         # essential validation (relationship type + target labels). Add cardinality
         # constraints to UnifiedRelationshipDefinition if needed in the future.
 
@@ -2589,7 +2589,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             result = await backend.create_relationships_batch(rels)
             print(f"Created {result.value} relationships")  # All or nothing
         """
-        from core.models.unified_relationship_registry import (
+        from core.models.relationship_registry import (
             get_relationship_metadata,
             get_valid_relationships,
             validate_relationship,

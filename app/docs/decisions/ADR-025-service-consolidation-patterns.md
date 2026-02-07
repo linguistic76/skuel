@@ -293,7 +293,7 @@ class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
 
 ### Relationship Registry Example
 ```python
-from core.models.unified_relationship_registry import generate_graph_enrichment
+from core.models.relationship_registry import generate_graph_enrichment
 
 # Get patterns for a domain
 patterns = generate_graph_enrichment("Task")

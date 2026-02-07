@@ -49,7 +49,7 @@ class TasksSearchService(BaseService):
 
 See Also:
     - /core/services/base_service.py - Uses DomainConfig exclusively
-    - /core/models/unified_relationship_registry.py - THE single source of truth for relationships
+    - /core/models/relationship_registry.py - THE single source of truth for relationships
     - /docs/migrations/BASESERVICE_IMPROVEMENTS_2026-01-29.md - Migration guide
 """
 
@@ -94,7 +94,7 @@ class DomainConfig:
         from core.services.domain_config import DomainConfig
         from core.models.task.task import Task
         from core.models.task.task_dto import TaskDTO
-        from core.models.unified_relationship_registry import (
+        from core.models.relationship_registry import (
             generate_graph_enrichment,
             generate_prerequisite_relationships,
             generate_enables_relationships,
@@ -263,7 +263,7 @@ def create_activity_domain_config(
         ValueError: If entity not found in required registries
     """
     # Import here to avoid circular imports
-    from core.models.unified_relationship_registry import (
+    from core.models.relationship_registry import (
         UNIFIED_REGISTRY_BY_LABEL,
         generate_enables_relationships,
         generate_graph_enrichment,
@@ -276,7 +276,7 @@ def create_activity_domain_config(
     if entity_label not in UNIFIED_REGISTRY_BY_LABEL:
         raise ValueError(
             f"Entity '{entity_label}' not found in UNIFIED_REGISTRY_BY_LABEL. "
-            f"Add to /core/models/unified_relationship_registry.py before creating DomainConfig."
+            f"Add to /core/models/relationship_registry.py before creating DomainConfig."
         )
 
     return DomainConfig(
@@ -336,7 +336,7 @@ def create_curriculum_domain_config(
     Raises:
         ValueError: If entity not found in registries when using defaults
     """
-    from core.models.unified_relationship_registry import (
+    from core.models.relationship_registry import (
         UNIFIED_REGISTRY_BY_LABEL,
         generate_enables_relationships,
         generate_graph_enrichment,
@@ -349,7 +349,7 @@ def create_curriculum_domain_config(
     if entity_label not in UNIFIED_REGISTRY_BY_LABEL:
         raise ValueError(
             f"Entity '{entity_label}' not found in UNIFIED_REGISTRY_BY_LABEL. "
-            f"Add to /core/models/unified_relationship_registry.py before creating DomainConfig."
+            f"Add to /core/models/relationship_registry.py before creating DomainConfig."
         )
 
     # Use provided relationships or fall back to unified registry

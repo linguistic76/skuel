@@ -56,11 +56,11 @@ TASK_CONFIG.outgoing_relationships = {
 
 **What is the change we're proposing/making?**
 
-Create `UnifiedRelationshipRegistry` as THE single source of truth for all relationship configurations. Both `relationship_registry.py` and `domain_configs.py` become facades that generate their data from this registry.
+Create `RelationshipRegistry` as THE single source of truth for all relationship configurations. Both `relationship_registry.py` and `domain_configs.py` become facades that generate their data from this registry.
 
 **Implementation:**
 
-1. **New dataclasses** in `/core/models/unified_relationship_registry.py`:
+1. **New dataclasses** in `/core/models/relationship_registry.py`:
 
 ```python
 @dataclass(frozen=True)
@@ -137,7 +137,7 @@ def generate_relationship_config(domain: Domain) -> RelationshipConfig | None:
 4. **Post-Query Processors** for calculated fields (Phase 3):
 
 ```python
-# In unified_relationship_registry.py - GOALS_UNIFIED example
+# In relationship_registry.py - GOALS_UNIFIED example
 GOALS_UNIFIED = DomainRelationshipConfig(
     # ... relationships ...
     post_processors=(
@@ -222,7 +222,7 @@ TASK_CONFIG = generate_relationship_config(Domain.TASKS)
 
 ### Alternative 3: Remove relationship_registry entirely
 
-**Description:** Have services query UnifiedRelationshipRegistry directly.
+**Description:** Have services query RelationshipRegistry directly.
 
 **Pros:**
 - Eliminates intermediate layer
@@ -246,11 +246,11 @@ TASK_CONFIG = generate_relationship_config(Domain.TASKS)
 - ✅ **Reduced drift risk**: Changes in one place propagate everywhere
 
 ### Negative Consequences
-- ⚠️ **Indirection**: Must look at unified_relationship_registry.py to see actual definitions
+- ⚠️ **Indirection**: Must look at relationship_registry.py to see actual definitions
 - ⚠️ **Startup cost**: Generator functions run at import time (minimal impact)
 
 ### Neutral Consequences
-- ℹ️ New file to maintain (unified_relationship_registry.py)
+- ℹ️ New file to maintain (relationship_registry.py)
 - ℹ️ 11 new RelationshipName enum values added for curriculum domains
 
 ### Risks & Mitigation
@@ -266,14 +266,14 @@ TASK_CONFIG = generate_relationship_config(Domain.TASKS)
 ## Implementation Details
 
 ### Code Location
-- **Primary file:** `/core/models/unified_relationship_registry.py`
+- **Primary file:** `/core/models/relationship_registry.py`
 - **Related files:**
   - `/core/models/relationship_registry.py` (now facade)
   - `/core/services/relationships/domain_configs.py` (now facade)
   - `/core/models/relationship_names.py` (11 new values)
   - `/core/models/query/cypher/post_processors.py` (Phase 3 - processor functions)
   - `/core/services/base_service.py` (`_parse_context_result()` applies processors)
-- **Tests:** `/tests/test_unified_relationship_registry.py`
+- **Tests:** `/tests/test_relationship_registry.py`
 
 ### New RelationshipName Values (Phase 2)
 
@@ -375,7 +375,7 @@ See `core/services/ingestion/config.py` for the full cross-reference table.
 ### Test Results
 
 ```
-tests/test_unified_relationship_registry.py - 26 tests passing
+tests/test_relationship_registry.py - 26 tests passing
 ├── TestUnifiedRegistry (3 tests)
 ├── TestUnifiedRelationshipDefinition (3 tests)
 ├── TestGenerateGraphEnrichment (3 tests)

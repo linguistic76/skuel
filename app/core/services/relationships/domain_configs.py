@@ -4,7 +4,7 @@ Domain Configurations - RelationshipConfig Definitions for Searchable Domains
 
 **February 2026 Unified Architecture:**
 
-ALL domains (Activity + Curriculum) use generated configs from UnifiedRelationshipRegistry.
+ALL domains (Activity + Curriculum) use generated configs from RelationshipRegistry.
 Finance is standalone (no relationship configuration).
 
 **Activity Domains (6):** Generated via generate_relationship_config(Domain.*)
@@ -36,9 +36,9 @@ Date: 2026-02-07
 from core.models.shared_enums import Domain
 
 # =============================================================================
-# CONFIGURATION REGISTRY - Generated from UnifiedRelationshipRegistry
+# CONFIGURATION REGISTRY - Generated from RelationshipRegistry
 # =============================================================================
-from core.models.unified_relationship_registry import (
+from core.models.relationship_registry import (
     generate_relationship_config,
     generate_relationship_config_by_label,
 )
@@ -47,7 +47,7 @@ from core.services.relationships.relationship_config import RelationshipConfig
 # =============================================================================
 # ACTIVITY DOMAIN CONFIGS (6 domains - User-owned entities)
 # =============================================================================
-# All configs are GENERATED from UnifiedRelationshipRegistry (ADR-026).
+# All configs are GENERATED from RelationshipRegistry (ADR-026).
 # Note: Finance is standalone bookkeeping (not in unified architecture)
 
 _GENERATED_TASK_CONFIG = generate_relationship_config(Domain.TASKS)
@@ -85,7 +85,7 @@ PRINCIPLE_CONFIG = _GENERATED_PRINCIPLE_CONFIG
 # =============================================================================
 # CURRICULUM DOMAIN CONFIGS (4 configs - Shared content)
 # =============================================================================
-# Generated from UnifiedRelationshipRegistry via label-based lookup.
+# Generated from RelationshipRegistry via label-based lookup.
 # Supports ordering (HAS_STEP with sequence) and edge metadata.
 
 _GENERATED_KU_CONFIG = generate_relationship_config_by_label("Ku")

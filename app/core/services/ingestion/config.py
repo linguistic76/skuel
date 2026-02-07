@@ -61,8 +61,8 @@ class EntityIngestionConfig:
 # ENTITY_CONFIGS — Ingestion Relationship Configuration
 #
 # These configs define Neo4j edge creation during YAML/Markdown ingestion.
-# Independent from the Unified Relationship Registry
-# (core/models/unified_relationship_registry.py) which serves BaseService
+# Independent from the Relationship Registry
+# (core/models/relationship_registry.py) which serves BaseService
 # graph enrichment and UnifiedRelationshipService.
 #
 # Why independent:

@@ -102,7 +102,7 @@ from core.utils.result_simplified import Result
 
 # Relationship configs (January 2026)
 from core.services.relationships import get_lp_config, get_ls_config, get_ku_config, get_moc_config
-from core.models.unified_relationship_registry import UNIFIED_REGISTRY_BY_LABEL
+from core.models.relationship_registry import UNIFIED_REGISTRY_BY_LABEL
 
 # Factory functions
 from core.utils.curriculum_domain_config import (

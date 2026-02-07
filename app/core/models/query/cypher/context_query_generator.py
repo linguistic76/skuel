@@ -2,7 +2,7 @@
 Context Query Generator - Registry-Driven Graph Context Queries
 ================================================================
 
-Generates graph context queries from UnifiedRelationshipRegistry,
+Generates graph context queries from RelationshipRegistry,
 eliminating domain-specific build_*_with_context() functions.
 
 **January 2026 Consolidation:**
@@ -14,7 +14,7 @@ Previously, each domain had its own `build_*_with_context()` function:
 - ... (7 total, ~590 lines)
 
 This module replaces ALL of them with a single function that reads
-relationship definitions from UnifiedRelationshipRegistry.
+relationship definitions from RelationshipRegistry.
 
 **Shared-Neighbor Patterns (January 2026):**
 
@@ -45,7 +45,7 @@ query, params = generate_context_query(
 ```
 
 **See Also:**
-    - /core/models/unified_relationship_registry.py - THE single source
+    - /core/models/relationship_registry.py - THE single source
     - /core/models/query/cypher/domain_queries.py - build_entity_with_context() engine
 """
 
@@ -58,7 +58,7 @@ from .domain_queries import build_entity_with_context
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from core.models.unified_relationship_registry import (
+    from core.models.relationship_registry import (
         DomainRelationshipConfig,
         UnifiedRelationshipDefinition,
     )
@@ -66,7 +66,7 @@ if TYPE_CHECKING:
 
 def _get_registry() -> dict[str, DomainRelationshipConfig]:
     """Lazy import to avoid circular dependency."""
-    from core.models.unified_relationship_registry import UNIFIED_REGISTRY_BY_LABEL
+    from core.models.relationship_registry import UNIFIED_REGISTRY_BY_LABEL
 
     return UNIFIED_REGISTRY_BY_LABEL
 
@@ -78,7 +78,7 @@ def generate_context_query(
     default_confidence: float = 0.7,
 ) -> tuple[str, dict[str, Any]]:
     """
-    Generate a context query from the UnifiedRelationshipRegistry.
+    Generate a context query from the RelationshipRegistry.
 
     This is THE function that replaces all domain-specific build_*_with_context()
     functions. It reads relationship definitions from the registry and generates

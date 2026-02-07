@@ -655,7 +655,7 @@ Cypher Query → Raw Data → Post-Processor → Computed Field
 ### Configuration in Registry
 
 ```python
-# In unified_relationship_registry.py
+# In relationship_registry.py
 GOALS_UNIFIED = DomainRelationshipConfig(
     relationships=(...),
     post_processors=(
@@ -692,7 +692,7 @@ for processor in config.post_processors:
 ### Key Files
 
 - **Processor functions:** `/core/models/query/cypher/post_processors.py`
-- **Registry config:** `/core/models/unified_relationship_registry.py`
+- **Registry config:** `/core/models/relationship_registry.py`
 - **BaseService integration:** `/core/services/base_service.py` (`_parse_context_result`)
 
 See [Service Consolidation Patterns](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md#4-post-query-processors) for detailed usage guide.

@@ -441,7 +441,7 @@ class GoalsSearchService(BaseService):
 ### The Solution
 
 ```python
-from core.models.unified_relationship_registry import (
+from core.models.relationship_registry import (
     generate_graph_enrichment,
     generate_prerequisite_relationships,
     generate_enables_relationships,
@@ -458,12 +458,12 @@ patterns = get_graph_enrichment("Task")
 
 ### Registry Structure
 
-**Location:** `/core/models/unified_relationship_registry.py`
+**Location:** `/core/models/relationship_registry.py`
 
 Three generator functions, keyed by entity label:
 
 ```python
-from core.models.unified_relationship_registry import (
+from core.models.relationship_registry import (
     generate_graph_enrichment,           # -> list[tuple[str, str, str, str]]
     generate_prerequisite_relationships, # -> list[str]
     generate_enables_relationships,      # -> list[str]
@@ -501,11 +501,11 @@ from core.models.unified_relationship_registry import (
 
 To add a new relationship pattern:
 
-1. Add the relationship to the domain's `DomainRelationshipConfig` in `/core/models/unified_relationship_registry.py`
+1. Add the relationship to the domain's `DomainRelationshipConfig` in `/core/models/relationship_registry.py`
 2. Use `RelationshipName` enum — add a new enum value if needed
 
 ```python
-# In unified_relationship_registry.py — add to domain config
+# In relationship_registry.py — add to domain config
 TASKS_UNIFIED = DomainRelationshipConfig(
     relationships=[
         ...,
@@ -544,7 +544,7 @@ if self.entity_label == "Goal" and "milestones" in graph_context:
 Define processors declaratively in the registry, implement once in `post_processors.py`:
 
 ```python
-# In unified_relationship_registry.py
+# In relationship_registry.py
 GOALS_UNIFIED = DomainRelationshipConfig(
     # ... relationships ...
     post_processors=(
@@ -604,7 +604,7 @@ for processor in config.post_processors:
 
 1. Add function to `/core/models/query/cypher/post_processors.py`
 2. Register in `PROCESSOR_REGISTRY`
-3. Add `PostProcessor` to domain config in `unified_relationship_registry.py`
+3. Add `PostProcessor` to domain config in `relationship_registry.py`
 
 ```python
 # Step 1: Add function
@@ -772,7 +772,7 @@ class LpSubServices:
 | DomainConfig | `/core/services/domain_config.py` | `from core.services.domain_config import DomainConfig, create_activity_domain_config` |
 | BaseService Mixins | `/core/services/mixins/` | `from core.services.mixins import ConversionHelpersMixin, CrudOperationsMixin, ...` |
 | FacadeDelegationMixin | `/core/services/mixins/facade_delegation_mixin.py` | `from core.services.mixins import FacadeDelegationMixin, merge_delegations` |
-| Relationship Registry | `/core/models/unified_relationship_registry.py` | `from core.models.unified_relationship_registry import generate_graph_enrichment` |
+| Relationship Registry | `/core/models/relationship_registry.py` | `from core.models.relationship_registry import generate_graph_enrichment` |
 | Post-Query Processors | `/core/models/query/cypher/post_processors.py` | `from core.models.query.cypher.post_processors import apply_processor, PROCESSOR_REGISTRY` |
 | KU/LP Factories | `/core/utils/curriculum_domain_config.py` | `from core.utils.curriculum_domain_config import create_ku_sub_services, create_lp_sub_services` |
 

@@ -1,6 +1,6 @@
 """
-Unified Relationship Registry
-=============================
+Relationship Registry
+=====================
 
 Single source of truth for ALL relationship configurations across domains.
 
@@ -13,7 +13,7 @@ All consumers call generator functions directly:
 
 **Usage:**
 ```python
-from core.models.unified_relationship_registry import (
+from core.models.relationship_registry import (
     generate_graph_enrichment,
     generate_relationship_config,
     UNIFIED_REGISTRY,

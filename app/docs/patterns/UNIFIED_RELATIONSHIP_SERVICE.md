@@ -30,7 +30,7 @@ For implementation guidance, see:
 
 **Key Innovation:** Configuration-driven approach where domain behavior is specified via `RelationshipConfig` objects, eliminating the need for separate service classes per domain.
 
-**January 2026 Update (ADR-026):** All relationship configurations are generated from `UnifiedRelationshipRegistry` (`/core/models/unified_relationship_registry.py`) — THE single source of truth. Consumers call generator functions directly.
+**January 2026 Update (ADR-026):** All relationship configurations are generated from `RelationshipRegistry` (`/core/models/relationship_registry.py`) — THE single source of truth. Consumers call generator functions directly.
 
 **Scope:** This service covers the **service layer** (graph enrichment, context queries, relationship operations). The **ingestion layer** (`core/services/ingestion/config.py`) has its own independent relationship config for YAML→Neo4j edge creation — see ADR-026 "Scope Boundary" section.
 
@@ -117,14 +117,14 @@ goals_relationship_service = UnifiedRelationshipService(
 
 ```
 /core/models/
-├── unified_relationship_registry.py  # THE single source of truth (ADR-026)
+├── relationship_registry.py  # THE single source of truth (ADR-026)
 └── relationship_names.py             # RelationshipName enum
 
 /core/services/relationships/
 ├── __init__.py                    # Module exports
 ├── relationship_config.py         # Base configuration (RelationshipConfig)
 ├── extended_config.py             # Extended specs (QuerySpec, LinkMethodSpec, etc.)
-├── domain_configs.py              # Facade - generates configs from unified registry
+├── domain_configs.py              # Facade - generates configs from registry
 ├── unified_relationship_service.py # The unified service (~1,500 lines)
 ├── path_aware_factory.py          # Factory for path-aware entities
 ├── relationships_container.py     # Generic relationship container
@@ -133,10 +133,10 @@ goals_relationship_service = UnifiedRelationshipService(
 
 ### Single Source of Truth (January 2026)
 
-All relationship configurations are defined in `UnifiedRelationshipRegistry`:
+All relationship configurations are defined in `RelationshipRegistry`:
 
 ```python
-from core.models.unified_relationship_registry import (
+from core.models.relationship_registry import (
     UNIFIED_REGISTRY,           # Access by Domain enum
     UNIFIED_REGISTRY_BY_LABEL,  # Access by Neo4j label
     generate_graph_enrichment,  # For DomainConfig factories
@@ -727,10 +727,10 @@ To:
 - Consistent API for all domains
 - 58% code reduction
 - Type-safe configuration
-- Single source of truth (UnifiedRelationshipRegistry)
+- Single source of truth (RelationshipRegistry)
 
 **Key Files:**
-- `/core/models/unified_relationship_registry.py` - THE single source of truth
+- `/core/models/relationship_registry.py` - THE single source of truth
 - `/core/services/relationships/unified_relationship_service.py`
 - `/core/services/relationships/domain_configs.py` (generated from unified registry)
 

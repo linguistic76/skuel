@@ -343,7 +343,7 @@ The `MarkdownSyncService` automatically detects and routes each file type.
 | MOC Navigation | `/core/services/moc/moc_navigation_service.py` | MOC operations |
 | EntityType | `/core/models/shared_enums.py` | Type-safe entity identification |
 | Markdown Sync | `/core/services/markdown_sync_service.py` | Sync all patterns from markdown |
-| Unified Registry | `/core/models/unified_relationship_registry.py` | All domain relationship configs |
+| Unified Registry | `/core/models/relationship_registry.py` | All domain relationship configs |
 
 **Note (January 2026):** `/core/models/moc/moc.py` deleted - MOC is KU-based, no separate model needed.
 

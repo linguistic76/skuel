@@ -564,7 +564,7 @@ connections:
 | `organizes` | ORGANIZES | KU | MOC |
 
 > **Note:** KU ingestion uses `PREREQUISITE`/`ENABLES` (KU-to-KU edges), while the
-> Unified Relationship Registry uses `REQUIRES_KNOWLEDGE`/`ENABLES_KNOWLEDGE`
+> Relationship Registry uses `REQUIRES_KNOWLEDGE`/`ENABLES_KNOWLEDGE`
 > (cross-domain edges). Both edge types coexist in Neo4j and are queried by
 > different services. See `core/services/ingestion/config.py` for the full
 > cross-reference.

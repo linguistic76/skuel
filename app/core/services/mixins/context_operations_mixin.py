@@ -43,7 +43,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     """
     Mixin providing graph context retrieval operations.
 
-    Uses registry-driven query generation from UnifiedRelationshipRegistry
+    Uses registry-driven query generation from RelationshipRegistry
     to fetch entities with their graph neighborhood in a single query.
 
     Required attributes from composing class:
@@ -132,7 +132,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Context is stored in entity.metadata["graph_context"].
 
         **January 2026 Consolidation:**
-        Uses registry-driven query generation from UnifiedRelationshipRegistry.
+        Uses registry-driven query generation from RelationshipRegistry.
         Domain-specific get_with_context() overrides are no longer needed.
 
         Args:
@@ -149,7 +149,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(Errors.validation(message="UID is required", field="uid"))
 
         # Check registry before attempting query generation (avoid exception for control flow)
-        from core.models.unified_relationship_registry import UNIFIED_REGISTRY_BY_LABEL
+        from core.models.relationship_registry import UNIFIED_REGISTRY_BY_LABEL
 
         if self.entity_label not in UNIFIED_REGISTRY_BY_LABEL:
             # Entity not in registry - use basic 3-relationship pattern
@@ -184,7 +184,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         min_confidence: float = 0.7,
     ) -> Result[T]:
         """
-        Basic get_with_context for entities not in UnifiedRelationshipRegistry.
+        Basic get_with_context for entities not in RelationshipRegistry.
 
         Uses a standard 3-relationship pattern (prerequisites, enables, related).
         Entities in the registry use the richer registry-driven query generation.
