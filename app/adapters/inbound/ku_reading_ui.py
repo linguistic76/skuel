@@ -1,30 +1,77 @@
 """
-KU Reading UI Routes - MVP Phase A
-===================================
+KU Reading UI Routes - Phase A
+===============================
 
 User-facing routes for reading Knowledge Units with:
-- Content display (title, description, markdown)
+- Markdown content rendering with table of contents
 - Breadcrumbs from MOC context
 - Mark as read / bookmark actions
 - Next/prev navigation via MOC ORGANIZES order
+- KU metadata display (domain, complexity, tags)
+- Lateral relationships visualization (Phase 5)
 
 Routes:
-- GET /ku/read/{uid} - KU detail page with reading interface
-- GET /ku/browse - KU browse page with MOC navigation (future)
+- GET /ku/{uid} - KU detail page with reading interface
 """
 
 from typing import Any
 
-from fasthtml.common import Button, Div, NotStr, P, Request
+from fasthtml.common import H3, A, Button, Div, NotStr, P, Request, Small, Span
 
 from core.auth import require_authenticated_user
 from core.ui.daisy_components import Card, CardBody
 from core.utils.logging import get_logger
+from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.layouts.base_page import BasePage
 from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.page_header import PageHeader
+from ui.patterns.relationships import EntityRelationshipsSection
 
 logger = get_logger("skuel.routes.ku.reading.ui")
+
+
+def _metadata_badge(label: str, value: str, color: str = "badge-ghost") -> Span:
+    """Render a metadata badge."""
+    return Span(
+        Span(label, cls="font-medium mr-1"),
+        value,
+        cls=f"badge {color} gap-1",
+    )
+
+
+def _nav_button(ku: dict | None, direction: str) -> Any:
+    """Render a navigation button (previous or next)."""
+    if not ku:
+        label = f"{'Previous' if direction == 'prev' else 'Next'}"
+        return Button(
+            f"{'←' if direction == 'prev' else ''} {label} {'→' if direction == 'next' else ''}",
+            cls="btn btn-outline btn-disabled",
+            disabled=True,
+        )
+
+    label = ku.get("title", "...")
+    if len(label) > 40:
+        label = label[:37] + "..."
+
+    if direction == "prev":
+        return A(
+            Div(
+                Small("Previous", cls="text-xs text-base-content/50"),
+                Div(f"← {label}", cls="text-sm"),
+                cls="text-left",
+            ),
+            href=f"/ku/{ku.get('uid')}",
+            cls="btn btn-outline",
+        )
+    return A(
+        Div(
+            Small("Next", cls="text-xs text-base-content/50"),
+            Div(f"{label} →", cls="text-sm"),
+            cls="text-right",
+        ),
+        href=f"/ku/{ku.get('uid')}",
+        cls="btn btn-outline",
+    )
 
 
 def create_ku_reading_ui_routes(
@@ -40,35 +87,42 @@ def create_ku_reading_ui_routes(
     Args:
         app: FastHTML app instance
         rt: FastHTML route decorator
-        ku_service: KU service facade
-        moc_service: MOC service for navigation
+        ku_service: KU service facade (delegates get() from KuCoreService)
+        moc_service: MOC navigation service for breadcrumbs and next/prev
         ku_interaction_service: Interaction tracking service
 
     Returns:
         List of registered route functions
     """
 
-    @rt("/ku/read/{uid}")
-    async def ku_read_page(request: Request, uid: str) -> Any:
+    @rt("/ku/{uid}")
+    async def ku_detail_page(request: Request, uid: str) -> Any:
         """
-        KU detail page with reading interface.
+        KU detail page with full reading interface.
 
         Displays:
-        - KU title, description, content (markdown)
         - Breadcrumbs (from MOC if available)
-        - Mark as read button
-        - Bookmark button
-        - Next/prev navigation (via MOC order)
+        - Page header with mark-as-read and bookmark actions
+        - KU metadata (domain, complexity, tags)
+        - Markdown content with table of contents
+        - Next/prev navigation (via MOC ORGANIZES order)
+        - Lateral relationships visualization (Phase 5)
         """
         user_uid = require_authenticated_user(request)
 
         # Get KU
-        ku_result = await ku_service.get_ku(uid)
+        ku_result = await ku_service.get(uid)
         if ku_result.is_error:
-            return BasePage(
+            return await BasePage(
                 content=Div(
-                    P(f"KU not found: {uid}", cls="text-error"),
-                    cls="p-8",
+                    Card(
+                        CardBody(
+                            H3("Knowledge Unit Not Found", cls="text-lg font-bold"),
+                            P(f"No KU with identifier: {uid}", cls="text-base-content/70 mt-2"),
+                            A("← Back to Knowledge", href="/sel", cls="btn btn-ghost btn-sm mt-4"),
+                        ),
+                    ),
+                    cls="max-w-4xl mx-auto p-8",
                 ),
                 title="KU Not Found",
                 request=request,
@@ -76,26 +130,46 @@ def create_ku_reading_ui_routes(
 
         ku = ku_result.value
 
-        # Record view (track interaction)
+        # Record view
         await ku_interaction_service.record_view(user_uid, uid)
 
-        # Get learning state
+        # Get learning state (includes marked-as-read and bookmark status)
         state_result = await ku_interaction_service.get_learning_state(user_uid, uid)
-        is_marked_read = (
-            state_result.value.state.value == "marked_as_read" if state_result.is_ok else False
-        )
+        is_marked_read = state_result.value.is_marked_as_read if state_result.is_ok else False
+        is_bookmarked = state_result.value.is_bookmarked if state_result.is_ok else False
+        view_count = state_result.value.view_count if state_result.is_ok else 0
 
-        # Get MOC context for breadcrumbs
+        # Get MOC context for breadcrumbs + navigation
         mocs_result = await moc_service.find_mocs_containing(uid)
         mocs = mocs_result.value if mocs_result.is_ok else []
 
+        # Build navigation from MOC siblings
+        prev_ku = None
+        next_ku = None
+        if mocs:
+            moc = mocs[0]
+            moc_uid = moc.get("uid")
+            moc_view_result = await moc_service.get_moc_view(moc_uid, max_depth=1)
+            if moc_view_result.is_ok:
+                children = moc_view_result.value.children
+                current_idx = None
+                for idx, child in enumerate(children):
+                    if child.uid == uid:
+                        current_idx = idx
+                        break
+                if current_idx is not None:
+                    if current_idx > 0:
+                        prev_child = children[current_idx - 1]
+                        prev_ku = {"uid": prev_child.uid, "title": prev_child.title}
+                    if current_idx < len(children) - 1:
+                        next_child = children[current_idx + 1]
+                        next_ku = {"uid": next_child.uid, "title": next_child.title}
+
         # Build breadcrumbs
         breadcrumb_path = [
-            {"uid": "home", "title": "Home", "url": "/"},
             {"uid": "knowledge", "title": "Knowledge", "url": "/sel"},
         ]
         if mocs:
-            # Use first MOC for breadcrumb
             moc = mocs[0]
             breadcrumb_path.append(
                 {
@@ -104,68 +178,133 @@ def create_ku_reading_ui_routes(
                     "url": f"/moc/{moc.get('uid')}",
                 }
             )
-        breadcrumb_path.append({"uid": uid, "title": ku.title, "url": ""})  # Current page (no link)
+        breadcrumb_path.append({"uid": uid, "title": ku.title, "url": ""})
 
-        # Build content
-        content = Div(
-            # Breadcrumbs
-            Breadcrumbs(path=breadcrumb_path),
-            # Page Header
-            PageHeader(
-                title=ku.title,
-                subtitle=ku.description or "",
-                actions=[
-                    Button(
-                        "✓ Marked as Read" if is_marked_read else "Mark as Read",
-                        cls="btn btn-sm btn-primary"
-                        if not is_marked_read
-                        else "btn btn-sm btn-outline",
-                        hx_post=f"/api/ku/{uid}/mark-read",
-                        hx_swap="outerHTML",
-                        hx_target="this",
-                    ),
-                    Button(
-                        "⭐ Bookmark",
-                        cls="btn btn-sm btn-ghost",
-                        hx_post=f"/api/ku/{uid}/bookmark",
-                        hx_swap="outerHTML",
-                        hx_target="this",
-                    ),
-                ],
-            ),
-            # Content Card
-            Card(
-                CardBody(
-                    # Markdown content
-                    Div(
-                        NotStr(ku.content or "No content available."),
-                        cls="prose prose-lg max-w-none",
-                    ),
-                ),
-                cls="mt-6",
-            ),
-            # Navigation (placeholder - will be enhanced with MOC order)
-            Div(
-                Div(
-                    Button("← Previous", cls="btn btn-outline", disabled=True),
-                    Button("Next →", cls="btn btn-outline", disabled=True),
-                    cls="flex justify-between mt-8",
-                ),
-                cls="border-t pt-6 mt-6",
-            ),
-            cls="max-w-4xl mx-auto p-8",
+        # Render markdown content with TOC
+        content_html, toc_html = render_markdown_with_toc(ku.content or "")
+        has_toc = bool(toc_html and toc_html.strip())
+
+        # Action buttons
+        mark_read_btn = Button(
+            "Marked as Read" if is_marked_read else "Mark as Read",
+            cls="btn btn-sm btn-outline btn-success"
+            if is_marked_read
+            else "btn btn-sm btn-primary",
+            hx_post=f"/api/ku/{uid}/mark-read",
+            hx_swap="outerHTML",
+            hx_target="this",
+            disabled=is_marked_read,
         )
 
-        return BasePage(
+        bookmark_btn = Button(
+            "Bookmarked" if is_bookmarked else "Bookmark",
+            cls="btn btn-sm btn-secondary" if is_bookmarked else "btn btn-sm btn-ghost",
+            hx_post=f"/api/ku/{uid}/bookmark",
+            hx_swap="outerHTML",
+            hx_target="this",
+        )
+
+        # Metadata badges
+        metadata_items = []
+        if ku.domain:
+            domain_label = getattr(ku.domain, "value", str(ku.domain))
+            metadata_items.append(
+                _metadata_badge("Domain:", domain_label, "badge-primary badge-outline")
+            )
+        if ku.complexity:
+            metadata_items.append(_metadata_badge("Complexity:", ku.complexity, "badge-ghost"))
+        if view_count > 0:
+            metadata_items.append(_metadata_badge("Views:", str(view_count), "badge-ghost"))
+
+        metadata_section = (
+            Div(*metadata_items, cls="flex flex-wrap gap-2 mb-4") if metadata_items else None
+        )
+
+        # Tags
+        tags_section = None
+        if ku.tags:
+            tag_badges = [Span(tag, cls="badge badge-outline badge-sm") for tag in ku.tags]
+            tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mb-6")
+
+        # Content area: TOC sidebar + markdown (or just markdown if no TOC)
+        if has_toc:
+            content_area = Div(
+                # TOC sidebar (sticky on desktop)
+                Div(
+                    Div(
+                        H3("Contents", cls="font-semibold text-sm mb-2"),
+                        Div(
+                            NotStr(toc_html),
+                            cls="prose prose-sm max-w-none toc-nav",
+                        ),
+                        cls="p-4 bg-base-200/50 rounded-lg sticky top-4",
+                    ),
+                    cls="hidden lg:block lg:w-56 shrink-0",
+                ),
+                # Main content
+                Div(
+                    Div(
+                        NotStr(content_html or "No content available."),
+                        cls="prose prose-lg max-w-none",
+                    ),
+                    cls="flex-1 min-w-0",
+                ),
+                cls="flex gap-8",
+            )
+        else:
+            content_area = Div(
+                NotStr(content_html or "No content available."),
+                cls="prose prose-lg max-w-none",
+            )
+
+        # Navigation bar
+        nav_section = Div(
+            Div(
+                _nav_button(prev_ku, "prev"),
+                _nav_button(next_ku, "next"),
+                cls="flex justify-between",
+            ),
+            cls="border-t border-base-200 pt-6 mt-8",
+        )
+
+        # Assemble page
+        content = Div(
+            Breadcrumbs(path=breadcrumb_path),
+            PageHeader(
+                title=ku.title,
+                actions=[mark_read_btn, bookmark_btn],
+            ),
+            metadata_section,
+            tags_section,
+            # Content card
+            Card(
+                CardBody(content_area),
+                cls="mt-2",
+            ),
+            # Navigation
+            nav_section,
+            # Lateral relationships (Phase 5)
+            Div(
+                EntityRelationshipsSection(
+                    entity_uid=uid,
+                    entity_type="ku",
+                ),
+                cls="mt-8",
+            ),
+            cls="max-w-5xl mx-auto p-6 lg:p-8",
+        )
+
+        return await BasePage(
             content=content,
             title=ku.title,
             request=request,
+            active_page="learning",
         )
 
-    logger.info("KU reading UI routes registered (1 endpoint)")
+    logger.info("KU reading UI routes registered: /ku/{uid}")
 
     return [
-        ku_read_page,
+        ku_detail_page,
     ]
 
 

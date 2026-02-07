@@ -1023,47 +1023,7 @@ def create_learning_ui_routes(_app, rt, _learning_service):
 
     routes.append(learning_analytics)
 
-    # ========================================================================
-    # KNOWLEDGE UNIT DETAIL PAGE (Phase 5)
-    # ========================================================================
-
-    @rt("/ku/{uid}")
-    async def ku_detail_view(request, uid: str) -> Any:
-        """
-        Knowledge Unit detail view with full context and relationships.
-
-        Phase 5: Shows KU details plus lateral relationships visualization.
-        """
-        # Note: This is a placeholder. Needs ku_service to be passed in
-        # For now, returning a basic page structure
-        content = Div(
-            Card(
-                H1(f"📚 Knowledge Unit: {uid}", cls="text-2xl font-bold mb-4"),
-                P("Knowledge Unit detail page", cls="text-base-content/70 mb-4"),
-                Button(
-                    "← Back to Learning",
-                    **{"hx-get": "/learning", "hx-target": "body"},
-                    variant=ButtonT.ghost,
-                ),
-                cls="p-6 mb-4",
-            ),
-            # Phase 5: Lateral Relationships Section
-            EntityRelationshipsSection(
-                entity_uid=uid,
-                entity_type="ku",
-            ),
-            cls="container mx-auto p-6 max-w-4xl",
-        )
-
-        return await BasePage(
-            content=content,
-            title=f"KU: {uid}",
-            page_type=PageType.STANDARD,
-            request=request,
-            active_page="learning",
-        )
-
-    routes.append(ku_detail_view)
+    # KNOWLEDGE UNIT DETAIL PAGE: Moved to ku_reading_ui.py → /ku/{uid}
 
     # ========================================================================
     # LEARNING STEP DETAIL PAGE (Phase 5)

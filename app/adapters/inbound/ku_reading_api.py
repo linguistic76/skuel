@@ -1,6 +1,6 @@
 """
-KU Reading API Routes - MVP Phase A
-====================================
+KU Reading API Routes - Phase A
+================================
 
 API routes for KU interaction tracking:
 - Mark as read
@@ -10,7 +10,7 @@ API routes for KU interaction tracking:
 Routes:
 - POST /api/ku/{uid}/mark-read - Mark KU as read
 - POST /api/ku/{uid}/bookmark - Toggle bookmark
-- GET /api/ku/{uid}/navigation - Get next/prev KU
+- GET /api/ku/{uid}/navigation - Get next/prev KU in MOC order
 """
 
 from typing import Any
@@ -38,7 +38,7 @@ def create_ku_reading_api_routes(
         app: FastHTML app instance
         rt: FastHTML route decorator
         ku_interaction_service: Interaction tracking service
-        moc_service: MOC service for navigation
+        moc_service: MOC navigation service for prev/next
 
     Returns:
         List of registered route functions
@@ -46,53 +46,43 @@ def create_ku_reading_api_routes(
 
     @rt("/api/ku/{uid}/mark-read", methods=["POST"])
     async def mark_ku_as_read(request: Request, uid: str) -> Any:
-        """
-        Mark KU as read.
-
-        Returns updated button HTML.
-        """
+        """Mark KU as read. Returns updated button HTML for HTMX swap."""
         user_uid = require_authenticated_user(request)
 
         result = await ku_interaction_service.mark_as_read(user_uid, uid)
 
         if result.is_error:
             return Button(
-                "❌ Error",
+                "Error",
                 cls="btn btn-sm btn-error",
                 disabled=True,
             )
 
-        # Return updated button
         return Button(
-            "✓ Marked as Read",
-            cls="btn btn-sm btn-outline",
+            "Marked as Read",
+            cls="btn btn-sm btn-outline btn-success",
             disabled=True,
         )
 
     @rt("/api/ku/{uid}/bookmark", methods=["POST"])
     async def toggle_ku_bookmark(request: Request, uid: str) -> Any:
-        """
-        Toggle KU bookmark.
-
-        Returns updated button HTML.
-        """
+        """Toggle KU bookmark. Returns updated button HTML for HTMX swap."""
         user_uid = require_authenticated_user(request)
 
         result = await ku_interaction_service.toggle_bookmark(user_uid, uid)
 
         if result.is_error:
             return Button(
-                "❌ Error",
+                "Error",
                 cls="btn btn-sm btn-error",
                 disabled=True,
             )
 
         is_bookmarked = result.value
 
-        # Return updated button
         return Button(
-            "⭐ Bookmarked" if is_bookmarked else "☆ Bookmark",
-            cls="btn btn-sm btn-primary" if is_bookmarked else "btn btn-sm btn-ghost",
+            "Bookmarked" if is_bookmarked else "Bookmark",
+            cls="btn btn-sm btn-secondary" if is_bookmarked else "btn btn-sm btn-ghost",
             hx_post=f"/api/ku/{uid}/bookmark",
             hx_swap="outerHTML",
             hx_target="this",
@@ -102,84 +92,54 @@ def create_ku_reading_api_routes(
     @boundary_handler()
     async def get_ku_navigation(request: Request, uid: str) -> Result[dict[str, Any]]:
         """
-        Get next/prev KU in learning sequence.
+        Get next/prev KU in MOC learning sequence.
 
-        Returns:
-            Result[dict]: {
-                "prev_uid": str | None,
-                "prev_title": str | None,
-                "next_uid": str | None,
-                "next_title": str | None,
-            }
+        Uses MOC ORGANIZES order to determine siblings.
         """
         require_authenticated_user(request)
+
+        empty_nav: dict[str, Any] = {
+            "prev_uid": None,
+            "prev_title": None,
+            "next_uid": None,
+            "next_title": None,
+        }
 
         # Get MOCs containing this KU
         mocs_result = await moc_service.find_mocs_containing(uid)
         if mocs_result.is_error or not mocs_result.value:
-            # No MOC context, no navigation
-            return Result.ok(
-                {
-                    "prev_uid": None,
-                    "prev_title": None,
-                    "next_uid": None,
-                    "next_title": None,
-                }
-            )
+            return Result.ok(empty_nav)
 
         # Use first MOC for navigation
-        moc = mocs_result.value[0]
-        moc_uid = moc.get("uid")
+        moc_uid = mocs_result.value[0].get("uid")
 
-        # Get MOC children to find prev/next
-        children_result = await moc_service.get_children(moc_uid)
-        if children_result.is_error:
-            return Result.ok(
-                {
-                    "prev_uid": None,
-                    "prev_title": None,
-                    "next_uid": None,
-                    "next_title": None,
-                }
-            )
+        # Get MOC children via get_moc_view (depth=1 for direct children only)
+        moc_view_result = await moc_service.get_moc_view(moc_uid, max_depth=1)
+        if moc_view_result.is_error:
+            return Result.ok(empty_nav)
 
-        children = children_result.value
-
-        # Sort by order
-        def by_order(child: dict) -> int:
-            return int(child.get("order", 0))
-
-        children_sorted = sorted(children, key=by_order)
+        children = moc_view_result.value.children
 
         # Find current index
         current_idx = None
-        for idx, child in enumerate(children_sorted):
-            if child.get("uid") == uid:
+        for idx, child in enumerate(children):
+            if child.uid == uid:
                 current_idx = idx
                 break
 
         if current_idx is None:
-            return Result.ok(
-                {
-                    "prev_uid": None,
-                    "prev_title": None,
-                    "next_uid": None,
-                    "next_title": None,
-                }
-            )
+            return Result.ok(empty_nav)
 
         # Get prev/next
-        prev_ku = children_sorted[current_idx - 1] if current_idx > 0 else None
-        next_ku = (
-            children_sorted[current_idx + 1] if current_idx < len(children_sorted) - 1 else None
-        )
+        prev_ku = children[current_idx - 1] if current_idx > 0 else None
+        next_ku = children[current_idx + 1] if current_idx < len(children) - 1 else None
 
         return Result.ok(
             {
-                "prev_uid": prev_ku.get("uid") if prev_ku else None,
-                "prev_title": prev_ku.get("title") if prev_ku else None,
-                "next_uid": next_ku.get("uid") if next_ku else None,
-                "next_title": next_ku.get("title") if next_ku else None,
+                "prev_uid": prev_ku.uid if prev_ku else None,
+                "prev_title": prev_ku.title if prev_ku else None,
+                "next_uid": next_ku.uid if next_ku else None,
+                "next_title": next_ku.title if next_ku else None,
             }
         )
 

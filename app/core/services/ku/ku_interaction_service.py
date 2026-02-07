@@ -55,6 +55,8 @@ class UserKuProgress:
     started_at: datetime | None = None  # When IN_PROGRESS started
     mastered_at: datetime | None = None
     time_spent_seconds: int = 0  # Accumulated time spent
+    is_marked_as_read: bool = False  # MARKED_AS_READ relationship exists
+    is_bookmarked: bool = False  # BOOKMARKED relationship exists
 
 
 class KuInteractionService:
@@ -248,10 +250,14 @@ class KuInteractionService:
         OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
         OPTIONAL MATCH (u:User {uid: $user_uid})-[p:IN_PROGRESS]->(ku)
         OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[mr:MARKED_AS_READ]->(ku)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[bk:BOOKMARKED]->(ku)
         RETURN
             v IS NOT NULL as has_viewed,
             p IS NOT NULL as has_in_progress,
             m IS NOT NULL as has_mastered,
+            mr IS NOT NULL as has_marked_as_read,
+            bk IS NOT NULL as has_bookmarked,
             v.first_viewed_at as first_viewed_at,
             v.last_viewed_at as last_viewed_at,
             v.view_count as view_count,
@@ -308,6 +314,8 @@ class KuInteractionService:
                     started_at=started,
                     mastered_at=mastered,
                     time_spent_seconds=record["time_spent_seconds"] or 0,
+                    is_marked_as_read=record["has_marked_as_read"],
+                    is_bookmarked=record["has_bookmarked"],
                 )
 
                 return Result.ok(progress)

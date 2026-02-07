@@ -2,10 +2,10 @@
 KU Reading Routes - Configuration-Driven Registration
 ======================================================
 
-Wires KU reading UI and API routes for the MVP Phase A reading interface.
+Wires KU reading UI and API routes for the Phase A reading interface.
 
 Routes:
-- UI: /ku/read/{uid} - KU detail page
+- UI: /ku/{uid} - KU detail page with reading interface
 - API: /api/ku/{uid}/mark-read, /api/ku/{uid}/bookmark, /api/ku/{uid}/navigation
 """
 
