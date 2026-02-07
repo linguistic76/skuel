@@ -32,6 +32,8 @@ For implementation guidance, see:
 
 **January 2026 Update (ADR-026):** All relationship configurations are generated from `UnifiedRelationshipRegistry` (`/core/models/unified_relationship_registry.py`) — THE single source of truth. Consumers call generator functions directly.
 
+**Scope:** This service covers the **service layer** (graph enrichment, context queries, relationship operations). The **ingestion layer** (`core/services/ingestion/config.py`) has its own independent relationship config for YAML→Neo4j edge creation — see ADR-026 "Scope Boundary" section.
+
 **Scope:** All 10 searchable domains now have relationship configs:
 - **Activity Domains (6):** Tasks, Goals, Habits, Events, Choices, Principles (user-owned)
 - **Curriculum Domains (3):** KU, LS, LP (shared content)

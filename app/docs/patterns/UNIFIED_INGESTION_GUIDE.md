@@ -544,17 +544,30 @@ connections:
 
 ### Available Relationship Types
 
-| Connection Field | Relationship Type | Target Entity |
-|-----------------|-------------------|---------------|
-| `requires` | PREREQUISITE | Same type (KU→KU) |
-| `enables` | ENABLES | Same type |
-| `applies_knowledge` | APPLIES_KNOWLEDGE | KU |
-| `requires_knowledge` | REQUIRES_KNOWLEDGE | KU |
-| `reinforces_knowledge` | REINFORCES_KNOWLEDGE | KU |
-| `fulfills_goal` | FULFILLS_GOAL | Goal |
-| `supports_goal` | SUPPORTS_GOAL | Goal |
-| `supports_habit` | SUPPORTS_HABIT | Habit |
-| `aligned_with_principle` | ALIGNED_WITH_PRINCIPLE | Principle |
+| Connection Field | Relationship Type | Target Entity | Used By |
+|-----------------|-------------------|---------------|---------|
+| `requires` | PREREQUISITE | KU | KU |
+| `enables` | ENABLES | KU | KU |
+| `related` | RELATED_TO | KU | KU |
+| `depends_on` | DEPENDS_ON | Task | Task |
+| `applies_knowledge` | APPLIES_KNOWLEDGE | KU | Task, Event |
+| `requires_knowledge` | REQUIRES_KNOWLEDGE | KU | Goal |
+| `reinforces_knowledge` | REINFORCES_KNOWLEDGE | KU | Habit |
+| `fulfills_goal` | FULFILLS_GOAL | Goal | Task |
+| `supports_goal` | SUPPORTS_GOAL | Goal | Habit |
+| `aligned_with_principle` | GUIDED_BY_PRINCIPLE | Principle | Goal |
+| `guided_by_principle` | ALIGNED_WITH_PRINCIPLE | Principle | Choice |
+| `guides_goal` | GUIDES_GOAL | Goal | Principle |
+| `inspires_habit` | INSPIRES_HABIT | Habit | Principle |
+| `contains_steps` | HAS_STEP | LS | LP |
+| `teaches_knowledge` | CONTAINS_KNOWLEDGE | KU | LS |
+| `organizes` | ORGANIZES | KU | MOC |
+
+> **Note:** KU ingestion uses `PREREQUISITE`/`ENABLES` (KU-to-KU edges), while the
+> Unified Relationship Registry uses `REQUIRES_KNOWLEDGE`/`ENABLES_KNOWLEDGE`
+> (cross-domain edges). Both edge types coexist in Neo4j and are queried by
+> different services. See `core/services/ingestion/config.py` for the full
+> cross-reference.
 
 ---
 

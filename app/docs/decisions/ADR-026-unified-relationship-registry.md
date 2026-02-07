@@ -325,6 +325,20 @@ RELATED_TO_MOC = "RELATED_TO_MOC"          # (moc)-[:RELATED_TO_MOC]->(moc)
 - Could add validation layer to check graph enrichment patterns match Neo4j schema
 - Could generate relationship service methods dynamically from registry
 
+### Scope Boundary: Ingestion Config is Independent
+
+The **ingestion relationship config** (`core/services/ingestion/config.py`) is intentionally
+**outside** the scope of this registry. Ingestion configs define YAML field path → Neo4j edge
+creation during Markdown/YAML import. They are independent because:
+
+1. **YAML field paths** (`connections.requires`, etc.) have no registry equivalent
+2. **KU uses different relationship types**: Ingestion creates `PREREQUISITE`/`ENABLES` (KU-to-KU
+   edges), while the registry defines `REQUIRES_KNOWLEDGE`/`ENABLES_KNOWLEDGE` (cross-domain
+   enrichment edges). Both coexist in Neo4j and are queried by different services.
+3. **Ingestion is a small subset**: 17 relationships out of 100+ in the registry
+
+See `core/services/ingestion/config.py` for the full cross-reference table.
+
 ### Technical Debt
 - None created; this ADR reduces technical debt by eliminating dual-source problem
 

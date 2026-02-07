@@ -58,8 +58,23 @@ class EntityIngestionConfig:
     requires_user_uid: bool = False  # Whether this entity type needs user_uid for multi-tenancy
 
 
-# Entity configurations for all supported types
-# Uses EntityType enum for type-safe keys
+# ENTITY_CONFIGS — Ingestion Relationship Configuration
+#
+# These configs define Neo4j edge creation during YAML/Markdown ingestion.
+# Independent from the Unified Relationship Registry
+# (core/models/unified_relationship_registry.py) which serves BaseService
+# graph enrichment and UnifiedRelationshipService.
+#
+# Why independent:
+# - YAML field paths (e.g., "connections.requires") have no registry equivalent
+# - KU uses PREREQUISITE/ENABLES (KU-to-KU ingestion-path relationships),
+#   while registry uses REQUIRES_KNOWLEDGE/ENABLES_KNOWLEDGE (cross-domain).
+#   Both edge types coexist in Neo4j, queried by different services.
+#
+# Cross-reference (where ingestion rel_type != registry, marked with *):
+#   KU:        PREREQUISITE*         (registry: REQUIRES_KNOWLEDGE)
+#   KU:        ENABLES*              (registry: ENABLES_KNOWLEDGE)
+#   All other entity->rel_type pairs match the registry exactly.
 #
 # All relationship configs use RelationshipName enum values (SKUEL014 compliant)
 # See: core/ingestion/bulk_ingestion.py::RelationshipConfig for TypedDict definition
@@ -133,7 +148,7 @@ ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
                 direction="outgoing",
             ),
             "connections.aligned_with_principle": RelationshipConfig(
-                rel_type=RelationshipName.ALIGNED_WITH_PRINCIPLE.value,
+                rel_type=RelationshipName.GUIDED_BY_PRINCIPLE.value,
                 target_label="Principle",
                 direction="outgoing",
             ),
@@ -177,7 +192,7 @@ ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
         requires_user_uid=True,  # Activity domain - user-owned
         relationship_config={
             "connections.guided_by_principle": RelationshipConfig(
-                rel_type=RelationshipName.GUIDED_BY_PRINCIPLE.value,
+                rel_type=RelationshipName.ALIGNED_WITH_PRINCIPLE.value,
                 target_label="Principle",
                 direction="outgoing",
             ),

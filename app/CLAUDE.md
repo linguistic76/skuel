@@ -273,7 +273,7 @@ Goals <--> Tasks, Habits, Principles, LifePath
     |
     +-- FULFILLS_GOAL (Tasks contribute to Goals)
     +-- SUPPORTS_GOAL (Habits maintain Goals)
-    +-- ALIGNED_WITH_PRINCIPLE (Principles guide Goals)
+    +-- GUIDED_BY_PRINCIPLE (Principles guide Goals)
 
 Principles <--> Goals, Choices
     |
