@@ -490,11 +490,11 @@ class UserContext:
     # MOC-Learning Path alignment (which MOCs support which LPs)
     mocs_by_learning_path: dict[str, list[str]] = field(default_factory=dict)  # lp_uid -> moc_uids
 
-    # Rich MOC data (full MOC objects with graph neighborhoods) - Optional
+    # Rich MOC data (full KU-based MOC objects with graph neighborhoods) - Optional
     active_mocs_rich: list[dict[str, Any]] = field(default_factory=list)
     # Each dict contains:
-    # - moc: Full MapOfContent entity properties
-    # - graph_context: {sections, content_items, cross_domain_bridges, related_mocs, practice_recommendations}
+    # - moc: KU entity properties (MOC is a KU with ORGANIZES relationships)
+    # - graph_context: {organized_kus, related_content}
 
     # Cross-domain relationship insights (extracted from MEGA-QUERY)
     cross_domain_insights: dict[str, Any] = field(default_factory=dict)

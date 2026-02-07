@@ -249,25 +249,6 @@ class RelationshipName(str, Enum):
     ALIGNED_WITH_GOAL = "ALIGNED_WITH_GOAL"  # (lp)-[:ALIGNED_WITH_GOAL]->(goal)
     HAS_MILESTONE_EVENT = "HAS_MILESTONE_EVENT"  # (lp)-[:HAS_MILESTONE_EVENT]->(event)
 
-    # Map of Content (MOC) relationships - MapOfContent entity
-    CONTAINS_PATH = "CONTAINS_PATH"  # (moc/section)-[:CONTAINS_PATH]->(lp)
-    CONTAINS_PRINCIPLE = "CONTAINS_PRINCIPLE"  # (moc/section)-[:CONTAINS_PRINCIPLE]->(principle)
-    BRIDGES_TO = "BRIDGES_TO"  # (moc)-[:BRIDGES_TO {domain}]->(content) - Cross-domain bridge
-    RELATED_TO_MOC = "RELATED_TO_MOC"  # (moc)-[:RELATED_TO_MOC]->(moc) - Bidirectional
-    HAS_TOP_LEVEL_KNOWLEDGE = "HAS_TOP_LEVEL_KNOWLEDGE"  # (moc)-[:HAS_TOP_LEVEL_KNOWLEDGE]->(ku)
-    HAS_TOP_LEVEL_PATH = "HAS_TOP_LEVEL_PATH"  # (moc)-[:HAS_TOP_LEVEL_PATH]->(lp)
-    HAS_TOP_LEVEL_PRINCIPLE = (
-        "HAS_TOP_LEVEL_PRINCIPLE"  # (moc)-[:HAS_TOP_LEVEL_PRINCIPLE]->(principle)
-    )
-    HAS_SECTION = "HAS_SECTION"  # (moc)-[:HAS_SECTION]->(section) - Top-level sections
-
-    # Map of Content (MOC) relationships - MOCSection entity (DEPRECATED)
-    # These relationships are being replaced by ORGANIZES as MOC becomes KU-based
-    HAS_SUBSECTION = "HAS_SUBSECTION"  # (section)-[:HAS_SUBSECTION {order}]->(section)
-    RECOMMENDS_HABIT = "RECOMMENDS_HABIT"  # (section)-[:RECOMMENDS_HABIT]->(habit)
-    RECOMMENDS_TASK = "RECOMMENDS_TASK"  # (section)-[:RECOMMENDS_TASK]->(task)
-    RECOMMENDS_EVENT = "RECOMMENDS_EVENT"  # (section)-[:RECOMMENDS_EVENT]->(event)
-
     # =========================================================================
     # MOC ORGANIZATIONAL RELATIONSHIPS (MOC = KU organizing KUs)
     # MOC is not a separate entity - it's a KU with ORGANIZES relationships.

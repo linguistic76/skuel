@@ -117,17 +117,6 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         domain_name="lp",
         entity_label="Lp",
     ),
-    "moc": CurriculumDomainConfig(
-        core_module="core.services.moc.moc_core_service",
-        core_class="MocCoreService",
-        search_module="core.services.moc.moc_search_service",
-        search_class="MocSearchService",
-        intelligence_module="core.services.moc.moc_intelligence_service",
-        intelligence_class="MocIntelligenceService",  # NEW: January 2026 (ADR-030)
-        relationship_config_getter="get_moc_config",
-        domain_name="moc",
-        entity_label="MapOfContent",
-    ),
 }
 
 

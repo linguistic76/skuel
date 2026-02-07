@@ -88,28 +88,13 @@ ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
         },
     ),
     EntityType.MOC: EntityIngestionConfig(
-        entity_label="Moc",
-        uid_prefix="moc",
+        entity_label="Ku",
+        uid_prefix="ku",
         required_fields=("title",),
         relationship_config={
-            "contains.knowledge": RelationshipConfig(
-                rel_type="CONTAINS_KNOWLEDGE",
+            "organizes": RelationshipConfig(
+                rel_type="ORGANIZES",
                 target_label="Ku",
-                direction="outgoing",
-            ),
-            "contains.paths": RelationshipConfig(
-                rel_type="CONTAINS_PATH",
-                target_label="Lp",
-                direction="outgoing",
-            ),
-            "contains.principles": RelationshipConfig(
-                rel_type="CONTAINS_PRINCIPLE",
-                target_label="Principle",
-                direction="outgoing",
-            ),
-            "related_mocs": RelationshipConfig(
-                rel_type="RELATED_TO_MOC",
-                target_label="Moc",
                 direction="outgoing",
             ),
         },

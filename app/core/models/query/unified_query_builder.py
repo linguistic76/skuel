@@ -168,15 +168,15 @@ class ModelQueryBuilder[T]:
             index_name: Optional full-text index name (defaults to model-based name)
 
         Example:
-            mocs = await (builder
-                .for_model(MapOfContent)
-                .fulltext("python async")  # Finds MOCs with "python" AND "async"
+            kus = await (builder
+                .for_model(KnowledgeUnit)
+                .fulltext("python async")  # Finds KUs with "python" AND "async"
                 .limit(20)
                 .execute())
 
         Note:
             Requires full-text index to exist. Create via:
-            db.index.fulltext.createNodeIndex('moc_search', ['MapOfContent'], ['title', 'description', 'tags'])
+            db.index.fulltext.createNodeIndex('ku_search', ['Ku'], ['title', 'description', 'tags'])
         """
         self._fulltext_query = query_text
         if index_name:

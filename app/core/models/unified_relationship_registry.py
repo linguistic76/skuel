@@ -1816,13 +1816,6 @@ LP_UNIFIED = DomainRelationshipConfig(
             "opened_by_choices",
             "opened_by",
         ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.CONTAINS_PATH,
-            "Moc",
-            "incoming",
-            "in_mocs",
-            "in_mocs",
-        ),
     ),
     prerequisite_relationship_names=(
         RelationshipName.REQUIRES_KNOWLEDGE,

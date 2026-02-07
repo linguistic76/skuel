@@ -104,10 +104,10 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
             Result[T] - guaranteed non-null value or error
 
         Example:
-            async def add_section(...) -> Result[MapOfContent]:
+            async def get_task(...) -> Result[Task]:
                 ...
-                raw_result = await self.backend.get(moc_uid)
-                return self._ensure_exists(raw_result, "MOC", moc_uid)
+                raw_result = await self.backend.get(task_uid)
+                return self._ensure_exists(raw_result, "Task", task_uid)
         """
         if result.is_error:
             return Result.fail(result)

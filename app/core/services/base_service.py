@@ -273,7 +273,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     # ========================================================================
 
     # Optional: Override entity label if different from model class name
-    # Set to a string like "MapOfContent" if the Neo4j label differs from _model_class.__name__
+    # Set to a string like "Expense" if the Neo4j label differs from _model_class.__name__
     _entity_label: ClassVar[str | None] = None
 
     @cached_property

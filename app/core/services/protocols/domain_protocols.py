@@ -25,9 +25,9 @@ THE 14 DOMAINS AND THEIR PROTOCOLS
     9. LearningStepOperations[LS]      - Learning Steps (ls:)
     10. LearningPathsOperations[LP]    - Learning Paths (lp:)
 
-**Content/Organization Domain Protocols (3):**
+**Content/Organization Domain Protocols (2):**
     11. (JournalsOperations removed Feb 2026 — Journal merged into Reports)
-    12. MocOperations[Moc]              - Map of Content organization
+    12. (MocOperations removed Jan 2026 — MOC is KU-based, uses KuOperations)
     13. (AnalyticsLifePathService)       - Life goal alignment (no protocol)
     14. (AnalyticsService)              - Statistical aggregation (no protocol)
 

@@ -73,9 +73,7 @@ class NeoLabel(str, Enum):
     KU = "Ku"  # Knowledge Unit
     LS = "Ls"  # Learning Step
     LP = "Lp"  # Learning Path
-    MOC = "Moc"  # Map of Content (canonical)
-    MAP_OF_CONTENT = "MapOfContent"  # Map of Content (legacy alias)
-    MOC_SECTION = "MOCSection"  # MOC hierarchical section
+    MOC = "Moc"  # Map of Content (MOC is a KU with ORGANIZES relationships)
 
     # =========================================================================
     # Organizational

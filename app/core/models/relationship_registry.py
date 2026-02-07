@@ -69,12 +69,11 @@ GRAPH_ENRICHMENT_REGISTRY: dict[str, list[GraphEnrichmentPattern]] = {
     "Choice": generate_graph_enrichment("Choice"),
     "Principle": generate_graph_enrichment("Principle"),
     # =========================================================================
-    # CURRICULUM DOMAINS (4) - Generated from UnifiedRelationshipRegistry (Phase 2)
+    # CURRICULUM DOMAINS (3) - Generated from UnifiedRelationshipRegistry (Phase 2)
     # =========================================================================
     "Ku": generate_graph_enrichment("Ku"),
     "Ls": generate_graph_enrichment("Ls"),
     "Lp": generate_graph_enrichment("Lp"),
-    "MapOfContent": generate_graph_enrichment("MapOfContent"),
 }
 
 # ============================================================================
@@ -93,11 +92,10 @@ PREREQUISITE_REGISTRY: dict[str, list[str]] = {
     "Event": _gen_prereq("Event"),
     "Choice": _gen_prereq("Choice"),
     "Principle": _gen_prereq("Principle"),
-    # Curriculum Domains (4)
+    # Curriculum Domains (3)
     "Ku": _gen_prereq("Ku"),
     "Ls": _gen_prereq("Ls"),
     "Lp": _gen_prereq("Lp"),
-    "MapOfContent": _gen_prereq("MapOfContent"),
 }
 
 # ============================================================================
@@ -116,11 +114,10 @@ ENABLES_REGISTRY: dict[str, list[str]] = {
     "Event": _gen_enables("Event"),
     "Choice": _gen_enables("Choice"),
     "Principle": _gen_enables("Principle"),
-    # Curriculum Domains (4)
+    # Curriculum Domains (3)
     "Ku": _gen_enables("Ku"),
     "Ls": _gen_enables("Ls"),
     "Lp": _gen_enables("Lp"),
-    "MapOfContent": _gen_enables("MapOfContent"),
 }
 
 
