@@ -603,7 +603,6 @@ class PrincipleConflictRevealed(BaseEvent):
 | `render_reflection_history(principle, reflections)` | List of past reflections |
 | `_render_reflection_card(reflection)` | Single reflection card |
 | `render_alignment_trend(trend)` | Trend stats and visualization |
-| `render_principle_detail(principle, recent_reflections)` | Detail view with embedded reflections |
 
 ### AlignmentTrend Data Structure
 

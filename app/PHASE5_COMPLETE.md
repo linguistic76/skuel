@@ -130,7 +130,7 @@ GET /api/{domain}/{uid}/lateral/graph?depth=2
 | Habits | `adapters/inbound/habits_ui.py` | Found | `"habits"` |
 | Events | `adapters/inbound/events_ui.py` | Found | `"events"` |
 | Choices | `adapters/inbound/choice_ui.py` | Found | `"choices"` |
-| Principles | `components/principles_views.py` | 718 | `"principles"` |
+| Principles | `adapters/inbound/principles_ui.py` | Found | `"principles"` |
 | KU | `adapters/inbound/learning_ui.py` | 924-927 | `"ku"` |
 | LS | `adapters/inbound/learning_ui.py` | 965-968 | `"ls"` |
 | LP | `adapters/inbound/learning_ui.py` | 1007-1010 | `"lp"` |

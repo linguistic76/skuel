@@ -1070,6 +1070,55 @@ async def tasks_view_list(request) -> Any:
 - `/adapters/inbound/choice_ui.py` - Complete implementation
 - `/adapters/inbound/principles_ui.py` - Complete implementation
 
+### Activity Domain Detail Page Pattern
+
+*Harmonized: 2026-02-07*
+
+All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow a single pattern: **inline HTML in the route handler + BasePage wrapper**.
+
+**Required elements:**
+1. `require_authenticated_user(request)` for user_uid
+2. `service.get_for_user(uid, user_uid)` for ownership-verified fetch
+3. BasePage-wrapped error card on failure (not bare `Div` or `Response`)
+4. Inline HTML content in the route handler (not delegated to `*ViewComponents` static methods)
+5. `Container.STANDARD` + `Spacing.PAGE` tokens on outer content Div
+6. `EntityRelationshipsSection(entity_uid=..., entity_type=...)` for lateral relationships
+7. `BasePage(content=content, title=..., page_type=PageType.STANDARD, request=request, active_page="{domain}")`
+
+**Reference pattern (from Tasks):**
+```python
+@rt("/tasks/{uid}")
+async def task_detail_view(request, uid: str) -> Any:
+    user_uid = require_authenticated_user(request)
+    result = await tasks_service.get_for_user(uid, user_uid)
+    if result.is_error or result.value is None:
+        error_content = Card(Div(H2("Task Not Found"), ..., cls="text-center"))
+        return await BasePage(
+            content=error_content, title="Task Not Found",
+            page_type=PageType.STANDARD, request=request, active_page="tasks",
+        )
+    task = result.value
+    content = Div(
+        # Domain-specific content cards...
+        EntityRelationshipsSection(entity_uid=task.uid, entity_type="tasks"),
+        cls=f"{Container.STANDARD} {Spacing.PAGE}",
+    )
+    return await BasePage(
+        content=content, title=task.title,
+        page_type=PageType.STANDARD, request=request, active_page="tasks",
+    )
+```
+
+**Domain-specific content (preserved during harmonization):**
+- **Choices** — Options listing, "Make Decision" button (when pending), conditional "Add Option", priority/domain/type metadata badges
+- **Principles** — Strength indicator, reflection cards, "View History"/"View All" HTMX fragment swaps (uses `id="view-content"` on content wrapper)
+- **Goals** — Confidence bar, guidances, target date, progress tracking
+
+**What was removed:**
+- `GoalUIComponents.render_goal_detail()` — inlined into `goals_ui.py` route handler
+- `PrinciplesViewComponents.render_principle_detail()` — inlined into `principles_ui.py` route handler
+- Duplicate `/choices/{uid}` route (`view_choice`) — removed in favor of existing `choice_detail_view`
+
 ---
 
 ## Activity Domain Pure Computation Helpers
