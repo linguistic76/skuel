@@ -1,19 +1,16 @@
 """
-Test Suite for Ingestion Dry-Run Mode
+Unit Tests for Ingestion Dry-Run Mode
 ======================================
 
-Tests the dry-run preview functionality that allows previewing sync changes
-without writing to Neo4j.
+Tests the dry-run preview logic using mock Neo4j driver (no database needed).
 
 Test Categories:
-1. Dry-Run Preview Generation
-2. Entity Existence Checking
-3. Files Categorization (create/update/skip)
-4. Relationship Preview
-5. Validation in Dry-Run Mode
-6. Error Handling
+1. Entity Existence Checking (batch query logic)
+2. Relationship Preview (with mocked file parsing)
+3. Error Handling (missing driver, non-existent directory)
 
-Uses mock Neo4j driver to test preview logic without database dependency.
+Integration tests for end-to-end dry-run with real Neo4j and real file parsing
+live in: tests/integration/test_ingestion_dry_run_integration.py
 """
 
 from __future__ import annotations
@@ -141,143 +138,7 @@ async def test_check_existing_entities_all_new(mock_driver_with_uids):
 
 
 # ============================================================================
-# TEST 2: Dry-Run Preview Generation
-# ============================================================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="Integration test - requires real database or different mocking approach (@patch creates unpicklable MagicMock in async context)"
-)
-@patch("core.services.ingestion.batch.collect_files")
-@patch("core.services.ingestion.batch.parse_file_sync")
-async def test_dry_run_returns_preview(
-    mock_parse,
-    mock_collect,
-    mock_driver_with_uids,
-    tmp_path,
-):
-    """Test that dry-run mode returns DryRunPreview instead of stats."""
-    # Setup: Create a temporary directory
-    test_dir = tmp_path / "test_vault"
-    test_dir.mkdir()
-
-    # Mock file collection
-    test_file = test_dir / "test.md"
-    test_file.write_text("# Test\ntype: ku\ntitle: Test KU")
-    mock_collect.return_value = [test_file]
-
-    # Mock file parsing (return entity data)
-    from core.models.shared_enums import EntityType
-
-    mock_parse.return_value = (
-        EntityType.KU,
-        {
-            "uid": "ku_new-content_789",
-            "title": "Test KU",
-            "type": "ku",
-            "_file_path": str(test_file),
-        },
-        None,
-    )
-
-    # Mock engine getter (not used in dry-run)
-    def mock_get_engine(entity_type):
-        return Mock()
-
-    # Execute dry-run
-    result = await ingest_directory(
-        directory=test_dir,
-        engines={},
-        get_engine=mock_get_engine,
-        driver=mock_driver_with_uids,
-        pattern="*.md",
-        dry_run=True,
-    )
-
-    # Verify result
-    assert result.is_ok
-    preview = result.value
-    assert isinstance(preview, DryRunPreview)
-    assert preview.total_files == 1
-    assert len(preview.files_to_create) == 1
-    assert preview.files_to_create[0]["uid"] == "ku_new-content_789"
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="Integration test - requires real database or different mocking approach")
-@patch("core.services.ingestion.batch.collect_files")
-@patch("core.services.ingestion.batch.parse_file_sync")
-async def test_dry_run_categorizes_creates_and_updates(
-    mock_parse,
-    mock_collect,
-    mock_driver_with_uids,
-    tmp_path,
-):
-    """Test that dry-run correctly categorizes files as creates vs updates."""
-    test_dir = tmp_path / "test_vault"
-    test_dir.mkdir()
-
-    # Create test files
-    existing_file = test_dir / "existing.md"
-    new_file = test_dir / "new.md"
-    existing_file.write_text("# Existing")
-    new_file.write_text("# New")
-
-    mock_collect.return_value = [existing_file, new_file]
-
-    from core.models.shared_enums import EntityType
-
-    # Mock parsing - first file exists, second is new
-    parse_results = [
-        (
-            EntityType.KU,
-            {
-                "uid": "ku_existing-content_123",
-                "title": "Existing KU",
-                "type": "ku",
-                "_file_path": str(existing_file),
-            },
-            None,
-        ),
-        (
-            EntityType.KU,
-            {
-                "uid": "ku_new-content_789",
-                "title": "New KU",
-                "type": "ku",
-                "_file_path": str(new_file),
-            },
-            None,
-        ),
-    ]
-    mock_parse.side_effect = parse_results
-
-    def mock_get_engine(entity_type):
-        return Mock()
-
-    result = await ingest_directory(
-        directory=test_dir,
-        engines={},
-        get_engine=mock_get_engine,
-        driver=mock_driver_with_uids,
-        pattern="*.md",
-        dry_run=True,
-    )
-
-    assert result.is_ok
-    preview = result.value
-
-    # Verify categorization
-    assert len(preview.files_to_create) == 1
-    assert preview.files_to_create[0]["uid"] == "ku_new-content_789"
-
-    assert len(preview.files_to_update) == 1
-    assert preview.files_to_update[0]["uid"] == "ku_existing-content_123"
-
-
-# ============================================================================
-# TEST 3: Relationship Preview
+# TEST 2: Relationship Preview
 # ============================================================================
 
 
@@ -315,19 +176,15 @@ async def test_dry_run_includes_relationships(
     )
 
     def mock_get_engine(entity_type):
-        engine = Mock()
-        engine.relationship_config = {
-            "PREREQUISITE": "prerequisite_uids",
-            "ENABLES": "enables_uids",
-        }
-        return engine
+        return Mock()
 
-    # Mock ENTITY_CONFIGS
+    # Mock ENTITY_CONFIGS with source_field -> RelationshipConfig mapping
+    # (matches real config shape: source_field is the key in entity data)
     with patch("core.services.ingestion.batch.ENTITY_CONFIGS") as mock_configs:
         mock_config = Mock()
         mock_config.relationship_config = {
-            "PREREQUISITE": "prerequisite_uids",
-            "ENABLES": "enables_uids",
+            "prerequisite_uids": {"rel_type": "PREREQUISITE", "target_label": "Ku", "direction": "incoming"},
+            "enables_uids": {"rel_type": "ENABLES", "target_label": "Ku", "direction": "outgoing"},
         }
         mock_configs.get.return_value = mock_config
 
@@ -350,7 +207,7 @@ async def test_dry_run_includes_relationships(
 
 
 # ============================================================================
-# TEST 4: Error Handling in Dry-Run Mode
+# TEST 3: Error Handling
 # ============================================================================
 
 
@@ -377,112 +234,6 @@ async def test_dry_run_requires_driver(tmp_path):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Integration test - requires real database or different mocking approach")
-@patch("core.services.ingestion.batch.collect_files")
-@patch("core.services.ingestion.batch.parse_file_sync")
-async def test_dry_run_includes_validation_errors(
-    mock_parse,
-    mock_collect,
-    mock_driver_with_uids,
-    tmp_path,
-):
-    """Test that dry-run includes validation errors in preview."""
-    test_dir = tmp_path / "test_vault"
-    test_dir.mkdir()
-
-    # Create test files
-    valid_file = test_dir / "valid.md"
-    invalid_file = test_dir / "invalid.md"
-    valid_file.write_text("# Valid")
-    invalid_file.write_text("# Invalid")
-
-    mock_collect.return_value = [valid_file, invalid_file]
-
-    from core.models.shared_enums import EntityType
-
-    # Mock parsing - one success, one error
-    parse_results = [
-        (
-            EntityType.KU,
-            {
-                "uid": "ku_valid_123",
-                "title": "Valid KU",
-                "type": "ku",
-                "_file_path": str(valid_file),
-            },
-            None,
-        ),
-        (
-            None,
-            None,
-            {
-                "file": str(invalid_file),
-                "error": "Missing required field: title",
-                "stage": "validation",
-            },
-        ),
-    ]
-    mock_parse.side_effect = parse_results
-
-    def mock_get_engine(entity_type):
-        return Mock()
-
-    result = await ingest_directory(
-        directory=test_dir,
-        engines={},
-        get_engine=mock_get_engine,
-        driver=mock_driver_with_uids,
-        pattern="*.md",
-        dry_run=True,
-    )
-
-    assert result.is_ok
-    preview = result.value
-
-    # Verify errors are included
-    assert len(preview.validation_errors) > 0
-    assert any("Missing required field" in str(err) for err in preview.validation_errors)
-
-
-# ============================================================================
-# TEST 5: Edge Cases
-# ============================================================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="Integration test - requires real database or different mocking approach")
-@patch("core.services.ingestion.batch.collect_files")
-async def test_dry_run_empty_directory(
-    mock_collect,
-    mock_driver_with_uids,
-    tmp_path,
-):
-    """Test dry-run with empty directory."""
-    test_dir = tmp_path / "test_vault"
-    test_dir.mkdir()
-
-    mock_collect.return_value = []
-
-    def mock_get_engine(entity_type):
-        return Mock()
-
-    result = await ingest_directory(
-        directory=test_dir,
-        engines={},
-        get_engine=mock_get_engine,
-        driver=mock_driver_with_uids,
-        pattern="*.md",
-        dry_run=True,
-    )
-
-    # Empty directory should still succeed with empty preview
-    assert result.is_ok
-    preview = result.value
-    assert preview.total_files == 0
-    assert len(preview.files_to_create) == 0
-
-
-@pytest.mark.asyncio
 async def test_dry_run_nonexistent_directory(mock_driver_with_uids):
     """Test dry-run with non-existent directory."""
     non_existent = Path("/nonexistent/path")
@@ -501,147 +252,3 @@ async def test_dry_run_nonexistent_directory(mock_driver_with_uids):
 
     assert result.is_error
     assert "not found" in result.expect_error().message.lower()
-
-
-# ============================================================================
-# TEST 6: Integration with UnifiedIngestionService
-# ============================================================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="Integration test - requires real database (no mocks)")
-async def test_unified_ingestion_service_dry_run(mock_driver_with_uids, tmp_path):
-    """Test dry-run through UnifiedIngestionService interface."""
-    from core.services.ingestion import UnifiedIngestionService
-
-    service = UnifiedIngestionService(driver=mock_driver_with_uids)
-
-    test_dir = tmp_path / "test_vault"
-    test_dir.mkdir()
-
-    # Create a test file
-    test_file = test_dir / "test.md"
-    test_file.write_text("""---
-type: ku
-title: Test Knowledge Unit
-description: A test KU
----
-
-# Test Content
-""")
-
-    # Dry-run should work through service
-    result = await service.ingest_directory(
-        directory=test_dir,
-        pattern="*.md",
-        dry_run=True,
-    )
-
-    assert result.is_ok
-    preview = result.value
-    assert isinstance(preview, DryRunPreview)
-    assert preview.total_files >= 0
-
-
-# ============================================================================
-# TEST 7: Performance Considerations
-# ============================================================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="Integration test - requires real database or different mocking approach")
-@patch("core.services.ingestion.batch.collect_files")
-@patch("core.services.ingestion.batch.parse_file_sync")
-async def test_dry_run_batch_uid_check(
-    mock_parse,
-    mock_collect,
-    mock_driver_with_uids,
-    tmp_path,
-):
-    """Test that dry-run checks UIDs in batch (not individually)."""
-    test_dir = tmp_path / "test_vault"
-    test_dir.mkdir()
-
-    # Create multiple test files
-    num_files = 10
-    test_files = []
-    for i in range(num_files):
-        test_file = test_dir / f"test_{i}.md"
-        test_file.write_text(f"# Test {i}")
-        test_files.append(test_file)
-
-    mock_collect.return_value = test_files
-
-    from core.models.shared_enums import EntityType
-
-    # Mock parsing for all files
-    mock_parse.side_effect = [
-        (
-            EntityType.KU,
-            {
-                "uid": f"ku_test_{i}_123",
-                "title": f"Test {i}",
-                "type": "ku",
-                "_file_path": str(test_files[i]),
-            },
-            None,
-        )
-        for i in range(num_files)
-    ]
-
-    def mock_get_engine(entity_type):
-        return Mock()
-
-    # Track driver calls
-    execute_count = 0
-    original_execute = mock_driver_with_uids.execute_query
-
-    async def counting_execute(*args, **kwargs):
-        nonlocal execute_count
-        execute_count += 1
-        return await original_execute(*args, **kwargs)
-
-    mock_driver_with_uids.execute_query = counting_execute
-
-    result = await ingest_directory(
-        directory=test_dir,
-        engines={},
-        get_engine=mock_get_engine,
-        driver=mock_driver_with_uids,
-        pattern="*.md",
-        dry_run=True,
-    )
-
-    assert result.is_ok
-
-    # Should only execute ONE query (batch check), not N queries
-    # Note: Exact count depends on implementation, but should be minimal
-    assert execute_count <= 2  # Allow for constraint check + UID check
-
-
-# ============================================================================
-# Summary
-# ============================================================================
-"""
-Test Coverage Summary:
-
-PASSING TESTS (6):
-- ✅ Entity existence checking (empty, with UIDs, all new)
-- ✅ Relationship preview
-- ✅ Error handling (missing driver, non-existent directory)
-
-SKIPPED TESTS (6) - Integration tests requiring real database:
-- ⏭️ Dry-run preview generation
-- ⏭️ Files categorization (create/update/skip)
-- ⏭️ Validation errors in preview
-- ⏭️ Empty directory handling
-- ⏭️ Integration with UnifiedIngestionService
-- ⏭️ Batch UID checking (performance)
-
-Total Tests: 12 (6 passed, 6 skipped)
-
-NOTE: Skipped tests use @patch decorators that create AsyncMock objects, which
-cannot be pickled in async contexts (asyncio.create_task). These tests require
-either a real test database or a different mocking approach (dependency injection,
-test doubles, or integration test framework).
-"""
