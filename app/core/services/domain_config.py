@@ -49,7 +49,7 @@ class TasksSearchService(BaseService):
 
 See Also:
     - /core/services/base_service.py - Uses DomainConfig exclusively
-    - /core/models/relationship_registry.py - Relationship configurations
+    - /core/models/unified_relationship_registry.py - THE single source of truth for relationships
     - /docs/migrations/BASESERVICE_IMPROVEMENTS_2026-01-29.md - Migration guide
 """
 
@@ -94,10 +94,10 @@ class DomainConfig:
         from core.services.domain_config import DomainConfig
         from core.models.task.task import Task
         from core.models.task.task_dto import TaskDTO
-        from core.models.relationship_registry import (
-            GRAPH_ENRICHMENT_REGISTRY,
-            PREREQUISITE_REGISTRY,
-            ENABLES_REGISTRY,
+        from core.models.unified_relationship_registry import (
+            generate_graph_enrichment,
+            generate_prerequisite_relationships,
+            generate_enables_relationships,
         )
 
         TASKS_CONFIG = DomainConfig(
@@ -106,9 +106,9 @@ class DomainConfig:
             service_name="tasks.search",
             date_field="due_date",
             completed_statuses=("completed",),
-            graph_enrichment_patterns=tuple(GRAPH_ENRICHMENT_REGISTRY["Task"]),
-            prerequisite_relationships=tuple(PREREQUISITE_REGISTRY["Task"]),
-            enables_relationships=tuple(ENABLES_REGISTRY["Task"]),
+            graph_enrichment_patterns=tuple(generate_graph_enrichment("Task")),
+            prerequisite_relationships=tuple(generate_prerequisite_relationships("Task")),
+            enables_relationships=tuple(generate_enables_relationships("Task")),
             supports_user_progress=True,
         )
         ```
@@ -261,29 +261,20 @@ def create_activity_domain_config(
         ValueError: If entity not found in required registries
     """
     # Import here to avoid circular imports
-    from core.models.relationship_registry import (
-        ENABLES_REGISTRY,
-        GRAPH_ENRICHMENT_REGISTRY,
-        PREREQUISITE_REGISTRY,
+    from core.models.unified_relationship_registry import (
+        UNIFIED_REGISTRY_BY_LABEL,
+        generate_enables_relationships,
+        generate_graph_enrichment,
+        generate_prerequisite_relationships,
     )
 
     entity_label = model_class.__name__
 
-    # FAIL-FAST: Validate entity exists in all registries
-    if entity_label not in GRAPH_ENRICHMENT_REGISTRY:
+    # FAIL-FAST: Validate entity exists in unified registry
+    if entity_label not in UNIFIED_REGISTRY_BY_LABEL:
         raise ValueError(
-            f"Entity '{entity_label}' not found in GRAPH_ENRICHMENT_REGISTRY. "
-            f"Add to /core/models/relationship_registry.py before creating DomainConfig."
-        )
-    if entity_label not in PREREQUISITE_REGISTRY:
-        raise ValueError(
-            f"Entity '{entity_label}' not found in PREREQUISITE_REGISTRY. "
-            f"Add to /core/models/relationship_registry.py before creating DomainConfig."
-        )
-    if entity_label not in ENABLES_REGISTRY:
-        raise ValueError(
-            f"Entity '{entity_label}' not found in ENABLES_REGISTRY. "
-            f"Add to /core/models/relationship_registry.py before creating DomainConfig."
+            f"Entity '{entity_label}' not found in UNIFIED_REGISTRY_BY_LABEL. "
+            f"Add to /core/models/unified_relationship_registry.py before creating DomainConfig."
         )
 
     return DomainConfig(
@@ -296,9 +287,9 @@ def create_activity_domain_config(
         category_field=category_field,
         search_fields=search_fields or ("title", "description"),
         search_order_by=search_order_by or "created_at",
-        graph_enrichment_patterns=tuple(GRAPH_ENRICHMENT_REGISTRY[entity_label]),
-        prerequisite_relationships=tuple(PREREQUISITE_REGISTRY[entity_label]),
-        enables_relationships=tuple(ENABLES_REGISTRY[entity_label]),
+        graph_enrichment_patterns=tuple(generate_graph_enrichment(entity_label)),
+        prerequisite_relationships=tuple(generate_prerequisite_relationships(entity_label)),
+        enables_relationships=tuple(generate_enables_relationships(entity_label)),
         user_ownership_relationship="OWNS",
         supports_user_progress=True,
     )
@@ -343,43 +334,32 @@ def create_curriculum_domain_config(
     Raises:
         ValueError: If entity not found in registries when using defaults
     """
-    from core.models.relationship_registry import (
-        ENABLES_REGISTRY,
-        GRAPH_ENRICHMENT_REGISTRY,
-        PREREQUISITE_REGISTRY,
+    from core.models.unified_relationship_registry import (
+        UNIFIED_REGISTRY_BY_LABEL,
+        generate_enables_relationships,
+        generate_graph_enrichment,
+        generate_prerequisite_relationships,
     )
 
     entity_label = model_class.__name__
 
-    # FAIL-FAST: Validate entity exists in registries when using defaults
-    if prerequisite_relationships is None and entity_label not in PREREQUISITE_REGISTRY:
+    # FAIL-FAST: Validate entity exists in unified registry
+    if entity_label not in UNIFIED_REGISTRY_BY_LABEL:
         raise ValueError(
-            f"Entity '{entity_label}' not found in PREREQUISITE_REGISTRY. "
-            f"Either provide prerequisite_relationships explicitly or add to "
-            f"/core/models/relationship_registry.py"
-        )
-    if enables_relationships is None and entity_label not in ENABLES_REGISTRY:
-        raise ValueError(
-            f"Entity '{entity_label}' not found in ENABLES_REGISTRY. "
-            f"Either provide enables_relationships explicitly or add to "
-            f"/core/models/relationship_registry.py"
-        )
-    if entity_label not in GRAPH_ENRICHMENT_REGISTRY:
-        raise ValueError(
-            f"Entity '{entity_label}' not found in GRAPH_ENRICHMENT_REGISTRY. "
-            f"Add to /core/models/relationship_registry.py before creating DomainConfig."
+            f"Entity '{entity_label}' not found in UNIFIED_REGISTRY_BY_LABEL. "
+            f"Add to /core/models/unified_relationship_registry.py before creating DomainConfig."
         )
 
-    # Use provided relationships or fall back to registry
+    # Use provided relationships or fall back to unified registry
     final_prerequisite_relationships = (
         prerequisite_relationships
         if prerequisite_relationships is not None
-        else tuple(PREREQUISITE_REGISTRY[entity_label])
+        else tuple(generate_prerequisite_relationships(entity_label))
     )
     final_enables_relationships = (
         enables_relationships
         if enables_relationships is not None
-        else tuple(ENABLES_REGISTRY[entity_label])
+        else tuple(generate_enables_relationships(entity_label))
     )
 
     return DomainConfig(
@@ -391,7 +371,7 @@ def create_curriculum_domain_config(
         search_order_by=search_order_by,
         category_field=category_field,
         content_field=content_field,
-        graph_enrichment_patterns=tuple(GRAPH_ENRICHMENT_REGISTRY[entity_label]),
+        graph_enrichment_patterns=tuple(generate_graph_enrichment(entity_label)),
         prerequisite_relationships=final_prerequisite_relationships,
         enables_relationships=final_enables_relationships,
         user_ownership_relationship=user_ownership_relationship,

@@ -6,16 +6,10 @@ Single source of truth for ALL relationship configurations across domains.
 
 **January 2026 Consolidation (ADR-026):**
 
-Previously, relationship configurations were split between:
-- `relationship_registry.py` - Graph enrichment patterns (tuples)
-- `domain_configs.py` - RelationshipConfig objects (full metadata)
-
-This created maintenance burden: updating relationships required changes in TWO places.
-
-**Solution:**
-One unified registry that generates BOTH formats:
-1. Graph enrichment patterns → for BaseService._graph_enrichment_patterns
-2. RelationshipConfig objects → for UnifiedRelationshipService
+THE single source of truth for relationship configurations.
+All consumers call generator functions directly:
+1. Graph enrichment patterns → for BaseService._graph_enrichment_patterns (via DomainConfig factories)
+2. RelationshipConfig objects → for UnifiedRelationshipService (via domain_configs.py)
 
 **Usage:**
 ```python

@@ -441,19 +441,16 @@ class GoalsSearchService(BaseService):
 ### The Solution
 
 ```python
-from core.models.relationship_registry import (
-    GRAPH_ENRICHMENT_REGISTRY,
-    PREREQUISITE_REGISTRY,
-    ENABLES_REGISTRY,
-    get_graph_enrichment,
-    get_prerequisite_relationships,
-    get_enables_relationships,
+from core.models.unified_relationship_registry import (
+    generate_graph_enrichment,
+    generate_prerequisite_relationships,
+    generate_enables_relationships,
 )
 
 # Look up patterns for a domain
-task_patterns = GRAPH_ENRICHMENT_REGISTRY["Task"]
-task_prerequisites = PREREQUISITE_REGISTRY["Task"]
-task_enables = ENABLES_REGISTRY["Task"]
+task_patterns = generate_graph_enrichment("Task")
+task_prerequisites = generate_prerequisite_relationships("Task")
+task_enables = generate_enables_relationships("Task")
 
 # Or use helper functions
 patterns = get_graph_enrichment("Task")
@@ -461,19 +458,16 @@ patterns = get_graph_enrichment("Task")
 
 ### Registry Structure
 
-**Location:** `/core/models/relationship_registry.py`
+**Location:** `/core/models/unified_relationship_registry.py`
 
-Three registries, keyed by entity label:
+Three generator functions, keyed by entity label:
 
 ```python
-# Graph enrichment: which relationships to include in search results
-GRAPH_ENRICHMENT_REGISTRY: dict[str, list[GraphEnrichmentPattern]]
-
-# Prerequisites: which relationships represent prerequisites
-PREREQUISITE_REGISTRY: dict[str, list[str]]
-
-# Enables: which relationships represent what this entity enables
-ENABLES_REGISTRY: dict[str, list[str]]
+from core.models.unified_relationship_registry import (
+    generate_graph_enrichment,           # -> list[tuple[str, str, str, str]]
+    generate_prerequisite_relationships, # -> list[str]
+    generate_enables_relationships,      # -> list[str]
+)
 ```
 
 ### Graph Enrichment Pattern Format
@@ -503,19 +497,25 @@ ENABLES_REGISTRY: dict[str, list[str]]
 | KU | `"Ku"` | 6 | 1 | 1 |
 | LS | `"Ls"` | 3 | 2 | 1 |
 | LP | `"Lp"` | 3 | 2 | 1 |
-| MOC | `"MapOfContent"` | 4 | 1 | 3 |
-
 ### Adding New Relationships
 
 To add a new relationship pattern:
 
-1. Add to the appropriate registry in `/core/models/relationship_registry.py`
-2. Use `RelationshipName` enum if it exists, or add a new enum value
+1. Add the relationship to the domain's `DomainRelationshipConfig` in `/core/models/unified_relationship_registry.py`
+2. Use `RelationshipName` enum — add a new enum value if needed
 
 ```python
-# In relationship_registry.py
-GRAPH_ENRICHMENT_REGISTRY["Task"].append(
-    (RelationshipName.NEW_RELATIONSHIP.value, "TargetLabel", "field_name", "outgoing")
+# In unified_relationship_registry.py — add to domain config
+TASKS_UNIFIED = DomainRelationshipConfig(
+    relationships=[
+        ...,
+        UnifiedRelationshipSpec(
+            relationship=RelationshipName.NEW_RELATIONSHIP,
+            target_label="TargetLabel",
+            direction="outgoing",
+            context_field="field_name",
+        ),
+    ],
 )
 ```
 
@@ -772,7 +772,7 @@ class LpSubServices:
 | DomainConfig | `/core/services/domain_config.py` | `from core.services.domain_config import DomainConfig, create_activity_domain_config` |
 | BaseService Mixins | `/core/services/mixins/` | `from core.services.mixins import ConversionHelpersMixin, CrudOperationsMixin, ...` |
 | FacadeDelegationMixin | `/core/services/mixins/facade_delegation_mixin.py` | `from core.services.mixins import FacadeDelegationMixin, merge_delegations` |
-| Relationship Registry | `/core/models/relationship_registry.py` | `from core.models.relationship_registry import GRAPH_ENRICHMENT_REGISTRY` |
+| Relationship Registry | `/core/models/unified_relationship_registry.py` | `from core.models.unified_relationship_registry import generate_graph_enrichment` |
 | Post-Query Processors | `/core/models/query/cypher/post_processors.py` | `from core.models.query.cypher.post_processors import apply_processor, PROCESSOR_REGISTRY` |
 | KU/LP Factories | `/core/utils/curriculum_domain_config.py` | `from core.utils.curriculum_domain_config import create_ku_sub_services, create_lp_sub_services` |
 

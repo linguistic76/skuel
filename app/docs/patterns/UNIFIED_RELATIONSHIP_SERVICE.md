@@ -30,7 +30,7 @@ For implementation guidance, see:
 
 **Key Innovation:** Configuration-driven approach where domain behavior is specified via `RelationshipConfig` objects, eliminating the need for separate service classes per domain.
 
-**January 2026 Update (ADR-026):** All relationship configurations are now generated from `UnifiedRelationshipRegistry` - the single source of truth. This eliminates the previous dual-source problem where relationships were defined in both `relationship_registry.py` and `domain_configs.py`.
+**January 2026 Update (ADR-026):** All relationship configurations are generated from `UnifiedRelationshipRegistry` (`/core/models/unified_relationship_registry.py`) — THE single source of truth. Consumers call generator functions directly.
 
 **Scope:** All 10 searchable domains now have relationship configs:
 - **Activity Domains (6):** Tasks, Goals, Habits, Events, Choices, Principles (user-owned)
@@ -116,7 +116,6 @@ goals_relationship_service = UnifiedRelationshipService(
 ```
 /core/models/
 ├── unified_relationship_registry.py  # THE single source of truth (ADR-026)
-├── relationship_registry.py          # Facade - generates from unified registry
 └── relationship_names.py             # RelationshipName enum
 
 /core/services/relationships/
@@ -138,7 +137,7 @@ All relationship configurations are defined in `UnifiedRelationshipRegistry`:
 from core.models.unified_relationship_registry import (
     UNIFIED_REGISTRY,           # Access by Domain enum
     UNIFIED_REGISTRY_BY_LABEL,  # Access by Neo4j label
-    generate_graph_enrichment,  # For relationship_registry.py
+    generate_graph_enrichment,  # For DomainConfig factories
     generate_relationship_config,  # For domain_configs.py
 )
 
@@ -731,8 +730,7 @@ To:
 **Key Files:**
 - `/core/models/unified_relationship_registry.py` - THE single source of truth
 - `/core/services/relationships/unified_relationship_service.py`
-- `/core/services/relationships/domain_configs.py` (facade)
-- `/core/models/relationship_registry.py` (facade)
+- `/core/services/relationships/domain_configs.py` (generated from unified registry)
 
 **Usage:**
 ```python

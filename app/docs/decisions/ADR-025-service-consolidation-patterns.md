@@ -293,9 +293,9 @@ class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
 
 ### Relationship Registry Example
 ```python
-from core.models.relationship_registry import get_graph_enrichment_for_domain
+from core.models.unified_relationship_registry import generate_graph_enrichment
 
 # Get patterns for a domain
-patterns = get_graph_enrichment_for_domain("Task")
+patterns = generate_graph_enrichment("Task")
 # Returns: [("APPLIES_KNOWLEDGE", "Ku", "applied_knowledge", "outgoing"), ...]
 ```

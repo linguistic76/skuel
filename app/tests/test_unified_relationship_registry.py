@@ -269,22 +269,22 @@ class TestActivityDomainIntegration:
         assert len(ACTIVITY_DOMAIN_CONFIGS) == 6
 
     def test_relationship_registry_integration(self):
-        """Verify generated patterns work with relationship_registry module."""
-        from core.models.relationship_registry import (
-            ENABLES_REGISTRY,
-            GRAPH_ENRICHMENT_REGISTRY,
-            PREREQUISITE_REGISTRY,
+        """Verify generator functions produce patterns for all domains."""
+        from core.models.unified_relationship_registry import (
+            generate_enables_relationships,
+            generate_graph_enrichment,
+            generate_prerequisite_relationships,
         )
 
-        # Activity domains should use generated patterns
-        assert len(GRAPH_ENRICHMENT_REGISTRY["Task"]) > 0
-        assert len(PREREQUISITE_REGISTRY["Task"]) > 0
-        assert len(ENABLES_REGISTRY["Task"]) > 0
+        # Activity domains should have generated patterns
+        assert len(generate_graph_enrichment("Task")) > 0
+        assert len(generate_prerequisite_relationships("Task")) > 0
+        assert len(generate_enables_relationships("Task")) > 0
 
-        # Curriculum domains should now also use generated patterns (Phase 2)
-        assert len(GRAPH_ENRICHMENT_REGISTRY["Ku"]) > 0
-        assert len(PREREQUISITE_REGISTRY["Ku"]) > 0
-        assert len(ENABLES_REGISTRY["Ku"]) > 0
+        # Curriculum domains should also have generated patterns
+        assert len(generate_graph_enrichment("Ku")) > 0
+        assert len(generate_prerequisite_relationships("Ku")) > 0
+        assert len(generate_enables_relationships("Ku")) > 0
 
         # All 9 domains should have enrichment patterns
         # Note: MOC removed January 2026 (now KU-based)
@@ -300,7 +300,7 @@ class TestActivityDomainIntegration:
             "Lp",
         ]
         for label in all_labels:
-            assert len(GRAPH_ENRICHMENT_REGISTRY[label]) > 0, f"{label} missing enrichment"
+            assert len(generate_graph_enrichment(label)) > 0, f"{label} missing enrichment"
 
 
 class TestGenerateRelationshipConfigByLabel:
@@ -405,7 +405,6 @@ class TestGenerateRelationshipConfigByLabel:
         config = generate_relationship_config_by_label("Lp")
         assert config is not None
         assert "opened_by" in config.incoming_relationships
-        assert "in_mocs" in config.incoming_relationships
 
     def test_curriculum_configs_match_domain_configs(self):
         """Verify generated curriculum configs match domain_configs module."""

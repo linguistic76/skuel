@@ -61,8 +61,7 @@ class EntityIngestionConfig:
 # Entity configurations for all supported types
 # Uses EntityType enum for type-safe keys
 #
-# NOTE: relationship_config uses dict literals that satisfy RelationshipConfig TypedDict
-# via structural typing. Each inner dict must have: rel_type, target_label, direction
+# All relationship configs use RelationshipName enum values (SKUEL014 compliant)
 # See: core/ingestion/bulk_ingestion.py::RelationshipConfig for TypedDict definition
 ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
     EntityType.KU: EntityIngestionConfig(
@@ -81,7 +80,7 @@ ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
                 direction="outgoing",
             ),
             "connections.related": RelationshipConfig(
-                rel_type="RELATED_TO",
+                rel_type=RelationshipName.RELATED_TO.value,
                 target_label="Ku",
                 direction="outgoing",
             ),
@@ -93,7 +92,7 @@ ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
         required_fields=("title",),
         relationship_config={
             "organizes": RelationshipConfig(
-                rel_type="ORGANIZES",
+                rel_type=RelationshipName.ORGANIZES.value,
                 target_label="Ku",
                 direction="outgoing",
             ),
@@ -178,7 +177,7 @@ ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
         requires_user_uid=True,  # Activity domain - user-owned
         relationship_config={
             "connections.guided_by_principle": RelationshipConfig(
-                rel_type="GUIDED_BY_PRINCIPLE",
+                rel_type=RelationshipName.GUIDED_BY_PRINCIPLE.value,
                 target_label="Principle",
                 direction="outgoing",
             ),
@@ -196,7 +195,7 @@ ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
                 direction="outgoing",
             ),
             "connections.inspires_habit": RelationshipConfig(
-                rel_type="INSPIRES_HABIT",
+                rel_type=RelationshipName.INSPIRES_HABIT.value,
                 target_label="Habit",
                 direction="outgoing",
             ),
@@ -208,7 +207,7 @@ ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
         required_fields=("name",),
         relationship_config={
             "connections.contains_steps": RelationshipConfig(
-                rel_type="CONTAINS_STEP",
+                rel_type=RelationshipName.HAS_STEP.value,
                 target_label="Ls",
                 direction="outgoing",
             ),
@@ -220,7 +219,7 @@ ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
         required_fields=("title",),
         relationship_config={
             "connections.teaches_knowledge": RelationshipConfig(
-                rel_type="TEACHES_KNOWLEDGE",
+                rel_type=RelationshipName.CONTAINS_KNOWLEDGE.value,
                 target_label="Ku",
                 direction="outgoing",
             ),
