@@ -29,12 +29,13 @@ One UnifiedRelationshipService + 14 RelationshipConfig objects = ~1000 lines tot
 
 **Usage:**
 ```python
-from core.services.relationships import UnifiedRelationshipService, TASK_CONFIG
+from core.models.relationship_registry import TASKS_UNIFIED
+from core.services.relationships import UnifiedRelationshipService
 
 tasks_relationship_service = UnifiedRelationshipService(
     backend=tasks_backend,
     graph_intel=graph_intel,
-    config=TASK_CONFIG,
+    config=TASKS_UNIFIED,
 )
 
 # All methods now available:
@@ -56,6 +57,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from core.constants import GraphDepth
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
+from core.models.relationship_registry import DomainRelationshipConfig
 from core.services.base_service import BaseService
 from core.services.infrastructure import RelationshipCreationHelper, SemanticRelationshipHelper
 from core.services.protocols.base_protocols import BackendOperations
@@ -67,7 +69,6 @@ from core.utils.sort_functions import get_result_score
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.graph_context import GraphContext
-    from core.services.relationships.relationship_config import RelationshipConfig
     from core.services.user.unified_user_context import UserContext
 
 # Type variables
@@ -98,7 +99,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     **Architecture:**
     ```
     UnifiedRelationshipService
-    ├── RelationshipConfig (domain-specific configuration)
+    ├── DomainRelationshipConfig (from relationship registry — single source of truth)
     ├── RelationshipCreationHelper (cross-domain link creation)
     ├── SemanticRelationshipHelper (semantic relationship operations)
     └── GraphIntelligenceService (intent-based graph queries)
@@ -108,7 +109,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     def __init__(
         self,
         backend: Ops,
-        config: RelationshipConfig,
+        config: DomainRelationshipConfig,
         graph_intel: Any | None = None,
     ) -> None:
         """
@@ -116,7 +117,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
         Args:
             backend: Protocol-based backend for operations (REQUIRED)
-            config: RelationshipConfig with all domain-specific settings (REQUIRED)
+            config: DomainRelationshipConfig from relationship registry (REQUIRED)
             graph_intel: GraphIntelligenceService for intent-based queries (optional)
         """
         if not backend:
@@ -174,9 +175,9 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
     def _get_config_value(self, attr_name: str, default: Any = None) -> Any:
         """
-        Get configuration value from RelationshipConfig.
+        Get configuration value from DomainRelationshipConfig.
 
-        Overrides BaseService._get_config_value() to use RelationshipConfig
+        Overrides BaseService._get_config_value() to use DomainRelationshipConfig
         instead of DomainConfig.
 
         Args:
@@ -1266,7 +1267,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         - get_task_cross_domain_context()
         - get_goal_cross_domain_context()
 
-        Uses config.cross_domain_relationship_types and config.cross_domain_mappings
+        Uses config.cross_domain_relationship_types and config.relationships
         to determine which relationships to query and how to categorize results.
 
         Args:
@@ -1292,35 +1293,37 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
         raw_context = raw_result.value
 
-        # Step 2: Categorize raw context using config mappings
+        # Step 2: Categorize raw context using relationship definitions
+        cross_domain_rels = [
+            r for r in self.config.relationships if r.is_cross_domain_mapping
+        ]
         categorized: dict[str, list[dict]] = {
-            mapping.category_name: [] for mapping in self.config.cross_domain_mappings
+            rel.context_field_name: [] for rel in cross_domain_rels
         }
 
         for entity in raw_context:
             labels = entity.get("labels", [])
             via_rels = entity.get("via_relationships", [])
 
-            for mapping in self.config.cross_domain_mappings:
-                if mapping.target_label in labels:
-                    # Check if entity came via expected relationships
-                    for rel in mapping.via_relationships:
-                        rel_value = rel.value
-                        if (
-                            rel_value in via_rels
-                            or f"->{rel_value}" in via_rels
-                            or f"<-{rel_value}" in via_rels
-                        ):
-                            categorized[mapping.category_name].append(
-                                {
-                                    "uid": entity.get("uid"),
-                                    "title": entity.get("title"),
-                                    "distance": entity.get("distance"),
-                                    "path_strength": entity.get("path_strength"),
-                                    "via_relationships": via_rels,
-                                }
-                            )
-                            break  # Only add to one category
+            for rel in cross_domain_rels:
+                if rel.target_label in labels:
+                    # Check if entity came via expected relationship
+                    rel_value = rel.relationship.value
+                    if (
+                        rel_value in via_rels
+                        or f"->{rel_value}" in via_rels
+                        or f"<-{rel_value}" in via_rels
+                    ):
+                        categorized[rel.context_field_name].append(
+                            {
+                                "uid": entity.get("uid"),
+                                "title": entity.get("title"),
+                                "distance": entity.get("distance"),
+                                "path_strength": entity.get("path_strength"),
+                                "via_relationships": via_rels,
+                            }
+                        )
+                        break  # Only add to one category
 
         # Step 3: Build response
         response = {f"{self.config.domain.value.rstrip('s')}_uid": entity_uid}
@@ -1699,11 +1702,13 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
         # Build category → domain mapping from config
         category_domain_map: dict[str, Any] = {}
-        for mapping in self.config.cross_domain_mappings:
-            # Determine target domain from label
-            target_domain = get_domain_from_label(mapping.target_label)
+        cross_domain_rels = [
+            r for r in self.config.relationships if r.is_cross_domain_mapping
+        ]
+        for rel in cross_domain_rels:
+            target_domain = get_domain_from_label(rel.target_label)
             if target_domain:
-                category_domain_map[mapping.category_name] = target_domain
+                category_domain_map[rel.context_field_name] = target_domain
 
         # Extract categorized data (exclude uid field)
         uid_field = f"{self.config.domain.value.rstrip('s')}_uid"

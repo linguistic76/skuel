@@ -80,12 +80,12 @@ As of December 2025, the 6 Activity Domains use `UnifiedRelationshipService` wit
 
 | Domain | Relationship Class | Relationship Count | Config |
 |--------|-------------------|-------------------|---------|
-| **Tasks** | `TaskRelationships` | 12 relationships | `TASK_CONFIG` |
-| **Goals** | `GoalRelationships` | 11 relationships | `GOAL_CONFIG` |
-| **Habits** | `HabitRelationships` | 5 relationships | `HABIT_CONFIG` |
-| **Events** | `EventRelationships` | 9 relationships | `EVENT_CONFIG` |
-| **Choices** | `ChoiceRelationships` | 10 relationships | `CHOICE_CONFIG` |
-| **Principles** | `PrincipleRelationships` | 9 relationships | `PRINCIPLE_CONFIG` |
+| **Tasks** | `TaskRelationships` | 12 relationships | `TASKS_UNIFIED` |
+| **Goals** | `GoalRelationships` | 11 relationships | `GOALS_UNIFIED` |
+| **Habits** | `HabitRelationships` | 5 relationships | `HABITS_UNIFIED` |
+| **Events** | `EventRelationships` | 9 relationships | `EVENTS_UNIFIED` |
+| **Choices** | `ChoiceRelationships` | 10 relationships | `CHOICES_UNIFIED` |
+| **Principles** | `PrincipleRelationships` | 9 relationships | `PRINCIPLES_UNIFIED` |
 
 **See:** `/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md` for the unified service pattern.
 
@@ -156,20 +156,21 @@ await backend.delete("ku.python-basics")  # ✅ Works (if no other relationships
 
 ### Configuration
 
-The ownership relationship is defined in `RelationshipConfig`:
+The ownership relationship is defined in `DomainRelationshipConfig` (in `core.models.relationship_registry`):
 
 ```python
 # Activity Domains (user-owned)
-TASK_CONFIG = RelationshipConfig(
+TASKS_UNIFIED = DomainRelationshipConfig(
     domain=Domain.TASKS,
     ownership_relationship=RelationshipName.HAS_TASK,  # Auto-created
     ...
 )
 
 # Curriculum Domains (shared content)
-KU_CONFIG = RelationshipConfig(
-    domain=Domain.KU,
+KU_UNIFIED = DomainRelationshipConfig(
+    domain=Domain.KNOWLEDGE,
     ownership_relationship=None,  # No auto-created relationship
+    is_shared_content=True,
     ...
 )
 ```

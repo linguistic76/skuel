@@ -92,7 +92,7 @@ roots = await moc_service.list_root_mocs(limit=50)
 |-----------|----------|
 | Facade | `/core/services/moc_service.py` |
 | Navigation Service | `/core/services/moc/moc_navigation_service.py` |
-| Relationship Config | `/core/services/relationships/domain_configs.py` (KU config with ORGANIZES) |
+| Relationship Config | `KU_UNIFIED` in `/core/models/relationship_registry.py` (KU config with ORGANIZES) |
 | API Routes | `/adapters/inbound/moc_api.py` |
 
 ## ORGANIZES Relationship

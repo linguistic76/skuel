@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.models.relationship_names import RelationshipName
+from core.models.relationship_registry import DomainRelationshipConfig
 from core.models.shared_enums import Domain
-from core.services.relationships.relationship_config import RelationshipConfig
 
 
 @dataclass(frozen=True)
@@ -97,8 +97,8 @@ class PlanningMethodSpec:
     parameters: list[tuple[str, type, Any | None]] = field(default_factory=list)
 
 
-@dataclass
-class ExtendedRelationshipConfig(RelationshipConfig):
+@dataclass(frozen=True)
+class ExtendedRelationshipConfig(DomainRelationshipConfig):
     """
     Extended configuration with full domain-specific specifications.
 

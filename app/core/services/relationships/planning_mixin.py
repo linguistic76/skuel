@@ -42,7 +42,7 @@ from core.utils.sort_functions import (
 )
 
 if TYPE_CHECKING:
-    from core.services.relationships.relationship_config import RelationshipConfig
+    from core.models.relationship_registry import DomainRelationshipConfig
     from core.services.user.unified_user_context import UserContext
 
 T = TypeVar("T")
@@ -73,7 +73,7 @@ class PlanningMixin:
 
     # These will be provided by the service class
     # Using Any for backend to avoid type conflicts with BaseService
-    config: RelationshipConfig
+    config: DomainRelationshipConfig
     backend: Any
     logger: Any
 

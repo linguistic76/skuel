@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-01-08
+updated: 2026-02-07
 category: patterns
 related_skills:
 - base-analytics-service
@@ -13,9 +13,9 @@ related_docs:
 ---
 
 # UnifiedRelationshipService Pattern
-**Date:** December 3, 2025 (Updated January 2026)
+**Date:** December 3, 2025 (Updated February 2026)
 **Type:** Architectural Pattern
-**Status:** ✅ IMPLEMENTED - All 10 Domains (6 Activity + 4 Curriculum)
+**Status:** ✅ IMPLEMENTED - All 9 Domains (6 Activity + 3 Curriculum)
 **One Path Forward:** THE single service for all relationship operations (ADR-029)
 ## Related Skills
 
@@ -28,9 +28,9 @@ For implementation guidance, see:
 
 **UnifiedRelationshipService** consolidates the 6 Activity Domain relationship services into a single generic service + domain configurations.
 
-**Key Innovation:** Configuration-driven approach where domain behavior is specified via `RelationshipConfig` objects, eliminating the need for separate service classes per domain.
+**Key Innovation:** Configuration-driven approach where domain behavior is specified via `DomainRelationshipConfig` objects from the registry, eliminating the need for separate service classes per domain.
 
-**January 2026 Update (ADR-026):** All relationship configurations are generated from `RelationshipRegistry` (`/core/models/relationship_registry.py`) — THE single source of truth. Consumers call generator functions directly.
+**February 2026 Update:** All consumers use `DomainRelationshipConfig` directly from `relationship_registry.py` — THE single source of truth. The intermediate `RelationshipConfig`/`domain_configs.py` translation layer has been removed (~395 lines deleted).
 
 **Scope:** This service covers the **service layer** (graph enrichment, context queries, relationship operations). The **ingestion layer** (`core/services/ingestion/config.py`) has its own independent relationship config for YAML→Neo4j edge creation — see ADR-026 "Scope Boundary" section.
 
@@ -48,8 +48,8 @@ TasksRelationshipService, GoalsRelationshipService, HabitsRelationshipService...
 
 **After:**
 ```
-1 service + 6 configs = ~2,000 lines (58% reduction)
-UnifiedRelationshipService + TASK_CONFIG, GOAL_CONFIG, HABIT_CONFIG...
+1 service + 9 configs = ~1,600 lines (67% reduction)
+UnifiedRelationshipService + TASKS_UNIFIED, GOALS_UNIFIED, HABITS_UNIFIED...
 ```
 
 **Old services archived:** `zarchives/relationships/`
@@ -91,25 +91,21 @@ Need relationship data?
 Instead of subclassing for each domain, we use configuration objects:
 
 ```python
-from core.services.relationships import (
-    UnifiedRelationshipService,
-    TASK_CONFIG,
-    GOAL_CONFIG,
-    HABIT_CONFIG,
-)
+from core.models.relationship_registry import TASKS_UNIFIED, GOALS_UNIFIED
+from core.services.relationships import UnifiedRelationshipService
 
 # Create relationship service for tasks
 tasks_relationship_service = UnifiedRelationshipService(
     backend=tasks_backend,
     graph_intel=graph_intel,
-    config=TASK_CONFIG,
+    config=TASKS_UNIFIED,
 )
 
 # Same service, same methods - different domain via configuration
 goals_relationship_service = UnifiedRelationshipService(
     backend=goals_backend,
     graph_intel=graph_intel,
-    config=GOAL_CONFIG,
+    config=GOALS_UNIFIED,
 )
 ```
 
@@ -117,167 +113,124 @@ goals_relationship_service = UnifiedRelationshipService(
 
 ```
 /core/models/
-├── relationship_registry.py  # THE single source of truth (ADR-026)
-└── relationship_names.py             # RelationshipName enum
+├── relationship_registry.py         # THE single source of truth (ADR-026)
+└── relationship_names.py            # RelationshipName enum
 
 /core/services/relationships/
-├── __init__.py                    # Module exports
-├── relationship_config.py         # Base configuration (RelationshipConfig)
-├── extended_config.py             # Extended specs (QuerySpec, LinkMethodSpec, etc.)
-├── domain_configs.py              # Facade - generates configs from registry
-├── unified_relationship_service.py # The unified service (~1,500 lines)
-├── path_aware_factory.py          # Factory for path-aware entities
-├── relationships_container.py     # Generic relationship container
-└── planning_mixin.py              # UserContext-aware methods
+├── __init__.py                      # Module exports
+├── extended_config.py               # Extended specs (QuerySpec, LinkMethodSpec, etc.)
+├── unified_relationship_service.py  # The unified service (~1,500 lines)
+├── path_aware_factory.py            # Factory for path-aware entities
+├── relationships_container.py       # Generic relationship container
+└── planning_mixin.py                # UserContext-aware methods
 ```
 
-### Single Source of Truth (January 2026)
+### Single Source of Truth
 
-All relationship configurations are defined in `RelationshipRegistry`:
+All relationship configurations are `DomainRelationshipConfig` instances defined in the registry:
 
 ```python
 from core.models.relationship_registry import (
+    TASKS_UNIFIED,              # Named config for Tasks domain
     UNIFIED_REGISTRY,           # Access by Domain enum
     UNIFIED_REGISTRY_BY_LABEL,  # Access by Neo4j label
     generate_graph_enrichment,  # For DomainConfig factories
-    generate_relationship_config,  # For domain_configs.py
 )
 
-# Get config for a domain
+# Direct named access (preferred)
+config = TASKS_UNIFIED
+
+# Access by Domain enum
 config = UNIFIED_REGISTRY[Domain.TASKS]
 
-# Get config by label (supports all 10 domains)
+# Access by label (supports all domains)
 config = UNIFIED_REGISTRY_BY_LABEL["Ku"]
 ```
 
 ---
 
-## RelationshipConfig
+## DomainRelationshipConfig
 
-The core configuration dataclass that defines domain-specific behavior:
+The configuration dataclass lives in `core.models.relationship_registry`:
 
 ```python
-@dataclass
-class RelationshipConfig:
-    """Configuration for domain-specific relationship behavior."""
+@dataclass(frozen=True)
+class DomainRelationshipConfig:
+    """Configuration consumed directly by UnifiedRelationshipService."""
 
-    # Required
     domain: Domain                    # e.g., Domain.TASKS
     entity_label: str                 # Neo4j label, e.g., "Task"
-    dto_class: type                   # e.g., TaskDTO
-    model_class: type                 # e.g., Task
+    relationships: tuple[UnifiedRelationshipDefinition, ...]  # All relationships
+    ownership_relationship: RelationshipName | None = None
+    is_shared_content: bool = False
+    scoring_weights: dict[str, float] = ...
+    intent_mappings: dict[str, QueryIntent] = ...
 
-    # Backend configuration
-    backend_get_method: str = "get"   # e.g., "get_task"
-    use_semantic_helper: bool = True
-
-    # Ownership
-    ownership_relationship: RelationshipName | None = None  # e.g., HAS_TASK
-
-    # Relationship definitions
-    outgoing_relationships: dict[str, RelationshipSpec] = field(default_factory=dict)
-    incoming_relationships: dict[str, RelationshipSpec] = field(default_factory=dict)
-
-    # Cross-domain
-    cross_domain_mappings: list[CrossDomainMapping] = field(default_factory=list)
-    semantic_types: list[SemanticRelationshipType] = field(default_factory=list)
-
-    # Scoring
-    scoring_weights: dict[str, float] = field(default_factory=dict)
-    default_context_intent: QueryIntent = QueryIntent.HIERARCHICAL
+    # Convenience methods
+    def get_relationship_by_method(self, method_key: str) -> UnifiedRelationshipDefinition | None
+    def get_all_relationship_methods(self) -> list[str]
+    def get_intent_for_operation(self, operation: str) -> QueryIntent
+    cross_domain_relationship_types: list[str]  # property
 ```
 
-### RelationshipSpec
+### UnifiedRelationshipDefinition
 
 Defines a single relationship type:
 
 ```python
-@dataclass
-class RelationshipSpec:
-    relationship: RelationshipName  # Type-safe enum, e.g., APPLIES_KNOWLEDGE
-    direction: str                  # "outgoing", "incoming", or "both"
-    target_label: str | None = None # Target Neo4j label (optional)
-    target_domain: Domain | None = None
-    target_dto_class: type | None = None
-    target_model_class: type | None = None
+@dataclass(frozen=True)
+class UnifiedRelationshipDefinition:
+    relationship: RelationshipName    # Type-safe enum, e.g., APPLIES_KNOWLEDGE
+    target_label: str                 # Neo4j label, e.g., "Ku"
+    direction: str = "outgoing"       # "outgoing", "incoming", or "both"
+    method_key: str = ""              # e.g., "knowledge" → get_related_uids("knowledge", uid)
+    context_field_name: str = ""      # e.g., "applied_knowledge"
+    is_cross_domain_mapping: bool = False
+    order_by_property: str | None = None
+    include_edge_properties: tuple[str, ...] = ()
 ```
 
 ---
 
 ## Domain Configurations
 
-Seven Activity Domain configurations are provided:
+All 9 domains have named configs in `core.models.relationship_registry`:
 
-### TASK_CONFIG
-
-```python
-TASK_CONFIG = RelationshipConfig(
-    domain=Domain.TASKS,
-    entity_label="Task",
-    dto_class=TaskDTO,
-    model_class=Task,
-    backend_get_method="get_task",
-    ownership_relationship=RelationshipName.HAS_TASK,
-    outgoing_relationships={
-        "knowledge": RelationshipSpec(RelationshipName.APPLIES_KNOWLEDGE, "outgoing"),
-        "goal": RelationshipSpec(RelationshipName.FULFILLS_GOAL, "outgoing"),
-        "dependents": RelationshipSpec(RelationshipName.PREREQUISITE_FOR, "outgoing"),
-        "habit": RelationshipSpec(RelationshipName.REINFORCES_HABIT, "outgoing"),
-        "event": RelationshipSpec(RelationshipName.RELATED_TO_EVENT, "outgoing"),
-        "principle": RelationshipSpec(RelationshipName.ALIGNED_WITH_PRINCIPLE, "outgoing"),
-    },
-    incoming_relationships={
-        "prerequisite_tasks": RelationshipSpec(RelationshipName.PREREQUISITE_FOR, "incoming"),
-        "prerequisite_knowledge": RelationshipSpec(RelationshipName.REQUIRES_KNOWLEDGE, "incoming"),
-    },
-    semantic_types=[
-        SemanticRelationshipType.APPLIES_KNOWLEDGE,
-        SemanticRelationshipType.FULFILLS_PURPOSE,
-        SemanticRelationshipType.CREATES_MOMENTUM,
-    ],
-    scoring_weights={
-        "goal_alignment": 0.3,
-        "knowledge_application": 0.2,
-        "dependency_complexity": 0.2,
-        "time_sensitivity": 0.3,
-    },
-)
-```
-
-### All Available Configs (10 Domains)
+### All Available Configs
 
 | Config | Domain | Entity Label | Key Relationships |
 |--------|--------|--------------|-------------------|
 | **Activity Domains (6)** |
-| `TASK_CONFIG` | TASKS | Task | APPLIES_KNOWLEDGE, FULFILLS_GOAL, DEPENDS_ON |
-| `GOAL_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
-| `HABIT_CONFIG` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
-| `EVENT_CONFIG` | EVENTS | Event | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, CONFLICTS_WITH |
-| `CHOICE_CONFIG` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMED_BY_PRINCIPLE, AFFECTS_GOAL |
-| `PRINCIPLE_CONFIG` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, GUIDES_GOAL, GUIDES_CHOICE |
-| **Curriculum Domains (3)** - Added January 2026 |
-| (via registry) | KNOWLEDGE | Ku | REQUIRES, ENABLES, HAS_NARROWER, HAS_BROADER |
-| (via registry) | LEARNING | Ls | CONTAINS_KNOWLEDGE, BUILDS_HABIT, ASSIGNS_TASK |
-| (via registry) | - | Lp | HAS_STEP, ALIGNED_WITH_GOAL, HAS_MILESTONE_EVENT |
-| **Content/Organization (MOC)** - Navigation layer |
-| (via registry) | - | MapOfContent | CONTAINS_PATH, BRIDGES_TO, RELATED_TO_MOC |
+| `TASKS_UNIFIED` | TASKS | Task | APPLIES_KNOWLEDGE, FULFILLS_GOAL, DEPENDS_ON |
+| `GOALS_UNIFIED` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
+| `HABITS_UNIFIED` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
+| `EVENTS_UNIFIED` | EVENTS | Event | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, CONFLICTS_WITH |
+| `CHOICES_UNIFIED` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMED_BY_PRINCIPLE, AFFECTS_GOAL |
+| `PRINCIPLES_UNIFIED` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, GUIDES_GOAL, GUIDES_CHOICE |
+| **Curriculum Domains (3)** |
+| `KU_UNIFIED` | KNOWLEDGE | Ku | REQUIRES, ENABLES, ORGANIZES, HAS_NARROWER |
+| `LS_UNIFIED` | LEARNING | Ls | CONTAINS_KNOWLEDGE, BUILDS_HABIT, ASSIGNS_TASK |
+| `LP_UNIFIED` | LEARNING | Lp | HAS_STEP, ALIGNED_WITH_GOAL, HAS_MILESTONE_EVENT |
 
 **Notes:**
 - Finance is NOT an Activity Domain - it's a standalone expense/budget tracker
-- Curriculum configs accessible via `UNIFIED_REGISTRY_BY_LABEL["Ku"]` etc.
+- All configs are `DomainRelationshipConfig` instances (frozen dataclasses)
 - Curriculum domains have `is_shared_content=True` (no user ownership)
+- MOC uses `KU_UNIFIED` (MOC is a KU with ORGANIZES relationships)
 
 **Registry Access:**
 
 ```python
-from core.services.relationships import get_config_for_domain, ACTIVITY_DOMAIN_CONFIGS
+from core.models.relationship_registry import UNIFIED_REGISTRY, TASKS_UNIFIED
 
-# Get config by domain
-config = get_config_for_domain(Domain.TASKS)
+# Direct named access (preferred for known domains)
+config = TASKS_UNIFIED
 
-# Iterate all configs
-for domain, config in ACTIVITY_DOMAIN_CONFIGS.items():
-    print(f"{domain.value}: {config.entity_label}")
+# Dynamic access by Domain enum
+config = UNIFIED_REGISTRY[Domain.TASKS]
+
+# Dynamic access by label
+config = UNIFIED_REGISTRY_BY_LABEL["Ku"]
 ```
 
 ---
@@ -555,9 +508,10 @@ context = await tasks_service.get_task_cross_domain_context(task_uid)
 
 **After (UnifiedRelationshipService):**
 ```python
-from core.services.relationships import UnifiedRelationshipService, TASK_CONFIG
+from core.models.relationship_registry import TASKS_UNIFIED
+from core.services.relationships import UnifiedRelationshipService
 
-tasks_service = UnifiedRelationshipService(backend, graph_intel, TASK_CONFIG)
+tasks_service = UnifiedRelationshipService(backend, graph_intel, TASKS_UNIFIED)
 knowledge_uids = await tasks_service.get_related_uids("knowledge", task_uid)
 context = await tasks_service.get_cross_domain_context_typed(task_uid)
 ```
@@ -630,14 +584,15 @@ context = await service.get_cross_domain_context_typed(uid)
 ### Unit Testing
 
 ```python
-from core.services.relationships import UnifiedRelationshipService, TASK_CONFIG
+from core.models.relationship_registry import TASKS_UNIFIED
+from core.services.relationships import UnifiedRelationshipService
 
 # Mock backend
 mock_backend = Mock()
 mock_backend.execute_query.return_value = Result.ok([...])
 
 # Test service
-service = UnifiedRelationshipService(mock_backend, None, TASK_CONFIG)
+service = UnifiedRelationshipService(mock_backend, None, TASKS_UNIFIED)
 
 # Test basic query
 result = await service.get_related_uids("knowledge", "task:123")
@@ -651,7 +606,7 @@ assert result.is_ok
 poetry run pytest tests/integration/test_relationships.py -v
 
 # Validate configs
-poetry run python -c "from core.services.relationships import ACTIVITY_DOMAIN_CONFIGS; print(len(ACTIVITY_DOMAIN_CONFIGS))"
+poetry run python -c "from core.models.relationship_registry import UNIFIED_REGISTRY; print(len(UNIFIED_REGISTRY))"
 ```
 
 ---
@@ -722,23 +677,23 @@ SKUEL uses two distinct relationship service patterns, each optimized for differ
 - Dual-source configuration problem
 
 To:
-- 1 generic service + 10 configs (generated from single source)
-- ~2,000 lines total
+- 1 generic service + 9 configs (direct from registry)
+- ~1,600 lines total
 - Consistent API for all domains
-- 58% code reduction
+- 67% code reduction
 - Type-safe configuration
 - Single source of truth (RelationshipRegistry)
 
 **Key Files:**
 - `/core/models/relationship_registry.py` - THE single source of truth
 - `/core/services/relationships/unified_relationship_service.py`
-- `/core/services/relationships/domain_configs.py` (generated from unified registry)
 
 **Usage:**
 ```python
-from core.services.relationships import UnifiedRelationshipService, TASK_CONFIG
+from core.models.relationship_registry import TASKS_UNIFIED
+from core.services.relationships import UnifiedRelationshipService
 
-service = UnifiedRelationshipService(backend, graph_intel, TASK_CONFIG)
+service = UnifiedRelationshipService(backend, graph_intel, TASKS_UNIFIED)
 await service.get_related_uids("knowledge", "task:123")
 ```
 
@@ -747,6 +702,6 @@ await service.get_related_uids("knowledge", "task:123")
 ---
 
 **Pattern By:** Claude Code
-**Date:** December 3, 2025 (Updated January 2026)
-**Impact:** HIGH (75% code reduction, architectural consistency, single source of truth)
-**Risk:** LOW (incremental migration, backwards compatible)
+**Date:** December 3, 2025 (Updated February 2026)
+**Impact:** HIGH (67% code reduction, architectural consistency, single source of truth)
+**Risk:** LOW (incremental migration, no translation layer)

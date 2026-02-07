@@ -8,7 +8,7 @@ Each domain has:
 - core_module/class: CoreService class for CRUD operations
 - search_module/class: SearchService class for discovery
 - intelligence_module/class: IntelligenceService class for analytics
-- relationship_config_getter: Function name to get UnifiedRelationshipService config
+- relationship_config: DomainRelationshipConfig from registry (direct reference)
 
 Usage:
     from core.utils.curriculum_domain_config import (
@@ -35,6 +35,11 @@ Reason: Unify Curriculum domain architecture with Activity domains (ADR-030)
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
+from core.models.relationship_registry import (
+    KU_UNIFIED,
+    LP_UNIFIED,
+    LS_UNIFIED,
+)
 from core.services.relationships import UnifiedRelationshipService
 
 if TYPE_CHECKING:
@@ -74,8 +79,8 @@ class CurriculumDomainConfig:
     intelligence_module: str
     intelligence_class: str
 
-    # Relationship config getter function name
-    relationship_config_getter: str
+    # Relationship config (direct from registry)
+    relationship_config: Any
 
     # Domain metadata
     domain_name: str
@@ -91,7 +96,7 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         search_class="KuSearchService",
         intelligence_module="core.services.ku_intelligence_service",
         intelligence_class="KuIntelligenceService",
-        relationship_config_getter="get_ku_config",
+        relationship_config=KU_UNIFIED,
         domain_name="ku",
         entity_label="Ku",
     ),
@@ -102,7 +107,7 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         search_class="LsSearchService",
         intelligence_module="core.services.ls.ls_intelligence_service",
         intelligence_class="LsIntelligenceService",
-        relationship_config_getter="get_ls_config",
+        relationship_config=LS_UNIFIED,
         domain_name="ls",
         entity_label="Ls",
     ),
@@ -113,7 +118,7 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         search_class="LpSearchService",
         intelligence_module="core.services.lp_intelligence_service",
         intelligence_class="LpIntelligenceService",
-        relationship_config_getter="get_lp_config",
+        relationship_config=LP_UNIFIED,
         domain_name="lp",
         entity_label="Lp",
     ),
@@ -178,18 +183,12 @@ def create_curriculum_sub_services(
     """
     import importlib
 
-    from core.services.relationships import domain_configs
-
     config = CURRICULUM_DOMAIN_CONFIGS[domain]
-
-    # Get relationship config via getter function
-    config_getter = getattr(domain_configs, config.relationship_config_getter)
-    relationship_config = config_getter()
 
     # Create relationships service FIRST (needed by intelligence)
     relationships = UnifiedRelationshipService(
         backend=backend,
-        config=relationship_config,
+        config=config.relationship_config,
         graph_intel=graph_intel,
     )
 
@@ -315,12 +314,11 @@ def create_ku_sub_services(
     from core.services.ku.ku_search_service import KuSearchService
     from core.services.ku.ku_semantic_service import KuSemanticService
     from core.services.ku_intelligence_service import KuIntelligenceService
-    from core.services.relationships.domain_configs import get_ku_config
 
     # Step 1: Create relationship service (needed by intelligence)
     relationships = UnifiedRelationshipService(
         backend=backend,
-        config=get_ku_config(),
+        config=KU_UNIFIED,
         graph_intel=graph_intelligence_service,
     )
 
@@ -424,7 +422,6 @@ def create_lp_sub_services(
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
     from core.services.lp_intelligence_service import LpIntelligenceService
-    from core.services.relationships.domain_configs import get_lp_config
 
     # Step 1: Create shared backend
     lp_backend: UniversalNeo4jBackend[LpModel] = UniversalNeo4jBackend[LpModel](
@@ -437,7 +434,7 @@ def create_lp_sub_services(
     # Step 3: Create relationships
     relationships = UnifiedRelationshipService(
         backend=lp_backend,
-        config=get_lp_config(),
+        config=LP_UNIFIED,
         graph_intel=graph_intelligence_service,
     )
 

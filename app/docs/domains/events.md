@@ -12,7 +12,7 @@ tags: [events, activity-domain, domain]
 **Type:** Activity Domain (4 of 6)
 **UID Prefix:** `event:`
 **Entity Label:** `Event`
-**Config:** `EVENT_CONFIG`
+**Config:** `EVENTS_UNIFIED` (from `core.models.relationship_registry`)
 
 ## Purpose
 
@@ -34,7 +34,7 @@ Events represent scheduled calendar items. They connect to knowledge application
 | Scheduling Service | `/core/services/events/events_scheduling_service.py` |
 | Intelligence Service | `/core/services/events/events_intelligence_service.py` |
 | Facade | `/core/services/events_service.py` |
-| Config | `EVENT_CONFIG` in `/core/services/relationships/domain_configs.py` |
+| Config | `EVENTS_UNIFIED` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/calendar_event_events.py` |
 | UI Routes | `/adapters/inbound/events_ui.py` |
 | View Components | `/components/events_views.py` |

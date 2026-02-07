@@ -74,11 +74,11 @@ The ultimate goal all domains flow toward:
 ### Domain → Config Mapping
 
 ```python
-from core.services.relationships import get_config_for_domain, ACTIVITY_DOMAIN_CONFIGS
+from core.models.relationship_registry import UNIFIED_REGISTRY, TASKS_UNIFIED
 from core.models.shared_enums import Domain
 
 # Get config for a domain
-config = get_config_for_domain(Domain.TASKS)  # Returns TASK_CONFIG
+config = UNIFIED_REGISTRY[Domain.TASKS]  # or use TASKS_UNIFIED directly
 ```
 
 ### Service Location Pattern
@@ -149,4 +149,4 @@ class LpService(FacadeDelegationMixin):
 
 - [14-Domain Architecture](../architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md)
 - [UnifiedRelationshipService](../patterns/UNIFIED_RELATIONSHIP_SERVICE.md)
-- [Domain Configs](../../core/services/relationships/domain_configs.py)
+- [Relationship Registry](../../core/models/relationship_registry.py)

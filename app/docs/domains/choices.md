@@ -12,7 +12,7 @@ tags: [choices, activity-domain, domain]
 **Type:** Activity Domain (5 of 6)
 **UID Prefix:** `choice:`
 **Entity Label:** `Choice`
-**Config:** `CHOICE_CONFIG`
+**Config:** `CHOICES_UNIFIED` (from `core.models.relationship_registry`)
 
 ## Purpose
 
@@ -31,7 +31,7 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 | Intelligence Service | `/core/services/choices/choices_intelligence_service.py` |
 | Analytics Service | `/core/services/choices/choices_analytics_service.py` |
 | Facade | `/core/services/choices_service.py` |
-| Config | `CHOICE_CONFIG` in `/core/services/relationships/domain_configs.py` |
+| Config | `CHOICES_UNIFIED` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/choice_events.py` |
 | UI Routes | `/adapters/inbound/choice_ui.py` |
 | View Components | `/components/choices_views.py` |

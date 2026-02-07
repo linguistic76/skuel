@@ -237,7 +237,7 @@ TasksService Sub-Services
 │   └─ Depends on: graph_intelligence_service, relationship_service, event_bus (optional)
 │
 └─ UnifiedRelationshipService
-    └─ Depends on: relationship_config (TASK_CONFIG)
+    └─ Depends on: relationship_config (TASKS_UNIFIED)
 ```
 
 **Pattern:** Most sub-services are self-contained. Cross-service dependencies are explicit in `__init__`.
@@ -507,7 +507,7 @@ Dynamic imports + instantiation
     │
     ├─ search = TasksSearchService(backend=backend, ...)
     ├─ intel = TasksIntelligenceService(backend=backend, ...)
-    └─ rels = UnifiedRelationshipService(backend=backend, config=TASK_CONFIG)
+    └─ rels = UnifiedRelationshipService(backend=backend, config=TASKS_UNIFIED)
     │
     ▼
 CommonSubServices[TasksIntelligenceService]

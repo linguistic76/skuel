@@ -99,7 +99,7 @@ class LpSearchService(BaseService["BackendOperations[Lp]", Lp]):
 | Progress Service | `/core/services/lp/lp_progress_service.py` |
 | Model | `/core/models/lp/lp.py` |
 | DTO | `/core/models/lp/lp_dto.py` |
-| Relationship Config | `/core/services/relationships/domain_configs.py` (`get_lp_config()`) |
+| Relationship Config | `LP_UNIFIED` in `/core/models/relationship_registry.py` |
 
 ### Intelligence Sub-Services
 
@@ -197,12 +197,12 @@ One special LP is the user's "life path":
 
 ## Relationship Config
 
-LP uses `get_lp_config()` for UnifiedRelationshipService:
+LP uses `LP_UNIFIED` from the relationship registry:
 
 ```python
-from core.services.relationships.domain_configs import get_lp_config
+from core.models.relationship_registry import LP_UNIFIED
 
-config = get_lp_config()
+config = LP_UNIFIED
 # Defines: steps, prerequisites, enables, goal alignment, milestones
 ```
 

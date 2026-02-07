@@ -1,7 +1,7 @@
 ---
 title: ADR-026: Unified Relationship Registry
-updated: 2026-01-10
-status: accepted
+updated: 2026-02-07
+status: accepted (evolved)
 category: decisions
 tags: [adr, decisions, relationships, consolidation, single-source-of-truth]
 related: [ADR-017-relationship-service-unification.md, ADR-025-service-consolidation-patterns.md]
@@ -9,9 +9,11 @@ related: [ADR-017-relationship-service-unification.md, ADR-025-service-consolida
 
 # ADR-026: Unified Relationship Registry
 
-**Status:** Accepted
+**Status:** Accepted (Evolved February 2026)
 
 **Date:** 2026-01-07
+
+**February 2026 Evolution:** The intermediate `RelationshipConfig`/`domain_configs.py` translation layer described in this ADR has been removed. All consumers now use `DomainRelationshipConfig` directly from `relationship_registry.py`. The `generate_relationship_config()` and `generate_relationship_config_by_label()` functions were deleted. Named configs (e.g., `TASKS_UNIFIED`, `KU_UNIFIED`) are imported directly from the registry. ~395 lines of translation ceremony removed.
 
 **Decision Type:** ☑ Pattern/Practice
 

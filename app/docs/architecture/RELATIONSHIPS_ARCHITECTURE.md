@@ -33,9 +33,10 @@ related: [UNIFIED_RELATIONSHIP_SERVICE.md, RELATIONSHIP_INFRASTRUCTURE_PATTERN.m
 Tasks, Goals, Habits, Events, Choices, Principles use `UnifiedRelationshipService`:
 
 ```python
-from core.services.relationships import UnifiedRelationshipService, TASK_CONFIG
+from core.models.relationship_registry import TASKS_UNIFIED
+from core.services.relationships import UnifiedRelationshipService
 
-service = UnifiedRelationshipService(backend, TASK_CONFIG, graph_intel)
+service = UnifiedRelationshipService(backend, TASKS_UNIFIED, graph_intel)
 knowledge = await service.get_related_uids("knowledge", "task:123")
 context = await service.get_cross_domain_context_typed("task:123")
 actionable = await service.get_actionable_for_user(user_context)

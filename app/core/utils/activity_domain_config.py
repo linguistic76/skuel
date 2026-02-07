@@ -32,16 +32,16 @@ Reason: Consolidate repetitive facade initialization (~480 lines reduction)
 from dataclasses import dataclass
 from typing import Any, Generic, TypeVar
 
-# Domain configs
-from core.services.relationships import (
-    CHOICE_CONFIG,
-    EVENT_CONFIG,
-    GOAL_CONFIG,
-    HABIT_CONFIG,
-    PRINCIPLE_CONFIG,
-    TASK_CONFIG,
-    UnifiedRelationshipService,
+# Domain configs (direct from registry — no intermediate translation)
+from core.models.relationship_registry import (
+    CHOICES_UNIFIED,
+    EVENTS_UNIFIED,
+    GOALS_UNIFIED,
+    HABITS_UNIFIED,
+    PRINCIPLES_UNIFIED,
+    TASKS_UNIFIED,
 )
+from core.services.relationships import UnifiedRelationshipService
 
 # Type vars for generics
 T = TypeVar("T")  # Domain model type
@@ -78,7 +78,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="TasksSearchService",
         intelligence_module="core.services.tasks",
         intelligence_class="TasksIntelligenceService",
-        relationship_config=TASK_CONFIG,
+        relationship_config=TASKS_UNIFIED,
         domain_name="tasks",
         entity_label="Task",
     ),
@@ -89,7 +89,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="GoalsSearchService",
         intelligence_module="core.services.goals",
         intelligence_class="GoalsIntelligenceService",
-        relationship_config=GOAL_CONFIG,
+        relationship_config=GOALS_UNIFIED,
         domain_name="goals",
         entity_label="Goal",
     ),
@@ -100,7 +100,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="HabitSearchService",
         intelligence_module="core.services.habits",
         intelligence_class="HabitsIntelligenceService",
-        relationship_config=HABIT_CONFIG,
+        relationship_config=HABITS_UNIFIED,
         domain_name="habits",
         entity_label="Habit",
     ),
@@ -111,7 +111,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="EventsSearchService",
         intelligence_module="core.services.events",
         intelligence_class="EventsIntelligenceService",
-        relationship_config=EVENT_CONFIG,
+        relationship_config=EVENTS_UNIFIED,
         domain_name="events",
         entity_label="Event",
     ),
@@ -122,7 +122,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="ChoicesSearchService",
         intelligence_module="core.services.choices",
         intelligence_class="ChoicesIntelligenceService",
-        relationship_config=CHOICE_CONFIG,
+        relationship_config=CHOICES_UNIFIED,
         domain_name="choices",
         entity_label="Choice",
     ),
@@ -133,7 +133,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="PrinciplesSearchService",
         intelligence_module="core.services.principles",
         intelligence_class="PrinciplesIntelligenceService",
-        relationship_config=PRINCIPLE_CONFIG,
+        relationship_config=PRINCIPLES_UNIFIED,
         domain_name="principles",
         entity_label="Principle",
     ),

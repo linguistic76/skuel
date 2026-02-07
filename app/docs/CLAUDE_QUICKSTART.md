@@ -48,7 +48,7 @@ Activity Domains (6)     Curriculum (3)      Content/Org (3)   Destination (1)
 |------|-------|
 | Project rules | `/home/mike/skuel/app/CLAUDE.md` |
 | Domain enums | `/core/models/shared_enums.py` (EntityType, Domain, Priority) |
-| Relationship configs | `/core/services/relationships/domain_configs.py` |
+| Relationship configs | `/core/models/relationship_registry.py` |
 | MEGA-QUERY | `/core/services/user/user_context_queries.py` |
 | Service bootstrap | `/core/utils/services_bootstrap.py` |
 
@@ -59,13 +59,14 @@ Activity Domains (6)     Curriculum (3)      Content/Org (3)   Destination (1)
 ### UnifiedRelationshipService (6 Activity Domains)
 
 ```python
-from core.services.relationships import UnifiedRelationshipService, TASK_CONFIG
+from core.models.relationship_registry import TASKS_UNIFIED
+from core.services.relationships import UnifiedRelationshipService
 
-service = UnifiedRelationshipService(backend, graph_intel, TASK_CONFIG)
+service = UnifiedRelationshipService(backend, graph_intel, TASKS_UNIFIED)
 await service.get_related_uids("knowledge", "task:123")
 ```
 
-**Configs:** `TASK_CONFIG`, `GOAL_CONFIG`, `HABIT_CONFIG`, `EVENT_CONFIG`, `CHOICE_CONFIG`, `PRINCIPLE_CONFIG`
+**Configs:** `TASKS_UNIFIED`, `GOALS_UNIFIED`, `HABITS_UNIFIED`, `EVENTS_UNIFIED`, `CHOICES_UNIFIED`, `PRINCIPLES_UNIFIED` (from `core.models.relationship_registry`)
 
 ### Error Handling
 
@@ -140,10 +141,10 @@ ls core/services/tasks/
 ### Find Domain Config
 
 ```python
-from core.services.relationships import get_config_for_domain, ACTIVITY_DOMAIN_CONFIGS
+from core.models.relationship_registry import UNIFIED_REGISTRY, TASKS_UNIFIED
 from core.models.shared_enums import Domain
 
-config = get_config_for_domain(Domain.TASKS)
+config = UNIFIED_REGISTRY[Domain.TASKS]  # or use TASKS_UNIFIED directly
 ```
 
 ### Check Relationship Names

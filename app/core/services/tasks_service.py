@@ -20,7 +20,7 @@ Sub-Services:
 - TasksSearchService: Search and discovery (DomainSearchOperations[Task] protocol)
 - TasksProgressService: Progress tracking and completion
 - TasksSchedulingService: Scheduling and learning path integration
-- UnifiedRelationshipService (TASK_CONFIG): Dependencies and relationships
+- UnifiedRelationshipService (TASKS_UNIFIED): Dependencies and relationships
 
 Architecture: Zero breaking changes - all existing code continues to work unchanged.
 """

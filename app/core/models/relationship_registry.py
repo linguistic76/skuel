@@ -4,44 +4,38 @@ Relationship Registry
 
 Single source of truth for ALL relationship configurations across domains.
 
-**January 2026 Consolidation (ADR-026):**
+**Architecture (February 2026 — Config Merge):**
 
-THE single source of truth for relationship configurations.
-All consumers call generator functions directly:
-1. Graph enrichment patterns → for BaseService._graph_enrichment_patterns (via DomainConfig factories)
-2. RelationshipConfig objects → for UnifiedRelationshipService (via domain_configs.py)
+DomainRelationshipConfig is consumed directly by UnifiedRelationshipService.
+No intermediate translation layer — the registry IS the config.
 
 **Usage:**
 ```python
 from core.models.relationship_registry import (
+    TASKS_UNIFIED,
+    UNIFIED_REGISTRY_BY_LABEL,
     generate_graph_enrichment,
-    generate_relationship_config,
-    UNIFIED_REGISTRY,
 )
 
-# Get graph enrichment for search services
-patterns = generate_graph_enrichment("Task")
+# Pass config directly to relationship service
+service = UnifiedRelationshipService(backend=backend, config=TASKS_UNIFIED)
 
-# Get full config for relationship services
-config = generate_relationship_config(Domain.TASKS)
+# Get graph enrichment for BaseService search
+patterns = generate_graph_enrichment("Task")
 ```
 
 **Architecture:**
 - UnifiedRelationshipDefinition: One relationship's complete definition
-- DomainRelationshipConfig: All relationships for one domain
-- UNIFIED_REGISTRY: All domains (Activity + Curriculum)
+- DomainRelationshipConfig: All relationships for one domain (consumed by services directly)
+- UNIFIED_REGISTRY_BY_LABEL: All domains keyed by Neo4j label
 
 See Also:
     - /docs/decisions/ADR-026-unified-relationship-registry.md
-    - /core/services/relationships/relationship_config.py - Output format
     - /core/services/base_service.py - Consumer of graph enrichment
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from core.services.relationships.relationship_config import RelationshipConfig
+from typing import Any
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.choice.choice import Choice
@@ -277,14 +271,12 @@ class DomainRelationshipConfig:
     """
     Complete relationship configuration for one domain.
 
-    Contains ALL information needed to generate:
-    1. Graph enrichment patterns (for BaseService search)
-    2. RelationshipConfig object (for UnifiedRelationshipService)
-    3. Prerequisite/enables relationships
+    THE single config type consumed directly by UnifiedRelationshipService.
+    Also provides graph enrichment and prerequisite/enables data for BaseService.
 
     **Sections:**
     - Identity: domain, labels, classes
-    - Relationships: unified definitions (generated from single source)
+    - Relationships: unified definitions (single source of truth)
     - Semantic: semantic types for context queries
     - Scoring: weights for relevance calculations
     - Intent: query intent configuration
@@ -345,6 +337,38 @@ class DomainRelationshipConfig:
     def get_bidirectional_definitions(self) -> tuple[UnifiedRelationshipDefinition, ...]:
         """Get only bidirectional relationships."""
         return tuple(r for r in self.relationships if r.direction == "both")
+
+    # =========================================================================
+    # SERVICE INTERFACE - Used by UnifiedRelationshipService directly
+    # =========================================================================
+
+    def get_relationship_by_method(self, method_key: str) -> UnifiedRelationshipDefinition | None:
+        """
+        Look up a relationship definition by method key.
+
+        Args:
+            method_key: Key like "knowledge", "principles", "subtasks"
+
+        Returns:
+            UnifiedRelationshipDefinition or None if not found
+        """
+        for rel in self.relationships:
+            if rel.method_key == method_key:
+                return rel
+        return None
+
+    def get_all_relationship_methods(self) -> list[str]:
+        """Get all method keys for relationship enumeration."""
+        return [rel.method_key for rel in self.relationships]
+
+    def get_intent_for_operation(self, operation: str) -> QueryIntent:
+        """Get QueryIntent for a specific operation, falling back to default."""
+        return self.intent_mappings.get(operation, self.default_context_intent)
+
+    @property
+    def cross_domain_relationship_types(self) -> list[str]:
+        """Get unique relationship type strings for cross-domain context queries."""
+        return list({rel.relationship.value for rel in self.relationships})
 
 
 # =============================================================================
@@ -1936,112 +1960,6 @@ def generate_enables_relationships(entity_label: str) -> list[str]:
         return []
 
     return [rel.value for rel in config.enables_relationship_names]
-
-
-def _generate_from_config(config: DomainRelationshipConfig) -> "RelationshipConfig":
-    """
-    Generate a RelationshipConfig from a DomainRelationshipConfig.
-
-    Core logic shared by generate_relationship_config() and
-    generate_relationship_config_by_label().
-    """
-    from core.services.relationships.relationship_config import (
-        CrossDomainMapping,
-        RelationshipConfig,
-        RelationshipSpec,
-    )
-
-    # Build outgoing/incoming relationships dicts
-    outgoing: dict[str, RelationshipSpec] = {}
-    incoming: dict[str, RelationshipSpec] = {}
-
-    for rel in config.relationships:
-        spec = RelationshipSpec(
-            relationship=rel.relationship,
-            direction=rel.direction,
-            filter_property=rel.filter_property,
-            filter_value=rel.filter_value,
-            order_by_property=rel.order_by_property,
-            order_direction=rel.order_direction,
-            include_edge_properties=rel.include_edge_properties,
-        )
-        if rel.direction == "outgoing":
-            outgoing[rel.method_key] = spec
-        elif rel.direction == "incoming":
-            incoming[rel.method_key] = spec
-        elif rel.direction == "both":
-            # Bidirectional goes in outgoing (convention)
-            outgoing[rel.method_key] = spec
-
-    # Build cross-domain mappings
-    cross_domain_mappings: list[CrossDomainMapping] = [
-        CrossDomainMapping(
-            category_name=rel.context_field_name,
-            target_label=rel.target_label,
-            via_relationships=[rel.relationship],
-            use_directional_markers=rel.use_directional_markers,
-        )
-        for rel in config.relationships
-        if rel.is_cross_domain_mapping
-    ]
-
-    # Build cross-domain relationship types list
-    cross_domain_types = list({rel.relationship.value for rel in config.relationships})
-
-    return RelationshipConfig(
-        domain=config.domain,
-        entity_label=config.entity_label,
-        dto_class=config.dto_class,
-        model_class=config.model_class,
-        backend_get_method=config.backend_get_method,
-        use_semantic_helper=config.use_semantic_helper,
-        ownership_relationship=config.ownership_relationship,
-        outgoing_relationships=outgoing,
-        incoming_relationships=incoming,
-        bidirectional_relationships=list(config.bidirectional_relationships),
-        cross_domain_relationship_types=cross_domain_types,
-        cross_domain_mappings=cross_domain_mappings,
-        semantic_types=list(config.semantic_types),
-        scoring_weights=dict(config.scoring_weights),
-        default_context_intent=config.default_context_intent,
-        intent_mappings=dict(config.intent_mappings),
-        relationship_creation_map=dict(config.relationship_creation_map),
-    )
-
-
-def generate_relationship_config(domain: Domain) -> "RelationshipConfig | None":
-    """
-    Generate a RelationshipConfig object for UnifiedRelationshipService.
-
-    Args:
-        domain: Domain enum value
-
-    Returns:
-        RelationshipConfig object or None if domain not in registry
-    """
-    config = UNIFIED_REGISTRY.get(domain)
-    if not config:
-        return None
-    return _generate_from_config(config)
-
-
-def generate_relationship_config_by_label(label: str) -> "RelationshipConfig | None":
-    """
-    Generate a RelationshipConfig by Neo4j node label.
-
-    Uses UNIFIED_REGISTRY_BY_LABEL for unambiguous lookup (e.g., "Lp" vs Domain.LEARNING
-    which maps to LS).
-
-    Args:
-        label: Neo4j node label (e.g., "Ku", "Ls", "Lp")
-
-    Returns:
-        RelationshipConfig object or None if label not in registry
-    """
-    config = UNIFIED_REGISTRY_BY_LABEL.get(label)
-    if not config:
-        return None
-    return _generate_from_config(config)
 
 
 def get_unified_config(domain: Domain) -> DomainRelationshipConfig | None:

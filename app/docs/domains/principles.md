@@ -12,7 +12,7 @@ tags: [principles, activity-domain, domain, reflections, planning]
 **Type:** Activity Domain (6 of 6)
 **UID Prefix:** `principle:`
 **Entity Label:** `Principle`
-**Config:** `PRINCIPLE_CONFIG`
+**Config:** `PRINCIPLES_UNIFIED` (from `core.models.relationship_registry`)
 
 ## Purpose
 
@@ -36,7 +36,7 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 | Reflection Service | `/core/services/principles/principles_reflection_service.py` |
 | **Planning Service** | `/core/services/principles/principles_planning_service.py` |
 | Facade | `/core/services/principles_service.py` |
-| Config | `PRINCIPLE_CONFIG` in `/core/services/relationships/domain_configs.py` |
+| Config | `PRINCIPLES_UNIFIED` in `/core/models/relationship_registry.py` |
 | UI Components | `/components/principles_views.py` |
 | Routes | `/adapters/inbound/principles_ui.py` |
 | Events | `/core/events/principle_events.py` |

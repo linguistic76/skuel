@@ -15,7 +15,7 @@ Sub-Services:
 - ChoicesCoreService: CRUD operations
 - ChoicesSearchService: Search and discovery (DomainSearchOperations[Choice] protocol)
 - ChoicesLearningService: Learning path guidance and integration
-- UnifiedRelationshipService (CHOICE_CONFIG): Cross-domain links and semantic connections
+- UnifiedRelationshipService (CHOICES_UNIFIED): Cross-domain links and semantic connections
 - ChoicesIntelligenceService: Pure Cypher analytics + decision pattern analysis (consolidated January 2026)
 
 Architecture: Zero breaking changes - all existing code continues to work unchanged.
