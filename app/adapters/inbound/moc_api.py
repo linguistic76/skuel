@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
+from core.auth import require_admin
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
@@ -38,18 +39,27 @@ if TYPE_CHECKING:
     from core.services.moc_service import MOCService
 
 
-def create_moc_api_routes(app: Any, rt: Any, moc_service: "MOCService") -> list[Any]:
+def create_moc_api_routes(
+    app: Any, rt: Any, moc_service: "MOCService", user_service: Any = None
+) -> list[Any]:
     """
     Create MOC API routes.
 
     MOC is KU-based - these routes provide MOC-specific semantics
     for organizing KUs via ORGANIZES relationships.
 
+    SECURITY: Write operations (organize, unorganize, reorder, create-ku)
+    require ADMIN role. Read operations are public.
+
     Args:
         app: FastHTML application instance
         rt: Route decorator
         moc_service: MOC service instance
+        user_service: User service for admin role verification
     """
+
+    def get_user_service():
+        return user_service
 
     # ========================================================================
     # MOC IDENTITY OPERATIONS
@@ -100,8 +110,9 @@ def create_moc_api_routes(app: Any, rt: Any, moc_service: "MOCService") -> list[
     # ========================================================================
 
     @rt("/api/moc/organize", methods=["POST"])
+    @require_admin(get_user_service)
     @boundary_handler(success_status=201)
-    async def organize_route(request: Request) -> Result[dict[str, Any]]:
+    async def organize_route(request, current_user) -> Result[dict[str, Any]]:
         """
         Organize a KU under another KU (create ORGANIZES relationship).
 
@@ -139,8 +150,9 @@ def create_moc_api_routes(app: Any, rt: Any, moc_service: "MOCService") -> list[
         )
 
     @rt("/api/moc/unorganize", methods=["POST"])
+    @require_admin(get_user_service)
     @boundary_handler()
-    async def unorganize_route(request: Request) -> Result[dict[str, Any]]:
+    async def unorganize_route(request, current_user) -> Result[dict[str, Any]]:
         """
         Remove organization relationship between KUs.
 
@@ -172,8 +184,9 @@ def create_moc_api_routes(app: Any, rt: Any, moc_service: "MOCService") -> list[
         return Result.ok({"success": result.value})
 
     @rt("/api/moc/reorder", methods=["POST"])
+    @require_admin(get_user_service)
     @boundary_handler()
-    async def reorder_route(request: Request) -> Result[dict[str, Any]]:
+    async def reorder_route(request, current_user) -> Result[dict[str, Any]]:
         """
         Change the order of a child KU within its parent MOC.
 
@@ -263,8 +276,9 @@ def create_moc_api_routes(app: Any, rt: Any, moc_service: "MOCService") -> list[
     # ========================================================================
 
     @rt("/api/moc/create-ku", methods=["POST"])
+    @require_admin(get_user_service)
     @boundary_handler(success_status=201)
-    async def create_ku_for_moc_route(request: Request) -> Result[Any]:
+    async def create_ku_for_moc_route(request, current_user) -> Result[Any]:
         """
         Create a new KU that will act as a MOC root.
 

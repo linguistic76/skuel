@@ -23,7 +23,9 @@ KU_CONFIG = DomainRouteConfig(
     primary_service_attr="ku",  # services.ku
     api_factory=create_ku_api_routes,
     ui_factory=create_ku_ui_routes,
-    api_related_services={},
+    api_related_services={
+        "user_service": "user_service",
+    },
 )
 
 

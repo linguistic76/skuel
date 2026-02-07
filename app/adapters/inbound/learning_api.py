@@ -20,6 +20,7 @@ from fasthtml.common import Request
 
 from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
 from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.models.lp.lp_request import LpCreateRequest, LpUpdateRequest
 from core.services.protocols.facade_protocols import LpFacadeProtocol
 from core.utils.error_boundary import boundary_handler
@@ -29,28 +30,38 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger("skuel.routes.learning.api")
 
 
-def create_learning_api_routes(app: Any, rt: Any, learning_service: LpFacadeProtocol) -> list[Any]:
+def create_learning_api_routes(
+    app: Any, rt: Any, learning_service: LpFacadeProtocol, user_service: Any = None
+) -> list[Any]:
     """
     Create learning API routes using factory pattern.
+
+    SECURITY: CRUD write operations (create, update, delete) require ADMIN role.
+    Read operations (get, list) are public.
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
         learning_service: LpService instance
+        user_service: User service for admin role verification
     """
 
+    def user_service_getter():
+        return user_service
+
     # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated)
+    # STANDARD CRUD ROUTES (Factory-Generated, Admin-Gated Writes)
     # ========================================================================
 
-    # Create factory for standard CRUD operations
     crud_factory = CRUDRouteFactory(
         service=learning_service,
         domain_name="learning",
         create_schema=LpCreateRequest,
         update_schema=LpUpdateRequest,
         uid_prefix="lp",
-        scope=ContentScope.SHARED,  # Curriculum content is shared
+        scope=ContentScope.SHARED,
+        require_role=UserRole.ADMIN,
+        user_service_getter=user_service_getter,
     )
 
     # Register all standard CRUD routes:

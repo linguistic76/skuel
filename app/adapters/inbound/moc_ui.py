@@ -29,7 +29,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from components.shared_ui_components import SharedUIComponents
-from core.auth import require_authenticated_user
+from core.auth import require_admin, require_authenticated_user
 from core.ui.daisy_components import (
     Badge,
     BadgeT,
@@ -470,19 +470,26 @@ def parse_moc_filters(request: Request) -> MocFilters:
 # ============================================================================
 
 
-def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
+def create_moc_ui_routes(app, rt, moc_service: "MOCService", user_service: Any = None):
     """
     Create MOC UI routes using component composition.
 
+    SECURITY: Write operations (create, edit, section/create) require ADMIN role.
+    Read operations (dashboard, detail, section view) are authenticated.
+
     Routes:
     - /moc - Dashboard listing all user MOCs
-    - /moc/create - Create new MOC form
+    - /moc/create - Create new MOC form (admin only)
     - /moc/templates - Template library
     - /moc/discovery - Related MOC discovery
     - /moc/{uid} - MOC detail view with sections
-    - /moc/{uid}/edit - Edit MOC form
+    - /moc/{uid}/edit - Edit MOC form (admin only)
     - /moc/{uid}/section/{section_uid} - Section content view
+    - /moc/{uid}/section/create - Add section form (admin only)
     """
+
+    def get_user_service():
+        return user_service
 
     logger.info("Registering MOC UI routes (component-based)")
 
@@ -515,8 +522,9 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
         return await MOCUIComponents.render_moc_dashboard(mocs=mocs, stats=stats, request=request)
 
     @rt("/moc/create")
-    async def moc_create_form(request) -> Any:
-        """Create MOC form modal."""
+    @require_admin(get_user_service)
+    async def moc_create_form(request, current_user) -> Any:
+        """Create MOC form modal (admin only)."""
         return MOCUIComponents.render_moc_create_form()
 
     @rt("/moc/templates")
@@ -606,8 +614,9 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
             )
 
     @rt("/moc/{uid}/edit")
-    async def moc_edit_form(request, uid: str) -> Any:
-        """Edit MOC form modal."""
+    @require_admin(get_user_service)
+    async def moc_edit_form(request, current_user, uid: str) -> Any:
+        """Edit MOC form modal (admin only)."""
         return Card(
             H2("Edit MOC", cls="text-xl font-bold mb-4"),
             P(f"Edit form for MOC {uid} will be implemented here", cls="text-gray-500"),
@@ -648,8 +657,9 @@ def create_moc_ui_routes(app, rt, moc_service: "MOCService"):
         )
 
     @rt("/moc/{uid}/section/create")
-    async def moc_section_create_form(request, uid: str) -> Any:
-        """Create section form modal."""
+    @require_admin(get_user_service)
+    async def moc_section_create_form(request, current_user, uid: str) -> Any:
+        """Create section form modal (admin only)."""
         return Card(
             H2("Add Section", cls="text-xl font-bold mb-4"),
             Div(

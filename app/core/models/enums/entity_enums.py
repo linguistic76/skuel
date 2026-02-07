@@ -245,10 +245,11 @@ class ContentScope(str, Enum):
 
     This enum makes the critical security contract explicit in code:
     - USER_OWNED: User-specific content with ownership verification
-    - SHARED: Public/shared content accessible to all users
+    - SHARED: Public reading, admin-only creation (curriculum domains)
 
-    This is orthogonal to role-based access control (require_role).
-    When require_role is set, ContentScope is ignored as role controls all access.
+    Combined with require_role=UserRole.ADMIN for write operations:
+    - Read (get, list): Public, no authentication required
+    - Write (create, update, delete): ADMIN role required
 
     Usage in route factories:
         CRUDRouteFactory(
@@ -258,7 +259,9 @@ class ContentScope(str, Enum):
 
         CRUDRouteFactory(
             service=ku_service,
-            scope=ContentScope.SHARED,  # Knowledge Units are shared
+            scope=ContentScope.SHARED,       # Knowledge Units are shared
+            require_role=UserRole.ADMIN,      # Admin-only writes
+            user_service_getter=getter,
         )
 
     IMPORTANT: SHARED content means user_uid=None in list() requests for
@@ -266,9 +269,10 @@ class ContentScope(str, Enum):
     - user_uid=None → return shared/public content
     - user_uid=None does NOT mean "return everything"
 
-    Create operations ALWAYS require authentication regardless of scope
-    (shared content can be read publicly, but only authenticated users
-    can create new content).
+    Access control summary:
+    - Activity domains (USER_OWNED): Any user creates and owns their content
+    - Curriculum domains (SHARED + ADMIN): Admin creates, everyone reads
+    - Finance (ADMIN_ONLY via require_role): Admin creates and reads
     """
 
     USER_OWNED = "user_owned"  # User-specific with ownership checks

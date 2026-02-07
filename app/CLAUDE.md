@@ -214,12 +214,12 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - No intelligence service - pure bookkeeping
 - Unique: budgets, expense categories, recurring expenses
 
-**Curriculum Domains (3)** - Shared content (user-creatable, publicly readable):
-- `ContentScope.SHARED` - any authenticated user can create, all users can read
+**Curriculum Domains (3)** - Shared content (admin-created, publicly readable):
+- `ContentScope.SHARED` + `require_role=UserRole.ADMIN` - admin creates, all users read
 - `_user_ownership_relationship = None` - no ownership verification needed
 - KU (point), LS (edge), LP (path) - three grouping patterns
 - Core + search services extend `BaseService`
-- **NOT admin-only** - differs from Finance which requires ADMIN role
+- **Admin-only creation** - regular users consume curriculum, admins build it
 - **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
 
 **Content/Processing Domains (2)**:
@@ -655,11 +655,11 @@ await service.get_for_user(uid, user_uid)      # Get with ownership check
 
 | Pattern | Domains | Create | Read | Ownership Check |
 |---------|---------|--------|------|-----------------|
-| **USER_OWNED** | Tasks, Goals, Habits, Events, Choices, Principles, Journals | User | Owner only | Yes (returns 404 if not owner) |
-| **SHARED** | KU, LS, LP (MOC is KU-based) | Any authenticated user | All users | No (content is public) |
-| **ADMIN_ONLY** | Finance | Admin role only | Admin only | No (admin-gated at route) |
+| **USER_OWNED** | Tasks, Goals, Habits, Events, Choices, Principles, Reports | User | Owner only | Yes (returns 404 if not owner) |
+| **SHARED** | KU, LS, LP, MOC | Admin only | All users | No (content is public) |
+| **ADMIN_ONLY** | Finance | Admin only | Admin only | No (admin-gated at route) |
 
-**Key distinction**: SHARED ≠ ADMIN_ONLY. Curriculum domains (KU/LS/LP) are user-creatable, while Finance requires admin role.
+**Key distinction**: Regular users create Activity Domains + Reports. Admins build the knowledge architecture (KU, LS, LP, MOC). Finance is admin-only for both reads and writes.
 
 **See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`
 
@@ -1340,12 +1340,13 @@ POST (Create) -> 201, GET/PUT/DELETE -> 200, POST (Action) -> 200
 All support `scope=ContentScope.USER_OWNED` (default) for multi-tenant security.
 
 **ContentScope Values:**
-- `ContentScope.USER_OWNED` - User-specific content with ownership verification (Activity domains)
-- `ContentScope.SHARED` - Public/shared content (Curriculum domains: KU, LS, LP)
+- `ContentScope.USER_OWNED` - User-specific content with ownership verification (Activity domains + Reports)
+- `ContentScope.SHARED` - Public reading, admin-only creation (Curriculum domains: KU, LS, LP, MOC)
 
 **Example:**
 ```python
 from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 
 # Activity domain (user-owned)
 CRUDRouteFactory(
@@ -1354,10 +1355,12 @@ CRUDRouteFactory(
     ...
 )
 
-# Curriculum domain (shared)
+# Curriculum domain (admin creates, everyone reads)
 CRUDRouteFactory(
     service=ku_service,
     scope=ContentScope.SHARED,
+    require_role=UserRole.ADMIN,
+    user_service_getter=user_service_getter,
     ...
 )
 ```

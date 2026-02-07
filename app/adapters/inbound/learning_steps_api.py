@@ -22,6 +22,7 @@ from fasthtml.common import Request
 
 from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
 from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.models.ls.ls_request import LearningStepCreateRequest, LearningStepUpdateRequest
 from core.services.protocols.facade_protocols import LsFacadeProtocol
 from core.utils.error_boundary import boundary_handler
@@ -31,29 +32,38 @@ from core.utils.result_simplified import Result
 logger = get_logger("skuel.routes.learning_steps.api")
 
 
-def create_learning_steps_api_routes(app: Any, rt: Any, ls_service: LsFacadeProtocol) -> list[Any]:
+def create_learning_steps_api_routes(
+    app: Any, rt: Any, ls_service: LsFacadeProtocol, user_service: Any = None
+) -> list[Any]:
     """
     Create learning steps API routes using factory pattern.
+
+    SECURITY: CRUD write operations (create, update, delete) require ADMIN role.
+    Read operations (get, list) are public.
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
         ls_service: LsService instance (dedicated LS service)
+        user_service: User service for admin role verification
     """
 
+    def user_service_getter():
+        return user_service
+
     # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated)
+    # STANDARD CRUD ROUTES (Factory-Generated, Admin-Gated Writes)
     # ========================================================================
 
-    # Use LsService directly - it implements CRUDOperations protocol
-    # No adapter needed!
     crud_factory = CRUDRouteFactory(
         service=ls_service,
         domain_name="learning-steps",
         create_schema=LearningStepCreateRequest,
         update_schema=LearningStepUpdateRequest,
         uid_prefix="ls",
-        scope=ContentScope.SHARED,  # Curriculum content is shared
+        scope=ContentScope.SHARED,
+        require_role=UserRole.ADMIN,
+        user_service_getter=user_service_getter,
     )
 
     # Register all standard CRUD routes:

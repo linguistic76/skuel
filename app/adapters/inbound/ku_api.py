@@ -20,34 +20,45 @@ from core.auth import require_authenticated_user
 from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.models.ku.ku_request import KuCreateRequest, KuUpdateRequest
 from core.services.protocols.facade_protocols import KuFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
 
-def create_ku_api_routes(app: Any, rt: Any, ku_service: KuFacadeProtocol) -> list[Any]:
+def create_ku_api_routes(
+    app: Any, rt: Any, ku_service: KuFacadeProtocol, user_service: Any = None
+) -> list[Any]:
     """
     Create KU API routes using factory pattern.
+
+    SECURITY: CRUD write operations (create, update, delete) require ADMIN role.
+    Read operations (get, list) are public.
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
         ku_service: KU service instance
+        user_service: User service for admin role verification
     """
 
+    def user_service_getter():
+        return user_service
+
     # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated)
+    # STANDARD CRUD ROUTES (Factory-Generated, Admin-Gated Writes)
     # ========================================================================
 
-    # Create factory for standard CRUD operations
     crud_factory = CRUDRouteFactory(
         service=ku_service,
         domain_name="ku",
         create_schema=KuCreateRequest,
         update_schema=KuUpdateRequest,
         uid_prefix="ku",
-        scope=ContentScope.SHARED,  # Curriculum content is shared
+        scope=ContentScope.SHARED,
+        require_role=UserRole.ADMIN,
+        user_service_getter=user_service_getter,
     )
 
     # Register all standard CRUD routes:

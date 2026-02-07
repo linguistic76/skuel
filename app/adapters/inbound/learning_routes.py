@@ -32,7 +32,9 @@ LEARNING_CONFIG = DomainRouteConfig(
     primary_service_attr="learning",  # services.learning
     api_factory=create_learning_api_routes,
     ui_factory=create_learning_ui_routes,
-    api_related_services={},
+    api_related_services={
+        "user_service": "user_service",
+    },
 )
 
 
@@ -59,7 +61,9 @@ def create_learning_routes(app, rt, services, _sync_service=None):
 
     # Handle LS routes separately (optional - skipped if learning_steps service missing)
     if services and services.ls:
-        ls_routes = create_learning_steps_api_routes(app, rt, services.ls)
+        ls_routes = create_learning_steps_api_routes(
+            app, rt, services.ls, user_service=getattr(services, "user_service", None)
+        )
         logger.info(f"  ✅ Learning Steps (LS) API routes registered: {len(ls_routes)} endpoints")
         routes.extend(ls_routes)
 
