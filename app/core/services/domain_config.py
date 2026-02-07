@@ -107,7 +107,9 @@ class DomainConfig:
             date_field="due_date",
             completed_statuses=("completed",),
             graph_enrichment_patterns=tuple(generate_graph_enrichment("Task")),
-            prerequisite_relationships=tuple(generate_prerequisite_relationships("Task")),
+            prerequisite_relationships=tuple(
+                generate_prerequisite_relationships("Task")
+            ),
             enables_relationships=tuple(generate_enables_relationships("Task")),
             supports_user_progress=True,
         )

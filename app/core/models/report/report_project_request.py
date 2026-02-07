@@ -1,11 +1,9 @@
 """
-Journal Project Request Models (Tier 1 - External)
+Report Project Request Models (Tier 1 - External)
 ===================================================
 
-Pydantic models for journal project API validation and serialization.
+Pydantic models for report project API validation and serialization.
 Handles input validation at the API boundary.
-
-Also used for ReportProject (journal projects renamed to report projects, Feb 2026).
 """
 
 from datetime import date
@@ -13,8 +11,8 @@ from datetime import date
 from pydantic import BaseModel, Field, model_validator
 
 
-class JournalProjectCreateRequest(BaseModel):
-    """Request to create a new journal/report project."""
+class ReportProjectCreateRequest(BaseModel):
+    """Request to create a new report project."""
 
     user_uid: str = Field(..., description="User UID who owns this project")
 
@@ -62,7 +60,7 @@ class JournalProjectCreateRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_assignment_fields(self) -> "JournalProjectCreateRequest":
+    def validate_assignment_fields(self) -> "ReportProjectCreateRequest":
         """If scope=assigned, group_uid is required."""
         if self.scope == "assigned" and not self.group_uid:
             msg = "group_uid is required when scope is 'assigned'"
@@ -70,8 +68,8 @@ class JournalProjectCreateRequest(BaseModel):
         return self
 
 
-class JournalProjectUpdateRequest(BaseModel):
-    """Request to update an existing journal project."""
+class ReportProjectUpdateRequest(BaseModel):
+    """Request to update an existing report project."""
 
     name: str | None = Field(
         default=None, min_length=1, max_length=200, description="New display name"
@@ -90,12 +88,12 @@ class JournalProjectUpdateRequest(BaseModel):
     is_active: bool | None = Field(default=None, description="Active status")
 
 
-class JournalFeedbackRequest(BaseModel):
-    """Request to generate feedback for a journal entry using a project."""
+class ReportFeedbackRequest(BaseModel):
+    """Request to generate feedback for a report entry using a project."""
 
-    entry_uid: str = Field(..., description="UID of the journal entry to analyze")
+    entry_uid: str = Field(..., description="UID of the report entry to analyze")
 
-    project_uid: str = Field(..., description="UID of the journal project with instructions")
+    project_uid: str = Field(..., description="UID of the report project with instructions")
 
     temperature: float | None = Field(
         default=0.7, ge=0.0, le=1.0, description="Sampling temperature for LLM (0-1)"
@@ -106,5 +104,5 @@ class JournalFeedbackRequest(BaseModel):
     )
 
     save_feedback: bool = Field(
-        default=True, description="Whether to save feedback to the journal entry"
+        default=True, description="Whether to save feedback to the report entry"
     )

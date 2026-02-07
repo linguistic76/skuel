@@ -14,10 +14,10 @@ from fasthtml.common import Request
 
 from core.infrastructure.routes import CRUDRouteFactory
 from core.models.enums import ContentScope
-from core.models.journal.journal_project_request import (
-    JournalFeedbackRequest,
-    JournalProjectCreateRequest,
-    JournalProjectUpdateRequest,
+from core.models.report.report_project_request import (
+    ReportFeedbackRequest,
+    ReportProjectCreateRequest,
+    ReportProjectUpdateRequest,
 )
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
@@ -51,9 +51,9 @@ def create_report_projects_api_routes(
     crud_factory = CRUDRouteFactory(
         service=report_projects_service,
         domain_name="report-projects",
-        create_schema=JournalProjectCreateRequest,
-        update_schema=JournalProjectUpdateRequest,
-        uid_prefix="journal_project",
+        create_schema=ReportProjectCreateRequest,
+        update_schema=ReportProjectUpdateRequest,
+        uid_prefix="rp",
         scope=ContentScope.USER_OWNED,
     )
 
@@ -108,7 +108,7 @@ def create_report_projects_api_routes(
         # Parse request body
         try:
             body = await request.json()
-            feedback_request = JournalFeedbackRequest(**body)
+            feedback_request = ReportFeedbackRequest(**body)
         except Exception as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 

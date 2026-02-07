@@ -141,7 +141,7 @@ class TranscriptionProcessRequest(BaseModel):
     journal_project_uid: str | None = Field(
         default=None,
         max_length=100,
-        description="UID of JournalProject for LLM processing of transcript",
+        description="UID of ReportProject for LLM processing of transcript",
     )
 
     # Post-processing
