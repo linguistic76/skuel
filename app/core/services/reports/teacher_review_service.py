@@ -26,14 +26,20 @@ logger = get_logger("skuel.services.teacher_review")
 class TeacherReviewService:
     """Service for teacher review of student assignment submissions."""
 
-    def __init__(self, driver: Driver) -> None:
+    def __init__(
+        self,
+        driver: Driver,
+        ku_interaction_service: Any | None = None,
+    ) -> None:
         """
         Initialize the teacher review service.
 
         Args:
             driver: Neo4j driver for database operations
+            ku_interaction_service: Optional KU interaction service for mastery updates
         """
         self.driver = driver
+        self.ku_interaction_service = ku_interaction_service
 
     async def get_review_queue(
         self,
@@ -226,6 +232,8 @@ class TeacherReviewService:
         """
         Approve a student report (mark as COMPLETED).
 
+        Also triggers mastery updates for any KUs linked via APPLIES_KNOWLEDGE.
+
         Args:
             report_uid: Report to approve
             teacher_uid: Teacher approving
@@ -241,7 +249,13 @@ class TeacherReviewService:
         MATCH (report:Report {uid: $report_uid})
         SET report.status = $status,
             report.updated_at = datetime($now)
-        RETURN report.uid as uid, report.status as status
+        WITH report
+        OPTIONAL MATCH (student:User)-[:OWNS]->(report)
+        OPTIONAL MATCH (report)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+        RETURN report.uid as uid,
+               report.status as status,
+               student.uid as student_uid,
+               collect(ku.uid) as linked_ku_uids
         """
 
         try:
@@ -255,12 +269,39 @@ class TeacherReviewService:
             if not records:
                 return Result.fail(Errors.not_found(f"Report {report_uid} not found"))
 
+            record = records[0]
+            student_uid = record["student_uid"]
+            linked_ku_uids = [uid for uid in (record["linked_ku_uids"] or []) if uid]
+
+            # Update mastery for linked KUs
+            mastered_count = 0
+            if self.ku_interaction_service and student_uid and linked_ku_uids:
+                for ku_uid in linked_ku_uids:
+                    mastery_result = await self.ku_interaction_service.mark_mastered(
+                        user_uid=student_uid,
+                        ku_uid=ku_uid,
+                        mastery_score=0.8,
+                        method="report_approval",
+                    )
+                    if mastery_result.is_ok:
+                        mastered_count += 1
+                    else:
+                        logger.warning(
+                            f"Failed to update mastery for KU {ku_uid}: {mastery_result.error}"
+                        )
+
+                if mastered_count > 0:
+                    logger.info(
+                        f"Updated mastery for {mastered_count} KUs from report {report_uid}"
+                    )
+
             logger.info(f"Teacher {teacher_uid} approved report {report_uid}")
             return Result.ok(
                 {
-                    "report_uid": records[0]["uid"],
-                    "status": records[0]["status"],
+                    "report_uid": record["uid"],
+                    "status": record["status"],
                     "approved": True,
+                    "mastered_ku_count": mastered_count,
                 }
             )
 

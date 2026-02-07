@@ -1600,7 +1600,10 @@ async def compose_services(
         # Create teacher review service (ADR-040: Teacher Assignment Workflow)
         from core.services.reports.teacher_review_service import TeacherReviewService
 
-        teacher_review_service = TeacherReviewService(driver=driver)
+        teacher_review_service = TeacherReviewService(
+            driver=driver,
+            ku_interaction_service=learning_services["ku_service"].interaction,
+        )
         logger.info("✅ TeacherReviewService created (ADR-040)")
 
         # Load default transcript instructions from file

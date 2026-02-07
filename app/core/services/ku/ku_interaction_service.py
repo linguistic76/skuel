@@ -500,6 +500,84 @@ class KuInteractionService:
                 Errors.database("toggle_bookmark", f"Failed to toggle bookmark: {e}")
             )
 
+    async def mark_mastered(
+        self,
+        user_uid: str,
+        ku_uid: str,
+        mastery_score: float = 0.8,
+        method: str = "report_approval",
+    ) -> Result[bool]:
+        """
+        Mark a KU as mastered by the user.
+
+        Creates or updates a MASTERED relationship. Called when a teacher
+        approves a report that APPLIES_KNOWLEDGE to this KU.
+
+        Args:
+            user_uid: User's unique identifier
+            ku_uid: Knowledge unit identifier
+            mastery_score: Mastery confidence score (0.0-1.0, default 0.8)
+            method: How mastery was achieved (e.g., "report_approval")
+
+        Returns:
+            Result[bool]: True if mastered successfully
+        """
+        if not self.driver:
+            return Result.fail(
+                Errors.system("Neo4j driver required", service="KuInteractionService")
+            )
+
+        now = datetime.now(UTC).isoformat()
+
+        query = """
+        MATCH (user:User {uid: $user_uid})
+        MATCH (ku:Ku {uid: $ku_uid})
+        MERGE (user)-[r:MASTERED]->(ku)
+        ON CREATE SET
+            r.mastered_at = datetime($now),
+            r.mastery_score = $mastery_score,
+            r.confidence = $mastery_score,
+            r.method = $method
+        ON MATCH SET
+            r.mastery_score = CASE
+                WHEN $mastery_score > r.mastery_score THEN $mastery_score
+                ELSE r.mastery_score
+            END,
+            r.confidence = CASE
+                WHEN $mastery_score > coalesce(r.confidence, 0) THEN $mastery_score
+                ELSE r.confidence
+            END,
+            r.method = $method
+        RETURN r.mastery_score as mastery_score
+        """
+
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query,
+                    user_uid=user_uid,
+                    ku_uid=ku_uid,
+                    now=now,
+                    mastery_score=mastery_score,
+                    method=method,
+                )
+                record = await result.single()
+
+                if record:
+                    self.logger.info(
+                        f"Marked KU as mastered: {user_uid} -> {ku_uid} "
+                        f"(score={record['mastery_score']}, method={method})"
+                    )
+                    return Result.ok(True)
+                else:
+                    return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
+
+        except Exception as e:
+            self.logger.error(f"Failed to mark KU as mastered: {e}")
+            return Result.fail(
+                Errors.database("mark_mastered", f"Failed to mark KU as mastered: {e}")
+            )
+
     async def get_bookmarked_kus(
         self,
         user_uid: str,
