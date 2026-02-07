@@ -6,7 +6,7 @@ NOTE: Journal domain merged into Reports (February 2026).
 Journal entries are now Report nodes with report_type="journal".
 
 Only JournalProjectService remains here — it's still used by
-journal_projects_api.py route file. Will be fully migrated to
+report_projects_api.py route file. Will be fully migrated to
 core/services/reports/report_project_service.py.
 
 For new code, use:

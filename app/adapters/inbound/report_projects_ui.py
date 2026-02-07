@@ -1,8 +1,8 @@
 """
-Journal Projects UI Routes - Transparent Feedback System
-=========================================================
+Report Projects UI Routes - Transparent Feedback System
+========================================================
 
-UI for journal projects following SKUEL's transparency principles:
+UI for report projects following SKUEL's transparency principles:
 - Visible, editable instructions
 - User-controlled model selection
 - Side-by-side entry + feedback view
@@ -32,7 +32,7 @@ from core.ui.daisy_components import (
 from core.utils.logging import get_logger
 from ui.layouts.navbar import create_navbar_for_request
 
-logger = get_logger("skuel.routes.journal_projects.ui")
+logger = get_logger("skuel.routes.report_projects.ui")
 
 
 # ============================================================================
@@ -40,15 +40,15 @@ logger = get_logger("skuel.routes.journal_projects.ui")
 # ============================================================================
 
 
-class JournalProjectUIComponents:
-    """Reusable journal project UI components"""
+class ReportProjectUIComponents:
+    """Reusable report project UI components."""
 
     @staticmethod
     def render_projects_dashboard(projects=None, request=None, user_uid=None) -> Any:
-        """Main journal projects dashboard"""
+        """Main report projects dashboard."""
         projects = projects or []
 
-        navbar = create_navbar_for_request(request, active_page="journal-projects")
+        navbar = create_navbar_for_request(request, active_page="report-projects")
 
         # Get user_uid from session if not provided
         if user_uid is None and request:
@@ -58,9 +58,9 @@ class JournalProjectUIComponents:
 
         return Div(
             navbar,
-            H1("📝 Journal Projects", cls="text-2xl font-bold mb-6"),
+            H1("Report Projects", cls="text-2xl font-bold mb-6"),
             P(
-                "Create instruction sets for AI feedback on your journal entries. "
+                "Create instruction sets for AI feedback on your entries. "
                 "Full transparency - you write the instructions, select the model, "
                 "and see exactly what's sent to the LLM.",
                 cls="text-gray-600 mb-6",
@@ -68,8 +68,8 @@ class JournalProjectUIComponents:
             # Action button
             Div(
                 Button(
-                    "➕ Create New Project",
-                    hx_get=f"/ui/journal-projects/new?user_uid={user_uid}",
+                    "Create New Project",
+                    hx_get=f"/ui/report-projects/new?user_uid={user_uid}",
                     hx_target="#main-content",
                     variant=ButtonT.primary,
                     cls="mb-6",
@@ -77,14 +77,14 @@ class JournalProjectUIComponents:
                 cls="mb-6",
             ),
             # Projects list
-            JournalProjectUIComponents.render_projects_list(projects),
+            ReportProjectUIComponents.render_projects_list(projects),
             cls="container mx-auto p-6",
             id="main-content",
         )
 
     @staticmethod
     def render_projects_list(projects) -> Any:
-        """List of journal projects"""
+        """List of report projects."""
         if not projects:
             return Card(
                 P(
@@ -95,12 +95,12 @@ class JournalProjectUIComponents:
             )
 
         return Div(
-            *[JournalProjectUIComponents.render_project_card(p) for p in projects], cls="space-y-4"
+            *[ReportProjectUIComponents.render_project_card(p) for p in projects], cls="space-y-4"
         )
 
     @staticmethod
     def render_project_card(project) -> Any:
-        """Single project card"""
+        """Single project card."""
         # Truncate instructions for preview
         instructions_preview = (
             project.instructions[:150] + "..."
@@ -114,7 +114,7 @@ class JournalProjectUIComponents:
                 Div(
                     H3(project.name, cls="text-lg font-semibold"),
                     Span(
-                        "✅ Active" if project.is_active else "🚫 Inactive",
+                        "Active" if project.is_active else "Inactive",
                         cls="text-sm "
                         + ("text-green-600" if project.is_active else "text-gray-400"),
                     ),
@@ -124,14 +124,14 @@ class JournalProjectUIComponents:
                 P(instructions_preview, cls="text-gray-600 text-sm mb-3"),
                 # Model badge
                 Span(
-                    f"🤖 {project.model}",
+                    f"{project.model}",
                     cls="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded mb-3",
                 ),
                 # Context notes count
                 (
                     Div(
                         Span(
-                            f"📚 {len(project.context_notes)} context notes",
+                            f"{len(project.context_notes)} context notes",
                             cls="text-sm text-gray-500",
                         ),
                         cls="mb-3",
@@ -142,22 +142,22 @@ class JournalProjectUIComponents:
                 # Action buttons
                 Div(
                     Button(
-                        "✏️ Edit",
-                        hx_get=f"/ui/journal-projects/{project.uid}/edit",
+                        "Edit",
+                        hx_get=f"/ui/report-projects/{project.uid}/edit",
                         hx_target="#main-content",
                         variant=ButtonT.ghost,
                         cls="btn-sm mr-2",
                     ),
                     Button(
-                        "👁️ View Instructions",
-                        hx_get=f"/ui/journal-projects/{project.uid}/view",
+                        "View Instructions",
+                        hx_get=f"/ui/report-projects/{project.uid}/view",
                         hx_target="#main-content",
                         variant=ButtonT.ghost,
                         cls="btn-sm mr-2",
                     ),
                     Button(
-                        "🗑️ Delete",
-                        hx_delete=f"/api/journal-projects/{project.uid}",
+                        "Delete",
+                        hx_delete=f"/api/report-projects/{project.uid}",
                         hx_confirm="Are you sure you want to delete this project?",
                         hx_target="closest .card",
                         hx_swap="outerHTML",
@@ -173,10 +173,10 @@ class JournalProjectUIComponents:
 
     @staticmethod
     def render_project_editor(project=None, user_uid=None, mode="create") -> Any:
-        """Project editor form - TRANSPARENCY: User sees and edits instructions"""
+        """Project editor form - TRANSPARENCY: User sees and edits instructions."""
         is_edit = mode == "edit"
         form_title = "Edit Project" if is_edit else "Create New Project"
-        submit_url = f"/api/journal-projects/{project.uid}" if is_edit else "/api/journal-projects"
+        submit_url = f"/api/report-projects/{project.uid}" if is_edit else "/api/report-projects"
         submit_method = "put" if is_edit else "post"
 
         return Div(
@@ -212,7 +212,7 @@ class JournalProjectUIComponents:
                             project.instructions if project else "",
                             name="instructions",
                             rows="8",
-                            placeholder="Example:\n\nRead my journal entry and ask me one clarifying question about the emotions I describe. Focus on self-awareness and be gentle and curious.",
+                            placeholder="Example:\n\nRead my entry and ask me one clarifying question about the emotions I describe. Focus on self-awareness and be gentle and curious.",
                             required=True,
                             cls="textarea textarea-bordered w-full",
                         ),
@@ -282,12 +282,10 @@ class JournalProjectUIComponents:
                     ),
                     # Submit buttons
                     Div(
+                        Button("Save Project", type="submit", variant=ButtonT.primary, cls="mr-2"),
                         Button(
-                            "💾 Save Project", type="submit", variant=ButtonT.primary, cls="mr-2"
-                        ),
-                        Button(
-                            "❌ Cancel",
-                            hx_get="/ui/journal-projects",
+                            "Cancel",
+                            hx_get="/ui/report-projects",
                             hx_target="#main-content",
                             variant=ButtonT.ghost,
                         ),
@@ -306,7 +304,7 @@ class JournalProjectUIComponents:
 
     @staticmethod
     def render_project_view(project) -> Any:
-        """View project details - TRANSPARENCY: Show exact prompt"""
+        """View project details - TRANSPARENCY: Show exact prompt."""
         # Example entry for preview
         example_entry = "Today I felt overwhelmed by all the tasks on my plate..."
 
@@ -318,7 +316,7 @@ class JournalProjectUIComponents:
             # Transparency notice
             Card(
                 Div(
-                    H3("🔍 Full Transparency", cls="text-lg font-semibold mb-3"),
+                    H3("Full Transparency", cls="text-lg font-semibold mb-3"),
                     P(
                         "Below you can see exactly what gets sent to the LLM when you request feedback. "
                         "No hidden prompts, no black boxes.",
@@ -339,7 +337,7 @@ class JournalProjectUIComponents:
             # Model
             Card(
                 H3("Model", cls="text-lg font-semibold mb-3"),
-                P(f"🤖 {project.model}", cls="text-gray-700"),
+                P(f"{project.model}", cls="text-gray-700"),
                 cls="mb-4",
             ),
             # Context notes
@@ -357,9 +355,9 @@ class JournalProjectUIComponents:
             ),
             # Example prompt preview
             Card(
-                H3("📄 Example Prompt Preview", cls="text-lg font-semibold mb-3"),
+                H3("Example Prompt Preview", cls="text-lg font-semibold mb-3"),
                 P(
-                    "Here's what the complete prompt would look like with an example journal entry:",
+                    "Here's what the complete prompt would look like with an example entry:",
                     cls="text-gray-600 mb-3",
                 ),
                 Pre(
@@ -371,15 +369,15 @@ class JournalProjectUIComponents:
             # Action buttons
             Div(
                 Button(
-                    "✏️ Edit Project",
-                    hx_get=f"/ui/journal-projects/{project.uid}/edit",
+                    "Edit Project",
+                    hx_get=f"/ui/report-projects/{project.uid}/edit",
                     hx_target="#main-content",
                     variant=ButtonT.primary,
                     cls="mr-2",
                 ),
                 Button(
-                    "← Back to Projects",
-                    hx_get="/ui/journal-projects",
+                    "Back to Projects",
+                    hx_get="/ui/report-projects",
                     hx_target="#main-content",
                     variant=ButtonT.ghost,
                 ),
@@ -390,16 +388,16 @@ class JournalProjectUIComponents:
 
     @staticmethod
     def render_entry_with_feedback(entry, feedback=None, project=None) -> Any:
-        """Side-by-side view: journal entry + AI feedback"""
+        """Side-by-side view: entry + AI feedback."""
         return Div(
             H2(entry.title, cls="text-xl font-bold mb-4"),
             P(entry.entry_date.strftime("%B %d, %Y"), cls="text-gray-500 mb-6"),
             # Side-by-side layout
             Div(
-                # Left: Journal Entry
+                # Left: Entry
                 Div(
                     Card(
-                        H3("📝 Your Entry", cls="text-lg font-semibold mb-4"),
+                        H3("Your Entry", cls="text-lg font-semibold mb-4"),
                         Div(entry.content, cls="prose max-w-none"),
                         cls="p-6 h-full",
                     ),
@@ -408,7 +406,7 @@ class JournalProjectUIComponents:
                 # Right: AI Feedback
                 Div(
                     Card(
-                        H3("💬 AI Feedback", cls="text-lg font-semibold mb-4"),
+                        H3("AI Feedback", cls="text-lg font-semibold mb-4"),
                         (
                             Div(
                                 # Show which project was used
@@ -432,8 +430,8 @@ class JournalProjectUIComponents:
                             else Div(
                                 P("No feedback yet.", cls="text-gray-500 italic"),
                                 Button(
-                                    "✨ Generate Feedback",
-                                    hx_post=f"/api/journal-projects/feedback?entry_uid={entry.uid}",
+                                    "Generate Feedback",
+                                    hx_post=f"/api/report-projects/feedback?entry_uid={entry.uid}",
                                     hx_target="closest .card",
                                     variant=ButtonT.primary,
                                     cls="mt-4",
@@ -449,8 +447,8 @@ class JournalProjectUIComponents:
             # Action buttons
             Div(
                 Button(
-                    "← Back to Journals",
-                    hx_get="/ui/journals",
+                    "Back to Reports",
+                    hx_get="/ui/reports",
                     hx_target="#main-content",
                     variant=ButtonT.ghost,
                     cls="mt-6",
@@ -467,23 +465,23 @@ class JournalProjectUIComponents:
 
 
 @dataclass
-class JournalProjectParams:
-    """Typed parameters for journal project queries."""
+class ReportProjectParams:
+    """Typed parameters for report project queries."""
 
     user_uid: str
 
 
-def parse_journal_project_params(request: Request) -> JournalProjectParams:
+def parse_report_project_params(request: Request) -> ReportProjectParams:
     """
-    Extract journal project parameters from request query params.
+    Extract report project parameters from request query params.
 
     Args:
         request: Starlette request object
 
     Returns:
-        Typed JournalProjectParams with defaults applied
+        Typed ReportProjectParams with defaults applied
     """
-    return JournalProjectParams(
+    return ReportProjectParams(
         user_uid=request.query_params.get("user_uid", "user.default"),
     )
 
@@ -493,36 +491,36 @@ def parse_journal_project_params(request: Request) -> JournalProjectParams:
 # ============================================================================
 
 
-def create_journal_projects_ui_routes(
-    app, rt, journal_projects_service, journals_service=None, **related_services: Any
+def create_report_projects_ui_routes(
+    app, rt, report_projects_service, transcript_service=None, **related_services: Any
 ):
     """
-    Create journal projects UI routes.
+    Create report projects UI routes.
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        journal_projects_service: JournalProjectService instance
-        journals_service: JournalsService instance (optional)
+        report_projects_service: ReportProjectService instance
+        transcript_service: TranscriptProcessor instance (optional)
         **related_services: Optional related services
 
     Returns:
         Empty list (routes registered via decorators, not returned)
     """
 
-    @app.get("/ui/journal-projects")
-    async def journal_projects_dashboard(request) -> Any:
-        """Journal projects dashboard"""
+    @app.get("/ui/report-projects")
+    async def report_projects_dashboard(request) -> Any:
+        """Report projects dashboard."""
         try:
             # Parse typed parameters
-            params = parse_journal_project_params(request)
+            params = parse_report_project_params(request)
 
             # Get user's projects
-            result = await journal_projects_service.list_user_projects(params.user_uid)
+            result = await report_projects_service.list_user_projects(params.user_uid)
 
             projects = [] if result.is_error else result.value
 
-            return JournalProjectUIComponents.render_projects_dashboard(
+            return ReportProjectUIComponents.render_projects_dashboard(
                 projects=projects, request=request
             )
 
@@ -530,73 +528,72 @@ def create_journal_projects_ui_routes(
             logger.error(f"Error rendering projects dashboard: {e}")
             return Div(P(f"Error loading projects: {e}", cls="text-red-600"))
 
-    @app.get("/ui/journal-projects/new")
+    @app.get("/ui/report-projects/new")
     async def new_project_form(request) -> Any:
-        """New project form"""
+        """New project form."""
         # Parse typed parameters
-        params = parse_journal_project_params(request)
+        params = parse_report_project_params(request)
 
-        return JournalProjectUIComponents.render_project_editor(
+        return ReportProjectUIComponents.render_project_editor(
             user_uid=params.user_uid, mode="create"
         )
 
-    @app.get("/ui/journal-projects/{uid}/edit")
+    @app.get("/ui/report-projects/{uid}/edit")
     async def edit_project_form(_request, uid: str) -> Any:
-        """Edit project form"""
+        """Edit project form."""
         try:
-            result = await journal_projects_service.get_project(uid)
+            result = await report_projects_service.get_project(uid)
 
             if result.is_error or not result.value:
                 return Div(P("Project not found", cls="text-red-600"))
 
             project = result.value
 
-            return JournalProjectUIComponents.render_project_editor(project=project, mode="edit")
+            return ReportProjectUIComponents.render_project_editor(project=project, mode="edit")
 
         except Exception as e:
             logger.error(f"Error loading project for edit: {e}")
             return Div(P(f"Error: {e}", cls="text-red-600"))
 
-    @app.get("/ui/journal-projects/{uid}/view")
+    @app.get("/ui/report-projects/{uid}/view")
     async def view_project(_request, uid: str) -> Any:
-        """View project with transparency"""
+        """View project with transparency."""
         try:
-            result = await journal_projects_service.get_project(uid)
+            result = await report_projects_service.get_project(uid)
 
             if result.is_error or not result.value:
                 return Div(P("Project not found", cls="text-red-600"))
 
             project = result.value
 
-            return JournalProjectUIComponents.render_project_view(project)
+            return ReportProjectUIComponents.render_project_view(project)
 
         except Exception as e:
             logger.error(f"Error viewing project: {e}")
             return Div(P(f"Error: {e}", cls="text-red-600"))
 
-    @app.get("/ui/journals/{uid}/with-feedback")
+    @app.get("/ui/reports/{uid}/with-feedback")
     async def view_entry_with_feedback(_request, uid: str) -> Any:
-        """View journal entry with AI feedback side-by-side"""
+        """View entry with AI feedback side-by-side."""
         try:
-            # Get journal entry
-            if journals_service is None:
-                return Div(P("Journals service not available", cls="text-red-600"))
+            if transcript_service is None:
+                return Div(P("Transcript service not available", cls="text-red-600"))
 
-            entry_result = await journals_service.get_journal(uid)
+            entry_result = await transcript_service.get_journal(uid)
 
             if entry_result.is_error or not entry_result.value:
-                return Div(P("Journal entry not found", cls="text-red-600"))
+                return Div(P("Entry not found", cls="text-red-600"))
 
             entry = entry_result.value
 
             # Get project if used
             project = None
             if entry.project_uid:
-                project_result = await journal_projects_service.get_project(entry.project_uid)
+                project_result = await report_projects_service.get_project(entry.project_uid)
                 if project_result.is_ok():
                     project = project_result.value
 
-            return JournalProjectUIComponents.render_entry_with_feedback(
+            return ReportProjectUIComponents.render_entry_with_feedback(
                 entry=entry, feedback=entry.feedback, project=project
             )
 
@@ -604,8 +601,8 @@ def create_journal_projects_ui_routes(
             logger.error(f"Error viewing entry with feedback: {e}")
             return Div(P(f"Error: {e}", cls="text-red-600"))
 
-    logger.info("✅ Journal Projects UI routes registered")
+    logger.info("Report projects UI routes registered")
     return []
 
 
-__all__ = ["JournalProjectUIComponents", "create_journal_projects_ui_routes"]
+__all__ = ["ReportProjectUIComponents", "create_report_projects_ui_routes"]

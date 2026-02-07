@@ -1,15 +1,10 @@
 """
-Journal Projects API - Factory Pattern Migration
-=================================================
-
-Migrated from legacy routes to factory pattern following tasks_api.py pilot.
+Report Projects API - Factory Pattern Routes
+=============================================
 
 Provides:
 - Standard CRUD operations via CRUDRouteFactory
 - Domain-specific feedback generation (manual route)
-
-Legacy file: routes/api/journal_project_routes.py (389 lines)
-Modern file: This file (~80 lines, 80% reduction)
 """
 
 from datetime import datetime
@@ -31,22 +26,22 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger(__name__)
 
 
-def create_journal_projects_api_routes(
+def create_report_projects_api_routes(
     app: Any,
     rt: Any,
-    journal_projects_service: Any,
-    journals_service: Any,
-    journal_feedback_service: Any,
+    report_projects_service: Any,
+    transcript_service: Any,
+    report_feedback_service: Any,
 ) -> list[Any]:
     """
-    Create journal projects API routes using factory pattern.
+    Create report projects API routes using factory pattern.
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        journal_projects_service: JournalProjectService instance
-        journals_service: JournalsService for entry lookup
-        journal_feedback_service: JournalFeedbackService for AI feedback
+        report_projects_service: ReportProjectService instance
+        transcript_service: TranscriptProcessor for entry lookup
+        report_feedback_service: ReportFeedbackService for AI feedback
     """
 
     # ========================================================================
@@ -54,8 +49,8 @@ def create_journal_projects_api_routes(
     # ========================================================================
 
     crud_factory = CRUDRouteFactory(
-        service=journal_projects_service,
-        domain_name="journal-projects",
+        service=report_projects_service,
+        domain_name="report-projects",
         create_schema=JournalProjectCreateRequest,
         update_schema=JournalProjectUpdateRequest,
         uid_prefix="journal_project",
@@ -63,22 +58,22 @@ def create_journal_projects_api_routes(
     )
 
     # Register all standard CRUD routes:
-    # - POST /api/journal-projects/create        (create)
-    # - GET  /api/journal-projects/get?uid=...   (get)
-    # - POST /api/journal-projects/update?uid=.. (update)
-    # - POST /api/journal-projects/delete?uid=.. (delete)
-    # - GET  /api/journal-projects/list          (list with pagination)
+    # - POST /api/report-projects/create        (create)
+    # - GET  /api/report-projects/get?uid=...   (get)
+    # - POST /api/report-projects/update?uid=.. (update)
+    # - POST /api/report-projects/delete?uid=.. (delete)
+    # - GET  /api/report-projects/list          (list with pagination)
     crud_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
     # ========================================================================
 
-    @rt("/api/journal-projects/feedback", methods=["POST"])
+    @rt("/api/report-projects/feedback", methods=["POST"])
     @boundary_handler()
     async def feedback(request: Request) -> Result[Any]:
         """
-        Generate AI feedback for a journal entry using a project.
+        Generate AI feedback for an entry using a project.
 
         This is domain-specific and kept as a manual route because it:
         1. Involves complex coordination between services
@@ -86,7 +81,7 @@ def create_journal_projects_api_routes(
         3. Uses custom LLM parameters (temperature, max_tokens)
 
         Body (JSON):
-        - entry_uid: Journal entry UID (required)
+        - entry_uid: Entry UID (required)
         - project_uid: Project UID (required)
         - temperature: Sampling temperature 0-1 (optional, default 0.7)
         - max_tokens: Max tokens to generate (optional, default 4000)
@@ -98,16 +93,16 @@ def create_journal_projects_api_routes(
         - 404: Entry or project not found
         - 503: Service not available
         """
-        if not journal_feedback_service:
+        if not report_feedback_service:
             return Result.fail(
                 Errors.system(
-                    "Journal feedback service not available", service="JournalFeedbackService"
+                    "Report feedback service not available", service="ReportFeedbackService"
                 )
             )
 
-        if not journals_service:
+        if not transcript_service:
             return Result.fail(
-                Errors.system("Journals service not available", service="JournalsService")
+                Errors.system("Transcript service not available", service="TranscriptProcessor")
             )
 
         # Parse request body
@@ -118,19 +113,19 @@ def create_journal_projects_api_routes(
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         # Get entry and project
-        entry_result = await journals_service.get_journal(feedback_request.entry_uid)
+        entry_result = await transcript_service.get_journal(feedback_request.entry_uid)
         if entry_result.is_error or not entry_result.value:
-            return Result.fail(Errors.not_found("Journal entry", feedback_request.entry_uid))
+            return Result.fail(Errors.not_found("Entry", feedback_request.entry_uid))
 
-        project_result = await journal_projects_service.get_project(feedback_request.project_uid)
+        project_result = await report_projects_service.get_project(feedback_request.project_uid)
         if project_result.is_error or not project_result.value:
-            return Result.fail(Errors.not_found("Journal project", feedback_request.project_uid))
+            return Result.fail(Errors.not_found("Report project", feedback_request.project_uid))
 
         entry = entry_result.value
         project = project_result.value
 
         # Generate feedback
-        feedback_result = await journal_feedback_service.generate_feedback(
+        feedback_result = await report_feedback_service.generate_feedback(
             entry=entry,
             project=project,
             temperature=feedback_request.temperature,
@@ -153,7 +148,7 @@ def create_journal_projects_api_routes(
             dto.feedback_generated_at = datetime.now()
 
             updated_entry = journal_dto_to_pure(dto)
-            update_result = await journals_service.update_journal(updated_entry)
+            update_result = await transcript_service.update_journal(updated_entry)
 
             if update_result.is_error:
                 logger.warning(f"Generated feedback but failed to save: {update_result.error}")
@@ -168,5 +163,5 @@ def create_journal_projects_api_routes(
             }
         )
 
-    logger.info("✅ Journal projects API routes registered (Factory pattern)")
+    logger.info("Report projects API routes registered (Factory pattern)")
     return []
