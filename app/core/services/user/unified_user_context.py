@@ -233,10 +233,12 @@ class UserContext:
     mastered_knowledge_uids: set[str] = field(default_factory=set)
     in_progress_knowledge_uids: set[str] = field(default_factory=set)
 
-    # KU interaction tracking (MVP - Phase B)
+    # KU interaction tracking (Phase B)
     ku_view_counts: dict[str, int] = field(default_factory=dict)  # uid -> total view count
+    ku_time_spent_seconds: dict[str, int] = field(default_factory=dict)  # uid -> cumulative seconds
     recently_viewed_ku_uids: list[str] = field(default_factory=list)  # Last 10 viewed KUs (ordered)
     ku_marked_as_read_uids: set[str] = field(default_factory=set)  # KUs marked as read
+    ku_bookmarked_uids: set[str] = field(default_factory=set)  # Bookmarked KUs
 
     # Learning recommendations
     next_recommended_knowledge: list[str] = field(default_factory=list)

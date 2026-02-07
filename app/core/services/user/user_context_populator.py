@@ -131,6 +131,18 @@ class UserContextPopulator:
             uid for uid in uids_data.get("ku_marked_as_read_uids", []) if uid
         )
 
+        # Bookmarked KUs
+        context.ku_bookmarked_uids = set(
+            uid for uid in uids_data.get("ku_bookmarked_uids", []) if uid
+        )
+
+        # KU time spent (from view data)
+        context.ku_time_spent_seconds = {
+            item["uid"]: item.get("time_spent_seconds", 0)
+            for item in ku_view_data
+            if item and item.get("uid") is not None
+        }
+
         # Learning Paths
         context.enrolled_path_uids = uids_data.get("enrolled_path_uids", [])
 
@@ -249,6 +261,8 @@ class UserContextPopulator:
         context.ku_view_counts = knowledge_data.get("ku_view_counts", {})
         context.recently_viewed_ku_uids = knowledge_data.get("recently_viewed_ku_uids", [])
         context.ku_marked_as_read_uids = knowledge_data.get("ku_marked_as_read_uids", set())
+        context.ku_bookmarked_uids = knowledge_data.get("ku_bookmarked_uids", set())
+        context.ku_time_spent_seconds = knowledge_data.get("ku_time_spent_seconds", {})
 
         # Events
         events_data = data.get("events", {})
