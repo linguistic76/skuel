@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
 
-from fasthtml.common import H1, H2, H3, A, Form, P
+from fasthtml.common import H1, H2, H3, Form, P
 from starlette.responses import Response
 
 from components.choices_views import ChoicesViewComponents
@@ -53,6 +53,7 @@ from ui.choices.layout import create_choices_page
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.relationships import EntityRelationshipsSection
+from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.choice.ui")
 
@@ -732,153 +733,6 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
     QuickAddRouteFactory.register_route(rt, choices_quick_add_config)
 
     # ========================================================================
-    # VIEW DETAIL
-    # ========================================================================
-
-    @rt("/choices/{uid}")
-    async def view_choice(request, uid: str) -> Any:
-        """View choice detail page."""
-        user_uid = require_authenticated_user(request)
-
-        if not choices_service:
-            return Response("Service unavailable", status_code=503)
-
-        # Ownership verification - returns NotFound if user doesn't own this choice
-        result = await choices_service.core.verify_ownership(uid, user_uid)
-        if result.is_error:
-            logger.warning(f"Choice access denied or not found: {uid} for user {user_uid}")
-            return Response("Choice not found", status_code=404)
-
-        choice = result.value
-
-        # Get options if any
-        options = getattr(choice, "options", []) or []
-
-        # Status and priority display
-        status = _get_enum_value(choice, "status", "pending")
-        priority = _get_enum_value(choice, "priority", "medium")
-
-        status_colors = {
-            "pending": "badge-warning",
-            "decided": "badge-success",
-            "implemented": "badge-info",
-            "evaluated": "badge-primary",
-        }
-
-        detail_content = Div(
-            # Header
-            Div(
-                A(
-                    "← Back to List",
-                    href="/choices",
-                    cls="text-sm text-blue-600 hover:underline mb-4 inline-block",
-                ),
-                Div(
-                    H2(choice.title, cls="text-2xl font-bold"),
-                    Span(
-                        status.title(), cls=f"badge {status_colors.get(status, 'badge-ghost')} ml-2"
-                    ),
-                    cls="flex items-center",
-                ),
-                cls="mb-6",
-            ),
-            # Description
-            Div(
-                H3("Description", cls="text-lg font-semibold mb-2"),
-                P(choice.description or "No description", cls="text-gray-600"),
-                cls="mb-6",
-            ),
-            # Meta info
-            Div(
-                Div(
-                    Span("Priority: ", cls="text-gray-500"),
-                    Span(priority.title(), cls="font-semibold"),
-                    cls="mr-6",
-                ),
-                Div(
-                    Span("Domain: ", cls="text-gray-500"),
-                    Span(
-                        _get_enum_value(choice, "domain", "personal").title(), cls="font-semibold"
-                    ),
-                    cls="mr-6",
-                ),
-                Div(
-                    Span("Type: ", cls="text-gray-500"),
-                    Span(
-                        _get_enum_value(choice, "choice_type", "multiple").title(),
-                        cls="font-semibold",
-                    ),
-                ),
-                cls="flex flex-wrap mb-6",
-            ),
-            # Options section
-            Div(
-                H3(f"Options ({len(options)})", cls="text-lg font-semibold mb-4"),
-                Div(
-                    *[
-                        Div(
-                            Span(
-                                opt.title
-                                if hasattr(opt, "title")
-                                else opt.get("title", "Untitled"),
-                                cls="font-medium",
-                            ),
-                            P(
-                                opt.description
-                                if hasattr(opt, "description")
-                                else opt.get("description", ""),
-                                cls="text-sm text-gray-500",
-                            ),
-                            cls="p-3 bg-base-200 rounded-lg mb-2",
-                        )
-                        for opt in options
-                    ]
-                    if options
-                    else [
-                        P(
-                            "No options defined yet. Add options to make a decision.",
-                            cls="text-gray-500",
-                        )
-                    ],
-                ),
-                cls="mb-6",
-            )
-            if status == "pending"
-            else "",
-            # Actions
-            Div(
-                Button(
-                    "Edit",
-                    variant=ButtonT.outline,
-                    cls="mr-2",
-                    **{"hx-get": f"/choices/{uid}/edit", "hx-target": "#modal"},
-                ),
-                Button(
-                    "Add Option",
-                    variant=ButtonT.secondary,
-                    cls="mr-2",
-                    **{"hx-get": f"/choices/{uid}/add-option", "hx-target": "#modal"},
-                )
-                if status == "pending"
-                else "",
-                Button(
-                    "Make Decision",
-                    variant=ButtonT.success,
-                    **{"hx-get": f"/choices/{uid}/decide", "hx-target": "#modal"},
-                )
-                if status == "pending" and len(options) >= 2
-                else "",
-                cls="flex",
-            ),
-            # Modal container
-            Div(id="modal"),
-            cls="card bg-base-100 shadow-lg p-6",
-        )
-
-        page_content = Div(detail_content, cls="p-4 lg:p-8 max-w-4xl mx-auto")
-        return await create_choices_page(page_content, request=request)
-
-    # ========================================================================
     # DECIDE MODAL
     # ========================================================================
 
@@ -1321,6 +1175,13 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         choice = result.value
 
+        # Extract metadata for display
+        status = _get_enum_value(choice, "status", "pending")
+        priority = _get_enum_value(choice, "priority", "medium")
+        domain = _get_enum_value(choice, "domain", "personal")
+        choice_type = _get_enum_value(choice, "choice_type", "multiple")
+        options = getattr(choice, "options", []) or []
+
         # Render detail page
         content = Div(
             # Header Card
@@ -1332,8 +1193,11 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
                     Span(f"Status: {choice.status.value}", cls="badge badge-info mr-2"),
                     Span(
                         f"Urgency: {choice.urgency.value if choice.urgency else 'Not set'}",
-                        cls="badge badge-warning",
+                        cls="badge badge-warning mr-2",
                     ),
+                    Span(f"Priority: {priority.title()}", cls="badge badge-ghost mr-2"),
+                    Span(f"Domain: {domain.title()}", cls="badge badge-outline mr-2"),
+                    Span(f"Type: {choice_type.title()}", cls="badge badge-outline"),
                     cls="flex gap-2 flex-wrap",
                 ),
                 cls="p-6 mb-4",
@@ -1385,6 +1249,38 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
                 ),
                 cls="p-6 mb-4",
             ),
+            # Options Card (only when pending)
+            (
+                Card(
+                    H2(f"📝 Options ({len(options)})", cls="text-xl font-semibold mb-4"),
+                    Div(
+                        *[
+                            Div(
+                                Span(
+                                    getattr(opt, "title", "Untitled"),
+                                    cls="font-medium",
+                                ),
+                                P(
+                                    getattr(opt, "description", ""),
+                                    cls="text-sm text-base-content/60",
+                                ),
+                                cls="p-3 bg-base-200 rounded-lg mb-2",
+                            )
+                            for opt in options
+                        ]
+                        if options
+                        else [
+                            P(
+                                "No options defined yet. Add options to make a decision.",
+                                cls="text-base-content/60",
+                            )
+                        ],
+                    ),
+                    cls="p-6 mb-4",
+                )
+                if status == "pending"
+                else Div()
+            ),
             # Actions Card
             Card(
                 Div(
@@ -1400,10 +1296,27 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
                         variant=ButtonT.primary,
                         cls="mr-2",
                     ),
-                    Button(
-                        "➕ Add Option",
-                        **{"hx-get": f"/choices/{choice.uid}/add-option", "hx-target": "#modal"},
-                        variant=ButtonT.success,
+                    (
+                        Button(
+                            "➕ Add Option",
+                            **{
+                                "hx-get": f"/choices/{choice.uid}/add-option",
+                                "hx-target": "#modal",
+                            },
+                            variant=ButtonT.secondary,
+                            cls="mr-2",
+                        )
+                        if status == "pending"
+                        else ""
+                    ),
+                    (
+                        Button(
+                            "✅ Make Decision",
+                            **{"hx-get": f"/choices/{choice.uid}/decide", "hx-target": "#modal"},
+                            variant=ButtonT.success,
+                        )
+                        if status == "pending" and len(options) >= 2
+                        else ""
                     ),
                     cls="flex gap-2 flex-wrap",
                 ),
@@ -1414,7 +1327,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
                 entity_uid=choice.uid,
                 entity_type="choices",
             ),
-            cls="container mx-auto p-6 max-w-4xl",
+            cls=f"{Container.STANDARD} {Spacing.PAGE}",
         )
 
         return await BasePage(

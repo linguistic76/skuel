@@ -33,7 +33,6 @@ from core.ui.daisy_components import (
     Textarea,
 )
 from core.utils.logging import get_logger
-from ui.patterns.relationships import EntityRelationshipsSection
 
 logger = get_logger("skuel.components.principles_views")
 
@@ -308,7 +307,7 @@ class PrinciplesViewComponents:
                     Button(
                         "View",
                         cls="btn btn-xs btn-outline",
-                        **{"hx-get": f"/principles/{uid}", "hx-target": "#view-content"},
+                        **{"hx-get": f"/principles/{uid}", "hx-target": "body"},
                     ),
                     Button(
                         "Edit",
@@ -584,142 +583,6 @@ class PrinciplesViewComponents:
             impact_section,
             reflection_section,
             id="analytics-view",
-        )
-
-    # ========================================================================
-    # DETAIL VIEW
-    # ========================================================================
-
-    @staticmethod
-    def render_principle_detail(
-        principle: Any,
-        user_uid: str | None = None,
-        recent_reflections: list[Any] | None = None,
-    ) -> Div:
-        """
-        Render detailed view of a single principle.
-
-        Args:
-            principle: Principle domain model
-            user_uid: Current user UID
-            recent_reflections: Optional list of recent reflections to display
-
-        Returns:
-            Div containing the principle detail view
-        """
-        from core.models.principle.principle import PrincipleStrength
-
-        uid = getattr(principle, "uid", "")
-        name = getattr(principle, "name", "Untitled")
-        statement = getattr(principle, "statement", "")
-        description = getattr(principle, "description", "")
-        why_important = getattr(principle, "why_important", "")
-        category = getattr(principle, "category", "personal")
-        strength = getattr(principle, "strength", PrincipleStrength.MODERATE)
-        is_active = getattr(principle, "is_active", True)
-
-        # Convert strength enum to label
-        strength_str = (
-            strength.value if isinstance(strength, PrincipleStrength) else str(strength).lower()
-        )
-        category_str = str(category).lower().replace("principlecategory.", "")
-
-        # Recent reflections section
-        reflection_section = None
-        if recent_reflections is not None:
-            if recent_reflections:
-                reflection_cards = [
-                    PrinciplesViewComponents._render_reflection_card(reflection)
-                    for reflection in recent_reflections[:3]  # Show max 3 recent
-                ]
-            else:
-                reflection_cards = [
-                    P(
-                        "No reflections recorded yet.",
-                        cls="text-gray-500 text-center py-4",
-                    )
-                ]
-
-            reflection_section = Div(
-                Div(
-                    H3("Recent Reflections", cls="text-lg font-semibold"),
-                    Button(
-                        "View All",
-                        cls="btn btn-xs btn-outline",
-                        **{
-                            "hx-get": f"/principles/{uid}/reflections",
-                            "hx-target": "#view-content",
-                        },
-                    ),
-                    cls="flex items-center justify-between mb-4",
-                ),
-                Div(*reflection_cards, cls="space-y-3"),
-                cls="card bg-base-100 shadow-lg p-6 mt-4",
-            )
-
-        return Div(
-            # Back button
-            Button(
-                "← Back to List",
-                cls="btn btn-ghost btn-sm mb-4",
-                **{"hx-get": "/principles/view/list", "hx-target": "#view-content"},
-            ),
-            # Main card
-            Div(
-                H2(name, cls="text-2xl font-bold mb-2"),
-                Span(strength_str.title(), cls="badge badge-primary mr-2"),
-                Span(category_str.title(), cls="badge badge-outline"),
-                Span("Inactive", cls="badge badge-ghost ml-2") if not is_active else "",
-                # Statement
-                P(statement, cls="text-lg text-gray-700 mt-4 italic") if statement else "",
-                # Description
-                Div(
-                    H3("Description", cls="font-semibold mt-6 mb-2"),
-                    P(description or "No description provided.", cls="text-gray-600"),
-                )
-                if description
-                else "",
-                # Why Important
-                Div(
-                    H3("Why This Matters", cls="font-semibold mt-6 mb-2"),
-                    P(why_important or "Not specified.", cls="text-gray-600"),
-                )
-                if why_important
-                else "",
-                # Actions
-                Div(
-                    Button(
-                        "Edit",
-                        cls="btn btn-primary",
-                        **{"hx-get": f"/principles/{uid}/edit", "hx-target": "#modal"},
-                    ),
-                    Button(
-                        "Reflect",
-                        cls="btn btn-success ml-2",
-                        **{"hx-get": f"/principles/{uid}/reflect", "hx-target": "#modal"},
-                    )
-                    if is_active
-                    else "",
-                    Button(
-                        "View History",
-                        cls="btn btn-info ml-2",
-                        **{
-                            "hx-get": f"/principles/{uid}/reflections",
-                            "hx-target": "#view-content",
-                        },
-                    ),
-                    cls="mt-6",
-                ),
-                cls="card bg-base-100 shadow-lg p-6",
-            ),
-            # Recent reflections section
-            reflection_section,
-            # Phase 5: Lateral Relationships Section
-            EntityRelationshipsSection(
-                entity_uid=uid,
-                entity_type="principles",
-            ),
-            id="principle-detail",
         )
 
     # ========================================================================

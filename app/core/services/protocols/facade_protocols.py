@@ -650,6 +650,10 @@ class PrinciplesFacadeProtocol(Protocol):
         """Get a principle by UID."""
         ...
 
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[Any]:
+        """Get a principle by UID with ownership verification."""
+        ...
+
     async def get_user_principles(self, user_uid: str, limit: int = 100) -> Result[list[Principle]]:
         """Get principles for a specific user."""
         ...

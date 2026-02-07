@@ -464,193 +464,6 @@ class GoalUIComponents:
         )
 
     @staticmethod
-    def render_goal_detail(goal, explanation=None, guidances=None, derivation=None) -> Any:
-        """
-        Detailed goal view with relationship context.
-
-        Phase 1: Shows WHY the goal exists and HOW principles guide it.
-        """
-        guidances = guidances or []
-
-        return Div(
-            # Header with title
-            Card(
-                Div(
-                    H1(f"🎯 {goal.title}", cls="text-2xl font-bold mb-2"),
-                    P(goal.description or "No description provided", cls="text-gray-600 mb-4"),
-                    # Status and Priority badges
-                    Div(
-                        Span(f"Status: {goal.status.value}", cls="badge badge-info mr-2"),
-                        Span(f"Priority: {goal.priority.value}", cls="badge badge-warning"),
-                        cls="flex gap-2",
-                    ),
-                    cls="mb-6",
-                ),
-                cls="p-6 mb-4",
-            ),
-            # NEW: Explanation Section (Phase 1)
-            Card(
-                H2("💡 Why This Goal Exists", cls="text-xl font-semibold mb-4 text-gray-700"),
-                # Main explanation
-                Div(
-                    P(
-                        explanation
-                        or (
-                            goal.explain_existence()
-                            if callable(getattr(goal, "explain_existence", None))
-                            else "No explanation available"
-                        ),
-                        cls="text-lg text-gray-800 italic mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded",
-                    ),
-                    cls="mb-6",
-                ),
-                # Derivation (WHY a choice created this)
-                (
-                    Div(
-                        H3(
-                            "🎯 The Choice That Created This",
-                            cls="text-lg font-medium mb-2 text-gray-600",
-                        ),
-                        Div(
-                            P("Reasoning:", cls="text-sm font-semibold text-gray-500 mb-1"),
-                            P(derivation.reasoning, cls="text-gray-700 mb-2"),
-                            P("Confidence:", cls="text-sm font-semibold text-gray-500 mb-1"),
-                            Div(
-                                Progress(
-                                    value=int(derivation.confidence * 100),
-                                    max="100",
-                                    cls="progress progress-primary w-full",
-                                ),
-                                Span(
-                                    f"{int(derivation.confidence * 100)}% - {derivation.get_confidence_label()}",
-                                    cls="text-sm text-gray-600 mt-1",
-                                ),
-                                cls="mb-2",
-                            ),
-                            cls="p-4 bg-green-50 border-l-4 border-green-500 rounded",
-                        ),
-                        cls="mb-6",
-                    )
-                    if derivation
-                    else Div()
-                ),
-                # Guidances (HOW principles guide)
-                (
-                    Div(
-                        H3(
-                            "🧭 How Principles Guide This Goal",
-                            cls="text-lg font-medium mb-2 text-gray-600",
-                        ),
-                        Div(
-                            *[
-                                Div(
-                                    Div(
-                                        Span("💎 ", cls="text-xl"),
-                                        Span(g.manifestation, cls="text-gray-700 font-medium"),
-                                        cls="mb-2",
-                                    ),
-                                    Div(
-                                        Span(
-                                            f"Strength: {g.get_strength_label()}",
-                                            cls=f"badge {'badge-success' if g.is_strong_guidance() else 'badge-warning'}",
-                                        ),
-                                        Progress(
-                                            value=int(g.strength * 100),
-                                            max="100",
-                                            cls="progress progress-primary w-full mt-1",
-                                        ),
-                                        cls="mb-2",
-                                    ),
-                                    cls="p-3 bg-purple-50 border-l-4 border-purple-500 rounded mb-3",
-                                )
-                                for g in guidances
-                            ],
-                            cls="space-y-2",
-                        )
-                        if guidances
-                        else P("No principle guidances defined yet", cls="text-gray-500 italic"),
-                        cls="mb-4",
-                    )
-                    if True
-                    else Div()
-                ),
-                cls="p-6 mb-4",
-            ),
-            # Goal Details Section
-            Card(
-                H2("📋 Goal Details", cls="text-xl font-semibold mb-4 text-gray-700"),
-                Div(
-                    # Why Important
-                    (
-                        Div(
-                            P("Why Important:", cls="text-sm font-semibold text-gray-600 mb-1"),
-                            P(goal.why_important, cls="text-gray-700 mb-3"),
-                            cls="mb-4",
-                        )
-                        if getattr(goal, "why_important", None)
-                        else Div()
-                    ),
-                    # Target Date
-                    (
-                        Div(
-                            P("Target Date:", cls="text-sm font-semibold text-gray-600 mb-1"),
-                            P(str(goal.target_date), cls="text-gray-700 mb-3"),
-                            cls="mb-4",
-                        )
-                        if getattr(goal, "target_date", None)
-                        else Div()
-                    ),
-                    # Progress
-                    (
-                        Div(
-                            P("Progress:", cls="text-sm font-semibold text-gray-600 mb-1"),
-                            Progress(
-                                value=int(getattr(goal, "progress_percentage", 0)),
-                                max="100",
-                                cls="progress progress-success w-full",
-                            ),
-                            Span(
-                                f"{int(getattr(goal, 'progress_percentage', 0))}%",
-                                cls="text-sm text-gray-600 mt-1",
-                            ),
-                            cls="mb-4",
-                        )
-                        if getattr(goal, "progress_percentage", None) is not None
-                        else Div()
-                    ),
-                    cls="space-y-4",
-                ),
-                cls="p-6 mb-4",
-            ),
-            # Actions
-            Card(
-                Div(
-                    Button(
-                        "← Back to Goals",
-                        hx_get="/goals",
-                        hx_target="body",
-                        variant=ButtonT.ghost,
-                        cls="mr-2",
-                    ),
-                    Button(
-                        "✏️ Edit Goal",
-                        hx_get=f"/goals/{goal.uid}/edit",
-                        hx_target="#modal",
-                        variant=ButtonT.primary,
-                    ),
-                    cls="flex gap-2",
-                ),
-                cls="p-4",
-            ),
-            # Phase 5: Lateral Relationships Section
-            EntityRelationshipsSection(
-                entity_uid=goal.uid,
-                entity_type="goals",
-            ),
-            cls="container mx-auto p-6 max-w-4xl",
-        )
-
-    @staticmethod
     def render_goal_analytics_dashboard() -> Any:
         """Goal analytics dashboard component"""
         return Div(
@@ -1284,43 +1097,40 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
     QuickAddRouteFactory.register_route(rt, goals_quick_add_config)
 
     @rt("/goals/{uid}")
-    async def goal_detail_view(_request, uid: str) -> Any:
+    async def goal_detail_view(request, uid: str) -> Any:
         """
         Goal detail view with relationship context display.
 
         Phase 1: Shows WHY the goal exists and HOW principles guide it.
         """
-        # Fetch goal from backend
-        result = await goals_service.get(uid)
+        user_uid = require_authenticated_user(request)
 
-        if result.is_error:
-            logger.error(f"Failed to get goal {uid}: {result.error}")
-            return Div(
-                Card(
-                    H2("Error", cls="text-xl font-bold text-red-600 mb-4"),
-                    P(f"Could not find goal: {uid}", cls="text-gray-700"),
+        # Fetch goal with ownership verification
+        result = await goals_service.get_for_user(uid, user_uid)
+
+        if result.is_error or result.value is None:
+            logger.error(
+                f"Failed to get goal {uid}: {result.error if result.is_error else 'Not found'}"
+            )
+            return await BasePage(
+                content=Card(
+                    H2("Goal Not Found", cls="text-xl font-bold text-error mb-4"),
+                    P(f"Could not find goal: {uid}", cls="text-base-content/70"),
                     Button(
                         "← Back to Goals",
-                        hx_get="/goals",
-                        hx_target="body",
+                        **{"hx-get": "/goals", "hx-target": "body"},
                         variant=ButtonT.primary,
                         cls="mt-4",
                     ),
                     cls="p-6",
                 ),
-                cls="container mx-auto p-6",
+                title="Goal Not Found",
+                page_type=PageType.STANDARD,
+                request=request,
+                active_page="goals",
             )
 
         goal = result.value
-        if goal is None:
-            return Div(
-                Card(
-                    H3("Goal Not Found", cls="text-lg font-bold text-error"),
-                    P(f"Could not find goal: {uid}"),
-                    cls="p-6",
-                ),
-                cls="container mx-auto p-6",
-            )
 
         # Get explanation (calls explain_existence() method)
         explanation = (
@@ -1328,15 +1138,197 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
         )
 
         # Get guidances and derivation
-        guidances = getattr(goal, "guidances", [])
+        guidances = getattr(goal, "guidances", []) or []
         derivation = getattr(goal, "derivation", None)
 
-        # Render with relationship context visible
-        return GoalUIComponents.render_goal_detail(
-            goal=goal,
-            explanation=explanation,  # "This goal exists because..."
-            guidances=guidances,  # Show HOW each principle guides
-            derivation=derivation,  # Show WHY choice created this
+        # Build detail content inline
+        content = Div(
+            # Header with title
+            Card(
+                Div(
+                    H1(f"🎯 {goal.title}", cls="text-2xl font-bold mb-2"),
+                    P(
+                        goal.description or "No description provided",
+                        cls="text-base-content/70 mb-4",
+                    ),
+                    # Status and Priority badges
+                    Div(
+                        Span(f"Status: {goal.status.value}", cls="badge badge-info mr-2"),
+                        Span(f"Priority: {goal.priority.value}", cls="badge badge-warning"),
+                        cls="flex gap-2",
+                    ),
+                    cls="mb-6",
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Explanation Section (Phase 1)
+            Card(
+                H2("💡 Why This Goal Exists", cls="text-xl font-semibold mb-4 text-gray-700"),
+                # Main explanation
+                Div(
+                    P(
+                        explanation
+                        or (
+                            goal.explain_existence()
+                            if callable(getattr(goal, "explain_existence", None))
+                            else "No explanation available"
+                        ),
+                        cls="text-lg text-gray-800 italic mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded",
+                    ),
+                    cls="mb-6",
+                ),
+                # Derivation (WHY a choice created this)
+                (
+                    Div(
+                        H3(
+                            "🎯 The Choice That Created This",
+                            cls="text-lg font-medium mb-2 text-gray-600",
+                        ),
+                        Div(
+                            P("Reasoning:", cls="text-sm font-semibold text-gray-500 mb-1"),
+                            P(derivation.reasoning, cls="text-gray-700 mb-2"),
+                            P("Confidence:", cls="text-sm font-semibold text-gray-500 mb-1"),
+                            Div(
+                                Progress(
+                                    value=int(derivation.confidence * 100),
+                                    max="100",
+                                    cls="progress progress-primary w-full",
+                                ),
+                                Span(
+                                    f"{int(derivation.confidence * 100)}% - {derivation.get_confidence_label()}",
+                                    cls="text-sm text-gray-600 mt-1",
+                                ),
+                                cls="mb-2",
+                            ),
+                            cls="p-4 bg-green-50 border-l-4 border-green-500 rounded",
+                        ),
+                        cls="mb-6",
+                    )
+                    if derivation
+                    else Div()
+                ),
+                # Guidances (HOW principles guide)
+                Div(
+                    H3(
+                        "🧭 How Principles Guide This Goal",
+                        cls="text-lg font-medium mb-2 text-gray-600",
+                    ),
+                    Div(
+                        *[
+                            Div(
+                                Div(
+                                    Span("💎 ", cls="text-xl"),
+                                    Span(g.manifestation, cls="text-gray-700 font-medium"),
+                                    cls="mb-2",
+                                ),
+                                Div(
+                                    Span(
+                                        f"Strength: {g.get_strength_label()}",
+                                        cls=f"badge {'badge-success' if g.is_strong_guidance() else 'badge-warning'}",
+                                    ),
+                                    Progress(
+                                        value=int(g.strength * 100),
+                                        max="100",
+                                        cls="progress progress-primary w-full mt-1",
+                                    ),
+                                    cls="mb-2",
+                                ),
+                                cls="p-3 bg-purple-50 border-l-4 border-purple-500 rounded mb-3",
+                            )
+                            for g in guidances
+                        ],
+                        cls="space-y-2",
+                    )
+                    if guidances
+                    else P("No principle guidances defined yet", cls="text-gray-500 italic"),
+                    cls="mb-4",
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Goal Details Section
+            Card(
+                H2("📋 Goal Details", cls="text-xl font-semibold mb-4 text-gray-700"),
+                Div(
+                    # Why Important
+                    (
+                        Div(
+                            P(
+                                "Why Important:",
+                                cls="text-sm font-semibold text-base-content/70 mb-1",
+                            ),
+                            P(goal.why_important, cls="text-base-content mb-3"),
+                            cls="mb-4",
+                        )
+                        if getattr(goal, "why_important", None)
+                        else Div()
+                    ),
+                    # Target Date
+                    (
+                        Div(
+                            P(
+                                "Target Date:",
+                                cls="text-sm font-semibold text-base-content/70 mb-1",
+                            ),
+                            P(str(goal.target_date), cls="text-base-content mb-3"),
+                            cls="mb-4",
+                        )
+                        if getattr(goal, "target_date", None)
+                        else Div()
+                    ),
+                    # Progress
+                    (
+                        Div(
+                            P("Progress:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                            Progress(
+                                value=int(getattr(goal, "progress_percentage", 0)),
+                                max="100",
+                                cls="progress progress-success w-full",
+                            ),
+                            Span(
+                                f"{int(getattr(goal, 'progress_percentage', 0))}%",
+                                cls="text-sm text-base-content/60 mt-1",
+                            ),
+                            cls="mb-4",
+                        )
+                        if getattr(goal, "progress_percentage", None) is not None
+                        else Div()
+                    ),
+                    cls="space-y-2",
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Actions Card
+            Card(
+                Div(
+                    Button(
+                        "← Back to Goals",
+                        **{"hx-get": "/goals", "hx-target": "body"},
+                        variant=ButtonT.ghost,
+                        cls="mr-2",
+                    ),
+                    Button(
+                        "✏️ Edit Goal",
+                        **{"hx-get": f"/goals/{goal.uid}/edit", "hx-target": "#modal"},
+                        variant=ButtonT.primary,
+                    ),
+                    cls="flex gap-2 flex-wrap",
+                ),
+                cls="p-4 mb-4",
+            ),
+            # Phase 5: Lateral Relationships Section
+            EntityRelationshipsSection(
+                entity_uid=goal.uid,
+                entity_type="goals",
+            ),
+            cls=f"{Container.STANDARD} {Spacing.PAGE}",
+        )
+
+        return await BasePage(
+            content=content,
+            title=goal.title,
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="goals",
         )
 
     @rt("/goals/{uid}/details")

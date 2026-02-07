@@ -23,7 +23,7 @@ __version__ = "2.0"
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from fasthtml.common import P
+from fasthtml.common import H1, H2, H3, P
 from starlette.responses import Response
 
 from components.error_components import ErrorComponents
@@ -33,10 +33,13 @@ from core.constants import QueryLimit
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.services.protocols.facade_protocols import PrinciplesFacadeProtocol
 from core.services.protocols.query_types import PrinciplesFilterSpec
-from core.ui.daisy_components import Div
+from core.ui.daisy_components import Button, ButtonT, Card, Div, Span
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
+from ui.patterns.relationships import EntityRelationshipsSection
 from ui.principles.layout import create_principles_page
 from ui.tokens import Container, Spacing
 
@@ -787,32 +790,174 @@ def create_principles_ui_routes(
     @rt("/principles/{uid}")
     async def view_principle(request, uid: str) -> Any:
         """View a single principle with recent reflections."""
+        from core.models.principle.principle import PrincipleStrength
+
         user_uid = require_authenticated_user(request)
 
-        if not principles_service:
-            return Response("Service unavailable", status_code=503)
+        # Fetch principle with ownership verification
+        result = await principles_service.get_for_user(uid, user_uid)
 
-        # Ownership verification - returns NotFound if user doesn't own this principle
-        result = await principles_service.core.verify_ownership(uid, user_uid)
-        if result.is_error:
-            return Response(f"Principle not found: {uid}", status_code=404)
+        if result.is_error or result.value is None:
+            logger.error(
+                f"Failed to get principle {uid}: {result.error if result.is_error else 'Not found'}"
+            )
+            return await BasePage(
+                content=Card(
+                    H2("Principle Not Found", cls="text-xl font-bold text-error mb-4"),
+                    P(f"Could not find principle: {uid}", cls="text-base-content/70"),
+                    Button(
+                        "← Back to Principles",
+                        **{"hx-get": "/principles", "hx-target": "body"},
+                        variant=ButtonT.primary,
+                        cls="mt-4",
+                    ),
+                    cls="p-6",
+                ),
+                title="Principle Not Found",
+                page_type=PageType.STANDARD,
+                request=request,
+                active_page="principles",
+            )
 
         principle = result.value
+
+        # Extract principle fields
+        name = getattr(principle, "name", "Untitled")
+        statement = getattr(principle, "statement", "")
+        description = getattr(principle, "description", "")
+        why_important = getattr(principle, "why_important", "")
+        category = getattr(principle, "category", "personal")
+        strength = getattr(principle, "strength", PrincipleStrength.MODERATE)
+        is_active = getattr(principle, "is_active", True)
+
+        strength_str = (
+            strength.value if isinstance(strength, PrincipleStrength) else str(strength).lower()
+        )
+        category_str = str(category).lower().replace("principlecategory.", "")
 
         # Fetch recent reflections for this principle
         recent_reflections = []
         reflections_result = await principles_service.reflection.get_reflections_for_principle(
             principle_uid=uid,
             user_uid=user_uid,
-            limit=5,  # Get 5 most recent for detail view
+            limit=5,
         )
         if not reflections_result.is_error:
             recent_reflections = reflections_result.value
 
-        return PrinciplesViewComponents.render_principle_detail(
-            principle=principle,
-            user_uid=user_uid,
-            recent_reflections=recent_reflections,
+        # Build reflection section
+        reflection_section = None
+        if recent_reflections:
+            reflection_cards = [
+                PrinciplesViewComponents._render_reflection_card(r) for r in recent_reflections[:3]
+            ]
+        else:
+            reflection_cards = [
+                P("No reflections recorded yet.", cls="text-gray-500 text-center py-4")
+            ]
+
+        reflection_section = Div(
+            Div(
+                H3("Recent Reflections", cls="text-lg font-semibold"),
+                Button(
+                    "View All",
+                    cls="btn btn-xs btn-outline",
+                    **{
+                        "hx-get": f"/principles/{uid}/reflections",
+                        "hx-target": "#view-content",
+                    },
+                ),
+                cls="flex items-center justify-between mb-4",
+            ),
+            Div(*reflection_cards, cls="space-y-3"),
+            cls="card bg-base-100 shadow-lg p-6 mt-4",
+        )
+
+        # Build detail content inline
+        # Wrap in view-content so HTMX fragment swaps (reflections, history) have a target
+        content = Div(
+            # Main card
+            Card(
+                H1(name, cls="text-2xl font-bold mb-2"),
+                Span(strength_str.title(), cls="badge badge-primary mr-2"),
+                Span(category_str.title(), cls="badge badge-outline"),
+                Span("Inactive", cls="badge badge-ghost ml-2") if not is_active else "",
+                # Statement
+                P(statement, cls="text-lg text-gray-700 mt-4 italic") if statement else "",
+                # Description
+                (
+                    Div(
+                        H3("Description", cls="font-semibold mt-6 mb-2"),
+                        P(description or "No description provided.", cls="text-base-content/70"),
+                    )
+                    if description
+                    else ""
+                ),
+                # Why Important
+                (
+                    Div(
+                        H3("Why This Matters", cls="font-semibold mt-6 mb-2"),
+                        P(why_important or "Not specified.", cls="text-base-content/70"),
+                    )
+                    if why_important
+                    else ""
+                ),
+                cls="p-6 mb-4",
+            ),
+            # Actions Card
+            Card(
+                Div(
+                    Button(
+                        "← Back to Principles",
+                        **{"hx-get": "/principles", "hx-target": "body"},
+                        variant=ButtonT.ghost,
+                        cls="mr-2",
+                    ),
+                    Button(
+                        "✏️ Edit",
+                        **{"hx-get": f"/principles/{uid}/edit", "hx-target": "#modal"},
+                        variant=ButtonT.primary,
+                        cls="mr-2",
+                    ),
+                    (
+                        Button(
+                            "🪞 Reflect",
+                            **{"hx-get": f"/principles/{uid}/reflect", "hx-target": "#modal"},
+                            variant=ButtonT.success,
+                            cls="mr-2",
+                        )
+                        if is_active
+                        else ""
+                    ),
+                    Button(
+                        "📜 View History",
+                        **{
+                            "hx-get": f"/principles/{uid}/reflections",
+                            "hx-target": "#view-content",
+                        },
+                        variant=ButtonT.info,
+                    ),
+                    cls="flex gap-2 flex-wrap",
+                ),
+                cls="p-4 mb-4",
+            ),
+            # Recent reflections section
+            reflection_section,
+            # Phase 5: Lateral Relationships Section
+            EntityRelationshipsSection(
+                entity_uid=uid,
+                entity_type="principles",
+            ),
+            id="view-content",
+            cls=f"{Container.STANDARD} {Spacing.PAGE}",
+        )
+
+        return await BasePage(
+            content=content,
+            title=name,
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="principles",
         )
 
     @rt("/principles/{uid}/edit")
