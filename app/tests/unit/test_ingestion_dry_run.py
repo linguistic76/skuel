@@ -183,7 +183,11 @@ async def test_dry_run_includes_relationships(
     with patch("core.services.ingestion.batch.ENTITY_CONFIGS") as mock_configs:
         mock_config = Mock()
         mock_config.relationship_config = {
-            "prerequisite_uids": {"rel_type": "PREREQUISITE", "target_label": "Ku", "direction": "incoming"},
+            "prerequisite_uids": {
+                "rel_type": "PREREQUISITE",
+                "target_label": "Ku",
+                "direction": "incoming",
+            },
             "enables_uids": {"rel_type": "ENABLES", "target_label": "Ku", "direction": "outgoing"},
         }
         mock_configs.get.return_value = mock_config

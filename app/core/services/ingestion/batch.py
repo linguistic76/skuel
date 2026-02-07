@@ -586,7 +586,9 @@ async def ingest_directory(
                 # rel_config maps source_field -> RelationshipConfig TypedDict
                 rel_config = config.relationship_config or {}
                 for source_field, rel_cfg in rel_config.items():
-                    rel_type_name = rel_cfg["rel_type"] if isinstance(rel_cfg, dict) else str(rel_cfg)
+                    rel_type_name = (
+                        rel_cfg["rel_type"] if isinstance(rel_cfg, dict) else str(rel_cfg)
+                    )
                     target_uids = entity.get(source_field, [])
                     if isinstance(target_uids, str):
                         target_uids = [target_uids]

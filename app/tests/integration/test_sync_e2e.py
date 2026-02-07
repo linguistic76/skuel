@@ -45,12 +45,8 @@ async def cleanup_sync_history(neo4j_driver):
     """Clean up all SyncHistory and IngestionError nodes after test."""
     yield
     async with neo4j_driver.session() as session:
-        await session.run(
-            "MATCH (e:IngestionError) DETACH DELETE e"
-        )
-        await session.run(
-            "MATCH (sh:SyncHistory) DETACH DELETE sh"
-        )
+        await session.run("MATCH (e:IngestionError) DETACH DELETE e")
+        await session.run("MATCH (sh:SyncHistory) DETACH DELETE sh")
 
 
 @pytest.fixture

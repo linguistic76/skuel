@@ -222,9 +222,7 @@ async def test_dry_run_returns_preview(neo4j_driver, sample_ku_file):
 
 
 @pytest.mark.asyncio
-async def test_dry_run_categorizes_creates_and_updates(
-    neo4j_driver, two_ku_files, pre_existing_ku
-):
+async def test_dry_run_categorizes_creates_and_updates(neo4j_driver, two_ku_files, pre_existing_ku):
     """Test that dry-run correctly categorizes files as creates vs updates."""
     result = await ingest_directory(
         directory=two_ku_files,
