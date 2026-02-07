@@ -45,7 +45,7 @@ Usage Example:
     request = SearchRequest(
         query_text="python",
         connected_to_uid="ku.python-basics",
-        connected_relationship=RelationshipName.ENABLES,
+        connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
     )
     ```
 

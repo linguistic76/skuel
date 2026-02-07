@@ -225,13 +225,18 @@ ENTITY_CONFIGS: dict[str, EntityIngestionConfig] = {
         uid_prefix="ku",
         required_fields=("title", "content"),
         relationship_config={
-            "connections.requires": {"rel_type": "PREREQUISITE", ...},
-            "connections.enables": {"rel_type": "ENABLES", ...},
+            "connections.requires": {"rel_type": "REQUIRES_KNOWLEDGE", "target_label": "Ku", "direction": "outgoing"},
+            "connections.enables": {"rel_type": "ENABLES_KNOWLEDGE", "target_label": "Ku", "direction": "outgoing"},
         },
     ),
     # ... 13 more entity types
 }
 ```
+
+> **Note (February 2026):** Ingestion `relationship_config` is now derived from the
+> relationship registry via `generate_ingestion_relationship_config()`. The example above
+> shows the generated output. See `core/models/relationship_registry.py` for the single
+> source of truth.
 
 ### API Endpoints
 
@@ -272,6 +277,7 @@ ENTITY_CONFIGS: dict[str, EntityIngestionConfig] = {
 |------|--------|--------|---------|
 | 2025-12-03 | Claude | Initial decision - monolithic service | 1.0 |
 | 2026-01-04 | Claude | Decomposed into modular package (ADR-016 pattern) | 2.0 |
+| 2026-02-08 | Claude | Update KU relationship types: PREREQUISITE → REQUIRES_KNOWLEDGE, ENABLES → ENABLES_KNOWLEDGE; note registry-derived config | 2.1 |
 
 ---
 

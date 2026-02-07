@@ -102,8 +102,8 @@ class JupyterNeo4jSync:
         """
         query = """
         MATCH (ku:Ku {uid: $uid})
-        OPTIONAL MATCH (ku)-[:PREREQUISITE]->(prereq)
-        OPTIONAL MATCH (ku)-[:ENABLES]->(enabled)
+        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
+        OPTIONAL MATCH (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
         OPTIONAL MATCH (ku)-[:RELATED_TO]->(related)
         RETURN ku,
                collect(DISTINCT prereq.uid) as prerequisites,
@@ -328,8 +328,8 @@ class JupyterNeo4jSync:
             async with self.driver.session() as session:
                 rel_query = """
                 MATCH (ku:Ku {uid: $uid})
-                OPTIONAL MATCH (ku)-[:PREREQUISITE]->(prereq)
-                OPTIONAL MATCH (ku)-[:ENABLES]->(enabled)
+                OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
+                OPTIONAL MATCH (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
                 OPTIONAL MATCH (ku)-[:RELATED_TO]->(related)
                 RETURN collect(DISTINCT prereq.uid) as prerequisites,
                        collect(DISTINCT enabled.uid) as enables,
@@ -517,7 +517,7 @@ class JupyterNeo4jSync:
             # Clear existing relationships
             await session.run(
                 """
-                MATCH (ku:Ku {uid: $uid})-[r:PREREQUISITE|ENABLES|RELATED_TO]->()
+                MATCH (ku:Ku {uid: $uid})-[r:REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE|RELATED_TO]->()
                 DETACH DELETE r
             """,
                 {"uid": uid},
@@ -529,7 +529,7 @@ class JupyterNeo4jSync:
                     """
                     MATCH (ku:Ku {uid: $uid})
                     MATCH (prereq:Ku {uid: $prereq_uid})
-                    CREATE (ku)-[:PREREQUISITE]->(prereq)
+                    CREATE (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
                 """,
                     {"uid": uid, "prereq_uid": prereq_uid},
                 )
@@ -540,7 +540,7 @@ class JupyterNeo4jSync:
                     """
                     MATCH (ku:Ku {uid: $uid})
                     MATCH (enabled:Ku {uid: $enable_uid})
-                    CREATE (ku)-[:ENABLES]->(enabled)
+                    CREATE (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
                 """,
                     {"uid": uid, "enable_uid": enable_uid},
                 )

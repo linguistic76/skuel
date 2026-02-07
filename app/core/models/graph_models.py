@@ -36,7 +36,7 @@ class Relationship:
 
     Attributes:
         from_uid: UID of the source entity
-        rel_type: Type of relationship (e.g., "REQUIRES", "ENABLES", "APPLIES_KNOWLEDGE")
+        rel_type: Type of relationship (e.g., "REQUIRES_KNOWLEDGE", "ENABLES_KNOWLEDGE", "APPLIES_KNOWLEDGE")
         to_uid: UID of the target entity
         properties: Optional metadata about the relationship (e.g., confidence, weight)
 
@@ -44,7 +44,7 @@ class Relationship:
         # Knowledge prerequisite relationship
         Relationship(
             from_uid="ku.advanced_python",
-            rel_type="REQUIRES",
+            rel_type="REQUIRES_KNOWLEDGE",
             to_uid="ku.basic_python",
             properties={"confidence": 0.95}
         )
@@ -93,8 +93,8 @@ class GraphPath:
         GraphPath(
             nodes=["ku.basic_python", "ku.functions", "ku.advanced_python"],
             relationships=[
-                Relationship("ku.basic_python", "ENABLES", "ku.functions"),
-                Relationship("ku.functions", "ENABLES", "ku.advanced_python")
+                Relationship("ku.basic_python", "ENABLES_KNOWLEDGE", "ku.functions"),
+                Relationship("ku.functions", "ENABLES_KNOWLEDGE", "ku.advanced_python")
             ],
             total_cost=0.0
         )

@@ -260,7 +260,7 @@ class SemanticSimilarityQueries:
             #   Alternative 3: ku.js_core_concepts (distance: 0.38)
         """
         cypher = """
-        MATCH (target {uid: $target_uid})<-[:REQUIRES]-(prereq)
+        MATCH (target {uid: $target_uid})<-[:REQUIRES_KNOWLEDGE]-(prereq)
 
         // Find semantically similar alternatives for each prerequisite
         OPTIONAL MATCH (prereq)-[r:RELATED_TO|SIMILAR_TO]-(alternative)

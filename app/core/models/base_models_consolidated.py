@@ -665,8 +665,8 @@ Usage Guide - Relationship-Centric Models:
        title="Linear Algebra",
        prefix="ku",
        relationships={
-           "REQUIRES": ["ku_calculus", "ku_matrices"],
-           "ENABLES": ["ku_ml_basics"]
+           "REQUIRES_KNOWLEDGE": ["ku_calculus", "ku_matrices"],
+           "ENABLES_KNOWLEDGE": ["ku_ml_basics"]
        }
    )
    ```

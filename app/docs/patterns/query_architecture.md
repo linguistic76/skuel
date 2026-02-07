@@ -246,7 +246,7 @@ query, params = build_hierarchy_query("Lp", "lp:python-basics")
 
 # Get prerequisites (outgoing) or enables (incoming)
 query, params = build_prerequisite_traversal_query(
-    "Ku", "ku:advanced-python", ["REQUIRES", "PREREQUISITE"],
+    "Ku", "ku:advanced-python", ["REQUIRES_KNOWLEDGE"],
     depth=3, direction="outgoing"  # or "incoming" for enables
 )
 

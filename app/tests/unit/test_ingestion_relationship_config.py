@@ -1,26 +1,25 @@
 """
-Validate ingestion relationship config correctness.
+Validate ingestion relationship config derives from the registry.
 
-Prevents future regressions like the Goal/Choice principle relationship swap
-where GUIDED_BY_PRINCIPLE and ALIGNED_WITH_PRINCIPLE were cross-wired.
+Ingestion configs are generated from the Relationship Registry
+(core/models/relationship_registry.py) — the single source of truth.
+This eliminates the historical divergence where ingestion used different
+relationship types than the runtime services.
 
-Cross-reference: core/services/ingestion/config.py
+Cross-reference: core/services/ingestion/config.py, ADR-026
 """
 
 from core.models.relationship_names import RelationshipName
+from core.models.relationship_registry import generate_ingestion_relationship_config
 from core.models.shared_enums import EntityType
 from core.services.ingestion.config import ENTITY_CONFIGS
 
 
 class TestIngestionRelationshipConfig:
-    """Verify ingestion config rel_types match what service layer expects."""
+    """Verify ingestion config is derived from the relationship registry."""
 
     def test_goal_uses_guided_by_principle(self):
-        """Goals use GUIDED_BY_PRINCIPLE for Goal->Principle edges.
-
-        Service layer references:
-          - goal.py:144, goals_recommendation_service.py:169, GOALS_UNIFIED registry
-        """
+        """Goals use GUIDED_BY_PRINCIPLE for Goal->Principle edges (from registry)."""
         config = ENTITY_CONFIGS[EntityType.GOAL].relationship_config
         assert config is not None
         assert (
@@ -28,43 +27,43 @@ class TestIngestionRelationshipConfig:
             == RelationshipName.GUIDED_BY_PRINCIPLE.value
         )
 
-    def test_choice_uses_aligned_with_principle(self):
-        """Choices use ALIGNED_WITH_PRINCIPLE for Choice->Principle edges.
+    def test_choice_uses_informed_by_principle(self):
+        """Choices use INFORMED_BY_PRINCIPLE for Choice->Principle edges (from registry).
 
-        Service layer references:
-          - choice.py:149, choices_search_service.py:484, CHOICES_UNIFIED registry
+        Previously used ALIGNED_WITH_PRINCIPLE — this was a bug where ingested
+        edges were invisible to the runtime relationship service.
         """
         config = ENTITY_CONFIGS[EntityType.CHOICE].relationship_config
         assert config is not None
         assert (
             config["connections.guided_by_principle"]["rel_type"]
-            == RelationshipName.ALIGNED_WITH_PRINCIPLE.value
+            == RelationshipName.INFORMED_BY_PRINCIPLE.value
         )
 
-    def test_ku_uses_prerequisite_not_requires_knowledge(self):
-        """KU ingestion intentionally uses PREREQUISITE (KU-to-KU), not REQUIRES_KNOWLEDGE (cross-domain).
+    def test_ku_uses_requires_knowledge(self):
+        """KU ingestion uses REQUIRES_KNOWLEDGE (unified with registry).
 
-        PREREQUISITE is queried by: adaptive_sel_service, user_progress_service,
-        jupyter_neo4j_sync, lp_intelligence_service, batch_operation_helper.
+        Previously used PREREQUISITE — accidental divergence from the registry.
+        Now unified: all services query REQUIRES_KNOWLEDGE for KU prerequisites.
         """
         config = ENTITY_CONFIGS[EntityType.KU].relationship_config
         assert config is not None
         assert (
             config["connections.requires"]["rel_type"]
-            == RelationshipName.PREREQUISITE.value
+            == RelationshipName.REQUIRES_KNOWLEDGE.value
         )
+        assert config["connections.requires"]["direction"] == "outgoing"
 
-    def test_ku_uses_enables_not_enables_knowledge(self):
-        """KU ingestion intentionally uses ENABLES (KU-to-KU), not ENABLES_KNOWLEDGE (cross-domain).
+    def test_ku_uses_enables_knowledge(self):
+        """KU ingestion uses ENABLES_KNOWLEDGE (unified with registry).
 
-        ENABLES is queried by: adaptive_sel_service, search_router, search config,
-        jupyter_neo4j_sync, lp_intelligence_service.
+        Previously used ENABLES — accidental divergence from the registry.
         """
         config = ENTITY_CONFIGS[EntityType.KU].relationship_config
         assert config is not None
         assert (
             config["connections.enables"]["rel_type"]
-            == RelationshipName.ENABLES.value
+            == RelationshipName.ENABLES_KNOWLEDGE.value
         )
 
     def test_all_rel_types_are_valid_relationship_names(self):
@@ -77,3 +76,22 @@ class TestIngestionRelationshipConfig:
                     f"{entity_type.value}.{field_name}: "
                     f"{rel_config['rel_type']} is not a valid RelationshipName"
                 )
+
+    def test_ingestion_config_derived_from_registry(self):
+        """All ingestion configs are generated from the registry, not hardcoded."""
+        for entity_type, config in ENTITY_CONFIGS.items():
+            if not config.relationship_config:
+                continue
+            generated = generate_ingestion_relationship_config(entity_type)
+            assert generated is not None, f"{entity_type}: no registry config generated"
+            assert config.relationship_config == generated, (
+                f"{entity_type}: ingestion config does not match registry"
+            )
+
+    def test_moc_gets_organizes_not_ku_relationships(self):
+        """MOC only gets ORGANIZES, not KU's requires/enables/related."""
+        config = ENTITY_CONFIGS[EntityType.MOC].relationship_config
+        assert config is not None
+        assert len(config) == 1
+        assert "organizes" in config
+        assert config["organizes"]["rel_type"] == RelationshipName.ORGANIZES.value

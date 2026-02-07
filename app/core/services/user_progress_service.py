@@ -280,7 +280,7 @@ class UserProgressService:
             result = await session.run(
                 """
                 MATCH (target:Ku {uid: $target_uid})
-                OPTIONAL MATCH (target)-[:REQUIRES]->(prereq:Ku)
+                OPTIONAL MATCH (target)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
                 WITH target, collect(prereq.uid) as prereq_uids
                 RETURN
                     size(prereq_uids) as total_prereqs,
@@ -526,7 +526,7 @@ class UserProgressService:
         result = await session.run(
             """
             MATCH (u:User {uid: $user_uid})-[:MASTERED]->(mastered:Ku)
-            MATCH (target:Ku)-[:REQUIRES]->(mastered)
+            MATCH (target:Ku)-[:REQUIRES_KNOWLEDGE]->(mastered)
             RETURN DISTINCT mastered.uid as prereq_uid
         """,
             {"user_uid": user_uid},
@@ -542,7 +542,7 @@ class UserProgressService:
         """Build map of knowledge units to their prerequisites."""
         result = await session.run(
             """
-            MATCH (k:Ku)-[:REQUIRES]->(prereq:Ku)
+            MATCH (k:Ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
             RETURN k.uid as knowledge_uid, collect(prereq.uid) as prereq_uids
         """,
             {"user_uid": user_uid},
@@ -670,7 +670,7 @@ class UserProgressService:
           AND ($domain IS NULL OR unlearned.domain = $domain)
 
         // Calculate coverage for each unlearned topic
-        OPTIONAL MATCH (prereq:Ku)-[r:PREREQUISITE]->(unlearned)
+        OPTIONAL MATCH (unlearned)-[r:REQUIRES_KNOWLEDGE]->(prereq:Ku)
         WHERE prereq.uid IN learned_uids  // Only count learned prerequisites
 
         WITH unlearned,
@@ -679,7 +679,7 @@ class UserProgressService:
              avg(coalesce(r.confidence, 1.0)) as avg_prerequisite_confidence
 
         // Count total prerequisites (learned or not)
-        OPTIONAL MATCH (any_prereq:Ku)-[:PREREQUISITE]->(unlearned)
+        OPTIONAL MATCH (unlearned)-[:REQUIRES_KNOWLEDGE]->(any_prereq:Ku)
         WITH unlearned,
              satisfied_prereqs,
              avg_prerequisite_confidence,

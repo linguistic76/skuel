@@ -171,7 +171,7 @@ class AdaptiveSELService:
         """
         Check if user has mastered all prerequisites for this KU.
 
-        Uses graph-native approach: queries RelationshipName.PREREQUISITE relationships.
+        Uses graph-native approach: queries RelationshipName.REQUIRES_KNOWLEDGE relationships.
 
         Args:
             user_intel: User's learning intelligence,
@@ -183,7 +183,7 @@ class AdaptiveSELService:
         try:
             # Query prerequisite UIDs from graph
             prereq_result = await self.ku_backend.get_related_uids(
-                ku.uid, RelationshipName.PREREQUISITE, "incoming"
+                ku.uid, RelationshipName.REQUIRES_KNOWLEDGE, "outgoing"
             )
 
             # BackendOperations.get_related_uids returns Result[list[str]]
@@ -328,7 +328,7 @@ class AdaptiveSELService:
         """Count how many KUs this one enables."""
         try:
             enables_result = await self.ku_backend.get_related_uids(
-                ku.uid, RelationshipName.ENABLES, "outgoing"
+                ku.uid, RelationshipName.ENABLES_KNOWLEDGE, "outgoing"
             )
 
             # BackendOperations.get_related_uids returns Result[list[str]]
@@ -345,7 +345,7 @@ class AdaptiveSELService:
         """Count how many prerequisites this KU has."""
         try:
             prereq_result = await self.ku_backend.get_related_uids(
-                ku.uid, RelationshipName.PREREQUISITE, "incoming"
+                ku.uid, RelationshipName.REQUIRES_KNOWLEDGE, "outgoing"
             )
 
             # BackendOperations.get_related_uids returns Result[list[str]]

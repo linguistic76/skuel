@@ -252,7 +252,7 @@ class QueryPatterns:
     def get_prerequisite_chain(
         entity_label: str,
         entity_uid: str,
-        relationship_type: str = "REQUIRES",
+        relationship_type: str = "REQUIRES_KNOWLEDGE",
         max_depth: int = 5,
         user_uid: str | None = None,
     ) -> tuple[str, dict[str, Any]]:
@@ -262,7 +262,7 @@ class QueryPatterns:
         Args:
             entity_label: Entity label (e.g., "Ku", "Task")
             entity_uid: Target entity UID
-            relationship_type: Prerequisite relationship (e.g., "REQUIRES", "DEPENDS_ON")
+            relationship_type: Prerequisite relationship (e.g., "REQUIRES_KNOWLEDGE", "DEPENDS_ON")
             max_depth: Maximum traversal depth
             user_uid: Optional user UID to check mastery/completion status
 
@@ -273,7 +273,7 @@ class QueryPatterns:
             # Get knowledge prerequisites with user mastery status
             query, params = QueryPatterns.get_prerequisite_chain(
                 "Ku", ku_uid,
-                relationship_type="REQUIRES",
+                relationship_type="REQUIRES_KNOWLEDGE",
                 user_uid=user_uid
             )
         """
@@ -317,7 +317,7 @@ class QueryPatterns:
         entity_label: str,
         user_uid: str,
         mastery_relationship: str = "MASTERED",
-        prerequisite_relationship: str = "REQUIRES",
+        prerequisite_relationship: str = "REQUIRES_KNOWLEDGE",
     ) -> tuple[str, dict[str, Any]]:
         """
         Get all prerequisites that user has completed.

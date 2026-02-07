@@ -70,7 +70,7 @@ NEXT_KNOWLEDGE_IN_PATH = SkuelQueryTemplate(
     MATCH (lp)-[:CONTAINS]->(ku:Ku)
 
     // Filter by prerequisites (all must be mastered)
-    OPTIONAL MATCH (ku)<-[:PREREQUISITE]-(prereq:Ku)
+    OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
     WITH ku, lp, user,
          collect(prereq.uid) AS prereq_uids,
          $mastered_uids AS mastered
@@ -171,12 +171,12 @@ LIFE_PATH_ALIGNMENT = SkuelQueryTemplate(
     parameters={"user_uid": "User identifier"},
 )
 
-PREREQUISITE_CHAIN = SkuelQueryTemplate(
-    name="prerequisite_chain",
-    description="Find complete prerequisite chain (recursive) for a target knowledge unit",
+REQUIRES_KNOWLEDGE_CHAIN = SkuelQueryTemplate(
+    name="requires_knowledge_chain",
+    description="Find complete requires-knowledge chain (recursive) for a target knowledge unit",
     cypher="""
-    // Find complete prerequisite chain for target knowledge
-    MATCH path = (target:Ku {uid: $target_uid})<-[:PREREQUISITE*0..5]-(prereq:Ku)
+    // Find complete requires-knowledge chain for target knowledge
+    MATCH path = (target:Ku {uid: $target_uid})-[:REQUIRES_KNOWLEDGE*0..5]->(prereq:Ku)
 
     // Get user's mastery state
     MATCH (user:User {uid: $user_uid})
@@ -333,7 +333,7 @@ ADAPTIVE_RECOMMENDATIONS = SkuelQueryTemplate(
     MATCH (current_path)-[:CONTAINS]->(ku:Ku)
 
     // Filter by prerequisites (all must be mastered)
-    OPTIONAL MATCH (ku)<-[:PREREQUISITE]-(prereq:Ku)
+    OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
     WITH ku, current_path, user,
          collect(prereq.uid) AS prereq_uids,
          $mastered_uids AS mastered
@@ -369,7 +369,7 @@ ADAPTIVE_RECOMMENDATIONS = SkuelQueryTemplate(
            ELSE 1.0
          END AS difficulty_match,
 
-         size((ku)-[:ENABLES]->(:Ku)) AS enablement_score
+         size((ku)-[:ENABLES_KNOWLEDGE]->(:Ku)) AS enablement_score
 
     WITH ku, current_path,
          (section_priority + difficulty_match + (enablement_score * 0.5)) AS recommendation_score
@@ -519,13 +519,13 @@ BULK_LEARNING_PATH_INGESTION = SkuelQueryTemplate(
     // Phase 4: Create prerequisite relationships
     FOREACH (prereq_uid IN coalesce(ku_data.prerequisites, []) |
       MERGE (prereq:Ku {uid: prereq_uid})
-      MERGE (ku)<-[:PREREQUISITE]-(prereq)
+      MERGE (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
     )
 
     // Phase 5: Create enables relationships
     FOREACH (enabled_uid IN coalesce(ku_data.enables, []) |
       MERGE (enabled:Ku {uid: enabled_uid})
-      MERGE (ku)-[:ENABLES]->(enabled)
+      MERGE (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
     )
 
     RETURN
@@ -584,7 +584,7 @@ CREATE_INDEXES = SkuelQueryTemplate(
 ALL_TEMPLATES = {
     "next_knowledge_in_path": NEXT_KNOWLEDGE_IN_PATH,
     "life_path_alignment": LIFE_PATH_ALIGNMENT,
-    "prerequisite_chain": PREREQUISITE_CHAIN,
+    "requires_knowledge_chain": REQUIRES_KNOWLEDGE_CHAIN,
     "cross_domain_applications": CROSS_DOMAIN_APPLICATIONS,
     "user_progress_snapshot": USER_PROGRESS_SNAPSHOT,
     "adaptive_recommendations": ADAPTIVE_RECOMMENDATIONS,
@@ -636,7 +636,7 @@ __all__ = [
     "LIFE_PATH_ALIGNMENT",
     # Individual templates
     "NEXT_KNOWLEDGE_IN_PATH",
-    "PREREQUISITE_CHAIN",
+    "REQUIRES_KNOWLEDGE_CHAIN",
     "USER_PROGRESS_SNAPSHOT",
     "SkuelQueryTemplate",
     "get_template",

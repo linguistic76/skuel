@@ -103,7 +103,7 @@ class KuResponse(BaseModel):
         GRAPH-NATIVE: Relationship fields (prerequisites, enables) set to empty lists.
         Service layer must populate via graph queries:
         - prerequisites: backend.get_related_uids(uid, "REQUIRES_KNOWLEDGE", "outgoing")
-        - enables: backend.get_related_uids(uid, "ENABLES", "outgoing")
+        - enables: backend.get_related_uids(uid, "ENABLES_KNOWLEDGE", "outgoing")
         """
 
         # Calculate computed fields
@@ -122,7 +122,7 @@ class KuResponse(BaseModel):
             updated_at=dto.updated_at,
             tags=dto.tags,
             prerequisites=[],  # GRAPH QUERY: backend.get_related_uids(uid, "REQUIRES_KNOWLEDGE", "outgoing")
-            enables=[],  # GRAPH QUERY: backend.get_related_uids(uid, "ENABLES", "outgoing")
+            enables=[],  # GRAPH QUERY: backend.get_related_uids(uid, "ENABLES_KNOWLEDGE", "outgoing")
             word_count=word_count,
             estimated_reading_time=estimated_reading_time,
         )

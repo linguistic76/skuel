@@ -967,7 +967,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
 
         query = """
         MATCH path = shortestPath(
-            (start:Ku {uid: $start_uid})-[:ENABLES|PREREQUISITE*]-(goal:Ku {uid: $goal_uid})
+            (start:Ku {uid: $start_uid})-[:ENABLES_KNOWLEDGE|REQUIRES_KNOWLEDGE*]-(goal:Ku {uid: $goal_uid})
         )
         WITH path, relationships(path) as rels
 
@@ -1024,10 +1024,10 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
             )
 
         query = """
-        MATCH (current:Ku {uid: $current_uid})-[r:ENABLES]->(next:Ku)
+        MATCH (current:Ku {uid: $current_uid})-[r:ENABLES_KNOWLEDGE]->(next:Ku)
 
         // Get user progress for prerequisites (Phase 4 user progress tracking)
-        OPTIONAL MATCH (next)<-[:PREREQUISITE]-(prereq)
+        OPTIONAL MATCH (next)-[:REQUIRES_KNOWLEDGE]->(prereq)
         OPTIONAL MATCH (prereq)<-[:HAS_PROGRESS]-(up:UserProgress {user_uid: $user_uid})
 
         WITH next, r,
@@ -1122,13 +1122,13 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
         WHERE up.mastery_level >= 0.7
 
         // Find next steps enabled by mastered knowledge
-        MATCH (mastered)-[r:ENABLES]->(next:Ku)
+        MATCH (mastered)-[r:ENABLES_KNOWLEDGE]->(next:Ku)
 
         // Check if user hasn't started this yet
         WHERE NOT exists((next)<-[:HAS_PROGRESS]-(:UserProgress {user_uid: $user_uid}))
 
         // Check prerequisite readiness
-        OPTIONAL MATCH (next)<-[:PREREQUISITE]-(prereq)
+        OPTIONAL MATCH (next)-[:REQUIRES_KNOWLEDGE]->(prereq)
         OPTIONAL MATCH (prereq)<-[:HAS_PROGRESS]-(prereq_progress:UserProgress {user_uid: $user_uid})
 
         WITH next, r,

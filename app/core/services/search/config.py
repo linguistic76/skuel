@@ -28,7 +28,7 @@ Graph-Aware Search (Phase 2):
         result = await ku_service.search_connected_to(
             query="python",
             related_uid="ku.python-basics",
-            relationship_type=RelationshipName.ENABLES,
+            relationship_type=RelationshipName.ENABLES_KNOWLEDGE,
             direction="outgoing"
         )
 
@@ -62,7 +62,7 @@ Unified Search API (Phase 4):
             query_text="machine learning",
             entity_types=[EntityType.KU, EntityType.TASK],
             connected_to_uid="ku.python-basics",
-            connected_relationship=RelationshipName.ENABLES,
+            connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
             tags_contain=["python", "beginner"],
             tags_match_all=False,  # OR semantics
         )

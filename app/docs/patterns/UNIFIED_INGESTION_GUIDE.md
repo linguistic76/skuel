@@ -532,9 +532,9 @@ Define relationships in the `connections` field:
 
 ```yaml
 connections:
-  requires:                    # PREREQUISITE relationship
+  requires:                    # REQUIRES_KNOWLEDGE relationship
     - ku.python-basics
-  enables:                     # ENABLES relationship
+  enables:                     # ENABLES_KNOWLEDGE relationship
     - ku.advanced-ml
   applies_knowledge:           # APPLIES_KNOWLEDGE relationship
     - ku.statistics
@@ -546,8 +546,8 @@ connections:
 
 | Connection Field | Relationship Type | Target Entity | Used By |
 |-----------------|-------------------|---------------|---------|
-| `requires` | PREREQUISITE | KU | KU |
-| `enables` | ENABLES | KU | KU |
+| `requires` | REQUIRES_KNOWLEDGE | KU | KU |
+| `enables` | ENABLES_KNOWLEDGE | KU | KU |
 | `related` | RELATED_TO | KU | KU |
 | `depends_on` | DEPENDS_ON | Task | Task |
 | `applies_knowledge` | APPLIES_KNOWLEDGE | KU | Task, Event |
@@ -563,11 +563,11 @@ connections:
 | `teaches_knowledge` | CONTAINS_KNOWLEDGE | KU | LS |
 | `organizes` | ORGANIZES | KU | MOC |
 
-> **Note:** KU ingestion uses `PREREQUISITE`/`ENABLES` (KU-to-KU edges), while the
-> Relationship Registry uses `REQUIRES_KNOWLEDGE`/`ENABLES_KNOWLEDGE`
-> (cross-domain edges). Both edge types coexist in Neo4j and are queried by
-> different services. See `core/services/ingestion/config.py` for the full
-> cross-reference.
+> **Note:** KU-to-KU relationship types are unified with the Relationship Registry.
+> Ingestion config is derived from the registry, so `requires` maps to
+> `REQUIRES_KNOWLEDGE` and `enables` maps to `ENABLES_KNOWLEDGE` — the same
+> types used across all domains. See `core/services/ingestion/config.py` for the
+> full mapping.
 
 ---
 

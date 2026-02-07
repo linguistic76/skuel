@@ -41,13 +41,13 @@ FOREACH (sid IN coalesce(i.connections.supports, []) |
 WITH ku, i
 FOREACH (eid IN coalesce(i.connections.enables, []) |
   MERGE (e:Ku {uid: eid})
-  MERGE (ku)-[:ENABLES]->(e)
+  MERGE (ku)-[:ENABLES_KNOWLEDGE]->(e)
 )
 
 WITH ku, i
 FOREACH (rid IN coalesce(i.connections.requires, []) |
   MERGE (r:Ku {uid: rid})
-  MERGE (ku)-[:REQUIRES]->(r)
+  MERGE (ku)-[:REQUIRES_KNOWLEDGE]->(r)
 )
 
 WITH ku, i

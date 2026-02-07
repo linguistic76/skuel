@@ -52,7 +52,7 @@ Usage:
         query_text="machine learning",
         entity_types=[EntityType.KU],
         connected_to_uid="ku.python-basics",
-        connected_relationship=RelationshipName.ENABLES,
+        connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
         tags_contain=["python"],
     )
     result = await router.advanced_search(request)
@@ -776,7 +776,7 @@ class SearchRouter:
                 query_text="machine learning",
                 entity_types=[EntityType.KU],
                 connected_to_uid="ku.python-basics",
-                connected_relationship=RelationshipName.ENABLES,
+                connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
                 tags_contain=["python"],
             )
             result = await router.advanced_search(request, user_context)

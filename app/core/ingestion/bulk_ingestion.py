@@ -12,7 +12,7 @@ NOT as node properties. Key design decisions:
 1. RELATIONSHIP CREATION: Uses MERGE to create graph edges from connection data
    - Input: Entity with metadata._connections dict
    - Process: Extract connection data, flatten to dotted keys (connections.requires)
-   - Output: Neo4j edges (e.g., [:PREREQUISITE], [:ENABLES])
+   - Output: Neo4j edges (e.g., [:REQUIRES_KNOWLEDGE], [:ENABLES_KNOWLEDGE])
    - Cleanup: Connection data filtered in Python layer (CypherExecutor) before Neo4j
 
 2. EDGE DIRECTION: Configurable via relationship_config
@@ -39,12 +39,12 @@ Example Usage:
     # Relationship config
     rel_config = {
         "connections.requires": {
-            "rel_type": "PREREQUISITE",
-            "direction": "incoming"  # Creates (n)<-[:PREREQUISITE]-(target)
+            "rel_type": "REQUIRES_KNOWLEDGE",
+            "direction": "outgoing"  # Creates (n)-[:REQUIRES_KNOWLEDGE]->(target)
         },
         "connections.enables": {
-            "rel_type": "ENABLES",
-            "direction": "outgoing"  # Creates (n)-[:ENABLES]->(target)
+            "rel_type": "ENABLES_KNOWLEDGE",
+            "direction": "outgoing"  # Creates (n)-[:ENABLES_KNOWLEDGE]->(target)
         }
     }
 
@@ -56,9 +56,9 @@ Example Usage:
     )
 
     # Result: Graph edges created
-    (ku:current)<-[:PREREQUISITE]-(ku:prereq1)
-    (ku:current)<-[:PREREQUISITE]-(ku:prereq2)
-    (ku:current)-[:ENABLES]->(ku:next)
+    (ku:current)-[:REQUIRES_KNOWLEDGE]->(ku:prereq1)
+    (ku:current)-[:REQUIRES_KNOWLEDGE]->(ku:prereq2)
+    (ku:current)-[:ENABLES_KNOWLEDGE]->(ku:next)
 
     # Result: Node properties (connections.* removed)
     (:Ku {
@@ -107,7 +107,7 @@ class RelationshipConfig(TypedDict, total=False):
     ensuring all required fields are present and direction values are valid.
 
     Fields:
-        rel_type: Neo4j relationship type (e.g., "PREREQUISITE", "ENABLES")
+        rel_type: Neo4j relationship type (e.g., "REQUIRES_KNOWLEDGE", "ENABLES_KNOWLEDGE")
         target_label: Neo4j label for target nodes (e.g., "Ku")
         direction: Edge direction - "incoming", "outgoing", or "both"
             - "incoming": Creates (n)<-[:TYPE]-(target)
@@ -116,9 +116,9 @@ class RelationshipConfig(TypedDict, total=False):
 
     Example:
         config: RelationshipConfig = {
-            "rel_type": "PREREQUISITE",
+            "rel_type": "REQUIRES_KNOWLEDGE",
             "target_label": "Ku",
-            "direction": "incoming"
+            "direction": "outgoing"
         }
 
     Used By:
@@ -335,12 +335,12 @@ RETURN count(n) as processed
                 Example:
                     {
                         "connections.requires": RelationshipConfig(
-                            rel_type="PREREQUISITE",
+                            rel_type="REQUIRES_KNOWLEDGE",
                             target_label="Ku",
-                            direction="incoming"
+                            direction="outgoing"
                         ),
                         "connections.enables": RelationshipConfig(
-                            rel_type="ENABLES",
+                            rel_type="ENABLES_KNOWLEDGE",
                             target_label="Ku",
                             direction="outgoing"
                         )
@@ -367,9 +367,9 @@ RETURN count(n) as processed
                 entities=[ku1, ku2, ku3],
                 relationship_config={
                     "connections.requires": {
-                        "rel_type": "PREREQUISITE",
+                        "rel_type": "REQUIRES_KNOWLEDGE",
                         "target_label": "Ku",
-                        "direction": "incoming"
+                        "direction": "outgoing"
                     }
                 },
                 batch_size=1000
@@ -425,12 +425,12 @@ RETURN count(n) as processed
                 Example:
                     {
                         "connections.requires": {
-                            "rel_type": "PREREQUISITE",
+                            "rel_type": "REQUIRES_KNOWLEDGE",
                             "target_label": "Ku",
-                            "direction": "incoming"
+                            "direction": "outgoing"
                         },
                         "connections.enables": {
-                            "rel_type": "ENABLES",
+                            "rel_type": "ENABLES_KNOWLEDGE",
                             "target_label": "Ku",
                             "direction": "outgoing"
                         }
@@ -448,7 +448,7 @@ RETURN count(n) as processed
             WITH n, item
             FOREACH (target_uid IN coalesce(item.`connections.requires`, []) |
               MERGE (target:Ku {uid: target_uid})
-              MERGE (n)<-[:PREREQUISITE]-(target)
+              MERGE (n)-[:REQUIRES_KNOWLEDGE]->(target)
             )
 
         Property filtering happens in Python (CypherExecutor:265-297) before
@@ -470,18 +470,18 @@ RETURN count(n) as processed
             # Edge direction determines the semantic meaning of the relationship:
             #
             # INCOMING: (n)<-[:TYPE]-(target)
-            #   - Used for prerequisites/dependencies
-            #   - Semantic: "target is required by n" or "target points to n"
-            #   - Example: If A requires B, then (A)<-[:PREREQUISITE]-(B)
+            #   - Used for dependencies pointing back to n
+            #   - Semantic: "target points to n"
             #
             # OUTGOING: (n)-[:TYPE]->(target)
-            #   - Used for enables/unlocks relationships
-            #   - Semantic: "n enables target" or "n points to target"
-            #   - Example: If A enables B, then (A)-[:ENABLES]->(B)
+            #   - Used for prerequisites, enables, and most relationships
+            #   - Semantic: "n requires/enables target" or "n points to target"
+            #   - Example: If A requires B, then (A)-[:REQUIRES_KNOWLEDGE]->(B)
+            #   - Example: If A enables B, then (A)-[:ENABLES_KNOWLEDGE]->(B)
             #
             # Direction choice affects graph traversal queries:
-            #   - get_related_uids(uid, "PREREQUISITE", "incoming") → prerequisites
-            #   - get_related_uids(uid, "ENABLES", "outgoing") → enabled topics
+            #   - get_related_uids(uid, "REQUIRES_KNOWLEDGE", "outgoing") → prerequisites
+            #   - get_related_uids(uid, "ENABLES_KNOWLEDGE", "outgoing") → enabled topics
             # ========================================================================
             if direction == "incoming":
                 rel_pattern = f"(n)<-[:{rel_type}]-(target)"

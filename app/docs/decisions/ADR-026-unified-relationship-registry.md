@@ -327,19 +327,26 @@ RELATED_TO_MOC = "RELATED_TO_MOC"          # (moc)-[:RELATED_TO_MOC]->(moc)
 - Could add validation layer to check graph enrichment patterns match Neo4j schema
 - Could generate relationship service methods dynamically from registry
 
-### Scope Boundary: Ingestion Config is Independent
+### Ingestion Config Unified (February 2026)
 
-The **ingestion relationship config** (`core/services/ingestion/config.py`) is intentionally
-**outside** the scope of this registry. Ingestion configs define YAML field path → Neo4j edge
-creation during Markdown/YAML import. They are independent because:
+The **ingestion relationship config** (`core/services/ingestion/config.py`) is now **derived
+from** the registry via `generate_ingestion_relationship_config()`. Previously it was independent
+with hardcoded `RelationshipConfig` dicts that drifted from the registry:
 
-1. **YAML field paths** (`connections.requires`, etc.) have no registry equivalent
-2. **KU uses different relationship types**: Ingestion creates `PREREQUISITE`/`ENABLES` (KU-to-KU
-   edges), while the registry defines `REQUIRES_KNOWLEDGE`/`ENABLES_KNOWLEDGE` (cross-domain
-   enrichment edges). Both coexist in Neo4j and are queried by different services.
-3. **Ingestion is a small subset**: 17 relationships out of 100+ in the registry
+- KU ingestion created `PREREQUISITE`/`ENABLES` edges while services queried `REQUIRES_KNOWLEDGE`/`ENABLES_KNOWLEDGE` — accidental drift making ingested edges invisible to runtime
+- Choice ingestion created `ALIGNED_WITH_PRINCIPLE` edges while services queried `INFORMED_BY_PRINCIPLE` — undiscovered bug
 
-See `core/services/ingestion/config.py` for the full cross-reference table.
+**Implementation:** `UnifiedRelationshipDefinition` gained two optional fields:
+- `yaml_field_path: str | None` — marks which registry entries are created during YAML ingestion (e.g., `"connections.requires"`)
+- `ingestion_entity_type: EntityType | None` — disambiguates when multiple EntityTypes share a Neo4j label (KU vs MOC both use "Ku")
+
+**Neo4j migration:** `scripts/migrations/unify_ingestion_relationship_types.cypher` renames legacy edge types:
+1. `PREREQUISITE` → `REQUIRES_KNOWLEDGE` (with direction reversal)
+2. `REQUIRES` → `REQUIRES_KNOWLEDGE` (legacy bulk template variant)
+3. `ENABLES` → `ENABLES_KNOWLEDGE` (KU-to-KU only)
+4. `ALIGNED_WITH_PRINCIPLE` → `INFORMED_BY_PRINCIPLE` (Choice→Principle only)
+
+**Removed from RelationshipName enum:** `PREREQUISITE`, `REQUIRES`, `ENABLES` — these edge types no longer exist in Neo4j after migration.
 
 ### Technical Debt
 - None created; this ADR reduces technical debt by eliminating dual-source problem
@@ -352,6 +359,7 @@ See `core/services/ingestion/config.py` for the full cross-reference table.
 |------|--------|--------|---------|
 | 2026-01-07 | Claude | Initial implementation (Phase 1 + Phase 2) | 1.0 |
 | 2026-01-10 | Claude | Phase 3: Post-Query Processors (PostProcessor dataclass, PROCESSOR_REGISTRY) | 1.1 |
+| 2026-02-08 | Claude | Ingestion config unified — derived from registry, legacy edge types removed | 1.2 |
 
 ---
 

@@ -47,7 +47,7 @@ def build_simple_prerequisite_chain(
     Args:
         node_uid: Target node UID
         node_label: Node label (e.g., "Ku", "Task", "Goal")
-        relationship_type: Relationship type (e.g., "REQUIRES", "DEPENDS_ON")
+        relationship_type: Relationship type (e.g., "REQUIRES_KNOWLEDGE", "DEPENDS_ON")
         depth: Maximum chain depth (default 3)
         order: "ASC" (shallowest first) or "DESC" (deepest first)
         include_leaf_only: Only return leaf nodes (no further prerequisites)
@@ -106,7 +106,7 @@ def build_unmastered_prerequisite_chain(
     node_uid: str,
     user_uid: str,
     node_label: str = "Ku",
-    relationship_type: str = "REQUIRES",
+    relationship_type: str = "REQUIRES_KNOWLEDGE",
     mastery_relationship: str = "MASTERED_BY",
     depth: int = 3,
 ) -> tuple[str, dict[str, Any]]:
@@ -119,7 +119,7 @@ def build_unmastered_prerequisite_chain(
         node_uid: Target node UID
         user_uid: User UID to check mastery
         node_label: Node label (default "Ku")
-        relationship_type: Prerequisite relationship type (default "REQUIRES")
+        relationship_type: Prerequisite relationship type (default "REQUIRES_KNOWLEDGE")
         mastery_relationship: User mastery relationship (default "MASTERED_BY")
         depth: Maximum chain depth (default 3)
 
@@ -211,7 +211,7 @@ def build_knowledge_prerequisites(
             node_uid=ku_uid,
             user_uid=user_uid,
             node_label="Ku",
-            relationship_type="REQUIRES",
+            relationship_type="REQUIRES_KNOWLEDGE",
             mastery_relationship="MASTERED_BY",
             depth=depth,
         )
@@ -219,7 +219,7 @@ def build_knowledge_prerequisites(
         return build_simple_prerequisite_chain(
             node_uid=ku_uid,
             node_label="Ku",
-            relationship_type="REQUIRES",
+            relationship_type="REQUIRES_KNOWLEDGE",
             depth=depth,
             order="DESC",
             include_leaf_only=not include_optional,

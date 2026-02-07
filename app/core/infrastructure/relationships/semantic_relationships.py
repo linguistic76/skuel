@@ -3,7 +3,7 @@ Semantic Relationship System with RDF-Inspired Precision
 ========================================================
 
 This module implements RDF triple thinking for semantic precision in relationships.
-Rather than generic "REQUIRES" or "RELATED_TO", relationships carry precise semantic
+Rather than generic "REQUIRES_KNOWLEDGE" or "RELATED_TO", relationships carry precise semantic
 meaning that makes the knowledge graph inherently more intelligent and queryable.
 
 Key Principles:

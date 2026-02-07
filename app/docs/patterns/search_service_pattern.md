@@ -161,7 +161,7 @@ BaseService now provides **Neo4j-native graph-aware search** that combines text 
 result = await ku_service.search_connected_to(
     query="machine learning",
     related_uid="ku.python-basics",
-    relationship_type=RelationshipName.ENABLES,
+    relationship_type=RelationshipName.ENABLES_KNOWLEDGE,
     direction="outgoing",
     limit=20
 )
@@ -216,7 +216,7 @@ request = SearchRequest(
     query_text="machine learning",
     entity_types=[EntityType.KU, EntityType.TASK],
     connected_to_uid="ku.python-basics",
-    connected_relationship=RelationshipName.ENABLES,
+    connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
     tags_contain=["python"],
     tags_match_all=False,
 )

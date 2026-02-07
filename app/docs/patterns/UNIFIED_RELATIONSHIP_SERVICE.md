@@ -32,7 +32,7 @@ For implementation guidance, see:
 
 **February 2026 Update:** All consumers use `DomainRelationshipConfig` directly from `relationship_registry.py` — THE single source of truth. The intermediate `RelationshipConfig`/`domain_configs.py` translation layer has been removed (~395 lines deleted).
 
-**Scope:** This service covers the **service layer** (graph enrichment, context queries, relationship operations). The **ingestion layer** (`core/services/ingestion/config.py`) has its own independent relationship config for YAML→Neo4j edge creation — see ADR-026 "Scope Boundary" section.
+**Scope:** This service covers the **service layer** (graph enrichment, context queries, relationship operations). The **ingestion layer** (`core/services/ingestion/config.py`) also derives its config from the registry via `generate_ingestion_relationship_config()` — see ADR-026 "Ingestion Config Unified" section.
 
 **Scope:** All 10 searchable domains now have relationship configs:
 - **Activity Domains (6):** Tasks, Goals, Habits, Events, Choices, Principles (user-owned)

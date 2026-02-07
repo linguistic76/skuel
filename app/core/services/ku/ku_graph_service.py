@@ -154,11 +154,11 @@ class KuGraphService:
             return Result.fail(Errors.not_found(f"Knowledge unit {uid} not found"))
 
         # Query prerequisites using CypherGenerator helper (Quick Win #1)
-        # REQUIRES relationship means uid REQUIRES the prerequisite
+        # REQUIRES_KNOWLEDGE relationship means uid requires the prerequisite
         query, params = build_simple_prerequisite_chain(
             node_uid=uid,
             node_label="Ku",
-            relationship_type=RelationshipName.REQUIRES.value,
+            relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
             depth=depth,
             order="DESC",
             include_leaf_only=True,
@@ -210,13 +210,13 @@ class KuGraphService:
         if not source_result.is_ok or not source_result.value:
             return Result.fail(Errors.not_found(f"Knowledge unit {uid} not found"))
 
-        # Query units that require this one (incoming REQUIRES relationships)
+        # Query units that require this one (incoming REQUIRES_KNOWLEDGE relationships)
         # Uses CypherGenerator for consistency (January 2026 consolidation)
         query, params = build_relationship_traversal_query(
             source_uid=uid,
-            relationship_type=RelationshipName.REQUIRES.value,
+            relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
             target_label="Ku",
-            direction="incoming",  # KUs that point TO this KU via REQUIRES
+            direction="incoming",  # KUs that point TO this KU via REQUIRES_KNOWLEDGE
             limit=limit,
         )
 
@@ -314,7 +314,7 @@ class KuGraphService:
         query = """
         MATCH (unit:Ku {uid: $unit_uid})
         MATCH (prereq:Ku {uid: $prereq_uid})
-        MERGE (unit)-[r:REQUIRES]->(prereq)
+        MERGE (unit)-[r:REQUIRES_KNOWLEDGE]->(prereq)
         SET r.is_mandatory = $is_mandatory
         SET r.created_at = datetime()
         RETURN r
@@ -329,7 +329,7 @@ class KuGraphService:
         await self.neo4j.execute_query(query, params)
 
         self.logger.info(
-            f"Linked prerequisite: {unit_uid} REQUIRES {prerequisite_uid} "
+            f"Linked prerequisite: {unit_uid} REQUIRES_KNOWLEDGE {prerequisite_uid} "
             f"(mandatory={is_mandatory})"
         )
         return Result.ok(True)
@@ -596,7 +596,7 @@ class KuGraphService:
           AND ($domain IS NULL OR candidate.domain = $domain)
 
         // Count prerequisites and how many are satisfied
-        OPTIONAL MATCH (candidate)-[:REQUIRES]->(prereq:Ku)
+        OPTIONAL MATCH (candidate)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
         WITH candidate, mastered_uids,
              count(prereq) as total_prereqs,
              sum(CASE WHEN prereq.uid IN mastered_uids THEN 1 ELSE 0 END) as satisfied_prereqs
@@ -614,7 +614,7 @@ class KuGraphService:
         WHERE readiness >= 0.7
 
         // Get next steps info (what this enables)
-        OPTIONAL MATCH (candidate)<-[:REQUIRES]-(enables:Ku)
+        OPTIONAL MATCH (candidate)<-[:REQUIRES_KNOWLEDGE]-(enables:Ku)
         WITH candidate, readiness, total_prereqs, satisfied_prereqs,
              count(enables) as enables_count
 
@@ -757,7 +757,7 @@ class KuGraphService:
         query, params = build_metadata_aware_path_query(
             target_uid=target_uid,
             node_label="Ku",
-            relationship_type=RelationshipName.REQUIRES.value,
+            relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
             user_time_budget=user_time_budget,
             max_complexity_level=max_complexity,
             min_confidence=min_confidence,
@@ -1049,7 +1049,7 @@ class KuGraphService:
           AND ($domain IS NULL OR ku.domain = $domain)
 
         // Count prerequisites and how many user has mastered
-        OPTIONAL MATCH (ku)-[:REQUIRES]->(prereq:Ku)
+        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
         WITH ku,
              collect(prereq.uid) as prereq_uids,
              count(prereq) as total_prereqs
@@ -1068,7 +1068,7 @@ class KuGraphService:
         WHERE readiness >= 0.7
 
         // Get what this enables (dependents)
-        OPTIONAL MATCH (ku)<-[:REQUIRES]-(dependent:Ku)
+        OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(dependent:Ku)
 
         RETURN ku.uid as uid,
                ku.title as title,
@@ -1189,7 +1189,7 @@ class KuGraphService:
              collect(DISTINCT goal.uid) as blocking_goal_uids
 
         // Get prerequisite info
-        OPTIONAL MATCH (ku)-[:REQUIRES]->(prereq:Ku)
+        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
         WITH ku, goals_blocked, blocking_goal_uids,
              count(prereq) as prereq_count,
              collect(prereq.uid) as prereq_uids
@@ -1327,7 +1327,7 @@ class KuGraphService:
         WITH ku, count(goal) as goal_relevance
 
         // Check what depends on this knowledge
-        OPTIONAL MATCH (ku)<-[:REQUIRES]-(dependent:Ku)
+        OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(dependent:Ku)
 
         RETURN ku.uid as uid,
                ku.title as title,

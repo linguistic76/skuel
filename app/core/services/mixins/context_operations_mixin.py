@@ -193,7 +193,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         prereq_rels = (
             "|".join(self._prerequisite_relationships)
             if self._prerequisite_relationships
-            else "REQUIRES"
+            else "REQUIRES_KNOWLEDGE"
         )
 
         query = f"""

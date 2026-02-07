@@ -33,7 +33,7 @@ def build_relationship_count(
 
     Args:
         uid: Entity UID
-        relationship_type: Neo4j relationship type (e.g., "PREREQUISITE", "APPLIES_KNOWLEDGE")
+        relationship_type: Neo4j relationship type (e.g., "REQUIRES_KNOWLEDGE", "APPLIES_KNOWLEDGE")
         direction: Traversal direction ("outgoing", "incoming", or "both")
         properties: Optional dict of relationship properties to filter by
 
@@ -104,7 +104,7 @@ def build_relationship_uids_query(
 
     Args:
         uid: Source entity UID
-        relationship_type: Neo4j relationship type (e.g., "PREREQUISITE", "ENABLES")
+        relationship_type: Neo4j relationship type (e.g., "REQUIRES_KNOWLEDGE", "ENABLES_KNOWLEDGE")
         direction: Traversal direction ("outgoing", "incoming", or "both")
         limit: Max results to return (default 100)
         properties: Optional dict of relationship properties to filter by
@@ -347,7 +347,7 @@ def build_batch_relationship_exists_with_filters(
         # Find knowledge units with high-confidence prerequisites
         query, params = build_batch_relationship_exists_with_filters(
             node_label="Ku",
-            relationship_types=["PREREQUISITE"],
+            relationship_types=["REQUIRES_KNOWLEDGE"],
             direction="outgoing",
             property_filters={"strength__gte": 0.8}
         )
@@ -398,7 +398,7 @@ def build_batch_get_related_with_filters(
         # Get high-strength prerequisites for multiple knowledge units
         query, params = build_batch_get_related_with_filters(
             node_label="Ku",
-            relationship_types=["PREREQUISITE"],
+            relationship_types=["REQUIRES_KNOWLEDGE"],
             direction="outgoing",
             property_filters={"strength__gte": 0.8},
             limit_per_node=50
@@ -426,7 +426,7 @@ def build_batch_get_related_with_filters(
 def build_metadata_aware_path_query(
     target_uid: str,
     node_label: str = "Ku",
-    relationship_type: str = "REQUIRES",
+    relationship_type: str = "REQUIRES_KNOWLEDGE",
     user_time_budget: int | None = None,
     max_complexity_level: str | None = None,
     min_confidence: float = 0.7,
@@ -443,7 +443,7 @@ def build_metadata_aware_path_query(
     Args:
         target_uid: Target knowledge unit UID to reach
         node_label: Neo4j node label (default: "Ku")
-        relationship_type: Relationship type to traverse (default: "REQUIRES")
+        relationship_type: Relationship type to traverse (default: "REQUIRES_KNOWLEDGE")
         user_time_budget: Maximum total reading time in minutes (None = no limit)
         max_complexity_level: Maximum complexity ("basic", "intermediate", "advanced")
         min_confidence: Minimum relationship confidence threshold

@@ -1555,7 +1555,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             result = await backend.get_relationship_metadata(
                 from_uid="ku:programming-101",
                 to_uid="ku:python-basics",
-                relationship_type=RelationshipName.PREREQUISITE
+                relationship_type=RelationshipName.REQUIRES_KNOWLEDGE
             )
         """
         try:
@@ -1610,7 +1610,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             await backend.update_relationship_properties(
                 from_uid="ku:python",
                 to_uid="ku:advanced-python",
-                relationship_type=RelationshipName.ENABLES,
+                relationship_type=RelationshipName.ENABLES_KNOWLEDGE,
                 properties={"confidence": 0.95, "last_verified": datetime.now().isoformat()}
             )
         """
@@ -1783,7 +1783,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             result = await backend.get_edge_metadata(
                 from_uid="ku:programming-101",
                 to_uid="ku:python-basics",
-                relationship_type=RelationshipName.PREREQUISITE
+                relationship_type=RelationshipName.REQUIRES_KNOWLEDGE
             )
             if result.is_ok and result.value:
                 metadata = result.value
@@ -2496,8 +2496,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             # Count prerequisites
             prereq_count = await backend.count_related(
                 uid="ku:advanced-python",
-                relationship_type=RelationshipName.PREREQUISITE,
-                direction="incoming"
+                relationship_type=RelationshipName.REQUIRES_KNOWLEDGE,
+                direction="outgoing"
             )
 
             # Count essential habits (with property filtering)

@@ -56,10 +56,7 @@ class RelationshipName(str, Enum):
     # KNOWLEDGE RELATIONSHIPS (ku:)
     # Relationships involving KnowledgeUnits
     # =========================================================================
-    PREREQUISITE = "PREREQUISITE"
-    REQUIRES = "REQUIRES"  # KU-to-KU prerequisite (used in ingestion/queries)
     REQUIRES_PREREQUISITE = "REQUIRES_PREREQUISITE"
-    ENABLES = "ENABLES"
     RELATED_TO = "RELATED_TO"
     HAS_NARROWER = "HAS_NARROWER"
     HAS_BROADER = "HAS_BROADER"
@@ -338,8 +335,6 @@ class RelationshipName(str, Enum):
     def is_knowledge_relationship(self) -> bool:
         """Check if this relationship involves knowledge units."""
         knowledge_types = {
-            self.PREREQUISITE,
-            self.ENABLES,
             self.RELATED_TO,
             self.HAS_NARROWER,
             self.HAS_BROADER,
@@ -360,7 +355,7 @@ class RelationshipName(str, Enum):
             self.BLOCKS,
             self.DEPENDS_ON_GOAL,
             self.REQUIRES_PREREQUISITE_HABIT,
-            self.PREREQUISITE,
+            self.REQUIRES_KNOWLEDGE,
         }
         return self in blocking_types
 
@@ -437,6 +432,5 @@ class RelationshipName(str, Enum):
             self.REQUIRES_PREREQUISITE_HABIT,
             self.REQUIRES_KNOWLEDGE,
             self.REQUIRES_STEP,
-            self.PREREQUISITE,
         }
         return self in prerequisite_types

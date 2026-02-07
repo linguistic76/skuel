@@ -84,7 +84,7 @@ WHERE NOT unlearned.uid IN learned_uids
   AND ($domain IS NULL OR unlearned.domain = $domain)
 
 // STEP 3: Calculate satisfied prerequisites (only learned ones)
-OPTIONAL MATCH (prereq:Ku)-[r:PREREQUISITE]->(unlearned)
+OPTIONAL MATCH (unlearned)-[r:REQUIRES_KNOWLEDGE]->(prereq:Ku)
 WHERE prereq.uid IN learned_uids
 
 WITH unlearned,
@@ -93,7 +93,7 @@ WITH unlearned,
      avg(coalesce(r.confidence, 1.0)) as avg_prerequisite_confidence
 
 // STEP 4: Count total prerequisites (learned or not)
-OPTIONAL MATCH (any_prereq:Ku)-[:PREREQUISITE]->(unlearned)
+OPTIONAL MATCH (unlearned)-[:REQUIRES_KNOWLEDGE]->(any_prereq:Ku)
 WITH unlearned,
      satisfied_prereqs,
      avg_prerequisite_confidence,
@@ -133,13 +133,13 @@ The query uses two separate OPTIONAL MATCH clauses for prerequisites:
 
 **First pass - Satisfied prerequisites only:**
 ```cypher
-OPTIONAL MATCH (prereq:Ku)-[r:PREREQUISITE]->(unlearned)
+OPTIONAL MATCH (unlearned)-[r:REQUIRES_KNOWLEDGE]->(prereq:Ku)
 WHERE prereq.uid IN learned_uids
 ```
 
 **Second pass - All prerequisites:**
 ```cypher
-OPTIONAL MATCH (any_prereq:Ku)-[:PREREQUISITE]->(unlearned)
+OPTIONAL MATCH (unlearned)-[:REQUIRES_KNOWLEDGE]->(any_prereq:Ku)
 ```
 
 **Why Two Passes:**
@@ -178,7 +178,7 @@ avg(coalesce(r.confidence, 1.0)) as avg_prerequisite_confidence
 ```
 
 **Phase 4 Enhancement:**
-- Uses `confidence` property from PREREQUISITE edges
+- Uses `confidence` property from REQUIRES_KNOWLEDGE edges
 - Averages across all satisfied prerequisites
 - Defaults to 1.0 if no confidence metadata exists
 - Enables future filtering by confidence threshold
@@ -345,3 +345,4 @@ Transitive prerequisite: Variables, Loops (0% mastered) → User will fail
 | Date | Change | Version |
 |------|--------|---------|
 | 2025-11-16 | Initial ADR | 1.0 |
+| 2026-02-08 | Update PREREQUISITE → REQUIRES_KNOWLEDGE (direction reversed per unified relationship types) | 1.1 |

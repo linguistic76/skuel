@@ -427,7 +427,7 @@ class BatchOperationHelper:
             # Find knowledge units with high-confidence prerequisites
             result = BatchOperationHelper.build_relationship_exists_with_filters_query(
                 node_label="Ku",
-                relationship_types=["PREREQUISITE"],
+                relationship_types=["REQUIRES_KNOWLEDGE"],
                 direction="outgoing",
                 property_filters={"strength__gte": 0.8}
             )
@@ -513,7 +513,7 @@ class BatchOperationHelper:
             # Get high-strength prerequisites for multiple knowledge units
             result = BatchOperationHelper.build_get_related_with_filters_query(
                 node_label="Ku",
-                relationship_types=["PREREQUISITE"],
+                relationship_types=["REQUIRES_KNOWLEDGE"],
                 direction="outgoing",
                 property_filters={"strength__gte": 0.8},
                 limit_per_node=50
@@ -731,7 +731,7 @@ class BatchOperationHelper:
                     (prerequisite_task_uids, "REQUIRES_PREREQUISITE", None),
                     (aligned_principle_uids, "ALIGNED_WITH_PRINCIPLE", None),
                     (subtask_uids, "HAS_CHILD", None),
-                    (enables_task_uids, "ENABLES", None),
+                    (enables_task_uids, "ENABLES_TASK", None),
                     (completion_triggers_tasks, "TRIGGERS_ON_COMPLETION", None),
                     (completion_unlocks_knowledge, "UNLOCKS_KNOWLEDGE", None),
                     (inferred_knowledge_uids, "INFERRED_KNOWLEDGE", None),

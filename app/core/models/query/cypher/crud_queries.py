@@ -318,7 +318,7 @@ def build_graph_aware_search_query(
         entity_class: Domain model class (must be dataclass)
         query: Search text (case-insensitive)
         source_uid: UID of the related entity to traverse from
-        relationship_type: Relationship type name (e.g., "ENABLES", "FULFILLS_GOAL")
+        relationship_type: Relationship type name (e.g., "ENABLES_KNOWLEDGE", "FULFILLS_GOAL")
         search_fields: Fields to search (default: ("title", "description"))
         label: Neo4j label (defaults to class name)
         direction: "outgoing", "incoming", or "both" (default "outgoing")
@@ -335,7 +335,7 @@ def build_graph_aware_search_query(
             Ku,
             query="machine learning",
             source_uid="ku.python-basics",
-            relationship_type="ENABLES",
+            relationship_type="ENABLES_KNOWLEDGE",
             search_fields=("title", "content"),
             direction="incoming",  # KUs that are enabled BY python-basics
         )
@@ -815,7 +815,7 @@ def build_prerequisite_traversal_query(
     Args:
         label: Neo4j node label
         uid: Starting entity UID
-        relationship_types: Relationship types for prerequisites (e.g., ["REQUIRES", "PREREQUISITE"])
+        relationship_types: Relationship types for prerequisites (e.g., ["REQUIRES_KNOWLEDGE"])
         depth: Maximum traversal depth (1-10)
         direction: "outgoing" for prerequisites, "incoming" for enabled-by
 
@@ -825,12 +825,12 @@ def build_prerequisite_traversal_query(
     Example:
         # Get prerequisites
         query, params = build_prerequisite_traversal_query(
-            "Ku", "ku:python-advanced", ["REQUIRES", "PREREQUISITE"], direction="outgoing"
+            "Ku", "ku:python-advanced", ["REQUIRES_KNOWLEDGE"], direction="outgoing"
         )
 
         # Get what this enables
         query, params = build_prerequisite_traversal_query(
-            "Ku", "ku:python-basics", ["REQUIRES", "PREREQUISITE"], direction="incoming"
+            "Ku", "ku:python-basics", ["REQUIRES_KNOWLEDGE"], direction="incoming"
         )
     """
     rel_pattern = "|".join(relationship_types)

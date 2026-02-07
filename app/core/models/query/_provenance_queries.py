@@ -31,7 +31,7 @@ class ProvenanceQueries:
     def build_trust_filtered_prerequisite_chain(
         node_uid: str,
         node_label: str = "Ku",
-        relationship_type: str = "REQUIRES",
+        relationship_type: str = "REQUIRES_KNOWLEDGE",
         allowed_sources: list[str] | None = None,
         depth: int = 5,
         min_confidence: float = 0.7,
@@ -44,7 +44,7 @@ class ProvenanceQueries:
         Args:
             node_uid: Starting node UID
             node_label: Neo4j label (default: KnowledgeUnit)
-            relationship_type: Relationship type (default: REQUIRES)
+            relationship_type: Relationship type (default: REQUIRES_KNOWLEDGE)
             allowed_sources: List of trusted sources (default: expert_verified, curriculum)
             depth: Maximum traversal depth (default: 5)
             min_confidence: Minimum confidence threshold (default: 0.7)
@@ -85,7 +85,7 @@ class ProvenanceQueries:
     @staticmethod
     def build_provenance_distribution_query(
         node_label: str = "Ku",
-        relationship_type: str = "REQUIRES",
+        relationship_type: str = "REQUIRES_KNOWLEDGE",
         user_uid: str | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
@@ -95,7 +95,7 @@ class ProvenanceQueries:
 
         Args:
             node_label: Neo4j label (default: KnowledgeUnit)
-            relationship_type: Relationship type (default: REQUIRES)
+            relationship_type: Relationship type (default: REQUIRES_KNOWLEDGE)
             user_uid: Optional user filter (if provided, only user's relationships)
 
         Returns:
@@ -142,7 +142,7 @@ class ProvenanceQueries:
     @staticmethod
     def build_ai_validation_queue_query(
         node_label: str = "Ku",
-        relationship_type: str = "REQUIRES",
+        relationship_type: str = "REQUIRES_KNOWLEDGE",
         min_confidence: float = 0.7,
         min_usage_count: int = 10,
         limit: int = 100,
@@ -160,7 +160,7 @@ class ProvenanceQueries:
 
         Args:
             node_label: Neo4j label (default: KnowledgeUnit)
-            relationship_type: Relationship type (default: REQUIRES)
+            relationship_type: Relationship type (default: REQUIRES_KNOWLEDGE)
             min_confidence: Minimum confidence (default: 0.7)
             min_usage_count: Minimum traversal count (default: 10)
             limit: Maximum results (default: 100)
@@ -208,7 +208,7 @@ class ProvenanceQueries:
     @staticmethod
     def build_provenance_upgrade_candidates_query(
         node_label: str = "Ku",
-        relationship_type: str = "REQUIRES",
+        relationship_type: str = "REQUIRES_KNOWLEDGE",
         min_confidence: float = 0.85,
         min_strength: float = 0.8,
         min_usage_count: int = 50,
@@ -228,7 +228,7 @@ class ProvenanceQueries:
 
         Args:
             node_label: Neo4j label (default: KnowledgeUnit)
-            relationship_type: Relationship type (default: REQUIRES)
+            relationship_type: Relationship type (default: REQUIRES_KNOWLEDGE)
             min_confidence: Minimum confidence (default: 0.85)
             min_strength: Minimum strength (default: 0.8)
             min_usage_count: Minimum traversal count (default: 50)
@@ -279,7 +279,7 @@ class ProvenanceQueries:
     def build_well_supported_prerequisites_query(
         node_uid: str,
         node_label: str = "Ku",
-        relationship_type: str = "REQUIRES",
+        relationship_type: str = "REQUIRES_KNOWLEDGE",
         min_evidence_count: int = 3,
         depth: int = 5,
     ) -> tuple[str, dict[str, Any]]:
@@ -291,7 +291,7 @@ class ProvenanceQueries:
         Args:
             node_uid: Starting node UID
             node_label: Neo4j label (default: KnowledgeUnit)
-            relationship_type: Relationship type (default: REQUIRES)
+            relationship_type: Relationship type (default: REQUIRES_KNOWLEDGE)
             min_evidence_count: Minimum evidence items (default: 3)
             depth: Maximum traversal depth (default: 5)
 
@@ -332,7 +332,7 @@ class ProvenanceQueries:
     def build_citation_export_query(
         node_uid: str,
         node_label: str = "Ku",
-        relationship_type: str = "REQUIRES",
+        relationship_type: str = "REQUIRES_KNOWLEDGE",
         depth: int = 3,
     ) -> tuple[str, dict[str, Any]]:
         """
@@ -345,7 +345,7 @@ class ProvenanceQueries:
         Args:
             node_uid: Starting node UID
             node_label: Neo4j label (default: KnowledgeUnit)
-            relationship_type: Relationship type (default: REQUIRES)
+            relationship_type: Relationship type (default: REQUIRES_KNOWLEDGE)
             depth: Maximum traversal depth (default: 3)
 
         Returns:

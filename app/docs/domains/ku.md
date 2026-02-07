@@ -127,8 +127,9 @@ await ku_service.semantic.get_semantic_neighborhood(ku_uid)
 | `REQUIRES_KNOWLEDGE` | Incoming | Task, Goal | Required by activities |
 | `REINFORCES_KNOWLEDGE` | Incoming | Habit | Reinforced by habits |
 
-**Note:** KU uses `REQUIRES_KNOWLEDGE` and `ENABLES_KNOWLEDGE` (not `PREREQUISITE` or `ENABLES`)
-for KU-to-KU relationships. The RelationshipName enum is the single source of truth.
+**Note:** KU uses `REQUIRES_KNOWLEDGE` and `ENABLES_KNOWLEDGE` for all KU-to-KU relationships.
+Legacy types (`PREREQUISITE`, `REQUIRES`, `ENABLES`) were removed from the RelationshipName enum
+in February 2026. Ingestion config derives from the relationship registry — see ADR-026.
 
 ## Intelligence Methods
 

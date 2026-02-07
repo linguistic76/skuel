@@ -15,6 +15,7 @@ from core.models.relationship_registry import (
     TASKS_UNIFIED,
     UNIFIED_REGISTRY_BY_LABEL,
     generate_graph_enrichment,
+    generate_ingestion_relationship_config,
 )
 
 # Pass config directly to relationship service
@@ -64,6 +65,7 @@ from core.models.principle.reflection import PrincipleReflection
 from core.models.principle.reflection_dto import PrincipleReflectionDTO
 from core.models.query import QueryIntent
 from core.models.relationship_names import RelationshipName
+from core.models.enums.entity_enums import EntityType
 from core.models.shared_enums import Domain
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
@@ -229,6 +231,15 @@ class UnifiedRelationshipDefinition:
     # Edge metadata (February 2026 - Curriculum Domains)
     # Specifies which edge properties to include in generated RelationshipSpec
     include_edge_properties: tuple[str, ...] = ()
+
+    # Ingestion mapping (February 2026 - Config Unification)
+    # YAML field path for ingestion (e.g., "connections.requires").
+    # When set, this relationship is created during YAML/Markdown import.
+    yaml_field_path: str | None = None
+    # Scopes yaml_field_path to a specific EntityType.
+    # Needed when multiple EntityTypes share a Neo4j label (KU and MOC both use "Ku").
+    # None means: applies to the default EntityType for this label.
+    ingestion_entity_type: EntityType | None = None
 
     def to_graph_enrichment_tuple(self) -> tuple[str, str, str, str]:
         """Generate graph enrichment pattern tuple for BaseService._graph_enrichment_patterns."""
@@ -427,6 +438,7 @@ TASKS_UNIFIED = DomainRelationshipConfig(
             "applied_knowledge",
             "knowledge",
             use_confidence=True,  # Context: filter by confidence
+            yaml_field_path="connections.applies_knowledge",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
@@ -480,6 +492,7 @@ TASKS_UNIFIED = DomainRelationshipConfig(
             "fulfills_goal",
             fields=("uid", "title", "progress_percentage"),  # Context: include progress
             single=True,  # Context: expect single goal
+            yaml_field_path="connections.fulfills_goal",
         ),
         # Task → Habit: single result for context
         UnifiedRelationshipDefinition(
@@ -530,6 +543,7 @@ TASKS_UNIFIED = DomainRelationshipConfig(
             "prerequisite_tasks",
             fields=("uid", "title", "status", "priority"),  # Context: include status/priority
             include_rel_type=True,  # Context: include relationship type
+            yaml_field_path="connections.depends_on",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFERRED_KNOWLEDGE,
@@ -632,6 +646,7 @@ GOALS_UNIFIED = DomainRelationshipConfig(
             "required_knowledge",
             "knowledge",
             use_confidence=True,  # Context: filter by confidence
+            yaml_field_path="connections.requires_knowledge",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDED_BY_PRINCIPLE,
@@ -639,6 +654,7 @@ GOALS_UNIFIED = DomainRelationshipConfig(
             "outgoing",
             "aligned_principles",  # Context name: aligned_principles
             "principles",
+            yaml_field_path="connections.aligned_with_principle",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ALIGNED_WITH_PATH,
@@ -832,6 +848,7 @@ HABITS_UNIFIED = DomainRelationshipConfig(
             "outgoing",
             "reinforced_knowledge",
             "knowledge",
+            yaml_field_path="connections.reinforces_knowledge",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.EMBODIES_PRINCIPLE,
@@ -847,6 +864,7 @@ HABITS_UNIFIED = DomainRelationshipConfig(
             "supported_goals",
             "supported_goals",
             fields=("uid", "title", "progress_percentage"),  # Context: include progress
+            yaml_field_path="connections.supports_goal",
         ),
         # Incoming: Other → Habit
         UnifiedRelationshipDefinition(
@@ -987,6 +1005,7 @@ EVENTS_UNIFIED = DomainRelationshipConfig(
             "outgoing",
             "applied_knowledge",
             "knowledge",
+            yaml_field_path="connections.applies_knowledge",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.CONTRIBUTES_TO_GOAL,
@@ -1134,6 +1153,7 @@ CHOICES_UNIFIED = DomainRelationshipConfig(
             "outgoing",
             "aligned_principles",
             "principles",
+            yaml_field_path="connections.guided_by_principle",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.AFFECTS_GOAL,
@@ -1280,6 +1300,7 @@ PRINCIPLES_UNIFIED = DomainRelationshipConfig(
             "outgoing",
             "guided_goals",
             "guided_goals",
+            yaml_field_path="connections.guides_goal",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDES_CHOICE,
@@ -1294,6 +1315,7 @@ PRINCIPLES_UNIFIED = DomainRelationshipConfig(
             "outgoing",
             "inspired_habits",
             "inspired_habits",
+            yaml_field_path="connections.inspires_habit",
         ),
         # Incoming: Other → Principle
         UnifiedRelationshipDefinition(
@@ -1578,6 +1600,7 @@ KU_UNIFIED = DomainRelationshipConfig(
             "prerequisites",
             "requires",
             use_confidence=True,  # Context: filter by confidence
+            yaml_field_path="connections.requires",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ENABLES_KNOWLEDGE,
@@ -1585,6 +1608,7 @@ KU_UNIFIED = DomainRelationshipConfig(
             "outgoing",
             "enables_learning",
             "enables",
+            yaml_field_path="connections.enables",
         ),
         # Incoming: Other Ku → This Ku (dependents)
         UnifiedRelationshipDefinition(
@@ -1601,6 +1625,7 @@ KU_UNIFIED = DomainRelationshipConfig(
             "both",
             "related",
             "related",
+            yaml_field_path="connections.related",
         ),
         # Incoming: Activity domains applying knowledge
         UnifiedRelationshipDefinition(
@@ -1658,6 +1683,8 @@ KU_UNIFIED = DomainRelationshipConfig(
             order_by_property="order",
             order_direction="ASC",
             include_edge_properties=("order",),
+            yaml_field_path="organizes",
+            ingestion_entity_type=EntityType.MOC,
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ORGANIZES,
@@ -1699,6 +1726,7 @@ LS_UNIFIED = DomainRelationshipConfig(
             "outgoing",
             "knowledge_units",
             "knowledge",
+            yaml_field_path="connections.teaches_knowledge",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_STEP,
@@ -1797,6 +1825,7 @@ LP_UNIFIED = DomainRelationshipConfig(
             order_by_property="sequence",
             order_direction="ASC",
             include_edge_properties=("sequence", "completed"),
+            yaml_field_path="connections.contains_steps",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
@@ -1986,6 +2015,90 @@ def get_unified_config_by_label(entity_label: str) -> DomainRelationshipConfig |
         DomainRelationshipConfig or None
     """
     return UNIFIED_REGISTRY_BY_LABEL.get(entity_label)
+
+
+# =============================================================================
+# INGESTION CONFIG GENERATION (February 2026 — Config Unification)
+# =============================================================================
+
+# Static mappings to avoid circular imports with ingestion config.py
+_ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
+    EntityType.KU: "Ku",
+    EntityType.MOC: "Ku",
+    EntityType.TASK: "Task",
+    EntityType.GOAL: "Goal",
+    EntityType.HABIT: "Habit",
+    EntityType.EVENT: "Event",
+    EntityType.CHOICE: "Choice",
+    EntityType.PRINCIPLE: "Principle",
+    EntityType.LP: "Lp",
+    EntityType.LS: "Ls",
+}
+
+_LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
+    "Ku": EntityType.KU,
+    "Task": EntityType.TASK,
+    "Goal": EntityType.GOAL,
+    "Habit": EntityType.HABIT,
+    "Event": EntityType.EVENT,
+    "Choice": EntityType.CHOICE,
+    "Principle": EntityType.PRINCIPLE,
+    "Lp": EntityType.LP,
+    "Ls": EntityType.LS,
+}
+
+
+def generate_ingestion_relationship_config(
+    entity_type: EntityType,
+) -> dict[str, Any] | None:
+    """
+    Generate ingestion relationship config from the registry (single source of truth).
+
+    Extracts UnifiedRelationshipDefinitions that have yaml_field_path set,
+    filtered by entity_type for disambiguation (KU vs MOC both use "Ku" label).
+
+    Args:
+        entity_type: The EntityType to generate config for
+
+    Returns:
+        Dict mapping yaml_field_path -> RelationshipConfig, or None if no relationships.
+        Each value is a TypedDict with rel_type, target_label, direction.
+
+    See: /docs/decisions/ADR-026-unified-relationship-registry.md
+    """
+    from core.ingestion.bulk_ingestion import RelationshipConfig
+
+    entity_label = _ENTITY_TYPE_TO_LABEL.get(entity_type)
+    if not entity_label:
+        return None
+
+    config = UNIFIED_REGISTRY_BY_LABEL.get(entity_label)
+    if not config:
+        return None
+
+    default_type = _LABEL_TO_DEFAULT_ENTITY_TYPE.get(entity_label)
+    result: dict[str, Any] = {}
+
+    for rel in config.relationships:
+        if rel.yaml_field_path is None:
+            continue
+
+        # Filter by ingestion_entity_type:
+        # - If set, only include for that specific EntityType
+        # - If None, only include for the default EntityType for the label
+        if rel.ingestion_entity_type is not None:
+            if rel.ingestion_entity_type != entity_type:
+                continue
+        elif entity_type != default_type:
+            continue
+
+        result[rel.yaml_field_path] = RelationshipConfig(
+            rel_type=rel.relationship.value,
+            target_label=rel.target_label,
+            direction=rel.direction,
+        )
+
+    return result if result else None
 
 
 # =============================================================================

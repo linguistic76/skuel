@@ -33,7 +33,7 @@ class ProgressiveLearningQueries:
     def build_progressive_learning_path_query(
         start_uid: str,
         end_uid: str,
-        relationship_type: str = "REQUIRES",
+        relationship_type: str = "REQUIRES_KNOWLEDGE",
         max_difficulty_jump: float = 2.0,
         min_difficulty_jump: float = 0.1,
         max_depth: int = 5,
@@ -47,7 +47,7 @@ class ProgressiveLearningQueries:
         Args:
             start_uid: Starting concept UID (easier)
             end_uid: Target concept UID (harder)
-            relationship_type: Relationship type to traverse (default "REQUIRES")
+            relationship_type: Relationship type to traverse (default "REQUIRES_KNOWLEDGE")
             max_difficulty_jump: Maximum difficulty increase per step (default 2.0)
             min_difficulty_jump: Minimum difficulty increase per step (default 0.1)
             max_depth: Maximum path length (default 5)
@@ -122,7 +122,7 @@ class ProgressiveLearningQueries:
     @staticmethod
     def build_curriculum_sequenced_prerequisites_query(
         target_uid: str,
-        relationship_type: str = "REQUIRES",
+        relationship_type: str = "REQUIRES_KNOWLEDGE",
         depth: int = 3,
         include_unordered: bool = False,
     ) -> tuple[str, dict[str, Any]]:
@@ -133,7 +133,7 @@ class ProgressiveLearningQueries:
 
         Args:
             target_uid: Target concept UID
-            relationship_type: Relationship type (default "REQUIRES")
+            relationship_type: Relationship type (default "REQUIRES_KNOWLEDGE")
             depth: Maximum prerequisite depth (default 3)
             include_unordered: Include prerequisites without typical_learning_order (default False)
 
@@ -231,7 +231,7 @@ class ProgressiveLearningQueries:
         MATCH (user)-[:MASTERED]->(mastered)
 
         // Find next concepts requiring mastered prerequisites
-        MATCH (mastered)<-[r:REQUIRES]-(target)
+        MATCH (mastered)<-[r:REQUIRES_KNOWLEDGE]-(target)
         WHERE r.difficulty_gap IS NOT NULL
           // Progressive challenge: harder but not too much harder
           AND r.difficulty_gap > 0
@@ -323,7 +323,7 @@ class ProgressiveLearningQueries:
         difficulty_where = f"AND {' AND '.join(difficulty_filters)}" if difficulty_filters else ""
 
         cypher = f"""
-        MATCH (prereq)-[r:REQUIRES]->(target)
+        MATCH (prereq)-[r:REQUIRES_KNOWLEDGE]->(target)
         WHERE r.difficulty_gap IS NOT NULL
           {domain_filter}
           {difficulty_where}
@@ -396,7 +396,7 @@ class ProgressiveLearningQueries:
         WHERE m.achieved_at >= datetime() - duration({days: $time_window_days})
 
         // Get the difficulty gaps from prerequisites
-        OPTIONAL MATCH (ku)<-[r:REQUIRES]-(prereq)
+        OPTIONAL MATCH (ku)<-[r:REQUIRES_KNOWLEDGE]-(prereq)
         WHERE r.difficulty_gap IS NOT NULL
 
         WITH user, ku, m,

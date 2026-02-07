@@ -44,13 +44,13 @@ Example Flow:
 
     # Step 3: BulkIngestionEngine template filters connections.* from node props
     # Step 4: Cypher FOREACH creates edges:
-    #   MERGE (n)<-[:PREREQUISITE]-(target {uid: "ku:A"})
-    #   MERGE (n)-[:ENABLES]->(target {uid: "ku:B"})
+    #   MERGE (n)-[:REQUIRES_KNOWLEDGE]->(target {uid: "ku:A"})
+    #   MERGE (n)-[:ENABLES_KNOWLEDGE]->(target {uid: "ku:B"})
 
     # Final Result:
     # - Node: (:Ku {uid: "ku:test", title: "Test"})
-    # - Edges: (ku:test)<-[:PREREQUISITE]-(ku:A)
-    #          (ku:test)-[:ENABLES]->(ku:B)
+    # - Edges: (ku:test)-[:REQUIRES_KNOWLEDGE]->(ku:A)
+    #          (ku:test)-[:ENABLES_KNOWLEDGE]->(ku:B)
 
 Type Safety:
     - Generic[T] parameter ensures type-safe entity processing
@@ -237,7 +237,7 @@ class CypherExecutor[T]:
                     #
                     # Later in BulkIngestionEngine:
                     #   - apoc.map.removeKeys() filters out "connections.requires", "connections.enables"
-                    #   - FOREACH creates edges: MERGE (n)<-[:PREREQUISITE]-(target {uid: "ku:A"})
+                    #   - FOREACH creates edges: MERGE (n)-[:REQUIRES_KNOWLEDGE]->(target {uid: "ku:A"})
                     #   - Result: Node has NO connection properties, ONLY graph edges exist
                     # ========================================================================
                     metadata = getattr(entity, "metadata", None)

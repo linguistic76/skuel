@@ -46,7 +46,7 @@ Supporting Domains (Tasks, Habits, Goals, Events, Journals, etc.)
    - Streams: `yoga_and_feeling`, `human_practice`, `relationships_and_community`
 
 2. **KnowledgeUnit** - Atomic units of knowledge with relationships
-   - Relationships: `PREREQUISITE`, `ENABLES`, `PART_OF`, `RELATED_TO`
+   - Relationships: `REQUIRES_KNOWLEDGE`, `ENABLES_KNOWLEDGE`, `PART_OF`, `RELATED_TO`
    - Categorized by Domain (TECH, PERSONAL, HEALTH, etc.)
 
 3. **Supporting Domains** - Real-world application entities
@@ -124,7 +124,7 @@ WHERE lp.uid = $current_path_uid
 MATCH (lp)-[:CONTAINS]->(ku:Ku)
 
 // Filter by prerequisites
-OPTIONAL MATCH (ku)<-[:PREREQUISITE]-(prereq:Ku)
+OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
 WITH ku, lp,
      collect(prereq.uid) AS prereq_uids,
      $mastered_knowledge_uids AS mastered
@@ -226,7 +226,7 @@ RETURN
 
 ```cypher
 // Find complete prerequisite chain for target knowledge
-MATCH path = (target:Ku {uid: $target_uid})<-[:PREREQUISITE*0..5]-(prereq:Ku)
+MATCH path = (target:Ku {uid: $target_uid})-[:REQUIRES_KNOWLEDGE*0..5]->(prereq:Ku)
 
 // Get user's mastery state
 MATCH (user:User {uid: $user_uid})
@@ -355,13 +355,13 @@ WITH ku, ku_data
 // Phase 4: Create prerequisite relationships
 FOREACH (prereq_uid IN coalesce(ku_data.prerequisites, []) |
   MERGE (prereq:Ku {uid: prereq_uid})
-  MERGE (ku)<-[:PREREQUISITE]-(prereq)
+  MERGE (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
 )
 
 // Phase 5: Create enables relationships
 FOREACH (enabled_uid IN coalesce(ku_data.enables, []) |
   MERGE (enabled:Ku {uid: enabled_uid})
-  MERGE (ku)-[:ENABLES]->(enabled)
+  MERGE (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
 )
 
 RETURN
@@ -443,7 +443,7 @@ WHERE current_path.uid = $current_path_uid
 MATCH (current_path)-[:CONTAINS]->(ku:Ku)
 
 // Filter by prerequisites (all must be mastered)
-OPTIONAL MATCH (ku)<-[:PREREQUISITE]-(prereq:Ku)
+OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
 WITH ku, current_path, user,
      collect(prereq.uid) AS prereq_uids,
      $mastered_uids AS mastered
@@ -480,7 +480,7 @@ WITH ku, current_path,
      END AS difficulty_match,
 
      // Prefer knowledge that enables more downstream knowledge
-     size((ku)-[:ENABLES]->(:Ku)) AS enablement_score
+     size((ku)-[:ENABLES_KNOWLEDGE]->(:Ku)) AS enablement_score
 
 WITH ku, current_path,
      (section_priority + difficulty_match + (enablement_score * 0.5)) AS recommendation_score
@@ -624,7 +624,7 @@ CREATE INDEX user_lookup IF NOT EXISTS FOR (u:User) ON (u.username);
    ```
 
 2. **Limit relationship traversal depth**
-   - Use `[:PREREQUISITE*0..5]` instead of `[:PREREQUISITE*]`
+   - Use `[:REQUIRES_KNOWLEDGE*0..5]` instead of `[:REQUIRES_KNOWLEDGE*]`
    - Set reasonable max depth based on curriculum structure
 
 3. **Filter early in the query**
@@ -633,7 +633,7 @@ CREATE INDEX user_lookup IF NOT EXISTS FOR (u:User) ON (u.username);
 
 4. **Use EXISTS for conditional relationships**
    ```cypher
-   WHERE exists((ku)<-[:PREREQUISITE]-())  // Has prerequisites
+   WHERE exists((ku)-[:REQUIRES_KNOWLEDGE]->())  // Has prerequisites
    ```
 
 5. **Batch operations with UNWIND**

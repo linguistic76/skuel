@@ -110,7 +110,7 @@ async def get_cross_domain_opportunities(
         {
             "from_uid": "ku.python-basics",
             "to_uid": "ku.machine-learning",
-            "relationship": "ENABLES",
+            "relationship": "ENABLES_KNOWLEDGE",
             "strength": 0.8
         }
     ],
@@ -580,7 +580,7 @@ mock_context = GraphContext(
         GraphRelationship(
             start_uid="ku.python-basics",
             end_uid="ku.machine-learning",
-            rel_type="ENABLES",
+            rel_type="ENABLES_KNOWLEDGE",
             properties={"strength": 0.8}
         )
     ]
@@ -598,7 +598,7 @@ result = await service.get_cross_domain_opportunities(
 assert result.is_ok
 data = result.value
 assert len(data["connections"]) == 1
-assert data["connections"][0]["relationship"] == "ENABLES"
+assert data["connections"][0]["relationship"] == "ENABLES_KNOWLEDGE"
 ```
 
 ---

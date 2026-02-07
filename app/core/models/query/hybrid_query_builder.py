@@ -16,14 +16,14 @@ WHERE ku.sel_category = 'self_awareness'  -- Fast indexed property filter
   AND ku.learning_level = 'beginner'       -- Fast indexed property filter
 WITH ku
 WHERE EXISTS {                              -- Graph traversal on filtered set
-  MATCH (user)-[:MASTERED]->()-[:ENABLES]->(ku)
+  MATCH (user)-[:MASTERED]->()-[:ENABLES_KNOWLEDGE]->(ku)
 }
 RETURN ku
 
 // ❌ INEFFICIENT - Traverse first, then filter
 MATCH (ku:Ku)
 WHERE EXISTS {                              -- Graph traversal on ALL nodes
-  MATCH (user)-[:MASTERED]->()-[:ENABLES]->(ku)
+  MATCH (user)-[:MASTERED]->()-[:ENABLES_KNOWLEDGE]->(ku)
 }
 WITH ku
 WHERE ku.sel_category = 'self_awareness'  -- Filter after traversal
@@ -62,8 +62,8 @@ class HybridQueryBuilder:
             "learning_level": "beginner",
         },
         graph_patterns={
-            "ready_to_learn": "NOT EXISTS { MATCH (ku)-[:REQUIRES]->(prereq) ... }",
-            "supports_goals": "EXISTS { MATCH (user)-[:PURSUING_GOAL]->(goal)-[:REQUIRES]->(ku) }",
+            "ready_to_learn": "NOT EXISTS { MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq) ... }",
+            "supports_goals": "EXISTS { MATCH (user)-[:PURSUING_GOAL]->(goal)-[:REQUIRES_KNOWLEDGE]->(ku) }",
         },
         user_uid="user.mike",
         QueryLimit.SMALL,
