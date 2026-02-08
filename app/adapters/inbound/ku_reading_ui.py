@@ -217,14 +217,14 @@ def create_ku_reading_ui_routes(
             metadata_items.append(_metadata_badge("Views:", str(view_count), "badge-ghost"))
 
         metadata_section = (
-            Div(*metadata_items, cls="flex flex-wrap gap-2 mb-4") if metadata_items else None
+            Div(*metadata_items, cls="flex flex-wrap gap-2") if metadata_items else None
         )
 
         # Tags
         tags_section = None
         if ku.tags:
             tag_badges = [Span(tag, cls="badge badge-outline badge-sm") for tag in ku.tags]
-            tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mb-6")
+            tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mt-3")
 
         # Content area: TOC sidebar + markdown (or just markdown if no TOC)
         if has_toc:
@@ -267,20 +267,26 @@ def create_ku_reading_ui_routes(
             cls="border-t border-base-200 pt-6 mt-8",
         )
 
-        # Assemble page
+        # Assemble page — text-focused layout: title → content → metadata at bottom
         content = Div(
             Breadcrumbs(path=breadcrumb_path),
             PageHeader(
                 title=ku.title,
                 actions=[mark_read_btn, bookmark_btn],
             ),
-            metadata_section,
-            tags_section,
-            # Content card
+            # Content card (the focus of the page)
             Card(
                 CardBody(content_area),
                 cls="mt-2",
             ),
+            # Metadata + tags (below content, not competing with reading)
+            Div(
+                metadata_section,
+                tags_section,
+                cls="border-t border-base-200 pt-6 mt-8",
+            )
+            if metadata_section or tags_section
+            else None,
             # Navigation
             nav_section,
             # Lateral relationships (Phase 5)
