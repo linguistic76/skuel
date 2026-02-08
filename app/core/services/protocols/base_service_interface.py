@@ -27,21 +27,21 @@ Real-World Usage Examples
             return {"healthy": False, "reason": "No categories"}
         return {"healthy": True, "categories": categories.value}
 
-2. Service Container/Registry (Dependency Injection):
-    from core.services.protocols.base_service_interface import BaseServiceInterface
+2. SKUEL's Service Container (Production):
+    from core.utils.services_bootstrap import Services
 
-    class ServiceRegistry:
-        def __init__(self):
-            self._services: dict[str, BaseServiceInterface[Any, Any]] = {}
+    # THE service container - all 58 services with compile-time type safety
+    services = Services(
+        tasks=tasks_service,
+        goals=goals_service,
+        habits=habits_service,
+        # ... all domains
+    )
 
-        def register(self, name: str, service: BaseServiceInterface[Any, Any]):
-            '''Register a service by name - works with ANY BaseService.'''
-            self._services[name] = service
-
-        def get_categories(self, service_name: str) -> list[str]:
-            service = self._services[service_name]
-            result = service.list_categories()  # IDE knows this method exists!
-            return result.value if not result.is_error else []
+    # Routes receive Services via dependency injection
+    def create_tasks_routes(services: Services):
+        # MyPy knows: services.tasks is TasksOperations
+        await services.tasks.create_task(...)  # Full autocomplete!
 
 3. Cross-Domain Analytics (Generic Operations):
     from core.services.protocols.base_service_interface import BaseServiceInterface
@@ -70,11 +70,17 @@ For domain-specific operations, use concrete types or domain protocols:
 
 Production Examples
 -------------------
-For real-world usage, see:
-- /core/utils/service_introspection.py - Generic service utilities using BaseServiceInterface
+SKUEL's Service Registry (Production):
+- /core/utils/services_bootstrap.py - Services dataclass (THE registry)
+  - Compile-time type safety with 58 typed fields
+  - Frozen dataclass prevents runtime modification
+  - Protocol-typed for zero concrete dependencies
+
+Generic Service Utilities (Production):
+- /core/utils/service_introspection.py - Cross-domain operations using BaseServiceInterface
   - get_service_capabilities() - Analyze service features generically
   - get_domain_health_report() - Cross-domain analytics
-  - ServiceRegistry example in docstring - Type-safe service container pattern
+  - ServiceRegistry example in docstring - Educational pattern demonstration
 
 See Also:
 - /docs/reference/BASESERVICE_METHOD_INDEX.md - Complete method listing (35-50 methods)

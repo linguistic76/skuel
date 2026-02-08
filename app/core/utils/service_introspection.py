@@ -2,56 +2,55 @@
 Service Introspection Utilities
 ================================
 
-Generic utilities for introspecting and validating BaseService instances.
+Generic utilities that work with ANY BaseService implementation through the
+BaseServiceInterface protocol. These functions demonstrate type-safe cross-domain
+operations - you can analyze Tasks, Goals, Habits, KU, or any other domain service
+using the same code.
 
-These functions demonstrate the value of BaseServiceInterface protocol:
-- Type-safe generic operations across any domain service
-- IDE autocomplete for all BaseService methods
-- Runtime validation of service capabilities
+Three Generic Operations
+------------------------
 
-Usage:
+1. get_service_capabilities() - Analyze any service's features
+   - Works with ANY BaseService (Tasks, Goals, Habits, KU, etc.)
+   - Returns: categories, user progress support, graph context capabilities
+   - Type-safe: IDE autocompletes all BaseService methods
+
+2. validate_service_for_analytics() - Check service has required methods
+   - Protocol-based capability checking
+   - Returns: (is_valid, missing_methods)
+   - Useful for runtime validation
+
+3. get_domain_health_report() - Health check across multiple services
+   - Accepts dict of domain services
+   - Runs capability analysis on each
+   - Returns unified health report
+
+Usage Example
+-------------
     from core.utils.service_introspection import get_service_capabilities
 
+    # Works with ANY BaseService
     capabilities = await get_service_capabilities(tasks_service)
     # Returns: {"has_categories": True, "has_user_progress": True, ...}
 
-Example: Building a Service Registry
--------------------------------------
+    # Cross-domain health check
+    services_dict = {
+        "tasks": tasks_service,
+        "goals": goals_service,
+        "habits": habits_service,
+    }
+    report = await get_domain_health_report(services_dict)
+    # Returns health data for all three domains
 
-Here's how you could build a type-safe service registry using BaseServiceInterface:
+Why This Works
+--------------
+BaseServiceInterface provides a common protocol that all BaseService implementations
+share (search, CRUD, relationships, etc.). These functions use only those common
+methods, so they work with ANY domain service.
 
-    from core.services.protocols.base_service_interface import BaseServiceInterface
-    from typing import Any
-
-    class ServiceRegistry:
-        '''Generic service registry with type-safe operations.'''
-
-        def __init__(self) -> None:
-            self._services: dict[str, BaseServiceInterface[Any]] = {}
-
-        def register(self, domain_name: str, service: BaseServiceInterface[Any]) -> None:
-            '''Register a service by domain name.'''
-            self._services[domain_name] = service
-
-        async def get_all_categories(self) -> dict[str, list[str]]:
-            '''Get categories from all registered services.'''
-            all_categories = {}
-            for domain_name, service in self._services.items():
-                # IDE autocompletes list_all_categories() because of BaseServiceInterface!
-                result = await service.list_all_categories()
-                if not result.is_error and result.value:
-                    all_categories[domain_name] = result.value
-            return all_categories
-
-        def get_service(self, domain_name: str) -> BaseServiceInterface[Any] | None:
-            '''Get service by domain name.'''
-            return self._services.get(domain_name)
-
-    # Usage:
-    registry = ServiceRegistry()
-    registry.register("tasks", tasks_service)
-    registry.register("goals", goals_service)
-    all_categories = await registry.get_all_categories()
+See Also:
+- /core/services/protocols/base_service_interface.py - The protocol definition
+- /core/utils/services_bootstrap.py - Services dataclass (SKUEL's service container)
 """
 
 from typing import Any
