@@ -840,6 +840,7 @@ async def _get_ku_system_metrics(services) -> dict:
         "total_viewed": 0,
         "total_in_progress": 0,
         "total_mastered": 0,
+        "total_bookmarked": 0,
         "users_with_progress": 0,
     }
 
@@ -857,9 +858,11 @@ async def _get_ku_system_metrics(services) -> dict:
             WITH total_kus, total_viewed, count(*) AS total_in_progress
             OPTIONAL MATCH (:User)-[:MASTERED]->(:Ku)
             WITH total_kus, total_viewed, total_in_progress, count(*) AS total_mastered
+            OPTIONAL MATCH (:User)-[:BOOKMARKED]->(:Ku)
+            WITH total_kus, total_viewed, total_in_progress, total_mastered, count(*) AS total_bookmarked
             OPTIONAL MATCH (u:User)
-                WHERE EXISTS { (u)-[:VIEWED|IN_PROGRESS|MASTERED]->(:Ku) }
-            RETURN total_kus, total_viewed, total_in_progress, total_mastered,
+                WHERE EXISTS { (u)-[:VIEWED|IN_PROGRESS|MASTERED|BOOKMARKED]->(:Ku) }
+            RETURN total_kus, total_viewed, total_in_progress, total_mastered, total_bookmarked,
                    count(DISTINCT u) AS users_with_progress
             """
         )
@@ -870,6 +873,7 @@ async def _get_ku_system_metrics(services) -> dict:
             metrics["total_viewed"] = r["total_viewed"] or 0
             metrics["total_in_progress"] = r["total_in_progress"] or 0
             metrics["total_mastered"] = r["total_mastered"] or 0
+            metrics["total_bookmarked"] = r["total_bookmarked"] or 0
             metrics["users_with_progress"] = r["users_with_progress"] or 0
     except Exception as e:
         logger.warning(f"Failed to get KU system metrics: {e}")
@@ -893,6 +897,8 @@ async def _get_all_users_ku_progress(services) -> list[dict]:
             WITH u, viewed_count, count(DISTINCT ku2) AS in_progress_count
             OPTIONAL MATCH (u)-[:MASTERED]->(ku3:Ku)
             WITH u, viewed_count, in_progress_count, count(DISTINCT ku3) AS mastered_count
+            OPTIONAL MATCH (u)-[:BOOKMARKED]->(ku4:Ku)
+            WITH u, viewed_count, in_progress_count, mastered_count, count(DISTINCT ku4) AS bookmarked_count
             RETURN u.uid AS uid,
                    u.display_name AS display_name,
                    u.title AS username,
@@ -900,6 +906,7 @@ async def _get_all_users_ku_progress(services) -> list[dict]:
                    viewed_count,
                    in_progress_count,
                    mastered_count,
+                   bookmarked_count,
                    (viewed_count + in_progress_count + mastered_count) AS total_interactions
             ORDER BY total_interactions DESC
             """
@@ -917,10 +924,12 @@ async def _get_user_ku_detail(services, user_uid: str) -> dict:
         "viewed": [],
         "in_progress": [],
         "mastered": [],
+        "bookmarked": [],
         "summary": {
             "viewed_count": 0,
             "in_progress_count": 0,
             "mastered_count": 0,
+            "bookmarked_count": 0,
         },
     }
 
@@ -955,7 +964,13 @@ async def _get_user_ku_detail(services, user_uid: str) -> dict:
                 method: m.method
             }) AS mastered_kus
 
-            RETURN viewed_kus, progress_kus, mastered_kus
+            OPTIONAL MATCH (u)-[b:BOOKMARKED]->(bku:Ku)
+            WITH viewed_kus, progress_kus, mastered_kus, collect(DISTINCT {
+                uid: bku.uid, title: bku.title,
+                bookmarked_at: toString(b.bookmarked_at)
+            }) AS bookmarked_kus
+
+            RETURN viewed_kus, progress_kus, mastered_kus, bookmarked_kus
             """,
             user_uid=user_uid,
         )
@@ -966,13 +981,16 @@ async def _get_user_ku_detail(services, user_uid: str) -> dict:
             viewed = [ku for ku in r["viewed_kus"] if ku.get("uid")]
             in_progress = [ku for ku in r["progress_kus"] if ku.get("uid")]
             mastered = [ku for ku in r["mastered_kus"] if ku.get("uid")]
+            bookmarked = [ku for ku in r["bookmarked_kus"] if ku.get("uid")]
 
             detail["viewed"] = viewed
             detail["in_progress"] = in_progress
             detail["mastered"] = mastered
+            detail["bookmarked"] = bookmarked
             detail["summary"]["viewed_count"] = len(viewed)
             detail["summary"]["in_progress_count"] = len(in_progress)
             detail["summary"]["mastered_count"] = len(mastered)
+            detail["summary"]["bookmarked_count"] = len(bookmarked)
     except Exception as e:
         logger.warning(f"Failed to get user KU detail for {user_uid}: {e}")
 

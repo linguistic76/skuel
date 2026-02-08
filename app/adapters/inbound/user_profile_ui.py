@@ -874,6 +874,122 @@ def setup_user_profile_routes(rt, services):
             request=request,
         )
 
+    @rt("/profile/bookmarks")
+    async def profile_bookmarks(request: Request) -> Any:
+        """My Bookmarks page - shows KUs bookmarked by the current user."""
+        user_uid = require_authenticated_user(request)
+
+        try:
+            user, context = await _get_user_and_context(user_uid)
+        except ValueError as e:
+            logger.error(
+                "Failed to load user or context for bookmarks page",
+                extra={"user_uid": user_uid, "error": str(e)},
+            )
+            return await error_page(str(e), 500)
+
+        from fasthtml.common import A, Div, H2, H4, P, Span
+
+        # Fetch bookmarked KUs with details
+        bookmarked_kus: list[dict] = []
+        if services.neo4j_driver:
+            try:
+                records, _, _ = await services.neo4j_driver.execute_query(
+                    """
+                    MATCH (u:User {uid: $user_uid})-[b:BOOKMARKED]->(ku:Ku)
+                    RETURN ku.uid AS uid, ku.title AS title,
+                           toString(b.bookmarked_at) AS bookmarked_at
+                    ORDER BY b.bookmarked_at DESC
+                    """,
+                    user_uid=user_uid,
+                )
+                bookmarked_kus = [dict(r) for r in records]
+            except Exception as e:
+                logger.warning(f"Failed to fetch bookmarked KUs: {e}")
+
+        # Build bookmark cards
+        def bookmark_card(ku: dict) -> Any:
+            """Render a bookmarked KU card."""
+            ku_title = ku.get("title") or ku.get("uid") or "Untitled"
+            date_val = ku.get("bookmarked_at", "")
+            if date_val and "T" in str(date_val):
+                date_val = str(date_val).split("T")[0]
+
+            return Div(
+                Div(
+                    H4(ku_title, cls="card-title text-sm"),
+                    P(
+                        f"Bookmarked: {date_val}" if date_val else "",
+                        cls="text-xs text-base-content/60 mt-1",
+                    ),
+                    Div(
+                        A(
+                            "Read",
+                            href=f"/ku/{ku['uid']}",
+                            cls="btn btn-xs btn-primary",
+                        ),
+                        cls="mt-3",
+                    ),
+                    cls="card-body p-4",
+                ),
+                cls="card bg-base-200 shadow-sm hover:shadow-md transition-shadow",
+            )
+
+        content = Div(
+            H2("My Bookmarks", cls="text-2xl font-bold mb-4"),
+            P(
+                "Knowledge Units you've bookmarked for later reference.",
+                cls="text-base-content/70 mb-6",
+            ),
+            (
+                Div(
+                    Span(
+                        f"{len(bookmarked_kus)} bookmarked",
+                        cls="badge badge-info mb-4",
+                    ),
+                    Div(
+                        *[bookmark_card(ku) for ku in bookmarked_kus],
+                        cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
+                    ),
+                )
+                if bookmarked_kus
+                else Div(
+                    P(
+                        "No bookmarked Knowledge Units yet. "
+                        "Browse KUs and click the Bookmark button to save them here.",
+                        cls="text-center text-base-content/60 py-12",
+                    ),
+                    cls="card bg-base-200 p-8",
+                )
+            ),
+        )
+
+        # Build sidebar items
+        insight_counts: dict[str, int] = {}
+        total_unread_insights = 0
+        if services.insight_store:
+            counts_result = await services.insight_store.get_insight_counts_by_domain(user_uid)
+            if not counts_result.is_error:
+                insight_counts = counts_result.value
+                total_unread_insights = sum(insight_counts.values())
+
+        domain_items = _build_domain_items(context, insight_counts)
+        curriculum_items = _build_curriculum_items(context)
+        display_name = user.display_name if user.display_name else user.username
+        is_admin = user.can_manage_users() if hasattr(user, "can_manage_users") else False
+
+        return await create_profile_page(
+            content=content,
+            domains=domain_items,
+            active_domain="bookmarks",
+            user_display_name=display_name,
+            title="My Bookmarks - Profile Hub",
+            is_admin=is_admin,
+            curriculum_domains=curriculum_items,
+            unread_insights=total_unread_insights,
+            request=request,
+        )
+
     # ========================================================================
     # CHART API ROUTES - Phase 1, Task 2: Intelligence Data Visualization
     # ========================================================================

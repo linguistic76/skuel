@@ -1059,6 +1059,11 @@ class AdminLearningComponents:
                 "value": metrics.get("total_mastered", 0),
                 "color": "green",
             },
+            "bookmarked": {
+                "label": "Bookmarked",
+                "value": metrics.get("total_bookmarked", 0),
+                "color": "indigo",
+            },
             "active_learners": {
                 "label": "Active Learners",
                 "value": metrics.get("users_with_progress", 0),
@@ -1115,6 +1120,7 @@ class AdminLearningComponents:
                         str(row.get("mastered_count", 0)),
                         cls="text-center font-semibold",
                     ),
+                    Td(str(row.get("bookmarked_count", 0)), cls="text-center"),
                     Td(str(row.get("total_interactions", 0)), cls="text-center"),
                     cls="hover:bg-base-200",
                 )
@@ -1128,6 +1134,7 @@ class AdminLearningComponents:
                         Th("Viewed", cls="text-center"),
                         Th("In Progress", cls="text-center"),
                         Th("Mastered", cls="text-center"),
+                        Th("Bookmarked", cls="text-center"),
                         Th("Total", cls="text-center"),
                     ),
                     cls="bg-base-200",
@@ -1146,6 +1153,7 @@ class AdminLearningComponents:
             summary.get("viewed_count", 0)
             + summary.get("in_progress_count", 0)
             + summary.get("mastered_count", 0)
+            + summary.get("bookmarked_count", 0)
         )
 
         if total == 0:
@@ -1172,6 +1180,11 @@ class AdminLearningComponents:
                 "value": summary.get("mastered_count", 0),
                 "color": "green",
             },
+            "bookmarked": {
+                "label": "Bookmarked",
+                "value": summary.get("bookmarked_count", 0),
+                "color": "indigo",
+            },
         }
         return SharedUIComponents.render_stats_cards(stats_config)
 
@@ -1181,8 +1194,9 @@ class AdminLearningComponents:
         viewed = detail.get("viewed", [])
         in_progress = detail.get("in_progress", [])
         mastered = detail.get("mastered", [])
+        bookmarked = detail.get("bookmarked", [])
 
-        if not viewed and not in_progress and not mastered:
+        if not viewed and not in_progress and not mastered and not bookmarked:
             return Div(
                 P(
                     "No Knowledge Unit interactions recorded for this user.",
@@ -1191,6 +1205,11 @@ class AdminLearningComponents:
             )
 
         sections = []
+
+        if bookmarked:
+            sections.append(
+                _ku_state_section("Bookmarked", "badge-info", bookmarked, "bookmarked_at")
+            )
 
         if mastered:
             sections.append(

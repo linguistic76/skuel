@@ -235,6 +235,16 @@ def build_profile_sidebar(
                 **{"hx-boost": "false"},
             )
         ),
+        # My Bookmarks link
+        Li(
+            Anchor(
+                Span("🔖", cls="text-lg", aria_hidden="true"),
+                "My Bookmarks",
+                href="/profile/bookmarks",
+                cls=f"flex items-center gap-2 {'menu-active' if active_domain == 'bookmarks' else ''}",
+                **{"hx-boost": "false"},
+            )
+        ),
         # Activity Domains moved to navbar profile dropdown (2026-02-06)
         # Curriculum section (if provided)
         *curriculum_section,
