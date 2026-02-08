@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-01-29
+updated: 2026-02-08
 status: current
 category: reference
 tags: [protocol, reference]
@@ -9,7 +9,7 @@ related: [ADR-025, ADR-027]
 
 # Protocol Reference Guide
 
-**Last Updated:** January 29, 2026
+**Last Updated:** February 8, 2026
 **Purpose:** Complete reference for all Protocol interfaces in SKUEL codebase
 **Location:** `/core/services/protocols/` (service protocols) and `/core/models/protocols/` (domain model protocols)
 
@@ -22,9 +22,10 @@ related: [ADR-025, ADR-027]
 3. [Backend Capability Protocols](#backend-capability-protocols)
 4. [Domain-Specific Protocols](#domain-specific-protocols)
 5. [Facade Protocols (January 2026)](#facade-protocols-january-2026)
-6. [Knowledge Carrier Protocols (ADR-027)](#knowledge-carrier-protocols-adr-027)
-7. [Context Awareness Protocols](#context-awareness-protocols)
-8. [Usage Examples](#usage-examples)
+6. [Route-Facing Service Protocols (February 2026)](#route-facing-service-protocols-february-2026)
+7. [Knowledge Carrier Protocols (ADR-027)](#knowledge-carrier-protocols-adr-027)
+8. [Context Awareness Protocols](#context-awareness-protocols)
+9. [Usage Examples](#usage-examples)
 
 ---
 
@@ -35,12 +36,16 @@ related: [ADR-025, ADR-027]
 | **Base Protocols** | `/core/services/protocols/base_protocols.py` | Core types, backend operations |
 | **Domain Protocols** | `/core/services/protocols/domain_protocols.py` | Domain service operations |
 | **Curriculum Protocols** | `/core/services/protocols/curriculum_protocols.py` | KU, LS, LP, MOC operations |
+| **Askesis Protocols** | `/core/services/protocols/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
+| **Reports Protocols** | `/core/services/protocols/reports_protocols.py` | Submission, sharing, processing, feedback |
+| **Group Protocols** | `/core/services/protocols/group_protocols.py` | Group CRUD, teacher review queue |
+| **Service Protocols** | `/core/services/protocols/service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration |
 | **Search Protocols** | `/core/services/protocols/search_protocols.py` | Search operations |
-| **Infrastructure Protocols** | `/core/services/protocols/infrastructure_protocols.py` | EventBus, Schema, User |
+| **Infrastructure Protocols** | `/core/services/protocols/infrastructure_protocols.py` | EventBus, Schema, User, Ingestion |
+| **Intelligence Protocols** | `/core/services/protocols/intelligence_protocols.py` | Analytics operations |
 | **Facade Protocols** | `/core/services/protocols/facade_protocols.py` | Type hints for delegated methods |
 | **Context Awareness** | `/core/services/protocols/context_awareness_protocols.py` | UserContext slices (ISP) |
 | **Knowledge Carrier** | `/core/models/protocols/knowledge_carrier_protocol.py` | Knowledge integration |
-| **Content Protocols** | `/core/services/protocols/content_protocols.py` | Content item handling |
 
 ---
 
@@ -321,10 +326,10 @@ class SupportsHealthCheck(Protocol):
 
 All domain operation protocols use `Result[T]` return types, aligning with SKUEL's error handling pattern. Services implement these protocols and return `Result.ok(value)` or `Result.error(error)`.
 
-### The 14 Domain Protocols
+### Domain Backend Protocols
 
-| Protocol | Domain | Entity Type |
-|----------|--------|-------------|
+| Protocol | Domain | Category |
+|----------|--------|----------|
 | `TasksOperations` | Tasks | Activity |
 | `GoalsOperations` | Goals | Activity |
 | `HabitsOperations` | Habits | Activity |
@@ -335,10 +340,6 @@ All domain operation protocols use `Result[T]` return types, aligning with SKUEL
 | `KuOperations` | Knowledge Units | Curriculum |
 | `LsOperations` | Learning Steps | Curriculum |
 | `LpOperations` | Learning Paths | Curriculum |
-| `AssignmentOperations` | Assignments | Content |
-| `JournalOperations` | Journals | Content |
-| `ReportOperations` | Reports | Meta-service |
-| `CalendarOperations` | Calendar | Temporal |
 
 ### Result[T] Return Pattern
 
@@ -526,6 +527,128 @@ def process_tasks(service: "TasksFacadeProtocol"):
 3. **Results in "Cannot instantiate abstract class" errors** - MyPy sees "missing" methods that actually exist at runtime
 
 **Facade protocols are ONLY for parameter type hints, NOT for inheritance.**
+
+---
+
+## Route-Facing Service Protocols (February 2026)
+
+**Purpose:** ISP-compliant protocols for services passed from the `Services` dataclass to route files
+**Core Principle:** Each protocol captures ONLY the methods actually called from routes — not the full service API
+
+These protocols replace `Any` types on the `Services` dataclass fields, giving route files type-safe contracts without coupling to concrete implementations.
+
+### Three Protocol Files
+
+| File | Protocols | Route Consumers |
+|------|-----------|-----------------|
+| `reports_protocols.py` | 7 protocols | `reports_api.py`, `reports_sharing_api.py`, `report_projects_api.py` |
+| `group_protocols.py` | 2 protocols | `groups_api.py`, `teaching_api.py` |
+| `service_protocols.py` | 9 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py` |
+
+Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
+
+### Reports Domain Protocols (7)
+
+| Protocol | Services Field | Methods | Route Consumer |
+|----------|---------------|---------|----------------|
+| `ReportSubmissionOperations` | `reports` | 7 (submit_file, get_report, list_reports, get_file_content, get_processed_file_content, get_report_statistics, update_processed_content) | `reports_api.py` |
+| `ReportsCoreOperations` | `reports_core` | 14 (get_report, categorize, tags, publish, archive, draft, bulk ops, create_journal_report) | `reports_api.py`, `reports_sharing_api.py` |
+| `ReportsSearchOperations` | `reports_query` | 4 (search_reports, get_report_statistics, get_recent_reports, get_journal_for_report) | `reports_api.py` |
+| `ReportSharingOperations` | `reports_sharing` | 6 (share, unshare, get_shared_with_users, get_reports_shared_with_me, set_visibility, check_access) | `reports_sharing_api.py` |
+| `ReportsProcessingOperations` | `processing_pipeline` | 2 (process_report, reprocess_report) | `reports_api.py` |
+| `ReportProjectOperations` | `report_projects` | 5 (create, get, list, update, delete) | `report_projects_api.py` |
+| `ReportFeedbackOperations` | `report_feedback` | 1 (generate_feedback) | `report_projects_api.py` |
+
+### Group & Teaching Protocols (2)
+
+| Protocol | Services Field | Methods | Route Consumer |
+|----------|---------------|---------|----------------|
+| `GroupOperations` | `group_service` | 9 (create, get, list_teacher, list_user, update, delete, add/remove member, get_members) | `groups_api.py` |
+| `TeacherReviewOperations` | `teacher_review` | 4 (get_review_queue, submit_feedback, request_revision, approve_report) | `teaching_api.py` |
+
+### Cross-Cutting Service Protocols (9)
+
+| Protocol | Services Field | Methods | Route Consumer |
+|----------|---------------|---------|----------------|
+| `CalendarServiceOperations` | `calendar` | 4 async (get_calendar_view, get_item, quick_create, reschedule_item) | `calendar_api.py`, `visualization_api.py` |
+| `VisualizationOperations` | `visualization` | 11 (4 async data + 7 sync Chart.js/Vis.js formatters) | `visualization_api.py` |
+| `SystemServiceOperations` | `system_service` | 11 (5 async health + 6 sync management) | `system_api.py` |
+| `CrossDomainAnalyticsOperations` | `cross_domain_analytics` | 5 async (learning_velocity, spending_patterns, mood, productivity, habit_consistency) | `analytics_api.py` |
+| `LifePathOperations` | `lifepath` | 3 async + `.alignment` sub-service | `lifepath_api.py` |
+| `GraphAuthOperations` | `graph_auth` | 5 async (sign_up, sign_in, sign_out, reset_password, admin_reset_token) | `auth_ui.py`, `admin_api.py` |
+| `GoalTaskGeneratorOperations` | `goal_task_generator` | 1 (generate_tasks_for_goal) | `orchestration_routes.py` |
+| `HabitEventSchedulerOperations` | `habit_event_scheduler` | 1 (schedule_events_for_habit) | `orchestration_routes.py` |
+| `AskesisCoreOperations` | `askesis_core` | 6 (build_user_context, get_or_create, create, get, update, record_conversation) | `askesis_api.py` |
+
+### Nested Protocol Pattern: LifePathOperations
+
+LifePathService exposes a `.alignment` sub-service. The protocol models this with a nested protocol:
+
+```python
+@runtime_checkable
+class LifePathAlignmentOperations(Protocol):
+    async def calculate_alignment(self, user_uid: str) -> Result[Any]: ...
+
+@runtime_checkable
+class LifePathOperations(Protocol):
+    alignment: LifePathAlignmentOperations  # Sub-service access
+
+    async def get_full_status(self, user_uid: str) -> Result[dict[str, Any]]: ...
+    async def capture_and_recommend(self, user_uid: str, vision_statement: str) -> Result[dict[str, Any]]: ...
+    async def designate_and_calculate(self, user_uid: str, life_path_uid: str) -> Result[dict[str, Any]]: ...
+```
+
+Routes access it as `lifepath_service.alignment.calculate_alignment(user_uid)`.
+
+### Mixed Async/Sync Pattern: VisualizationOperations
+
+Some services have both async (I/O) and sync (computation) methods called from routes. Both are included in the protocol:
+
+```python
+@runtime_checkable
+class VisualizationOperations(Protocol):
+    # Async — data fetching
+    async def get_completion_data(self, user_uid: str, period: str, tasks_service: Any) -> Result[dict]: ...
+    async def get_streak_data(self, user_uid: str, habits_service: Any) -> Result[list[dict]]: ...
+
+    # Sync — Chart.js formatting
+    def format_completion_chart(self, completed: list[int], total: list[int], labels: list[str], ...) -> Result[dict]: ...
+    def format_for_visjs(self, calendar_data: Any, group_by: str = "type") -> Result[dict]: ...
+```
+
+### Usage in Route Files
+
+```python
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from core.services.protocols import ReportSharingOperations, ReportsCoreOperations
+
+def create_reports_sharing_api_routes(
+    _app: Any,
+    rt: Any,
+    reports_sharing: "ReportSharingOperations",
+    reports_core: "ReportsCoreOperations",
+) -> list[Any]:
+    # MyPy verifies .share_report(), .check_access() etc. exist
+    ...
+```
+
+### Services Dataclass Wiring
+
+Each protocol is wired as a union type on the `Services` dataclass:
+
+```python
+# core/utils/services_bootstrap.py
+@dataclass
+class Services:
+    reports: ReportSubmissionOperations | None = None
+    reports_core: ReportsCoreOperations | None = None
+    reports_sharing: ReportSharingOperations | None = None
+    calendar: CalendarServiceOperations | None = None
+    graph_auth: GraphAuthOperations | None = None
+    # ... 19 route-facing fields total
+```
 
 ---
 
@@ -852,12 +975,12 @@ When creating new Protocols:
 
 ## Related Documentation
 
-- `/docs/patterns/protocol_architecture.md` - Protocol architecture and best practices
+- `/docs/patterns/protocol_architecture.md` - Protocol architecture and best practices (includes Phase 5: Route-Facing ISP Protocols)
 - `/docs/patterns/BACKEND_OPERATIONS_ISP.md` - BackendOperations protocol hierarchy
 - `/docs/guides/PROTOCOL_IMPLEMENTATION_GUIDE.md` - How to implement protocols
 - `/docs/decisions/ADR-025-service-consolidation-patterns.md` - Facade protocols context
 - `/docs/decisions/ADR-027-knowledge-carrier-protocol.md` - KnowledgeCarrier context
-- `CLAUDE.md` - Architectural principles (no hasattr rule)
+- `CLAUDE.md` - Architectural principles (Three Typing Strategies for Services dataclass)
 
 ---
 

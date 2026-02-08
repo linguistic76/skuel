@@ -1,6 +1,6 @@
 ---
 title: Protocol-Based Architecture
-updated: 2026-01-29
+updated: 2026-02-08
 category: patterns
 related_skills:
 - python
@@ -11,7 +11,7 @@ related_docs:
 
 # Protocol-Based Architecture
 
-**Last Updated**: January 29, 2026
+**Last Updated**: February 8, 2026
 
 ## Quick Start
 
@@ -32,12 +32,14 @@ For hands-on implementation:
 
 SKUEL uses Python's Protocol typing (PEP 544) for dependency injection without framework overhead. This provides type safety, testability, and clean architecture while maintaining the "one path forward" philosophy.
 
-**Core Achievements** (January 2026):
+**Core Achievements** (January–February 2026):
 - **100% protocol compliance** - All services, routes, and containers use protocol types
 - **100% hasattr elimination** - All attribute checks now use Protocol-based type checking
 - **Zero port dependencies** - All services use `core/services/protocols/*` exclusively
-- **Zero concrete type dependencies** - All route signatures use facade protocols
+- **Zero concrete type dependencies** - All route signatures use facade or ISP protocols
 - **9 facade protocols** - Complete MyPy visibility for delegated methods
+- **19 route-facing ISP protocols** - Services container fields typed (February 2026)
+- **14 internal fields typed** via TYPE_CHECKING concrete classes (February 2026)
 - **75% code reduction** through generic programming patterns
 - **27+ services** using protocol interfaces exclusively
 
@@ -73,10 +75,23 @@ core/
 ├── protocols.py                      # Core type-checking protocols
 └── services/
     └── protocols/
-        ├── domain_protocols.py       # Business domain operations
-        ├── knowledge_protocols.py    # Knowledge management
-        ├── search_protocols.py       # Search & query operations
-        └── infrastructure_protocols.py # System & infrastructure
+        ├── __init__.py               # Consolidated exports (~120 symbols)
+        ├── askesis_protocols.py       # Askesis cross-cutting intelligence (6 protocols)
+        ├── base_protocols.py          # Backend operations ISP hierarchy (7+ protocols)
+        ├── base_service_interface.py  # BaseService mixin protocols
+        ├── calendar_protocol.py       # CalendarTrackable entity protocol
+        ├── context_awareness_protocols.py # UserContext slices (11 protocols)
+        ├── curriculum_protocols.py    # KU, LS, LP operations (4 protocols)
+        ├── domain_protocols.py        # Activity domain operations (9 protocols)
+        ├── facade_protocols.py        # MyPy declarations for facades (9 protocols)
+        ├── graph_protocols.py         # Graph entity protocols
+        ├── group_protocols.py         # Group & teaching (2 protocols) [Feb 2026]
+        ├── infrastructure_protocols.py # EventBus, User, Ingestion (6 protocols)
+        ├── intelligence_protocols.py  # Analytics operations (1 protocol)
+        ├── query_types.py             # TypedDicts for queries
+        ├── reports_protocols.py       # Reports domain (7 protocols) [Feb 2026]
+        ├── search_protocols.py        # Search operations (8 protocols)
+        └── service_protocols.py       # Route-facing services (9 protocols) [Feb 2026]
 ```
 
 ### Protocol Categories
@@ -84,13 +99,16 @@ core/
 | Category | File | Purpose | Count |
 |----------|------|---------|-------|
 | **Type Checking** | `core/protocols.py` | Attribute checking (replaces hasattr) | 30+ |
-| **Domain Operations** | `domain_protocols.py` | Business logic interfaces (TasksOperations, GoalsOperations) | 9 |
-| **Facade Protocols** | `facade_protocols.py` | MyPy type declarations for delegated methods | 9 |
-| **Curriculum (3)** | `curriculum_protocols.py` | KU, LS, LP operations (unified hierarchy) | 4 |
+| **Domain Operations** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 9 |
+| **Facade Protocols** | `facade_protocols.py` | MyPy declarations for delegated methods | 9 |
+| **Curriculum** | `curriculum_protocols.py` | KU, LS, LP operations (unified hierarchy) | 4 |
 | **Search** | `search_protocols.py` | Search and query operations | 8 |
-| **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, etc. | 5 |
+| **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, Ingestion | 6 |
 | **Intelligence** | `intelligence_protocols.py` | Analytics and intelligence operations | 1 |
-| **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence and synthesis | 5 |
+| **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 |
+| **Reports** | `reports_protocols.py` | Submission, sharing, processing, feedback | 7 |
+| **Groups** | `group_protocols.py` | Group CRUD, teacher review queue | 2 |
+| **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration | 9 |
 
 ### Protocol Cleanup (January 2026)
 
@@ -259,6 +277,78 @@ class JournalsCoreService(BaseService[JournalsOperations, JournalPure]):
 - **Better IDE support** with complete method autocomplete
 - **Easier testing** with protocol-based mocking
 - **Cleaner architecture** following dependency inversion principle
+
+### Phase 5: Route-Facing ISP Protocols (February 2026)
+
+Extended protocol coverage from Activity/Curriculum domains to **all route-facing services** in the Services dataclass. This phase introduced a key distinction between two typing strategies:
+
+**Strategy 1: ISP Protocols (route-facing services)**
+
+For services passed as parameters to route factory functions (`create_*_routes()`), we create ISP-compliant protocols that capture *only* the methods routes actually call. This prevents drift between what routes expect and what services provide.
+
+```python
+# service_protocols.py — ISP: only methods called from routes
+@runtime_checkable
+class GroupOperations(Protocol):
+    async def create_group(self, teacher_uid: str, name: str, ...) -> Result[Any]: ...
+    async def get_group(self, uid: str) -> Result[Any | None]: ...
+    # ... only methods routes call, not the full service interface
+```
+
+**Strategy 2: Concrete Types via TYPE_CHECKING (internal-only services)**
+
+For services used only for internal wiring (never passed to routes), we use concrete class types under `TYPE_CHECKING`. This gives IDE support and documentation without creating unnecessary protocol abstractions.
+
+```python
+if TYPE_CHECKING:
+    from core.services.transcription.transcription_service import TranscriptionService
+
+@dataclass
+class Services:
+    transcription: "TranscriptionService | None" = None  # Internal wiring only
+```
+
+**New Protocol Files (3):**
+
+| File | Protocols | Purpose |
+|------|-----------|---------|
+| `reports_protocols.py` | 7 | ReportSubmission, ReportsCore, ReportsSearch, ReportSharing, ReportsProcessing, ReportProject, ReportFeedback |
+| `group_protocols.py` | 2 | GroupOperations (9 methods), TeacherReviewOperations (4 methods) |
+| `service_protocols.py` | 9 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler |
+
+**Added to Existing Files:**
+- `askesis_protocols.py` — `AskesisCoreOperations` (6 methods for CRUD + context building)
+
+**Services Dataclass Fields Updated (33 total):**
+
+| Tier | Strategy | Fields | Examples |
+|------|----------|--------|---------|
+| Route-facing protocols | `Protocol \| None` | 19 | `group_service: GroupOperations`, `calendar: CalendarServiceOperations` |
+| Internal concrete types | `"ConcreteClass \| None"` | 10 | `transcription: "TranscriptionService"`, `insight_store: "InsightStore"` |
+| Infrastructure types | `"ConcreteClass \| None"` | 4 | `driver: "AsyncDriver"`, `graph_adapter: "Neo4jAdapter"` |
+
+**Route Files Updated (13):**
+All route factory functions updated with `TYPE_CHECKING` imports and protocol-typed parameters:
+- `reports_api.py`, `reports_sharing_api.py` — Reports protocols
+- `groups_api.py`, `teaching_api.py` — Group protocols
+- `visualization_api.py`, `system_api.py`, `calendar_api.py`, `lifepath_api.py` — Service protocols
+- `askesis_api.py` — AskesisCoreOperations
+- `auth_ui.py`, `admin_api.py` — GraphAuthOperations
+- `orchestration_routes.py` — GoalTaskGenerator/HabitEventScheduler protocols
+
+**Dead Code Removed:**
+- 3 unused fields deleted from Services: `yaml_loader`, `markdown_parser`, `apoc_adapter`
+
+**Remaining `Any` Fields (~25):**
+Intelligence services (`*_intelligence`), lateral relationship services (`*_lateral`), GenAI services (`embeddings_service`, `vector_search_service`), and advanced services (`calendar_optimization`, `jupyter_sync`). These are candidates for future protocol typing as they stabilize.
+
+**Why This Matters:**
+
+Before this phase, a developer looking at `group_service: Any` had no way to know what methods were available without reading the concrete class source. Now:
+1. **Route-facing protocols** document exactly what the route layer needs (ISP boundary)
+2. **TYPE_CHECKING types** give IDE autocomplete for internal wiring
+3. **Drift prevention** — if a service method signature changes, MyPy catches mismatches at the protocol boundary
+4. The Services dataclass itself becomes **documentation** — you can read the type annotations to understand the system topology
 
 ## Best Practices
 

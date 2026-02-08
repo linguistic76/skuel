@@ -471,13 +471,14 @@ EntityType.get_canonical()      # Normalizes aliases (KNOWLEDGE -> KU)
 
 **Core Principle:** "Zero port dependencies - all services use Protocol interfaces exclusively"
 
-**Status (January 2026):** ✅ **100% Protocol Compliance Achieved**
+**Status (February 2026):** ✅ **100% Protocol Compliance Achieved**
 - Zero concrete type dependencies in route signatures
 - All services use protocol-based backends
 - All facade services have MyPy-visible protocol declarations
 - Full type safety across 27+ services
+- **Services dataclass: ~33 of ~58 fields typed** (protocols + TYPE_CHECKING concrete types)
 
-**Protocol Location:** `core/services/protocols/` - 8 protocol files covering all domains
+**Protocol Location:** `core/services/protocols/` - 11 protocol files covering all domains
 
 **Key Protocol Categories:**
 
@@ -488,9 +489,22 @@ EntityType.get_canonical()      # Normalizes aliases (KNOWLEDGE -> KU)
 | **Facades** | `facade_protocols.py` | MyPy declarations for delegated methods | 9 protocols |
 | **Curriculum** | `curriculum_protocols.py` | KU, LS, LP operations | 4 protocols |
 | **Search** | `search_protocols.py` | Search and query operations | 8 protocols |
-| **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, etc. | 5 protocols |
+| **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, etc. | 6 protocols |
 | **Intelligence** | `intelligence_protocols.py` | Analytics operations | 1 protocol |
-| **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence | 5 protocols |
+| **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 protocols |
+| **Reports** | `reports_protocols.py` | Submission, sharing, processing | 7 protocols |
+| **Groups** | `group_protocols.py` | Group CRUD, teacher review | 2 protocols |
+| **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration | 9 protocols |
+
+**Three Typing Strategies (Services Dataclass):**
+
+| Strategy | When | Example |
+|----------|------|---------|
+| **Protocol (route-facing)** | Service passed to route functions | `group_service: GroupOperations` |
+| **Concrete via TYPE_CHECKING** | Internal wiring, never in routes | `transcription: "TranscriptionService"` |
+| **`Any` (remaining)** | Intelligence, lateral, GenAI services | `tasks_intelligence: Any` |
+
+Route-facing protocols capture only the methods routes actually call (ISP). Internal fields use concrete classes for IDE support without architectural boundaries.
 
 **Facade Protocols (9 total):**
 Make FacadeDelegationMixin-generated methods visible to MyPy:
@@ -512,18 +526,15 @@ BackendOperations[T]  <- THE protocol (UniversalNeo4jBackend implements this)
 **Usage Pattern:**
 
 ```python
-# Routes use facade protocols
+# Route-facing: ISP protocol (captures only methods routes call)
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from core.services.protocols.facade_protocols import TasksFacadeProtocol
+    from core.services.protocols import GroupOperations
 
-def create_tasks_api_routes(
-    app: Any,
-    rt: Any,
-    tasks_service: TasksFacadeProtocol,  # Protocol, not concrete
+def create_groups_api_routes(
+    app: Any, rt: Any, group_service: "GroupOperations", ...
 ) -> list[Any]:
-    # MyPy knows all 45+ delegated methods
-    await tasks_service.schedule_task(...)  # ✓ Type-safe
+    await group_service.create_group(...)  # Type-safe
 ```
 
 **Relationship Service Patterns:**

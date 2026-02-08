@@ -110,7 +110,28 @@ from core.constants import MasteryLevel
 from core.models.enums.neo_labels import NeoLabel
 
 if TYPE_CHECKING:
+    from neo4j import AsyncDriver
+
+    from adapters.persistence.neo4j_adapter import Neo4jAdapter
+    from adapters.personalized_knowledge_discovery_adapter import (
+        PersonalizedKnowledgeDiscoveryAdapter,
+    )
+    from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
+        AdaptiveLpCrossDomainService,
+    )
     from core.services.adaptive_sel_service import AdaptiveSELService
+    from core.services.insight.insight_store import InsightStore
+    from core.services.relationships.unified_relationship_service import (
+        UnifiedRelationshipService,
+    )
+    from core.services.transcript_processor_service import TranscriptProcessorService
+    from core.services.transcription.transcription_service import TranscriptionService
+    from core.services.user.intelligence.factory import (
+        UserContextIntelligenceFactory,
+    )
+    from core.services.user_progress_service import UserProgressService
+    from core.services.user_relationship_service import UserRelationshipService
 
 from core.services.protocols import (
     AskesisCoreOperations,
@@ -201,17 +222,15 @@ class Services:
     # Note: MOC is a Content/Organization domain, not Curriculum
     # ========================================================================
     ku: KuOperations | None = None  # KuService (Knowledge Units) - atomic knowledge content
-    personalized_discovery: Any = None  # PersonalizedKnowledgeDiscoveryAdapter - THE way
+    personalized_discovery: "PersonalizedKnowledgeDiscoveryAdapter | None" = None
     adaptive_sel: "AdaptiveSELService | None" = (
         None  # AdaptiveSELService - personalized curriculum delivery
     )
-    cross_domain: Any = None  # AdaptiveLpCrossDomainService - Cross-domain learning opportunities
+    cross_domain: "AdaptiveLpCrossDomainService | None" = None
 
     # Content services
-    transcript_processor: Any = (
-        None  # TranscriptProcessorService - Processes transcripts into documents
-    )
-    transcription: Any = None  # TranscriptionService (simplified, Dec 2025)
+    transcript_processor: "TranscriptProcessorService | None" = None
+    transcription: "TranscriptionService | None" = None
 
     # Report feedback services (LLM-based processing for any report type)
     report_feedback: ReportFeedbackOperations | None = (
@@ -264,25 +283,21 @@ class Services:
 
     # User management (fundamental)
     user_service: UserOperations | None = None  # UserService - user profile management
-    user_relationships: Any = (
-        None  # UserRelationshipService - pinning, following, etc. (no protocol yet)
-    )
+    user_relationships: "UserRelationshipService | None" = None
     graph_auth: GraphAuthOperations | None = (
         None  # GraphAuthService - graph-native authentication
     )
     context_service: UserContextOperations | None = (
         None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)
     )
-    context_intelligence: Any = (
-        None  # UserContextIntelligenceFactory - 13-domain intelligence (2025-11-26)
-    )
+    context_intelligence: "UserContextIntelligenceFactory | None" = None
 
     # Consolidated Learning Services (V4)
     # learning facade uses LpFacadeProtocol for MyPy type checking
     learning: LpFacadeProtocol | None = (
         None  # LpService facade (routes access .intelligence, .core, .search)
     )
-    user_progress: Any = None  # UserProgressService - User knowledge profile and mastery tracking
+    user_progress: "UserProgressService | None" = None
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
     lp: LpOperations | None = None  # LpService - All path management (Protocol-typed for GraphQL)
     ls: LsOperations | None = (
@@ -292,8 +307,8 @@ class Services:
         None  # LpIntelligenceService - analysis and recommendations
     )
     # Relationship sub-services for curriculum domains
-    ls_relationships: Any = None  # LsService.relationships - UnifiedRelationshipService
-    lp_relationships: Any = None  # LpService.relationships - UnifiedRelationshipService
+    ls_relationships: "UnifiedRelationshipService | None" = None
+    lp_relationships: "UnifiedRelationshipService | None" = None
     askesis: AskesisOperations | None = (
         None  # AskesisService - Unified retrieval chatbot (requires OPENAI_API_KEY)
     )
@@ -302,12 +317,12 @@ class Services:
     )
 
     # Infrastructure adapters
-    graph_adapter: Any = None  # Neo4jAdapter - database connection
+    graph_adapter: "Neo4jAdapter | None" = None
     event_bus: EventBusOperations | None = None
-    prometheus_metrics: Any = None  # PrometheusMetrics for HTTP instrumentation
+    prometheus_metrics: "PrometheusMetrics | None" = None
 
     # Event-driven intelligence (Phase 1 - January 2026)
-    insight_store: Any = None  # InsightStore - Persists event-driven insights
+    insight_store: "InsightStore | None" = None
 
     # Note: choices moved to Activity Domains section above
 
@@ -382,8 +397,8 @@ class Services:
     )
 
     # Infrastructure - Neo4j driver (exposed for routes that need context building)
-    driver: Any = None  # Neo4j AsyncDriver - Exposed for routes requiring UserContextBuilder
-    neo4j_driver: Any = None  # Alias for driver (backward compatibility)
+    driver: "AsyncDriver | None" = None
+    neo4j_driver: "AsyncDriver | None" = None  # Alias for driver
 
     # GenAI services (Neo4j native embeddings and vector search - January 2026)
     embeddings_service: Any = None  # Neo4jGenAIEmbeddingsService - Embeddings via ai.text.embed()
