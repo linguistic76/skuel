@@ -267,6 +267,19 @@ def create_ku_reading_ui_routes(
             cls="border-t border-base-200 pt-6 mt-8",
         )
 
+        # Build metadata footer (below content, not competing with reading)
+        metadata_footer_items = []
+        if metadata_section:
+            metadata_footer_items.append(metadata_section)
+        if tags_section:
+            metadata_footer_items.append(tags_section)
+
+        metadata_footer = (
+            Div(*metadata_footer_items, cls="border-t border-base-200 pt-6 mt-8")
+            if metadata_footer_items
+            else Div()
+        )
+
         # Assemble page — text-focused layout: title → content → metadata at bottom
         content = Div(
             Breadcrumbs(path=breadcrumb_path),
@@ -279,14 +292,8 @@ def create_ku_reading_ui_routes(
                 CardBody(content_area),
                 cls="mt-2",
             ),
-            # Metadata + tags (below content, not competing with reading)
-            Div(
-                metadata_section,
-                tags_section,
-                cls="border-t border-base-200 pt-6 mt-8",
-            )
-            if metadata_section or tags_section
-            else None,
+            # Metadata + tags
+            metadata_footer,
             # Navigation
             nav_section,
             # Lateral relationships (Phase 5)
