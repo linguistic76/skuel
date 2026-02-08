@@ -17,6 +17,7 @@ from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Any, TypeVar
 
+from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
 
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
@@ -138,6 +139,8 @@ def boundary_handler(success_status: int = 200) -> Callable[[Callable], Callable
                 # Otherwise return as-is
                 return result
 
+            except HTTPException:
+                raise  # Let Starlette handle with correct status code (e.g. 401)
             except Exception as e:
                 # Log unexpected errors
                 logger.error(f"Unexpected error in {func.__name__}: {e}")
