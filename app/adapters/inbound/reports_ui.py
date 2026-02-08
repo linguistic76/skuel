@@ -74,6 +74,16 @@ def _render_upload_status(
     )
 
 
+def _get_report_identifier(report: Any) -> str:
+    """Extract the identifier from report metadata, falling back to report_type."""
+    metadata = getattr(report, "metadata", None)
+    if isinstance(metadata, dict):
+        identifier = metadata.get("identifier")
+        if identifier:
+            return str(identifier)
+    return getattr(report, "report_type", "unknown")
+
+
 def _get_status_badge_class(status: str) -> str:
     """Get DaisyUI badge class for report status."""
     classes = {
@@ -98,13 +108,14 @@ def _render_report_card(report: Any, is_pinned: bool = False) -> Any:
     from components.shared.pin_button import PinButton
 
     file_size_mb = (report.file_size / 1024 / 1024) if hasattr(report, "file_size") else 0
+    identifier = _get_report_identifier(report)
     return Div(
         Div(
             Div(
                 Div(
                     H4(report.original_filename, cls="mb-0 font-semibold"),
                     P(
-                        f"{report.report_type} \u2022 {file_size_mb:.2f} MB",
+                        f"{identifier} \u2022 {file_size_mb:.2f} MB",
                         cls="text-sm text-base-content/60 mb-0",
                     ),
                     cls="flex-1",
@@ -151,12 +162,17 @@ def _render_report_detail(report: Any) -> Any:
     file_size_mb = (report.file_size / 1024 / 1024) if hasattr(report, "file_size") else 0
     processing_duration = getattr(report, "processing_duration_seconds", None)
     created_at = getattr(report, "created_at", None)
+    identifier = _get_report_identifier(report)
 
     return Div(
         Div(
             Div(
                 P("Filename", cls="text-xs text-base-content/60 mb-0"),
                 P(report.original_filename, cls="mb-0 font-bold"),
+            ),
+            Div(
+                P("Identifier", cls="text-xs text-base-content/60 mb-0"),
+                P(identifier, cls="mb-0 font-semibold"),
             ),
             Div(
                 P("Status", cls="text-xs text-base-content/60 mb-0"),
@@ -167,10 +183,6 @@ def _render_report_detail(report: Any) -> Any:
                     ),
                     cls="mb-0",
                 ),
-            ),
-            Div(
-                P("Type", cls="text-xs text-base-content/60 mb-0"),
-                P(report.report_type, cls="mb-0"),
             ),
             Div(
                 P("File Size", cls="text-xs text-base-content/60 mb-0"),
@@ -609,12 +621,28 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
         # File upload form - HTMX-powered
         upload_form = Div(
             Div(
-                H3("Submit File for Review", cls="card-title"),
+                H3("Submit Report", cls="card-title"),
                 P(
-                    "Upload a file to share with a teacher, peer, or mentor",
+                    "Upload a file with a KU identifier",
                     cls="text-base-content/60",
                 ),
                 Form(
+                    # Identifier input (loose KU reference)
+                    Div(
+                        Label("Identifier", cls="label"),
+                        Input(
+                            type="text",
+                            name="identifier",
+                            placeholder="e.g. meditation-basics, yoga-101",
+                            cls="input input-bordered w-full",
+                            required=True,
+                        ),
+                        P(
+                            "A short label linking this submission to a Knowledge Unit",
+                            cls="text-xs text-base-content/60 mt-1",
+                        ),
+                        cls="mb-4",
+                    ),
                     # File input with label styling
                     Div(
                         Label(
@@ -634,19 +662,6 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
                                 required=True,
                             ),
                             cls="w-full cursor-pointer",
-                        ),
-                        cls="mb-4",
-                    ),
-                    # Report type selector
-                    Div(
-                        Label("Report Type", cls="label"),
-                        Select(
-                            Option("Transcript", value="transcript", selected=True),
-                            Option("Assignment", value="assignment"),
-                            Option("Image Analysis", value="image_analysis"),
-                            Option("Video Summary", value="video_summary"),
-                            name="report_type",
-                            cls="select select-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -680,20 +695,6 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
             Div(
                 H3("Filters", cls="card-title"),
                 Form(
-                    # Type filter
-                    Div(
-                        Label("Type", cls="label"),
-                        Select(
-                            Option("All Types", value="", selected=True),
-                            Option("Transcript", value="transcript"),
-                            Option("Assignment", value="assignment"),
-                            Option("Image Analysis", value="image_analysis"),
-                            Option("Video Summary", value="video_summary"),
-                            name="report_type",
-                            cls="select select-bordered w-full",
-                        ),
-                        cls="mb-2",
-                    ),
                     # Status filter
                     Div(
                         Label("Status", cls="label"),
@@ -750,7 +751,7 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
             Div(
                 H1("Reports", cls="text-3xl font-bold"),
                 P(
-                    "Submit files for review",
+                    "Submit a file linked to a Knowledge Unit",
                     cls="text-lg text-base-content/60",
                 ),
                 cls="text-center mb-8",
@@ -810,34 +811,30 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
         try:
             form = await request.form()
             uploaded_file = form.get("file")
-            report_type_str = form.get("report_type", "transcript")
+            identifier = (form.get("identifier") or "").strip()
+
+            if not identifier:
+                return _render_upload_status("error", "Identifier is required", is_error=True)
 
             if not uploaded_file or not isinstance(uploaded_file, UploadFile):
                 return _render_upload_status("error", "No file provided", is_error=True)
-
-            # Validate and convert report_type to enum
-            try:
-                report_type = ReportType(report_type_str)
-            except ValueError:
-                return _render_upload_status(
-                    "error",
-                    f"Invalid report type: {report_type_str}",
-                    is_error=True,
-                )
 
             user_uid = require_authenticated_user(request)
             file_content = await uploaded_file.read()
             filename = uploaded_file.filename or "unknown"
 
-            logger.info(f"Report upload: {filename} ({len(file_content)} bytes)")
+            logger.info(
+                f"Report upload: {filename} ({len(file_content)} bytes, identifier={identifier})"
+            )
 
             # Submit for human review — processor_type always HUMAN for regular users
             result = await _report_service.submit_file(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
-                report_type=report_type,
+                report_type=ReportType.ASSIGNMENT,
                 processor_type=ProcessorType.HUMAN,
+                metadata={"identifier": identifier},
             )
 
             if result.is_error:
