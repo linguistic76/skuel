@@ -1087,7 +1087,13 @@ This architecture ensures:
 
 ---
 
-*Last Updated: January 29, 2026*
+## See Also
+
+- [Route Decorator Architecture](/docs/patterns/ROUTE_DECORATOR_ARCHITECTURE.md) — Decorator composition (`@rt` + `@boundary_handler`), lateral routes, FastHTML alignment
+- [Route Factories](/docs/patterns/ROUTE_FACTORIES.md) — Factory reference (CRUD, Status, Query, Intelligence, Analytics)
+- [Route Naming Convention](/docs/patterns/ROUTE_NAMING_CONVENTION.md) — File naming: `_routes.py`, `_api.py`, `_ui.py`
+
+*Last Updated: February 8, 2026*
 *Architecture: Routes → Services → Backends → Neo4j*
 *Pattern: Protocol-Based Dependency Injection*
 *Security: Content Scope (USER_OWNED vs SHARED) on All Routes*

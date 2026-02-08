@@ -158,6 +158,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Enum Consolidation Pattern](patterns/ENUM_CONSOLIDATION_PATTERN.md) | 2026-01-07 | 220 |
 | [Ownership Verification](patterns/OWNERSHIP_VERIFICATION.md) | 2025-12-05 | 180 |
 | **[Content Sharing Patterns](patterns/SHARING_PATTERNS.md)** | **2026-02-02** | **680** |
+| **[Route Decorator Architecture](patterns/ROUTE_DECORATOR_ARCHITECTURE.md)** | **2026-02-08** | **240** |
 | [Route Factories](patterns/ROUTE_FACTORIES.md) | 2025-12-05 | 200 |
 | [Route Naming Convention](patterns/ROUTE_NAMING_CONVENTION.md) | 2026-01-12 | 120 |
 | [Error Handling Decorators](patterns/error_handling_decorators.md) | 2025-11-27 | 180 |

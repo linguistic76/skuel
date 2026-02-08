@@ -38,7 +38,9 @@ from typing import Any
 from fasthtml.common import Request
 
 from core.auth import require_authenticated_user
+from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
@@ -77,13 +79,14 @@ class LateralRouteFactory:
 
         # POST /api/{domain}/{uid}/lateral/blocks - Create blocking relationship
         @rt(f"/api/{self.domain}/{{uid}}/lateral/blocks", methods=["POST"])
+        @boundary_handler(success_status=201)
         async def create_blocking(
             request: Request,
             uid: str,
             target_uid: str,
             reason: str,
             severity: str = "required",
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """
             Create BLOCKS relationship.
 
@@ -104,56 +107,61 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "message": f"{self.entity_name} blocking relationship created",
-                "blocker_uid": uid,
-                "blocked_uid": target_uid,
-            }
+            return Result.ok(
+                {
+                    "message": f"{self.entity_name} blocking relationship created",
+                    "blocker_uid": uid,
+                    "blocked_uid": target_uid,
+                }
+            )
 
         routes.append(create_blocking)
 
         # GET /api/{domain}/{uid}/lateral/blocking - Get entities that block this one
         @rt(f"/api/{self.domain}/{{uid}}/lateral/blocking", methods=["GET"])
+        @boundary_handler()
         async def get_blocking(
             request: Request, uid: str
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """Get entities that block this entity."""
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_blocking_goals(uid, user_uid=user_uid)
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "blocking": result.value,
-                "count": len(result.value),
-            }
+            return Result.ok(
+                {
+                    "blocking": result.value,
+                    "count": len(result.value),
+                }
+            )
 
         routes.append(get_blocking)
 
         # GET /api/{domain}/{uid}/lateral/blocked - Get entities blocked by this one
         @rt(f"/api/{self.domain}/{{uid}}/lateral/blocked", methods=["GET"])
+        @boundary_handler()
         async def get_blocked(
             request: Request, uid: str
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """Get entities blocked by this entity."""
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_blocked_goals(uid, user_uid=user_uid)
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "blocked": result.value,
-                "count": len(result.value),
-            }
+            return Result.ok(
+                {
+                    "blocked": result.value,
+                    "count": len(result.value),
+                }
+            )
 
         routes.append(get_blocked)
 
@@ -165,13 +173,14 @@ class LateralRouteFactory:
 
         # POST /api/{domain}/{uid}/lateral/prerequisites - Create prerequisite relationship
         @rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["POST"])
+        @boundary_handler(success_status=201)
         async def create_prerequisite(
             request: Request,
             uid: str,
             target_uid: str,
             strength: float = 0.8,
             reasoning: str | None = None,
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """
             Create PREREQUISITE_FOR relationship.
 
@@ -192,35 +201,38 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "message": f"{self.entity_name} prerequisite relationship created",
-                "prerequisite_uid": uid,
-                "dependent_uid": target_uid,
-            }
+            return Result.ok(
+                {
+                    "message": f"{self.entity_name} prerequisite relationship created",
+                    "prerequisite_uid": uid,
+                    "dependent_uid": target_uid,
+                }
+            )
 
         routes.append(create_prerequisite)
 
         # GET /api/{domain}/{uid}/lateral/prerequisites - Get prerequisite entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["GET"])
+        @boundary_handler()
         async def get_prerequisites(
             request: Request, uid: str
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """Get entities that are prerequisites for this entity."""
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_prerequisites(uid, user_uid=user_uid)
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "prerequisites": result.value,
-                "count": len(result.value),
-            }
+            return Result.ok(
+                {
+                    "prerequisites": result.value,
+                    "count": len(result.value),
+                }
+            )
 
         routes.append(get_prerequisites)
 
@@ -232,13 +244,14 @@ class LateralRouteFactory:
 
         # POST /api/{domain}/{uid}/lateral/alternatives - Create alternative relationship
         @rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["POST"])
+        @boundary_handler(success_status=201)
         async def create_alternative(
             request: Request,
             uid: str,
             target_uid: str,
             comparison_criteria: str,
             tradeoffs: list[str] | None = None,
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """
             Create ALTERNATIVE_TO relationship.
 
@@ -259,35 +272,38 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "message": f"{self.entity_name} alternative relationship created",
-                "entity_a_uid": uid,
-                "entity_b_uid": target_uid,
-            }
+            return Result.ok(
+                {
+                    "message": f"{self.entity_name} alternative relationship created",
+                    "entity_a_uid": uid,
+                    "entity_b_uid": target_uid,
+                }
+            )
 
         routes.append(create_alternative)
 
         # GET /api/{domain}/{uid}/lateral/alternatives - Get alternative entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["GET"])
+        @boundary_handler()
         async def get_alternatives(
             request: Request, uid: str
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """Get alternative entities."""
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_alternative_goals(uid, user_uid=user_uid)
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "alternatives": result.value,
-                "count": len(result.value),
-            }
+            return Result.ok(
+                {
+                    "alternatives": result.value,
+                    "count": len(result.value),
+                }
+            )
 
         routes.append(get_alternatives)
 
@@ -299,13 +315,14 @@ class LateralRouteFactory:
 
         # POST /api/{domain}/{uid}/lateral/complementary - Create complementary relationship
         @rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["POST"])
+        @boundary_handler(success_status=201)
         async def create_complementary(
             request: Request,
             uid: str,
             target_uid: str,
             synergy_description: str,
             synergy_score: float = 0.7,
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """
             Create COMPLEMENTARY_TO relationship.
 
@@ -326,35 +343,38 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "message": f"{self.entity_name} complementary relationship created",
-                "entity_a_uid": uid,
-                "entity_b_uid": target_uid,
-            }
+            return Result.ok(
+                {
+                    "message": f"{self.entity_name} complementary relationship created",
+                    "entity_a_uid": uid,
+                    "entity_b_uid": target_uid,
+                }
+            )
 
         routes.append(create_complementary)
 
         # GET /api/{domain}/{uid}/lateral/complementary - Get complementary entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["GET"])
+        @boundary_handler()
         async def get_complementary(
             request: Request, uid: str
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """Get complementary entities."""
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_complementary_goals(uid, user_uid=user_uid)
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "complementary": result.value,
-                "count": len(result.value),
-            }
+            return Result.ok(
+                {
+                    "complementary": result.value,
+                    "count": len(result.value),
+                }
+            )
 
         routes.append(get_complementary)
 
@@ -365,22 +385,24 @@ class LateralRouteFactory:
 
         # GET /api/{domain}/{uid}/lateral/siblings - Get sibling entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/siblings", methods=["GET"])
+        @boundary_handler()
         async def get_siblings(
             request: Request, uid: str
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """Get sibling entities (same parent in hierarchy)."""
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_sibling_goals(uid, user_uid=user_uid)
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "siblings": result.value,
-                "count": len(result.value),
-            }
+            return Result.ok(
+                {
+                    "siblings": result.value,
+                    "count": len(result.value),
+                }
+            )
 
         return get_siblings
 
@@ -392,12 +414,13 @@ class LateralRouteFactory:
             f"/api/{self.domain}/{{uid}}/lateral/{{relationship_type}}/{{target_uid}}",
             methods=["DELETE"],
         )
+        @boundary_handler()
         async def delete_lateral_relationship(
             request: Request,
             uid: str,
             relationship_type: str,
             target_uid: str,
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """
             Delete lateral relationship.
 
@@ -418,17 +441,19 @@ class LateralRouteFactory:
 
             method_name = method_map.get(relationship_type)
             if not method_name:
-                return {
-                    "success": False,
-                    "error": f"Unsupported relationship type: {relationship_type}",
-                }, 400
+                return Result.fail(
+                    Errors.validation(
+                        f"Unsupported relationship type: {relationship_type}"
+                    )
+                )
 
             delete_method = getattr(self.lateral_service, method_name, None)
             if delete_method is None:
-                return {
-                    "success": False,
-                    "error": f"Delete method not available for {relationship_type}",
-                }, 400
+                return Result.fail(
+                    Errors.validation(
+                        f"Delete method not available for {relationship_type}"
+                    )
+                )
             result = await delete_method(
                 blocker_uid=uid,
                 blocked_uid=target_uid,
@@ -436,14 +461,15 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "message": f"{self.entity_name} {relationship_type} relationship deleted",
-                "source_uid": uid,
-                "target_uid": target_uid,
-            }
+            return Result.ok(
+                {
+                    "message": f"{self.entity_name} {relationship_type} relationship deleted",
+                    "source_uid": uid,
+                    "target_uid": target_uid,
+                }
+            )
 
         return delete_lateral_relationship
 
@@ -456,11 +482,12 @@ class LateralRouteFactory:
 
         # GET /api/{domain}/{uid}/lateral/chain - Get transitive blocking chain
         @rt(f"/api/{self.domain}/{{uid}}/lateral/chain", methods=["GET"])
+        @boundary_handler()
         async def get_chain(
             request: Request,
             uid: str,
             max_depth: int = 10,
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """
             Get transitive blocking chain organized by depth.
 
@@ -477,9 +504,9 @@ class LateralRouteFactory:
             result = await self.lateral_service.lateral_service.get_blocking_chain(uid, max_depth)
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {"success": True, **result.value}
+            return Result.ok(result.value)
 
         return get_chain
 
@@ -491,11 +518,12 @@ class LateralRouteFactory:
             f"/api/{self.domain}/{{uid}}/lateral/alternatives/compare",
             methods=["GET"],
         )
+        @boundary_handler()
         async def get_comparison(
             request: Request,
             uid: str,
             fields: str | None = None,
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """
             Get alternative entities with side-by-side comparison data.
 
@@ -515,13 +543,14 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
-            return {
-                "success": True,
-                "alternatives": result.value,
-                "count": len(result.value),
-            }
+            return Result.ok(
+                {
+                    "alternatives": result.value,
+                    "count": len(result.value),
+                }
+            )
 
         return get_comparison
 
@@ -530,12 +559,13 @@ class LateralRouteFactory:
 
         # GET /api/{domain}/{uid}/lateral/graph - Get relationship graph
         @rt(f"/api/{self.domain}/{{uid}}/lateral/graph", methods=["GET"])
+        @boundary_handler()
         async def get_graph(
             request: Request,
             uid: str,
             depth: int = 2,
             types: str | None = None,
-        ) -> dict[str, Any] | tuple[dict[str, Any], int]:
+        ) -> Result[dict[str, Any]]:
             """
             Get relationship graph in Vis.js Network format.
 
@@ -559,20 +589,19 @@ class LateralRouteFactory:
                 try:
                     relationship_types = [LateralRelationType(t.strip()) for t in types.split(",")]
                 except ValueError as e:
-                    return {
-                        "success": False,
-                        "error": f"Invalid relationship type: {e!s}",
-                    }, 400
+                    return Result.fail(
+                        Errors.validation(f"Invalid relationship type: {e!s}")
+                    )
 
             result = await self.lateral_service.lateral_service.get_relationship_graph(
                 uid, depth, relationship_types
             )
 
             if result.is_error:
-                return {"success": False, "error": str(result.error)}, 400
+                return result
 
             # Return Vis.js format directly (includes nodes and edges)
-            return result.value
+            return Result.ok(result.value)
 
         return get_graph
 
