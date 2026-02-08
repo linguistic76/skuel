@@ -214,6 +214,34 @@ def _profile_dropdown(current_user: str, active_page: str) -> Div:
     )
 
 
+def _admin_profile_section(current_user: str) -> Div:
+    """Simplified profile section for admin users — no activity domain dropdown.
+
+    Admin accounts focus on administration, not personal activity tracking.
+    Shows avatar + sign out link only.
+    """
+    initial = current_user[0].upper() if current_user else "A"
+    hue = _avatar_hue(current_user)
+
+    avatar = Div(
+        initial,
+        cls="size-8 rounded-full flex items-center justify-center text-white font-medium text-sm",
+        style=f"background-color: hsl({hue}, 65%, 45%);",
+        aria_hidden="true",
+    )
+
+    return Div(
+        Div(avatar, cls="flex items-center"),
+        A(
+            "Sign out",
+            href="/logout",
+            cls="btn btn-ghost btn-sm text-base-content/70 hover:text-base-content",
+            **{"hx-boost": "false"},
+        ),
+        cls="hidden sm:flex items-center gap-2",
+    )
+
+
 def _auth_buttons() -> Div:
     """Create login/signup buttons for unauthenticated users."""
     return Div(
@@ -267,8 +295,9 @@ def create_navbar(
     )
 
     # Mobile activity domain links (shown in hamburger menu for authenticated users)
+    # Admin users skip activity domains — they focus on administration
     mobile_domain_links: Div | str = ""
-    if is_authenticated:
+    if is_authenticated and not is_admin:
         mobile_domain_links = Div(
             Div(
                 Span(
@@ -286,9 +315,29 @@ def create_navbar(
             cls="sm:hidden",
             **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
         )
+    elif is_authenticated and is_admin:
+        mobile_domain_links = Div(
+            Div(
+                Span(
+                    "Account",
+                    cls="text-xs font-semibold uppercase tracking-wider opacity-60 px-3 pt-3 pb-1 block",
+                ),
+                *[_nav_link(item, active_page, mobile=True) for item in PROFILE_ACCOUNT_ITEMS],
+                cls="space-y-1 px-2 pb-3 border-t border-base-200 mt-2 pt-2",
+            ),
+            cls="sm:hidden",
+            **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
+        )
 
     # Profile section (authenticated vs not)
-    if is_authenticated and current_user:
+    # Admin users get simplified profile — no activity domain dropdown
+    if is_authenticated and current_user and is_admin:
+        profile_section = Div(
+            _notification_button(unread_insights),
+            _admin_profile_section(current_user),
+            cls="flex items-center gap-2",
+        )
+    elif is_authenticated and current_user:
         profile_section = Div(
             _notification_button(unread_insights),
             _profile_dropdown(current_user, active_page),
