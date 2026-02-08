@@ -369,7 +369,7 @@ class MetricsCache:
             affected_contexts: Which contexts were affected
         """
         # Write to Prometheus (source of truth)
-        self.prometheus_metrics.events.context_invalidations_total.labels(user_uid=user_uid).inc()
+        self.prometheus_metrics.events.context_invalidations_total.inc()
 
         # Update cache (debugging only)
         if self.enabled:

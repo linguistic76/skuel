@@ -202,15 +202,9 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                 result_stats = await neo4j_adapter.driver.execute_query(query_stats)
                 if result_stats.records:
                     record = result_stats.records[0]
-                    prometheus_metrics.relationships.total_entities.labels(user_uid="system").set(
-                        record["total_nodes"]
-                    )
-                    prometheus_metrics.relationships.total_relationships.labels(
-                        user_uid="system"
-                    ).set(record["total_rels"])
-                    prometheus_metrics.relationships.graph_density.labels(user_uid="system").set(
-                        record["density"]
-                    )
+                    prometheus_metrics.relationships.total_entities.set(record["total_nodes"])
+                    prometheus_metrics.relationships.total_relationships.set(record["total_rels"])
+                    prometheus_metrics.relationships.graph_density.set(record["density"])
 
                 # Query 2: Orphaned entities (nodes with no relationships)
                 query_orphaned = """
@@ -221,9 +215,7 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                 result_orphaned = await neo4j_adapter.driver.execute_query(query_orphaned)
                 if result_orphaned.records:
                     orphaned_count = result_orphaned.records[0]["orphaned_count"]
-                    prometheus_metrics.relationships.orphaned_entities.labels(
-                        user_uid="system"
-                    ).set(orphaned_count)
+                    prometheus_metrics.relationships.orphaned_entities.set(orphaned_count)
 
                 # Query 3: Specific relationship type counts
                 query_rel_types = """
@@ -284,45 +276,37 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                         semantic_count += count
 
                 # Update specific relationship counts
-                prometheus_metrics.relationships.blocking_relationships.labels(
-                    user_uid="system"
-                ).set(blocks_count)
-                prometheus_metrics.relationships.enables_relationships.labels(
-                    user_uid="system"
-                ).set(enables_count)
-                prometheus_metrics.relationships.contains_relationships.labels(
-                    user_uid="system"
-                ).set(contains_count)
-                prometheus_metrics.relationships.organizes_relationships.labels(
-                    user_uid="system"
-                ).set(organizes_count)
+                prometheus_metrics.relationships.blocking_relationships.set(blocks_count)
+                prometheus_metrics.relationships.enables_relationships.set(enables_count)
+                prometheus_metrics.relationships.contains_relationships.set(contains_count)
+                prometheus_metrics.relationships.organizes_relationships.set(organizes_count)
 
                 # Update layer counts
                 prometheus_metrics.relationships.relationships_by_layer.labels(
-                    layer="hierarchical", user_uid="system"
+                    layer="hierarchical"
                 ).set(hierarchical_count)
                 prometheus_metrics.relationships.relationships_by_layer.labels(
-                    layer="lateral", user_uid="system"
+                    layer="lateral"
                 ).set(lateral_count)
                 prometheus_metrics.relationships.relationships_by_layer.labels(
-                    layer="semantic", user_uid="system"
+                    layer="semantic"
                 ).set(semantic_count)
                 prometheus_metrics.relationships.relationships_by_layer.labels(
-                    layer="cross_domain", user_uid="system"
+                    layer="cross_domain"
                 ).set(cross_domain_count)
 
                 # Update lateral category counts
                 prometheus_metrics.relationships.lateral_by_category.labels(
-                    category="structural", user_uid="system"
+                    category="structural"
                 ).set(structural_count)
                 prometheus_metrics.relationships.lateral_by_category.labels(
-                    category="dependency", user_uid="system"
+                    category="dependency"
                 ).set(dependency_count)
                 prometheus_metrics.relationships.lateral_by_category.labels(
-                    category="semantic", user_uid="system"
+                    category="semantic"
                 ).set(semantic_lateral_count)
                 prometheus_metrics.relationships.lateral_by_category.labels(
-                    category="associative", user_uid="system"
+                    category="associative"
                 ).set(associative_count)
 
                 logger.debug("✅ Graph health metrics updated")

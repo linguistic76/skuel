@@ -1203,9 +1203,9 @@ sorted(items, key=by_score)
 
 ## Observability & Monitoring
 
-**Core Principle:** "Measure what matters - real-time operational intelligence"
+**Core Principle:** "Prometheus tracks system health, Neo4j tracks user behavior"
 
-SKUEL uses **Prometheus + Grafana** for metrics collection and visualization, following the Prometheus-primary architecture pattern (ADR-036).
+SKUEL uses **Prometheus + Grafana** for aggregate operational metrics, following the Prometheus-primary architecture pattern (ADR-036). All metrics are system-wide — no `user_uid` labels. Per-user data (interactions, progress, activity) lives in Neo4j graph relationships and flows through UserContext.
 
 ### Quick Access
 

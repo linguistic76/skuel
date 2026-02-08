@@ -35,7 +35,7 @@ This directory contains version-controlled Grafana dashboards for SKUEL observab
 
 - **Panel titles**: Clear, action-oriented (e.g., "HTTP Request Rate" not "Requests")
 - **Time ranges**: Default to Last 6 hours for development
-- **Variables**: Use `$user_uid` for user filtering where applicable
+- **Variables**: Use label-based filtering for operational dimensions (e.g., `$search_type`, `$layer`). Do NOT use `user_uid` — per-user data belongs in Neo4j, not Prometheus.
 - **Colors**: Blue (hierarchical), Green (lateral), Orange (semantic), Purple (cross-domain)
 - **Units**: Use appropriate units (ops/s, ms, %, bytes)
 

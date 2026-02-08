@@ -14,9 +14,9 @@ class SystemMetrics:
     """System-level health metrics."""
 
     def __init__(self) -> None:
-        self.cpu_usage = Gauge("skuel_cpu_usage_percent", "CPU usage percentage", ["user_uid"])
+        self.cpu_usage = Gauge("skuel_cpu_usage_percent", "CPU usage percentage")
 
-        self.memory_usage = Gauge("skuel_memory_usage_bytes", "Memory usage in bytes", ["user_uid"])
+        self.memory_usage = Gauge("skuel_memory_usage_bytes", "Memory usage in bytes")
 
         self.neo4j_connected = Gauge(
             "skuel_neo4j_connected", "Neo4j connection status (1=up, 0=down)"
@@ -111,7 +111,6 @@ class EventMetrics:
         self.context_invalidations_total = Counter(
             "skuel_context_invalidations_total",
             "Total user context invalidations",
-            ["user_uid"],
         )
 
 
@@ -122,19 +121,19 @@ class DomainMetrics:
         self.entities_created = Counter(
             "skuel_entities_created_total",
             "Total entities created by type",
-            ["entity_type", "user_uid"],
+            ["entity_type"],
         )
 
         self.entities_completed = Counter(
             "skuel_entities_completed_total",
             "Total entities completed by type",
-            ["entity_type", "user_uid"],
+            ["entity_type"],
         )
 
         self.active_entities = Gauge(
             "skuel_active_entities_count",
             "Current active entities by type",
-            ["entity_type", "user_uid"],
+            ["entity_type"],
         )
 
 
@@ -158,92 +157,82 @@ class RelationshipMetrics:
         self.graph_density = Gauge(
             "skuel_graph_density",
             "Average relationships per entity (graph connectivity score)",
-            ["user_uid"],
         )
 
         self.total_entities = Gauge(
             "skuel_total_entities",
             "Total entities in graph",
-            ["user_uid"],
         )
 
         self.total_relationships = Gauge(
             "skuel_total_relationships",
             "Total relationships in graph",
-            ["user_uid"],
         )
 
         self.orphaned_entities = Gauge(
             "skuel_orphaned_entities_count",
             "Entities with no relationships (isolated nodes)",
-            ["user_uid"],
         )
 
         # Relationship layer tracking
         self.relationships_by_layer = Gauge(
             "skuel_relationships_count",
             "Total relationships by layer",
-            ["layer", "user_uid"],  # layer: hierarchical/lateral/semantic/cross_domain
+            ["layer"],  # layer: hierarchical/lateral/semantic/cross_domain
         )
 
         # Lateral relationship breakdown (PRIMARY FOCUS)
         self.lateral_by_category = Gauge(
             "skuel_lateral_relationships_by_category",
             "Lateral relationships by category",
-            ["category", "user_uid"],  # category: structural/dependency/semantic/associative
+            ["category"],  # category: structural/dependency/semantic/associative
         )
 
         # Blocking/dependency tracking
         self.blocking_relationships = Gauge(
             "skuel_blocking_relationships_count",
             "Active BLOCKS relationships",
-            ["user_uid"],
         )
 
         self.enables_relationships = Gauge(
             "skuel_enables_relationships_count",
             "Active ENABLES relationships",
-            ["user_uid"],
         )
 
         self.dependency_chain_length = Gauge(
             "skuel_dependency_chain_max_length",
             "Maximum dependency chain length (BLOCKS → BLOCKED_BY)",
-            ["user_uid"],
         )
 
         # Hierarchical patterns
         self.contains_relationships = Gauge(
             "skuel_contains_relationships_count",
             "CONTAINS relationships (parent → child)",
-            ["user_uid"],
         )
 
         self.organizes_relationships = Gauge(
             "skuel_organizes_relationships_count",
             "ORGANIZES relationships (MOC → KU)",
-            ["user_uid"],
         )
 
         # Semantic tier activation
         self.semantic_relationships = Gauge(
             "skuel_semantic_relationships_count",
             "Semantic relationships count",
-            ["tier", "user_uid"],  # tier: 1/2/3
+            ["tier"],  # tier: 1/2/3
         )
 
         # Cross-domain connections
         self.cross_domain_relationships = Gauge(
             "skuel_cross_domain_relationships_count",
             "Relationships crossing domain boundaries",
-            ["from_domain", "to_domain", "user_uid"],
+            ["from_domain", "to_domain"],
         )
 
         # Graph traversal performance
         self.graph_traversal_depth = Gauge(
             "skuel_graph_traversal_avg_depth",
             "Average graph traversal depth in queries",
-            ["user_uid"],
         )
 
 

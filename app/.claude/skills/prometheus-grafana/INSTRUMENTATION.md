@@ -201,7 +201,7 @@ from core.events.task_events import TaskCreated, TaskCompleted
 await event_bus.publish(TaskCreated(task_uid=uid, user_uid=user_uid))
 
 # 2. MetricsEventHandler auto-increments counter
-# skuel_entities_created_total{entity_type="task", user_uid="user_mike"} +1
+# skuel_entities_created_total{entity_type="task"} +1
 ```
 
 **Tracked Events** (January 2026):
@@ -226,8 +226,7 @@ class MetricsEventHandler:
     async def _on_new_entity_created(self, event: NewEntityCreated) -> None:
         """Track new entity creation."""
         self.prometheus_metrics.domains.entities_created.labels(
-            entity_type="new_entity",
-            user_uid=event.user_uid
+            entity_type="new_entity"
         ).inc()
 ```
 
@@ -275,17 +274,15 @@ from core.infrastructure.monitoring import PrometheusMetrics
 async def update_graph_health_metrics(
     driver: Any,
     prometheus_metrics: PrometheusMetrics,
-    user_uid: str
 ) -> None:
     """
     Background task to update graph health gauges.
 
     Runs every 5 minutes via scheduler.
     """
-    # Query graph density
+    # Query graph density (system-wide)
     query = """
     MATCH (n)
-    WHERE n.user_uid = $user_uid
     OPTIONAL MATCH (n)-[r]-()
     WITH count(DISTINCT n) as entity_count,
          count(r) as rel_count
@@ -294,27 +291,22 @@ async def update_graph_health_metrics(
         ELSE toFloat(rel_count) / entity_count
     END as density
     """
-    result = await driver.execute_query(query, user_uid=user_uid)
+    result = await driver.execute_query(query)
     density = result[0]["density"]
 
-    # Update gauge
-    prometheus_metrics.relationships.graph_density.labels(
-        user_uid=user_uid
-    ).set(density)
+    # Update gauge (no user_uid — system-wide metric)
+    prometheus_metrics.relationships.graph_density.set(density)
 
-    # Query orphaned entities
+    # Query orphaned entities (system-wide)
     orphan_query = """
     MATCH (n)
-    WHERE n.user_uid = $user_uid
-      AND NOT (n)-[]-()
+    WHERE NOT (n)-[]-()
     RETURN count(n) as orphan_count
     """
-    orphan_result = await driver.execute_query(orphan_query, user_uid=user_uid)
+    orphan_result = await driver.execute_query(orphan_query)
     orphan_count = orphan_result[0]["orphan_count"]
 
-    prometheus_metrics.relationships.orphaned_entities.labels(
-        user_uid=user_uid
-    ).set(orphan_count)
+    prometheus_metrics.relationships.orphaned_entities.set(orphan_count)
 ```
 
 ### Scheduling Background Metric Updates
@@ -330,7 +322,7 @@ scheduler.add_job(
     func=update_graph_health_metrics,
     trigger="interval",
     minutes=5,
-    args=[driver, prometheus_metrics, user_uid],
+    args=[driver, prometheus_metrics],
     id="graph_health_metrics",
     replace_existing=True,
 )
@@ -357,7 +349,7 @@ class DomainMetrics:
         self.journal_entries_created = Counter(
             "skuel_journal_entries_created_total",
             "Total journal entries created",
-            ["user_uid", "entry_type"]  # Labels
+            ["entry_type"]  # Labels (no user_uid — per-user data belongs in Neo4j)
         )
 ```
 
@@ -386,9 +378,8 @@ class JournalsCoreService:
         result = await self.backend.create(...)
 
         if result.is_ok and self.prometheus_metrics:
-            # Track creation
+            # Track creation (aggregate — no user_uid)
             self.prometheus_metrics.domains.journal_entries_created.labels(
-                user_uid=user_uid,
                 entry_type=request.entry_type
             ).inc()
 
@@ -420,7 +411,7 @@ curl -X POST http://localhost:5001/api/journals/create -d '{"entry_type": "refle
 curl http://localhost:5001/metrics | grep skuel_journal_entries_created_total
 
 # Expected output:
-# skuel_journal_entries_created_total{entry_type="reflection",user_uid="user_mike"} 1.0
+# skuel_journal_entries_created_total{entry_type="reflection"} 1.0
 
 # 3. Query in Prometheus
 rate(skuel_journal_entries_created_total[5m])
@@ -491,6 +482,24 @@ async def test_metrics_endpoint_includes_journal_metric():
 
 ## Best Practices
 
+### No Per-User Labels
+
+**Prometheus tracks system health, not user behavior.** Never use `user_uid` as a label.
+
+Per-user data belongs in Neo4j (graph relationships, UserContext). Prometheus answers "is the system healthy?" — Neo4j answers "what did user X do?"
+
+```python
+# BAD — per-user tracking (cardinality explosion, wrong tool)
+prometheus_metrics.domains.entities_created.labels(
+    entity_type="task", user_uid=user_uid
+).inc()
+
+# GOOD — aggregate system metric
+prometheus_metrics.domains.entities_created.labels(
+    entity_type="task"
+).inc()
+```
+
 ### Label Cardinality
 
 **Keep label cardinality LOW** - avoid unbounded label values:
@@ -499,7 +508,6 @@ async def test_metrics_endpoint_includes_journal_metric():
 # BAD - unbounded cardinality (creates millions of time series)
 prometheus_metrics.http.requests_total.labels(
     endpoint=request.path,  # Every unique path = new series
-    user_uid=user_uid,      # Every user = new series
     session_id=session_id,  # Every session = new series
 )
 
@@ -617,8 +625,7 @@ async def complete_task(self, uid: str) -> Result[Task]:
 
     if result.is_ok and self.prometheus_metrics:
         self.prometheus_metrics.domains.entities_completed.labels(
-            entity_type="task",
-            user_uid=result.value.user_uid
+            entity_type="task"
         ).inc()
 
     return result
@@ -627,13 +634,12 @@ async def complete_task(self, uid: str) -> Result[Task]:
 ### Pattern: Gauge for Current State
 
 ```python
-async def recalculate_active_tasks(self, user_uid: str):
-    active_count = await self.backend.count_active_tasks(user_uid)
+async def recalculate_active_tasks(self):
+    active_count = await self.backend.count_active_tasks()
 
     if self.prometheus_metrics:
-        self.prometheus_metrics.domains.active_entities_count.labels(
-            entity_type="task",
-            user_uid=user_uid
+        self.prometheus_metrics.domains.active_entities.labels(
+            entity_type="task"
         ).set(active_count)
 ```
 

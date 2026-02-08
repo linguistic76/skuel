@@ -17,25 +17,6 @@
   "templating": {
     "list": [
       {
-        "name": "user_uid",
-        "type": "query",
-        "datasource": "Prometheus",
-        "query": "label_values(skuel_searches_total, user_uid)",
-        "current": {
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "multi": false,
-        "options": [],
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 1,
-        "type": "query"
-      },
-      {
         "name": "search_type",
         "type": "query",
         "datasource": "Prometheus",
