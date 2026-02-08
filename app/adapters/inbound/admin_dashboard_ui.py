@@ -29,6 +29,7 @@ from fasthtml.common import H1, H2, H3, A, Div, P, Span
 
 from components.admin_components import (
     AdminAnalyticsComponents,
+    AdminLearningComponents,
     AdminSystemComponents,
     AdminUIComponents,
 )
@@ -133,7 +134,16 @@ def create_admin_dashboard_routes(_app, rt, services):
                         href="/finance",
                         cls="card bg-base-100 shadow-sm p-4 hover:shadow-md transition-shadow",
                     ),
-                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4",
+                    A(
+                        Div(
+                            Span("📥", cls="text-2xl"),
+                            Span("Content Ingestion", cls="font-medium"),
+                            cls="flex items-center gap-3",
+                        ),
+                        href="/ingest",
+                        cls="card bg-base-100 shadow-sm p-4 hover:shadow-md transition-shadow",
+                    ),
+                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
                 ),
                 cls="mb-8",
             ),
@@ -345,6 +355,30 @@ def create_admin_dashboard_routes(_app, rt, services):
 
         system_status = await _get_system_status(services)
 
+        # Fetch user's reports
+        reports_data: list = []
+        try:
+            if services.reports_core:
+                reports_result = await services.reports_core.get_recent_reports(
+                    user_uid=uid, limit=20
+                )
+                if not reports_result.is_error and reports_result.value:
+                    reports_data = reports_result.value
+        except Exception as e:
+            logger.warning(f"Failed to fetch reports for {uid}: {e}")
+
+        # Fetch user's report projects
+        projects_data: list = []
+        try:
+            if services.report_projects:
+                projects_result = await services.report_projects.list_user_projects(
+                    user_uid=uid, active_only=False
+                )
+                if not projects_result.is_error and projects_result.value:
+                    projects_data = projects_result.value
+        except Exception as e:
+            logger.warning(f"Failed to fetch report projects for {uid}: {e}")
+
         content = Div(
             # Back button
             A("← Back to Users", href="/admin/users", cls="btn btn-ghost btn-sm mb-4"),
@@ -370,6 +404,18 @@ def create_admin_dashboard_routes(_app, rt, services):
                     _detail_row("Verified", "Yes" if user_data["is_verified"] else "No"),
                     cls="space-y-3",
                 ),
+                cls="card bg-base-100 shadow-sm p-6 mb-6",
+            ),
+            # Reports section
+            Div(
+                H2("Reports", cls="text-xl font-semibold mb-4"),
+                AdminUIComponents.render_user_reports_list(reports_data, uid),
+                cls="card bg-base-100 shadow-sm p-6 mb-6",
+            ),
+            # Report Projects section
+            Div(
+                H2("Report Projects", cls="text-xl font-semibold mb-4"),
+                AdminUIComponents.render_user_projects_list(projects_data, uid),
                 cls="card bg-base-100 shadow-sm p-6 mb-6",
             ),
             # Role change section
@@ -593,11 +639,130 @@ def create_admin_dashboard_routes(_app, rt, services):
             system_status=health_data.get("status", "unknown"),
         )
 
+    # ========================================================================
+    # LEARNING DASHBOARD
+    # ========================================================================
+
+    @rt("/admin/learning")
+    @require_admin(get_user_service)
+    async def admin_learning(request, current_user):
+        """
+        Admin learning dashboard with KU progression tracking.
+
+        Shows system-wide KU metrics and per-user progress table.
+        """
+        system_status = await _get_system_status(services)
+        ku_metrics = await _get_ku_system_metrics(services)
+        user_progress = await _get_all_users_ku_progress(services)
+
+        content = Div(
+            # Page header
+            Div(
+                H1("Learning Dashboard", cls="text-3xl font-bold"),
+                P(
+                    "Track knowledge unit progression across all users",
+                    cls="text-base-content/50 mt-1",
+                ),
+                cls="mb-8",
+            ),
+            # System-wide KU metrics
+            Div(
+                H2("Knowledge Unit Overview", cls="text-xl font-semibold mb-4"),
+                AdminLearningComponents.render_ku_system_metrics(ku_metrics),
+                cls="card bg-base-100 shadow-sm p-6 mb-6",
+            ),
+            # User progress table
+            Div(
+                H2("User KU Progress", cls="text-xl font-semibold mb-4"),
+                AdminLearningComponents.render_user_progress_table(user_progress),
+                cls="card bg-base-100 shadow-sm p-6",
+            ),
+        )
+
+        return create_admin_page(
+            content=content,
+            active_section="learning",
+            admin_username=current_user.display_name or current_user.title,
+            title="Learning Dashboard",
+            system_status=system_status.get("status", "unknown"),
+        )
+
+    @rt("/admin/learning/user/{uid}")
+    @require_admin(get_user_service)
+    async def admin_learning_user_detail(request, uid: str, current_user):
+        """
+        Detailed KU progress for a specific user.
+
+        Shows viewed, in-progress, and mastered KUs with timestamps.
+        """
+        system_status = await _get_system_status(services)
+
+        # Get user info
+        user_result = await services.user_service.get_user(uid)
+        if user_result.is_error or not user_result.value:
+            content = Div(
+                H1("User Not Found", cls="text-3xl font-bold text-error"),
+                P(f"No user found with UID: {uid}", cls="text-base-content/50"),
+                A(
+                    "← Back to Learning Dashboard",
+                    href="/admin/learning",
+                    cls="btn btn-ghost mt-4",
+                ),
+            )
+            return create_admin_page(
+                content=content,
+                active_section="learning",
+                admin_username=current_user.display_name or current_user.title,
+                title="User Not Found",
+            )
+
+        user = user_result.value
+        user_ku_detail = await _get_user_ku_detail(services, uid)
+
+        content = Div(
+            # Back button
+            A(
+                "← Back to Learning Dashboard",
+                href="/admin/learning",
+                cls="btn btn-ghost btn-sm mb-4",
+            ),
+            # Page header
+            Div(
+                H1(
+                    f"{user.display_name or user.title} — KU Progress",
+                    cls="text-3xl font-bold",
+                ),
+                cls="mb-6",
+            ),
+            # Summary stats
+            Div(
+                H2("Progress Summary", cls="text-xl font-semibold mb-4"),
+                AdminLearningComponents.render_user_ku_summary(user_ku_detail),
+                cls="card bg-base-100 shadow-sm p-6 mb-6",
+            ),
+            # Detailed KU list
+            Div(
+                H2("Knowledge Units", cls="text-xl font-semibold mb-4"),
+                AdminLearningComponents.render_user_ku_detail_list(user_ku_detail),
+                cls="card bg-base-100 shadow-sm p-6",
+            ),
+        )
+
+        return create_admin_page(
+            content=content,
+            active_section="learning",
+            admin_username=current_user.display_name or current_user.title,
+            title=f"Learning: {user.display_name or user.title}",
+            system_status=system_status.get("status", "unknown"),
+        )
+
     logger.info("Admin dashboard UI routes registered")
     logger.info("   - GET /admin - Overview dashboard")
     logger.info("   - GET /admin/users - User management")
     logger.info("   - GET /admin/users/{uid} - User detail")
     logger.info("   - GET /admin/analytics - Analytics")
+    logger.info("   - GET /admin/learning - Learning dashboard")
+    logger.info("   - GET /admin/learning/user/{uid} - User KU detail")
     logger.info("   - GET /admin/system - System health")
 
 
@@ -704,6 +869,157 @@ def _detail_row(label: str, value: str) -> Div:
         Span(value, cls="font-medium"),
         cls="text-sm",
     )
+
+
+# ============================================================================
+# LEARNING DASHBOARD HELPERS
+# ============================================================================
+
+
+async def _get_ku_system_metrics(services) -> dict:
+    """Get system-wide KU metrics via Cypher."""
+    metrics = {
+        "total_kus": 0,
+        "total_viewed": 0,
+        "total_in_progress": 0,
+        "total_mastered": 0,
+        "users_with_progress": 0,
+    }
+
+    if not services.neo4j_driver:
+        return metrics
+
+    try:
+        records, _, _ = await services.neo4j_driver.execute_query(
+            """
+            OPTIONAL MATCH (ku:Ku)
+            WITH count(DISTINCT ku) AS total_kus
+            OPTIONAL MATCH (:User)-[v:VIEWED]->(:Ku)
+            WITH total_kus, count(v) AS total_viewed
+            OPTIONAL MATCH (:User)-[:IN_PROGRESS]->(:Ku)
+            WITH total_kus, total_viewed, count(*) AS total_in_progress
+            OPTIONAL MATCH (:User)-[:MASTERED]->(:Ku)
+            WITH total_kus, total_viewed, total_in_progress, count(*) AS total_mastered
+            OPTIONAL MATCH (u:User)
+                WHERE EXISTS { (u)-[:VIEWED|IN_PROGRESS|MASTERED]->(:Ku) }
+            RETURN total_kus, total_viewed, total_in_progress, total_mastered,
+                   count(DISTINCT u) AS users_with_progress
+            """
+        )
+
+        if records:
+            r = records[0]
+            metrics["total_kus"] = r["total_kus"] or 0
+            metrics["total_viewed"] = r["total_viewed"] or 0
+            metrics["total_in_progress"] = r["total_in_progress"] or 0
+            metrics["total_mastered"] = r["total_mastered"] or 0
+            metrics["users_with_progress"] = r["users_with_progress"] or 0
+    except Exception as e:
+        logger.warning(f"Failed to get KU system metrics: {e}")
+
+    return metrics
+
+
+async def _get_all_users_ku_progress(services) -> list[dict]:
+    """Get KU progress summary for all users."""
+    if not services.neo4j_driver:
+        return []
+
+    try:
+        records, _, _ = await services.neo4j_driver.execute_query(
+            """
+            MATCH (u:User)
+            WHERE u.uid <> 'user_system'
+            OPTIONAL MATCH (u)-[:VIEWED]->(ku1:Ku)
+            WITH u, count(DISTINCT ku1) AS viewed_count
+            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(ku2:Ku)
+            WITH u, viewed_count, count(DISTINCT ku2) AS in_progress_count
+            OPTIONAL MATCH (u)-[:MASTERED]->(ku3:Ku)
+            WITH u, viewed_count, in_progress_count, count(DISTINCT ku3) AS mastered_count
+            RETURN u.uid AS uid,
+                   u.display_name AS display_name,
+                   u.title AS username,
+                   u.role AS role,
+                   viewed_count,
+                   in_progress_count,
+                   mastered_count,
+                   (viewed_count + in_progress_count + mastered_count) AS total_interactions
+            ORDER BY total_interactions DESC
+            """
+        )
+
+        return [dict(r) for r in records]
+    except Exception as e:
+        logger.warning(f"Failed to get user KU progress: {e}")
+        return []
+
+
+async def _get_user_ku_detail(services, user_uid: str) -> dict:
+    """Get detailed KU progress for a specific user."""
+    detail: dict = {
+        "viewed": [],
+        "in_progress": [],
+        "mastered": [],
+        "summary": {
+            "viewed_count": 0,
+            "in_progress_count": 0,
+            "mastered_count": 0,
+        },
+    }
+
+    if not services.neo4j_driver:
+        return detail
+
+    try:
+        records, _, _ = await services.neo4j_driver.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})
+
+            OPTIONAL MATCH (u)-[v:VIEWED]->(vku:Ku)
+            WITH u, collect(DISTINCT {
+                uid: vku.uid, title: vku.title,
+                view_count: v.view_count,
+                first_viewed_at: toString(v.first_viewed_at),
+                last_viewed_at: toString(v.last_viewed_at)
+            }) AS viewed_kus
+
+            OPTIONAL MATCH (u)-[p:IN_PROGRESS]->(pku:Ku)
+            WITH u, viewed_kus, collect(DISTINCT {
+                uid: pku.uid, title: pku.title,
+                started_at: toString(p.started_at),
+                progress_score: p.progress_score
+            }) AS progress_kus
+
+            OPTIONAL MATCH (u)-[m:MASTERED]->(mku:Ku)
+            WITH u, viewed_kus, progress_kus, collect(DISTINCT {
+                uid: mku.uid, title: mku.title,
+                mastered_at: toString(m.mastered_at),
+                mastery_score: m.mastery_score,
+                method: m.method
+            }) AS mastered_kus
+
+            RETURN viewed_kus, progress_kus, mastered_kus
+            """,
+            user_uid=user_uid,
+        )
+
+        if records:
+            r = records[0]
+            # Filter out entries with null uid (from OPTIONAL MATCH with no results)
+            viewed = [ku for ku in r["viewed_kus"] if ku.get("uid")]
+            in_progress = [ku for ku in r["progress_kus"] if ku.get("uid")]
+            mastered = [ku for ku in r["mastered_kus"] if ku.get("uid")]
+
+            detail["viewed"] = viewed
+            detail["in_progress"] = in_progress
+            detail["mastered"] = mastered
+            detail["summary"]["viewed_count"] = len(viewed)
+            detail["summary"]["in_progress_count"] = len(in_progress)
+            detail["summary"]["mastered_count"] = len(mastered)
+    except Exception as e:
+        logger.warning(f"Failed to get user KU detail for {user_uid}: {e}")
+
+    return detail
 
 
 # Export the route creation function

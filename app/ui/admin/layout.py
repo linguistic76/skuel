@@ -45,6 +45,12 @@ ADMIN_NAV_ITEMS = [
         href="/admin/analytics",
     ),
     AdminNavItem(
+        name="Learning",
+        slug="learning",
+        icon="📚",
+        href="/admin/learning",
+    ),
+    AdminNavItem(
         name="System",
         slug="system",
         icon="⚙️",

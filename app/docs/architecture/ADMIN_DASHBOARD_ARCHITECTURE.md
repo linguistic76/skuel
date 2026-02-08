@@ -18,7 +18,7 @@ related_skills:
 
 # Admin Dashboard Architecture
 
-**Last Updated**: December 7, 2025
+**Last Updated**: February 8, 2026
 ## Related Skills
 
 For implementation guidance, see:
@@ -28,6 +28,8 @@ For implementation guidance, see:
 ## Overview
 
 The Admin Dashboard provides a centralized UI for system administration at `/admin`. It follows SKUEL's established UI patterns (ProfileLayout, SharedUIComponents) while enforcing ADMIN-only access through role-based decorators.
+
+The overview page displays quick-action cards (Users, Analytics, Finance, Ingestion) in a 3-column grid. The sidebar provides navigation to 7 sections: Overview, Users, Analytics, Learning, System, Finance, and Ingestion.
 
 ---
 
@@ -63,9 +65,10 @@ The Admin Dashboard provides a centralized UI for system administration at `/adm
 │   │   │  Overview    │    │   AdminUIComponents                │   │   │
 │   │   │  Users       │    │   AdminAnalyticsComponents         │   │   │
 │   │   │  Analytics   │    │   AdminSystemComponents            │   │   │
+│   │   │  Learning    │    │   AdminLearningComponents          │   │   │
 │   │   │  System      │    │                                    │   │   │
 │   │   │  Finance →   │    │   (from components/admin_*)        │   │   │
-│   │   │              │    │                                    │   │   │
+│   │   │  Ingestion → │    │                                    │   │   │
 │   │   └──────────────┘    └────────────────────────────────────┘   │   │
 │   └─────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -95,7 +98,7 @@ The Admin Dashboard provides a centralized UI for system administration at `/adm
 │
 ├── components/
 │   └── admin_components.py      # AdminUIComponents, AdminAnalyticsComponents,
-│                                # AdminSystemComponents
+│                                # AdminSystemComponents, AdminLearningComponents
 │
 ├── adapters/inbound/
 │   ├── admin_routes.py          # API routes (/api/admin/users/*)
@@ -117,6 +120,8 @@ The Admin Dashboard provides a centralized UI for system administration at `/adm
 | `/admin/users/partial` | GET | HTMX filtered list | `admin_dashboard_ui.py:181` |
 | `/admin/users/{uid}/role-form` | GET | HTMX role change form | `admin_dashboard_ui.py:307` |
 | `/admin/analytics` | GET | Analytics dashboard | `admin_dashboard_ui.py:329` |
+| `/admin/learning` | GET | KU learning overview | `admin_dashboard_ui.py` |
+| `/admin/learning/user/{uid}` | GET | Per-user KU detail | `admin_dashboard_ui.py` |
 | `/admin/system` | GET | System health | `admin_dashboard_ui.py:391` |
 
 ### Existing API Endpoints (Reused)
@@ -151,8 +156,10 @@ ADMIN_NAV_ITEMS = [
     AdminNavItem("Overview", "overview", "📊", "/admin"),
     AdminNavItem("Users", "users", "👥", "/admin/users"),
     AdminNavItem("Analytics", "analytics", "📈", "/admin/analytics"),
+    AdminNavItem("Learning", "learning", "📚", "/admin/learning"),
     AdminNavItem("System", "system", "⚙️", "/admin/system"),
     AdminNavItem("Finance", "finance", "💰", "/finance", badge="→", external=True),
+    AdminNavItem("Ingestion", "ingestion", "📥", "/ingest", badge="→", external=True),
 ]
 ```
 
@@ -170,6 +177,8 @@ User management UI components:
 | `render_user_stats(stats)` | Stats cards (total, by role) |
 | `render_role_filter(role)` | Role filter dropdown |
 | `render_status_filter(status)` | Status filter dropdown |
+| `render_user_reports_list(reports)` | Per-user reports table (user detail page) |
+| `render_user_projects_list(projects)` | Per-user report projects table (user detail page) |
 
 ### AdminAnalyticsComponents
 
@@ -178,6 +187,25 @@ User management UI components:
 | `render_analytics_dashboard(data)` | Full analytics view |
 | `render_user_distribution(stats)` | Role distribution bars |
 | `render_activity_stats(data)` | Activity count cards |
+
+### AdminLearningComponents (components/admin_components.py)
+
+KU learning progression monitoring:
+
+| Method | Purpose |
+|--------|---------|
+| `render_ku_system_metrics(metrics)` | System-wide KU stats cards (total KUs, viewed, in progress, mastered) |
+| `render_user_progress_table(users)` | All-users KU progress table with mastery counts |
+| `render_user_ku_summary(summary)` | Individual user KU summary cards |
+| `render_user_ku_detail_list(ku_list)` | Per-KU detail table for a user (status, views, time spent) |
+
+**Cypher Helpers** (in `admin_dashboard_ui.py`):
+
+| Function | Purpose |
+|----------|---------|
+| `_get_ku_system_metrics(services)` | Aggregate KU counts, VIEWED/IN_PROGRESS/MASTERED totals |
+| `_get_all_users_ku_progress(services)` | Per-user KU progress (mastered, in_progress, viewed counts) |
+| `_get_user_ku_detail(services, uid)` | Detailed KU list for a user with relationship data |
 
 ### AdminSystemComponents
 
@@ -425,7 +453,7 @@ async def admin_logs(request, current_user: Any):
 | File | Purpose |
 |------|---------|
 | `ui/admin/layout.py` | AdminLayout, AdminNavItem, create_admin_page |
-| `components/admin_components.py` | User/Analytics/System UI components |
+| `components/admin_components.py` | User/Analytics/System/Learning UI components |
 | `adapters/inbound/admin_dashboard_ui.py` | Dashboard UI routes |
 | `adapters/inbound/admin_routes.py` | API routes (JSON) |
 | `core/auth/roles.py` | @require_admin decorator |

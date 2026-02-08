@@ -377,6 +377,135 @@ class AdminUIComponents:
             cls="form-control",
         )
 
+    @staticmethod
+    def render_user_reports_list(reports: list, _user_uid: str) -> Div:
+        """Render a list of user reports for admin user detail page.
+
+        Args:
+            reports: List of Report domain objects.
+            _user_uid: User UID (reserved for future linking).
+        """
+        if not reports:
+            return Div(
+                P("No reports submitted yet.", cls="text-base-content/50 text-sm py-4"),
+            )
+
+        status_badge: dict[str, str] = {
+            "completed": "badge-success",
+            "processing": "badge-warning",
+            "submitted": "badge-info",
+            "failed": "badge-error",
+            "manual_review": "badge-warning",
+            "revision_requested": "badge-warning",
+        }
+
+        rows = []
+        for report in reports:
+            report_type = report.report_type.value if report.report_type else "unknown"
+            status = report.status.value if report.status else "unknown"
+            title = report.title or getattr(report, "original_filename", None) or report.uid
+            created = (
+                report.created_at.strftime("%Y-%m-%d") if report.created_at else "Unknown"
+            )
+
+            rows.append(
+                Tr(
+                    Td(Span(title, cls="font-medium text-sm")),
+                    Td(Span(report_type.upper(), cls="badge badge-outline badge-sm")),
+                    Td(
+                        Span(
+                            status.replace("_", " ").upper(),
+                            cls=f"badge {status_badge.get(status, 'badge-neutral')} badge-sm",
+                        )
+                    ),
+                    Td(created, cls="text-sm text-base-content/50"),
+                    cls="hover:bg-base-200",
+                )
+            )
+
+        return Div(
+            P(f"{len(reports)} report(s)", cls="text-sm text-base-content/50 mb-3"),
+            Div(
+                Table(
+                    Thead(
+                        Tr(
+                            Th("Title"),
+                            Th("Type"),
+                            Th("Status"),
+                            Th("Created"),
+                        ),
+                        cls="bg-base-200",
+                    ),
+                    Tbody(*rows),
+                    cls="table table-zebra w-full",
+                ),
+                cls="overflow-x-auto",
+            ),
+        )
+
+    @staticmethod
+    def render_user_projects_list(projects: list, _user_uid: str) -> Div:
+        """Render a list of user report projects for admin user detail page.
+
+        Args:
+            projects: List of ReportProjectPure domain objects.
+            _user_uid: User UID (reserved for future linking).
+        """
+        if not projects:
+            return Div(
+                P("No report projects found.", cls="text-base-content/50 text-sm py-4"),
+            )
+
+        rows = []
+        for project in projects:
+            name = project.name or project.uid
+            scope = getattr(project, "scope", "personal")
+            is_active = getattr(project, "is_active", True)
+            created = ""
+            raw_created = getattr(project, "created_at", None)
+            if raw_created:
+                created = (
+                    raw_created.strftime("%Y-%m-%d")
+                    if hasattr(raw_created, "strftime")
+                    else str(raw_created)[:10]
+                )
+
+            active_badge = (
+                Span("Active", cls="badge badge-success badge-sm")
+                if is_active
+                else Span("Inactive", cls="badge badge-ghost badge-sm")
+            )
+
+            rows.append(
+                Tr(
+                    Td(Span(name, cls="font-medium text-sm")),
+                    Td(Span(str(scope).upper(), cls="badge badge-outline badge-sm")),
+                    Td(active_badge),
+                    Td(created, cls="text-sm text-base-content/50"),
+                    cls="hover:bg-base-200",
+                )
+            )
+
+        return Div(
+            P(f"{len(projects)} project(s)", cls="text-sm text-base-content/50 mb-3"),
+            Div(
+                Table(
+                    Thead(
+                        Tr(
+                            Th("Name"),
+                            Th("Scope"),
+                            Th("Status"),
+                            Th("Created"),
+                        ),
+                        cls="bg-base-200",
+                    ),
+                    Tbody(*rows),
+                    cls="table table-zebra w-full",
+                ),
+                cls="overflow-x-auto",
+            ),
+        )
+
 
 class AdminAnalyticsComponents:
     """Analytics components for admin dashboard."""
@@ -631,8 +760,248 @@ class AdminSystemComponents:
         return SharedUIComponents.render_stats_cards(stats_config)
 
 
+def _ku_state_section(title: str, badge_cls: str, kus: list[dict], date_field: str) -> Div:
+    """Render a section of KUs grouped by learning state."""
+    items = []
+    for ku in kus:
+        ku_title = ku.get("title") or ku.get("uid") or "Untitled"
+        date_val = ku.get(date_field, "")
+        if date_val and "T" in str(date_val):
+            date_val = str(date_val).split("T")[0]
+
+        extra_info = []
+        view_count = ku.get("view_count")
+        if view_count is not None:
+            extra_info.append(f"{view_count} views")
+        mastery_score = ku.get("mastery_score")
+        if mastery_score is not None:
+            extra_info.append(f"score: {mastery_score}")
+
+        items.append(
+            Div(
+                Div(
+                    Span(ku_title, cls="font-medium text-sm"),
+                    Div(
+                        Span(
+                            " | ".join(extra_info),
+                            cls="text-xs text-base-content/50 mr-3",
+                        )
+                        if extra_info
+                        else None,
+                        Span(date_val or "", cls="text-xs text-base-content/50"),
+                        cls="flex items-center",
+                    ),
+                    cls="flex items-center justify-between",
+                ),
+                cls="border-b border-base-200 py-2 last:border-b-0",
+            )
+        )
+
+    return Div(
+        Div(
+            Span(title, cls=f"badge {badge_cls} font-semibold"),
+            Span(f"({len(kus)})", cls="text-sm text-base-content/50 ml-2"),
+            cls="flex items-center mb-3",
+        ),
+        *items,
+    )
+
+
+class AdminLearningComponents:
+    """Learning dashboard components for admin KU progression tracking."""
+
+    @staticmethod
+    def render_ku_system_metrics(metrics: dict) -> Div:
+        """Render system-wide KU metrics cards."""
+        if metrics.get("total_kus", 0) == 0:
+            return Div(
+                P(
+                    "No Knowledge Units have been ingested yet. ",
+                    A(
+                        "Start Ingestion",
+                        href="/ingest",
+                        cls="text-primary hover:underline",
+                    ),
+                    " to populate the knowledge graph.",
+                    cls="text-base-content/50 py-4",
+                ),
+            )
+
+        stats_config = {
+            "total": {
+                "label": "Total KUs",
+                "value": metrics.get("total_kus", 0),
+                "color": "blue",
+            },
+            "viewed": {
+                "label": "Total Views",
+                "value": metrics.get("total_viewed", 0),
+                "color": "gray",
+            },
+            "in_progress": {
+                "label": "In Progress",
+                "value": metrics.get("total_in_progress", 0),
+                "color": "orange",
+            },
+            "mastered": {
+                "label": "Mastered",
+                "value": metrics.get("total_mastered", 0),
+                "color": "green",
+            },
+            "active_learners": {
+                "label": "Active Learners",
+                "value": metrics.get("users_with_progress", 0),
+                "color": "purple",
+            },
+        }
+        return SharedUIComponents.render_stats_cards(stats_config)
+
+    @staticmethod
+    def render_user_progress_table(user_progress: list[dict]) -> Div:
+        """Render per-user KU progress as a table."""
+        if not user_progress:
+            return Div(
+                P(
+                    "No user learning activity recorded yet.",
+                    cls="text-base-content/50 py-4",
+                ),
+            )
+
+        def has_interactions(row: dict) -> bool:
+            return (row.get("total_interactions") or 0) > 0
+
+        has_any = any(has_interactions(row) for row in user_progress)
+
+        if not has_any:
+            return Div(
+                P(
+                    "Users exist but no KU interactions have been recorded. "
+                    "Knowledge Units must be ingested first, then users "
+                    "interact via the reading interface.",
+                    cls="text-base-content/50 py-4",
+                ),
+            )
+
+        rows = []
+        for row in user_progress:
+            display = (
+                row.get("display_name") or row.get("username") or row.get("uid", "Unknown")
+            )
+            uid = row.get("uid", "")
+
+            rows.append(
+                Tr(
+                    Td(
+                        A(
+                            display,
+                            href=f"/admin/learning/user/{uid}",
+                            cls="text-primary hover:underline font-medium",
+                        ),
+                    ),
+                    Td(str(row.get("viewed_count", 0)), cls="text-center"),
+                    Td(str(row.get("in_progress_count", 0)), cls="text-center"),
+                    Td(
+                        str(row.get("mastered_count", 0)),
+                        cls="text-center font-semibold",
+                    ),
+                    Td(str(row.get("total_interactions", 0)), cls="text-center"),
+                    cls="hover:bg-base-200",
+                )
+            )
+
+        return Div(
+            Table(
+                Thead(
+                    Tr(
+                        Th("User"),
+                        Th("Viewed", cls="text-center"),
+                        Th("In Progress", cls="text-center"),
+                        Th("Mastered", cls="text-center"),
+                        Th("Total", cls="text-center"),
+                    ),
+                    cls="bg-base-200",
+                ),
+                Tbody(*rows),
+                cls="table table-zebra w-full",
+            ),
+            cls="overflow-x-auto",
+        )
+
+    @staticmethod
+    def render_user_ku_summary(detail: dict) -> Div:
+        """Render summary stats for one user's KU progress."""
+        summary = detail.get("summary", {})
+        total = (
+            summary.get("viewed_count", 0)
+            + summary.get("in_progress_count", 0)
+            + summary.get("mastered_count", 0)
+        )
+
+        if total == 0:
+            return Div(
+                P(
+                    "This user has no KU interactions yet.",
+                    cls="text-base-content/50 py-4",
+                ),
+            )
+
+        stats_config = {
+            "viewed": {
+                "label": "Viewed",
+                "value": summary.get("viewed_count", 0),
+                "color": "gray",
+            },
+            "in_progress": {
+                "label": "In Progress",
+                "value": summary.get("in_progress_count", 0),
+                "color": "orange",
+            },
+            "mastered": {
+                "label": "Mastered",
+                "value": summary.get("mastered_count", 0),
+                "color": "green",
+            },
+        }
+        return SharedUIComponents.render_stats_cards(stats_config)
+
+    @staticmethod
+    def render_user_ku_detail_list(detail: dict) -> Div:
+        """Render detailed KU list with states for a user."""
+        viewed = detail.get("viewed", [])
+        in_progress = detail.get("in_progress", [])
+        mastered = detail.get("mastered", [])
+
+        if not viewed and not in_progress and not mastered:
+            return Div(
+                P(
+                    "No Knowledge Unit interactions recorded for this user.",
+                    cls="text-base-content/50 py-4",
+                ),
+            )
+
+        sections = []
+
+        if mastered:
+            sections.append(
+                _ku_state_section("Mastered", "badge-success", mastered, "mastered_at")
+            )
+
+        if in_progress:
+            sections.append(
+                _ku_state_section("In Progress", "badge-warning", in_progress, "started_at")
+            )
+
+        if viewed:
+            sections.append(
+                _ku_state_section("Viewed", "badge-ghost", viewed, "last_viewed_at")
+            )
+
+        return Div(*sections, cls="space-y-6")
+
+
 __all__ = [
     "AdminAnalyticsComponents",
+    "AdminLearningComponents",
     "AdminSystemComponents",
     "AdminUIComponents",
 ]

@@ -233,7 +233,8 @@
       "Bash(sort echo \"\" echo \"=== APOC_ADAPTER occurrences ===\" find /home/mike/skuel/app -name \"*.py\" -type f)",
       "Bash(__NEW_LINE_688780fd661a7be6__ echo \"=== YAML_LOADER occurrences ===\" find /home/mike/skuel/app -name \"*.py\" -type f)",
       "Bash(/dev/null echo echo '=== MARKDOWN_PARSER occurrences ===' find /home/mike/skuel/app -name *.py -type f)",
-      "Bash(/dev/null echo echo '=== APOC_ADAPTER occurrences ===' find /home/mike/skuel/app -name *.py -type f)"
+      "Bash(/dev/null echo echo '=== APOC_ADAPTER occurrences ===' find /home/mike/skuel/app -name *.py -type f)",
+      "Bash(ps:*)"
     ]
   }
 }
