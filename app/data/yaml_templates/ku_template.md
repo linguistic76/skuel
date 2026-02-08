@@ -1,6 +1,6 @@
 ---
 title: "Meditation Basics — Breath and Attention"
-ku_uid:
+uid:
 description: "Introduction to meditation focusing on breath awareness and sustained attention"
 domain: SPIRITUAL
 sel_category: SELF_AWARENESS
