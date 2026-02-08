@@ -14,6 +14,44 @@ Usage:
 
     capabilities = await get_service_capabilities(tasks_service)
     # Returns: {"has_categories": True, "has_user_progress": True, ...}
+
+Example: Building a Service Registry
+-------------------------------------
+
+Here's how you could build a type-safe service registry using BaseServiceInterface:
+
+    from core.services.protocols.base_service_interface import BaseServiceInterface
+    from typing import Any
+
+    class ServiceRegistry:
+        '''Generic service registry with type-safe operations.'''
+
+        def __init__(self) -> None:
+            self._services: dict[str, BaseServiceInterface[Any]] = {}
+
+        def register(self, domain_name: str, service: BaseServiceInterface[Any]) -> None:
+            '''Register a service by domain name.'''
+            self._services[domain_name] = service
+
+        async def get_all_categories(self) -> dict[str, list[str]]:
+            '''Get categories from all registered services.'''
+            all_categories = {}
+            for domain_name, service in self._services.items():
+                # IDE autocompletes list_all_categories() because of BaseServiceInterface!
+                result = await service.list_all_categories()
+                if not result.is_error and result.value:
+                    all_categories[domain_name] = result.value
+            return all_categories
+
+        def get_service(self, domain_name: str) -> BaseServiceInterface[Any] | None:
+            '''Get service by domain name.'''
+            return self._services.get(domain_name)
+
+    # Usage:
+    registry = ServiceRegistry()
+    registry.register("tasks", tasks_service)
+    registry.register("goals", goals_service)
+    all_categories = await registry.get_all_categories()
 """
 
 from typing import Any
@@ -25,7 +63,7 @@ logger = get_logger(__name__)
 
 
 async def get_service_capabilities(
-    service: BaseServiceInterface[Any, Any],
+    service: BaseServiceInterface[Any],
     domain_name: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -79,7 +117,7 @@ async def get_service_capabilities(
 
 
 def validate_service_for_analytics(
-    service: BaseServiceInterface[Any, Any],
+    service: BaseServiceInterface[Any],
     required_methods: list[str] | None = None,
 ) -> tuple[bool, list[str]]:
     """
@@ -120,7 +158,7 @@ def validate_service_for_analytics(
 
 
 async def get_domain_health_report(
-    services: dict[str, BaseServiceInterface[Any, Any]],
+    services: dict[str, BaseServiceInterface[Any]],
 ) -> dict[str, dict[str, Any]]:
     """
     Generate health report across multiple domain services.
@@ -165,58 +203,8 @@ async def get_domain_health_report(
     return health_report
 
 
-# Example: Service registry using BaseServiceInterface
-class ServiceRegistry:
-    """
-    Generic service registry demonstrating BaseServiceInterface usage.
-
-    All services must implement BaseServiceInterface to be registered.
-    This provides type safety and IDE autocomplete for registry operations.
-    """
-
-    def __init__(self) -> None:
-        self._services: dict[str, BaseServiceInterface[Any, Any]] = {}
-        logger.info("ServiceRegistry initialized")
-
-    def register(
-        self,
-        domain_name: str,
-        service: BaseServiceInterface[Any, Any],
-    ) -> None:
-        """
-        Register a service by domain name.
-
-        Args:
-            domain_name: Domain identifier (e.g., "tasks", "goals")
-            service: Service implementing BaseServiceInterface
-        """
-        self._services[domain_name] = service
-        logger.info(f"Registered {domain_name} service")
-
-    async def get_all_categories(self) -> dict[str, list[str]]:
-        """
-        Get categories from all registered services.
-
-        Demonstrates cross-domain operations using common BaseService methods.
-        """
-        all_categories = {}
-
-        for domain_name, service in self._services.items():
-            # IDE autocompletes list_all_categories() because of BaseServiceInterface!
-            result = await service.list_all_categories()
-            if not result.is_error and result.value:
-                all_categories[domain_name] = result.value
-
-        return all_categories
-
-    def get_service(self, domain_name: str) -> BaseServiceInterface[Any, Any] | None:
-        """Get service by domain name."""
-        return self._services.get(domain_name)
-
-
 __all__ = [
     "get_service_capabilities",
     "validate_service_for_analytics",
     "get_domain_health_report",
-    "ServiceRegistry",
 ]

@@ -73,8 +73,8 @@ Production Examples
 For real-world usage, see:
 - /core/utils/service_introspection.py - Generic service utilities using BaseServiceInterface
   - get_service_capabilities() - Analyze service features generically
-  - ServiceRegistry - Type-safe service container
   - get_domain_health_report() - Cross-domain analytics
+  - ServiceRegistry example in docstring - Type-safe service container pattern
 
 See Also:
 - /docs/reference/BASESERVICE_METHOD_INDEX.md - Complete method listing (35-50 methods)
