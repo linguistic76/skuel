@@ -121,10 +121,40 @@ if TYPE_CHECKING:
         AdaptiveLpCrossDomainService,
     )
     from core.services.adaptive_sel_service import AdaptiveSELService
+    from core.services.analytics_service import AnalyticsService
+    from core.services.askesis_ai_service import AskesisAIService
+    from core.services.background.embedding_worker import EmbeddingBackgroundWorker
+    from core.services.calendar_optimization_service import CalendarOptimizationService
+    from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
+    from core.services.choices.choices_lateral_service import ChoicesLateralService
+    from core.services.context_aware_ai_service import ContextAwareAIService
+    from core.services.events.events_intelligence_service import EventsIntelligenceService
+    from core.services.events.events_lateral_service import EventsLateralService
+    from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
+    from core.services.goals.goals_lateral_service import GoalsLateralService
+    from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
+    from core.services.habits.habits_lateral_service import HabitsLateralService
     from core.services.insight.insight_store import InsightStore
+    from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
+    from core.services.ku.ku_lateral_service import KuLateralService
+    from core.services.ku_intelligence_service import KuIntelligenceService
+    from core.services.lateral_relationships.lateral_relationship_service import (
+        LateralRelationshipService,
+    )
+    from core.services.lp.lp_lateral_service import LpLateralService
+    from core.services.ls.ls_lateral_service import LsLateralService
+    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+    from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+    from core.services.performance_optimization_service import PerformanceOptimizationService
+    from core.services.principles.principles_intelligence_service import (
+        PrinciplesIntelligenceService,
+    )
+    from core.services.principles.principles_lateral_service import PrinciplesLateralService
     from core.services.relationships.unified_relationship_service import (
         UnifiedRelationshipService,
     )
+    from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
+    from core.services.tasks.tasks_lateral_service import TasksLateralService
     from core.services.transcript_processor_service import TranscriptProcessorService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
@@ -345,7 +375,7 @@ class Services:
     )
 
     # Analytics services (meta-service, not a domain)
-    analytics: Any = None  # AnalyticsService - Statistical report generation
+    analytics: "AnalyticsService | None" = None
     cross_domain_analytics: CrossDomainAnalyticsOperations | None = (
         None  # CrossDomainAnalyticsService - Event-driven analytics (Phase 5)
     )
@@ -363,66 +393,44 @@ class Services:
     )
 
     # Advanced services (Phase 2 - Optional)
-    calendar_optimization: Any = None  # CalendarOptimizationService - Cognitive load optimization
-    jupyter_sync: Any = None  # JupyterNeo4j-Obsidian sync
-    performance_optimization: Any = (
-        None  # PerformanceOptimizationService - Scale optimization & caching
-    )
+    calendar_optimization: "CalendarOptimizationService | None" = None
+    jupyter_sync: "JupyterNeo4jSync | None" = None
+    performance_optimization: "PerformanceOptimizationService | None" = None
 
     # Intelligence services (Phase 3 - Real implementations replacing mock data)
-    tasks_intelligence: Any = None  # TasksIntelligenceService - Task intelligence (knowledge, learning, behavioral, performance)
-    habits_intelligence: Any = (
-        None  # HabitsIntelligenceService - Habit formation and behavioral science
-    )
-    goals_intelligence: Any = (
-        None  # GoalsIntelligenceService - Achievement prediction and motivation
-    )
-    events_intelligence: Any = (
-        None  # EventsIntelligenceService - Scheduling patterns and time optimization
-    )
-    choices_intelligence: Any = (
-        None  # ChoicesIntelligenceService - Decision analysis and bias detection
-    )
-    askesis_ai: Any = (
-        None  # AskesisAIService - AI-powered discipline tracking (requires LLM/embeddings)
-    )
-    ku_intelligence: Any = (
-        None  # KuIntelligenceService - Knowledge graph and semantic relationships
-    )
-    principles_intelligence: Any = (
-        None  # PrinciplesIntelligenceService - Value alignment and ethical guidance
-    )
-    context_aware_ai: Any = (
-        None  # ContextAwareAIService - AI-powered context intelligence (requires LLM/embeddings)
-    )
+    tasks_intelligence: "TasksIntelligenceService | None" = None
+    habits_intelligence: "HabitsIntelligenceService | None" = None
+    goals_intelligence: "GoalsIntelligenceService | None" = None
+    events_intelligence: "EventsIntelligenceService | None" = None
+    choices_intelligence: "ChoicesIntelligenceService | None" = None
+    askesis_ai: "AskesisAIService | None" = None
+    ku_intelligence: "KuIntelligenceService | None" = None
+    principles_intelligence: "PrinciplesIntelligenceService | None" = None
+    context_aware_ai: "ContextAwareAIService | None" = None
 
     # Infrastructure - Neo4j driver (exposed for routes that need context building)
     neo4j_driver: "AsyncDriver | None" = None
 
     # GenAI services (Neo4j native embeddings and vector search - January 2026)
-    embeddings_service: Any = None  # Neo4jGenAIEmbeddingsService - Embeddings via ai.text.embed()
-    vector_search_service: Any = (
-        None  # Neo4jVectorSearchService - Vector search via db.index.vector.queryNodes()
-    )
+    embeddings_service: "Neo4jGenAIEmbeddingsService | None" = None
+    vector_search_service: "Neo4jVectorSearchService | None" = None
 
     # Background workers (January 2026)
-    embedding_worker: Any = (
-        None  # EmbeddingBackgroundWorker - Async background embedding generation
-    )
+    embedding_worker: "EmbeddingBackgroundWorker | None" = None
 
     # ========================================================================
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
     # ========================================================================
-    lateral: Any = None  # LateralRelationshipService - Core domain-agnostic service
-    tasks_lateral: Any = None  # TasksLateralService - Task dependencies and alternatives
-    goals_lateral: Any = None  # GoalsLateralService - Goal blocking and complementary
-    habits_lateral: Any = None  # HabitsLateralService - Habit stacking and synergy
-    events_lateral: Any = None  # EventsLateralService - Event conflicts and scheduling
-    choices_lateral: Any = None  # ChoicesLateralService - Choice alternatives and blocking
-    principles_lateral: Any = None  # PrinciplesLateralService - Value relationships and tensions
-    ku_lateral: Any = None  # KuLateralService - Knowledge prerequisites and semantic connections
-    ls_lateral: Any = None  # LsLateralService - Learning step dependencies and alternatives
-    lp_lateral: Any = None  # LpLateralService - Learning path prerequisites and complementary
+    lateral: "LateralRelationshipService | None" = None
+    tasks_lateral: "TasksLateralService | None" = None
+    goals_lateral: "GoalsLateralService | None" = None
+    habits_lateral: "HabitsLateralService | None" = None
+    events_lateral: "EventsLateralService | None" = None
+    choices_lateral: "ChoicesLateralService | None" = None
+    principles_lateral: "PrinciplesLateralService | None" = None
+    ku_lateral: "KuLateralService | None" = None
+    ls_lateral: "LsLateralService | None" = None
+    lp_lateral: "LpLateralService | None" = None
 
     # Services are ready when constructed - no lifecycle needed
 
