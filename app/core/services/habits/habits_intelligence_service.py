@@ -33,7 +33,6 @@ from core.services.intelligence import (
     MetricsCalculator,
     RecommendationEngine,
     calculate_habit_metrics,
-    get_context_service,
 )
 
 # NOTE (November 2025): Removed HasConsistencyScore, HasFrequency, HasStreakCount imports
@@ -116,7 +115,6 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
         )
-        self.context_service = get_context_service()  # Phase 3: DRY cross-domain context
         self.insight_store = insight_store
 
         # Initialize GraphContextOrchestrator for generic get_with_context pattern

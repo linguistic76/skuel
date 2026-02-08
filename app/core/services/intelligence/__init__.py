@@ -7,7 +7,6 @@ Shared intelligence patterns for all domains.
 Provides:
 - QueryIntelligenceService: Query intelligence (intent detection, facet suggestion, ranking)
 - GraphContextOrchestrator[T]: Generic APOC orchestration (Phase 2 consolidation)
-- CrossDomainContextService: Unified cross-domain context retrieval and analysis (Phase 3 DRY)
 - Typed Context Dataclasses: Type-safe containers for cross-domain context data
 - Metrics Calculators: Domain-specific metrics calculation functions
 - RecommendationEngine: Fluent builder for recommendation generation (Phase 5 consolidation)
@@ -15,15 +14,10 @@ Provides:
 - PatternAnalyzer: Pattern detection utilities (Phase 5 consolidation)
 - TrendAnalyzer: Trend classification utilities (Phase 5 consolidation)
 
-Version: 2.2.0 (Phase 5: Helper consolidation - RecommendationEngine, MetricsCalculator, etc.)
-Date: January 2026
+Version: 2.3.0 (Removed redundant CrossDomainContextService — BaseAnalyticsService covers this)
+Date: February 2026
 """
 
-from core.services.intelligence.cross_domain_context_service import (
-    ContextAnalysisResult,
-    CrossDomainContextService,
-    get_context_service,
-)
 from core.services.intelligence.cross_domain_contexts import (
     ChoiceCrossContext,
     CrossDomainContext,
@@ -72,22 +66,20 @@ from core.services.intelligence.trend_analyzer import (
 __all__ = [
     # Query intelligence (renamed from BaseIntelligenceService January 2026)
     "QueryIntelligenceService",
+    "FacetDetector",
+    "IntentScorer",
+    "ResultRanker",
+    # Graph context orchestrator
+    "GraphContextOrchestrator",
     # Typed context dataclasses
     "ChoiceCrossContext",
-    # Cross-domain context service
-    "ContextAnalysisResult",
     "CrossDomainContext",
-    "CrossDomainContextService",
     "EventCrossContext",
-    "FacetDetector",
     "FinanceCrossContext",
     "GoalCrossContext",
-    "GraphContextOrchestrator",
     "HabitCrossContext",
-    "IntentScorer",
     "KnowledgeCrossContext",
     "PrincipleCrossContext",
-    "ResultRanker",
     "TaskCrossContext",
     # Metrics calculators
     "calculate_choice_metrics",
@@ -98,7 +90,6 @@ __all__ = [
     "calculate_knowledge_metrics",
     "calculate_principle_metrics",
     "calculate_task_metrics",
-    "get_context_service",
     # Phase 5 consolidation: Shared helper utilities (January 2026)
     "MetricsCalculator",
     "PatternAnalyzer",

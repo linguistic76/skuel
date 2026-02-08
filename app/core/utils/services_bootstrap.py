@@ -314,9 +314,7 @@ class Services:
     # User management (fundamental)
     user_service: UserOperations | None = None  # UserService - user profile management
     user_relationships: "UserRelationshipService | None" = None
-    graph_auth: GraphAuthOperations | None = (
-        None  # GraphAuthService - graph-native authentication
-    )
+    graph_auth: GraphAuthOperations | None = None  # GraphAuthService - graph-native authentication
     context_service: UserContextOperations | None = (
         None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)
     )

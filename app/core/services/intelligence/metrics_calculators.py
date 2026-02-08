@@ -5,8 +5,8 @@ Domain-Specific Metrics Calculators
 Standard metrics calculators for cross-domain context analysis.
 
 Each calculator takes an entity and its typed context, returning a dictionary
-of metrics specific to that domain. These are plugged into CrossDomainContextService
-via the metrics_fn parameter.
+of metrics specific to that domain. These are plugged into
+BaseAnalyticsService._analyze_entity_with_context() via the metrics_fn parameter.
 
 Philosophy: "Metrics reveal the story of the entity in its context"
 

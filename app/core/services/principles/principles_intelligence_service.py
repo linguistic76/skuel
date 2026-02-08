@@ -46,7 +46,6 @@ from core.services.intelligence import (
     analyze_activity_trajectory,
     calculate_principle_metrics,
     determine_trend_from_rate,
-    get_context_service,
 )
 from core.services.protocols.domain_protocols import PrinciplesOperations
 from core.utils.decorators import requires_graph_intelligence
@@ -118,7 +117,6 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
         )
-        self.context_service = get_context_service()  # Phase 3: DRY cross-domain context
         self.insight_store = insight_store
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)

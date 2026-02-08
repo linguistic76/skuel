@@ -38,7 +38,6 @@ from core.services.choices.choices_types import (
 )
 from core.services.intelligence import (
     GraphContextOrchestrator,
-    get_context_service,
 )
 from core.services.intelligence.path_aware_intelligence_helper import (
     PathAwareIntelligenceHelper,
@@ -111,7 +110,6 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
         )
-        self.context_service = get_context_service()  # Phase 3: DRY cross-domain context
         self.insight_store = insight_store
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)

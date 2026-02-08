@@ -30,7 +30,6 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
     GraphContextOrchestrator,
     RecommendationEngine,
-    get_context_service,
 )
 from core.services.protocols.domain_protocols import EventsOperations
 from core.utils.decorators import with_error_handling
@@ -94,8 +93,6 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
         )
-        self.context_service = get_context_service()  # Phase 3: DRY cross-domain context
-
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
             self.orchestrator = GraphContextOrchestrator[Event, EventDTO](

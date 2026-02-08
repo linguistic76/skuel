@@ -18,7 +18,7 @@ Version: 3.0.0 (Analytics merge from GoalAnalyticsService)
 Date: 2025-11-25
 
 History:
-- v2.0.0: Phase 3 CrossDomainContextService migration
+- v2.0.0: Phase 3 cross-domain context via BaseAnalyticsService._analyze_entity_with_context()
 - v3.0.0: Merged GoalAnalyticsService predictive analytics
 """
 
@@ -43,7 +43,6 @@ from core.services.intelligence import (
     RecommendationEngine,
     calculate_goal_metrics,
     compare_progress_to_expected,
-    get_context_service,
 )
 from core.services.protocols.domain_protocols import GoalsOperations
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
@@ -154,7 +153,6 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             relationship_service=relationship_service,
         )
         self.progress = progress_service  # Domain-specific: for velocity calculations
-        self.context_service = get_context_service()  # Phase 3: DRY cross-domain context
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:

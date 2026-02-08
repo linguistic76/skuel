@@ -335,23 +335,47 @@ def detect_advanced_patterns(changed_files: list[str]) -> list[DocSuggestion]:
     # require documentation updates in known locations.
     infrastructure_doc_map: dict[str, list[tuple[str, str]]] = {
         "services_bootstrap.py": [
-            ("CLAUDE.md", "Update Protocol-Based Architecture section (field counts, typing strategies)"),
-            ("docs/patterns/protocol_architecture.md", "Update protocol coverage and Services dataclass field counts"),
-            ("docs/reference/PROTOCOL_REFERENCE.md", "Verify protocol catalog matches current Services fields"),
+            (
+                "CLAUDE.md",
+                "Update Protocol-Based Architecture section (field counts, typing strategies)",
+            ),
+            (
+                "docs/patterns/protocol_architecture.md",
+                "Update protocol coverage and Services dataclass field counts",
+            ),
+            (
+                "docs/reference/PROTOCOL_REFERENCE.md",
+                "Verify protocol catalog matches current Services fields",
+            ),
         ],
         "base_service.py": [
-            ("docs/guides/BASESERVICE_QUICK_START.md", "Verify BaseService examples and mixin documentation"),
-            ("docs/reference/BASESERVICE_METHOD_INDEX.md", "Regenerate method index if methods changed"),
+            (
+                "docs/guides/BASESERVICE_QUICK_START.md",
+                "Verify BaseService examples and mixin documentation",
+            ),
+            (
+                "docs/reference/BASESERVICE_METHOD_INDEX.md",
+                "Regenerate method index if methods changed",
+            ),
         ],
         "shared_enums.py": [
             ("CLAUDE.md", "Update domain count or EntityType list if enums changed"),
-            ("docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md", "Verify domain list matches enum definitions"),
+            (
+                "docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md",
+                "Verify domain list matches enum definitions",
+            ),
         ],
         "relationship_registry.py": [
-            ("docs/decisions/ADR-026-unified-relationship-registry.md", "Verify registry documentation matches implementation"),
+            (
+                "docs/decisions/ADR-026-unified-relationship-registry.md",
+                "Verify registry documentation matches implementation",
+            ),
         ],
         "route_factories.py": [
-            ("docs/patterns/ROUTE_FACTORIES.md", "Update factory documentation if signatures or patterns changed"),
+            (
+                "docs/patterns/ROUTE_FACTORIES.md",
+                "Update factory documentation if signatures or patterns changed",
+            ),
         ],
     }
 
