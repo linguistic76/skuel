@@ -176,9 +176,7 @@ def create_habits_api_routes(
     async def list_habit_categories_route(request: Request) -> Result[Any]:
         """List habit categories for the authenticated user."""
         user_uid = require_authenticated_user(request)
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = habits_service
-        return await typed_service.list_habit_categories(user_uid)
+        return await habits_service.list_habit_categories(user_uid)
 
     @rt("/api/habits/by-category")
     @boundary_handler()
@@ -188,9 +186,7 @@ def create_habits_api_routes(
 
         limit = int(params.get("limit", 100))
 
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = habits_service
-        return await typed_service.get_habits_by_category(category, limit)
+        return await habits_service.get_habits_by_category(category, limit)
 
     # ========================================================================
     # ANALYTICS ROUTES (Factory-Generated)
@@ -243,18 +239,14 @@ def create_habits_api_routes(
         query = params.get("q", "")
         limit = int(params.get("limit", 50))
 
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = habits_service
-        return await typed_service.search_habits(query, limit)
+        return await habits_service.search_habits(query, limit)
 
     @rt("/api/habits/due-today")
     @boundary_handler()
     async def get_habits_due_today_route(request: Request) -> Result[Any]:
         """Get habits due today for the authenticated user."""
         user_uid = require_authenticated_user(request)
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = habits_service
-        return await typed_service.get_habits_due_today(user_uid)
+        return await habits_service.get_habits_due_today(user_uid)
 
     @rt("/api/habits/overdue")
     @boundary_handler()
@@ -263,9 +255,7 @@ def create_habits_api_routes(
         params = dict(request.query_params)
         limit = int(params.get("limit", 100))
 
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = habits_service
-        return await typed_service.get_overdue_habits(limit)
+        return await habits_service.get_overdue_habits(limit)
 
     # Habit Reminders
     # ---------------

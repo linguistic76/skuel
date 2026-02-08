@@ -450,12 +450,9 @@ def create_admin_dashboard_routes(_app, rt, services):
             "journals_submitted": None,
         }
 
-        # Fetch real counts from services (no hasattr - use getattr with default)
         try:
-            tasks_service = getattr(services, "tasks", None)
-            if tasks_service:
-                # Use list with limit as count method may not exist
-                tasks_result = await tasks_service.list(user_uid=None, limit=10000)
+            if services.tasks:
+                tasks_result = await services.tasks.list(user_uid=None, limit=10000)
                 if not tasks_result.is_error:
                     activity_stats["tasks_created"] = len(tasks_result.value or [])
                 else:
@@ -463,9 +460,8 @@ def create_admin_dashboard_routes(_app, rt, services):
                         f"Failed to fetch task count: {tasks_result.expect_error().message}"
                     )
 
-            habits_service = getattr(services, "habits", None)
-            if habits_service:
-                habits_result = await habits_service.list(user_uid=None, limit=10000)
+            if services.habits:
+                habits_result = await services.habits.list(user_uid=None, limit=10000)
                 if not habits_result.is_error:
                     activity_stats["habits_active"] = len(habits_result.value or [])
                 else:
@@ -473,9 +469,8 @@ def create_admin_dashboard_routes(_app, rt, services):
                         f"Failed to fetch habit count: {habits_result.expect_error().message}"
                     )
 
-            goals_service = getattr(services, "goals", None)
-            if goals_service:
-                goals_result = await goals_service.list(user_uid=None, limit=10000)
+            if services.goals:
+                goals_result = await services.goals.list(user_uid=None, limit=10000)
                 if not goals_result.is_error:
                     activity_stats["goals_active"] = len(goals_result.value or [])
                 else:
@@ -483,10 +478,8 @@ def create_admin_dashboard_routes(_app, rt, services):
                         f"Failed to fetch goal count: {goals_result.expect_error().message}"
                     )
 
-            # Journals service
-            journals_service = getattr(services, "journals", None)
-            if journals_service:
-                journal_result = await journals_service.list(user_uid=None, limit=10000)
+            if services.journals:
+                journal_result = await services.journals.list(user_uid=None, limit=10000)
                 if not journal_result.is_error:
                     activity_stats["journals_submitted"] = len(journal_result.value or [])
                 else:
@@ -546,9 +539,8 @@ def create_admin_dashboard_routes(_app, rt, services):
         health_data = {"status": "unknown", "components": {}}
 
         try:
-            system_service = getattr(services, "system_service", None)
-            if system_service:
-                result = await system_service.get_health_status()
+            if services.system_service:
+                result = await services.system_service.get_health_status()
                 if not result.is_error:
                     health_data = result.value
                 else:
@@ -649,11 +641,9 @@ async def _get_user_stats(services) -> dict:
 async def _get_system_status(services) -> dict[str, Any]:
     """Get system health status."""
     try:
-        system_service = getattr(services, "system_service", None)
-        if system_service:
-            result = await system_service.get_health_status()
+        if services.system_service:
+            result = await services.system_service.get_health_status()
             if not result.is_error:
-                # result.value is typed as Any; cast to dict for return
                 return (
                     dict(result.value) if result.value else {"status": "unknown", "healthy": True}
                 )

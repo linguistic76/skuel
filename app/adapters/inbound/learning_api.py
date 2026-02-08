@@ -99,18 +99,14 @@ def create_learning_api_routes(
     @boundary_handler()
     async def get_path_steps_route(request: Request, path_uid: str) -> Result[Any]:
         """Get all steps for a learning path."""
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = learning_service
-        return await typed_service.get_path_steps(path_uid)
+        return await learning_service.get_path_steps(path_uid)
 
     @rt("/api/learning/current-step")
     @boundary_handler()
     async def get_current_step_route(request: Request, path_uid: str) -> Result[Any]:
         """Get the current (first incomplete) step in a learning path."""
 
-        # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
-        typed_service = learning_service
-        result = await typed_service.get_current_step(path_uid)
+        result = await learning_service.get_current_step(path_uid)
         if result.is_error:
             return result
 
