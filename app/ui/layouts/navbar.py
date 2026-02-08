@@ -271,8 +271,8 @@ def create_navbar(
     Returns:
         FastHTML Nav element with Alpine.js state management
     """
-    # Build navigation items list
-    nav_items = list(MAIN_NAV_ITEMS)
+    # Build navigation items list, filtering admin-only items
+    nav_items = [item for item in MAIN_NAV_ITEMS if not item.requires_admin or is_admin]
     if is_admin:
         nav_items.insert(0, ADMIN_NAV_ITEM)
 
