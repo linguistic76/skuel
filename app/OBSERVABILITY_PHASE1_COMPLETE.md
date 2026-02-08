@@ -264,7 +264,7 @@ open http://localhost:3000
 # - System Health (existing)
 # - Domain Activity (existing)
 # - Graph Health (existing)
-# - User Journey (existing)
+# - Search & Events (existing)
 
 # Next step: Create AI Services dashboard (Phase 2)
 ```

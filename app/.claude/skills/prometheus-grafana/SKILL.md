@@ -41,7 +41,7 @@ SKUEL tracks 47 metrics across 9 categories:
 | **System Health** | HTTP & API | Request rate, latency (p50/p95/p99), error rates | Monitor API performance, debug slow endpoints |
 | **Domain Activity** | Business metrics | Entity creation/completion by domain | Track user engagement, feature adoption |
 | **Graph Health** | Relationship patterns | Graph density, orphaned entities, dependency chains | Ensure graph integrity, optimize relationships |
-| **User Journey** | Event flow | Event handlers, context invalidations | Debug event processing, track user actions |
+| **Search & Events** | Search + event bus | Search latency/quality, event handler performance | Debug search quality, monitor event bus health |
 
 ### Start the Stack
 
@@ -426,10 +426,10 @@ histogram_quantile(0.95, rate(skuel_transcription_duration_seconds_bucket[5m]))
 
 **Use Case**: Ensure graph integrity, optimize relationship structure, detect anomalies
 
-### 4. User Journey Dashboard
+### 4. Search & Events Dashboard
 
-**File**: `/monitoring/grafana/dashboards/user_journey.json`
-**Focus**: Event flow and processing
+**File**: `/monitoring/grafana/dashboards/search_events.json`
+**Focus**: Search performance and event bus health
 
 **Key Panels**:
 1. **Event Publication Rate**: `rate(skuel_events_published_total[5m])`

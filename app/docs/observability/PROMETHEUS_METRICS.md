@@ -23,7 +23,7 @@ SKUEL uses Prometheus for metrics collection and Grafana for visualization, prov
 - **System Health** - HTTP requests, Neo4j performance, system resources
 - **Domain Activity** - Entity creation/completion, event bus metrics
 - **Graph Health** - Relationship patterns, density, lateral connections (PRIMARY FOCUS)
-- **User Journey** - Search quality, event processing
+- **Search & Events** - Search quality, event bus health
 
 ---
 
@@ -196,7 +196,7 @@ SKUEL uses **Prometheus/Grafana** instead of building custom observability infra
 1. System Health (infrastructure monitoring)
 2. Domain Activity (business metrics)
 3. Graph Health (relationship patterns) ← PRIMARY FOCUS
-4. User Journey (search quality, intelligence)
+4. Search & Events (search quality, event bus health)
 
 **35 Metrics** tracked across system, database, events, graph, search.
 
@@ -221,7 +221,7 @@ SKUEL uses **Prometheus/Grafana** instead of building custom observability infra
 
 ### Examples of the Same Data, Different Perspective
 
-**Grafana User Journey Dashboard** (Admin View):
+**Grafana Search & Events Dashboard** (Admin View):
 ```
 "Users performed 1,247 searches this week"
 "Average search similarity: 0.82 (improving)"
@@ -328,7 +328,7 @@ open http://localhost:3000/dashboards
 1. **System Health** (`skuel-system-health`) - Infrastructure monitoring
 2. **Domain Activity** (`skuel-domain-activity`) - Business metrics
 3. **Graph Health** (`skuel-graph-health`) - Relationship patterns ← PRIMARY
-4. **User Journey** (`skuel-user-journey`) - Search & intelligence
+4. **Search & Events** (`skuel-search-events`) - Search quality & event bus health
 
 ---
 
@@ -535,9 +535,9 @@ open http://localhost:3000/dashboards
 - Orphaned entities > 10 (connectivity issue)
 - Blocking relationships > 50 (potential bottleneck)
 
-### 4. User Journey & Intelligence (Admin/Ops Perspective)
+### 4. Search & Events (Admin/Ops Perspective)
 
-**UID**: `skuel-user-journey`
+**UID**: `skuel-search-events`
 
 **Audience**: Admins, product team (NOT end users - see ProfileHub for user-facing view)
 
@@ -871,12 +871,12 @@ grep "background task started" /tmp/skuel_app.log
 
 **Implemented**:
 - SearchMetrics (already existed in PrometheusMetrics)
-- User Journey dashboard (search + intelligence)
+- Search & Events dashboard (search + event bus)
 - System Health dashboard (verified existing)
 - Comprehensive documentation
 
 **Files Created**:
-- `/monitoring/grafana/dashboards/user_journey.json`
+- `/monitoring/grafana/dashboards/search_events.json`
 - `/docs/observability/PROMETHEUS_METRICS.md` (this file)
 
 **Metrics Verified**:
@@ -895,7 +895,7 @@ All dashboards are version-controlled in git:
 ├── system_health.json       # Infrastructure
 ├── domain_activity.json     # Business metrics
 ├── graph_health.json        # Graph patterns ← PRIMARY
-└── user_journey.json        # Search & intelligence
+└── search_events.json       # Search & event bus health
 ```
 
 **Workflow**:

@@ -1218,7 +1218,7 @@ SKUEL uses **Prometheus + Grafana** for aggregate operational metrics, following
 
 **Metrics**: 47 across 9 categories (System, HTTP, Database, Events, Domains, Relationships, Search, Queries, AI Services)
 **Alerts**: 14 production alerts (2 critical, 11 warning) with runbooks
-**Dashboards**: 4 Grafana dashboards (System Health, Domain Activity, Graph Health, User Journey)
+**Dashboards**: 4 Grafana dashboards (System Health, Domain Activity, Graph Health, Search & Events)
 
 ### Key Metrics Categories
 
@@ -1288,7 +1288,7 @@ curl http://localhost:5001/metrics | grep skuel_
 
 **Primary Docs**:
 - `monitoring/README.md` - Quick start guide
-- `.claude/skills/prometheus-grafana/SKILL.md` - Complete metrics reference (43 metrics)
+- `.claude/skills/prometheus-grafana/SKILL.md` - Complete metrics reference (47 metrics)
 - `.claude/skills/prometheus-grafana/ALERTING.md` - Alert runbooks and patterns
 - `.claude/skills/prometheus-grafana/INSTRUMENTATION.md` - How to add metrics
 

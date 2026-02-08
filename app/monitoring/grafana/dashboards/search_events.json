@@ -1,8 +1,8 @@
 {
-  "uid": "skuel-user-journey",
-  "title": "SKUEL User Journey & Intelligence",
-  "description": "Search quality, UserContext operations, and recommendation tracking",
-  "tags": ["skuel", "search", "intelligence", "user-journey"],
+  "uid": "skuel-search-events",
+  "title": "SKUEL Search & Event Bus",
+  "description": "Search performance, quality trends, and event bus health",
+  "tags": ["skuel", "search", "events", "performance"],
   "timezone": "browser",
   "schemaVersion": 38,
   "version": 1,

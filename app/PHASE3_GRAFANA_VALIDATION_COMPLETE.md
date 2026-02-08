@@ -186,7 +186,7 @@ All 4 dashboards are successfully loaded and accessible:
 | 1 | **SKUEL System Health** | `skuel-system-health` | system, health, phase2 | HTTP metrics, Neo4j queries |
 | 2 | **SKUEL Domain Activity** | `skuel-domain-activity` | domains, activity, phase3 | Entity creation/completion |
 | 3 | **SKUEL Graph Health** | `skuel-graph-health` | graph, health, relationships | Graph metrics, relationships |
-| 4 | **SKUEL User Journey** | `skuel-user-journey` | user-journey, intelligence | Search quality, user context |
+| 4 | **SKUEL Search & Events** | `skuel-search-events` | search, events, performance | Search quality, event bus health |
 
 ✅ All dashboards are loaded and accessible via Grafana UI.
 
@@ -364,7 +364,7 @@ skuel_http_request_duration_seconds{method="GET", endpoint="/tasks"}
 | System Health | HTTP, Neo4j | HTTP requests made, DB queries executed |
 | Domain Activity | Entity creation/completion events | Tasks/Goals/Habits created or completed |
 | Graph Health | Background task (5 min) | ✅ **Already populating** |
-| User Journey | Search, context invalidation | Searches performed, contexts invalidated |
+| Search & Events | Search, event bus health | Searches performed, event handler performance |
 
 ---
 
@@ -427,7 +427,7 @@ curl "http://localhost:8000/api/search/unified?q=test&types=ku"
 **Expected metrics to populate:**
 - `skuel_operation_calls_total{operation_name="ku_search_by_title"}`
 - `skuel_operation_duration_seconds{operation_name="ku_search_by_title"}`
-- User Journey dashboard search panels
+- Search & Events dashboard search panels
 
 ---
 
@@ -464,7 +464,7 @@ Phase 3 validation is **✅ COMPLETE**. The Grafana dashboards and Prometheus mo
 - `/monitoring/grafana/dashboards/system_health.json`
 - `/monitoring/grafana/dashboards/domain_activity.json`
 - `/monitoring/grafana/dashboards/graph_health.json`
-- `/monitoring/grafana/dashboards/user_journey.json`
+- `/monitoring/grafana/dashboards/search_events.json`
 
 **Application:**
 - `/scripts/dev/bootstrap.py` - Background tasks updating graph metrics

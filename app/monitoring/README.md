@@ -44,7 +44,7 @@ curl http://localhost:5001/metrics | grep skuel_
 
 **Metrics**: 43 across 9 categories (System, HTTP, DB, Events, Domains, Graph, Search, Queries, AI)
 **Alerts**: 14 production alerts with runbooks
-**Dashboards**: 4 Grafana dashboards (System, Domain, Graph, User Journey)
+**Dashboards**: 4 Grafana dashboards (System, Domain, Graph, Search & Events)
 
 **See**: `/.claude/skills/prometheus-grafana/SKILL.md` for complete reference
 
