@@ -636,18 +636,21 @@ def create_reports_sharing_api_routes(
 
 ### Services Dataclass Wiring
 
-Each protocol is wired as a union type on the `Services` dataclass:
+Every field on the `Services` dataclass is typed — zero `Any` fields remain. Two strategies:
 
 ```python
 # core/utils/services_bootstrap.py
 @dataclass
 class Services:
+    # Route-facing: ISP protocols (19 fields)
     reports: ReportSubmissionOperations | None = None
-    reports_core: ReportsCoreOperations | None = None
-    reports_sharing: ReportSharingOperations | None = None
     calendar: CalendarServiceOperations | None = None
     graph_auth: GraphAuthOperations | None = None
-    # ... 19 route-facing fields total
+
+    # Internal: concrete classes via TYPE_CHECKING (~39 fields)
+    tasks_intelligence: "TasksIntelligenceService | None" = None
+    lateral: "LateralRelationshipService | None" = None
+    neo4j_driver: "AsyncDriver | None" = None
 ```
 
 ---

@@ -476,7 +476,7 @@ EntityType.get_canonical()      # Normalizes aliases (KNOWLEDGE -> KU)
 - All services use protocol-based backends
 - All facade services have MyPy-visible protocol declarations
 - Full type safety across 27+ services
-- **Services dataclass: ~33 of ~58 fields typed** (protocols + TYPE_CHECKING concrete types)
+- **Services dataclass: zero `Any` fields** — all ~58 fields typed (protocols + TYPE_CHECKING)
 
 **Protocol Location:** `core/services/protocols/` - 11 protocol files covering all domains
 
@@ -502,9 +502,8 @@ EntityType.get_canonical()      # Normalizes aliases (KNOWLEDGE -> KU)
 |----------|------|---------|
 | **Protocol (route-facing)** | Service passed to route functions | `group_service: GroupOperations` |
 | **Concrete via TYPE_CHECKING** | Internal wiring, never in routes | `transcription: "TranscriptionService"` |
-| **`Any` (remaining)** | Intelligence, lateral, GenAI services | `tasks_intelligence: Any` |
 
-Route-facing protocols capture only the methods routes actually call (ISP). Internal fields use concrete classes for IDE support without architectural boundaries.
+Route-facing protocols capture only the methods routes actually call (ISP). Internal fields use concrete classes for IDE support without architectural boundaries. Zero `Any` fields remain on the Services dataclass.
 
 **Facade Protocols (9 total):**
 Make FacadeDelegationMixin-generated methods visible to MyPy:

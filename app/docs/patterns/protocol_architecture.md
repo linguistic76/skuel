@@ -39,7 +39,7 @@ SKUEL uses Python's Protocol typing (PEP 544) for dependency injection without f
 - **Zero concrete type dependencies** - All route signatures use facade or ISP protocols
 - **9 facade protocols** - Complete MyPy visibility for delegated methods
 - **19 route-facing ISP protocols** - Services container fields typed (February 2026)
-- **14 internal fields typed** via TYPE_CHECKING concrete classes (February 2026)
+- **Services dataclass: zero `Any` fields** — all ~58 fields fully typed (February 2026)
 - **75% code reduction** through generic programming patterns
 - **27+ services** using protocol interfaces exclusively
 
@@ -319,13 +319,12 @@ class Services:
 **Added to Existing Files:**
 - `askesis_protocols.py` — `AskesisCoreOperations` (6 methods for CRUD + context building)
 
-**Services Dataclass Fields Updated (33 total):**
+**Services Dataclass Fields — Zero `Any` Remaining:**
 
 | Tier | Strategy | Fields | Examples |
 |------|----------|--------|---------|
 | Route-facing protocols | `Protocol \| None` | 19 | `group_service: GroupOperations`, `calendar: CalendarServiceOperations` |
-| Internal concrete types | `"ConcreteClass \| None"` | 10 | `transcription: "TranscriptionService"`, `insight_store: "InsightStore"` |
-| Infrastructure types | `"ConcreteClass \| None"` | 4 | `driver: "AsyncDriver"`, `graph_adapter: "Neo4jAdapter"` |
+| Internal concrete types | `"ConcreteClass \| None"` | ~39 | `transcription: "TranscriptionService"`, `tasks_intelligence: "TasksIntelligenceService"` |
 
 **Route Files Updated (13):**
 All route factory functions updated with `TYPE_CHECKING` imports and protocol-typed parameters:
@@ -339,16 +338,14 @@ All route factory functions updated with `TYPE_CHECKING` imports and protocol-ty
 **Dead Code Removed:**
 - 3 unused fields deleted from Services: `yaml_loader`, `markdown_parser`, `apoc_adapter`
 
-**Remaining `Any` Fields (~25):**
-Intelligence services (`*_intelligence`), lateral relationship services (`*_lateral`), GenAI services (`embeddings_service`, `vector_search_service`), and advanced services (`calendar_optimization`, `jupyter_sync`). These are candidates for future protocol typing as they stabilize.
-
 **Why This Matters:**
 
 Before this phase, a developer looking at `group_service: Any` had no way to know what methods were available without reading the concrete class source. Now:
 1. **Route-facing protocols** document exactly what the route layer needs (ISP boundary)
-2. **TYPE_CHECKING types** give IDE autocomplete for internal wiring
+2. **TYPE_CHECKING types** give IDE autocomplete for all internal wiring
 3. **Drift prevention** — if a service method signature changes, MyPy catches mismatches at the protocol boundary
 4. The Services dataclass itself becomes **documentation** — you can read the type annotations to understand the system topology
+5. **Zero `Any` fields** — every field on the Services dataclass has a meaningful type
 
 ## Best Practices
 
