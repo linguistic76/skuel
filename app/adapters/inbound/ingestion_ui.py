@@ -8,13 +8,14 @@ Security:
 - Dashboard requires admin role
 """
 
-from fasthtml.common import H1, H2, Form, NotStr, P, Pre
+from fasthtml.common import Form, NotStr, P, Pre
 from starlette.requests import Request
 
 from core.auth import require_admin
-from core.ui.daisy_components import Button, Card, CardBody, Container, Div, Input, Label
+from core.ui.daisy_components import Button, Card, CardBody, Div, Input, Label
 from core.utils.logging import get_logger
-from ui.layouts.navbar import create_navbar
+from ui.layouts.base_page import BasePage
+from ui.patterns import PageHeader, SectionHeader
 
 logger = get_logger("skuel.routes.ingestion_ui")
 
@@ -44,170 +45,120 @@ def create_ingestion_ui_routes(
         """Get user service for admin role checks."""
         return user_service
 
+    def _form_group(label_text: str, input_id: str, placeholder: str, input_type: str = "text", value: str = ""):
+        """Build a consistent DaisyUI form group."""
+        input_attrs = {
+            "type": input_type,
+            "name": input_id,
+            "id": input_id,
+            "placeholder": placeholder,
+            "cls": "input input-bordered w-full",
+        }
+        if value:
+            input_attrs["value"] = value
+        return Div(
+            Label(label_text, _for=input_id, cls="label"),
+            Input(**input_attrs),
+            cls="form-control w-full",
+        )
+
+    def _ingestion_card(title: str, description: str, form_groups: list, button_text: str, onclick: str):
+        """Build a consistent ingestion action card."""
+        return Card(
+            CardBody(
+                SectionHeader(title),
+                P(description, cls="text-base-content/60 -mt-4 mb-4"),
+                Form(
+                    *form_groups,
+                    Div(
+                        Button(
+                            button_text,
+                            type="button",
+                            cls="btn btn-primary",
+                            onclick=onclick,
+                        ),
+                        cls="mt-2",
+                    ),
+                    cls="space-y-4",
+                ),
+            ),
+            cls="bg-base-100 shadow-sm border border-base-200",
+        )
+
     @rt("/ingest")
     @require_admin(get_user_service)
-    def ingest_dashboard(request: Request, current_user):
+    async def ingest_dashboard(request: Request, current_user):
         """Unified ingestion dashboard UI. Requires ADMIN role."""
-        user_uid = current_user.uid if current_user else None
-        navbar = create_navbar(current_user=user_uid, is_authenticated=True, is_admin=True)
-
-        return Div(
-            navbar,
-            Container(
-                H1("Unified Content Ingestion", cls="text-2xl font-bold mt-4"),
-                P(
-                    "Ingest markdown and YAML content into Neo4j. Supports all 14 entity types.",
-                    cls="text-lg text-gray-500 mb-4",
-                ),
+        content = Div(
+            PageHeader(
+                "Content Ingestion",
+                subtitle="Ingest markdown and YAML content into Neo4j. Supports all 15 entity types.",
+            ),
+            Div(
                 # Single File Ingestion
-                Card(
-                    CardBody(
-                        H2("Ingest File", cls="text-xl font-semibold"),
-                        P("Ingest a single .md or .yaml file", cls="text-gray-500"),
-                        Form(
-                            Div(
-                                Label("File Path", _for="file_path"),
-                                Input(
-                                    type="text",
-                                    name="file_path",
-                                    id="file_path",
-                                    placeholder="/path/to/file.md or /path/to/file.yaml",
-                                    cls="input input-bordered w-full",
-                                ),
-                                cls="mb-4",
-                            ),
-                            Button(
-                                "Ingest File",
-                                type="button",
-                                cls="btn btn-primary",
-                                onclick="ingestFile()",
-                            ),
-                        ),
-                    ),
-                    cls="mb-4",
+                _ingestion_card(
+                    title="Ingest File",
+                    description="Ingest a single .md or .yaml file.",
+                    form_groups=[
+                        _form_group("File Path", "file_path", "/path/to/file.md or /path/to/file.yaml"),
+                    ],
+                    button_text="Ingest File",
+                    onclick="ingestFile()",
                 ),
                 # Directory Ingestion
-                Card(
-                    CardBody(
-                        H2("Ingest Directory", cls="text-xl font-semibold"),
-                        P("Ingest all .md and .yaml files in a directory", cls="text-gray-500"),
-                        Form(
-                            Div(
-                                Label("Directory Path", _for="directory"),
-                                Input(
-                                    type="text",
-                                    name="directory",
-                                    id="directory",
-                                    placeholder="/path/to/directory",
-                                    cls="input input-bordered w-full",
-                                ),
-                                cls="mb-4",
-                            ),
-                            Div(
-                                Label("Pattern (optional)", _for="pattern"),
-                                Input(
-                                    type="text",
-                                    name="pattern",
-                                    id="pattern",
-                                    value="*",
-                                    placeholder="* for all files",
-                                    cls="input input-bordered w-full",
-                                ),
-                                cls="mb-4",
-                            ),
-                            Button(
-                                "Ingest Directory",
-                                type="button",
-                                cls="btn btn-primary",
-                                onclick="ingestDirectory()",
-                            ),
-                        ),
-                    ),
-                    cls="mb-4",
+                _ingestion_card(
+                    title="Ingest Directory",
+                    description="Ingest all .md and .yaml files in a directory.",
+                    form_groups=[
+                        _form_group("Directory Path", "directory", "/path/to/directory"),
+                        _form_group("Pattern (optional)", "pattern", "* for all files", value="*"),
+                    ],
+                    button_text="Ingest Directory",
+                    onclick="ingestDirectory()",
                 ),
                 # Vault Ingestion
-                Card(
-                    CardBody(
-                        H2("Ingest Obsidian Vault", cls="text-xl font-semibold"),
-                        P(
-                            "Sync an entire Obsidian vault or specific subdirectories",
-                            cls="text-gray-500",
-                        ),
-                        Form(
-                            Div(
-                                Label("Vault Path", _for="vault_path"),
-                                Input(
-                                    type="text",
-                                    name="vault_path",
-                                    id="vault_path",
-                                    placeholder="/path/to/obsidian/vault",
-                                    cls="input input-bordered w-full",
-                                ),
-                                cls="mb-4",
-                            ),
-                            Div(
-                                Label("Subdirectories (comma-separated, optional)", _for="subdirs"),
-                                Input(
-                                    type="text",
-                                    name="subdirs",
-                                    id="subdirs",
-                                    placeholder="docs, notes, curriculum",
-                                    cls="input input-bordered w-full",
-                                ),
-                                cls="mb-4",
-                            ),
-                            Button(
-                                "Ingest Vault",
-                                type="button",
-                                cls="btn btn-primary",
-                                onclick="ingestVault()",
-                            ),
-                        ),
-                    ),
-                    cls="mb-4",
+                _ingestion_card(
+                    title="Ingest Obsidian Vault",
+                    description="Ingest an entire Obsidian vault or specific subdirectories.",
+                    form_groups=[
+                        _form_group("Vault Path", "vault_path", "/path/to/obsidian/vault"),
+                        _form_group("Subdirectories (comma-separated, optional)", "subdirs", "docs, notes, curriculum"),
+                    ],
+                    button_text="Ingest Vault",
+                    onclick="ingestVault()",
                 ),
                 # Bundle Ingestion
-                Card(
-                    CardBody(
-                        H2("Ingest Domain Bundle", cls="text-xl font-semibold"),
-                        P("Ingest a domain bundle with manifest.yaml", cls="text-gray-500"),
-                        Form(
-                            Div(
-                                Label("Bundle Path", _for="bundle_path"),
-                                Input(
-                                    type="text",
-                                    name="bundle_path",
-                                    id="bundle_path",
-                                    placeholder="/path/to/bundle",
-                                    cls="input input-bordered w-full",
-                                ),
-                                cls="mb-4",
-                            ),
-                            Button(
-                                "Ingest Bundle",
-                                type="button",
-                                cls="btn btn-primary",
-                                onclick="ingestBundle()",
-                            ),
-                        ),
-                    ),
-                    cls="mb-4",
+                _ingestion_card(
+                    title="Ingest Domain Bundle",
+                    description="Ingest a domain bundle with manifest.yaml.",
+                    form_groups=[
+                        _form_group("Bundle Path", "bundle_path", "/path/to/bundle"),
+                    ],
+                    button_text="Ingest Bundle",
+                    onclick="ingestBundle()",
                 ),
-                # Results Display
-                Card(
-                    CardBody(
-                        H2("Ingestion Results", cls="text-xl font-semibold"),
-                        Pre(id="ingest-results", cls="mt-4"),
+                cls="grid gap-6 lg:grid-cols-2",
+            ),
+            # Results Display
+            Card(
+                CardBody(
+                    SectionHeader("Ingestion Results"),
+                    Pre(
+                        "Results will appear here after ingestion...",
+                        id="ingest-results",
+                        cls="bg-base-200 p-4 rounded-lg text-sm font-mono whitespace-pre-wrap min-h-[100px] text-base-content/70",
                     ),
                 ),
-                cls="container mx-auto mt-8 mb-8",
+                cls="bg-base-100 shadow-sm border border-base-200 mt-6",
             ),
             # JavaScript for ingestion operations
             NotStr("""
             <script>
             function showResult(result) {
-                document.getElementById('ingest-results').textContent =
-                    JSON.stringify(result, null, 2);
+                const el = document.getElementById('ingest-results');
+                el.textContent = JSON.stringify(result, null, 2);
+                el.classList.remove('text-base-content/70');
+                el.classList.add('text-base-content');
             }
 
             async function ingestFile() {
@@ -292,6 +243,13 @@ def create_ingestion_ui_routes(
             }
             </script>
             """),
+        )
+
+        return await BasePage(
+            content,
+            title="Content Ingestion",
+            request=request,
+            active_page="ingest",
         )
 
     # Collect all routes
