@@ -272,9 +272,18 @@ def detect_advanced_patterns(changed_files: list[str]) -> list[DocSuggestion]:
             DocSuggestion(
                 doc_path="docs/patterns/protocol_architecture.md",
                 reason=f"Protocol changes in {len(protocol_files)} file(s)",
-                confidence="medium",
+                confidence="high",
                 source="pattern:protocol",
                 action="Update protocol documentation with new interfaces",
+            )
+        )
+        suggestions.append(
+            DocSuggestion(
+                doc_path="docs/reference/PROTOCOL_REFERENCE.md",
+                reason=f"Protocol changes in {len(protocol_files)} file(s)",
+                confidence="high",
+                source="pattern:protocol",
+                action="Verify protocol catalog is current",
             )
         )
 
@@ -320,6 +329,45 @@ def detect_advanced_patterns(changed_files: list[str]) -> list[DocSuggestion]:
                 action="Verify GenAI architecture docs reflect current implementation",
             )
         )
+
+    # Pattern: Key infrastructure files → specific documentation
+    # These files are central to the architecture; changes almost always
+    # require documentation updates in known locations.
+    infrastructure_doc_map: dict[str, list[tuple[str, str]]] = {
+        "services_bootstrap.py": [
+            ("CLAUDE.md", "Update Protocol-Based Architecture section (field counts, typing strategies)"),
+            ("docs/patterns/protocol_architecture.md", "Update protocol coverage and Services dataclass field counts"),
+            ("docs/reference/PROTOCOL_REFERENCE.md", "Verify protocol catalog matches current Services fields"),
+        ],
+        "base_service.py": [
+            ("docs/guides/BASESERVICE_QUICK_START.md", "Verify BaseService examples and mixin documentation"),
+            ("docs/reference/BASESERVICE_METHOD_INDEX.md", "Regenerate method index if methods changed"),
+        ],
+        "shared_enums.py": [
+            ("CLAUDE.md", "Update domain count or EntityType list if enums changed"),
+            ("docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md", "Verify domain list matches enum definitions"),
+        ],
+        "relationship_registry.py": [
+            ("docs/decisions/ADR-026-unified-relationship-registry.md", "Verify registry documentation matches implementation"),
+        ],
+        "route_factories.py": [
+            ("docs/patterns/ROUTE_FACTORIES.md", "Update factory documentation if signatures or patterns changed"),
+        ],
+    }
+
+    for file_path in changed_files:
+        filename = Path(file_path).name
+        if filename in infrastructure_doc_map:
+            for doc_path, action in infrastructure_doc_map[filename]:
+                suggestions.append(
+                    DocSuggestion(
+                        doc_path=doc_path,
+                        reason=f"Infrastructure file {filename} changed",
+                        confidence="high",
+                        source=f"pattern:infrastructure:{filename}",
+                        action=action,
+                    )
+                )
 
     return suggestions
 
@@ -513,13 +561,21 @@ def main() -> int:
     if not args.quiet:
         print_suggestions(suggestions, changed_files)
     elif suggestions:
-        # In quiet mode, just print count
+        # In quiet mode, print counts at all actionable levels
         critical_count = sum(1 for s in suggestions if s.confidence == "critical")
         high_count = sum(1 for s in suggestions if s.confidence == "high")
-        print(f"{YELLOW}📄 {critical_count + high_count} doc(s) may need updating{RESET}")
-        for s in suggestions:
-            if s.confidence in ("critical", "high"):
-                print(f"  - {s.doc_path}: {s.reason}")
+        medium_count = sum(1 for s in suggestions if s.confidence == "medium")
+        urgent = critical_count + high_count
+        if urgent:
+            print(f"{YELLOW}📄 {urgent} doc(s) may need updating{RESET}")
+            for s in suggestions:
+                if s.confidence in ("critical", "high"):
+                    print(f"  - {s.doc_path}: {s.reason}")
+        elif medium_count:
+            print(f"{YELLOW}📄 {medium_count} doc(s) may need updating (medium confidence){RESET}")
+            for s in suggestions:
+                if s.confidence == "medium":
+                    print(f"  - {s.doc_path}: {s.reason}")
 
     return 1 if suggestions else 0
 
