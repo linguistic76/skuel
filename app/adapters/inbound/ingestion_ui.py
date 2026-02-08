@@ -19,6 +19,9 @@ from ui.patterns import PageHeader, SectionHeader
 
 logger = get_logger("skuel.routes.ingestion_ui")
 
+# Default vault path for ingestion forms
+DEFAULT_VAULT_PATH = "/home/mike/skuel/app/data/vault"
+
 
 def create_ingestion_ui_routes(
     app,
@@ -100,7 +103,7 @@ def create_ingestion_ui_routes(
                     title="Ingest File",
                     description="Ingest a single .md or .yaml file.",
                     form_groups=[
-                        _form_group("File Path", "file_path", "/path/to/file.md or /path/to/file.yaml"),
+                        _form_group("File Path", "file_path", "e.g. file.md or file.yaml", value=DEFAULT_VAULT_PATH + "/"),
                     ],
                     button_text="Ingest File",
                     onclick="ingestFile()",
@@ -110,7 +113,7 @@ def create_ingestion_ui_routes(
                     title="Ingest Directory",
                     description="Ingest all .md and .yaml files in a directory.",
                     form_groups=[
-                        _form_group("Directory Path", "directory", "/path/to/directory"),
+                        _form_group("Directory Path", "directory", "Directory to ingest", value=DEFAULT_VAULT_PATH),
                         _form_group("Pattern (optional)", "pattern", "* for all files", value="*"),
                     ],
                     button_text="Ingest Directory",
@@ -121,7 +124,7 @@ def create_ingestion_ui_routes(
                     title="Ingest Obsidian Vault",
                     description="Ingest an entire Obsidian vault or specific subdirectories.",
                     form_groups=[
-                        _form_group("Vault Path", "vault_path", "/path/to/obsidian/vault"),
+                        _form_group("Vault Path", "vault_path", "Root vault path", value=DEFAULT_VAULT_PATH),
                         _form_group("Subdirectories (comma-separated, optional)", "subdirs", "docs, notes, curriculum"),
                     ],
                     button_text="Ingest Vault",
@@ -132,7 +135,7 @@ def create_ingestion_ui_routes(
                     title="Ingest Domain Bundle",
                     description="Ingest a domain bundle with manifest.yaml.",
                     form_groups=[
-                        _form_group("Bundle Path", "bundle_path", "/path/to/bundle"),
+                        _form_group("Bundle Path", "bundle_path", "Bundle directory", value=DEFAULT_VAULT_PATH),
                     ],
                     button_text="Ingest Bundle",
                     onclick="ingestBundle()",
