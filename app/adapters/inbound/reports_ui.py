@@ -2,21 +2,12 @@
 Reports UI Routes
 =====================
 
-Clean dashboard for file submission and processing pipeline.
+File submission dashboard for human review.
+Regular users upload files here to share with teachers, peers, or mentors.
+Processor type is auto-set to HUMAN — AI processing lives in Report Projects
+(role-gated to TEACHER+).
+
 Uses HTMX for dynamic updates (JavaScript-minimal approach).
-
-Phase 1 Implementation:
-- File upload form (audio, text, future: PDF, images, video)
-- Reports grid with status badges
-- Filter by type and status
-- View processed content
-- Download original and processed files
-
-Future Enhancements:
-- Drag-and-drop file upload
-- Real-time status updates (WebSocket)
-- Batch operations
-- Manual review queue interface
 """
 
 from dataclasses import dataclass
@@ -42,6 +33,7 @@ from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
 from core.auth import require_authenticated_user
+from core.models.enums.report_enums import ProcessorType, ReportType
 from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
@@ -617,9 +609,9 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
         # File upload form - HTMX-powered
         upload_form = Div(
             Div(
-                H3("Upload File", cls="card-title"),
+                H3("Submit File for Review", cls="card-title"),
                 P(
-                    "Submit files for processing (audio, text, PDF, images, video)",
+                    "Upload a file to share with a teacher, peer, or mentor",
                     cls="text-base-content/60",
                 ),
                 Form(
@@ -650,7 +642,7 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
                         Label("Report Type", cls="label"),
                         Select(
                             Option("Transcript", value="transcript", selected=True),
-                            Option("Report", value="report"),
+                            Option("Assignment", value="assignment"),
                             Option("Image Analysis", value="image_analysis"),
                             Option("Video Summary", value="video_summary"),
                             name="report_type",
@@ -658,69 +650,10 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
                         ),
                         cls="mb-4",
                     ),
-                    # Processor type selector
-                    Div(
-                        Label("Processor", cls="label"),
-                        Select(
-                            Option("Automatic", value="automatic", selected=True),
-                            Option("LLM (AI Processing)", value="llm"),
-                            Option("Human Review", value="human"),
-                            Option("Hybrid (AI + Human)", value="hybrid"),
-                            name="processor_type",
-                            cls="select select-bordered w-full",
-                        ),
-                        cls="mb-4",
-                    ),
-                    # Knowledge Units selector (MVP - Phase C)
-                    Div(
-                        Label("Knowledge Units Applied (Optional)", cls="label"),
-                        P(
-                            "Link this report to Knowledge Units you're demonstrating",
-                            cls="text-sm text-base-content/60 mb-2",
-                        ),
-                        Input(
-                            type="text",
-                            name="ku_selector_display",
-                            placeholder="Search for Knowledge Units...",
-                            cls="input input-bordered w-full",
-                            **{
-                                "hx-get": "/api/search/unified?type=ku",
-                                "hx-trigger": "keyup changed delay:300ms",
-                                "hx-target": "#ku-results",
-                                "hx-include": "this",
-                            },
-                        ),
-                        # Selected KUs display
-                        Div(id="ku-selected", cls="flex flex-wrap gap-2 mt-2"),
-                        # Search results dropdown
-                        Div(id="ku-results", cls="mt-2"),
-                        # Hidden input for form submission (comma-separated UIDs)
-                        Input(
-                            type="hidden",
-                            name="applies_knowledge_uids",
-                            id="ku-uids-input",
-                            value="",
-                        ),
-                        cls="mb-4",
-                    ),
-                    # Auto-process checkbox
-                    Div(
-                        Label(
-                            Input(
-                                type="checkbox",
-                                name="auto_process",
-                                cls="checkbox checkbox-primary mr-2",
-                                checked=True,
-                            ),
-                            Span("Automatically process after upload"),
-                            cls="flex items-center cursor-pointer",
-                        ),
-                        cls="mb-4",
-                    ),
-                    # Upload button
+                    # Submit button
                     Div(
                         Button(
-                            "Upload & Submit",
+                            "Submit for Review",
                             variant=ButtonT.primary,
                             type="submit",
                         ),
@@ -753,7 +686,7 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
                         Select(
                             Option("All Types", value="", selected=True),
                             Option("Transcript", value="transcript"),
-                            Option("Report", value="report"),
+                            Option("Assignment", value="assignment"),
                             Option("Image Analysis", value="image_analysis"),
                             Option("Video Summary", value="video_summary"),
                             name="report_type",
@@ -817,7 +750,7 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
             Div(
                 H1("Reports", cls="text-3xl font-bold"),
                 P(
-                    "Upload and process files (audio, text, documents, images, videos)",
+                    "Submit files for review",
                     cls="text-lg text-base-content/60",
                 ),
                 cls="text-center mb-8",
@@ -851,7 +784,7 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
                         const btn = form.querySelector('button[type="submit"]');
                         if (btn) {
                             btn.disabled = false;
-                            btn.textContent = 'Upload & Submit';
+                            btn.textContent = 'Submit for Review';
                         }
                         htmx.trigger('#reports-grid-container', 'load');
                     }
@@ -873,31 +806,38 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
 
     @rt("/reports/upload")
     async def upload_report(request: Request) -> Any:
-        """HTMX endpoint for report file upload."""
+        """HTMX endpoint for report file upload (human review)."""
         try:
             form = await request.form()
             uploaded_file = form.get("file")
-            report_type = form.get("report_type", "transcript")
-            processor_type = form.get("processor_type", "automatic")
-            auto_process = form.get("auto_process") == "on"
+            report_type_str = form.get("report_type", "transcript")
 
             if not uploaded_file or not isinstance(uploaded_file, UploadFile):
                 return _render_upload_status("error", "No file provided", is_error=True)
 
-            user_uid = require_authenticated_user(request)  # Enforce authentication
+            # Validate and convert report_type to enum
+            try:
+                report_type = ReportType(report_type_str)
+            except ValueError:
+                return _render_upload_status(
+                    "error",
+                    f"Invalid report type: {report_type_str}",
+                    is_error=True,
+                )
+
+            user_uid = require_authenticated_user(request)
             file_content = await uploaded_file.read()
             filename = uploaded_file.filename or "unknown"
 
             logger.info(f"Report upload: {filename} ({len(file_content)} bytes)")
 
-            # Submit the report
+            # Submit for human review — processor_type always HUMAN for regular users
             result = await _report_service.submit_file(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
                 report_type=report_type,
-                processor_type=processor_type,
-                auto_process=auto_process,
+                processor_type=ProcessorType.HUMAN,
             )
 
             if result.is_error:

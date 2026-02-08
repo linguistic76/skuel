@@ -18,9 +18,11 @@ REPORT_PROJECTS_CONFIG = DomainRouteConfig(
     api_related_services={
         "transcript_service": "transcript_processor",
         "report_feedback_service": "report_feedback",
+        "user_service": "user_service",
     },
     ui_related_services={
         "transcript_service": "transcript_processor",
+        "user_service": "user_service",
     },
 )
 

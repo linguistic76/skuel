@@ -12,8 +12,10 @@ from typing import Any
 
 from fasthtml.common import Request
 
+from core.auth import require_teacher
 from core.infrastructure.routes import CRUDRouteFactory
 from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.models.report.report_project_request import (
     ReportFeedbackRequest,
     ReportProjectCreateRequest,
@@ -32,6 +34,7 @@ def create_report_projects_api_routes(
     report_projects_service: Any,
     transcript_service: Any,
     report_feedback_service: Any,
+    user_service: Any = None,
 ) -> list[Any]:
     """
     Create report projects API routes using factory pattern.
@@ -42,7 +45,13 @@ def create_report_projects_api_routes(
         report_projects_service: ReportProjectService instance
         transcript_service: TranscriptProcessor for entry lookup
         report_feedback_service: ReportFeedbackService for AI feedback
+        user_service: UserService for role checks
     """
+
+    # Named function for role decorator (SKUEL012: no lambdas)
+    def get_user_service_instance():
+        """Get user service for teacher role checks."""
+        return user_service
 
     # ========================================================================
     # STANDARD CRUD ROUTES (Factory-Generated)
@@ -55,6 +64,8 @@ def create_report_projects_api_routes(
         update_schema=ReportProjectUpdateRequest,
         uid_prefix="rp",
         scope=ContentScope.USER_OWNED,
+        require_role=UserRole.TEACHER,
+        user_service_getter=get_user_service_instance,
     )
 
     # Register all standard CRUD routes:
@@ -70,8 +81,9 @@ def create_report_projects_api_routes(
     # ========================================================================
 
     @rt("/api/report-projects/feedback", methods=["POST"])
+    @require_teacher(get_user_service_instance)
     @boundary_handler()
-    async def feedback(request: Request) -> Result[Any]:
+    async def feedback(request: Request, current_user: Any = None) -> Result[Any]:
         """
         Generate AI feedback for an entry using a project.
 

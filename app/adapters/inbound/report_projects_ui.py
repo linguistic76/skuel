@@ -17,6 +17,7 @@ from typing import Any
 from fasthtml.common import H1, H2, H3, Code, Form, Li, P, Pre, Ul
 from starlette.requests import Request
 
+from core.auth import require_teacher
 from core.ui.daisy_components import (
     Button,
     ButtonT,
@@ -492,24 +493,34 @@ def parse_report_project_params(request: Request) -> ReportProjectParams:
 
 
 def create_report_projects_ui_routes(
-    app, rt, report_projects_service, transcript_service=None, **related_services: Any
+    app, rt, report_projects_service, transcript_service=None, user_service=None, **related_services: Any
 ):
     """
     Create report projects UI routes.
+
+    Role-gated to TEACHER+ — only teachers and admins can create/manage
+    AI feedback instruction templates.
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
         report_projects_service: ReportProjectService instance
         transcript_service: TranscriptProcessor instance (optional)
+        user_service: UserService for role checks
         **related_services: Optional related services
 
     Returns:
         Empty list (routes registered via decorators, not returned)
     """
 
+    # Named function for role decorator (SKUEL012: no lambdas)
+    def get_user_service_instance():
+        """Get user service for teacher role checks."""
+        return user_service
+
     @app.get("/ui/report-projects")
-    async def report_projects_dashboard(request) -> Any:
+    @require_teacher(get_user_service_instance)
+    async def report_projects_dashboard(request, current_user=None) -> Any:
         """Report projects dashboard."""
         try:
             # Parse typed parameters
@@ -529,7 +540,8 @@ def create_report_projects_ui_routes(
             return Div(P(f"Error loading projects: {e}", cls="text-red-600"))
 
     @app.get("/ui/report-projects/new")
-    async def new_project_form(request) -> Any:
+    @require_teacher(get_user_service_instance)
+    async def new_project_form(request, current_user=None) -> Any:
         """New project form."""
         # Parse typed parameters
         params = parse_report_project_params(request)
@@ -539,7 +551,8 @@ def create_report_projects_ui_routes(
         )
 
     @app.get("/ui/report-projects/{uid}/edit")
-    async def edit_project_form(_request, uid: str) -> Any:
+    @require_teacher(get_user_service_instance)
+    async def edit_project_form(_request, uid: str, current_user=None) -> Any:
         """Edit project form."""
         try:
             result = await report_projects_service.get_project(uid)
@@ -556,7 +569,8 @@ def create_report_projects_ui_routes(
             return Div(P(f"Error: {e}", cls="text-red-600"))
 
     @app.get("/ui/report-projects/{uid}/view")
-    async def view_project(_request, uid: str) -> Any:
+    @require_teacher(get_user_service_instance)
+    async def view_project(_request, uid: str, current_user=None) -> Any:
         """View project with transparency."""
         try:
             result = await report_projects_service.get_project(uid)
@@ -573,7 +587,8 @@ def create_report_projects_ui_routes(
             return Div(P(f"Error: {e}", cls="text-red-600"))
 
     @app.get("/ui/reports/{uid}/with-feedback")
-    async def view_entry_with_feedback(_request, uid: str) -> Any:
+    @require_teacher(get_user_service_instance)
+    async def view_entry_with_feedback(_request, uid: str, current_user=None) -> Any:
         """View entry with AI feedback side-by-side."""
         try:
             if transcript_service is None:
