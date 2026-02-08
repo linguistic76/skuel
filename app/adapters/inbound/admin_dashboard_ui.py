@@ -34,7 +34,6 @@ from components.admin_components import (
     AdminUIComponents,
 )
 from core.auth import require_admin
-from core.models.enums import UserRole
 from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
 from ui.admin.layout import create_admin_page
@@ -186,33 +185,17 @@ def create_admin_dashboard_routes(_app, rt, services):
             Admin page with user list
         """
         # Parse filters
-        role_filter = UserRole.from_string(role) if role and role != "all" else None
+        role_filter_str = role if role and role != "all" else None
         active_only = status != "inactive" if status else True
         if status == "all":
             active_only = False
 
-        # Fetch users
-        result = await services.user_service.list_users(
-            admin_user_uid=current_user.uid,
-            limit=100,
-            role_filter=role_filter,
+        # Fetch users with activity counts
+        users_data = await _get_users_with_activity_counts(
+            services,
+            role_filter=role_filter_str,
             active_only=active_only,
         )
-
-        users_data = []
-        if not result.is_error and result.value:
-            users_data = [
-                {
-                    "uid": u.uid,
-                    "username": u.title,
-                    "email": u.email,
-                    "display_name": u.display_name,
-                    "role": u.role.value,
-                    "is_active": u.is_active,
-                    "last_login_at": u.last_login_at.isoformat() if u.last_login_at else "Never",
-                }
-                for u in result.value
-            ]
 
         # Fetch stats for header
         user_stats = await _get_user_stats(services)
@@ -240,16 +223,13 @@ def create_admin_dashboard_routes(_app, rt, services):
                 ),
                 cls="card bg-base-100 shadow-sm p-4 mb-6",
             ),
-            # User list
+            # User table
             Div(
                 H3("Users", cls="text-lg font-semibold mb-3"),
                 Div(
-                    *[AdminUIComponents.render_user_card(user) for user in users_data],
+                    AdminUIComponents.render_users_table(users_data),
                     id="user-list",
-                    cls="space-y-4",
-                )
-                if users_data
-                else P("No users found", cls="text-base-content/50 py-4"),
+                ),
                 cls="card bg-base-100 shadow-sm p-4",
             ),
         )
@@ -273,47 +253,24 @@ def create_admin_dashboard_routes(_app, rt, services):
         """
         HTMX partial for filtered user list.
 
-        Returns just the user list HTML for HTMX swap.
+        Returns just the user table HTML for HTMX swap.
         """
         # Parse filters
-        role_filter = UserRole.from_string(role) if role and role != "all" else None
+        role_filter_str = role if role and role != "all" else None
         active_only = status != "inactive" if status else True
         if status == "all":
             active_only = False
 
-        # Fetch users
-        result = await services.user_service.list_users(
-            admin_user_uid=current_user.uid,
-            limit=100,
-            role_filter=role_filter,
+        # Fetch users with activity counts
+        users_data = await _get_users_with_activity_counts(
+            services,
+            role_filter=role_filter_str,
             active_only=active_only,
         )
 
-        users_data = []
-        if not result.is_error and result.value:
-            users_data = [
-                {
-                    "uid": u.uid,
-                    "username": u.title,
-                    "email": u.email,
-                    "display_name": u.display_name,
-                    "role": u.role.value,
-                    "is_active": u.is_active,
-                    "last_login_at": u.last_login_at.isoformat() if u.last_login_at else "Never",
-                }
-                for u in result.value
-            ]
-
-        if not users_data:
-            return Div(
-                P("No users found matching filters", cls="text-base-content/50 py-4"),
-                id="user-list",
-            )
-
         return Div(
-            *[AdminUIComponents.render_user_card(user) for user in users_data],
+            AdminUIComponents.render_users_table(users_data),
             id="user-list",
-            cls="space-y-4",
         )
 
     @rt("/admin/users/{uid}")
@@ -354,6 +311,9 @@ def create_admin_dashboard_routes(_app, rt, services):
         }
 
         system_status = await _get_system_status(services)
+
+        # Fetch user activity stats
+        detail_stats = await _get_user_detail_stats(services, uid)
 
         # Fetch user's reports
         reports_data: list = []
@@ -404,6 +364,12 @@ def create_admin_dashboard_routes(_app, rt, services):
                     _detail_row("Verified", "Yes" if user_data["is_verified"] else "No"),
                     cls="space-y-3",
                 ),
+                cls="card bg-base-100 shadow-sm p-6 mb-6",
+            ),
+            # Activity, Learning & Session stats
+            Div(
+                H2("User Statistics", cls="text-xl font-semibold mb-4"),
+                AdminUIComponents.render_user_activity_stats(detail_stats, uid),
                 cls="card bg-base-100 shadow-sm p-6 mb-6",
             ),
             # Reports section
@@ -1020,6 +986,170 @@ async def _get_user_ku_detail(services, user_uid: str) -> dict:
         logger.warning(f"Failed to get user KU detail for {user_uid}: {e}")
 
     return detail
+
+
+async def _get_user_detail_stats(services, user_uid: str) -> dict:
+    """Get comprehensive activity, learning, and session stats for a user.
+
+    Returns counts across all entity types for the admin user detail page.
+    Uses a single Cypher query with incremental WITHs to avoid multiple round trips.
+    """
+    stats: dict[str, int] = {
+        "tasks_total": 0,
+        "tasks_completed": 0,
+        "goals_total": 0,
+        "goals_active": 0,
+        "habits_total": 0,
+        "habits_active": 0,
+        "events_total": 0,
+        "choices_total": 0,
+        "principles_total": 0,
+        "ku_viewed": 0,
+        "ku_in_progress": 0,
+        "ku_mastered": 0,
+        "session_count": 0,
+        "login_count": 0,
+    }
+
+    if not services.neo4j_driver:
+        return stats
+
+    try:
+        records, _, _ = await services.neo4j_driver.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})
+
+            OPTIONAL MATCH (u)-[:OWNS]->(t:Task)
+            WITH u, count(DISTINCT t) AS tasks_total
+            OPTIONAL MATCH (u)-[:OWNS]->(tc:Task)
+                WHERE tc.status IN ['completed', 'done']
+            WITH u, tasks_total, count(DISTINCT tc) AS tasks_completed
+
+            OPTIONAL MATCH (u)-[:OWNS]->(g:Goal)
+            WITH u, tasks_total, tasks_completed, count(DISTINCT g) AS goals_total
+            OPTIONAL MATCH (u)-[:OWNS]->(ga:Goal)
+                WHERE ga.status IN ['active', 'in_progress']
+            WITH u, tasks_total, tasks_completed, goals_total,
+                 count(DISTINCT ga) AS goals_active
+
+            OPTIONAL MATCH (u)-[:OWNS]->(h:Habit)
+            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
+                 count(DISTINCT h) AS habits_total
+            OPTIONAL MATCH (u)-[:OWNS]->(ha:Habit)
+                WHERE ha.status IN ['active', 'in_progress']
+            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
+                 habits_total, count(DISTINCT ha) AS habits_active
+
+            OPTIONAL MATCH (u)-[:OWNS]->(e:Event)
+            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
+                 habits_total, habits_active, count(DISTINCT e) AS events_total
+
+            OPTIONAL MATCH (u)-[:OWNS]->(c:Choice)
+            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
+                 habits_total, habits_active, events_total,
+                 count(DISTINCT c) AS choices_total
+
+            OPTIONAL MATCH (u)-[:OWNS]->(p:Principle)
+            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
+                 habits_total, habits_active, events_total, choices_total,
+                 count(DISTINCT p) AS principles_total
+
+            OPTIONAL MATCH (u)-[:VIEWED]->(kv:Ku)
+            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
+                 habits_total, habits_active, events_total, choices_total,
+                 principles_total, count(DISTINCT kv) AS ku_viewed
+            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(kp:Ku)
+            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
+                 habits_total, habits_active, events_total, choices_total,
+                 principles_total, ku_viewed,
+                 count(DISTINCT kp) AS ku_in_progress
+            OPTIONAL MATCH (u)-[:MASTERED]->(km:Ku)
+            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
+                 habits_total, habits_active, events_total, choices_total,
+                 principles_total, ku_viewed, ku_in_progress,
+                 count(DISTINCT km) AS ku_mastered
+
+            OPTIONAL MATCH (u)-[:HAS_SESSION]->(s:Session)
+            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
+                 habits_total, habits_active, events_total, choices_total,
+                 principles_total, ku_viewed, ku_in_progress, ku_mastered,
+                 count(DISTINCT s) AS session_count
+            OPTIONAL MATCH (u)-[:HAD_AUTH_EVENT]->(ae:AuthEvent)
+                WHERE ae.event_type = 'LOGIN_SUCCESS'
+            RETURN tasks_total, tasks_completed, goals_total, goals_active,
+                   habits_total, habits_active, events_total, choices_total,
+                   principles_total, ku_viewed, ku_in_progress, ku_mastered,
+                   session_count, count(DISTINCT ae) AS login_count
+            """,
+            user_uid=user_uid,
+        )
+
+        if records:
+            r = records[0]
+            for key in stats:
+                stats[key] = r[key] or 0
+    except Exception as e:
+        logger.warning(f"Failed to get user detail stats for {user_uid}: {e}")
+
+    return stats
+
+
+async def _get_users_with_activity_counts(
+    services,
+    role_filter: str | None = None,
+    active_only: bool = True,
+) -> list[dict]:
+    """Get all users with entity counts for the admin users list table.
+
+    Returns user info plus task/goal/habit/KU mastered counts.
+    """
+    if not services.neo4j_driver:
+        return []
+
+    where_clauses = ["u.uid <> 'user_system'"]
+    params: dict[str, Any] = {}
+
+    if role_filter:
+        where_clauses.append("u.role = $role_filter")
+        params["role_filter"] = role_filter
+    if active_only:
+        where_clauses.append("u.is_active = true")
+
+    where_str = " AND ".join(where_clauses)
+
+    try:
+        records, _, _ = await services.neo4j_driver.execute_query(
+            f"""
+            MATCH (u:User)
+            WHERE {where_str}
+
+            OPTIONAL MATCH (u)-[:OWNS]->(t:Task)
+            WITH u, count(DISTINCT t) AS task_count
+            OPTIONAL MATCH (u)-[:OWNS]->(g:Goal)
+            WITH u, task_count, count(DISTINCT g) AS goal_count
+            OPTIONAL MATCH (u)-[:OWNS]->(h:Habit)
+            WITH u, task_count, goal_count, count(DISTINCT h) AS habit_count
+            OPTIONAL MATCH (u)-[:MASTERED]->(km:Ku)
+            WITH u, task_count, goal_count, habit_count,
+                 count(DISTINCT km) AS ku_mastered
+
+            RETURN u.uid AS uid,
+                   u.title AS username,
+                   u.display_name AS display_name,
+                   u.email AS email,
+                   u.role AS role,
+                   u.is_active AS is_active,
+                   u.updated_at AS last_login_at,
+                   task_count, goal_count, habit_count, ku_mastered
+            ORDER BY u.title
+            """,
+            **params,
+        )
+
+        return [dict(r) for r in records]
+    except Exception as e:
+        logger.warning(f"Failed to get users with activity counts: {e}")
+        return []
 
 
 # Export the route creation function

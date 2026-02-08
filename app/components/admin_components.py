@@ -378,6 +378,217 @@ class AdminUIComponents:
         )
 
     @staticmethod
+    def render_users_table(users: list[dict]) -> Div:
+        """Render users as a dense table with entity count columns.
+
+        Args:
+            users: List of user dicts from _get_users_with_activity_counts().
+        """
+        if not users:
+            return Div(
+                P("No users found", cls="text-center text-base-content/50 py-8"),
+            )
+
+        rows = []
+        for user in users:
+            uid = user.get("uid", "")
+            username = user.get("username", "Unknown")
+            display_name = user.get("display_name") or username
+            email = user.get("email", "")
+            role = user.get("role", "registered")
+            is_active = user.get("is_active", True)
+            last_login = user.get("last_login_at", "Never")
+
+            if last_login and last_login != "Never" and "T" in str(last_login):
+                last_login = str(last_login).split("T")[0]
+
+            task_count = user.get("task_count", 0) or 0
+            goal_count = user.get("goal_count", 0) or 0
+            habit_count = user.get("habit_count", 0) or 0
+            ku_mastered = user.get("ku_mastered", 0) or 0
+
+            def _count_cell(count: int) -> Td:
+                if count > 0:
+                    return Td(
+                        Span(str(count), cls="font-semibold"),
+                        cls="text-center",
+                    )
+                return Td(
+                    Span("—", cls="text-base-content/30"),
+                    cls="text-center",
+                )
+
+            rows.append(
+                Tr(
+                    Td(
+                        A(
+                            Div(
+                                Span(display_name, cls="font-medium"),
+                                Span(
+                                    f"@{username}",
+                                    cls="text-xs text-base-content/50 block",
+                                ),
+                            ),
+                            href=f"/admin/users/{uid}",
+                            cls="hover:underline",
+                        ),
+                    ),
+                    Td(email, cls="text-sm text-base-content/70"),
+                    Td(AdminUIComponents.render_role_badge(role)),
+                    Td(AdminUIComponents.render_status_badge(is_active)),
+                    Td(
+                        last_login if last_login != "Never" else Span("Never", cls="text-base-content/30"),
+                        cls="text-sm",
+                    ),
+                    _count_cell(task_count),
+                    _count_cell(goal_count),
+                    _count_cell(habit_count),
+                    _count_cell(ku_mastered),
+                    Td(
+                        A(
+                            "View →",
+                            href=f"/admin/users/{uid}",
+                            cls="btn btn-xs btn-ghost text-primary",
+                        ),
+                        cls="text-right",
+                    ),
+                    cls="hover:bg-base-200",
+                )
+            )
+
+        return Div(
+            Table(
+                Thead(
+                    Tr(
+                        Th("User"),
+                        Th("Email"),
+                        Th("Role"),
+                        Th("Status"),
+                        Th("Last Login"),
+                        Th("Tasks", cls="text-center"),
+                        Th("Goals", cls="text-center"),
+                        Th("Habits", cls="text-center"),
+                        Th("KUs", cls="text-center"),
+                        Th("", cls="text-right"),
+                    ),
+                    cls="bg-base-200",
+                ),
+                Tbody(*rows),
+                cls="table table-zebra w-full",
+            ),
+            cls="overflow-x-auto",
+        )
+
+    @staticmethod
+    def render_user_activity_stats(stats: dict, user_uid: str) -> Div:
+        """Render comprehensive activity, learning, and session stats for a user.
+
+        Args:
+            stats: Dict from _get_user_detail_stats() with all count fields.
+            user_uid: User UID for linking to learning detail page.
+        """
+        # Activity domains
+        activity_stats = {
+            "tasks": {
+                "label": f"Tasks ({stats.get('tasks_completed', 0)} completed)",
+                "value": stats.get("tasks_total", 0),
+                "color": "blue",
+            },
+            "goals": {
+                "label": f"Goals ({stats.get('goals_active', 0)} active)",
+                "value": stats.get("goals_total", 0),
+                "color": "green",
+            },
+            "habits": {
+                "label": f"Habits ({stats.get('habits_active', 0)} active)",
+                "value": stats.get("habits_total", 0),
+                "color": "purple",
+            },
+            "events": {
+                "label": "Events",
+                "value": stats.get("events_total", 0),
+                "color": "orange",
+            },
+            "choices": {
+                "label": "Choices",
+                "value": stats.get("choices_total", 0),
+                "color": "indigo",
+            },
+            "principles": {
+                "label": "Principles",
+                "value": stats.get("principles_total", 0),
+                "color": "yellow",
+            },
+        }
+
+        # Learning progress
+        learning_stats = {
+            "viewed": {
+                "label": "KUs Viewed",
+                "value": stats.get("ku_viewed", 0),
+                "color": "gray",
+            },
+            "in_progress": {
+                "label": "KUs In Progress",
+                "value": stats.get("ku_in_progress", 0),
+                "color": "orange",
+            },
+            "mastered": {
+                "label": "KUs Mastered",
+                "value": stats.get("ku_mastered", 0),
+                "color": "green",
+            },
+        }
+
+        # Session stats
+        session_stats = {
+            "logins": {
+                "label": "Total Logins",
+                "value": stats.get("login_count", 0),
+                "color": "blue",
+            },
+            "sessions": {
+                "label": "Total Sessions",
+                "value": stats.get("session_count", 0),
+                "color": "purple",
+            },
+        }
+
+        return Div(
+            # Activity domains section
+            Div(
+                Div(
+                    Span("Activity Domains", cls="text-lg font-semibold"),
+                    cls="mb-3",
+                ),
+                SharedUIComponents.render_stats_cards(activity_stats),
+                cls="mb-6",
+            ),
+            # Learning progress section
+            Div(
+                Div(
+                    Span("Learning Progress", cls="text-lg font-semibold"),
+                    A(
+                        "View Full KU Detail →",
+                        href=f"/admin/learning/user/{user_uid}",
+                        cls="text-primary hover:underline text-sm ml-4",
+                    ),
+                    cls="flex items-center mb-3",
+                ),
+                SharedUIComponents.render_stats_cards(learning_stats),
+                cls="mb-6",
+            ),
+            # Session activity section
+            Div(
+                Div(
+                    Span("Session Activity", cls="text-lg font-semibold"),
+                    cls="mb-3",
+                ),
+                SharedUIComponents.render_stats_cards(session_stats),
+            ),
+        )
+
+    @staticmethod
     def render_user_reports_list(reports: list, _user_uid: str) -> Div:
         """Render a list of user reports for admin user detail page.
 

@@ -18,7 +18,7 @@ related_skills:
 
 # Admin Dashboard Architecture
 
-**Last Updated**: February 8, 2026
+**Last Updated**: February 8, 2026 (User Statistics Overhaul)
 ## Related Skills
 
 For implementation guidance, see:
@@ -30,6 +30,20 @@ For implementation guidance, see:
 The Admin Dashboard provides a centralized UI for system administration at `/admin`. It follows SKUEL's established UI patterns (ProfileLayout, SharedUIComponents) while enforcing ADMIN-only access through role-based decorators.
 
 The overview page displays quick-action cards (Users, Analytics, Finance, Ingestion) in a 3-column grid. The sidebar provides navigation to 7 sections: Overview, Users, Analytics, Learning, System, Finance, and Ingestion.
+
+### User Management Features
+
+The user management section (`/admin/users`) provides:
+
+- **Users table** with inline activity counts (Tasks, Goals, Habits, KUs mastered) per user
+- **User detail page** (`/admin/users/{uid}`) with comprehensive statistics:
+  - **Activity Domains** — Task/Goal/Habit/Event/Choice/Principle counts with active/completed breakdowns
+  - **Learning Progress** — KU viewed/in-progress/mastered counts with link to detailed KU page
+  - **Session Activity** — Login and session counts
+  - Reports and Report Projects lists
+  - Role management and account actions
+- **HTMX filtering** — Role and status dropdowns update the table without page reload
+- **Data source** — All stats queried via pure Cypher against Neo4j (not UserContext), following the same pattern as the Learning Dashboard
 
 ---
 
@@ -77,12 +91,12 @@ The overview page displays quick-action cards (Users, Analytics, Finance, Ingest
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                      SERVICE LAYER                                       │
 │                                                                          │
-│   UserService          SystemService         Domain Services             │
-│   ├─ list_users()      ├─ get_health_status()  ├─ tasks_service         │
-│   ├─ get_user()        └─ get_health_summary() ├─ habits_service        │
-│   ├─ update_role()                             ├─ goals_service         │
-│   ├─ deactivate_user()                         └─ ...                   │
-│   └─ activate_user()                                                    │
+│   UserService          SystemService         Neo4j Driver (Direct)       │
+│   ├─ list_users()      ├─ get_health_status()  ├─ User detail stats     │
+│   ├─ get_user()        └─ get_health_summary() ├─ Users list + counts   │
+│   ├─ update_role()                             ├─ KU system metrics     │
+│   ├─ deactivate_user()                         ├─ User KU progress      │
+│   └─ activate_user()                           └─ User KU detail        │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -172,7 +186,9 @@ User management UI components:
 | `render_role_badge(role)` | Color-coded role badge (admin=red, teacher=orange, etc.) |
 | `render_status_badge(is_active)` | Active/Inactive status indicator |
 | `render_user_card(user)` | Full user card with actions |
-| `render_user_table(users)` | Tabular user list |
+| `render_user_table(users)` | Basic tabular user list (legacy) |
+| `render_users_table(users)` | Dense table with activity count columns (Tasks, Goals, Habits, KUs) |
+| `render_user_activity_stats(stats, uid)` | User detail stats: activity domains + learning + sessions |
 | `render_role_change_form(user)` | HTMX role change form |
 | `render_user_stats(stats)` | Stats cards (total, by role) |
 | `render_role_filter(role)` | Role filter dropdown |
@@ -203,9 +219,30 @@ KU learning progression monitoring:
 
 | Function | Purpose |
 |----------|---------|
+| `_get_user_detail_stats(services, uid)` | 14-field user stats: activity counts, learning, sessions |
+| `_get_users_with_activity_counts(services, role, active)` | All users with task/goal/habit/KU counts for list table |
 | `_get_ku_system_metrics(services)` | Aggregate KU counts, VIEWED/IN_PROGRESS/MASTERED totals |
 | `_get_all_users_ku_progress(services)` | Per-user KU progress (mastered, in_progress, viewed counts) |
 | `_get_user_ku_detail(services, uid)` | Detailed KU list for a user with relationship data |
+
+**`_get_user_detail_stats` returns:**
+
+```python
+{
+    "tasks_total": 0, "tasks_completed": 0,       # OWNS → Task
+    "goals_total": 0, "goals_active": 0,           # OWNS → Goal
+    "habits_total": 0, "habits_active": 0,          # OWNS → Habit
+    "events_total": 0,                              # OWNS → Event
+    "choices_total": 0,                             # OWNS → Choice
+    "principles_total": 0,                          # OWNS → Principle
+    "ku_viewed": 0, "ku_in_progress": 0,            # VIEWED/IN_PROGRESS → Ku
+    "ku_mastered": 0,                               # MASTERED → Ku
+    "session_count": 0,                             # HAS_SESSION → Session
+    "login_count": 0,                               # HAD_AUTH_EVENT → AuthEvent
+}
+```
+
+All helpers use pure Cypher via `services.neo4j_driver.execute_query()` (no APOC — SKUEL001 compliant). Each returns graceful defaults (`{}` or `[]`) on error.
 
 ### AdminSystemComponents
 
@@ -346,6 +383,36 @@ The dashboard uses HTMX for dynamic updates without full page reloads:
    ▼
 9. HTMX replaces #user-card-{uid} with new content
 ```
+
+### Data Flow: User Detail Statistics
+
+```
+1. Admin navigates to /admin/users/{uid}
+   │
+   ├─ UserService.get_user(uid) → user identity
+   ├─ _get_user_detail_stats(services, uid) → 14-field stats dict
+   │     └─ Single Cypher query with incremental WITHs:
+   │        OWNS → Task/Goal/Habit/Event/Choice/Principle (counts)
+   │        VIEWED/IN_PROGRESS/MASTERED → Ku (learning)
+   │        HAS_SESSION/HAD_AUTH_EVENT → Session/AuthEvent (activity)
+   ├─ reports_core.get_recent_reports(uid) → reports list
+   └─ report_projects.list_user_projects(uid) → projects list
+   │
+   ▼
+2. AdminUIComponents.render_user_activity_stats(stats, uid)
+   │
+   ├─ Activity Domains section (6 stat cards via SharedUIComponents)
+   ├─ Learning Progress section (3 stat cards + KU detail link)
+   └─ Session Activity section (2 stat cards)
+```
+
+**Design decision: Direct Cypher vs UserContext**
+
+The admin user detail page uses direct Neo4j queries rather than `UserContext` because:
+- **UserContext** is designed for the logged-in user's intelligence ("What should I work on?")
+- **Admin inspection** needs simple counts ("What has this user done?")
+- Direct queries are lighter (14 fields vs ~240 in UserContext)
+- Follows the existing Learning Dashboard pattern (`_get_ku_system_metrics`, etc.)
 
 ---
 
