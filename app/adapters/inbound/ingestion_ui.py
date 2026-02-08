@@ -95,7 +95,7 @@ def create_ingestion_ui_routes(
         content = Div(
             PageHeader(
                 "Content Ingestion",
-                subtitle="Ingest markdown and YAML content into Neo4j. Supports all 15 entity types.",
+                subtitle="Ingest markdown and YAML content into Neo4j.",
             ),
             Div(
                 # Single File Ingestion
@@ -111,7 +111,7 @@ def create_ingestion_ui_routes(
                 # Directory Ingestion
                 _ingestion_card(
                     title="Ingest Directory",
-                    description="Ingest all .md and .yaml files in a directory.",
+                    description="Ingest all matching files in a directory.",
                     form_groups=[
                         _form_group("Directory Path", "directory", "Directory to ingest", value=DEFAULT_VAULT_PATH),
                         _form_group("Pattern (optional)", "pattern", "* for all files", value="*"),
@@ -119,129 +119,155 @@ def create_ingestion_ui_routes(
                     button_text="Ingest Directory",
                     onclick="ingestDirectory()",
                 ),
-                # Vault Ingestion
-                _ingestion_card(
-                    title="Ingest Obsidian Vault",
-                    description="Ingest an entire Obsidian vault or specific subdirectories.",
-                    form_groups=[
-                        _form_group("Vault Path", "vault_path", "Root vault path", value=DEFAULT_VAULT_PATH),
-                        _form_group("Subdirectories (comma-separated, optional)", "subdirs", "docs, notes, curriculum"),
-                    ],
-                    button_text="Ingest Vault",
-                    onclick="ingestVault()",
-                ),
-                # Bundle Ingestion
-                _ingestion_card(
-                    title="Ingest Domain Bundle",
-                    description="Ingest a domain bundle with manifest.yaml.",
-                    form_groups=[
-                        _form_group("Bundle Path", "bundle_path", "Bundle directory", value=DEFAULT_VAULT_PATH),
-                    ],
-                    button_text="Ingest Bundle",
-                    onclick="ingestBundle()",
-                ),
                 cls="grid gap-6 lg:grid-cols-2",
             ),
             # Results Display
+            Div(id="ingest-status", cls="mt-6"),
             Card(
                 CardBody(
-                    SectionHeader("Ingestion Results"),
-                    Pre(
-                        "Results will appear here after ingestion...",
-                        id="ingest-results",
-                        cls="bg-base-200 p-4 rounded-lg text-sm font-mono whitespace-pre-wrap min-h-[100px] text-base-content/70",
+                    Div(
+                        SectionHeader("Details"),
+                        Pre(
+                            "",
+                            id="ingest-results",
+                            cls="bg-base-200 p-4 rounded-lg text-sm font-mono whitespace-pre-wrap text-base-content/70",
+                        ),
                     ),
                 ),
-                cls="bg-base-100 shadow-sm border border-base-200 mt-6",
+                id="ingest-details-card",
+                cls="bg-base-100 shadow-sm border border-base-200 mt-3 hidden",
             ),
             # JavaScript for ingestion operations
             NotStr("""
             <script>
-            function showResult(result) {
-                const el = document.getElementById('ingest-results');
-                el.textContent = JSON.stringify(result, null, 2);
-                el.classList.remove('text-base-content/70');
-                el.classList.add('text-base-content');
+            let _ingesting = false;
+
+            function showResult(result, isError) {
+                const statusEl = document.getElementById('ingest-status');
+                const detailsCard = document.getElementById('ingest-details-card');
+                const detailsEl = document.getElementById('ingest-results');
+
+                if (isError) {
+                    const msg = result.error || result.message || 'Ingestion failed';
+                    statusEl.innerHTML = `
+                        <div class="alert alert-error shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            <span class="font-semibold">${msg}</span>
+                        </div>`;
+                } else {
+                    const title = result.title || result.uid || '';
+                    const entityType = (result.entity_type || '').toUpperCase();
+                    const nodes = (result.nodes_created || 0) + (result.nodes_updated || 0);
+                    const rels = result.relationships_created || 0;
+                    const chunks = result.chunks_generated ? ' &middot; Chunks generated' : '';
+                    // Directory ingestion returns different fields
+                    const totalFiles = result.total_files || 0;
+                    const successful = result.successful || 0;
+                    const failed = result.failed || 0;
+                    const isDirectory = totalFiles > 0;
+
+                    let summary;
+                    if (isDirectory) {
+                        summary = `${successful}/${totalFiles} files &middot; ${nodes} node(s), ${rels} relationship(s)`;
+                        if (failed > 0) summary += ` &middot; ${failed} failed`;
+                    } else {
+                        summary = `${entityType}${title ? ' &middot; ' + title : ''} &middot; ${nodes} node(s), ${rels} relationship(s)${chunks}`;
+                    }
+
+                    statusEl.innerHTML = `
+                        <div class="alert alert-success shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <div>
+                                <span class="font-semibold">Ingested successfully</span>
+                                <span class="text-sm opacity-80 ml-2">${summary}</span>
+                            </div>
+                        </div>`;
+                }
+
+                detailsEl.textContent = JSON.stringify(result, null, 2);
+                detailsEl.classList.remove('text-base-content/70', 'text-success', 'text-error');
+                detailsEl.classList.add(isError ? 'text-error' : 'text-success');
+                detailsCard.classList.remove('hidden');
+                statusEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            function showLoading(btnEl) {
+                _ingesting = true;
+                const statusEl = document.getElementById('ingest-status');
+                statusEl.innerHTML = `
+                    <div class="alert shadow-sm">
+                        <span class="loading loading-spinner loading-sm"></span>
+                        <span>Ingesting...</span>
+                    </div>`;
+                document.getElementById('ingest-details-card').classList.add('hidden');
+                if (btnEl) {
+                    btnEl.disabled = true;
+                    btnEl.classList.add('btn-disabled');
+                }
+            }
+
+            function doneLoading(btnEl) {
+                _ingesting = false;
+                if (btnEl) {
+                    btnEl.disabled = false;
+                    btnEl.classList.remove('btn-disabled');
+                }
             }
 
             async function ingestFile() {
+                if (_ingesting) return;
+                const btn = event.currentTarget;
                 const filePath = document.getElementById('file_path').value;
-                if (!filePath) {
-                    showResult({error: 'File path is required'});
-                    return;
-                }
+                if (!filePath) { showResult({error: 'File path is required'}, true); return; }
+                showLoading(btn);
                 try {
-                    const response = await fetch('/api/ingest/file', {
+                    const resp = await fetch('/api/ingest/file', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({file_path: filePath})
                     });
-                    const result = await response.json();
-                    showResult(result);
+                    const text = await resp.text();
+                    try {
+                        const data = JSON.parse(text);
+                        showResult(data, !resp.ok);
+                    } catch (_) {
+                        showResult({error: 'Non-JSON response', status: resp.status, body: text.substring(0, 500)}, true);
+                    }
                 } catch (e) {
-                    showResult({error: e.message});
+                    showResult({error: e.message}, true);
+                } finally {
+                    doneLoading(btn);
                 }
             }
 
             async function ingestDirectory() {
+                if (_ingesting) return;
+                const btn = event.currentTarget;
                 const directory = document.getElementById('directory').value;
                 const pattern = document.getElementById('pattern').value || '*';
-                if (!directory) {
-                    showResult({error: 'Directory path is required'});
-                    return;
-                }
+                if (!directory) { showResult({error: 'Directory path is required'}, true); return; }
+                showLoading(btn);
                 try {
-                    const response = await fetch('/api/ingest/directory', {
+                    const resp = await fetch('/api/ingest/directory', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({directory: directory, pattern: pattern})
                     });
-                    const result = await response.json();
-                    showResult(result);
+                    const text = await resp.text();
+                    try {
+                        const data = JSON.parse(text);
+                        showResult(data, !resp.ok);
+                    } catch (_) {
+                        showResult({error: 'Non-JSON response', status: resp.status, body: text.substring(0, 500)}, true);
+                    }
                 } catch (e) {
-                    showResult({error: e.message});
-                }
-            }
-
-            async function ingestVault() {
-                const vaultPath = document.getElementById('vault_path').value;
-                const subdirsStr = document.getElementById('subdirs').value;
-                if (!vaultPath) {
-                    showResult({error: 'Vault path is required'});
-                    return;
-                }
-                const subdirs = subdirsStr
-                    ? subdirsStr.split(',').map(s => s.trim()).filter(s => s)
-                    : null;
-                try {
-                    const response = await fetch('/api/ingest/vault', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({vault_path: vaultPath, subdirs: subdirs})
-                    });
-                    const result = await response.json();
-                    showResult(result);
-                } catch (e) {
-                    showResult({error: e.message});
-                }
-            }
-
-            async function ingestBundle() {
-                const bundlePath = document.getElementById('bundle_path').value;
-                if (!bundlePath) {
-                    showResult({error: 'Bundle path is required'});
-                    return;
-                }
-                try {
-                    const response = await fetch('/api/ingest/bundle', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({bundle_path: bundlePath})
-                    });
-                    const result = await response.json();
-                    showResult(result);
-                } catch (e) {
-                    showResult({error: e.message});
+                    showResult({error: e.message}, true);
+                } finally {
+                    doneLoading(btn);
                 }
             }
             </script>
