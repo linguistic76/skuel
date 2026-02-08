@@ -317,7 +317,7 @@ class Services:
 | `service_protocols.py` | 9 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler |
 
 **Added to Existing Files:**
-- `askesis_protocols.py` — `AskesisCoreOperations` (6 methods for CRUD + context building)
+- `askesis_protocols.py` — `AskesisCoreOperations` (5 methods for CRUD operations)
 
 **Services Dataclass Fields — Zero `Any` Remaining:**
 

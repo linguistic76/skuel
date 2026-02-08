@@ -578,7 +578,7 @@ Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 | `GraphAuthOperations` | `graph_auth` | 5 async (sign_up, sign_in, sign_out, reset_password, admin_reset_token) | `auth_ui.py`, `admin_api.py` |
 | `GoalTaskGeneratorOperations` | `goal_task_generator` | 1 (generate_tasks_for_goal) | `orchestration_routes.py` |
 | `HabitEventSchedulerOperations` | `habit_event_scheduler` | 1 (schedule_events_for_habit) | `orchestration_routes.py` |
-| `AskesisCoreOperations` | `askesis_core` | 6 (build_user_context, get_or_create, create, get, update, record_conversation) | `askesis_api.py` |
+| `AskesisCoreOperations` | `askesis_core` | 5 (get_or_create, create, get, update, record_conversation) | `askesis_api.py` |
 
 ### Nested Protocol Pattern: LifePathOperations
 
