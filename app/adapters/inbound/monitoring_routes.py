@@ -108,7 +108,7 @@ def create_monitoring_routes(app: Any, rt: Any, services: Any) -> list[Any]:
                     "vector_search": services.vector_search_service is not None,
                 },
                 "database": {
-                    "neo4j_connected": services.driver is not None,
+                    "neo4j_connected": services.neo4j_driver is not None,
                 },
             }
 

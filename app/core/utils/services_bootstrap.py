@@ -397,8 +397,7 @@ class Services:
     )
 
     # Infrastructure - Neo4j driver (exposed for routes that need context building)
-    driver: "AsyncDriver | None" = None
-    neo4j_driver: "AsyncDriver | None" = None  # Alias for driver
+    neo4j_driver: "AsyncDriver | None" = None
 
     # GenAI services (Neo4j native embeddings and vector search - January 2026)
     embeddings_service: Any = None  # Neo4jGenAIEmbeddingsService - Embeddings via ai.text.embed()
@@ -2354,8 +2353,7 @@ async def compose_services(
             graph_adapter=neo4j_adapter,
             event_bus=event_bus,
             prometheus_metrics=prometheus_metrics,
-            driver=driver,  # Exposed for routes requiring UserContextBuilder
-            neo4j_driver=driver,  # Alias for backward compatibility
+            neo4j_driver=driver,
             insight_store=insight_store,  # Event-driven insights (Phase 1 - January 2026)
             # GenAI services (Neo4j native - January 2026)
             embeddings_service=embeddings_service,

@@ -36,8 +36,8 @@ async def initialize_system_service(system_service: SystemService, services: Any
         """Check if database connection is healthy."""
         try:
             # Use driver directly for health check
-            if services.driver:
-                async with services.driver.session() as session:
+            if services.neo4j_driver:
+                async with services.neo4j_driver.session() as session:
                     await session.run("RETURN 1 as ping")
                 return Result.ok(True)
             return Result.ok(False)
