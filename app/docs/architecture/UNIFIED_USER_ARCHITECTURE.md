@@ -1,6 +1,6 @@
 ---
-title: Unified User Architecture - ProfileHubData + UnifiedUserContext Integration
-updated: 2026-01-20
+title: UserContext - The User's Complete State in One Object
+updated: 2026-02-08
 status: current
 category: architecture
 tags:
@@ -15,75 +15,82 @@ related_skills:
 - user-context-intelligence
 ---
 
-# Unified User Architecture - ProfileHubData + UnifiedUserContext Integration
-**Last Updated:** January 20, 2026
-**Status:** ✅ Complete - MEGA-QUERY Rich Queries + Profile Hub Intelligence Integration + Field Mapping
-**One Path Forward:** UserContext for cached analysis, Services for fresh queries (ADR-029)
+# UserContext — The User's Complete State in One Object
+
+**Last Updated:** February 8, 2026
+
 ## Related Skills
 
 For implementation guidance, see:
 - [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
 
+## The Problem
 
-## 🎯 Core Principle: Single Source of Truth
+Without UserContext, understanding a user requires 15+ separate queries across 15 domains. Stats (task counts, habit streaks) are disconnected from UIDs (the actual entities). Intelligence services can't see across domain boundaries — the tasks service doesn't know about goals, the habits service doesn't know about knowledge mastery. Every service reinvents the same "gather user state" pattern.
 
-**UnifiedUserContext** is THE authoritative source for all user state.
-**ProfileHubData** is a computed, serializable view built FROM that context.
+## The Solution
+
+UserContext unifies all user state into one object (~240 fields). One query builds it. Every intelligence service consumes it. Stats are computed FROM UIDs — no duplication, no drift. The graph neighborhood travels WITH the entity.
 
 ```
-UnifiedUserContext (THE source of truth)
-    ↓ Contains:
-    - active_task_uids: ['task_1', 'task_2']
-    - tasks_by_goal: {'goal_1': ['task_1']}
-    - habit_streaks: {'habit_1': 7}
-    - knowledge_mastery: {'ku_1': 0.85}
-    ↓
-ProfileHubData.from_context(context)
-    ↓ Computes:
-    - domain_stats: DomainStatsAggregate (stats computed from UIDs)
-    - overall_metrics: OverallMetrics (computed from context)
-    ↓ Includes:
-    - context: UnifiedUserContext (full rich access)
+Graph (Neo4j) --> MEGA-QUERY --> UserContext --> Intelligence --> Recommendations
+                     ^                             ^
+                One query                  UserContextIntelligence
+               ~150-200ms                 "What should I work on?"
 ```
 
-## 🎯 One Path Forward: Context vs Services (ADR-029)
+`ProfileHubData` is a computed, serializable view built FROM UserContext — stats derived from UIDs, not queried separately.
 
-**January 8, 2026:** GraphNativeMixin removed (366 lines) - eliminated third path for context queries.
+## Two Depths
 
-**Clear Decision Tree:**
+| Depth | Method | Speed | Fields | When |
+|-------|--------|-------|--------|------|
+| Standard | `build()` | ~50-100ms | UIDs only (~150) | API responses, ownership checks |
+| Rich | `build_rich()` | ~150-200ms | UIDs + entities + graph (~240) | Intelligence, daily planning |
+
+Use `context.require_rich_context("operation")` to validate rich context at runtime.
+
+## When to Use UserContext vs Domain Services
+
 ```
 Need user state data?
-├─ Cached analysis (snapshot) → context.get_ready_to_learn() (8 lines)
+├─ Cached analysis (snapshot) --> context.get_ready_to_learn() (8 lines)
 │  └─ Use: Intelligence services analyzing user state
 │  └─ Example: Daily planning, recommendations, alignment scoring
 │
-├─ Fresh queries (real-time) → ku_service.get_ready_to_learn_for_user(user_uid)
+├─ Fresh queries (real-time) --> ku_service.get_ready_to_learn_for_user(user_uid)
 │  └─ Use: Direct API endpoints, real-time dashboards
 │  └─ Example: /api/ku/ready-to-learn
 │
-└─ Relationship data → service.relationships.get_related_uids()
+└─ Relationship data --> service.relationships.get_related_uids()
    └─ Use: Cross-domain context, graph traversal
    └─ Example: Task dependencies, goal knowledge gaps
 ```
 
-**Deleted Paths (ADR-029):**
-- ❌ `GraphNativeMixin.get_next_logical_steps()` - 78 lines, NEVER used
-- ❌ `GraphNativeMixin.get_ready_to_learn()` - Duplicated context method
-- ❌ `GraphNativeMixin.get_goal_aligned_knowledge()` - 90 lines, NEVER used
-- ❌ `GraphNativeMixin.get_knowledge_gaps()` - 70 lines, NEVER used
+**Two clear paths (ADR-029):**
+1. **Context methods** — Cached snapshot for intelligence analysis
+2. **Service methods** — Fresh Cypher queries for real-time API responses
 
-**Result:** Two clear paths remain:
-1. **Context methods** - Simple, cached, 8-line implementations used everywhere
-2. **Service methods** - Fresh Cypher queries when real-time data needed
+No intermediate layers creating alternative paths. See [ADR-029](../decisions/ADR-029-graphnative-service-removal.md) for removal of the former third path (GraphNativeMixin).
 
-**Philosophy:**
-- UserContext provides **cached snapshot** for intelligence analysis
-- Services provide **fresh queries** for real-time API responses
-- No intermediate layers creating alternative paths
+## UserContext Powers Intelligence
 
-**See:** [ADR-029](../decisions/ADR-029-graphnative-service-removal.md) for complete removal rationale.
+UserContext is the fuel. UserContextIntelligence is the engine.
 
-## 🏗️ Architecture Layers
+```
+UserContext (state)                  UserContextIntelligence (synthesis)
+├── active_task_uids            --> get_ready_to_work_on_today()
+├── goal_progress               --> calculate_life_path_alignment()
+├── habit_streaks               --> get_cross_domain_synergies()
+├── knowledge_mastery           --> get_optimal_next_learning_steps()
+└── 236 more fields             --> get_schedule_aware_recommendations()
+```
+
+Domain intelligence services (TasksIntelligenceService, etc.) analyze SINGLE domains. UserContextIntelligence synthesizes ACROSS ALL domains.
+
+**See:** [UserContext Intelligence](/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md)
+
+## Architecture Layers
 
 ### Layer 1: UnifiedUserContext - The Rich Domain Model
 
@@ -241,7 +248,7 @@ def _compute_domain_stats_from_context(
     return DomainStatsAggregate(tasks=tasks_stats, ...)
 ```
 
-## 🔄 Data Flow - The Complete Picture
+## Data Flow - The Complete Picture
 
 ### Building the Profile Hub
 
@@ -439,7 +446,7 @@ class UserContextPopulator:
     def populate_principle_choice_integration(self, context: UserContext, principles_rich: list, choices_rich: list) -> None: ...
 ```
 
-## 💡 Key Design Benefits
+## Key Design Benefits
 
 ### 1. Single Source of Truth
 
@@ -524,7 +531,21 @@ class ProfileHubData:
 # All strongly typed, no dict[str, Any] anywhere!
 ```
 
-## 🎯 Usage Patterns
+## Mutation Rules
+
+UserContext is a READ-ONLY aggregate. Mutations happen via domain services.
+
+| Mutation Type | Allowed? | Example |
+|--------------|----------|---------|
+| Cache-local derived values | Yes | life_path_alignment_score, workload |
+| Facet tracking | Yes | facet_affinities, interaction history |
+| Session state | Yes | is_rich_context |
+| Domain state (UIDs, progress) | **No** | task UIDs, knowledge mastery |
+| Graph-sourced data | **No** | dependencies, blockers |
+
+Rule: If a change should persist beyond the current context lifetime, it MUST go through the domain service, not be mutated here.
+
+## Usage Patterns
 
 ### For API Responses (Statistical View)
 
@@ -612,7 +633,7 @@ async def build_dashboard(user_uid: str):
     }
 ```
 
-## 🧘‍♂️ Philosophical Alignment
+## Philosophical Alignment
 
 This architecture embodies core SKUEL principles:
 
@@ -636,7 +657,7 @@ This architecture embodies core SKUEL principles:
 - Frozen dataclasses everywhere
 - Compile-time guarantees
 
-## 📊 Performance Characteristics
+## Performance Characteristics
 
 ### Query Efficiency
 
@@ -676,7 +697,7 @@ Request → Cache → UnifiedUserContext (cached)
 - Cache miss: ~50ms (5 DB queries + computation)
 - Cache TTL: 5 minutes (configurable)
 
-## ✅ Implementation Checklist
+## Implementation Checklist
 
 - ✅ **UnifiedUserContext** defined with all domain awareness
 - ✅ **ProfileHubData** with `context` field and `from_context()` factory
@@ -686,7 +707,7 @@ Request → Cache → UnifiedUserContext (cached)
 - ✅ **Type safety** enforced (no dict[str, Any])
 - ✅ **Documentation** created (this file)
 
-## 🔥 MEGA-QUERY: Rich Context with Graph Neighborhoods
+## MEGA-QUERY: Rich Context with Graph Neighborhoods
 *Added: December 2025 | Updated: January 2026*
 
 ### The Rich Query Pattern
@@ -802,7 +823,7 @@ The MEGA_QUERY returns 5 top-level sections that map to UserContext fields:
 | `active_moc_uids` | `active_moc_uids` | `populate_moc_fields()` |
 | `moc_metadata` | `moc_view_counts`, `recently_viewed_moc_uids` | `populate_moc_fields()` |
 
-## 🎯 Profile Intelligence Integration
+## Profile Intelligence Integration
 *Last updated: January 2026*
 
 ### Architecture
@@ -885,7 +906,7 @@ def OverviewView(
 
 ---
 
-## 🚀 Future Enhancements
+## Future Enhancements
 
 ### 1. Event-Driven Invalidation
 **Next:** Publish events when entities change, invalidate context cache.

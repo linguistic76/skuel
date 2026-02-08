@@ -396,27 +396,32 @@ async def admin_route(request, current_user): ...
 
 ## Unified User Architecture
 
-**Core Principle:** "Context is the source of truth, stats are computed views"
+**Core Principle:** "UserContext is THE single object for understanding a user's complete state"
 
-`UserContext` (~240 fields) is THE authoritative source for all user state. `ProfileHubData` is a computed view.
+**The Problem:** Without UserContext, understanding a user requires 15+ separate queries across 15 domains. Stats are disconnected from UIDs. Intelligence can't see across domain boundaries.
+
+**The Solution:** One object (~240 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Stats computed FROM UIDs — no duplication.
+
+**The Flow:**
+```
+Graph --> MEGA-QUERY --> UserContext --> Intelligence --> "What should I work on?"
+```
+
+**Two Depths:**
+| Depth | Method | Use Case |
+|-------|--------|----------|
+| Standard | `build()` | API responses, ownership checks (~150 fields) |
+| Rich | `build_rich()` | Intelligence, daily planning (~240 fields) |
 
 **Canonical Location:** `/core/services/user/unified_user_context.py`
 
 **Context Builder Modules:**
-- `user_context_builder.py` - Orchestration (`build()`, `build_rich()`)
+- `user_context_builder.py` - Orchestration
 - `user_context_queries.py` - MEGA-QUERY
 - `user_context_extractor.py` - Result parsing
 - `user_context_populator.py` - Context population
 
-**Context Depth (Standard vs Rich):**
-| Depth | Method | Fields | Use Case |
-|-------|--------|--------|----------|
-| Standard | `build()` | UIDs only (~150) | API responses, lightweight checks |
-| Rich | `build_rich()` | UIDs + entities + graph (~240) | Intelligence, planning |
-
-Use `context.require_rich_context("operation")` to validate rich context at runtime.
-
-**See:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`, `/docs/decisions/ADR-030-usercontext-file-consolidation.md`
+**See:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`
 
 ## Analytics Architecture
 

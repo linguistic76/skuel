@@ -24,6 +24,10 @@ UserContextIntelligence is THE central intelligence hub answering: **"What shoul
 
 This service synthesizes user state (UserContext ~240 fields) with complete graph intelligence (13 domain services) to provide actionable daily planning, learning recommendations, and life path alignment insights.
 
+**Depends on:** UserContext (~240 fields) — see [Unified User Architecture](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md)
+
+UserContext provides the state. This service provides the synthesis.
+
 **Core Value Proposition:**
 - Combines user state (UserContext) with graph intelligence (13 domain services)
 - Answers "What should I work on?" across all 14 domains
