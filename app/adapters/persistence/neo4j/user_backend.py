@@ -142,8 +142,6 @@ class UserBackend(UserOperations):
         """
         Get user by username.
 
-        Note: User stores username in 'title' field (inherited from BaseEntity).
-
         Args:
             username: Username to search for
 
@@ -152,7 +150,7 @@ class UserBackend(UserOperations):
         """
         try:
             query = f"""
-            MATCH (u:{self.label} {{title: $username}})
+            MATCH (u:{self.label} {{username: $username}})
             RETURN u
             """
 

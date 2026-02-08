@@ -88,6 +88,7 @@ Usage:
     ```
 """
 
+import asyncio
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
@@ -248,7 +249,9 @@ def require_role(required_role: UserRole, user_service_getter: Callable[[], Any]
             # while routes using require_authenticated_user() get user_uid: str
             kwargs["current_user"] = user
 
-            return await func(request, *args, **kwargs)
+            if asyncio.iscoroutinefunction(func):
+                return await func(request, *args, **kwargs)
+            return func(request, *args, **kwargs)
 
         return wrapper
 

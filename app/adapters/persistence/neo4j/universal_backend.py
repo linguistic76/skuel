@@ -3199,7 +3199,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
     async def get_user_by_username(self, username: str) -> Result[T | None]:
         """Get user by username - required by UserOperations protocol."""
         query = f"""
-        MATCH (n:{self.label} {{title: $username}})
+        MATCH (n:{self.label} {{username: $username}})
         RETURN n
         """
 
