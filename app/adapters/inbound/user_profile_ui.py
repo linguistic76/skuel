@@ -888,7 +888,7 @@ def setup_user_profile_routes(rt, services):
             )
             return await error_page(str(e), 500)
 
-        from fasthtml.common import A, Div, H2, H4, P, Span
+        from fasthtml.common import H2, H4, A, Div, P, Span
 
         # Fetch bookmarked KUs with details
         bookmarked_kus: list[dict] = []

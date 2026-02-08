@@ -740,11 +740,7 @@ async def _wire_all_routes(
     ai_routes = create_ai_routes(app, rt, services)
     logger.info(f"✅ AI routes registered ({len(ai_routes)} endpoints, 503 when unavailable)")
 
-    # SEL Documentation routes (legacy - kept for backwards compatibility)
-    from adapters.inbound.sel_routes import create_sel_routes
-
-    create_sel_routes(app, rt, services, None)  # sync removed Jan 2026
-    logger.info("✅ SEL routes registered (legacy)")
+    # SEL routes removed — absorbed into /ku hub (February 2026)
 
     # KU Reading routes (MVP - Phase A)
     from adapters.inbound.ku_reading_routes import create_ku_reading_routes

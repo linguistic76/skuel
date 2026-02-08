@@ -24,8 +24,7 @@ import pytest_asyncio
 
 from core.services.ingestion.batch import ingest_directory
 from core.services.ingestion.ingestion_history import IngestionHistoryService
-from core.services.ingestion.types import DryRunPreview, IngestionStats, IncrementalStats
-
+from core.services.ingestion.types import DryRunPreview, IncrementalStats
 
 # ============================================================================
 # FIXTURES

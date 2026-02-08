@@ -41,6 +41,7 @@ from typing import Any
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
+from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.goal.goal import Goal
@@ -65,7 +66,6 @@ from core.models.principle.reflection import PrincipleReflection
 from core.models.principle.reflection_dto import PrincipleReflectionDTO
 from core.models.query import QueryIntent
 from core.models.relationship_names import RelationshipName
-from core.models.enums.entity_enums import EntityType
 from core.models.shared_enums import Domain
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO

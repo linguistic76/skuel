@@ -122,9 +122,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/blocking - Get entities that block this one
         @rt(f"/api/{self.domain}/{{uid}}/lateral/blocking", methods=["GET"])
         @boundary_handler()
-        async def get_blocking(
-            request: Request, uid: str
-        ) -> Result[dict[str, Any]]:
+        async def get_blocking(request: Request, uid: str) -> Result[dict[str, Any]]:
             """Get entities that block this entity."""
             user_uid = require_authenticated_user(request)
 
@@ -145,9 +143,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/blocked - Get entities blocked by this one
         @rt(f"/api/{self.domain}/{{uid}}/lateral/blocked", methods=["GET"])
         @boundary_handler()
-        async def get_blocked(
-            request: Request, uid: str
-        ) -> Result[dict[str, Any]]:
+        async def get_blocked(request: Request, uid: str) -> Result[dict[str, Any]]:
             """Get entities blocked by this entity."""
             user_uid = require_authenticated_user(request)
 
@@ -216,9 +212,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/prerequisites - Get prerequisite entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["GET"])
         @boundary_handler()
-        async def get_prerequisites(
-            request: Request, uid: str
-        ) -> Result[dict[str, Any]]:
+        async def get_prerequisites(request: Request, uid: str) -> Result[dict[str, Any]]:
             """Get entities that are prerequisites for this entity."""
             user_uid = require_authenticated_user(request)
 
@@ -287,9 +281,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/alternatives - Get alternative entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["GET"])
         @boundary_handler()
-        async def get_alternatives(
-            request: Request, uid: str
-        ) -> Result[dict[str, Any]]:
+        async def get_alternatives(request: Request, uid: str) -> Result[dict[str, Any]]:
             """Get alternative entities."""
             user_uid = require_authenticated_user(request)
 
@@ -358,9 +350,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/complementary - Get complementary entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["GET"])
         @boundary_handler()
-        async def get_complementary(
-            request: Request, uid: str
-        ) -> Result[dict[str, Any]]:
+        async def get_complementary(request: Request, uid: str) -> Result[dict[str, Any]]:
             """Get complementary entities."""
             user_uid = require_authenticated_user(request)
 
@@ -386,9 +376,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/siblings - Get sibling entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/siblings", methods=["GET"])
         @boundary_handler()
-        async def get_siblings(
-            request: Request, uid: str
-        ) -> Result[dict[str, Any]]:
+        async def get_siblings(request: Request, uid: str) -> Result[dict[str, Any]]:
             """Get sibling entities (same parent in hierarchy)."""
             user_uid = require_authenticated_user(request)
 
@@ -442,17 +430,13 @@ class LateralRouteFactory:
             method_name = method_map.get(relationship_type)
             if not method_name:
                 return Result.fail(
-                    Errors.validation(
-                        f"Unsupported relationship type: {relationship_type}"
-                    )
+                    Errors.validation(f"Unsupported relationship type: {relationship_type}")
                 )
 
             delete_method = getattr(self.lateral_service, method_name, None)
             if delete_method is None:
                 return Result.fail(
-                    Errors.validation(
-                        f"Delete method not available for {relationship_type}"
-                    )
+                    Errors.validation(f"Delete method not available for {relationship_type}")
                 )
             result = await delete_method(
                 blocker_uid=uid,
@@ -589,9 +573,7 @@ class LateralRouteFactory:
                 try:
                     relationship_types = [LateralRelationType(t.strip()) for t in types.split(",")]
                 except ValueError as e:
-                    return Result.fail(
-                        Errors.validation(f"Invalid relationship type: {e!s}")
-                    )
+                    return Result.fail(Errors.validation(f"Invalid relationship type: {e!s}"))
 
             result = await self.lateral_service.lateral_service.get_relationship_graph(
                 uid, depth, relationship_types

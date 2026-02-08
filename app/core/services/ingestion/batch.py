@@ -30,9 +30,9 @@ from core.utils.result_simplified import Errors, Result
 
 from .config import DEFAULT_MAX_CONCURRENT_PARSING, DEFAULT_MAX_FILE_SIZE_BYTES, ENTITY_CONFIGS
 from .detector import detect_entity_type, detect_format
+from .ingestion_tracker import IngestionTracker
 from .parser import FRONTMATTER_PATTERN, check_file_size, parse_markdown, parse_yaml
 from .preparer import normalize_uid, prepare_entity_data
-from .ingestion_tracker import IngestionTracker
 from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionError, IngestionStats
 from .validator import validate_entity_data, validate_relationship_targets, validate_required_fields
 

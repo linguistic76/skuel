@@ -103,7 +103,13 @@ def mock_user_service():
 
 
 @pytest.fixture
-def facade(mock_ku_service, mock_goals_service, mock_tasks_service, mock_learning_service, mock_user_service):
+def facade(
+    mock_ku_service,
+    mock_goals_service,
+    mock_tasks_service,
+    mock_learning_service,
+    mock_user_service,
+):
     """Create AdaptiveLpFacade with mock services."""
     return AdaptiveLpFacade(
         ku_service=mock_ku_service,

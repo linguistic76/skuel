@@ -22,6 +22,7 @@ DELETED (January 2026):
 """
 
 # Import implemented services
+from core.services.ku.ku_adaptive_service import KuAdaptiveService
 from core.services.ku.ku_core_service import KuCoreService
 from core.services.ku.ku_graph_service import KuGraphService
 from core.services.ku.ku_interaction_service import (
@@ -34,6 +35,7 @@ from core.services.ku.ku_search_service import KuSearchService
 from core.services.ku.ku_semantic_service import KuSemanticService
 
 __all__ = [
+    "KuAdaptiveService",
     "KuCoreService",
     "KuGraphService",
     "KuInteractionService",

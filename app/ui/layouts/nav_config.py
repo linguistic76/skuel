@@ -40,7 +40,7 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
     NavItem("Events", "/events", "events"),
     NavItem("Journals", "/journals", "journals"),
     NavItem("Reports", "/reports", "reports"),
-    NavItem("Sel", "/sel", "sel"),
+    NavItem("Knowledge", "/ku", "knowledge"),
 )
 
 # Admin-only navigation item - prepended to nav when user is admin

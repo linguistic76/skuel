@@ -437,7 +437,9 @@ class AdminUIComponents:
                     Td(AdminUIComponents.render_role_badge(role)),
                     Td(AdminUIComponents.render_status_badge(is_active)),
                     Td(
-                        last_login if last_login != "Never" else Span("Never", cls="text-base-content/30"),
+                        last_login
+                        if last_login != "Never"
+                        else Span("Never", cls="text-base-content/30"),
                         cls="text-sm",
                     ),
                     _count_cell(task_count),
@@ -615,9 +617,7 @@ class AdminUIComponents:
             report_type = report.report_type.value if report.report_type else "unknown"
             status = report.status.value if report.status else "unknown"
             title = report.title or getattr(report, "original_filename", None) or report.uid
-            created = (
-                report.created_at.strftime("%Y-%m-%d") if report.created_at else "Unknown"
-            )
+            created = report.created_at.strftime("%Y-%m-%d") if report.created_at else "Unknown"
 
             rows.append(
                 Tr(
@@ -1100,9 +1100,7 @@ class AdminLearningComponents:
 
         rows = []
         for row in user_progress:
-            display = (
-                row.get("display_name") or row.get("username") or row.get("uid", "Unknown")
-            )
+            display = row.get("display_name") or row.get("username") or row.get("uid", "Unknown")
             uid = row.get("uid", "")
 
             rows.append(
@@ -1212,9 +1210,7 @@ class AdminLearningComponents:
             )
 
         if mastered:
-            sections.append(
-                _ku_state_section("Mastered", "badge-success", mastered, "mastered_at")
-            )
+            sections.append(_ku_state_section("Mastered", "badge-success", mastered, "mastered_at"))
 
         if in_progress:
             sections.append(
@@ -1222,9 +1218,7 @@ class AdminLearningComponents:
             )
 
         if viewed:
-            sections.append(
-                _ku_state_section("Viewed", "badge-ghost", viewed, "last_viewed_at")
-            )
+            sections.append(_ku_state_section("Viewed", "badge-ghost", viewed, "last_viewed_at"))
 
         return Div(*sections, cls="space-y-6")
 

@@ -120,7 +120,6 @@ if TYPE_CHECKING:
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
         AdaptiveLpCrossDomainService,
     )
-    from core.services.adaptive_sel_service import AdaptiveSELService
     from core.services.analytics_service import AnalyticsService
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
@@ -253,9 +252,7 @@ class Services:
     # ========================================================================
     ku: KuOperations | None = None  # KuService (Knowledge Units) - atomic knowledge content
     personalized_discovery: "PersonalizedKnowledgeDiscoveryAdapter | None" = None
-    adaptive_sel: "AdaptiveSELService | None" = (
-        None  # AdaptiveSELService - personalized curriculum delivery
-    )
+    # adaptive_sel removed — absorbed into KuService.adaptive (February 2026)
     cross_domain: "AdaptiveLpCrossDomainService | None" = None
 
     # Content services
@@ -628,7 +625,6 @@ def _create_learning_services(
     from adapters.personalized_knowledge_discovery_adapter import (
         create_personalized_knowledge_discovery_adapter,
     )
-    from core.services.adaptive_sel_service import AdaptiveSELService
     from core.services.ku_retrieval import KuRetrieval
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService  # Intelligence created internally
@@ -729,8 +725,7 @@ def _create_learning_services(
         user_progress_service=user_progress,
     )
 
-    # Create adaptive SEL service
-    adaptive_sel = AdaptiveSELService(ku_backend=knowledge_backend, user_service=user_service)
+    # Adaptive SEL removed — now KuService.adaptive sub-service (February 2026)
 
     # NOTE: Askesis creation MOVED to compose_services() (January 2026)
     # This allows intelligence_factory to be passed at construction time (not post-wired)
@@ -753,7 +748,6 @@ def _create_learning_services(
         "learning_steps": ls_service,  # NEW: Dedicated LS service
         "ku_retrieval": ku_retrieval,
         "personalized_discovery": personalized_discovery,
-        "adaptive_sel": adaptive_sel,
         # NOTE: "askesis" MOVED to compose_services() (January 2026)
         "cross_domain": cross_domain_service,
         "embeddings_service": embeddings_service,  # For intelligence services
@@ -2309,7 +2303,6 @@ async def compose_services(
             # Knowledge
             ku=learning_services["ku_service"],
             personalized_discovery=learning_services["personalized_discovery"],
-            adaptive_sel=learning_services["adaptive_sel"],
             cross_domain=learning_services["cross_domain"],
             # Content
             transcript_processor=transcript_processor,

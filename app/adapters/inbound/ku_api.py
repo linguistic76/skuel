@@ -284,6 +284,95 @@ def create_ku_api_routes(
         return await ku_service.get_user_knowledge_context(uid, user_context)
 
     # ========================================================================
+    # ADAPTIVE CURRICULUM ROUTES (absorbed from SEL)
+    # ========================================================================
+
+    @rt("/api/ku/journey")
+    @boundary_handler()
+    async def get_ku_journey(request: Request) -> Result[Any]:
+        """Get user's SEL learning journey — progress across all 5 categories."""
+        user_uid = require_authenticated_user(request)
+        return await ku_service.get_sel_journey(user_uid)
+
+    @rt("/api/ku/curriculum/{category}")
+    @boundary_handler()
+    async def get_personalized_curriculum(
+        request: Request, category: str, limit: int = 10
+    ) -> Result[Any]:
+        """Get personalized KU curriculum for an SEL category."""
+        from core.models.shared_enums import SELCategory
+
+        user_uid = require_authenticated_user(request)
+        try:
+            sel_category = SELCategory(category)
+        except ValueError:
+            return Result.fail(Errors.validation(f"Invalid SEL category: {category}"))
+        return await ku_service.get_personalized_curriculum(
+            user_uid=user_uid, sel_category=sel_category, limit=limit
+        )
+
+    @rt("/api/ku/journey-html")
+    async def get_ku_journey_html(request: Request) -> Any:
+        """HTMX: Render SEL journey as HTML fragment."""
+        from fasthtml.common import P
+
+        from core.ui.daisy_components import Div
+
+        user_uid = require_authenticated_user(request)
+        result = await ku_service.get_sel_journey(user_uid)
+
+        if result.is_error:
+            return Div(
+                P("Unable to load your learning journey.", cls="text-error text-center py-8"),
+                cls="alert alert-error",
+            )
+
+        from components.ku_adaptive_components import SELJourneyOverview
+
+        return SELJourneyOverview(result.value)
+
+    @rt("/api/ku/curriculum-html/{category}")
+    async def get_curriculum_html(request: Request, category: str, limit: int = 10) -> Any:
+        """HTMX: Render personalized curriculum grid as HTML fragment."""
+        from fasthtml.common import P
+
+        from core.models.shared_enums import SELCategory
+        from core.ui.daisy_components import Div
+
+        user_uid = require_authenticated_user(request)
+
+        try:
+            sel_category = SELCategory(category)
+        except ValueError:
+            return Div(
+                P(f"Invalid category: {category}", cls="text-error"), cls="alert alert-error"
+            )
+
+        result = await ku_service.get_personalized_curriculum(
+            user_uid=user_uid, sel_category=sel_category, limit=limit
+        )
+
+        if result.is_error:
+            return Div(P("Unable to load curriculum.", cls="text-error"), cls="alert alert-error")
+
+        curriculum = result.value
+        if not curriculum:
+            from ui.patterns.empty_state import EmptyState
+
+            return EmptyState(
+                title="No curriculum available yet",
+                description="Complete prerequisite knowledge units to unlock content in this area.",
+                icon="📚",
+            )
+
+        from components.ku_adaptive_components import AdaptiveKUCard
+
+        return Div(
+            *[AdaptiveKUCard(ku) for ku in curriculum],
+            cls="grid grid-cols-1 md:grid-cols-2 gap-4",
+        )
+
+    # ========================================================================
     # ANALYTICS ROUTES (Factory-Generated)
     # ========================================================================
 

@@ -10,12 +10,7 @@ Corresponds to manual Test 8 in tests/SYNC_SYSTEM_TEST_PLAN.md.
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
 from adapters.inbound.ingestion_api import _validate_ingestion_path
-
 
 # ============================================================================
 # TEST 1: Empty path is rejected

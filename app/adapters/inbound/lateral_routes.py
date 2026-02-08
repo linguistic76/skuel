@@ -115,9 +115,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     @rt("/api/habits/{uid}/lateral/stack", methods=["GET"])
     @boundary_handler()
-    async def get_habit_stack(
-        request: Request, uid: str
-    ) -> Result[dict[str, Any]]:
+    async def get_habit_stack(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get all habits in the stacking chain."""
         user_uid = require_authenticated_user(request)
 
@@ -179,9 +177,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     @rt("/api/events/{uid}/lateral/conflicts", methods=["GET"])
     @boundary_handler()
-    async def get_event_conflicts(
-        request: Request, uid: str
-    ) -> Result[dict[str, Any]]:
+    async def get_event_conflicts(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get events that conflict with this event."""
         user_uid = require_authenticated_user(request)
 
@@ -243,9 +239,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     @rt("/api/choices/{uid}/lateral/conflicts", methods=["GET"])
     @boundary_handler()
-    async def get_choice_conflicts(
-        request: Request, uid: str
-    ) -> Result[dict[str, Any]]:
+    async def get_choice_conflicts(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get choices that conflict with this choice."""
         user_uid = require_authenticated_user(request)
 
@@ -309,9 +303,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     @rt("/api/principles/{uid}/lateral/conflicts", methods=["GET"])
     @boundary_handler()
-    async def get_principle_conflicts(
-        request: Request, uid: str
-    ) -> Result[dict[str, Any]]:
+    async def get_principle_conflicts(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get principles that conflict with this principle (value tensions)."""
         user_uid = require_authenticated_user(request)
 
@@ -377,9 +369,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     @rt("/api/ku/{uid}/lateral/enables", methods=["GET"])
     @boundary_handler()
-    async def get_ku_enables(
-        request: Request, uid: str
-    ) -> Result[dict[str, Any]]:
+    async def get_ku_enables(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get knowledge units that this KU enables."""
         require_authenticated_user(request)
 
@@ -397,9 +387,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
 
     @rt("/api/ku/{uid}/lateral/enabled-by", methods=["GET"])
     @boundary_handler()
-    async def get_ku_enabled_by(
-        request: Request, uid: str
-    ) -> Result[dict[str, Any]]:
+    async def get_ku_enabled_by(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get knowledge units that enable this KU."""
         require_authenticated_user(request)
 

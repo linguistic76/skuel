@@ -45,7 +45,7 @@ from .config import DEFAULT_MAX_FILE_SIZE_BYTES, DEFAULT_USER_UID, ENTITY_CONFIG
 from .detector import detect_entity_type, detect_format
 from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import generate_uid, normalize_uid, prepare_entity_data
-from .types import BundleStats, DryRunPreview, IngestionStats, IncrementalStats
+from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionStats
 from .validator import (
     validate_directory,
     validate_entity_data,

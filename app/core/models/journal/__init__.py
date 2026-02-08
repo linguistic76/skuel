@@ -31,7 +31,6 @@ from .journal_dto import (
     ProcessedTranscriptResultDTO,
     TranscriptProcessingInstructionsDTO,
 )
-
 from .journal_pure import (
     ContentStatus,
     ContentType,

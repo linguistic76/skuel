@@ -12,7 +12,7 @@ while delegating to specialized sub-services:
 - Suggestions: Personalized application suggestions
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from core.constants import MasteryLevel
 
@@ -34,9 +34,6 @@ from core.services.adaptive_lp.adaptive_lp_recommendations_service import (
 from core.services.adaptive_lp.adaptive_lp_suggestions_service import AdaptiveLpSuggestionsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.services.user_service import UserService
 
 
 class AdaptiveLpFacade:

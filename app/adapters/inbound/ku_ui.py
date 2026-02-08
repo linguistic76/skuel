@@ -1,24 +1,19 @@
 """
-KU UI Routes - Clean Component-Based UI
-========================================
+KU UI Routes — The Central Knowledge Hub
+=========================================
 
-UI/HTMX routes using pure component composition for KU management.
+The /ku route is SKUEL's central route. KU is the primary entity.
+Everything flows through knowledge.
 
-Thin routes that:
-- Render components
-- Handle HTMX interactions
-- Return HTML fragments
-
-No JSON API logic, no manual UI composition in routes.
+Layout: Custom sidebar (MOC + SEL categories) + tabs (SEL category filter).
+Follows profile-hub sidebar pattern (profile_sidebar.css).
 """
-
-__version__ = "1.0"
-
 
 from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, P
+from fasthtml.common import H1, H2, H3, Li, Main, NotStr, P, Ul
+from fasthtml.common import A as Anchor
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -26,11 +21,176 @@ from components.card_generator import CardGenerator
 from components.form_generator import FormGenerator
 from components.shared_ui_components import SharedUIComponents
 from core.models.ku.ku_request import KuCreateRequest
+from core.models.shared_enums import SELCategory
 from core.ui.daisy_components import Button, ButtonT, Card, Div, Span
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 logger = get_logger("skuel.routes.ku.ui")
+
+
+# ==========================================================================
+# SEL CATEGORY TABS
+# ==========================================================================
+
+SEL_TABS = [
+    ("All", None, "all"),
+    ("Self Awareness", SELCategory.SELF_AWARENESS, "self_awareness"),
+    ("Self Management", SELCategory.SELF_MANAGEMENT, "self_management"),
+    ("Social Awareness", SELCategory.SOCIAL_AWARENESS, "social_awareness"),
+    ("Relationship Skills", SELCategory.RELATIONSHIP_SKILLS, "relationship_skills"),
+    ("Decision Making", SELCategory.RESPONSIBLE_DECISION_MAKING, "responsible_decision_making"),
+]
+
+
+def _ku_tabs(active_tab: str = "all") -> Any:
+    """Render SEL category tabs for filtering KUs."""
+    tabs = []
+    for label, _category, slug in SEL_TABS:
+        is_active = slug == active_tab
+        tabs.append(
+            Anchor(
+                label,
+                role="tab",
+                cls=f"tab {'tab-active' if is_active else ''}",
+                hx_get=f"/ku/filter?sel_category={slug}" if slug != "all" else "/ku/filter",
+                hx_target="#ku-content",
+                hx_swap="innerHTML",
+                hx_push_url=f"/ku?sel={slug}" if slug != "all" else "/ku",
+            )
+        )
+    return Div(
+        *tabs,
+        cls="tabs tabs-bordered mb-6",
+        role="tablist",
+        aria_label="Filter by SEL category",
+    )
+
+
+def _ku_sidebar(active_slug: str = "all") -> Any:
+    """Build the KU sidebar with SEL categories + MOC navigation."""
+    chevron_svg = NotStr(
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">'
+        '<path d="M15 18l-6-6 6-6"></path>'
+        "</svg>"
+    )
+
+    sel_items = [
+        Li(
+            Anchor(
+                label,
+                href=f"/ku?sel={slug}" if slug != "all" else "/ku",
+                cls=f"{'menu-active' if slug == active_slug else ''}",
+                **{
+                    "hx-boost": "false",
+                    "onclick": "if(window.innerWidth<=1024)toggleProfileSidebar()",
+                },
+            )
+        )
+        for label, _category, slug in SEL_TABS
+    ]
+
+    sidebar_menu = Ul(
+        Li(
+            Anchor(
+                "Knowledge",
+                href="/ku",
+                cls="text-xl font-bold text-primary hover:text-primary-focus",
+                id="ku-sidebar-heading",
+                **{"hx-boost": "false"},
+            ),
+            P("Explore and Learn", cls="text-xs opacity-60 mt-1"),
+            cls="px-4 py-4 sidebar-header-text",
+        ),
+        Li(cls="divider my-0"),
+        Li(
+            Span(
+                "SEL Categories",
+                cls="text-xs font-semibold uppercase tracking-wider opacity-60",
+            ),
+            cls="menu-title",
+        ),
+        *sel_items,
+        Li(cls="divider my-0"),
+        Li(
+            Span(
+                "Maps of Content",
+                cls="text-xs font-semibold uppercase tracking-wider opacity-60",
+            ),
+            cls="menu-title",
+        ),
+        Li(
+            Div(
+                P("MOC navigation", cls="text-xs opacity-50"),
+                id="moc-nav-list",
+                hx_get="/ku/moc-nav",
+                hx_trigger="load",
+                hx_swap="innerHTML",
+            )
+        ),
+        cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
+        id="ku-sidebar-nav",
+    )
+
+    return Div(
+        Div(
+            Button(
+                chevron_svg,
+                onclick="toggleProfileSidebar()",
+                cls="sidebar-toggle",
+                title="Toggle Sidebar",
+                type="button",
+                aria_label="Toggle Knowledge sidebar",
+                aria_expanded="false",
+                aria_controls="ku-sidebar-nav",
+            ),
+            sidebar_menu,
+            cls="sidebar-inner",
+        ),
+        cls="profile-sidebar",
+        id="profile-sidebar",
+        role="dialog",
+        aria_modal="false",
+        aria_labelledby="ku-sidebar-heading",
+    )
+
+
+def _ku_page_layout(active_slug: str, content: Any) -> Any:
+    """Assemble full layout: sidebar + content area."""
+    return Div(
+        Div(
+            cls="profile-overlay",
+            id="profile-overlay",
+            onclick="toggleProfileSidebar()",
+        ),
+        _ku_sidebar(active_slug),
+        Div(
+            id="sidebar-sr-announcements",
+            role="status",
+            aria_live="polite",
+            cls="sr-only",
+        ),
+        Div(
+            Div(
+                Span("☰", aria_hidden="true"),
+                Span("Menu"),
+                cls="btn btn-ghost mobile-menu-button mb-4",
+                onclick="toggleProfileSidebar()",
+                role="button",
+                tabindex="0",
+                aria_label="Open Knowledge navigation",
+                aria_expanded="false",
+                aria_controls="profile-sidebar",
+            ),
+            Main(
+                Div(content, cls="max-w-6xl mx-auto"),
+                cls="p-6 lg:p-8",
+            ),
+            cls="profile-content",
+            id="profile-content",
+        ),
+        cls="profile-container",
+    )
 
 
 # ============================================================================
@@ -384,40 +544,60 @@ def create_ku_ui_routes(_app, rt, ku_service):
 
     @rt("/ku")
     async def ku_dashboard(request) -> Any:
-        """Main KU dashboard - pure component rendering"""
+        """Main KU hub — tabs + sidebar + KU cards."""
         from ui.layouts.base_page import BasePage
-        from ui.patterns.error_banner import render_error_banner
+        from ui.layouts.page_types import PageType
+        from ui.patterns.page_header import PageHeader
 
-        # Fetch real knowledge units from service
-        # KU is shared curriculum content (not user-owned)
-        if ku_service and hasattr(ku_service, "core") and hasattr(ku_service.core, "backend"):
-            result = await ku_service.core.list(limit=50)
+        # Determine active SEL tab from query param
+        sel_param = request.query_params.get("sel", "all")
 
-            # Check for errors FIRST, show user-friendly message
-            if result.is_error:
-                return await BasePage(
-                    content=render_error_banner(
-                        "Unable to load KUs. Please try again later.", result.error.message
+        content = Div(
+            PageHeader(
+                "Knowledge",
+                subtitle="Explore, learn, and grow across SEL competencies",
+            ),
+            # Journey progress (loaded via HTMX)
+            Div(
+                Div(
+                    P(
+                        "Loading your learning journey...",
+                        cls="text-center py-4 text-base-content/70",
                     ),
-                    title="Knowledge",
-                    request=request,
-                )
+                    cls="animate-pulse",
+                ),
+                hx_get="/api/ku/journey-html",
+                hx_trigger="load",
+                hx_swap="innerHTML",
+                id="ku-journey",
+                cls="mb-6",
+            ),
+            # SEL category tabs
+            _ku_tabs(active_tab=sel_param),
+            # KU cards (loaded via HTMX, filtered by tab)
+            Div(
+                Div(
+                    P("Loading knowledge units...", cls="text-center py-8 text-base-content/70"),
+                    cls="animate-pulse",
+                ),
+                hx_get=f"/ku/filter?sel_category={sel_param}"
+                if sel_param != "all"
+                else "/ku/filter",
+                hx_trigger="load",
+                hx_swap="innerHTML",
+                id="ku-content",
+            ),
+        )
 
-            knowledge = result.value if result.value else []
-        else:
-            knowledge = []
+        page_layout = _ku_page_layout(sel_param, content)
 
-        # Calculate stats from real data
-        domains = set(getattr(k, "domain", None) for k in knowledge if getattr(k, "domain", None))
-        stats = {
-            "total_units": len(knowledge),
-            "total_connections": 0,
-            "domains_count": len(domains),
-            "learning_paths": 0,
-        }
-
-        return await KuUIComponents.render_ku_dashboard(
-            knowledge_units=knowledge, stats=stats, request=request
+        return await BasePage(
+            page_layout,
+            title="Knowledge",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="knowledge",
+            extra_css=["/static/css/profile_sidebar.css"],
         )
 
     @rt("/ku/create")
@@ -453,21 +633,27 @@ def create_ku_ui_routes(_app, rt, ku_service):
 
     @rt("/ku/filter")
     async def knowledge_filter_fragment(request) -> Any:
-        """Return filtered knowledge fragment for HTMX updates"""
+        """Return filtered KU cards — supports domain and sel_category filters."""
         from ui.patterns.error_banner import render_error_banner
 
-        # Parse typed filters
+        # Parse filters
         filters = parse_ku_filters(request)
+        sel_category = request.query_params.get("sel_category", "")
 
-        # Fetch real knowledge from service
-        if ku_service and hasattr(ku_service, "core") and hasattr(ku_service.core, "backend"):
-            result = await ku_service.core.list(limit=50)
+        # Fetch knowledge from service
+        if (
+            ku_service
+            and getattr(ku_service, "core", None)
+            and getattr(ku_service.core, "backend", None)
+        ):
+            # If SEL category filter, use backend.find_by
+            if sel_category and sel_category != "all":
+                result = await ku_service.core.backend.find_by(sel_category=sel_category)
+            else:
+                result = await ku_service.core.list(limit=50)
 
-            # Check for errors FIRST, show user-friendly message
             if result.is_error:
-                return render_error_banner(
-                    "Unable to load knowledge units. Please try again later.", result.error.message
-                )
+                return render_error_banner("Unable to load knowledge units.", result.error.message)
 
             knowledge = result.value if result.value else []
 
@@ -484,11 +670,17 @@ def create_ku_ui_routes(_app, rt, ku_service):
         return (
             Div(
                 *[KuUIComponents.render_ku_card(unit) for unit in knowledge],
-                cls="space-y-3",
+                cls="grid grid-cols-1 md:grid-cols-2 gap-4",
             )
             if knowledge
-            else P("No knowledge units found for this domain", cls="text-center text-gray-500 py-8")
+            else P("No knowledge units found", cls="text-center text-base-content/70 py-8")
         )
+
+    @rt("/ku/moc-nav")
+    async def moc_nav_fragment(request) -> Any:
+        """HTMX: Load MOC navigation list for sidebar."""
+        # Placeholder — will be populated when MOCs exist
+        return P("No Maps of Content yet", cls="text-xs opacity-50 px-2")
 
     @rt("/ku/{uid}/details")
     async def knowledge_details_modal(_request, uid: str) -> Any:

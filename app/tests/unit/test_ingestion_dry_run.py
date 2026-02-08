@@ -22,7 +22,6 @@ from unittest.mock import Mock, patch
 import pytest
 
 from core.services.ingestion.batch import check_existing_entities, ingest_directory
-from core.services.ingestion.types import DryRunPreview
 
 # ============================================================================
 # TEST FIXTURES - Mock Neo4j Driver and Responses

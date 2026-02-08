@@ -1870,6 +1870,24 @@ class KuFacadeProtocol(Protocol):
         """Get KU with user-specific context."""
         ...
 
+    # ========================================================================
+    # Adaptive curriculum delegations (→ KuAdaptiveService)
+    # ========================================================================
+
+    async def get_personalized_curriculum(
+        self, user_uid: str, sel_category: Any, limit: int = 10
+    ) -> Result[list[Any]]:
+        """Get personalized KU curriculum for an SEL category."""
+        ...
+
+    async def get_sel_journey(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Get user's SEL learning journey across all categories."""
+        ...
+
+    async def track_curriculum_completion(self, user_uid: str, ku_uid: str) -> Result[bool]:
+        """Track that a user completed a KU in the curriculum."""
+        ...
+
     @property
     def intelligence(self) -> Any:
         """Access to intelligence sub-service."""

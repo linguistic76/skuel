@@ -247,6 +247,7 @@ class KuSubServices:
     interaction: "KuInteractionService"
     relationships: "UnifiedRelationshipService"
     intelligence: "KuIntelligenceService"
+    adaptive: "KuAdaptiveService"
 
 
 @dataclass
@@ -307,6 +308,7 @@ def create_ku_sub_services(
         KuSubServices dataclass with all 8 sub-services
     """
     # Lazy imports to avoid circular dependencies
+    from core.services.ku.ku_adaptive_service import KuAdaptiveService
     from core.services.ku.ku_core_service import KuCoreService
     from core.services.ku.ku_graph_service import KuGraphService
     from core.services.ku.ku_interaction_service import KuInteractionService
@@ -370,6 +372,9 @@ def create_ku_sub_services(
     # Step 8: Create interaction (event-driven)
     interaction = KuInteractionService(driver=driver, event_bus=event_bus)
 
+    # Step 9: Create adaptive curriculum service
+    adaptive = KuAdaptiveService(ku_backend=backend, user_service=user_service)
+
     return KuSubServices(
         core=core,
         search=search,
@@ -379,6 +384,7 @@ def create_ku_sub_services(
         interaction=interaction,
         relationships=relationships,
         intelligence=intelligence,
+        adaptive=adaptive,
     )
 
 

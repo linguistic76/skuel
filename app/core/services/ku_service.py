@@ -189,6 +189,12 @@ class KuService(FacadeDelegationMixin):
             ),
             "get_semantic_neighborhood": ("semantic", "get_semantic_neighborhood"),
         },
+        # Adaptive curriculum delegations
+        {
+            "get_personalized_curriculum": ("adaptive", "get_personalized_curriculum"),
+            "get_sel_journey": ("adaptive", "get_sel_journey"),
+            "track_curriculum_completion": ("adaptive", "track_curriculum_completion"),
+        },
     )
 
     def __init__(
@@ -271,6 +277,7 @@ class KuService(FacadeDelegationMixin):
         self.interaction = subs.interaction
         self.relationships = subs.relationships
         self.intelligence = subs.intelligence
+        self.adaptive = subs.adaptive
 
         # Expose search attribute for convenience (test compatibility)
         # Note: We use search_service internally to avoid shadowing

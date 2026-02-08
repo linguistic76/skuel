@@ -48,7 +48,9 @@ def create_ingestion_ui_routes(
         """Get user service for admin role checks."""
         return user_service
 
-    def _form_group(label_text: str, input_id: str, placeholder: str, input_type: str = "text", value: str = ""):
+    def _form_group(
+        label_text: str, input_id: str, placeholder: str, input_type: str = "text", value: str = ""
+    ):
         """Build a consistent DaisyUI form group."""
         input_attrs = {
             "type": input_type,
@@ -65,7 +67,9 @@ def create_ingestion_ui_routes(
             cls="form-control w-full",
         )
 
-    def _ingestion_card(title: str, description: str, form_groups: list, button_text: str, onclick: str):
+    def _ingestion_card(
+        title: str, description: str, form_groups: list, button_text: str, onclick: str
+    ):
         """Build a consistent ingestion action card."""
         return Card(
             CardBody(
@@ -103,7 +107,12 @@ def create_ingestion_ui_routes(
                     title="Ingest File",
                     description="Ingest a single .md or .yaml file.",
                     form_groups=[
-                        _form_group("File Path", "file_path", "e.g. file.md or file.yaml", value=DEFAULT_VAULT_PATH + "/"),
+                        _form_group(
+                            "File Path",
+                            "file_path",
+                            "e.g. file.md or file.yaml",
+                            value=DEFAULT_VAULT_PATH + "/",
+                        ),
                     ],
                     button_text="Ingest File",
                     onclick="ingestFile()",
@@ -113,7 +122,12 @@ def create_ingestion_ui_routes(
                     title="Ingest Directory",
                     description="Ingest all matching files in a directory.",
                     form_groups=[
-                        _form_group("Directory Path", "directory", "Directory to ingest", value=DEFAULT_VAULT_PATH),
+                        _form_group(
+                            "Directory Path",
+                            "directory",
+                            "Directory to ingest",
+                            value=DEFAULT_VAULT_PATH,
+                        ),
                         _form_group("Pattern (optional)", "pattern", "* for all files", value="*"),
                     ],
                     button_text="Ingest Directory",
