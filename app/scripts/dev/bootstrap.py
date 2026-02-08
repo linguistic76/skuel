@@ -689,7 +689,7 @@ async def _wire_all_routes(
     if services.unified_ingestion:
         from adapters.inbound.ingestion_routes import create_ingestion_routes
 
-        create_ingestion_routes(app, rt, services, None)
+        create_ingestion_routes(app, rt, services)
         logger.info(
             "✅ Ingestion routes registered (unified MD + YAML for 14 entity types, admin-only)"
         )
