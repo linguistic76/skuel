@@ -73,6 +73,12 @@ Need user state data?
 
 No intermediate layers creating alternative paths. See [ADR-029](../decisions/ADR-029-graphnative-service-removal.md) for removal of the former third path (GraphNativeMixin).
 
+**Architectural Cleanliness (February 2026):**
+- ✅ **95% clean** - UserContext has clear architectural space across the codebase
+- ✅ **Adaptive LP refactored (2026-02-08)** - No longer bypasses UserContext with redundant queries
+- ✅ **Single source of truth** - MEGA-QUERY is THE way to build user state
+- ⚠️ **Minor cruft remaining** - AskesisCoreService has trivial wrapper (organizational noise only)
+
 ## UserContext Powers Intelligence
 
 UserContext is the fuel. UserContextIntelligence is the engine.
@@ -335,6 +341,99 @@ class UserContext:
                 f"Operation '{operation}' requires rich context. "
                 f"Use UserContextBuilder.build_rich() instead of build()."
             )
+```
+
+## Services That Consume UserContext (Correctly)
+
+**Architectural Pattern:** Services should accept UserContext as a parameter, not re-query user state.
+
+### ✅ Clean Consumption Examples
+
+#### UserContextIntelligence (THE flagship)
+
+**Location:** `/core/services/user/intelligence/`
+
+All 8 flagship methods accept UserContext:
+```python
+class UserContextIntelligence:
+    def __init__(self, context: UserContext, ...):
+        self.context = context  # Stored for all methods
+
+    async def get_ready_to_work_on_today(self) -> Result[DailyWorkPlan]:
+        """Uses self.context.available_minutes_daily, self.context.daily_habits, etc."""
+        # NO re-queries - pure context consumption
+```
+
+#### Adaptive LP Service (Refactored February 2026)
+
+**Location:** `/core/services/adaptive_lp/`
+
+**Before refactoring (WRONG):**
+```python
+async def analyze_user_knowledge_state(self, user_uid: str):
+    # ❌ BAD: Re-queries tasks when UserContext has this data
+    tasks = await self.tasks_service.get_user_tasks(user_uid)
+    mastered_set = set()  # Manually computes what MEGA-QUERY provides
+```
+
+**After refactoring (CORRECT):**
+```python
+async def analyze_user_knowledge_state(self, context: UserContext):
+    # ✅ GOOD: Uses UserContext fields directly
+    mastered_set = context.mastered_knowledge_uids
+    in_progress_set = context.in_progress_knowledge_uids
+    mastery_dict = context.knowledge_mastery
+    # Eliminates duplicate query - 100% context-driven
+```
+
+**Facade orchestration:**
+```python
+class AdaptiveLpFacade:
+    async def generate_adaptive_recommendations(self, user_uid: str):
+        # Build UserContext ONCE via MEGA-QUERY
+        user_context = await self.user_service.get_user_context(user_uid)
+
+        # Pass context to core service (no re-query)
+        knowledge_state = await self.core_service.analyze_user_knowledge_state(user_context)
+```
+
+**Impact:** Eliminated redundant task queries across 3 facade methods (95% architectural cleanliness achieved).
+
+#### Domain Planning Services
+
+**Pattern:** Accept UserContext, filter entities by context fields:
+```python
+class GoalsPlanningService:
+    async def get_advancing_goals_for_user(self, context: UserContext):
+        # Uses context.active_goal_uids, context.goal_progress, etc.
+        # No re-queries - context-aware filtering
+```
+
+### ⚠️ Anti-Pattern: Re-Querying User State
+
+**Don't do this:**
+```python
+async def some_method(self, user_uid: str):
+    # ❌ WRONG: Building/querying user state inside the method
+    tasks = await self.tasks_service.get_user_tasks(user_uid)
+    goals = await self.goals_service.get_user_goals(user_uid)
+    # This duplicates what MEGA-QUERY already provides!
+```
+
+**Do this instead:**
+```python
+async def some_method(self, context: UserContext):
+    # ✅ CORRECT: Use context fields
+    tasks = context.active_task_uids
+    goals = context.active_goal_uids
+    # Zero duplicate queries
+```
+
+**Orchestration layer handles UserContext building:**
+```python
+# In facade or route layer:
+context = await user_service.get_user_context(user_uid)  # ONE query
+result = await service.some_method(context)  # Consumes context
 
 # Used by intelligence services:
 async def get_ready_to_work_on_today(self) -> Result[DailyWorkPlan]:

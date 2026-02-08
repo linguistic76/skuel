@@ -68,6 +68,7 @@ class AdaptiveLpService:
         goals_service=None,
         tasks_service=None,
         ku_generation_service=None,
+        user_service=None,
     ) -> None:
         """
         Initialize the adaptive learning paths service.
@@ -77,7 +78,8 @@ class AdaptiveLpService:
             learning_service: For learning path management,
             goals_service: For user goals and progress,
             tasks_service: For task completion patterns,
-            ku_generation_service: For pattern analysis
+            ku_generation_service: For pattern analysis,
+            user_service: For building UserContext (REQUIRED after 2026-02-08 refactor)
         """
         self.logger = get_logger("skuel.adaptive_learning")
 
@@ -88,6 +90,7 @@ class AdaptiveLpService:
             goals_service=goals_service,
             tasks_service=tasks_service,
             ku_generation_service=ku_generation_service,
+            user_service=user_service,
         )
 
         self.logger.info("AdaptiveLpService initialized (using facade pattern)")

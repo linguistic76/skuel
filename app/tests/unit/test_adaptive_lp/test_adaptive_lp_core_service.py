@@ -262,11 +262,28 @@ class TestKnowledgeStateAnalysis:
     @pytest.mark.asyncio
     async def test_analyze_user_knowledge_state(self, core_service):
         """Knowledge state analysis returns structured data."""
-        result = await core_service.analyze_user_knowledge_state("user_001")
+        # Create mock UserContext (refactored 2026-02-08 to accept context instead of user_uid)
+        from core.services.user import UserContext
+
+        mock_context = UserContext(
+            user_uid="user_001",
+            mastered_knowledge_uids={"ku_001", "ku_002"},
+            in_progress_knowledge_uids={"ku_003"},
+            knowledge_mastery={"ku_001": 0.9, "ku_002": 0.8, "ku_003": 0.3},
+            prerequisites_completed={"ku_001"},
+            prerequisites_needed={"ku_003": ["ku_001", "ku_002"]},
+            recently_mastered_uids={"ku_001"},  # Recently mastered in last 30 days
+        )
+
+        result = await core_service.analyze_user_knowledge_state(mock_context)
 
         assert result.is_ok
         state = result.value
         assert state is not None
+        # Verify it uses UserContext fields
+        assert state.mastered_knowledge == mock_context.mastered_knowledge_uids
+        assert state.in_progress_knowledge == mock_context.in_progress_knowledge_uids
+        assert state.mastery_levels == mock_context.knowledge_mastery
 
 
 # ============================================================================

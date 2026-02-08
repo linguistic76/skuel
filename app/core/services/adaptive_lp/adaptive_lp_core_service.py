@@ -10,11 +10,15 @@ import random
 from collections import defaultdict
 from datetime import datetime, timedelta
 from operator import itemgetter
+from typing import TYPE_CHECKING
 
 from core.models.goal.goal_dto import GoalDTO
 from core.models.shared_enums import ActivityStatus
 from core.services.adaptive_lp.adaptive_lp_models import AdaptiveLp, LearningStyle
 from core.services.adaptive_lp_types import KnowledgeState
+
+if TYPE_CHECKING:
+    from core.services.user import UserContext
 
 # NOTE (November 2025): Removed Has* protocol imports - Goal model is well-typed
 # - Goal.target_date: date | None (direct access)
@@ -148,7 +152,16 @@ class AdaptiveLpCoreService:
             learning_style = style_result.value
 
         # Analyze current knowledge state
-        knowledge_state_result = await self.analyze_user_knowledge_state(user_uid)
+        # NOTE: This internal method needs UserContext but receives user_uid
+        # Create minimal context as temporary workaround until facade refactor
+        from core.services.user import UserContext
+
+        minimal_context = UserContext(user_uid=user_uid)
+        self.logger.warning(
+            "generate_from_goal_internal uses minimal UserContext - "
+            "consider refactoring to accept context parameter"
+        )
+        knowledge_state_result = await self.analyze_user_knowledge_state(minimal_context)
         if knowledge_state_result.is_error:
             return Result.fail(knowledge_state_result.expect_error())
         knowledge_state = knowledge_state_result.value
@@ -278,89 +291,59 @@ class AdaptiveLpCoreService:
     # KNOWLEDGE STATE ANALYSIS
     # ========================================================================
 
-    @with_error_handling(error_type="system", uid_param="user_uid")
-    async def analyze_user_knowledge_state(self, user_uid: str) -> Result[KnowledgeState]:
-        """Analyze user's current knowledge state from completed tasks and learning."""
-        # Mutable accumulation variables
-        mastered_set: set[str] = set()
-        in_progress_set: set[str] = set()
-        applied_set: set[str] = set()
+    @with_error_handling(error_type="system")
+    async def analyze_user_knowledge_state(self, context: "UserContext") -> Result[KnowledgeState]:
+        """
+        Analyze user's current knowledge state from UserContext.
+
+        **REFACTORED (2026-02-08):** Uses UserContext instead of re-querying tasks.
+        UserContext already contains all knowledge state via MEGA-QUERY.
+
+        Args:
+            context: UserContext with complete user state (~240 fields)
+
+        Returns:
+            Result[KnowledgeState] with mastery, progress, and velocity data
+
+        Note:
+            This method now operates on pre-fetched UserContext data rather than
+            querying tasks directly, eliminating duplicate queries and aligning
+            with "UserContext as single source of truth" architecture.
+        """
+        # Use UserContext fields directly (populated by MEGA-QUERY)
+        mastered_set = context.mastered_knowledge_uids
+        in_progress_set = context.in_progress_knowledge_uids
+        mastery_dict = context.knowledge_mastery  # uid -> mastery % (0.0-1.0)
+
+        # Build knowledge strengths from mastery levels
         strengths_dict: dict[str, int] = {}
+        for ku_uid, mastery_level in mastery_dict.items():
+            # Convert mastery percentage to usage count proxy (reverse of old logic)
+            if mastery_level >= 0.8:
+                strengths_dict[ku_uid] = 5  # High mastery
+            elif mastery_level >= 0.5:
+                strengths_dict[ku_uid] = 3  # Medium mastery
+            elif mastery_level > 0.0:
+                strengths_dict[ku_uid] = 1  # Some mastery
+
+        # Calculate applied knowledge from completed tasks with learning context
+        # UserContext tracks completed_task_uids but not individual task details
+        # For velocity, we use knowledge mastery changes as proxy
+        applied_set = {ku_uid for ku_uid in mastered_set}  # Mastered = applied
+
+        # Identify knowledge gaps (prerequisites needed but not completed)
         gaps_list: list[str] = []
-        mastery_dict: dict[str, float] = {}
-        velocity_score = 0.0
+        for ku_uid, prereqs in context.prerequisites_needed.items():
+            if ku_uid not in mastered_set and prereqs:
+                # Check if prerequisites are met
+                missing_prereqs = [p for p in prereqs if p not in context.prerequisites_completed]
+                if missing_prereqs:
+                    gaps_list.append(ku_uid)
 
-        if not self.tasks_service:
-            # Return empty knowledge state
-            state = KnowledgeState(
-                mastered_knowledge=mastered_set,
-                in_progress_knowledge=in_progress_set,
-                applied_knowledge=applied_set,
-                knowledge_strengths=strengths_dict,
-                knowledge_gaps=gaps_list,
-                mastery_levels=mastery_dict,
-                learning_velocity=velocity_score,
-            )
-            return Result.ok(state)
-
-        # Get user's tasks
-        tasks_result = await self.tasks_service.get_user_tasks(user_uid)
-        if tasks_result.is_error:
-            # Return empty knowledge state on error
-            state = KnowledgeState(
-                mastered_knowledge=mastered_set,
-                in_progress_knowledge=in_progress_set,
-                applied_knowledge=applied_set,
-                knowledge_strengths=strengths_dict,
-                knowledge_gaps=gaps_list,
-                mastery_levels=mastery_dict,
-                learning_velocity=velocity_score,
-            )
-            return Result.ok(state)
-
-        tasks = tasks_result.value
-        completed_tasks = [t for t in tasks if t.status == ActivityStatus.COMPLETED]
-
-        # GRAPH-NATIVE MIGRATION: applies_knowledge_uids removed from TaskDTO
-        # Knowledge state analysis now relies on available task attributes
-        # For accurate knowledge tracking, requires relationship service access
-
-        # Analyze knowledge application from tasks
-        for task in completed_tasks:
-            # Track learning tasks (proxy for knowledge application)
-            if task.knowledge_mastery_check or task.source_learning_step_uid:
-                # Track learning task count instead of specific knowledge UIDs
-                # Actual knowledge relationships require service.relationships queries
-                strengths_dict["learning_tasks"] = strengths_dict.get("learning_tasks", 0) + 1
-
-            # Infer mastery from mastery check tasks
-            if task.knowledge_mastery_check:
-                # Increment mastered count (actual knowledge UIDs require relationship service)
-                strengths_dict["mastery_checks_passed"] = (
-                    strengths_dict.get("mastery_checks_passed", 0) + 1
-                )
-
-        # Calculate learning velocity (learning tasks per week)
-        if completed_tasks:
-            recent_date = datetime.now() - timedelta(weeks=4)
-            recent_tasks = [
-                t
-                for t in completed_tasks
-                if t.completion_date
-                and datetime.combine(t.completion_date, datetime.min.time()) >= recent_date
-            ]
-            # Count learning tasks instead of unique knowledge units
-            learning_task_count = sum(
-                1
-                for task in recent_tasks
-                if task.knowledge_mastery_check or task.source_learning_step_uid
-            )
-            velocity_score = learning_task_count / 4.0
-
-        # Estimate mastery levels (simplified)
-        for ku_uid, usage_count in strengths_dict.items():
-            mastery_level = min(1.0, usage_count * 0.2)
-            mastery_dict[ku_uid] = mastery_level
+        # Calculate learning velocity from recently mastered knowledge
+        # UserContext has recently_mastered_uids (last 30 days)
+        recently_mastered = getattr(context, "recently_mastered_uids", set())
+        velocity_score = len(recently_mastered) / 4.0  # KUs per week (30 days / 7 days)
 
         # Build immutable result using frozen dataclass
         knowledge_state = KnowledgeState(
@@ -374,7 +357,7 @@ class AdaptiveLpCoreService:
         )
 
         self.logger.debug(
-            f"Analyzed knowledge state for user {user_uid}: "
+            f"Analyzed knowledge state for user {context.user_uid}: "
             f"{len(knowledge_state.mastered_knowledge)} mastered, "
             f"{len(knowledge_state.applied_knowledge)} applied, "
             f"velocity {knowledge_state.learning_velocity:.1f}/week"

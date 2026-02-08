@@ -54,6 +54,24 @@ def create_mock_learning_service() -> Mock:
     return learning_service
 
 
+def create_mock_user_service() -> Mock:
+    """Create mock UserService (needed after 2026-02-08 refactor)."""
+    from core.services.user import UserContext
+
+    user_service = Mock()
+    # Mock UserContext returned by get_user_context()
+    mock_context = UserContext(
+        user_uid="user_001",
+        mastered_knowledge_uids={"ku_001", "ku_002"},
+        in_progress_knowledge_uids={"ku_003"},
+        knowledge_mastery={"ku_001": 0.9, "ku_002": 0.8, "ku_003": 0.3},
+        prerequisites_completed={"ku_001"},
+        prerequisites_needed={"ku_003": ["ku_001"]},
+    )
+    user_service.get_user_context = AsyncMock(return_value=Result.ok(mock_context))
+    return user_service
+
+
 # ============================================================================
 # TEST FIXTURES
 # ============================================================================
@@ -80,13 +98,19 @@ def mock_learning_service():
 
 
 @pytest.fixture
-def facade(mock_ku_service, mock_goals_service, mock_tasks_service, mock_learning_service):
+def mock_user_service():
+    return create_mock_user_service()
+
+
+@pytest.fixture
+def facade(mock_ku_service, mock_goals_service, mock_tasks_service, mock_learning_service, mock_user_service):
     """Create AdaptiveLpFacade with mock services."""
     return AdaptiveLpFacade(
         ku_service=mock_ku_service,
         learning_service=mock_learning_service,
         goals_service=mock_goals_service,
         tasks_service=mock_tasks_service,
+        user_service=mock_user_service,
     )
 
 
@@ -180,7 +204,9 @@ class TestFacadeDelegation:
         )
 
         assert result.is_ok  # Verify behavior
-        facade.core_service.analyze_user_knowledge_state.assert_called_once_with("user_001")
+        # After refactor, facade calls user_service.get_user_context() first
+        facade.user_service.get_user_context.assert_called_once_with("user_001")
+        facade.core_service.analyze_user_knowledge_state.assert_called_once()
         facade.recommendations_service.generate_adaptive_recommendations.assert_called_once()
 
     @pytest.mark.asyncio
@@ -212,7 +238,9 @@ class TestFacadeDelegation:
         )
 
         assert result.is_ok  # Verify behavior
-        facade.core_service.analyze_user_knowledge_state.assert_called_once_with("user_001")
+        # After refactor, facade calls user_service.get_user_context() first
+        facade.user_service.get_user_context.assert_called_once_with("user_001")
+        facade.core_service.analyze_user_knowledge_state.assert_called_once()
         facade.cross_domain_service.discover_cross_domain_opportunities.assert_called_once()
 
     @pytest.mark.asyncio
@@ -247,7 +275,9 @@ class TestFacadeDelegation:
         )
 
         assert result.is_ok  # Verify behavior
-        facade.core_service.analyze_user_knowledge_state.assert_called_once_with("user_001")
+        # After refactor, facade calls user_service.get_user_context() first
+        facade.user_service.get_user_context.assert_called_once_with("user_001")
+        facade.core_service.analyze_user_knowledge_state.assert_called_once()
         facade.suggestions_service.generate_personalized_application_suggestions.assert_called_once()
 
 

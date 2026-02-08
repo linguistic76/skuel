@@ -12,7 +12,7 @@ while delegating to specialized sub-services:
 - Suggestions: Personalized application suggestions
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.constants import MasteryLevel
 
@@ -33,7 +33,10 @@ from core.services.adaptive_lp.adaptive_lp_recommendations_service import (
 )
 from core.services.adaptive_lp.adaptive_lp_suggestions_service import AdaptiveLpSuggestionsService
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.user_service import UserService
 
 
 class AdaptiveLpFacade:
@@ -52,6 +55,7 @@ class AdaptiveLpFacade:
         goals_service=None,
         tasks_service=None,
         ku_generation_service=None,
+        user_service=None,
     ) -> None:
         """
         Initialize the adaptive learning path facade.
@@ -61,9 +65,11 @@ class AdaptiveLpFacade:
             learning_service: For learning path management,
             goals_service: For user goals and progress,
             tasks_service: For task completion patterns,
-            ku_generation_service: For pattern analysis
+            ku_generation_service: For pattern analysis,
+            user_service: For building UserContext (REQUIRED for refactored methods)
         """
         self.logger = get_logger("skuel.adaptive_lp_facade")
+        self.user_service = user_service
 
         # Initialize all sub-services
         self.core_service = AdaptiveLpCoreService(
@@ -128,8 +134,22 @@ class AdaptiveLpFacade:
         Returns:
             Result containing list of AdaptiveRecommendation objects
         """
-        # Get knowledge state from core service (real implementation)
-        knowledge_state_result = await self.core_service.analyze_user_knowledge_state(user_uid)
+        # Build UserContext (MEGA-QUERY via user_service)
+        if not self.user_service:
+            return Result.fail(
+                Errors.system(
+                    message="user_service required for UserContext",
+                    operation="generate_adaptive_recommendations",
+                )
+            )
+
+        user_context_result = await self.user_service.get_user_context(user_uid)
+        if user_context_result.is_error:
+            return Result.fail(user_context_result.expect_error())
+        user_context = user_context_result.value
+
+        # Get knowledge state from UserContext (no re-query)
+        knowledge_state_result = await self.core_service.analyze_user_knowledge_state(user_context)
         if knowledge_state_result.is_error:
             return Result.fail(knowledge_state_result.expect_error())
         knowledge_state = knowledge_state_result.value
@@ -166,8 +186,22 @@ class AdaptiveLpFacade:
         Returns:
             Result containing list of CrossDomainOpportunity objects
         """
-        # Get knowledge state from core service (real implementation)
-        knowledge_state_result = await self.core_service.analyze_user_knowledge_state(user_uid)
+        # Build UserContext (MEGA-QUERY via user_service)
+        if not self.user_service:
+            return Result.fail(
+                Errors.system(
+                    message="user_service required for UserContext",
+                    operation="discover_cross_domain_opportunities",
+                )
+            )
+
+        user_context_result = await self.user_service.get_user_context(user_uid)
+        if user_context_result.is_error:
+            return Result.fail(user_context_result.expect_error())
+        user_context = user_context_result.value
+
+        # Get knowledge state from UserContext (no re-query)
+        knowledge_state_result = await self.core_service.analyze_user_knowledge_state(user_context)
         if knowledge_state_result.is_error:
             return Result.fail(knowledge_state_result.expect_error())
         knowledge_state = knowledge_state_result.value
@@ -195,8 +229,22 @@ class AdaptiveLpFacade:
         Returns:
             Result containing list of PersonalizedSuggestion objects
         """
-        # Get knowledge state from core service (real implementation)
-        knowledge_state_result = await self.core_service.analyze_user_knowledge_state(user_uid)
+        # Build UserContext (MEGA-QUERY via user_service)
+        if not self.user_service:
+            return Result.fail(
+                Errors.system(
+                    message="user_service required for UserContext",
+                    operation="generate_personalized_application_suggestions",
+                )
+            )
+
+        user_context_result = await self.user_service.get_user_context(user_uid)
+        if user_context_result.is_error:
+            return Result.fail(user_context_result.expect_error())
+        user_context = user_context_result.value
+
+        # Get knowledge state from UserContext (no re-query)
+        knowledge_state_result = await self.core_service.analyze_user_knowledge_state(user_context)
         if knowledge_state_result.is_error:
             return Result.fail(knowledge_state_result.expect_error())
         knowledge_state = knowledge_state_result.value
