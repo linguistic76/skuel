@@ -15,13 +15,13 @@ Configuration-driven approach to relationship services.
 **Usage:**
 
 ```python
-from core.models.relationship_registry import TASKS_UNIFIED
+from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
 tasks_relationship_service = UnifiedRelationshipService(
     backend=tasks_backend,
     graph_intel=graph_intel,
-    config=TASKS_UNIFIED,
+    config=TASKS_CONFIG,
 )
 
 await tasks_relationship_service.get_related_uids("knowledge", task_uid)

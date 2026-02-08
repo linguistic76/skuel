@@ -74,11 +74,11 @@ The ultimate goal all domains flow toward:
 ### Domain → Config Mapping
 
 ```python
-from core.models.relationship_registry import UNIFIED_REGISTRY, TASKS_UNIFIED
+from core.models.relationship_registry import DOMAIN_CONFIGS, TASKS_CONFIG
 from core.models.shared_enums import Domain
 
 # Get config for a domain
-config = UNIFIED_REGISTRY[Domain.TASKS]  # or use TASKS_UNIFIED directly
+config = DOMAIN_CONFIGS[Domain.TASKS]  # or use TASKS_CONFIG directly
 ```
 
 ### Service Location Pattern

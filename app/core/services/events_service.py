@@ -18,7 +18,7 @@ Sub-Services:
 - EventsSearchService: Search and discovery (DomainSearchOperations[Event] protocol)
 - EventsHabitIntegrationService: Cross-domain habits integration
 - EventsLearningService: Learning path integration
-- UnifiedRelationshipService (EVENTS_UNIFIED): Graph relationships and semantic connections
+- UnifiedRelationshipService (EVENTS_CONFIG): Graph relationships and semantic connections
 - EventsIntelligenceService: pure Cypher analytics
 
 Architecture: Zero breaking changes - all existing code continues to work unchanged.

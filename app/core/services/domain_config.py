@@ -264,7 +264,7 @@ def create_activity_domain_config(
     """
     # Import here to avoid circular imports
     from core.models.relationship_registry import (
-        UNIFIED_REGISTRY_BY_LABEL,
+        LABEL_CONFIGS,
         generate_enables_relationships,
         generate_graph_enrichment,
         generate_prerequisite_relationships,
@@ -273,9 +273,9 @@ def create_activity_domain_config(
     entity_label = model_class.__name__
 
     # FAIL-FAST: Validate entity exists in unified registry
-    if entity_label not in UNIFIED_REGISTRY_BY_LABEL:
+    if entity_label not in LABEL_CONFIGS:
         raise ValueError(
-            f"Entity '{entity_label}' not found in UNIFIED_REGISTRY_BY_LABEL. "
+            f"Entity '{entity_label}' not found in LABEL_CONFIGS. "
             f"Add to /core/models/relationship_registry.py before creating DomainConfig."
         )
 
@@ -337,7 +337,7 @@ def create_curriculum_domain_config(
         ValueError: If entity not found in registries when using defaults
     """
     from core.models.relationship_registry import (
-        UNIFIED_REGISTRY_BY_LABEL,
+        LABEL_CONFIGS,
         generate_enables_relationships,
         generate_graph_enrichment,
         generate_prerequisite_relationships,
@@ -346,9 +346,9 @@ def create_curriculum_domain_config(
     entity_label = model_class.__name__
 
     # FAIL-FAST: Validate entity exists in unified registry
-    if entity_label not in UNIFIED_REGISTRY_BY_LABEL:
+    if entity_label not in LABEL_CONFIGS:
         raise ValueError(
-            f"Entity '{entity_label}' not found in UNIFIED_REGISTRY_BY_LABEL. "
+            f"Entity '{entity_label}' not found in LABEL_CONFIGS. "
             f"Add to /core/models/relationship_registry.py before creating DomainConfig."
         )
 

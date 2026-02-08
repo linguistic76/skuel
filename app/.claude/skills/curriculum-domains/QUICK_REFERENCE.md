@@ -101,7 +101,7 @@ from core.models.moc.moc_dto import MocDTO
 from core.utils.result_simplified import Result
 
 # Relationship configs (direct from registry)
-from core.models.relationship_registry import KU_UNIFIED, LS_UNIFIED, LP_UNIFIED, UNIFIED_REGISTRY_BY_LABEL
+from core.models.relationship_registry import KU_CONFIG, LS_CONFIG, LP_CONFIG, LABEL_CONFIGS
 
 # Factory functions
 from core.utils.curriculum_domain_config import (

@@ -41,7 +41,7 @@ class DomainRelationships:
 
     Example Usage:
         # Using with UnifiedRelationshipService
-        service = UnifiedRelationshipService(backend, TASKS_UNIFIED)
+        service = UnifiedRelationshipService(backend, TASKS_CONFIG)
         rels = await DomainRelationships.fetch("task:123", service)
 
         # Access relationship data

@@ -68,7 +68,7 @@ await ls_service.intelligence.is_ready(step_uid, completed_steps)
 | Intelligence Service | `/core/services/ls/ls_intelligence_service.py` |
 | Model | `/core/models/ls/ls.py` |
 | DTO | `/core/models/ls/ls_dto.py` |
-| Relationship Config | `LS_UNIFIED` in `/core/models/relationship_registry.py` |
+| Relationship Config | `LS_CONFIG` in `/core/models/relationship_registry.py` |
 | Factory | `/core/utils/curriculum_domain_config.py` |
 
 ## Model Fields
@@ -113,12 +113,12 @@ LsIntelligenceService provides:
 
 ## Relationship Config
 
-LS uses `LS_UNIFIED` from the relationship registry:
+LS uses `LS_CONFIG` from the relationship registry:
 
 ```python
-from core.models.relationship_registry import LS_UNIFIED
+from core.models.relationship_registry import LS_CONFIG
 
-config = LS_UNIFIED
+config = LS_CONFIG
 # Defines: in_paths, knowledge, prerequisites, practice relationships
 ```
 

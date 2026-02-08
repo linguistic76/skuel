@@ -22,7 +22,7 @@ Sub-Services:
 - PrinciplesSearchService: Search and discovery (DomainSearchOperations[Principle] protocol)
 - PrinciplesAlignmentService: Alignment assessment and motivational intelligence
 - PrinciplesLearningService: Learning path integration and framing
-- UnifiedRelationshipService (PRINCIPLES_UNIFIED): Cross-domain links and integrity calculation
+- UnifiedRelationshipService (PRINCIPLES_CONFIG): Cross-domain links and integrity calculation
 - PrinciplesIntelligenceService: Pure Cypher analytics
 
 Architecture: Zero breaking changes - all existing code continues to work unchanged.

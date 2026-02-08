@@ -66,9 +66,9 @@ if TYPE_CHECKING:
 
 def _get_registry() -> dict[str, DomainRelationshipConfig]:
     """Lazy import to avoid circular dependency."""
-    from core.models.relationship_registry import UNIFIED_REGISTRY_BY_LABEL
+    from core.models.relationship_registry import LABEL_CONFIGS
 
-    return UNIFIED_REGISTRY_BY_LABEL
+    return LABEL_CONFIGS
 
 
 def generate_context_query(

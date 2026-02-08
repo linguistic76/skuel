@@ -21,7 +21,7 @@ Sub-Services:
 - HabitsLearningService: Learning path integration
 - HabitsPlanningService: Context-aware habit recommendations (January 2026)
 - HabitsSchedulingService: Smart scheduling and capacity management (January 2026)
-- UnifiedRelationshipService (HABITS_UNIFIED): Graph relationships and semantic connections
+- UnifiedRelationshipService (HABITS_CONFIG): Graph relationships and semantic connections
 - HabitsIntelligenceService: pure Cypher analytics
 - HabitsEventIntegrationService: Cross-domain event scheduling integration
 - HabitAchievementService: Achievement badge awarding (Phase 4)

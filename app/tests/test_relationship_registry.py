@@ -11,24 +11,24 @@ February 2026: Removed parallel config tests (generator functions deleted)
 
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import (
-    CHOICES_UNIFIED,
-    EVENTS_UNIFIED,
-    GOALS_UNIFIED,
-    HABITS_UNIFIED,
-    KU_UNIFIED,
-    LP_UNIFIED,
-    LS_UNIFIED,
-    PRINCIPLES_UNIFIED,
-    TASKS_UNIFIED,
-    UNIFIED_REGISTRY,
-    UNIFIED_REGISTRY_BY_LABEL,
+    CHOICES_CONFIG,
+    EVENTS_CONFIG,
+    GOALS_CONFIG,
+    HABITS_CONFIG,
+    KU_CONFIG,
+    LP_CONFIG,
+    LS_CONFIG,
+    PRINCIPLES_CONFIG,
+    TASKS_CONFIG,
+    DOMAIN_CONFIGS,
+    LABEL_CONFIGS,
     DomainRelationshipConfig,
     UnifiedRelationshipDefinition,
     generate_enables_relationships,
     generate_graph_enrichment,
     generate_prerequisite_relationships,
-    get_unified_config,
-    get_unified_config_by_label,
+    get_domain_config,
+    get_config_by_label,
 )
 from core.models.shared_enums import Domain
 
@@ -39,7 +39,7 @@ class TestUnifiedRegistry:
     def test_registry_has_all_domains(self):
         """Verify all domains are in the registry (6 Activity + 2 Curriculum primaries)."""
         # Note: Domain.KNOWLEDGE maps to KU, Domain.LEARNING maps to LS
-        # LP and MOC are only accessible via UNIFIED_REGISTRY_BY_LABEL
+        # LP and MOC are only accessible via LABEL_CONFIGS
         expected_domains = {
             Domain.TASKS,
             Domain.GOALS,
@@ -50,7 +50,7 @@ class TestUnifiedRegistry:
             Domain.KNOWLEDGE,  # Maps to KU
             Domain.LEARNING,  # Maps to LS
         }
-        assert set(UNIFIED_REGISTRY.keys()) == expected_domains
+        assert set(DOMAIN_CONFIGS.keys()) == expected_domains
 
     def test_registry_by_label_has_all_labels(self):
         """Verify all domain labels are in the label registry."""
@@ -71,11 +71,11 @@ class TestUnifiedRegistry:
             "User",  # User entity relationships
             "PrincipleReflection",  # Principle sub-entity
         }
-        assert set(UNIFIED_REGISTRY_BY_LABEL.keys()) == expected_labels
+        assert set(LABEL_CONFIGS.keys()) == expected_labels
 
     def test_each_config_is_domain_relationship_config(self):
         """Verify all configs are DomainRelationshipConfig instances."""
-        for label, config in UNIFIED_REGISTRY_BY_LABEL.items():
+        for label, config in LABEL_CONFIGS.items():
             assert isinstance(config, DomainRelationshipConfig)
             assert config.entity_label == label
 
@@ -85,13 +85,13 @@ class TestUnifiedRelationshipDefinition:
 
     def test_task_has_applies_knowledge_relationship(self):
         """Verify Task config has APPLIES_KNOWLEDGE relationship."""
-        config = UNIFIED_REGISTRY[Domain.TASKS]
+        config = DOMAIN_CONFIGS[Domain.TASKS]
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.APPLIES_KNOWLEDGE in rel_names
 
     def test_goal_has_subgoal_relationship(self):
         """Verify Goal config has SUBGOAL_OF relationship."""
-        config = UNIFIED_REGISTRY[Domain.GOALS]
+        config = DOMAIN_CONFIGS[Domain.GOALS]
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.SUBGOAL_OF in rel_names
 
@@ -171,25 +171,25 @@ class TestDomainRelationshipConfigMethods:
 
     def test_get_relationship_by_method_found(self):
         """Verify get_relationship_by_method returns matching definition."""
-        rel = TASKS_UNIFIED.get_relationship_by_method("knowledge")
+        rel = TASKS_CONFIG.get_relationship_by_method("knowledge")
         assert rel is not None
         assert rel.relationship == RelationshipName.APPLIES_KNOWLEDGE
 
     def test_get_relationship_by_method_not_found(self):
         """Verify get_relationship_by_method returns None for unknown key."""
-        rel = TASKS_UNIFIED.get_relationship_by_method("nonexistent")
+        rel = TASKS_CONFIG.get_relationship_by_method("nonexistent")
         assert rel is None
 
     def test_get_all_relationship_methods(self):
         """Verify get_all_relationship_methods returns method keys."""
-        methods = TASKS_UNIFIED.get_all_relationship_methods()
+        methods = TASKS_CONFIG.get_all_relationship_methods()
         assert isinstance(methods, list)
         assert "knowledge" in methods
         assert len(methods) > 0
 
     def test_cross_domain_relationship_types_property(self):
         """Verify cross_domain_relationship_types returns unique rel type strings."""
-        rel_types = TASKS_UNIFIED.cross_domain_relationship_types
+        rel_types = TASKS_CONFIG.cross_domain_relationship_types
         assert isinstance(rel_types, list)
         assert len(rel_types) > 0
         # All should be strings (relationship name values)
@@ -199,15 +199,15 @@ class TestDomainRelationshipConfigMethods:
 class TestHelperFunctions:
     """Test helper functions."""
 
-    def test_get_unified_config(self):
-        """Verify get_unified_config returns correct config."""
-        config = get_unified_config(Domain.TASKS)
+    def test_get_domain_config(self):
+        """Verify get_domain_config returns correct config."""
+        config = get_domain_config(Domain.TASKS)
         assert config is not None
         assert config.domain == Domain.TASKS
 
-    def test_get_unified_config_by_label(self):
-        """Verify get_unified_config_by_label returns correct config."""
-        config = get_unified_config_by_label("Goal")
+    def test_get_config_by_label(self):
+        """Verify get_config_by_label returns correct config."""
+        config = get_config_by_label("Goal")
         assert config is not None
         assert config.entity_label == "Goal"
 
@@ -217,14 +217,14 @@ class TestCurriculumDomains:
 
     def test_ku_config_is_shared_content(self):
         """Verify KU config has shared content settings."""
-        config = get_unified_config_by_label("Ku")
+        config = get_config_by_label("Ku")
         assert config is not None
         assert config.is_shared_content is True
         assert config.ownership_relationship is None
 
     def test_ls_has_practice_patterns(self):
         """Verify LS config has practice pattern relationships."""
-        config = get_unified_config_by_label("Ls")
+        config = get_config_by_label("Ls")
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.BUILDS_HABIT in rel_names
         assert RelationshipName.ASSIGNS_TASK in rel_names
@@ -232,7 +232,7 @@ class TestCurriculumDomains:
 
     def test_lp_has_milestone_relationship(self):
         """Verify LP config has milestone event relationship."""
-        config = get_unified_config_by_label("Lp")
+        config = get_config_by_label("Lp")
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.HAS_MILESTONE_EVENT in rel_names
 
@@ -242,41 +242,41 @@ class TestCurriculumDomains:
         January 2026: MOC is now KU-based. A KU "is" a MOC when it has
         outgoing ORGANIZES relationships (emergent identity).
         """
-        config = get_unified_config_by_label("Ku")
+        config = get_config_by_label("Ku")
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.ORGANIZES in rel_names
 
 
 class TestNamedUnifiedConfigs:
-    """Test named *_UNIFIED configs are consistent with registry lookups."""
+    """Test named *_CONFIG configs are consistent with registry lookups."""
 
     def test_activity_unified_configs_match_registry(self):
-        """Verify *_UNIFIED configs match UNIFIED_REGISTRY entries."""
-        assert TASKS_UNIFIED is UNIFIED_REGISTRY[Domain.TASKS]
-        assert GOALS_UNIFIED is UNIFIED_REGISTRY[Domain.GOALS]
-        assert HABITS_UNIFIED is UNIFIED_REGISTRY[Domain.HABITS]
-        assert EVENTS_UNIFIED is UNIFIED_REGISTRY[Domain.EVENTS]
-        assert CHOICES_UNIFIED is UNIFIED_REGISTRY[Domain.CHOICES]
-        assert PRINCIPLES_UNIFIED is UNIFIED_REGISTRY[Domain.PRINCIPLES]
+        """Verify *_CONFIG configs match DOMAIN_CONFIGS entries."""
+        assert TASKS_CONFIG is DOMAIN_CONFIGS[Domain.TASKS]
+        assert GOALS_CONFIG is DOMAIN_CONFIGS[Domain.GOALS]
+        assert HABITS_CONFIG is DOMAIN_CONFIGS[Domain.HABITS]
+        assert EVENTS_CONFIG is DOMAIN_CONFIGS[Domain.EVENTS]
+        assert CHOICES_CONFIG is DOMAIN_CONFIGS[Domain.CHOICES]
+        assert PRINCIPLES_CONFIG is DOMAIN_CONFIGS[Domain.PRINCIPLES]
 
     def test_curriculum_unified_configs_match_label_registry(self):
-        """Verify curriculum *_UNIFIED configs match UNIFIED_REGISTRY_BY_LABEL entries."""
-        assert KU_UNIFIED is UNIFIED_REGISTRY_BY_LABEL["Ku"]
-        assert LS_UNIFIED is UNIFIED_REGISTRY_BY_LABEL["Ls"]
-        assert LP_UNIFIED is UNIFIED_REGISTRY_BY_LABEL["Lp"]
+        """Verify curriculum *_CONFIG configs match LABEL_CONFIGS entries."""
+        assert KU_CONFIG is LABEL_CONFIGS["Ku"]
+        assert LS_CONFIG is LABEL_CONFIGS["Ls"]
+        assert LP_CONFIG is LABEL_CONFIGS["Lp"]
 
     def test_all_unified_configs_are_domain_relationship_config(self):
         """Verify all named configs are DomainRelationshipConfig."""
         for config in [
-            TASKS_UNIFIED,
-            GOALS_UNIFIED,
-            HABITS_UNIFIED,
-            EVENTS_UNIFIED,
-            CHOICES_UNIFIED,
-            PRINCIPLES_UNIFIED,
-            KU_UNIFIED,
-            LS_UNIFIED,
-            LP_UNIFIED,
+            TASKS_CONFIG,
+            GOALS_CONFIG,
+            HABITS_CONFIG,
+            EVENTS_CONFIG,
+            CHOICES_CONFIG,
+            PRINCIPLES_CONFIG,
+            KU_CONFIG,
+            LS_CONFIG,
+            LP_CONFIG,
         ]:
             assert isinstance(config, DomainRelationshipConfig)
 
@@ -314,7 +314,7 @@ class TestRegistryIntegration:
     def test_lp_steps_have_ordering(self):
         """Verify LP config has ordering on step relationships."""
         steps_rel = None
-        for rel in LP_UNIFIED.relationships:
+        for rel in LP_CONFIG.relationships:
             if rel.method_key == "steps":
                 steps_rel = rel
                 break
@@ -326,7 +326,7 @@ class TestRegistryIntegration:
     def test_ku_organizes_have_ordering(self):
         """Verify KU config has ordering on organizes relationships."""
         organizes_rel = None
-        for rel in KU_UNIFIED.relationships:
+        for rel in KU_CONFIG.relationships:
             if rel.method_key == "organizes":
                 organizes_rel = rel
                 break

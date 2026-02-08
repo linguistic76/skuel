@@ -19,7 +19,7 @@ Sub-Services:
 - GoalsProgressService: Progress tracking and milestones
 - GoalsLearningService: Learning path integration
 - GoalsSchedulingService: Capacity management and schedule optimization (January 2026)
-- UnifiedRelationshipService (GOALS_UNIFIED): Graph relationships and cross-domain links
+- UnifiedRelationshipService (GOALS_CONFIG): Graph relationships and cross-domain links
 - GoalsIntelligenceService: pure Cypher analytics
 - GoalsRecommendationService: Intelligent goal recommendations (Phase 4 event-driven)
 

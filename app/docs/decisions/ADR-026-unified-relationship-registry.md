@@ -13,7 +13,7 @@ related: [ADR-017-relationship-service-unification.md, ADR-025-service-consolida
 
 **Date:** 2026-01-07
 
-**February 2026 Evolution:** The intermediate `RelationshipConfig`/`domain_configs.py` translation layer described in this ADR has been removed. All consumers now use `DomainRelationshipConfig` directly from `relationship_registry.py`. The `generate_relationship_config()` and `generate_relationship_config_by_label()` functions were deleted. Named configs (e.g., `TASKS_UNIFIED`, `KU_UNIFIED`) are imported directly from the registry. ~395 lines of translation ceremony removed.
+**February 2026 Evolution:** The intermediate `RelationshipConfig`/`domain_configs.py` translation layer described in this ADR has been removed. All consumers now use `DomainRelationshipConfig` directly from `relationship_registry.py`. The `generate_relationship_config()` and `generate_relationship_config_by_label()` functions were deleted. Named configs (e.g., `TASKS_CONFIG`, `KU_CONFIG`) are imported directly from the registry. ~395 lines of translation ceremony removed.
 
 **Decision Type:** ☑ Pattern/Practice
 
@@ -104,18 +104,18 @@ class PostProcessor:
 
 ```python
 # Access by Domain enum (6 Activity + 2 Curriculum primaries)
-UNIFIED_REGISTRY: dict[Domain, DomainRelationshipConfig] = {
-    Domain.TASKS: TASKS_UNIFIED,
-    Domain.GOALS: GOALS_UNIFIED,
+DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
+    Domain.TASKS: TASKS_CONFIG,
+    Domain.GOALS: GOALS_CONFIG,
     # ... 8 domains total
 }
 
 # Access by Neo4j label (all 10 domain labels)
-UNIFIED_REGISTRY_BY_LABEL: dict[str, DomainRelationshipConfig] = {
-    "Task": TASKS_UNIFIED,
-    "Ku": KU_UNIFIED,
-    "Lp": LP_UNIFIED,
-    "MapOfContent": MOC_UNIFIED,
+LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
+    "Task": TASKS_CONFIG,
+    "Ku": KU_CONFIG,
+    "Lp": LP_CONFIG,
+    "MapOfContent": MOC_CONFIG,
     # ... 10 labels total
 }
 ```
@@ -139,8 +139,8 @@ def generate_relationship_config(domain: Domain) -> RelationshipConfig | None:
 4. **Post-Query Processors** for calculated fields (Phase 3):
 
 ```python
-# In relationship_registry.py - GOALS_UNIFIED example
-GOALS_UNIFIED = DomainRelationshipConfig(
+# In relationship_registry.py - GOALS_CONFIG example
+GOALS_CONFIG = DomainRelationshipConfig(
     # ... relationships ...
     post_processors=(
         PostProcessor(
@@ -367,7 +367,7 @@ with hardcoded `RelationshipConfig` dicts that drifted from the registry:
 
 ### Domain Coverage
 
-| Domain | UNIFIED_REGISTRY | UNIFIED_REGISTRY_BY_LABEL | RelationshipConfig |
+| Domain | DOMAIN_CONFIGS | LABEL_CONFIGS | RelationshipConfig |
 |--------|------------------|---------------------------|-------------------|
 | Tasks | ✅ Domain.TASKS | ✅ "Task" | ✅ Generated |
 | Goals | ✅ Domain.GOALS | ✅ "Goal" | ✅ Generated |

@@ -656,7 +656,7 @@ Cypher Query → Raw Data → Post-Processor → Computed Field
 
 ```python
 # In relationship_registry.py
-GOALS_UNIFIED = DomainRelationshipConfig(
+GOALS_CONFIG = DomainRelationshipConfig(
     relationships=(...),
     post_processors=(
         PostProcessor(

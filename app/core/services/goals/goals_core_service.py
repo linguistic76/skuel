@@ -15,7 +15,7 @@ Date: 2026-01-10
 Changelog:
 - v2.3.0 (2026-01-10): Phase 3 - Registry-driven get_with_context().
   Removed custom override, now uses BaseService.get_with_context() with
-  RelationshipRegistry (GOALS_UNIFIED). Shared-neighbor pattern for
+  RelationshipRegistry (GOALS_CONFIG). Shared-neighbor pattern for
   related_goals is now defined in the registry.
   See: /core/models/relationship_registry.py
 - v2.2.0 (2025-11-28): Phase 2 - Milestones as graph nodes.
@@ -217,7 +217,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # NOTE: get_with_context() is inherited from BaseService (January 2026)
     #
     # Uses registry-driven query generation from RelationshipRegistry.
-    # The GOALS_UNIFIED config includes:
+    # The GOALS_CONFIG config includes:
     # - contributing_tasks, contributing_habits (supporting activities)
     # - sub_goals, parent_goal (hierarchy)
     # - required_knowledge, aligned_principles (prerequisites and guidance)
@@ -226,7 +226,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # - related_goals (shared-neighbor pattern via FULFILLS_GOAL|SUPPORTS_GOAL)
     # - milestone_progress (calculated in BaseService._parse_context_result)
     #
-    # See: /core/models/relationship_registry.py - GOALS_UNIFIED
+    # See: /core/models/relationship_registry.py - GOALS_CONFIG
     # See: /core/services/base_service.py - get_with_context()
     # ========================================================================
 

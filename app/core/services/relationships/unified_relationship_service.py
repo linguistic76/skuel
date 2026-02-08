@@ -29,13 +29,13 @@ One UnifiedRelationshipService + 14 RelationshipConfig objects = ~1000 lines tot
 
 **Usage:**
 ```python
-from core.models.relationship_registry import TASKS_UNIFIED
+from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
 tasks_relationship_service = UnifiedRelationshipService(
     backend=tasks_backend,
     graph_intel=graph_intel,
-    config=TASKS_UNIFIED,
+    config=TASKS_CONFIG,
 )
 
 # All methods now available:

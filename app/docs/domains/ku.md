@@ -96,7 +96,7 @@ await ku_service.semantic.get_semantic_neighborhood(ku_uid)
 | Model | `/core/models/ku/ku.py` |
 | DTO | `/core/models/ku/ku_dto.py` |
 | Relationships Container | `/core/models/ku/ku_relationships.py` |
-| Relationship Config | `KU_UNIFIED` in `/core/models/relationship_registry.py` |
+| Relationship Config | `KU_CONFIG` in `/core/models/relationship_registry.py` |
 
 ## Model Fields
 
@@ -242,12 +242,12 @@ suggestions = await ku_service.intelligence.get_knowledge_suggestions(user_uid, 
 
 ## Relationship Config
 
-KU uses `KU_UNIFIED` from the relationship registry:
+KU uses `KU_CONFIG` from the relationship registry:
 
 ```python
-from core.models.relationship_registry import KU_UNIFIED
+from core.models.relationship_registry import KU_CONFIG
 
-config = KU_UNIFIED
+config = KU_CONFIG
 # Defines: prerequisites, enables, broader, narrower, related, organizes
 ```
 

@@ -12,14 +12,14 @@ No intermediate translation layer — the registry IS the config.
 **Usage:**
 ```python
 from core.models.relationship_registry import (
-    TASKS_UNIFIED,
-    UNIFIED_REGISTRY_BY_LABEL,
+    TASKS_CONFIG,
+    LABEL_CONFIGS,
     generate_graph_enrichment,
     generate_ingestion_relationship_config,
 )
 
 # Pass config directly to relationship service
-service = UnifiedRelationshipService(backend=backend, config=TASKS_UNIFIED)
+service = UnifiedRelationshipService(backend=backend, config=TASKS_CONFIG)
 
 # Get graph enrichment for BaseService search
 patterns = generate_graph_enrichment("Task")
@@ -28,7 +28,7 @@ patterns = generate_graph_enrichment("Task")
 **Architecture:**
 - UnifiedRelationshipDefinition: One relationship's complete definition
 - DomainRelationshipConfig: All relationships for one domain (consumed by services directly)
-- UNIFIED_REGISTRY_BY_LABEL: All domains keyed by Neo4j label
+- LABEL_CONFIGS: All domains keyed by Neo4j label
 
 See Also:
     - /docs/decisions/ADR-026-unified-relationship-registry.md
@@ -71,7 +71,7 @@ from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 
 # =============================================================================
-# UNIFIED DEFINITION DATACLASSES
+# RELATIONSHIP DEFINITION DATACLASSES
 # =============================================================================
 
 
@@ -383,7 +383,7 @@ class DomainRelationshipConfig:
 
 
 # =============================================================================
-# UNIFIED REGISTRY - THE SINGLE SOURCE OF TRUTH
+# DOMAIN RELATIONSHIP CONFIGS - THE SINGLE SOURCE OF TRUTH
 # =============================================================================
 
 
@@ -422,7 +422,7 @@ def _build_scoring_weights(
 # -----------------------------------------------------------------------------
 # TASKS
 # -----------------------------------------------------------------------------
-TASKS_UNIFIED = DomainRelationshipConfig(
+TASKS_CONFIG = DomainRelationshipConfig(
     domain=Domain.TASKS,
     entity_label="Task",
     dto_class=TaskDTO,
@@ -630,7 +630,7 @@ TASKS_UNIFIED = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 # GOALS
 # -----------------------------------------------------------------------------
-GOALS_UNIFIED = DomainRelationshipConfig(
+GOALS_CONFIG = DomainRelationshipConfig(
     domain=Domain.GOALS,
     entity_label="Goal",
     dto_class=GoalDTO,
@@ -833,7 +833,7 @@ GOALS_UNIFIED = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 # HABITS
 # -----------------------------------------------------------------------------
-HABITS_UNIFIED = DomainRelationshipConfig(
+HABITS_CONFIG = DomainRelationshipConfig(
     domain=Domain.HABITS,
     entity_label="Habit",
     dto_class=HabitDTO,
@@ -990,7 +990,7 @@ HABITS_UNIFIED = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 # EVENTS
 # -----------------------------------------------------------------------------
-EVENTS_UNIFIED = DomainRelationshipConfig(
+EVENTS_CONFIG = DomainRelationshipConfig(
     domain=Domain.EVENTS,
     entity_label="Event",
     dto_class=EventDTO,
@@ -1131,7 +1131,7 @@ EVENTS_UNIFIED = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 # CHOICES
 # -----------------------------------------------------------------------------
-CHOICES_UNIFIED = DomainRelationshipConfig(
+CHOICES_CONFIG = DomainRelationshipConfig(
     domain=Domain.CHOICES,
     entity_label="Choice",
     dto_class=ChoiceDTO,
@@ -1278,7 +1278,7 @@ CHOICES_UNIFIED = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 # PRINCIPLES
 # -----------------------------------------------------------------------------
-PRINCIPLES_UNIFIED = DomainRelationshipConfig(
+PRINCIPLES_CONFIG = DomainRelationshipConfig(
     domain=Domain.PRINCIPLES,
     entity_label="Principle",
     dto_class=PrincipleDTO,
@@ -1432,7 +1432,7 @@ PRINCIPLES_UNIFIED = DomainRelationshipConfig(
 # enables validation of User -> Entity relationships like MADE_REFLECTION.
 # -----------------------------------------------------------------------------
 
-USER_UNIFIED = DomainRelationshipConfig(
+USER_CONFIG = DomainRelationshipConfig(
     domain=Domain.SYSTEM,  # User is part of system infrastructure
     entity_label="User",
     dto_class=None,  # User has its own DTO system
@@ -1506,7 +1506,7 @@ USER_UNIFIED = DomainRelationshipConfig(
 # Reflections track alignment between user actions and their principles
 # -----------------------------------------------------------------------------
 
-PRINCIPLE_REFLECTION_UNIFIED = DomainRelationshipConfig(
+PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
     domain=Domain.PRINCIPLES,  # Part of Principles domain
     entity_label="PrincipleReflection",
     dto_class=PrincipleReflectionDTO,
@@ -1583,7 +1583,7 @@ PRINCIPLE_REFLECTION_UNIFIED = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 
 # KU (Knowledge Unit)
-KU_UNIFIED = DomainRelationshipConfig(
+KU_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,
     entity_label="Ku",
     dto_class=KuDTO,
@@ -1710,7 +1710,7 @@ KU_UNIFIED = DomainRelationshipConfig(
 )
 
 # LS (Learning Step)
-LS_UNIFIED = DomainRelationshipConfig(
+LS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Ls",
     dto_class=LearningStepDTO,
@@ -1806,7 +1806,7 @@ LS_UNIFIED = DomainRelationshipConfig(
 )
 
 # LP (Learning Path)
-LP_UNIFIED = DomainRelationshipConfig(
+LP_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Lp",
     dto_class=LpDTO,
@@ -1883,7 +1883,7 @@ LP_UNIFIED = DomainRelationshipConfig(
 )
 
 # =============================================================================
-# NOTE (January 2026): MOC_UNIFIED and MOC_SECTION_UNIFIED REMOVED
+# NOTE (January 2026): MOC_CONFIG and MOC_SECTION_CONFIG REMOVED
 # =============================================================================
 # MOC is now KU-based - not a separate entity type.
 # A KU "is" a MOC when it has outgoing ORGANIZES relationships.
@@ -1892,45 +1892,45 @@ LP_UNIFIED = DomainRelationshipConfig(
 
 
 # =============================================================================
-# UNIFIED REGISTRY - ALL DOMAINS (Phase 1 + Phase 2 Complete)
+# DOMAIN CONFIGS - ALL DOMAINS (Phase 1 + Phase 2 Complete)
 # =============================================================================
-# Note: Finance domain is standalone (no unified relationship registry)
+# Note: Finance domain is standalone (no relationship registry)
 # Finance is a bookkeeping domain, not an Activity domain
 
-UNIFIED_REGISTRY: dict[Domain, DomainRelationshipConfig] = {
+DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     # Activity Domains (6) - User-owned entities
-    Domain.TASKS: TASKS_UNIFIED,
-    Domain.GOALS: GOALS_UNIFIED,
-    Domain.HABITS: HABITS_UNIFIED,
-    Domain.EVENTS: EVENTS_UNIFIED,
-    Domain.CHOICES: CHOICES_UNIFIED,
-    Domain.PRINCIPLES: PRINCIPLES_UNIFIED,
-    # Note: Finance is standalone (not in unified registry)
+    Domain.TASKS: TASKS_CONFIG,
+    Domain.GOALS: GOALS_CONFIG,
+    Domain.HABITS: HABITS_CONFIG,
+    Domain.EVENTS: EVENTS_CONFIG,
+    Domain.CHOICES: CHOICES_CONFIG,
+    Domain.PRINCIPLES: PRINCIPLES_CONFIG,
+    # Note: Finance is standalone (not in registry)
     # Curriculum Domains - Shared content (Phase 2)
     # Note: KU and MOC both use Domain.KNOWLEDGE, LS and LP both use Domain.LEARNING
-    # Use UNIFIED_REGISTRY_BY_LABEL for unambiguous lookup
-    Domain.KNOWLEDGE: KU_UNIFIED,  # Primary for Domain.KNOWLEDGE
-    Domain.LEARNING: LS_UNIFIED,  # Primary for Domain.LEARNING
+    # Use LABEL_CONFIGS for unambiguous lookup
+    Domain.KNOWLEDGE: KU_CONFIG,  # Primary for Domain.KNOWLEDGE
+    Domain.LEARNING: LS_CONFIG,  # Primary for Domain.LEARNING
 }
 
 # Label-based lookup (THE authoritative way to get curriculum configs)
-UNIFIED_REGISTRY_BY_LABEL: dict[str, DomainRelationshipConfig] = {
+LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # Activity Domains (6)
-    "Task": TASKS_UNIFIED,
-    "Goal": GOALS_UNIFIED,
-    "Habit": HABITS_UNIFIED,
-    "Event": EVENTS_UNIFIED,
-    "Choice": CHOICES_UNIFIED,
-    "Principle": PRINCIPLES_UNIFIED,
-    # Note: Finance/Expense is standalone (not in unified registry)
+    "Task": TASKS_CONFIG,
+    "Goal": GOALS_CONFIG,
+    "Habit": HABITS_CONFIG,
+    "Event": EVENTS_CONFIG,
+    "Choice": CHOICES_CONFIG,
+    "Principle": PRINCIPLES_CONFIG,
+    # Note: Finance/Expense is standalone (not in registry)
     # User (Identity Layer - January 2026)
-    "User": USER_UNIFIED,
+    "User": USER_CONFIG,
     # Principle Reflection (January 2026)
-    "PrincipleReflection": PRINCIPLE_REFLECTION_UNIFIED,
+    "PrincipleReflection": PRINCIPLE_REFLECTION_CONFIG,
     # Curriculum Domains (3) - MOC removed (now KU-based, January 2026)
-    "Ku": KU_UNIFIED,
-    "Ls": LS_UNIFIED,
-    "Lp": LP_UNIFIED,
+    "Ku": KU_CONFIG,
+    "Ls": LS_CONFIG,
+    "Lp": LP_CONFIG,
     # Note: MapOfContent and MOCSection removed - MOC is now KU with ORGANIZES relationships
 }
 
@@ -1950,7 +1950,7 @@ def generate_graph_enrichment(entity_label: str) -> list[tuple[str, str, str, st
     Returns:
         List of tuples: (relationship_type, target_label, context_field, direction)
     """
-    config = UNIFIED_REGISTRY_BY_LABEL.get(entity_label)
+    config = LABEL_CONFIGS.get(entity_label)
     if not config:
         return []
 
@@ -1967,7 +1967,7 @@ def generate_prerequisite_relationships(entity_label: str) -> list[str]:
     Returns:
         List of relationship type strings
     """
-    config = UNIFIED_REGISTRY_BY_LABEL.get(entity_label)
+    config = LABEL_CONFIGS.get(entity_label)
     if not config:
         return []
 
@@ -1984,16 +1984,16 @@ def generate_enables_relationships(entity_label: str) -> list[str]:
     Returns:
         List of relationship type strings
     """
-    config = UNIFIED_REGISTRY_BY_LABEL.get(entity_label)
+    config = LABEL_CONFIGS.get(entity_label)
     if not config:
         return []
 
     return [rel.value for rel in config.enables_relationship_names]
 
 
-def get_unified_config(domain: Domain) -> DomainRelationshipConfig | None:
+def get_domain_config(domain: Domain) -> DomainRelationshipConfig | None:
     """
-    Get the unified config for a domain.
+    Get the relationship config for a domain.
 
     Args:
         domain: Domain enum value
@@ -2001,12 +2001,12 @@ def get_unified_config(domain: Domain) -> DomainRelationshipConfig | None:
     Returns:
         DomainRelationshipConfig or None
     """
-    return UNIFIED_REGISTRY.get(domain)
+    return DOMAIN_CONFIGS.get(domain)
 
 
-def get_unified_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
+def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
     """
-    Get the unified config by Neo4j label.
+    Get the relationship config by Neo4j label.
 
     Args:
         entity_label: Neo4j node label (e.g., "Task", "Ku")
@@ -2014,7 +2014,7 @@ def get_unified_config_by_label(entity_label: str) -> DomainRelationshipConfig |
     Returns:
         DomainRelationshipConfig or None
     """
-    return UNIFIED_REGISTRY_BY_LABEL.get(entity_label)
+    return LABEL_CONFIGS.get(entity_label)
 
 
 # =============================================================================
@@ -2072,7 +2072,7 @@ def generate_ingestion_relationship_config(
     if not entity_label:
         return None
 
-    config = UNIFIED_REGISTRY_BY_LABEL.get(entity_label)
+    config = LABEL_CONFIGS.get(entity_label)
     if not config:
         return None
 
@@ -2117,7 +2117,7 @@ def validate_relationship(source_label: str, relationship_type: str) -> bool:
     Returns:
         True if the relationship is valid for the source label
     """
-    config = UNIFIED_REGISTRY_BY_LABEL.get(source_label)
+    config = LABEL_CONFIGS.get(source_label)
     if not config:
         return False
 
@@ -2134,7 +2134,7 @@ def get_valid_relationships(source_label: str) -> dict[str, "ValidationRelations
     Returns:
         Dict mapping relationship type to spec (direction, target_labels)
     """
-    config = UNIFIED_REGISTRY_BY_LABEL.get(source_label)
+    config = LABEL_CONFIGS.get(source_label)
     if not config:
         return {}
 
@@ -2160,7 +2160,7 @@ def get_relationship_metadata(
     Returns:
         ValidationRelationshipSpec with direction and target_labels, or None
     """
-    config = UNIFIED_REGISTRY_BY_LABEL.get(source_label)
+    config = LABEL_CONFIGS.get(source_label)
     if not config:
         return None
 
@@ -2180,7 +2180,7 @@ def get_all_labels() -> list[str]:
     Returns:
         List of all Neo4j labels in the registry
     """
-    return list(UNIFIED_REGISTRY_BY_LABEL.keys())
+    return list(LABEL_CONFIGS.keys())
 
 
 @dataclass(frozen=True)

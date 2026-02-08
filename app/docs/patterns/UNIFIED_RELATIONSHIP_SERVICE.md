@@ -49,7 +49,7 @@ TasksRelationshipService, GoalsRelationshipService, HabitsRelationshipService...
 **After:**
 ```
 1 service + 9 configs = ~1,600 lines (67% reduction)
-UnifiedRelationshipService + TASKS_UNIFIED, GOALS_UNIFIED, HABITS_UNIFIED...
+UnifiedRelationshipService + TASKS_CONFIG, GOALS_CONFIG, HABITS_CONFIG...
 ```
 
 **Old services archived:** `zarchives/relationships/`
@@ -91,21 +91,21 @@ Need relationship data?
 Instead of subclassing for each domain, we use configuration objects:
 
 ```python
-from core.models.relationship_registry import TASKS_UNIFIED, GOALS_UNIFIED
+from core.models.relationship_registry import TASKS_CONFIG, GOALS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
 # Create relationship service for tasks
 tasks_relationship_service = UnifiedRelationshipService(
     backend=tasks_backend,
     graph_intel=graph_intel,
-    config=TASKS_UNIFIED,
+    config=TASKS_CONFIG,
 )
 
 # Same service, same methods - different domain via configuration
 goals_relationship_service = UnifiedRelationshipService(
     backend=goals_backend,
     graph_intel=graph_intel,
-    config=GOALS_UNIFIED,
+    config=GOALS_CONFIG,
 )
 ```
 
@@ -131,20 +131,20 @@ All relationship configurations are `DomainRelationshipConfig` instances defined
 
 ```python
 from core.models.relationship_registry import (
-    TASKS_UNIFIED,              # Named config for Tasks domain
-    UNIFIED_REGISTRY,           # Access by Domain enum
-    UNIFIED_REGISTRY_BY_LABEL,  # Access by Neo4j label
+    TASKS_CONFIG,              # Named config for Tasks domain
+    DOMAIN_CONFIGS,           # Access by Domain enum
+    LABEL_CONFIGS,  # Access by Neo4j label
     generate_graph_enrichment,  # For DomainConfig factories
 )
 
 # Direct named access (preferred)
-config = TASKS_UNIFIED
+config = TASKS_CONFIG
 
 # Access by Domain enum
-config = UNIFIED_REGISTRY[Domain.TASKS]
+config = DOMAIN_CONFIGS[Domain.TASKS]
 
 # Access by label (supports all domains)
-config = UNIFIED_REGISTRY_BY_LABEL["Ku"]
+config = LABEL_CONFIGS["Ku"]
 ```
 
 ---
@@ -201,36 +201,36 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 | Config | Domain | Entity Label | Key Relationships |
 |--------|--------|--------------|-------------------|
 | **Activity Domains (6)** |
-| `TASKS_UNIFIED` | TASKS | Task | APPLIES_KNOWLEDGE, FULFILLS_GOAL, DEPENDS_ON |
-| `GOALS_UNIFIED` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
-| `HABITS_UNIFIED` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
-| `EVENTS_UNIFIED` | EVENTS | Event | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, CONFLICTS_WITH |
-| `CHOICES_UNIFIED` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMED_BY_PRINCIPLE, AFFECTS_GOAL |
-| `PRINCIPLES_UNIFIED` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, GUIDES_GOAL, GUIDES_CHOICE |
+| `TASKS_CONFIG` | TASKS | Task | APPLIES_KNOWLEDGE, FULFILLS_GOAL, DEPENDS_ON |
+| `GOALS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
+| `HABITS_CONFIG` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
+| `EVENTS_CONFIG` | EVENTS | Event | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, CONFLICTS_WITH |
+| `CHOICES_CONFIG` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMED_BY_PRINCIPLE, AFFECTS_GOAL |
+| `PRINCIPLES_CONFIG` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, GUIDES_GOAL, GUIDES_CHOICE |
 | **Curriculum Domains (3)** |
-| `KU_UNIFIED` | KNOWLEDGE | Ku | REQUIRES, ENABLES, ORGANIZES, HAS_NARROWER |
-| `LS_UNIFIED` | LEARNING | Ls | CONTAINS_KNOWLEDGE, BUILDS_HABIT, ASSIGNS_TASK |
-| `LP_UNIFIED` | LEARNING | Lp | HAS_STEP, ALIGNED_WITH_GOAL, HAS_MILESTONE_EVENT |
+| `KU_CONFIG` | KNOWLEDGE | Ku | REQUIRES, ENABLES, ORGANIZES, HAS_NARROWER |
+| `LS_CONFIG` | LEARNING | Ls | CONTAINS_KNOWLEDGE, BUILDS_HABIT, ASSIGNS_TASK |
+| `LP_CONFIG` | LEARNING | Lp | HAS_STEP, ALIGNED_WITH_GOAL, HAS_MILESTONE_EVENT |
 
 **Notes:**
 - Finance is NOT an Activity Domain - it's a standalone expense/budget tracker
 - All configs are `DomainRelationshipConfig` instances (frozen dataclasses)
 - Curriculum domains have `is_shared_content=True` (no user ownership)
-- MOC uses `KU_UNIFIED` (MOC is a KU with ORGANIZES relationships)
+- MOC uses `KU_CONFIG` (MOC is a KU with ORGANIZES relationships)
 
 **Registry Access:**
 
 ```python
-from core.models.relationship_registry import UNIFIED_REGISTRY, TASKS_UNIFIED
+from core.models.relationship_registry import DOMAIN_CONFIGS, TASKS_CONFIG
 
 # Direct named access (preferred for known domains)
-config = TASKS_UNIFIED
+config = TASKS_CONFIG
 
 # Dynamic access by Domain enum
-config = UNIFIED_REGISTRY[Domain.TASKS]
+config = DOMAIN_CONFIGS[Domain.TASKS]
 
 # Dynamic access by label
-config = UNIFIED_REGISTRY_BY_LABEL["Ku"]
+config = LABEL_CONFIGS["Ku"]
 ```
 
 ---
@@ -508,10 +508,10 @@ context = await tasks_service.get_task_cross_domain_context(task_uid)
 
 **After (UnifiedRelationshipService):**
 ```python
-from core.models.relationship_registry import TASKS_UNIFIED
+from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
-tasks_service = UnifiedRelationshipService(backend, graph_intel, TASKS_UNIFIED)
+tasks_service = UnifiedRelationshipService(backend, graph_intel, TASKS_CONFIG)
 knowledge_uids = await tasks_service.get_related_uids("knowledge", task_uid)
 context = await tasks_service.get_cross_domain_context_typed(task_uid)
 ```
@@ -584,7 +584,7 @@ context = await service.get_cross_domain_context_typed(uid)
 ### Unit Testing
 
 ```python
-from core.models.relationship_registry import TASKS_UNIFIED
+from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
 # Mock backend
@@ -592,7 +592,7 @@ mock_backend = Mock()
 mock_backend.execute_query.return_value = Result.ok([...])
 
 # Test service
-service = UnifiedRelationshipService(mock_backend, None, TASKS_UNIFIED)
+service = UnifiedRelationshipService(mock_backend, None, TASKS_CONFIG)
 
 # Test basic query
 result = await service.get_related_uids("knowledge", "task:123")
@@ -606,7 +606,7 @@ assert result.is_ok
 poetry run pytest tests/integration/test_relationships.py -v
 
 # Validate configs
-poetry run python -c "from core.models.relationship_registry import UNIFIED_REGISTRY; print(len(UNIFIED_REGISTRY))"
+poetry run python -c "from core.models.relationship_registry import DOMAIN_CONFIGS; print(len(DOMAIN_CONFIGS))"
 ```
 
 ---
@@ -690,10 +690,10 @@ To:
 
 **Usage:**
 ```python
-from core.models.relationship_registry import TASKS_UNIFIED
+from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
-service = UnifiedRelationshipService(backend, graph_intel, TASKS_UNIFIED)
+service = UnifiedRelationshipService(backend, graph_intel, TASKS_CONFIG)
 await service.get_related_uids("knowledge", "task:123")
 ```
 

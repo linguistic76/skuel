@@ -17,7 +17,7 @@ related_skills:
 **Type:** Activity Domain (1 of 6)
 **UID Prefix:** `task:`
 **Entity Label:** `Task`
-**Config:** `TASKS_UNIFIED` (from `core.models.relationship_registry`)
+**Config:** `TASKS_CONFIG` (from `core.models.relationship_registry`)
 
 ## Purpose
 
@@ -40,7 +40,7 @@ Tasks represent work items with dependencies, deadlines, and knowledge requireme
 | Analytics Service | `/core/services/tasks/tasks_analytics_service.py` |
 | Intelligence Service | `/core/services/tasks/tasks_intelligence_service.py` |
 | Facade | `/core/services/tasks_service.py` |
-| Config | `TASKS_UNIFIED` in `/core/models/relationship_registry.py` |
+| Config | `TASKS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/task_events.py` |
 | UI Routes | `/adapters/inbound/tasks_ui.py` |
 | View Components | `/components/tasks_views.py` |
@@ -150,11 +150,11 @@ The MEGA-QUERY in `/core/services/user/user_context_queries.py` fetches:
 ## Usage Examples
 
 ```python
-from core.models.relationship_registry import TASKS_UNIFIED
+from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
 # Create relationship service
-tasks_rel = UnifiedRelationshipService(backend, graph_intel, TASKS_UNIFIED)
+tasks_rel = UnifiedRelationshipService(backend, graph_intel, TASKS_CONFIG)
 
 # Get related knowledge
 knowledge_uids = await tasks_rel.get_related_uids("knowledge", "task:123")

@@ -506,7 +506,7 @@ To add a new relationship pattern:
 
 ```python
 # In relationship_registry.py — add to domain config
-TASKS_UNIFIED = DomainRelationshipConfig(
+TASKS_CONFIG = DomainRelationshipConfig(
     relationships=[
         ...,
         UnifiedRelationshipSpec(
@@ -545,7 +545,7 @@ Define processors declaratively in the registry, implement once in `post_process
 
 ```python
 # In relationship_registry.py
-GOALS_UNIFIED = DomainRelationshipConfig(
+GOALS_CONFIG = DomainRelationshipConfig(
     # ... relationships ...
     post_processors=(
         PostProcessor(
@@ -616,7 +616,7 @@ def calculate_new_metric(items: list[dict]) -> dict:
 PROCESSOR_REGISTRY["calculate_new_metric"] = calculate_new_metric
 
 # Step 3: Add to domain config
-DOMAIN_UNIFIED = DomainRelationshipConfig(
+DOMAIN_CONFIG = DomainRelationshipConfig(
     post_processors=(
         PostProcessor(
             source_field="items",

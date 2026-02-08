@@ -17,7 +17,7 @@ related_skills:
 **Type:** Activity Domain (3 of 6)
 **UID Prefix:** `habit:`
 **Entity Label:** `Habit`
-**Config:** `HABITS_UNIFIED` (from `core.models.relationship_registry`)
+**Config:** `HABITS_CONFIG` (from `core.models.relationship_registry`)
 
 ## Purpose
 
@@ -43,7 +43,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | Learning Service | `/core/services/habits/habits_learning_service.py` |
 | Achievement Service | `/core/services/habits/habit_achievement_service.py` |
 | Facade | `/core/services/habits_service.py` |
-| Config | `HABITS_UNIFIED` in `/core/models/relationship_registry.py` |
+| Config | `HABITS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/habit_events.py` |
 | UI Routes | `/adapters/inbound/habits_ui.py` |
 | View Components | `/components/habits_views.py` |

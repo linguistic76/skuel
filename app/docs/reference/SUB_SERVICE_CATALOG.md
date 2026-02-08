@@ -153,14 +153,14 @@ metrics_result = await intel.analyze_task_learning_metrics(user_uid)
 - Querying cross-domain connections
 - Semantic relationship management
 
-**Configuration:** Uses `DomainRelationshipConfig` from registry (e.g., `TASKS_UNIFIED`, `GOALS_UNIFIED`)
+**Configuration:** Uses `DomainRelationshipConfig` from registry (e.g., `TASKS_CONFIG`, `GOALS_CONFIG`)
 
 **Example:**
 ```python
-from core.models.relationship_registry import TASKS_UNIFIED
+from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
-rels = UnifiedRelationshipService(backend=backend, config=TASKS_UNIFIED)
+rels = UnifiedRelationshipService(backend=backend, config=TASKS_CONFIG)
 result = await rels.link_to_knowledge(task_uid, ku_uid, knowledge_score_required=0.8)
 ```
 

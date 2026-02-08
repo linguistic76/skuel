@@ -43,7 +43,7 @@ KU and MOC domains had specialized relationship services (MocRelationshipService
 
 ### Phase 1: MOC Domain Migration (COMPLETED)
 
-1. Added `MOC_SECTION_UNIFIED` and `MOC_UNIFIED` configs to unified relationship registry
+1. Added `MOC_SECTION_CONFIG` and `MOC_CONFIG` configs to unified relationship registry
 2. Added `NeoLabel.MOC_SECTION` for section nodes
 3. Updated MocService facade with two UnifiedRelationshipService instances:
    - `self.relationships` for MapOfContent relationships

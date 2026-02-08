@@ -241,7 +241,7 @@ self.intelligence = common.intelligence  # TasksIntelligenceService
 TasksService (Facade)
 ├── .core         → TasksCoreService (CRUD + domain logic)
 ├── .search       → TasksSearchService (Discovery)
-├── .relationships → UnifiedRelationshipService (TASKS_UNIFIED)
+├── .relationships → UnifiedRelationshipService (TASKS_CONFIG)
 └── .intelligence  → TasksIntelligenceService (Analytics, NO AI)
 ```
 

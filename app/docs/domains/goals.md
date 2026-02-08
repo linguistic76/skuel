@@ -17,7 +17,7 @@ related_skills:
 **Type:** Activity Domain (2 of 6)
 **UID Prefix:** `goal:`
 **Entity Label:** `Goal`
-**Config:** `GOALS_UNIFIED` (from `core.models.relationship_registry`)
+**Config:** `GOALS_CONFIG` (from `core.models.relationship_registry`)
 
 ## Purpose
 
@@ -42,7 +42,7 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 | Intelligence Service | `/core/services/goals/goals_intelligence_service.py` |
 | Recommendation Service | `/core/services/goals/goals_recommendation_service.py` |
 | Facade | `/core/services/goals_service.py` |
-| Config | `GOALS_UNIFIED` in `/core/models/relationship_registry.py` |
+| Config | `GOALS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/goal_events.py` |
 | UI Routes | `/adapters/inbound/goals_ui.py` |
 | View Components | `/components/goals_views.py` |

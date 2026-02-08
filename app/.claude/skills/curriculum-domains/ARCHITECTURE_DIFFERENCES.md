@@ -99,19 +99,19 @@ class MocService:
 
 ```python
 # Activity Domains
-from core.models.relationship_registry import TASKS_UNIFIED
+from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
-self.relationships = UnifiedRelationshipService(backend, TASKS_UNIFIED, graph_intel)
+self.relationships = UnifiedRelationshipService(backend, TASKS_CONFIG, graph_intel)
 
 # Curriculum Domains
-from core.models.relationship_registry import KU_UNIFIED
-self.relationships = UnifiedRelationshipService(backend, KU_UNIFIED, graph_intel)
+from core.models.relationship_registry import KU_CONFIG
+self.relationships = UnifiedRelationshipService(backend, KU_CONFIG, graph_intel)
 ```
 
 **MOC Special Case** - Uses KU config (MOC is KU with ORGANIZES):
 ```python
-from core.models.relationship_registry import KU_UNIFIED
-self.relationships = UnifiedRelationshipService(backend, KU_UNIFIED, graph_intel)
+from core.models.relationship_registry import KU_CONFIG
+self.relationships = UnifiedRelationshipService(backend, KU_CONFIG, graph_intel)
 ```
 
 **Direct Driver for Complex Queries:**

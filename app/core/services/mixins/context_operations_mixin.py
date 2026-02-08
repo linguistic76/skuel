@@ -149,9 +149,9 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(Errors.validation(message="UID is required", field="uid"))
 
         # Check registry before attempting query generation (avoid exception for control flow)
-        from core.models.relationship_registry import UNIFIED_REGISTRY_BY_LABEL
+        from core.models.relationship_registry import LABEL_CONFIGS
 
-        if self.entity_label not in UNIFIED_REGISTRY_BY_LABEL:
+        if self.entity_label not in LABEL_CONFIGS:
             # Entity not in registry - use basic 3-relationship pattern
             return await self._basic_get_with_context(uid, depth, min_confidence)
 
@@ -175,7 +175,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(Errors.not_found(resource=self.entity_label, identifier=uid))
 
         record = records[0]
-        return self._parse_context_result(record, UNIFIED_REGISTRY_BY_LABEL.get(self.entity_label))
+        return self._parse_context_result(record, LABEL_CONFIGS.get(self.entity_label))
 
     async def _basic_get_with_context(
         self,

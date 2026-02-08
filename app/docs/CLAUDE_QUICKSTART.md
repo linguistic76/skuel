@@ -59,14 +59,14 @@ Activity Domains (6)     Curriculum (3)      Content/Org (3)   Destination (1)
 ### UnifiedRelationshipService (6 Activity Domains)
 
 ```python
-from core.models.relationship_registry import TASKS_UNIFIED
+from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
-service = UnifiedRelationshipService(backend, graph_intel, TASKS_UNIFIED)
+service = UnifiedRelationshipService(backend, graph_intel, TASKS_CONFIG)
 await service.get_related_uids("knowledge", "task:123")
 ```
 
-**Configs:** `TASKS_UNIFIED`, `GOALS_UNIFIED`, `HABITS_UNIFIED`, `EVENTS_UNIFIED`, `CHOICES_UNIFIED`, `PRINCIPLES_UNIFIED` (from `core.models.relationship_registry`)
+**Configs:** `TASKS_CONFIG`, `GOALS_CONFIG`, `HABITS_CONFIG`, `EVENTS_CONFIG`, `CHOICES_CONFIG`, `PRINCIPLES_CONFIG` (from `core.models.relationship_registry`)
 
 ### Error Handling
 
@@ -141,10 +141,10 @@ ls core/services/tasks/
 ### Find Domain Config
 
 ```python
-from core.models.relationship_registry import UNIFIED_REGISTRY, TASKS_UNIFIED
+from core.models.relationship_registry import DOMAIN_CONFIGS, TASKS_CONFIG
 from core.models.shared_enums import Domain
 
-config = UNIFIED_REGISTRY[Domain.TASKS]  # or use TASKS_UNIFIED directly
+config = DOMAIN_CONFIGS[Domain.TASKS]  # or use TASKS_CONFIG directly
 ```
 
 ### Check Relationship Names

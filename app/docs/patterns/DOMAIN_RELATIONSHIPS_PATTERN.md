@@ -80,12 +80,12 @@ As of December 2025, the 6 Activity Domains use `UnifiedRelationshipService` wit
 
 | Domain | Relationship Class | Relationship Count | Config |
 |--------|-------------------|-------------------|---------|
-| **Tasks** | `TaskRelationships` | 12 relationships | `TASKS_UNIFIED` |
-| **Goals** | `GoalRelationships` | 11 relationships | `GOALS_UNIFIED` |
-| **Habits** | `HabitRelationships` | 5 relationships | `HABITS_UNIFIED` |
-| **Events** | `EventRelationships` | 9 relationships | `EVENTS_UNIFIED` |
-| **Choices** | `ChoiceRelationships` | 10 relationships | `CHOICES_UNIFIED` |
-| **Principles** | `PrincipleRelationships` | 9 relationships | `PRINCIPLES_UNIFIED` |
+| **Tasks** | `TaskRelationships` | 12 relationships | `TASKS_CONFIG` |
+| **Goals** | `GoalRelationships` | 11 relationships | `GOALS_CONFIG` |
+| **Habits** | `HabitRelationships` | 5 relationships | `HABITS_CONFIG` |
+| **Events** | `EventRelationships` | 9 relationships | `EVENTS_CONFIG` |
+| **Choices** | `ChoiceRelationships` | 10 relationships | `CHOICES_CONFIG` |
+| **Principles** | `PrincipleRelationships` | 9 relationships | `PRINCIPLES_CONFIG` |
 
 **See:** `/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md` for the unified service pattern.
 
@@ -160,14 +160,14 @@ The ownership relationship is defined in `DomainRelationshipConfig` (in `core.mo
 
 ```python
 # Activity Domains (user-owned)
-TASKS_UNIFIED = DomainRelationshipConfig(
+TASKS_CONFIG = DomainRelationshipConfig(
     domain=Domain.TASKS,
     ownership_relationship=RelationshipName.HAS_TASK,  # Auto-created
     ...
 )
 
 # Curriculum Domains (shared content)
-KU_UNIFIED = DomainRelationshipConfig(
+KU_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,
     ownership_relationship=None,  # No auto-created relationship
     is_shared_content=True,

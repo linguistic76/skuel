@@ -36,9 +36,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from core.models.relationship_registry import (
-    KU_UNIFIED,
-    LP_UNIFIED,
-    LS_UNIFIED,
+    KU_CONFIG,
+    LP_CONFIG,
+    LS_CONFIG,
 )
 from core.services.relationships import UnifiedRelationshipService
 
@@ -96,7 +96,7 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         search_class="KuSearchService",
         intelligence_module="core.services.ku_intelligence_service",
         intelligence_class="KuIntelligenceService",
-        relationship_config=KU_UNIFIED,
+        relationship_config=KU_CONFIG,
         domain_name="ku",
         entity_label="Ku",
     ),
@@ -107,7 +107,7 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         search_class="LsSearchService",
         intelligence_module="core.services.ls.ls_intelligence_service",
         intelligence_class="LsIntelligenceService",
-        relationship_config=LS_UNIFIED,
+        relationship_config=LS_CONFIG,
         domain_name="ls",
         entity_label="Ls",
     ),
@@ -118,7 +118,7 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         search_class="LpSearchService",
         intelligence_module="core.services.lp_intelligence_service",
         intelligence_class="LpIntelligenceService",
-        relationship_config=LP_UNIFIED,
+        relationship_config=LP_CONFIG,
         domain_name="lp",
         entity_label="Lp",
     ),
@@ -318,7 +318,7 @@ def create_ku_sub_services(
     # Step 1: Create relationship service (needed by intelligence)
     relationships = UnifiedRelationshipService(
         backend=backend,
-        config=KU_UNIFIED,
+        config=KU_CONFIG,
         graph_intel=graph_intelligence_service,
     )
 
@@ -434,7 +434,7 @@ def create_lp_sub_services(
     # Step 3: Create relationships
     relationships = UnifiedRelationshipService(
         backend=lp_backend,
-        config=LP_UNIFIED,
+        config=LP_CONFIG,
         graph_intel=graph_intelligence_service,
     )
 
