@@ -27,10 +27,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.reports.reports_core_service import ReportsCoreService
-    from core.services.reports.reports_processing_service import ReportsProcessingService
-    from core.services.reports.reports_search_service import ReportsSearchService
-    from core.services.reports.reports_submission_service import ReportSubmissionService
+    from core.services.protocols.reports_protocols import (
+        ReportsCoreOperations,
+        ReportsProcessingOperations,
+        ReportsSearchOperations,
+        ReportSubmissionOperations,
+    )
 
 from starlette.background import BackgroundTask
 from starlette.datastructures import UploadFile
@@ -75,10 +77,10 @@ def cleanup_temp_file(filepath: str):
 def create_reports_api_routes(
     _app: Any,
     rt: Any,
-    report_service: "ReportSubmissionService",
-    processing_service: "ReportsProcessingService",
-    reports_query_service: "ReportsSearchService | None" = None,
-    reports_core_service: "ReportsCoreService | None" = None,
+    report_service: "ReportSubmissionOperations",
+    processing_service: "ReportsProcessingOperations",
+    reports_query_service: "ReportsSearchOperations | None" = None,
+    reports_core_service: "ReportsCoreOperations | None" = None,
 ) -> list[Any]:
     """
     Create all report API routes.

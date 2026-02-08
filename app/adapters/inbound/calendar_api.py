@@ -11,7 +11,7 @@ Routes:
 """
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, P
 from starlette.requests import Request
@@ -20,8 +20,13 @@ from components.calendar_components import calendar_item_to_dict
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from core.services.protocols import CalendarServiceOperations
 
-def create_calendar_api_routes(app, rt, calendar_service):
+
+def create_calendar_api_routes(
+    app: Any, rt: Any, calendar_service: "CalendarServiceOperations"
+) -> None:
     """Register calendar API routes."""
 
     @rt("/api/calendar/quick-create", methods=["POST"])

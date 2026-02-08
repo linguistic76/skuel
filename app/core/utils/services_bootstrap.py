@@ -113,15 +113,22 @@ if TYPE_CHECKING:
     from core.services.adaptive_sel_service import AdaptiveSELService
 
 from core.services.protocols import (
+    AskesisCoreOperations,
     AskesisOperations,
     AsyncCloseable,
+    CalendarServiceOperations,
     ChoicesOperations,
     Closeable,
+    CrossDomainAnalyticsOperations,
     # Infrastructure
     EventBusOperations,
     EventsOperations,
     FinancesOperations,
     GoalsOperations,
+    GoalTaskGeneratorOperations,
+    GraphAuthOperations,
+    GroupOperations,
+    HabitEventSchedulerOperations,
     HabitsOperations,
     IngestionOperations,
     IntelligenceOperations,
@@ -130,14 +137,26 @@ from core.services.protocols import (
     # NOTE: LearningOperations DELETED January 2026 - was dead code (type hint wrong)
     # NOTE: LearningPathsOperations DELETED January 2026 - replaced by LpOperations
     # NOTE: JournalsOperations DELETED February 2026 - Journal merged into Reports
+    LifePathOperations,
     LpOperations,
     LsOperations,
     PrinciplesOperations,
+    # Reports domain protocols (February 2026)
+    ReportFeedbackOperations,
+    ReportProjectOperations,
+    ReportsCoreOperations,
+    ReportSharingOperations,
+    ReportsProcessingOperations,
+    ReportsSearchOperations,
+    ReportSubmissionOperations,
     SearchOperations,
+    SystemServiceOperations,
     # Domain operations
     TasksOperations,
+    TeacherReviewOperations,
     UserContextOperations,
     UserOperations,
+    VisualizationOperations,
 )
 from core.services.protocols.facade_protocols import LpFacadeProtocol
 from core.utils.logging import get_logger
@@ -195,48 +214,62 @@ class Services:
     transcription: Any = None  # TranscriptionService (simplified, Dec 2025)
 
     # Report feedback services (LLM-based processing for any report type)
-    report_feedback: Any = None  # ReportFeedbackService - LLM feedback on reports/journals
-    report_projects: Any = None  # ReportProjectService - Reusable LLM project templates
+    report_feedback: ReportFeedbackOperations | None = (
+        None  # ReportFeedbackService - LLM feedback on reports/journals
+    )
+    report_projects: ReportProjectOperations | None = (
+        None  # ReportProjectService - Reusable LLM project templates
+    )
 
     # Report services (Phase 1 - File submission pipeline)
-    reports: Any = None  # ReportSubmissionService - File upload and report management
-    reports_core: Any = (
+    reports: ReportSubmissionOperations | None = (
+        None  # ReportSubmissionService - File upload and report management
+    )
+    reports_core: ReportsCoreOperations | None = (
         None  # ReportsCoreService - Content management (categories, tags, bulk operations)
     )
-    reports_sharing: Any = (
+    reports_sharing: ReportSharingOperations | None = (
         None  # ReportSharingService - Content sharing and visibility control (Phase 1)
     )
-    report_processor: Any = (
+    report_processor: ReportsProcessingOperations | None = (
         None  # ReportsProcessingService - Orchestrates processing (LLM, human, hybrid)
     )
-    processing_pipeline: Any = None  # Alias for report_processor
+    processing_pipeline: ReportsProcessingOperations | None = None  # Alias for report_processor
 
     # Reports query service (Unified query interface for all report types)
-    reports_query: Any = (
+    reports_query: ReportsSearchOperations | None = (
         None  # ReportsSearchService - Query all report types (journals, essays, projects, etc.)
     )
 
     # ========================================================================
     # GROUP & TEACHING (ADR-040) - Teacher assignment workflow
     # ========================================================================
-    group_service: Any = None  # GroupService - CRUD + membership for groups
-    teacher_review: Any = None  # TeacherReviewService - review queue + feedback
+    group_service: GroupOperations | None = None  # GroupService - CRUD + membership for groups
+    teacher_review: TeacherReviewOperations | None = (
+        None  # TeacherReviewService - review queue + feedback
+    )
 
     # System services
     # Note: sync field REMOVED (January 2026) - use unified_ingestion instead
     # Note: events moved to Activity Domains section above
-    calendar: Any = (
-        None  # CalendarService - unified calendar aggregation (no CalendarOperations protocol yet)
+    calendar: CalendarServiceOperations | None = (
+        None  # CalendarService - unified calendar aggregation
     )
-    system_service: Any = None  # SystemService - health checks and system monitoring
-    visualization: Any = None  # VisualizationService - Chart.js/Vis.js/Gantt adapters
+    system_service: SystemServiceOperations | None = (
+        None  # SystemService - health checks and system monitoring
+    )
+    visualization: VisualizationOperations | None = (
+        None  # VisualizationService - Chart.js/Vis.js/Gantt adapters
+    )
 
     # User management (fundamental)
     user_service: UserOperations | None = None  # UserService - user profile management
     user_relationships: Any = (
         None  # UserRelationshipService - pinning, following, etc. (no protocol yet)
     )
-    graph_auth: Any = None  # GraphAuthService - graph-native authentication
+    graph_auth: GraphAuthOperations | None = (
+        None  # GraphAuthService - graph-native authentication
+    )
     context_service: UserContextOperations | None = (
         None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)
     )
@@ -264,7 +297,7 @@ class Services:
     askesis: AskesisOperations | None = (
         None  # AskesisService - Unified retrieval chatbot (requires OPENAI_API_KEY)
     )
-    askesis_core: Any = (
+    askesis_core: AskesisCoreOperations | None = (
         None  # AskesisCoreService - CRUD operations for Askesis AI assistant instances
     )
 
@@ -284,11 +317,6 @@ class Services:
         None  # MOCService - Maps of Content for non-linear knowledge organization
     )
 
-    # New YAML/Graph services
-    yaml_loader: Any = None
-    markdown_parser: Any = None
-    apoc_adapter: Any = None
-
     # Unified Ingestion Service (ADR-014: Merged MD + YAML ingestion)
     unified_ingestion: IngestionOperations | None = (
         None  # UnifiedIngestionService - handles both MD and YAML for all 14 entity types
@@ -297,11 +325,13 @@ class Services:
     # The Destination - LifePath (Domain #14)
     # "Everything flows toward the life path"
     # Vision capture + alignment measurement + recommendations
-    lifepath: Any = None  # LifePathService - Vision→Action bridge (January 2026)
+    lifepath: LifePathOperations | None = (
+        None  # LifePathService - Vision→Action bridge (January 2026)
+    )
 
     # Analytics services (meta-service, not a domain)
     analytics: Any = None  # AnalyticsService - Statistical report generation
-    cross_domain_analytics: Any = (
+    cross_domain_analytics: CrossDomainAnalyticsOperations | None = (
         None  # CrossDomainAnalyticsService - Event-driven analytics (Phase 5)
     )
 
@@ -310,8 +340,12 @@ class Services:
 
     # Orchestration services (Phase 1 - Essential)
     # Note: principles moved to Activity Domains section above
-    goal_task_generator: Any = None  # GoalTaskGenerator - Auto-generate tasks from goals
-    habit_event_scheduler: Any = None  # HabitEventScheduler - Auto-schedule events from habits
+    goal_task_generator: GoalTaskGeneratorOperations | None = (
+        None  # GoalTaskGenerator - Auto-generate tasks from goals
+    )
+    habit_event_scheduler: HabitEventSchedulerOperations | None = (
+        None  # HabitEventScheduler - Auto-schedule events from habits
+    )
 
     # Advanced services (Phase 2 - Optional)
     calendar_optimization: Any = None  # CalendarOptimizationService - Cognitive load optimization

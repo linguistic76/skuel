@@ -451,6 +451,35 @@ class AskesisOperations(
     pass
 
 
+@runtime_checkable
+class AskesisCoreOperations(Protocol):
+    """CRUD and context-building operations for Askesis instances.
+
+    Separate from AskesisOperations (intelligence) — this handles the
+    lifecycle management of Askesis entities.
+
+    Implementation: AskesisCoreService
+    """
+
+    async def build_user_context(self, user_uid: str) -> Result[Any]:
+        ...
+
+    async def get_or_create_for_user(self, user_uid: str) -> Result[Any]:
+        ...
+
+    async def create_askesis(self, user_uid: str, create_request: Any) -> Result[Any]:
+        ...
+
+    async def get_askesis(self, askesis_uid: str) -> Result[Any]:
+        ...
+
+    async def update_askesis(self, askesis_uid: str, update_request: Any) -> Result[Any]:
+        ...
+
+    async def record_conversation(self, askesis_uid: str) -> Result[Any]:
+        ...
+
+
 # Convenience aliases for focused dependencies (ISP)
 StateAnalysis = AskesisStateAnalysisOperations
 Recommendations = AskesisRecommendationOperations

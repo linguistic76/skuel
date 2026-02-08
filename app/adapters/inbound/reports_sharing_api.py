@@ -18,8 +18,10 @@ See: /docs/patterns/SHARING_PATTERNS.md (to be created)
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.reports.report_sharing_service import ReportSharingService
-    from core.services.reports.reports_core_service import ReportsCoreService
+    from core.services.protocols.reports_protocols import (
+        ReportsCoreOperations,
+        ReportSharingOperations,
+    )
 
 from pydantic import BaseModel
 from starlette.requests import Request
@@ -68,8 +70,8 @@ class SetVisibilityRequest(BaseModel):
 def create_reports_sharing_api_routes(
     _app: Any,
     rt: Any,
-    sharing_service: "ReportSharingService",
-    core_service: "ReportsCoreService | None" = None,
+    sharing_service: "ReportSharingOperations",
+    core_service: "ReportsCoreOperations | None" = None,
 ) -> list[Any]:
     """
     Create all report sharing API routes.

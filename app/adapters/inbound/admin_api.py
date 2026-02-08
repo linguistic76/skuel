@@ -22,7 +22,7 @@ Version: 1.0.0
 Date: 2025-12-06
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from starlette.requests import Request
 
@@ -32,6 +32,9 @@ from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from core.services.protocols import GraphAuthOperations
+
 logger = get_logger("skuel.routes.admin_api")
 
 
@@ -39,7 +42,7 @@ def create_admin_api_routes(
     app: Any,
     rt: Any,
     user_service: Any,
-    graph_auth: Any = None,
+    graph_auth: "GraphAuthOperations | None" = None,
 ) -> list[Any]:
     """
     Create admin API routes for user management.

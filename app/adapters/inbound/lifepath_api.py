@@ -13,7 +13,7 @@ API Routes:
 - GET /api/lifepath/alignment - Get alignment data
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -21,13 +21,16 @@ from starlette.responses import JSONResponse
 from core.auth import require_authenticated_user
 from core.utils.logging import get_logger
 
+if TYPE_CHECKING:
+    from core.services.protocols import LifePathOperations
+
 logger = get_logger("skuel.routes.lifepath.api")
 
 
 def create_lifepath_api_routes(
     app: Any,
     rt: Any,
-    lifepath_service: Any,
+    lifepath_service: "LifePathOperations",
 ) -> list[Any]:
     """
     Create LifePath API routes.

@@ -62,6 +62,7 @@ LearningPathAwareness, CrossDomainAwareness, FullAwareness
 # NOTE: Deepgram protocols moved to adapters/external/deepgram/
 # Askesis cross-cutting intelligence protocols (January 2026)
 from .askesis_protocols import (
+    AskesisCoreOperations,
     AskesisDomainSynthesisOperations,
     AskesisOperations,
     AskesisQueryOperations,
@@ -211,6 +212,9 @@ from .facade_protocols import (
 # Graph protocols - entity relationships (consolidated)
 from .graph_protocols import GraphEntity, GraphEntityBase
 
+# Group & Teaching protocols (ADR-040 - February 2026)
+from .group_protocols import GroupOperations, TeacherReviewOperations
+
 # Infrastructure operation protocols
 from .infrastructure_protocols import (
     AsyncCloseable,
@@ -253,6 +257,17 @@ from .query_types import (
     WhereClauseSpec,
 )
 
+# Reports domain protocols (February 2026)
+from .reports_protocols import (
+    ReportFeedbackOperations,
+    ReportProjectOperations,
+    ReportsCoreOperations,
+    ReportSharingOperations,
+    ReportsProcessingOperations,
+    ReportsSearchOperations,
+    ReportSubmissionOperations,
+)
+
 # Knowledge operation protocols
 # NOTE: KuOperationsLegacy, KuQueryOperations DELETED January 2026
 # Use KuOperations from curriculum_protocols.py
@@ -274,6 +289,19 @@ from .search_protocols import (
     SupportsGraphTraversalSearch,
     SupportsTagSearch,
     TasksSearchOperations,
+)
+
+# Service protocols - cross-cutting services (February 2026)
+from .service_protocols import (
+    CalendarServiceOperations,
+    CrossDomainAnalyticsOperations,
+    GoalTaskGeneratorOperations,
+    GraphAuthOperations,
+    HabitEventSchedulerOperations,
+    LifePathAlignmentOperations,
+    LifePathOperations,
+    SystemServiceOperations,
+    VisualizationOperations,
 )
 
 # ============================================================================
@@ -308,7 +336,8 @@ __all__ = [
     "GraphContextResult",
     "IntelligenceResult",
     "ProgressResult",
-    # ========== ASKESIS PROTOCOLS (5 - January 2026) ==========
+    # ========== ASKESIS PROTOCOLS (6 - February 2026) ==========
+    "AskesisCoreOperations",  # CRUD + context building (6 methods)
     "AskesisDomainSynthesisOperations",
     "AskesisOperations",  # Complete Askesis interface (16 methods)
     "AskesisQueryOperations",
@@ -318,6 +347,8 @@ __all__ = [
     "AsyncCloseable",
     # Full protocol (composes all 7 sub-protocols)
     "BackendOperations",  # THE protocol for UniversalNeo4jBackend
+    # ========== CALENDAR/SYSTEM/SERVICE PROTOCOLS (7 - February 2026) ==========
+    "CalendarServiceOperations",
     # ========== CONTEXT AWARENESS PROTOCOLS (11) ==========
     "ChoiceAwareness",
     # ========== SEARCH OPERATION PROTOCOLS (10) ==========
@@ -326,6 +357,7 @@ __all__ = [
     "ChoicesOperations",
     "Closeable",
     "CoreIdentity",
+    "CrossDomainAnalyticsOperations",
     "CrossDomainAwareness",
     # ========== BACKEND PROTOCOLS (ISP-compliant hierarchy) ==========
     # Sub-protocols (for focused dependencies)
@@ -356,13 +388,17 @@ __all__ = [
     "GoalsFacadeProtocol",
     "HabitsFacadeProtocol",
     "GoalsOperations",
+    "GoalTaskGeneratorOperations",
     "KuFacadeProtocol",
     "LpFacadeProtocol",
     "LsFacadeProtocol",
     "GraphContextNode",
     # ========== GRAPH PROTOCOLS (2) ==========
+    "GraphAuthOperations",
     "GraphEntity",
     "GraphEntityBase",
+    # ========== GROUP & TEACHING PROTOCOLS (2 - February 2026) ==========
+    "GroupOperations",
     # Domain relationship queries
     "GraphRelationshipOperations",
     "GraphTraversalOperations",  # Graph traversal (2 methods)
@@ -370,6 +406,7 @@ __all__ = [
     "HabitAwareness",
     "HabitsSearchOperations",
     "HabitsOperations",
+    "HabitEventSchedulerOperations",
     "HasBody",
     # ========== STREAK & CONSISTENCY PROTOCOLS (3) ==========
     "HasConsistencyScore",
@@ -417,6 +454,8 @@ __all__ = [
     "LeConstraint",
     # "LearningOperations", - DELETED January 2026
     "LearningPathAwareness",
+    "LifePathAlignmentOperations",
+    "LifePathOperations",
     # "LearningPathsOperations", - DELETED January 2026, use LpOperations
     "LowLevelOperations",  # Direct DB access (2 methods + driver)
     "LpFacadeProtocol",
@@ -436,6 +475,14 @@ __all__ = [
     "PydanticFieldInfo",
     "PydanticModel",
     "QueryBuilderOperations",
+    # ========== REPORTS DOMAIN PROTOCOLS (7 - February 2026) ==========
+    "ReportFeedbackOperations",
+    "ReportProjectOperations",
+    "ReportsCoreOperations",
+    "ReportsProcessingOperations",
+    "ReportsSearchOperations",
+    "ReportSharingOperations",
+    "ReportSubmissionOperations",
     "RelationshipCrudOperations",  # Edge CRUD (6 methods)
     "RelationshipMetadata",
     "RelationshipMetadataOperations",  # Edge properties (3 methods)
@@ -460,12 +507,15 @@ __all__ = [
     "SupportsSearchWithFilters",
     "SupportsTagSearch",
     "SupportsTraversal",
+    "SystemServiceOperations",
     "TaskAwareness",
     "TasksSearchOperations",
     "TasksFacadeProtocol",
     "TasksOperations",
+    "TeacherReviewOperations",
     "UserContextOperations",
     "UserOperations",
+    "VisualizationOperations",
     # ========== HELPER FUNCTIONS (2) ==========
     "get_enum_value",
     "to_dict",

@@ -15,7 +15,7 @@ TEACHER role required for all endpoints.
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
@@ -24,13 +24,16 @@ from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from core.services.protocols import TeacherReviewOperations
+
 logger = get_logger(__name__)
 
 
 def create_teaching_api_routes(
     app: Any,
     rt: Any,
-    teacher_review_service: Any,
+    teacher_review_service: "TeacherReviewOperations",
     user_service: Any,
 ) -> list[Any]:
     """

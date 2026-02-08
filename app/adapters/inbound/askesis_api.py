@@ -38,7 +38,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.askesis.askesis_core_service import AskesisCoreService
+    from core.services.protocols import AskesisCoreOperations
 
 logger = get_logger("skuel.routes.askesis.api")
 
@@ -47,7 +47,7 @@ def create_askesis_api_routes(
     app: Any,
     rt: Any,
     askesis_service: AskesisOperations,
-    askesis_core_service: "AskesisCoreService | None" = None,
+    askesis_core_service: "AskesisCoreOperations | None" = None,
 ) -> list[Any]:
     """
     Create clean API routes for Askesis functionality with service integration.

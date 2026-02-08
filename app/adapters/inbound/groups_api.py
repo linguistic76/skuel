@@ -10,7 +10,7 @@ Members (students) can view their groups and group members.
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
@@ -25,13 +25,16 @@ from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from core.services.protocols import GroupOperations
+
 logger = get_logger(__name__)
 
 
 def create_groups_api_routes(
     app: Any,
     rt: Any,
-    group_service: Any,
+    group_service: "GroupOperations",
     user_service: Any,
 ) -> list[Any]:
     """

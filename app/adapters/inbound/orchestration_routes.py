@@ -25,7 +25,7 @@ Routes:
 - GET  /principles/suggest-actions - Principle-aligned action suggestions
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import JSONResponse, Request
 
@@ -36,6 +36,9 @@ from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
+if TYPE_CHECKING:
+    from core.services.protocols import GoalTaskGeneratorOperations, HabitEventSchedulerOperations
+
 logger = get_logger("skuel.routes.orchestration")
 
 
@@ -44,7 +47,9 @@ logger = get_logger("skuel.routes.orchestration")
 # ---------------------------------------------------------------------------
 
 
-def create_goal_task_routes(_app: Any, rt: Any, goal_task_generator: Any) -> list[Any]:
+def create_goal_task_routes(
+    _app: Any, rt: Any, goal_task_generator: "GoalTaskGeneratorOperations"
+) -> list[Any]:
     """Register Goal→Task generation endpoints."""
 
     @rt("/goals/generate-tasks")
@@ -92,7 +97,9 @@ def create_goal_task_routes(_app: Any, rt: Any, goal_task_generator: Any) -> lis
 # ---------------------------------------------------------------------------
 
 
-def create_habit_event_routes(_app: Any, rt: Any, habit_event_scheduler: Any) -> list[Any]:
+def create_habit_event_routes(
+    _app: Any, rt: Any, habit_event_scheduler: "HabitEventSchedulerOperations"
+) -> list[Any]:
     """Register Habit→Event scheduling endpoints."""
 
     @rt("/habits/schedule-events")

@@ -23,7 +23,7 @@ Version: 2.1.0
 Date: 2026-01-21
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -39,13 +39,16 @@ from core.auth import (
 from core.utils.form_helpers import safe_form_string
 from core.utils.logging import get_logger
 
+if TYPE_CHECKING:
+    from core.services.protocols import GraphAuthOperations
+
 logger = get_logger("skuel.routes.auth_ui")
 
 
 def create_auth_ui_routes(
     app: Any,
     rt: Any,
-    graph_auth: Any,
+    graph_auth: "GraphAuthOperations",
     user_service: Any = None,
 ) -> list[Any]:
     """

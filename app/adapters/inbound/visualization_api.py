@@ -21,15 +21,17 @@ Architecture:
 """
 
 from datetime import date, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from core.auth import require_authenticated_user
-from core.services.visualization_service import VisualizationService
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from core.services.protocols import CalendarServiceOperations, VisualizationOperations
 
 logger = get_logger("skuel.routes.visualization_api")
 
@@ -37,10 +39,10 @@ logger = get_logger("skuel.routes.visualization_api")
 def create_visualization_api_routes(
     app: Any,
     rt: Any,
-    visualization_service: VisualizationService,
+    visualization_service: "VisualizationOperations",
     tasks_service: Any = None,
     habits_service: Any = None,
-    calendar_service: Any = None,
+    calendar_service: "CalendarServiceOperations | None" = None,
     goals_service: Any = None,
 ) -> list[Any]:
     """
