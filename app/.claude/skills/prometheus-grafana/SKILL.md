@@ -103,13 +103,13 @@ Event/Operation
 
 | Metric | Type | Labels | Purpose |
 |--------|------|--------|---------|
-| `skuel_cpu_usage_percent` | Gauge | `user_uid` | CPU usage per user |
-| `skuel_memory_usage_bytes` | Gauge | `user_uid` | Memory consumption |
+| `skuel_cpu_usage_percent` | Gauge | None | CPU usage percentage |
+| `skuel_memory_usage_bytes` | Gauge | None | Memory consumption |
 | `skuel_neo4j_connected` | Gauge | None | Neo4j health (1=up, 0=down) |
 
 **Usage**:
 ```python
-prometheus_metrics.system.cpu_usage.labels(user_uid="user_mike").set(45.2)
+prometheus_metrics.system.cpu_usage.set(45.2)
 prometheus_metrics.system.neo4j_connected.set(1)  # Up
 ```
 
@@ -177,7 +177,7 @@ prometheus_metrics.db.query_duration.labels(
 | `skuel_event_handler_calls_total` | Counter | `event_type`, `handler` | Handler invocations |
 | `skuel_event_handler_duration_seconds` | Histogram | `event_type`, `handler` | Handler execution time |
 | `skuel_event_handler_errors_total` | Counter | `event_type`, `handler` | Handler failures |
-| `skuel_context_invalidations_total` | Counter | `user_uid` | UserContext invalidations |
+| `skuel_context_invalidations_total` | Counter | None | UserContext invalidations |
 
 **Histogram Buckets**:
 - Publish: `(0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0)` seconds
@@ -201,9 +201,9 @@ prometheus_metrics.events.event_handler_duration_seconds.labels(
 
 | Metric | Type | Labels | Purpose |
 |--------|------|--------|---------|
-| `skuel_entities_created_total` | Counter | `entity_type`, `user_uid` | Creation tracking |
-| `skuel_entities_completed_total` | Counter | `entity_type`, `user_uid` | Completion tracking |
-| `skuel_active_entities_count` | Gauge | `entity_type`, `user_uid` | Active count |
+| `skuel_entities_created_total` | Counter | `entity_type` | Creation tracking |
+| `skuel_entities_completed_total` | Counter | `entity_type` | Completion tracking |
+| `skuel_active_entities_count` | Gauge | `entity_type` | Active count |
 
 **Entity Types**: `task`, `goal`, `habit`, `event`, `choice`, `principle`
 
@@ -211,17 +211,17 @@ prometheus_metrics.events.event_handler_duration_seconds.labels(
 ```python
 # Auto-tracked by MetricsEventHandler on domain events
 prometheus_metrics.domains.entities_created.labels(
-    entity_type="task", user_uid="user_mike"
+    entity_type="task"
 ).inc()
 
 prometheus_metrics.domains.entities_completed.labels(
-    entity_type="goal", user_uid="user_mike"
+    entity_type="goal"
 ).inc()
 ```
 
 **See**: `core/infrastructure/monitoring/metrics_event_handler.py` for event subscriptions
 
-### 6. Relationship Metrics (15 metrics)
+### 6. Relationship Metrics (14 metrics)
 
 **Class**: `RelationshipMetrics`
 
@@ -233,20 +233,20 @@ Tracks SKUEL's four relationship layers:
 
 | Metric | Type | Labels | Purpose |
 |--------|------|--------|---------|
-| `skuel_graph_density` | Gauge | `user_uid` | Avg relationships per entity |
-| `skuel_total_entities` | Gauge | `user_uid` | Total entity count |
-| `skuel_total_relationships` | Gauge | `user_uid` | Total relationship count |
-| `skuel_orphaned_entities_count` | Gauge | `user_uid` | Isolated nodes |
-| `skuel_relationships_count` | Gauge | `layer`, `user_uid` | Count by layer |
-| `skuel_lateral_relationships_by_category` | Gauge | `category`, `user_uid` | Lateral breakdown |
-| `skuel_blocking_relationships_count` | Gauge | `user_uid` | Active BLOCKS |
-| `skuel_enables_relationships_count` | Gauge | `user_uid` | Active ENABLES |
-| `skuel_dependency_chain_max_length` | Gauge | `user_uid` | Longest chain |
-| `skuel_contains_relationships_count` | Gauge | `user_uid` | CONTAINS count |
-| `skuel_organizes_relationships_count` | Gauge | `user_uid` | ORGANIZES count |
-| `skuel_semantic_relationships_count` | Gauge | `tier`, `user_uid` | Semantic by tier |
-| `skuel_cross_domain_relationships_count` | Gauge | `from_domain`, `to_domain`, `user_uid` | Cross-domain |
-| `skuel_graph_traversal_avg_depth` | Gauge | `user_uid` | Avg query depth |
+| `skuel_graph_density` | Gauge | None | Avg relationships per entity |
+| `skuel_total_entities` | Gauge | None | Total entity count |
+| `skuel_total_relationships` | Gauge | None | Total relationship count |
+| `skuel_orphaned_entities_count` | Gauge | None | Isolated nodes |
+| `skuel_relationships_count` | Gauge | `layer` | Count by layer |
+| `skuel_lateral_relationships_by_category` | Gauge | `category` | Lateral breakdown |
+| `skuel_blocking_relationships_count` | Gauge | None | Active BLOCKS |
+| `skuel_enables_relationships_count` | Gauge | None | Active ENABLES |
+| `skuel_dependency_chain_max_length` | Gauge | None | Longest chain |
+| `skuel_contains_relationships_count` | Gauge | None | CONTAINS count |
+| `skuel_organizes_relationships_count` | Gauge | None | ORGANIZES count |
+| `skuel_semantic_relationships_count` | Gauge | `tier` | Semantic by tier |
+| `skuel_cross_domain_relationships_count` | Gauge | `from_domain`, `to_domain` | Cross-domain |
+| `skuel_graph_traversal_avg_depth` | Gauge | None | Avg query depth |
 
 **Layer Values**: `hierarchical`, `lateral`, `semantic`, `cross_domain`
 **Category Values**: `structural`, `dependency`, `semantic`, `associative`
@@ -283,7 +283,7 @@ More granular than DatabaseMetrics - tracks individual operation performance.
 
 ---
 
-### 9. AI Service Metrics (8 metrics) - Phase 1 (January 2026)
+### 9. AI Service Metrics (9 metrics) - Phase 1 (January 2026)
 
 **Class**: `AiMetrics`
 
@@ -349,7 +349,7 @@ histogram_quantile(0.50, rate(skuel_embedding_batch_size_bucket[5m]))
 sum by (entity_type) (rate(skuel_embeddings_processed_total[5m]))
 ```
 
-#### Deepgram Transcription Metrics (1 metric + duration)
+#### Deepgram Transcription Metrics (2 metrics)
 
 | Metric | Type | Labels | Purpose |
 |--------|------|--------|---------|
@@ -473,7 +473,7 @@ open http://localhost:9090/graph
    ```
 4. **Configure visualization**:
    - Panel type: Time series
-   - Legend format: `{{user_uid}}`
+   - Legend format: `{{entity_type}}`
    - Unit: `ops` (operations per second)
 5. **Save dashboard**
 
@@ -519,7 +519,7 @@ rate(skuel_context_invalidations_total[5m]) > 10
 
 | File | Purpose |
 |------|---------|
-| `/core/infrastructure/monitoring/prometheus_metrics.py` | **Canonical metric definitions** (35 metrics, 8 classes) |
+| `/core/infrastructure/monitoring/prometheus_metrics.py` | **Canonical metric definitions** (47 metrics, 9 classes) |
 | `/core/infrastructure/monitoring/metrics_cache.py` | In-memory cache for debugging (optional, lossy) |
 | `/core/infrastructure/monitoring/metrics_event_handler.py` | Domain event subscriptions for entity tracking |
 | `/core/infrastructure/monitoring/http_instrumentation.py` | HTTP request instrumentation |
