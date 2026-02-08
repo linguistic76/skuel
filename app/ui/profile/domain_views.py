@@ -1029,37 +1029,97 @@ def ChoicesDomainView(context: UserContext, focus_uid: str | None = None) -> Div
     )
 
 
-def LearningDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
-    """Learning/Curriculum domain: unified view of knowledge, paths, and progress.
+def KnowledgeDomainView(context: UserContext, services: Any = None, user_uid: str = "") -> Div:
+    """Knowledge domain: all KUs with user's VIEWED/BOOKMARKED status.
 
-    Phase 3, Task 11: Added focus_uid parameter for deep linking.
+    Queries Neo4j for all KU nodes and enriches with per-user relationships.
 
-    Shows:
-    - Summary stats (mastered, in progress, ready to learn)
-    - Active learning paths with progress
-    - Knowledge ready to learn (prerequisites met)
+    Args:
+        context: UserContext (used for mastered/in_progress status)
+        services: Services container (for Neo4j driver access)
+        user_uid: Current user's UID (for relationship queries)
     """
-    # Calculate stats from curriculum fields
+    # The KU list is populated via the route handler which queries Neo4j
+    # This view is a placeholder that expects ku_items to be passed via
+    # the route handler wrapping this in a Div
     mastered = len(context.mastered_knowledge_uids)
     in_progress = len(context.in_progress_knowledge_uids)
     ready = len(context.ready_to_learn_uids)
-    enrolled_paths = len(context.enrolled_path_uids)
 
-    # Determine status based on learning health
-    blocked_count = len(context.prerequisites_needed)
-    if blocked_count > enrolled_paths * 0.5 and enrolled_paths > 0:
-        status = "critical"  # Too many blockers
-    elif blocked_count > 0:
-        status = "warning"  # Some blockers
-    else:
-        status = "healthy"  # Active learning
+    return Div(
+        H2("Knowledge Units", cls="text-2xl font-bold mb-2"),
+        P(
+            "All knowledge units in the curriculum. Track your learning progress.",
+            cls="text-base-content/70 mb-6",
+        ),
+        # Quick stats row
+        Div(
+            Div(
+                Span(str(mastered), cls="text-xl font-bold text-success"),
+                Span(" mastered", cls="text-sm text-base-content/60"),
+                cls="flex items-baseline gap-1",
+            ),
+            Div(
+                Span(str(in_progress), cls="text-xl font-bold text-warning"),
+                Span(" in progress", cls="text-sm text-base-content/60"),
+                cls="flex items-baseline gap-1",
+            ),
+            Div(
+                Span(str(ready), cls="text-xl font-bold text-info"),
+                Span(" ready", cls="text-sm text-base-content/60"),
+                cls="flex items-baseline gap-1",
+            ),
+            cls="flex gap-6 mb-6",
+        ),
+        # KU list placeholder - actual items injected by route handler
+        Div(id="ku-list-content"),
+        # Link to main KU listing
+        A(
+            "Browse All Knowledge →",
+            href="/knowledge",
+            cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
+        ),
+    )
 
-    stats = [
-        ("Mastered", mastered),
-        ("Learning", in_progress),
-        ("Ready", ready),
-    ]
 
+def LearningStepsDomainView(_context: UserContext, _focus_uid: str | None = None) -> Div:
+    """Learning Steps domain: placeholder for LS nodes (not yet created).
+
+    Shows a clean empty state explaining what learning steps are.
+    """
+    return Div(
+        H2("Learning Steps", cls="text-2xl font-bold mb-2"),
+        P(
+            "Structured sequences within a learning path.",
+            cls="text-base-content/70 mb-6",
+        ),
+        # Empty state
+        Div(
+            Span("📝", cls="text-4xl mb-3 block"),
+            H3("No learning steps available yet", cls="text-lg font-semibold mb-2"),
+            P(
+                "Learning steps are ordered sequences of Knowledge Units "
+                "within a Learning Path. They provide structured, teacher-directed "
+                "curriculum progression.",
+                cls="text-sm text-base-content/60 mb-4 max-w-md",
+            ),
+            A(
+                "Explore Knowledge Units →",
+                href="/knowledge",
+                cls="btn btn-sm btn-primary",
+            ),
+            cls="text-center py-12 bg-base-200 rounded-xl",
+        ),
+    )
+
+
+def LearningPathsDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
+    """Learning Paths domain: enrolled paths with progress + ready to learn.
+
+    Shows:
+    - Active learning paths with progress
+    - Knowledge ready to learn (prerequisites met)
+    """
     # Phase 3, Task 11: Add "Back to Insights" link if coming from insights
     back_link = Div()
     if focus_uid:
@@ -1073,18 +1133,22 @@ def LearningDomainView(context: UserContext, focus_uid: str | None = None) -> Di
         )
 
     return Div(
-        back_link,  # Phase 3, Task 11
-        DomainSummaryCard("Learning", "📚", stats, status),
+        back_link,
+        H2("Learning Paths", cls="text-2xl font-bold mb-2"),
+        P(
+            "Structured learning journeys through the curriculum.",
+            cls="text-base-content/70 mb-6",
+        ),
         # Learning Paths section
-        H3("Learning Paths", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
+        H3("Your Paths", cls="text-lg font-semibold text-base-content mt-2 mb-4"),
         _learning_paths_list(context),
         # Ready to Learn section
         H3("Ready to Learn", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
         _ready_to_learn_list(context),
-        # Link to learning page
+        # Link to knowledge page
         A(
-            "Explore Knowledge →",
-            href="/learning",
+            "Browse Knowledge →",
+            href="/knowledge",
             cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
         ),
     )
@@ -2036,7 +2100,9 @@ __all__ = [
     "EventsDomainView",
     "GoalsDomainView",
     "HabitsDomainView",
-    "LearningDomainView",
+    "KnowledgeDomainView",
+    "LearningPathsDomainView",
+    "LearningStepsDomainView",
     "OverviewView",
     "PrinciplesDomainView",
     "TasksDomainView",

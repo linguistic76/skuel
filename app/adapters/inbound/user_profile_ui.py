@@ -8,8 +8,8 @@ Activity Domains (Tasks, Goals, Habits, Choices, Principles) are accessed via
 the navbar avatar dropdown (ui/layouts/navbar.py), not the profile sidebar.
 
 Key Routes:
-- GET /profile - Profile overview (sidebar: Overview, Shared With Me, Curriculum, Account)
-- GET /profile/{domain} - Domain-specific view (learning, shared)
+- GET /profile - Profile overview (sidebar: Overview, Shared With Me, Curriculum)
+- GET /profile/{domain} - Domain-specific view (knowledge, learning-steps, learning-paths, shared)
 - GET /profile/settings - User settings/preferences
 
 Architecture:
@@ -33,16 +33,23 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from ui.profile.domain_stats_config import (
     DOMAIN_STATS_CONFIG,
-    learning_active,
-    learning_count,
-    learning_status,
+    knowledge_active,
+    knowledge_count,
+    knowledge_status,
+    learning_paths_active,
+    learning_paths_count,
+    learning_paths_status,
+    learning_steps_active,
+    learning_steps_count,
+    learning_steps_status,
 )
 from ui.profile.domain_views import (
     ChoicesDomainView,
     EventsDomainView,
     GoalsDomainView,
     HabitsDomainView,
-    LearningDomainView,
+    LearningPathsDomainView,
+    LearningStepsDomainView,
     OverviewView,
     PrinciplesDomainView,
     TasksDomainView,
@@ -419,6 +426,13 @@ def setup_user_profile_routes(rt, services):
 
         See: /ui/profile/domain_stats_config.py
         """
+        # Map slug -> (count_fn, active_fn, status_fn)
+        curriculum_stats = {
+            "knowledge": (knowledge_count, knowledge_active, knowledge_status),
+            "learning-steps": (learning_steps_count, learning_steps_active, learning_steps_status),
+            "learning-paths": (learning_paths_count, learning_paths_active, learning_paths_status),
+        }
+
         items = []
 
         for slug in CURRICULUM_ORDER:
@@ -426,11 +440,12 @@ def setup_user_profile_routes(rt, services):
             icon = DEFAULT_DOMAIN_ICONS[slug]
             href = f"/profile/{slug}"
 
-            # Use configuration for learning domain
-            if slug == "learning":
-                count = learning_count(context)
-                active = learning_active(context)
-                status = learning_status(context)
+            stats_fns = curriculum_stats.get(slug)
+            if stats_fns:
+                count_fn, active_fn, status_fn = stats_fns
+                count = count_fn(context)
+                active = active_fn(context)
+                status = status_fn(context)
             else:
                 count = 0
                 active = 0
@@ -450,7 +465,9 @@ def setup_user_profile_routes(rt, services):
 
         return items
 
-    def _get_domain_view(domain: str, context: UserContext, focus_uid: str | None = None) -> Any:
+    async def _get_domain_view(
+        domain: str, context: UserContext, user_uid: str, focus_uid: str | None = None
+    ) -> Any:
         """
         Get the appropriate view component for a domain.
 
@@ -459,11 +476,16 @@ def setup_user_profile_routes(rt, services):
         Args:
             domain: Domain name (tasks, events, goals, etc.)
             context: UserContext with all user data
+            user_uid: Current user's UID (for knowledge Neo4j query)
             focus_uid: Optional entity UID to highlight/scroll to
 
         Raises ValueError if domain is invalid (fail-fast).
         Note: Route validates domains, so this should never be reached.
         """
+        # Knowledge needs async Neo4j query
+        if domain == "knowledge":
+            return await _build_knowledge_view(context, user_uid)
+
         views = {
             # Activity Domains
             "tasks": TasksDomainView,
@@ -473,7 +495,8 @@ def setup_user_profile_routes(rt, services):
             "principles": PrinciplesDomainView,
             "choices": ChoicesDomainView,
             # Curriculum Domains
-            "learning": LearningDomainView,
+            "learning-steps": LearningStepsDomainView,
+            "learning-paths": LearningPathsDomainView,
         }
 
         view_fn = views.get(domain)
@@ -661,7 +684,7 @@ def setup_user_profile_routes(rt, services):
         Domain-specific profile view with sidebar.
 
         Shows combined stats + item list for the selected domain.
-        Valid domains: tasks, events, goals, habits, principles, choices, learning
+        Valid domains: tasks, events, goals, habits, principles, choices, knowledge, learning-steps, learning-paths
 
         Phase 3, Task 11: Supports ?focus={entity_uid} query param for deep linking from insights.
 
@@ -676,7 +699,9 @@ def setup_user_profile_routes(rt, services):
             "habits",
             "principles",
             "choices",
-            "learning",
+            "knowledge",
+            "learning-steps",
+            "learning-paths",
         }
         if domain not in valid_domains:
             from starlette.responses import RedirectResponse
@@ -713,7 +738,7 @@ def setup_user_profile_routes(rt, services):
         domain_items = _build_domain_items(context, insight_counts)
         curriculum_items = _build_curriculum_items(context)
         display_name = user.display_name if user.display_name else user.username
-        content = _get_domain_view(domain, context, focus_uid)
+        content = await _get_domain_view(domain, context, user_uid, focus_uid)
         domain_title = DEFAULT_DOMAIN_NAMES.get(domain, domain.title())
 
         # Check if user is admin (shows Admin Dashboard in navbar instead of Profile Hub)
@@ -874,120 +899,127 @@ def setup_user_profile_routes(rt, services):
             request=request,
         )
 
-    @rt("/profile/bookmarks")
-    async def profile_bookmarks(request: Request) -> Any:
-        """My Bookmarks page - shows KUs bookmarked by the current user."""
-        user_uid = require_authenticated_user(request)
+    async def _build_knowledge_view(context: UserContext, user_uid: str) -> Any:
+        """Build the Knowledge domain view with all KUs and user status.
 
-        try:
-            user, context = await _get_user_and_context(user_uid)
-        except ValueError as e:
-            logger.error(
-                "Failed to load user or context for bookmarks page",
-                extra={"user_uid": user_uid, "error": str(e)},
-            )
-            return await error_page(str(e), 500)
-
+        Queries Neo4j for all KU nodes with per-user VIEWED/BOOKMARKED/MASTERED relationships.
+        """
         from fasthtml.common import H2, H4, A, Div, P, Span
 
-        # Fetch bookmarked KUs with details
-        bookmarked_kus: list[dict] = []
+        # Query all KUs with user's relationship status
+        all_kus: list[dict] = []
         if services.neo4j_driver:
             try:
                 records, _, _ = await services.neo4j_driver.execute_query(
                     """
-                    MATCH (u:User {uid: $user_uid})-[b:BOOKMARKED]->(ku:Ku)
-                    RETURN ku.uid AS uid, ku.title AS title,
-                           toString(b.bookmarked_at) AS bookmarked_at
-                    ORDER BY b.bookmarked_at DESC
+                    MATCH (ku:Ku)
+                    OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
+                    OPTIONAL MATCH (u2:User {uid: $user_uid})-[b:BOOKMARKED]->(ku)
+                    OPTIONAL MATCH (u3:User {uid: $user_uid})-[m:MASTERED]->(ku)
+                    RETURN ku.uid AS uid, ku.title AS title, ku.domain AS domain,
+                           v IS NOT NULL AS viewed,
+                           b IS NOT NULL AS bookmarked,
+                           m IS NOT NULL AS mastered
+                    ORDER BY ku.title ASC, ku.uid ASC
                     """,
                     user_uid=user_uid,
                 )
-                bookmarked_kus = [dict(r) for r in records]
+                all_kus = [dict(r) for r in records]
             except Exception as e:
-                logger.warning(f"Failed to fetch bookmarked KUs: {e}")
+                logger.warning(f"Failed to fetch KUs: {e}")
 
-        # Build bookmark cards
-        def bookmark_card(ku: dict) -> Any:
-            """Render a bookmarked KU card."""
+        # Build KU cards
+        def ku_card(ku: dict) -> Any:
+            """Render a KU card with status badges."""
             ku_title = ku.get("title") or ku.get("uid") or "Untitled"
-            date_val = ku.get("bookmarked_at", "")
-            if date_val and "T" in str(date_val):
-                date_val = str(date_val).split("T")[0]
+            ku_domain = ku.get("domain", "")
+            is_viewed = ku.get("viewed", False)
+            is_bookmarked = ku.get("bookmarked", False)
+            is_mastered = ku.get("mastered", False)
 
-            return Div(
+            badges = []
+            if is_mastered:
+                badges.append(Span("Mastered", cls="badge badge-xs badge-success"))
+            if is_bookmarked:
+                badges.append(Span("Bookmarked", cls="badge badge-xs badge-info"))
+            if is_viewed and not is_mastered:
+                badges.append(Span("Viewed", cls="badge badge-xs badge-ghost"))
+
+            return A(
                 Div(
-                    H4(ku_title, cls="card-title text-sm"),
-                    P(
-                        f"Bookmarked: {date_val}" if date_val else "",
-                        cls="text-xs text-base-content/60 mt-1",
-                    ),
                     Div(
-                        A(
-                            "Read",
-                            href=f"/ku/{ku['uid']}",
-                            cls="btn btn-xs btn-primary",
+                        H4(ku_title, cls="card-title text-sm"),
+                        (
+                            P(ku_domain, cls="text-xs text-base-content/60 mt-1")
+                            if ku_domain
+                            else None
                         ),
-                        cls="mt-3",
+                        Div(*badges, cls="flex gap-1 mt-2") if badges else None,
+                        cls="card-body p-4",
                     ),
-                    cls="card-body p-4",
+                    cls="card bg-base-200 shadow-sm hover:shadow-md transition-shadow",
                 ),
-                cls="card bg-base-200 shadow-sm hover:shadow-md transition-shadow",
+                href=f"/ku/{ku['uid']}",
             )
 
-        content = Div(
-            H2("My Bookmarks", cls="text-2xl font-bold mb-4"),
-            P(
-                "Knowledge Units you've bookmarked for later reference.",
-                cls="text-base-content/70 mb-6",
-            ),
-            (
+        ku_content = (
+            Div(
+                Span(
+                    f"{len(all_kus)} knowledge units",
+                    cls="badge badge-ghost mb-4",
+                ),
                 Div(
-                    Span(
-                        f"{len(bookmarked_kus)} bookmarked",
-                        cls="badge badge-info mb-4",
-                    ),
-                    Div(
-                        *[bookmark_card(ku) for ku in bookmarked_kus],
-                        cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
-                    ),
-                )
-                if bookmarked_kus
-                else Div(
-                    P(
-                        "No bookmarked Knowledge Units yet. "
-                        "Browse KUs and click the Bookmark button to save them here.",
-                        cls="text-center text-base-content/60 py-12",
-                    ),
-                    cls="card bg-base-200 p-8",
-                )
-            ),
+                    *[ku_card(ku) for ku in all_kus],
+                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
+                ),
+            )
+            if all_kus
+            else Div(
+                P(
+                    "No knowledge units available yet.",
+                    cls="text-center text-base-content/60 py-12",
+                ),
+                cls="card bg-base-200 p-8",
+            )
         )
 
-        # Build sidebar items
-        insight_counts: dict[str, int] = {}
-        total_unread_insights = 0
-        if services.insight_store:
-            counts_result = await services.insight_store.get_insight_counts_by_domain(user_uid)
-            if not counts_result.is_error:
-                insight_counts = counts_result.value
-                total_unread_insights = sum(insight_counts.values())
-
-        domain_items = _build_domain_items(context, insight_counts)
-        curriculum_items = _build_curriculum_items(context)
-        display_name = user.display_name if user.display_name else user.username
-        is_admin = user.can_manage_users() if hasattr(user, "can_manage_users") else False
-
-        return await create_profile_page(
-            content=content,
-            domains=domain_items,
-            active_domain="bookmarks",
-            user_display_name=display_name,
-            title="My Bookmarks - Profile Hub",
-            is_admin=is_admin,
-            curriculum_domains=curriculum_items,
-            unread_insights=total_unread_insights,
-            request=request,
+        return Div(
+            H2("Knowledge Units", cls="text-2xl font-bold mb-2"),
+            P(
+                "All knowledge units in the curriculum. Track your learning progress.",
+                cls="text-base-content/70 mb-6",
+            ),
+            # Quick stats row
+            Div(
+                Div(
+                    Span(
+                        str(len(context.mastered_knowledge_uids)),
+                        cls="text-xl font-bold text-success",
+                    ),
+                    Span(" mastered", cls="text-sm text-base-content/60"),
+                    cls="flex items-baseline gap-1",
+                ),
+                Div(
+                    Span(
+                        str(len(context.in_progress_knowledge_uids)),
+                        cls="text-xl font-bold text-warning",
+                    ),
+                    Span(" in progress", cls="text-sm text-base-content/60"),
+                    cls="flex items-baseline gap-1",
+                ),
+                Div(
+                    Span(str(len(context.ready_to_learn_uids)), cls="text-xl font-bold text-info"),
+                    Span(" ready", cls="text-sm text-base-content/60"),
+                    cls="flex items-baseline gap-1",
+                ),
+                cls="flex gap-6 mb-6",
+            ),
+            ku_content,
+            A(
+                "Browse All Knowledge →",
+                href="/knowledge",
+                cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
+            ),
         )
 
     # ========================================================================

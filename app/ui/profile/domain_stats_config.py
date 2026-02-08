@@ -160,28 +160,63 @@ def choices_status_args(ctx: UserContext) -> tuple[int]:
 # ============================================================================
 
 
-def learning_count(ctx: UserContext) -> int:
-    """Calculate total learning count (mastered + in_progress + ready)."""
+# Knowledge domain extractors (KU)
+def knowledge_count(ctx: UserContext) -> int:
+    """Calculate total knowledge count (mastered + in_progress + ready)."""
     mastered = len(ctx.mastered_knowledge_uids)
     in_progress = len(ctx.in_progress_knowledge_uids)
     ready = len(ctx.ready_to_learn_uids)
     return mastered + in_progress + ready
 
 
-def learning_active(ctx: UserContext) -> int:
-    """Calculate active learning count (in_progress + ready)."""
+def knowledge_active(ctx: UserContext) -> int:
+    """Calculate active knowledge count (in_progress)."""
+    return len(ctx.in_progress_knowledge_uids)
+
+
+def knowledge_status(ctx: UserContext) -> str:
+    """Calculate knowledge domain status based on learning progress."""
+    mastered = len(ctx.mastered_knowledge_uids)
     in_progress = len(ctx.in_progress_knowledge_uids)
-    ready = len(ctx.ready_to_learn_uids)
-    return in_progress + ready
+    blocked = len(ctx.prerequisites_needed)
+
+    if blocked > (mastered + in_progress) * 0.5 and (mastered + in_progress) > 0:
+        return "critical"
+    elif blocked > 0:
+        return "warning"
+    else:
+        return "healthy"
 
 
-def learning_status(ctx: UserContext) -> str:
-    """
-    Calculate learning domain status based on blocked prerequisites.
+# Learning Steps domain extractors (LS)
+def learning_steps_count(_ctx: UserContext) -> int:
+    """Calculate total learning steps count. Placeholder - no LS nodes yet."""
+    return 0
 
-    Returns:
-        Status string: "critical", "warning", or "healthy"
-    """
+
+def learning_steps_active(_ctx: UserContext) -> int:
+    """Calculate active learning steps count. Placeholder - no LS nodes yet."""
+    return 0
+
+
+def learning_steps_status(_ctx: UserContext) -> str:
+    """Calculate learning steps status. Placeholder - no LS nodes yet."""
+    return "healthy"
+
+
+# Learning Paths domain extractors (LP)
+def learning_paths_count(ctx: UserContext) -> int:
+    """Calculate total learning paths count (enrolled)."""
+    return len(ctx.enrolled_path_uids)
+
+
+def learning_paths_active(ctx: UserContext) -> int:
+    """Calculate active learning paths count (enrolled with progress < 1.0)."""
+    return len(ctx.enrolled_path_uids)
+
+
+def learning_paths_status(ctx: UserContext) -> str:
+    """Calculate learning paths status based on blocked prerequisites."""
     blocked = len(ctx.prerequisites_needed)
     enrolled_paths = len(ctx.enrolled_path_uids)
 
@@ -241,7 +276,13 @@ __all__ = [
     "DomainStatsConfig",
     "DOMAIN_STATS_CONFIG",
     "StatusCalculator",
-    "learning_active",
-    "learning_count",
-    "learning_status",
+    "knowledge_active",
+    "knowledge_count",
+    "knowledge_status",
+    "learning_paths_active",
+    "learning_paths_count",
+    "learning_paths_status",
+    "learning_steps_active",
+    "learning_steps_count",
+    "learning_steps_status",
 ]

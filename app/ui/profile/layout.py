@@ -53,7 +53,9 @@ DEFAULT_DOMAIN_ICONS = {
     "principles": "⚖️",
     "choices": "🔀",
     # Curriculum Domains
-    "learning": "📚",
+    "knowledge": "📖",
+    "learning-steps": "📝",
+    "learning-paths": "🗺️",
 }
 
 DEFAULT_DOMAIN_NAMES = {
@@ -65,14 +67,16 @@ DEFAULT_DOMAIN_NAMES = {
     "principles": "Principles",
     "choices": "Choices",
     # Curriculum Domains
-    "learning": "Learning",
+    "knowledge": "Knowledge",
+    "learning-steps": "Learning Steps",
+    "learning-paths": "Learning Paths",
 }
 
 # Order of domains in sidebar (Activity Domains)
 DOMAIN_ORDER = ["tasks", "events", "goals", "habits", "principles", "choices"]
 
 # Curriculum domains (separate section)
-CURRICULUM_ORDER = ["learning"]
+CURRICULUM_ORDER = ["knowledge", "learning-steps", "learning-paths"]
 
 
 def _status_badge(status: str) -> "FT":
@@ -232,16 +236,6 @@ def build_profile_sidebar(
                 "Shared With Me",
                 href="/profile/shared",
                 cls=f"flex items-center gap-2 {'menu-active' if active_domain == 'shared' else ''}",
-                **{"hx-boost": "false"},
-            )
-        ),
-        # My Bookmarks link
-        Li(
-            Anchor(
-                Span("🔖", cls="text-lg", aria_hidden="true"),
-                "My Bookmarks",
-                href="/profile/bookmarks",
-                cls=f"flex items-center gap-2 {'menu-active' if active_domain == 'bookmarks' else ''}",
                 **{"hx-boost": "false"},
             )
         ),
