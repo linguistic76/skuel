@@ -453,15 +453,13 @@ class AskesisOperations(
 
 @runtime_checkable
 class AskesisCoreOperations(Protocol):
-    """CRUD and context-building operations for Askesis instances.
+    """CRUD operations for Askesis instances.
 
     Separate from AskesisOperations (intelligence) — this handles the
     lifecycle management of Askesis entities.
 
     Implementation: AskesisCoreService
     """
-
-    async def build_user_context(self, user_uid: str) -> Result[Any]: ...
 
     async def get_or_create_for_user(self, user_uid: str) -> Result[Any]: ...
 

@@ -38,7 +38,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import AskesisCoreOperations
+    from core.services.protocols import AskesisCoreOperations, UserOperations
 
 logger = get_logger("skuel.routes.askesis.api")
 
@@ -48,6 +48,7 @@ def create_askesis_api_routes(
     rt: Any,
     askesis_service: AskesisOperations,
     askesis_core_service: "AskesisCoreOperations | None" = None,
+    user_service: "UserOperations | None" = None,
 ) -> list[Any]:
     """
     Create clean API routes for Askesis functionality with service integration.
@@ -56,7 +57,8 @@ def create_askesis_api_routes(
         app: FastHTML application instance
         rt: Route decorator
         askesis_service: AskesisService instance (intelligence)
-        askesis_core_service: AskesisCoreService instance (CRUD + context building)
+        askesis_core_service: AskesisCoreService instance (CRUD)
+        user_service: UserService instance (UserContext building)
 
     Returns:
         Empty list (routes registered via decorators)
@@ -306,7 +308,15 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        context_result = await askesis_core_service.build_user_context(user_uid)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="User service not available",
+                    operation="generate_guidance",
+                )
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -351,7 +361,15 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        context_result = await askesis_core_service.build_user_context(user_uid)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="User service not available",
+                    operation="get_ai_insights",
+                )
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -405,7 +423,15 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        context_result = await askesis_core_service.build_user_context(user_uid)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="User service not available",
+                    operation="trigger_domain_integration",
+                )
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -454,7 +480,15 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        context_result = await askesis_core_service.build_user_context(user_uid)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="User service not available",
+                    operation="get_analytics",
+                )
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -645,7 +679,15 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        context_result = await askesis_core_service.build_user_context(user_uid)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="User service not available",
+                    operation="get_daily_work_plan",
+                )
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -741,7 +783,15 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        context_result = await askesis_core_service.build_user_context(user_uid)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="User service not available",
+                    operation="get_optimal_learning_steps",
+                )
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -816,7 +866,15 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        context_result = await askesis_core_service.build_user_context(user_uid)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="User service not available",
+                    operation="get_learning_critical_path",
+                )
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -872,7 +930,15 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        context_result = await askesis_core_service.build_user_context(user_uid)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="User service not available",
+                    operation="get_unblocking_priority",
+                )
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -948,7 +1014,15 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        context_result = await askesis_core_service.build_user_context(user_uid)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="User service not available",
+                    operation="get_cross_domain_synergies",
+                )
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -1038,7 +1112,15 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        context_result = await askesis_core_service.build_user_context(user_uid)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="User service not available",
+                    operation="get_life_path_alignment",
+                )
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -1138,7 +1220,15 @@ def create_askesis_api_routes(
         user_uid = askesis.user_uid
 
         # Get user context
-        context_result = await askesis_core_service.build_user_context(user_uid)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="User service not available",
+                    operation="get_schedule_aware_recommendations",
+                )
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
 
         if context_result.is_error:
             return Result.fail(context_result.expect_error())

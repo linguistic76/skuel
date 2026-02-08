@@ -27,6 +27,7 @@ ASKESIS_CONFIG = DomainRouteConfig(
         # Format: {kwarg_name: container_attr}
         # askesis_core_service is optional (Priority 1.1 implementation)
         "askesis_core_service": "askesis_core",  # askesis_core_service=services.askesis_core
+        "user_service": "user_service",  # user_service=services.user_service (for UserContext building)
     },
 )
 

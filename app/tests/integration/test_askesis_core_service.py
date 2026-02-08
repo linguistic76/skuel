@@ -39,7 +39,7 @@ async def core_service(neo4j_driver):
         driver=neo4j_driver, label="Askesis", entity_class=Askesis
     )
 
-    return AskesisCoreService(backend=backend, driver=neo4j_driver)
+    return AskesisCoreService(backend=backend)
 
 
 @pytest.fixture
