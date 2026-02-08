@@ -71,9 +71,6 @@ def create_admin_dashboard_routes(_app, rt, services):
         Returns:
             Admin page with overview content
         """
-        # Fetch user stats
-        user_stats = await _get_user_stats(services)
-
         # Fetch system health
         system_status = await _get_system_status(services)
 
@@ -85,12 +82,6 @@ def create_admin_dashboard_routes(_app, rt, services):
                     "System overview and management",
                     cls="text-base-content/50 mt-1",
                 ),
-                cls="mb-8",
-            ),
-            # Stats cards
-            Div(
-                H2("User Overview", cls="text-xl font-semibold mb-4"),
-                AdminUIComponents.render_user_stats(user_stats),
                 cls="mb-8",
             ),
             # Quick links
