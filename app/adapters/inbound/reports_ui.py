@@ -2,12 +2,13 @@
 Reports UI Routes
 =====================
 
-File submission dashboard for human review.
+File submission with sidebar navigation (Submit / Browse / Your Reports).
 Regular users upload files here to share with teachers, peers, or mentors.
 Processor type is auto-set to HUMAN — AI processing lives in Report Projects
 (role-gated to TEACHER+).
 
-Uses HTMX for dynamic updates (JavaScript-minimal approach).
+Layout: Custom sidebar (3 nav items) + content area.
+Follows profile-hub sidebar pattern (profile_sidebar.css).
 """
 
 from dataclasses import dataclass
@@ -22,12 +23,15 @@ from fasthtml.common import (
     Form,
     Input,
     Label,
+    Li,
+    Main,
     NotStr,
     Option,
     P,
     Script,
     Select,
     Span,
+    Ul,
 )
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
@@ -37,7 +41,10 @@ from core.models.enums.report_enums import ProcessorType, ReportType
 from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
+from ui.patterns.page_header import PageHeader
 
+Anchor = A  # Alias for sidebar navigation links (matches KU pattern)
 logger = get_logger("skuel.routes.reports.ui")
 
 
@@ -584,6 +591,277 @@ def _render_sharing_section(report: Any) -> Any:
 
 
 # ============================================================================
+# SIDEBAR NAVIGATION
+# ============================================================================
+
+REPORTS_NAV_ITEMS = [
+    ("Submit", "/reports/submit", "submit"),
+    ("Browse", "/reports/browse", "browse"),
+    ("Your Reports", "/reports/yours", "yours"),
+]
+
+
+def _reports_sidebar(active_page: str = "submit") -> Any:
+    """Build the Reports sidebar with 3 navigation items.
+
+    Args:
+        active_page: "submit", "browse", or "yours"
+    """
+    chevron_svg = NotStr(
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" '
+        'stroke="currentColor" stroke-width="2" aria-hidden="true">'
+        '<path d="M15 18l-6-6 6-6"></path>'
+        "</svg>"
+    )
+
+    menu_items = [
+        Li(
+            Anchor(
+                label,
+                href=href,
+                cls=f"{'menu-active' if slug == active_page else ''}",
+                **{
+                    "hx-boost": "false",
+                    "onclick": "if(window.innerWidth<=1024)toggleProfileSidebar()",
+                },
+            )
+        )
+        for label, href, slug in REPORTS_NAV_ITEMS
+    ]
+
+    sidebar_menu = Ul(
+        Li(
+            Anchor(
+                "Reports",
+                href="/reports",
+                cls="text-xl font-bold text-primary hover:text-primary-focus",
+                id="reports-sidebar-heading",
+                **{"hx-boost": "false"},
+            ),
+            P("Submit and manage files", cls="text-xs opacity-60 mt-1"),
+            cls="px-4 py-4 sidebar-header-text",
+        ),
+        Li(cls="divider my-0"),
+        *menu_items,
+        cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
+        id="reports-sidebar-nav",
+    )
+
+    return Div(
+        Div(
+            Button(
+                chevron_svg,
+                onclick="toggleProfileSidebar()",
+                cls="sidebar-toggle",
+                title="Toggle Sidebar",
+                type="button",
+                aria_label="Toggle Reports sidebar",
+                aria_expanded="false",
+                aria_controls="reports-sidebar-nav",
+            ),
+            sidebar_menu,
+            cls="sidebar-inner",
+        ),
+        cls="profile-sidebar",
+        id="profile-sidebar",
+        role="dialog",
+        aria_modal="false",
+        aria_labelledby="reports-sidebar-heading",
+    )
+
+
+def _reports_page_layout(active_page: str, content: Any) -> Any:
+    """Assemble full layout: sidebar + overlay + content area."""
+    return Div(
+        Div(
+            cls="profile-overlay",
+            id="profile-overlay",
+            onclick="toggleProfileSidebar()",
+        ),
+        _reports_sidebar(active_page),
+        Div(
+            id="sidebar-sr-announcements",
+            role="status",
+            aria_live="polite",
+            cls="sr-only",
+        ),
+        Div(
+            Div(
+                Span("☰", aria_hidden="true"),
+                Span("Menu"),
+                cls="btn btn-ghost mobile-menu-button mb-4",
+                onclick="toggleProfileSidebar()",
+                role="button",
+                tabindex="0",
+                aria_label="Open Reports navigation",
+                aria_expanded="false",
+                aria_controls="profile-sidebar",
+            ),
+            Main(
+                Div(content, cls="max-w-6xl mx-auto"),
+                cls="p-6 lg:p-8",
+            ),
+            cls="profile-content",
+            id="profile-content",
+        ),
+        cls="profile-container",
+    )
+
+
+# ============================================================================
+# CONTENT FRAGMENTS (extracted from former monolithic dashboard)
+# ============================================================================
+
+
+def _render_upload_form() -> Any:
+    """Render the file upload form card."""
+    return Div(
+        Div(
+            Form(
+                # Identifier input (loose KU reference)
+                Div(
+                    Label("Identifier", cls="label"),
+                    Input(
+                        type="text",
+                        name="identifier",
+                        placeholder="e.g. meditation-basics, yoga-101",
+                        cls="input input-bordered w-full",
+                        required=True,
+                    ),
+                    P(
+                        "A short label linking this submission to a Knowledge Unit",
+                        cls="text-xs text-base-content/60 mt-1",
+                    ),
+                    cls="mb-4",
+                ),
+                # File input with label styling
+                Div(
+                    Label(
+                        Div(
+                            P("Select File", cls="text-center mb-0"),
+                            P(
+                                "Click to browse for files (audio, text, PDF, images, video)",
+                                cls="text-sm text-base-content/60 text-center mt-0",
+                            ),
+                            cls="p-4 text-center bg-base-200 rounded-lg cursor-pointer border-2 border-dashed border-base-300",
+                        ),
+                        Input(
+                            type="file",
+                            name="file",
+                            accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
+                            cls="hidden",
+                            required=True,
+                        ),
+                        cls="w-full cursor-pointer",
+                    ),
+                    cls="mb-4",
+                ),
+                # Submit button
+                Div(
+                    Button(
+                        "Submit for Review",
+                        variant=ButtonT.primary,
+                        type="submit",
+                    ),
+                    cls="text-center",
+                ),
+                # Upload status (HTMX target)
+                Div(id="upload-status", cls="mt-4 text-center"),
+                # HTMX attributes for form submission
+                **{
+                    "hx-post": "/reports/upload",
+                    "hx-target": "#upload-status",
+                    "hx-swap": "outerHTML",
+                    "hx-encoding": "multipart/form-data",
+                },
+                id="upload-form",
+            ),
+            cls="card-body",
+        ),
+        cls="card bg-base-100 shadow-sm hover:shadow-md transition-shadow",
+    )
+
+
+def _upload_form_script() -> Any:
+    """HTMX event handlers for upload form UX polish."""
+    return Script(
+        NotStr("""
+        document.body.addEventListener('htmx:beforeRequest', function(evt) {
+            var form = evt.detail.elt;
+            if (form.id === 'upload-form') {
+                var btn = form.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = 'Uploading...';
+                }
+            }
+        });
+
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            var form = evt.detail.elt;
+            if (form.id === 'upload-form') {
+                form.reset();
+                var btn = form.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Submit for Review';
+                }
+                htmx.trigger('#reports-grid-container', 'load');
+            }
+        });
+    """)
+    )
+
+
+def _render_filters_section() -> Any:
+    """Render the status filter controls card."""
+    return Div(
+        Div(
+            Form(
+                Div(
+                    Label("Status", cls="label"),
+                    Select(
+                        Option("All Status", value="", selected=True),
+                        Option("Submitted", value="submitted"),
+                        Option("Queued", value="queued"),
+                        Option("Processing", value="processing"),
+                        Option("Completed", value="completed"),
+                        Option("Failed", value="failed"),
+                        Option("Manual Review", value="manual_review"),
+                        name="status",
+                        cls="select select-bordered w-full",
+                    ),
+                    cls="mb-2",
+                ),
+                **{
+                    "hx-get": "/reports/grid",
+                    "hx-target": "#reports-grid-container",
+                    "hx-swap": "outerHTML",
+                    "hx-trigger": "change from:select",
+                },
+                id="filter-form",
+            ),
+            cls="card-body",
+        ),
+        cls="card bg-base-100 shadow-sm mb-6",
+    )
+
+
+def _render_reports_grid_container() -> Any:
+    """Render the HTMX-loading reports grid container."""
+    return Div(
+        P("Loading reports...", cls="text-center text-base-content/60"),
+        id="reports-grid-container",
+        cls="mt-4",
+        **{
+            "hx-get": "/reports/grid",
+            "hx-trigger": "load",
+            "hx-swap": "outerHTML",
+        },
+    )
+
+
+# ============================================================================
 # ROUTE CREATION
 # ============================================================================
 
@@ -602,203 +880,71 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
     logger.info("Creating Reports UI routes")
 
     # ========================================================================
-    # MAIN DASHBOARD
+    # SIDEBAR PAGES
     # ========================================================================
 
     @rt("/reports")
-    async def reports_dashboard(request: Request) -> Any:
-        """
-        Main reports dashboard.
+    async def reports_landing(request: Request) -> Any:
+        """Reports landing — defaults to Submit page."""
+        return await _render_submit_page(request)
 
-        Layout:
-        - File upload form (top)
-        - Filters (type, status)
-        - Reports grid (main content)
-        - Statistics sidebar (optional)
-        """
-        require_authenticated_user(request)  # Enforce authentication
+    @rt("/reports/submit")
+    async def reports_submit_page(request: Request) -> Any:
+        """Submit page: upload form."""
+        return await _render_submit_page(request)
 
-        # File upload form - HTMX-powered
-        upload_form = Div(
-            Div(
-                H3("Submit Report", cls="card-title"),
-                P(
-                    "Upload a file with a KU identifier",
-                    cls="text-base-content/60",
-                ),
-                Form(
-                    # Identifier input (loose KU reference)
-                    Div(
-                        Label("Identifier", cls="label"),
-                        Input(
-                            type="text",
-                            name="identifier",
-                            placeholder="e.g. meditation-basics, yoga-101",
-                            cls="input input-bordered w-full",
-                            required=True,
-                        ),
-                        P(
-                            "A short label linking this submission to a Knowledge Unit",
-                            cls="text-xs text-base-content/60 mt-1",
-                        ),
-                        cls="mb-4",
-                    ),
-                    # File input with label styling
-                    Div(
-                        Label(
-                            Div(
-                                P("Select File", cls="text-center mb-0"),
-                                P(
-                                    "Click to browse for files (audio, text, PDF, images, video)",
-                                    cls="text-sm text-base-content/60 text-center mt-0",
-                                ),
-                                cls="p-4 text-center bg-base-200 rounded-lg cursor-pointer border-2 border-dashed border-base-300",
-                            ),
-                            Input(
-                                type="file",
-                                name="file",
-                                accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
-                                cls="hidden",
-                                required=True,
-                            ),
-                            cls="w-full cursor-pointer",
-                        ),
-                        cls="mb-4",
-                    ),
-                    # Submit button
-                    Div(
-                        Button(
-                            "Submit for Review",
-                            variant=ButtonT.primary,
-                            type="submit",
-                        ),
-                        cls="text-center",
-                    ),
-                    # Upload status (HTMX target)
-                    Div(id="upload-status", cls="mt-4 text-center"),
-                    # HTMX attributes for form submission
-                    **{
-                        "hx-post": "/reports/upload",
-                        "hx-target": "#upload-status",
-                        "hx-swap": "outerHTML",
-                        "hx-encoding": "multipart/form-data",
-                    },
-                    id="upload-form",
-                ),
-                cls="card-body",
-            ),
-            cls="card bg-base-100 shadow-sm hover:shadow-md transition-shadow",
-        )
-
-        # Filters section - HTMX-powered
-        filters = Div(
-            Div(
-                H3("Filters", cls="card-title"),
-                Form(
-                    # Status filter
-                    Div(
-                        Label("Status", cls="label"),
-                        Select(
-                            Option("All Status", value="", selected=True),
-                            Option("Submitted", value="submitted"),
-                            Option("Queued", value="queued"),
-                            Option("Processing", value="processing"),
-                            Option("Completed", value="completed"),
-                            Option("Failed", value="failed"),
-                            Option("Manual Review", value="manual_review"),
-                            name="status",
-                            cls="select select-bordered w-full",
-                        ),
-                        cls="mb-2",
-                    ),
-                    # HTMX: trigger grid reload on any change
-                    **{
-                        "hx-get": "/reports/grid",
-                        "hx-target": "#reports-grid-container",
-                        "hx-swap": "outerHTML",
-                        "hx-trigger": "change from:select",
-                    },
-                    id="filter-form",
-                ),
-                cls="card-body",
-            ),
-            cls="card bg-base-100 shadow-sm",
-        )
-
-        # Reports grid - HTMX-powered
-        reports_grid = Div(
-            Div(
-                H3("Your Reports", cls="card-title"),
-                P("View and manage your submitted files", cls="text-base-content/60"),
-                # Grid container (loaded via HTMX on page load)
-                Div(
-                    P("Loading reports...", cls="text-center text-base-content/60"),
-                    id="reports-grid-container",
-                    cls="mt-4",
-                    **{
-                        "hx-get": "/reports/grid",
-                        "hx-trigger": "load",
-                        "hx-swap": "outerHTML",
-                    },
-                ),
-                cls="card-body",
-            ),
-            cls="card bg-base-100 shadow-sm",
-        )
-
-        # Main page content
+    async def _render_submit_page(request: Request) -> Any:
+        require_authenticated_user(request)
         content = Div(
-            Div(
-                H1("Reports", cls="text-3xl font-bold"),
-                P(
-                    "Submit a file linked to a Knowledge Unit",
-                    cls="text-lg text-base-content/60",
-                ),
-                cls="text-center mb-8",
-            ),
-            # Upload form (full width)
-            Div(upload_form, cls="mb-8"),
-            # Filters and reports grid (side by side)
-            Div(
-                Div(filters, cls="w-full md:w-1/4"),
-                Div(reports_grid, cls="w-full md:w-3/4"),
-                cls="flex flex-col md:flex-row gap-4",
-            ),
-            # HTMX event handlers for UX polish (not core functionality)
-            Script(
-                NotStr("""
-                document.body.addEventListener('htmx:beforeRequest', function(evt) {
-                    const form = evt.detail.elt;
-                    if (form.id === 'upload-form') {
-                        const btn = form.querySelector('button[type="submit"]');
-                        if (btn) {
-                            btn.disabled = true;
-                            btn.textContent = 'Uploading...';
-                        }
-                    }
-                });
-
-                document.body.addEventListener('htmx:afterRequest', function(evt) {
-                    const form = evt.detail.elt;
-                    if (form.id === 'upload-form') {
-                        form.reset();
-                        const btn = form.querySelector('button[type="submit"]');
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.textContent = 'Submit for Review';
-                        }
-                        htmx.trigger('#reports-grid-container', 'load');
-                    }
-                });
-            """)
-            ),
+            PageHeader("Submit Report", subtitle="Upload a file linked to a Knowledge Unit"),
+            _render_upload_form(),
+            _upload_form_script(),
         )
-
+        page_layout = _reports_page_layout("submit", content)
         return await BasePage(
-            content,
-            title="Reports",
+            page_layout,
+            title="Submit Report",
+            page_type=PageType.STANDARD,
             request=request,
             active_page="reports",
+            extra_css=["/static/css/profile_sidebar.css"],
+        )
+
+    @rt("/reports/browse")
+    async def reports_browse_page(request: Request) -> Any:
+        """Browse page: filters + results grid."""
+        require_authenticated_user(request)
+        content = Div(
+            PageHeader("Browse Reports", subtitle="Filter and find reports"),
+            _render_filters_section(),
+            _render_reports_grid_container(),
+        )
+        page_layout = _reports_page_layout("browse", content)
+        return await BasePage(
+            page_layout,
+            title="Browse Reports",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="reports",
+            extra_css=["/static/css/profile_sidebar.css"],
+        )
+
+    @rt("/reports/yours")
+    async def reports_yours_page(request: Request) -> Any:
+        """Your Reports page: full listing without filters."""
+        require_authenticated_user(request)
+        content = Div(
+            PageHeader("Your Reports", subtitle="View and manage your submitted files"),
+            _render_reports_grid_container(),
+        )
+        page_layout = _reports_page_layout("yours", content)
+        return await BasePage(
+            page_layout,
+            title="Your Reports",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="reports",
+            extra_css=["/static/css/profile_sidebar.css"],
         )
 
     # ========================================================================
@@ -1099,9 +1245,12 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
     # Route order matters! Specific routes must come BEFORE parameterized routes.
     # Otherwise /reports/grid would match /reports/{uid} with uid="grid"
     return [
-        reports_dashboard,  # /reports (exact)
-        upload_report,  # /reports/upload (specific)
-        get_reports_grid,  # /reports/grid (specific)
+        reports_landing,  # /reports (exact)
+        reports_submit_page,  # /reports/submit (specific)
+        reports_browse_page,  # /reports/browse (specific)
+        reports_yours_page,  # /reports/yours (specific)
+        upload_report,  # /reports/upload (specific, HTMX POST)
+        get_reports_grid,  # /reports/grid (specific, HTMX GET)
         get_report_info,  # /reports/{uid}/info (pattern + suffix)
         get_report_content,  # /reports/{uid}/content (pattern + suffix)
         get_category_selector,  # /reports/{uid}/category-selector (pattern + suffix)
