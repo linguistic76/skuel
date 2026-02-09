@@ -548,7 +548,7 @@ def create_groups_api_routes(
 | Pattern | Use Case |
 |---------|----------|
 | Config-Driven (UnifiedRelationshipService) | Activity domains (6) |
-| Direct Driver | Curriculum, Journal, User |
+| Direct Driver | Curriculum, Reports, User |
 
 **Protocol-Mixin Compliance (January 2026):**
 ✅ **100% alignment achieved** - All 7 BaseService mixins match their protocol interfaces.
@@ -1023,8 +1023,7 @@ class KuSearchService(BaseService[KuOperations, KnowledgeUnit]):
 **Migration Status:** ✅ 100% complete (34 services migrated - January 2026)
 - Activity domains: 25 services (6 core, 6 search, 13 specialized)
 - Curriculum domains: 2 services (LS, LP core)
-- Content domains: 3 services (Transcript, Journal core/project)
-- Report domain: 3 services (core, search, submission)
+- Report domain: 6 services (core, search, submission, transcript, journal project, feedback)
 - Infrastructure: 1 service (UnifiedRelationshipService)
 
 **See:**
