@@ -223,7 +223,10 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
 
 **Content/Processing Domain (1)**:
-- **Reports** - All content submissions and system-generated summaries. 7 report types: TRANSCRIPT, ASSIGNMENT, JOURNAL, JOURNAL_VOICE, JOURNAL_CURATED (user-submitted), PROGRESS (system-generated), ASSESSMENT (teacher-authored). Routes `/journals` and `/reports/progress` are UX surfaces, not standalone domains.
+- **Reports** - All content submissions and AI/system-generated summaries. Three categories of ReportType:
+  - **File submissions** (TRANSCRIPT, ASSIGNMENT, IMAGE_ANALYSIS, VIDEO_SUMMARY) — user uploads via `/reports/submit`, `ProcessorType.HUMAN`
+  - **AI-processed** (JOURNAL) — admin uploads via `/journals/submit`, `ProcessorType.LLM`, uses ReportProject instructions
+  - **System/teacher generated** (PROGRESS, ASSESSMENT) — no file upload, created by system or teacher
 
 **Organizational Domains (2)**:
 - **Groups** - Teacher-student class management (ADR-040). Teacher creates group, adds students via MEMBER_OF. Assignments target groups via FOR_GROUP.
