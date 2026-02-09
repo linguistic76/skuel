@@ -483,7 +483,7 @@ EntityType.get_canonical()      # Normalizes aliases (KNOWLEDGE -> KU)
 - All services use protocol-based backends
 - All facade services have MyPy-visible protocol declarations
 - Full type safety across 27+ services
-- **Services dataclass: zero `Any` fields** — all ~58 fields typed (protocols + TYPE_CHECKING)
+- **Services dataclass: zero `Any` fields** — all ~69 fields typed (protocols + TYPE_CHECKING)
 
 **Protocol Location:** `core/services/protocols/` - 11 protocol files covering all domains
 
