@@ -19,7 +19,7 @@ from core.models.query import (
     QueryOptimizationResult,
     TemplateSpec,
 )
-from core.models.transcription.transcription_request import FacetSetRequest as FacetSetSchema
+from core.models.query.search_models import FacetSetRequest as FacetSetSchema
 from core.services.search.core_types import FacetSet
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

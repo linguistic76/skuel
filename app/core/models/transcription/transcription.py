@@ -13,25 +13,9 @@ Fields: Only what's needed for the core workflow.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from typing import Any
 
-
-class TranscriptionStatus(str, Enum):
-    """Processing status for transcription."""
-
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-    def is_terminal(self) -> bool:
-        """Check if status is terminal (no more processing)."""
-        return self in (TranscriptionStatus.COMPLETED, TranscriptionStatus.FAILED)
-
-    def can_retry(self) -> bool:
-        """Check if transcription can be retried."""
-        return self == TranscriptionStatus.FAILED
+from core.models.enums.transcription_enums import TranscriptionStatus
 
 
 @dataclass(frozen=True)

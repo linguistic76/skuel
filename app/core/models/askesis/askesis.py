@@ -33,11 +33,9 @@ from core.models.ku import KuDTO as KnowledgeUnitDTO
 from core.models.query import QueryIntent
 from core.models.query.graph_traversal import build_graph_context_query
 from core.models.enums import GuidanceMode, Intent, Personality, ResponseTone
-from core.models.transcription.transcription_dto import (
-    SearchResultDTO as CrossDomainSearchResultsSchema,
-)
-from core.models.transcription.transcription_request import FacetSetRequest as FacetSetSchema
-from core.models.transcription.transcription_request import SearchQueryRequest as SearchQuerySchema
+from core.models.query.search_models import FacetSetRequest as FacetSetSchema
+from core.models.query.search_models import SearchQueryRequest as SearchQuerySchema
+from core.models.query.search_models import SearchResultDTO as CrossDomainSearchResultsSchema
 from core.models.user import User
 from core.models.user.conversation import ConversationSession, PedagogicalContext
 

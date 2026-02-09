@@ -31,13 +31,10 @@ from core.models.finance.finance_request import (
 from core.models.finance.finance_request import (
     ExpenseUpdateRequest as ExpenseUpdateSchema,
 )
-from core.services.conversion_service import ConversionService
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-# Create conversion service instance
-conversion_service = ConversionService()
 logger = get_logger("skuel.routes.finance.api")
 
 

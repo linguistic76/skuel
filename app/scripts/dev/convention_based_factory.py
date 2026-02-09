@@ -31,9 +31,9 @@ DOMAIN_MAPPINGS = {
         "import": "core.models.relationships",
     },
     "transcription": {
-        "class": "TranscriptionPure",
+        "class": "Transcription",
         "label": "Transcription",
-        "import": "core.models.transcription.transcription_pure",
+        "import": "core.models.transcription.transcription",
     },
     "principle": {"class": "Principle", "label": "Principle", "import": "core.models.principle"},
     "event": {"class": "Event", "label": "Event", "import": "core.models.event"},

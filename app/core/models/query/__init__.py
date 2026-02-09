@@ -187,6 +187,9 @@ from .graph_traversal import build_graph_context_query
 # Generic query patterns
 from .query_patterns import QueryPatterns
 
+# Search boundary models (relocated from transcription package, February 2026)
+from .search_models import FacetSetRequest, SearchQueryRequest, SearchResultDTO
+
 # Pure Cypher schema DDL
 from .schema_ddl import (
     build_create_constraint_ddl,
@@ -217,6 +220,12 @@ __all__ = [
     # ============================================================================
     "CypherQuery",
     "GraphDepth",  # Imported from core.constants for convenience
+    # ============================================================================
+    # SEARCH BOUNDARY MODELS
+    # ============================================================================
+    "FacetSetRequest",
+    "SearchQueryRequest",
+    "SearchResultDTO",
     # ============================================================================
     # QUERY MODELS & STRATEGIES
     # ============================================================================

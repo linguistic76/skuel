@@ -38,11 +38,6 @@ from core.models.principle.principle import Principle as PrinciplePure
 from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
 from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
-from core.models.transcription.transcription_pure import TranscriptionPure
-from core.models.transcription.transcription_request import (
-    TranscriptionCreateRequest,
-    TranscriptionUpdateRequest,
-)
 from core.services.protocols import HasUpdated, HasUpdatedAt, PydanticModel
 
 # Create aliases for Pure models (backward compatibility)
@@ -403,22 +398,7 @@ class ConversionServiceV2:
         return cls.update_to_pure(existing, schema)
 
     # NOTE: Journal conversions REMOVED (February 2026) - Journal merged into Reports
-    # Use ReportsCoreService.create_journal_report() instead
-
-    # --- Transcription Conversions (three-tier migrated) ---
-    @classmethod
-    def transcription_create_to_pure(
-        cls, schema: TranscriptionCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> TranscriptionPure:
-        """Convert TranscriptionCreateRequest to TranscriptionPure using generic method."""
-        return cls.create_to_pure(schema, TranscriptionPure, uid, **kwargs)
-
-    @classmethod
-    def transcription_update_to_pure(
-        cls, existing: TranscriptionPure, schema: TranscriptionUpdateRequest
-    ) -> TranscriptionPure:
-        """Apply TranscriptionUpdateRequest to existing TranscriptionPure using generic method."""
-        return cls.update_to_pure(existing, schema)
+    # NOTE: Transcription conversions REMOVED (February 2026) - Three-tier models deleted
 
     # --- Principle Conversions (three-tier migrated) ---
     @classmethod

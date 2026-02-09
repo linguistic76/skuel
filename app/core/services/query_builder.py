@@ -61,7 +61,7 @@ from core.models.query import (
     TemplateSpec,
     ValidationResult,
 )
-from core.models.transcription.transcription_request import FacetSetRequest as FacetSetSchema
+from core.models.query.search_models import FacetSetRequest as FacetSetSchema
 from core.services.query.faceted_query_builder import FacetedQueryBuilder
 from core.services.query.graph_context_builder import GraphContextBuilder
 from core.services.query.query_optimizer import QueryOptimizer

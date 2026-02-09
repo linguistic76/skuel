@@ -22,25 +22,21 @@ related: []
 
 ### What Askesis Uses
 
-Askesis uses **transcription-specific search models**, not the deprecated search infrastructure:
+Askesis uses **query infrastructure search models**:
 
 ```python
 # From /core/models/askesis/askesis.py:
-from core.models.transcription.transcription_request import (
-    FacetSetRequest as FacetSetSchema,
-    SearchQueryRequest as SearchQuerySchema
-)
-from core.models.transcription.transcription_dto import (
-    SearchResultDTO as CrossDomainSearchResultsSchema
-)
+from core.models.query.search_models import FacetSetRequest as FacetSetSchema
+from core.models.query.search_models import SearchQueryRequest as SearchQuerySchema
+from core.models.query.search_models import SearchResultDTO as CrossDomainSearchResultsSchema
 ```
 
-### Transcription Search Models
+### Search Boundary Models
 
-Located at `/core/models/transcription/`:
-- `SearchQueryRequest` - Transcription-specific search requests
-- `SearchResultDTO` - Cross-domain search results for transcriptions
-- `FacetSetRequest` - Facets extracted from transcriptions
+Located at `/core/models/query/search_models.py`:
+- `FacetSetRequest` - Pydantic request model for search facets
+- `SearchQueryRequest` - Pydantic request model for complete search queries
+- `SearchResultDTO` - Cross-domain search result DTO
 
 **These are separate from and unrelated to**:
 - ❌ `/core/models/search/search_pure.py` (deprecated)
