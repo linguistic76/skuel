@@ -30,8 +30,8 @@ from core.infrastructure.relationships.semantic_relationships import (
     RelationshipMetadata,
     SemanticRelationshipType,
 )
-from core.models.query import build_semantic_context
 from core.models.enums import Domain
+from core.models.query import build_semantic_context
 from core.services.base_service import BaseService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

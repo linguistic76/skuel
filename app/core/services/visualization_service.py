@@ -32,8 +32,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, ClassVar, Literal
 
-from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarItemType
 from core.models.enums import ActivityStatus, Priority
+from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarItemType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

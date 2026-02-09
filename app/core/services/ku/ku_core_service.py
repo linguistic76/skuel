@@ -29,11 +29,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 from core.events import publish_event
+from core.models.enums import Domain, KnowledgeStatus
 from core.models.enums.learning_enums import SELCategory
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
-from core.models.enums import Domain, KnowledgeStatus
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.services.metadata_manager_mixin import MetadataManagerMixin

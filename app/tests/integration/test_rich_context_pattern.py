@@ -20,9 +20,9 @@ from datetime import date
 
 import pytest
 
+from core.models.enums import Domain, Priority
 from core.models.goal.goal_dto import GoalDTO
 from core.models.ku.ku_dto import KuDTO
-from core.models.enums import Domain, Priority
 from core.models.task.task_dto import TaskDTO
 
 

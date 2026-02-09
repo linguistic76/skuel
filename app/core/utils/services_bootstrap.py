@@ -120,8 +120,6 @@ if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
-    from core.services.reports.progress_report_generator import ProgressReportGenerator
-    from core.services.reports.report_schedule_service import ReportScheduleService
     from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.context_aware_ai_service import ContextAwareAIService
@@ -129,18 +127,22 @@ if TYPE_CHECKING:
     from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.insight.insight_store import InsightStore
+    from core.services.journals.journal_mode_classifier import JournalModeClassifier
+    from core.services.journals.journal_output_generator import JournalOutputGenerator
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.ku_intelligence_service import KuIntelligenceService
-    from core.services.protocols.service_protocols import LateralRelationshipOperations
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.performance_optimization_service import PerformanceOptimizationService
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )
+    from core.services.protocols.service_protocols import LateralRelationshipOperations
     from core.services.relationships.unified_relationship_service import (
         UnifiedRelationshipService,
     )
+    from core.services.reports.progress_report_generator import ProgressReportGenerator
+    from core.services.reports.report_schedule_service import ReportScheduleService
     from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
     from core.services.transcript_processor_service import TranscriptProcessorService
     from core.services.transcription.transcription_service import TranscriptionService
@@ -1702,10 +1704,9 @@ async def compose_services(
         )
 
         # Create progress report generator and schedule service (February 2026)
+        from core.models.report.report_schedule import ReportSchedule
         from core.services.reports.progress_report_generator import ProgressReportGenerator
         from core.services.reports.report_schedule_service import ReportScheduleService
-
-        from core.models.report.report_schedule import ReportSchedule
 
         report_schedule_backend = UniversalNeo4jBackend[ReportSchedule](
             driver, NeoLabel.REPORT_SCHEDULE, ReportSchedule, prometheus_metrics=prometheus_metrics

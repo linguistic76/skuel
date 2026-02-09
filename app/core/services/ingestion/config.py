@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.ingestion.bulk_ingestion import RelationshipConfig
-from core.models.relationship_registry import generate_ingestion_relationship_config
 from core.models.enums import EntityType
+from core.models.relationship_registry import generate_ingestion_relationship_config
 
 # ============================================================================
 # FILE SIZE LIMITS

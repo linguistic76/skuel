@@ -15,6 +15,7 @@ Date: 2025-12-03
 
 from typing import Any
 
+from core.models.enums import Domain
 from core.models.graph.path_aware_types import (
     ChoiceCrossContext,
     EventCrossContext,
@@ -30,7 +31,6 @@ from core.models.graph.path_aware_types import (
     PrincipleCrossContext,
     TaskCrossContext,
 )
-from core.models.enums import Domain
 
 # Mapping from domain to path-aware type
 PATH_AWARE_TYPE_MAP: dict[Domain, type] = {

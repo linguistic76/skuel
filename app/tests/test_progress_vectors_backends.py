@@ -11,8 +11,8 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from core.models.progress import UserProgress, generate_progress_uid
 from core.models.enums import Domain
+from core.models.progress import UserProgress, generate_progress_uid
 from core.models.vectors import EmbeddingVector, generate_embedding_uid, hash_source_text
 
 # ============================================================================

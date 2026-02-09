@@ -28,13 +28,13 @@ from datetime import date, timedelta
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums import Domain
 from core.models.enums.activity_enums import GoalStatus, ProgressLevel
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.graph_context import GraphContext
 from core.models.habit.habit import Habit
 from core.models.shared.dual_track import DualTrackResult
-from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
     GoalCrossContext,

@@ -34,11 +34,11 @@ from core.events.goal_events import (
     GoalCreated,
     GoalProgressUpdated,
 )
+from core.models.enums import ActivityStatus, EntityType, GoalStatus
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.relationship_names import RelationshipName
-from core.models.enums import ActivityStatus, EntityType, GoalStatus
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value

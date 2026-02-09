@@ -20,13 +20,13 @@ import asyncio
 
 import pytest
 
+from core.models.enums import Domain, Priority
 from core.models.goal.goal_dto import GoalDTO
 from core.models.ku.ku_dto import KuDTO
 from core.models.lp import LpDTO
 from core.models.ls import LearningStepDTO
 from core.models.principle.principle import PrincipleCategory
 from core.models.principle.principle_dto import PrincipleDTO
-from core.models.enums import Domain, Priority
 from core.models.task.task_dto import TaskDTO
 from core.utils.uid_generator import UIDGenerator
 

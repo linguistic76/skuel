@@ -18,8 +18,8 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
-from core.models.enums.report_enums import ProcessorType, ProjectScope
 from core.models.enums import Domain
+from core.models.enums.report_enums import ProcessorType, ProjectScope
 
 # ============================================================================
 # TIER 2 - DTO (Transfer Layer)

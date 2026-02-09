@@ -26,8 +26,8 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.goal.goal import Goal, GoalTimeframe, GoalType, MeasurementType
 from core.models.enums import Domain, GoalStatus, Priority
+from core.models.goal.goal import Goal, GoalTimeframe, GoalType, MeasurementType
 from core.services.goals.goals_core_service import GoalsCoreService
 
 

@@ -459,7 +459,6 @@ class ReportsProcessingService:
         je_output_path = output_result.value
 
         # Step 3: Extract activities if weight exceeds threshold
-        activities_extracted = 0
         if weights.should_extract_activities(threshold) and self.activity_extractor:
             self.logger.info(
                 f"Activity weight {weights.activity} > {threshold}, extracting entities"
@@ -467,7 +466,7 @@ class ReportsProcessingService:
             await self._extract_activities(report, report.user_uid, instructions)
             # Count would come from extraction result, but we don't have access here
             # This is tracked in report metadata by _extract_activities
-            activities_extracted = 1  # Placeholder - actual count in metadata
+            # Actual count tracked in report metadata by _extract_activities
 
         # Step 4: Store journal processing metadata
         current_metadata = report.metadata or {}

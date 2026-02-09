@@ -38,8 +38,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from core.models.relationship_names import RelationshipName
 from core.models.enums import ActivityStatus, Domain
+from core.models.relationship_names import RelationshipName
 from core.services.protocols.base_protocols import Direction
 
 # =============================================================================

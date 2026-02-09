@@ -37,6 +37,7 @@ that calls CalendarService for display data.
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from core.models.enums import ActivityStatus, EntityType, Priority
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarItem,
@@ -49,7 +50,6 @@ from core.models.event.event_dto import EventDTO
 from core.models.habit.habit import Habit as HabitPure
 from core.models.habit.habit import HabitStatus
 from core.models.habit.habit_dto import HabitDTO
-from core.models.enums import ActivityStatus, EntityType, Priority
 from core.models.task.task import Task as TaskPure
 from core.models.task.task_dto import TaskDTO
 from core.services.protocols import get_enum_value

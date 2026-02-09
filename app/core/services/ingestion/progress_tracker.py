@@ -23,7 +23,7 @@ class ProgressTracker:
         self,
         total_files: int,
         websocket_callback: Callable[[dict[str, Any]], None] | None = None,
-    ):
+    ) -> None:
         """
         Initialize progress tracker.
 

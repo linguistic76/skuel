@@ -20,6 +20,7 @@ import contextlib
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.ku.ku import Ku
 from core.models.ku.ku_intelligence import (
     ContentPreference,
@@ -31,7 +32,6 @@ from core.models.ku.ku_intelligence import (
 from core.models.lp.lp import LearningPath
 from core.models.relationship_names import RelationshipName
 from core.models.sel import SELCategoryProgress, SELJourney
-from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -175,11 +175,11 @@ class KuAdaptiveService:
         Calculate learning value score for a KU.
 
         Factors:
-        - Enables many future KUs (high leverage) × 10
-        - Matches user's preferred difficulty × 20
-        - Time fits user's availability × 15
-        - Foundational (no prerequisites) × 5
-        - Quick wins × 10
+        - Enables many future KUs (high leverage) x 10
+        - Matches user's preferred difficulty x 20
+        - Time fits user's availability x 15
+        - Foundational (no prerequisites) x 5
+        - Quick wins x 10
         """
         score = 0.0
 

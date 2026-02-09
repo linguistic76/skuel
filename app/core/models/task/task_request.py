@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import Field, ValidationInfo, field_validator
 
+from core.models.enums import ActivityStatus, Priority, RecurrencePattern
 from core.models.request_base import (
     CreateRequestBase,
     FilterRequestBase,
@@ -22,7 +23,6 @@ from core.models.request_base import (
     ResponseBase,
     UpdateRequestBase,
 )
-from core.models.enums import ActivityStatus, Priority, RecurrencePattern
 from core.models.validation_rules import (
     validate_future_date,
     validate_recurrence_end_after_start,

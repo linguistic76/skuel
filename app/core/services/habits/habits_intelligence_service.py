@@ -18,6 +18,7 @@ Date: 2025-10-13
 from typing import TYPE_CHECKING, Any
 
 from core.events.habit_events import HabitMissed, HabitStreakBroken
+from core.models.enums import Domain
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.graph_context import GraphContext
 from core.models.habit.habit import Habit
@@ -25,7 +26,6 @@ from core.models.habit.habit_dto import HabitDTO
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
-from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
     GraphContextOrchestrator,

@@ -29,9 +29,9 @@ from datetime import date, datetime, timedelta
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
+from core.models.enums import ActivityStatus, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
-from core.models.enums import ActivityStatus, Priority
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import ChoicesOperations

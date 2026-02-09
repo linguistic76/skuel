@@ -19,11 +19,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import GoalCreated, publish_event
+from core.models.enums import ActivityStatus, Domain
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.lp.lp_position import LpPosition
-from core.models.enums import ActivityStatus, Domain
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.goals_types import GoalLearningProgress, PathProgressData

@@ -26,6 +26,7 @@ Changelog:
 
 from datetime import date, timedelta
 
+from core.models.enums import Domain
 from core.models.principle.principle import (
     Principle,
     PrincipleCategory,
@@ -34,7 +35,6 @@ from core.models.principle.principle import (
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
-from core.models.enums import Domain
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import PrinciplesOperations

@@ -327,7 +327,7 @@ class ProgressReportGenerator:
     ) -> str:
         """Build markdown report content from completions data."""
         sections: list[str] = []
-        period_label = f"{start_date.strftime('%b %d')} – {end_date.strftime('%b %d, %Y')}"
+        period_label = f"{start_date.strftime('%b %d')} - {end_date.strftime('%b %d, %Y')}"
 
         sections.append(f"# Progress Report: {period_label}\n")
 

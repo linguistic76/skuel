@@ -9,10 +9,6 @@ This provides a uniform interface for different entity types in the calendar sys
 from datetime import date, datetime
 from typing import Any, cast
 
-# Import from three-tier models
-from core.models.event.event import Event as EventPure
-from core.models.event.event_request import EventType
-from core.models.habit.habit import Habit as HabitPure
 from core.models.enums import (
     ActivityStatus,
     ActivityType,
@@ -20,6 +16,11 @@ from core.models.enums import (
     RecurrencePattern,
     Visibility,
 )
+
+# Import from three-tier models
+from core.models.event.event import Event as EventPure
+from core.models.event.event_request import EventType
+from core.models.habit.habit import Habit as HabitPure
 from core.models.task.task import Task as TaskPure
 
 # Protocols

@@ -38,6 +38,9 @@ logger = get_logger("skuel.routes.ingestion")
 # Global dictionary to store active WebSocket connections by operation_id
 _active_connections: dict[str, WebSocket] = {}
 
+# Background tasks must be stored to prevent garbage collection (RUF006)
+_background_tasks: set[asyncio.Task[None]] = set()
+
 
 def broadcast_progress(operation_id: str, progress_data: dict[str, Any]) -> None:
     """
@@ -50,7 +53,9 @@ def broadcast_progress(operation_id: str, progress_data: dict[str, Any]) -> None
     if operation_id in _active_connections:
         ws = _active_connections[operation_id]
         try:
-            asyncio.create_task(ws.send_json(progress_data))
+            task = asyncio.create_task(ws.send_json(progress_data))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
         except Exception as e:
             logger.error(f"Failed to broadcast progress: {e}")
 
@@ -408,7 +413,7 @@ def create_ingestion_api_routes(
             if domain_name not in domain_to_entity:
                 return Result.fail(Errors.validation(f"Unknown domain: {domain_name}"))
 
-            entity_type = domain_to_entity[domain_name]
+            _ = domain_to_entity[domain_name]  # Validates domain exists in mapping
 
             # Perform ingestion (entity type filter would be added to batch.py in future)
             # For now, ingest all files in the directory

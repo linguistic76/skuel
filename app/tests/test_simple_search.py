@@ -10,7 +10,6 @@ Tests the search Pydantic models and enum dynamic methods:
 
 import pytest
 
-from core.models.search_request import FacetCount, SearchRequest, SearchResponse
 from core.models.enums import (
     ContentType,
     Domain,
@@ -18,6 +17,7 @@ from core.models.enums import (
     LearningLevel,
     SELCategory,
 )
+from core.models.search_request import FacetCount, SearchRequest, SearchResponse
 
 
 class TestSearchRequestModels:

@@ -157,8 +157,7 @@ async def check_existing_entities(
         database_="neo4j",
     )
 
-    exists_map = {record["uid"]: record["exists"] for record in result.records}
-    return exists_map
+    return {record["uid"]: record["exists"] for record in result.records}
 
 
 def parse_file_sync(

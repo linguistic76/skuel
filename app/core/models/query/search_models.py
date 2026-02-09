@@ -14,7 +14,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 # ============================================================================
 # SEARCH REQUEST MODELS (Tier 1 - Pydantic)
 # ============================================================================

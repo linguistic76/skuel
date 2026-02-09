@@ -21,9 +21,9 @@ Date: 2025-10-13
 from datetime import date, timedelta
 from typing import Any
 
+from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
-from core.models.enums import RecurrencePattern as HabitFrequency
 from core.services.protocols.domain_protocols import HabitsOperations
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model

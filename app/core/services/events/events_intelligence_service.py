@@ -19,13 +19,13 @@ Date: 2025-10-13
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
+from core.models.enums import Domain
 from core.models.enums.activity_enums import EngagementLevel
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.event.event_relationships import EventRelationships
 from core.models.graph_context import GraphContext
 from core.models.shared.dual_track import DualTrackResult
-from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
     GraphContextOrchestrator,

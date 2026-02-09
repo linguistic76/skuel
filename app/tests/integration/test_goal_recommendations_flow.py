@@ -27,14 +27,14 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.goal_events import GoalAchieved, GoalRecommendationsGenerated
-from core.models.goal.goal import Goal, GoalStatus, GoalType, MeasurementType
-from core.models.habit.habit import Habit, HabitStatus
-from core.models.ku.ku import Ku
-from core.models.principle.principle import Principle
 from core.models.enums import (
     Domain,
     SELCategory,
 )
+from core.models.goal.goal import Goal, GoalStatus, GoalType, MeasurementType
+from core.models.habit.habit import Habit, HabitStatus
+from core.models.ku.ku import Ku
+from core.models.principle.principle import Principle
 from core.services.goals.goals_recommendation_service import GoalsRecommendationService
 
 

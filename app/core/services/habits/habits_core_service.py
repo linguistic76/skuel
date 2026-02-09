@@ -20,11 +20,11 @@ from typing import Any
 
 from core.events import publish_event
 from core.events.habit_events import HabitCreated
+from core.models.enums import EntityType
 from core.models.enums.activity_enums import ActivityStatus
 from core.models.habit.habit import Habit, HabitStatus
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
-from core.models.enums import EntityType
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value
@@ -152,8 +152,8 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         Returns:
             None if valid, Result.fail() with validation error if invalid
         """
-        from core.models.habit.habit import HabitStatus
         from core.models.enums import RecurrencePattern
+        from core.models.habit.habit import HabitStatus
         from core.utils.result_simplified import Errors
 
         # Business Rule 1: Streak preservation on archive

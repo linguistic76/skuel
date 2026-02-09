@@ -20,8 +20,8 @@ import pytest_asyncio
 from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.ku.ku_dto import KuDTO
 from core.models.enums import Domain
+from core.models.ku.ku_dto import KuDTO
 
 # ============================================================================
 # FIXTURES

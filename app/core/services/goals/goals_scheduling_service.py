@@ -44,10 +44,10 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.events import GoalCreated, publish_event
+from core.models.enums import ActivityStatus, Domain, GoalStatus, Priority
 from core.models.goal.goal import Goal, GoalTimeframe, GoalType
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest
-from core.models.enums import ActivityStatus, Domain, GoalStatus, Priority
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper

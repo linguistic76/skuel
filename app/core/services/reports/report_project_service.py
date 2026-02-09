@@ -19,6 +19,7 @@ import json
 from datetime import date, datetime
 from typing import Any
 
+from core.models.enums import Domain
 from core.models.enums.report_enums import ProcessorType, ProjectScope
 from core.models.relationship_names import RelationshipName
 from core.models.report.report_project import (
@@ -26,7 +27,6 @@ from core.models.report.report_project import (
     ReportProjectPure,
     create_report_project,
 )
-from core.models.enums import Domain
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import get_enum_value

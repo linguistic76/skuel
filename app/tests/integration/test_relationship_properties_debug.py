@@ -6,8 +6,8 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.ku import Ku
 from core.models.enums import Domain, SELCategory
+from core.models.ku import Ku
 
 
 @pytest.mark.asyncio

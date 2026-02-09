@@ -176,7 +176,7 @@ class JournalModeClassifier:
         threshold = instructions.get("mode_threshold", 0.2)
 
         # Validate threshold is reasonable
-        if not isinstance(threshold, (int, float)):
+        if not isinstance(threshold, int | float):
             self.logger.warning(f"Invalid threshold type: {type(threshold)}, using 0.2")
             return 0.2
 

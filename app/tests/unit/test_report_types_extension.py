@@ -6,11 +6,8 @@ Tests PROGRESS and ASSESSMENT enum values, display names,
 is_file_based, subject_uid on Report, and converter logic.
 """
 
-import pytest
-
 from core.models.enums.report_enums import ReportStatus, ReportType
 from core.models.report.report import Report, ReportDTO, report_dto_to_pure, report_pure_to_dto
-
 
 # ============================================================================
 # ENUM TESTS

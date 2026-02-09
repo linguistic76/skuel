@@ -28,9 +28,9 @@ from core.events.calendar_event_events import (
     CalendarEventRescheduled,
     CalendarEventUpdated,
 )
+from core.models.enums import ActivityStatus, EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.enums import ActivityStatus, EntityType
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value

@@ -11,7 +11,6 @@ from fasthtml.common import A as Anchor
 from fasthtml.common import (
     Div,
     Li,
-    P,
     Span,
 )
 

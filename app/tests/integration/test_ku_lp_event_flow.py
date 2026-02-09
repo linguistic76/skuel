@@ -32,9 +32,9 @@ from core.events.learning_events import (
     LearningPathCompleted,
     LearningPathProgressUpdated,
 )
+from core.models.enums import Domain, SELCategory
 from core.models.ku.ku import Ku
 from core.models.lp.lp import Lp, LpType
-from core.models.enums import Domain, SELCategory
 from core.services.lp.lp_progress_service import LpProgressService
 
 

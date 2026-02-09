@@ -13,9 +13,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from core.models.enums import Domain
 from core.models.lp.lp import LearningPath
 from core.models.ls import LearningStep
-from core.models.enums import Domain
 
 
 @dataclass

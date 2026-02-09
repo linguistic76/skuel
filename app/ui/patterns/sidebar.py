@@ -24,10 +24,11 @@ Usage:
     )
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Button, Div, H3, Li, NotStr, P, Span, Ul
+from fasthtml.common import H3, A, Button, Div, Li, NotStr, P, Span, Ul
 
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType

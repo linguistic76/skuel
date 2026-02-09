@@ -15,8 +15,8 @@ from datetime import date
 
 import pytest
 
-from core.models.query import build_user_activity_query
 from core.models.enums import ActivityStatus
+from core.models.query import build_user_activity_query
 
 
 class TestUnifiedQueryPattern:

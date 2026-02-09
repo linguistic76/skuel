@@ -15,10 +15,10 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
+from core.models.enums import ActivityStatus, Priority, RecurrencePattern
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_relationships import GoalRelationships
-from core.models.enums import ActivityStatus, Priority, RecurrencePattern
 from core.models.task.task_dto import TaskDTO
 
 # Import protocol interfaces

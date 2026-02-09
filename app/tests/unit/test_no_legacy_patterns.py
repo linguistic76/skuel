@@ -60,11 +60,9 @@ def _find_ast_nodes(filepath: pathlib.Path, node_type: type) -> list[tuple[int, 
     except (SyntaxError, UnicodeDecodeError):
         return []
 
-    results = []
-    for node in ast.walk(tree):
-        if isinstance(node, node_type):
-            results.append((getattr(node, "lineno", 0), node))
-    return results
+    return [
+        (getattr(node, "lineno", 0), node) for node in ast.walk(tree) if isinstance(node, node_type)
+    ]
 
 
 def _find_hasattr_calls(filepath: pathlib.Path) -> list[int]:
@@ -186,11 +184,11 @@ class TestNoLinterViolations:
 
     def test_no_hasattr_in_core_services(self) -> None:
         """SKUEL011: Zero hasattr() in core/services/ — the strict zone."""
-        violations = []
-        for py_file in _iter_python_files(CORE_DIR / "services"):
-            lines = _find_hasattr_calls(py_file)
-            for lineno in lines:
-                violations.append(f"  {py_file.relative_to(APP_ROOT)}:{lineno}")
+        violations = [
+            f"  {py_file.relative_to(APP_ROOT)}:{lineno}"
+            for py_file in _iter_python_files(CORE_DIR / "services")
+            for lineno in _find_hasattr_calls(py_file)
+        ]
 
         assert not violations, (
             f"SKUEL011: Found {len(violations)} hasattr() call(s) in core/services/.\n"
@@ -199,11 +197,11 @@ class TestNoLinterViolations:
 
     def test_hasattr_ratchet(self) -> None:
         """SKUEL011: hasattr() count must not increase. Lower baseline as you fix them."""
-        violations = []
-        for py_file in _iter_python_files(*PRODUCTION_DIRS):
-            lines = _find_hasattr_calls(py_file)
-            for lineno in lines:
-                violations.append(f"  {py_file.relative_to(APP_ROOT)}:{lineno}")
+        violations = [
+            f"  {py_file.relative_to(APP_ROOT)}:{lineno}"
+            for py_file in _iter_python_files(*PRODUCTION_DIRS)
+            for lineno in _find_hasattr_calls(py_file)
+        ]
 
         count = len(violations)
         assert count <= self.HASATTR_BASELINE, (
@@ -219,11 +217,11 @@ class TestNoLinterViolations:
 
     def test_lambda_ratchet(self) -> None:
         """SKUEL012: lambda count must not increase. Lower baseline as you fix them."""
-        violations = []
-        for py_file in _iter_python_files(*PRODUCTION_DIRS):
-            lines = _find_lambda_expressions(py_file)
-            for lineno in lines:
-                violations.append(f"  {py_file.relative_to(APP_ROOT)}:{lineno}")
+        violations = [
+            f"  {py_file.relative_to(APP_ROOT)}:{lineno}"
+            for py_file in _iter_python_files(*PRODUCTION_DIRS)
+            for lineno in _find_lambda_expressions(py_file)
+        ]
 
         count = len(violations)
         assert count <= self.LAMBDA_BASELINE, (

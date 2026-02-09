@@ -29,10 +29,10 @@ from core.models.askesis.askesis_intelligence import (
     ConversationStyle,
     QueryComplexity,
 )
+from core.models.enums import GuidanceMode, Intent, Personality, ResponseTone
 from core.models.ku import KuDTO as KnowledgeUnitDTO
 from core.models.query import QueryIntent
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.enums import GuidanceMode, Intent, Personality, ResponseTone
 from core.models.query.search_models import FacetSetRequest as FacetSetSchema
 from core.models.query.search_models import SearchQueryRequest as SearchQuerySchema
 from core.models.query.search_models import SearchResultDTO as CrossDomainSearchResultsSchema

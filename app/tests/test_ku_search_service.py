@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.models.enums import Domain, SELCategory
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.models.enums import Domain, SELCategory
 from core.services.ku.ku_search_service import KuSearchService
 from core.utils.result_simplified import Result
 

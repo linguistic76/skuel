@@ -13,7 +13,24 @@ Components:
 
 from typing import Any
 
-from fasthtml.common import *
+from fasthtml.common import (
+    FT,
+    H2,
+    H3,
+    H4,
+    Button,
+    Div,
+    Li,
+    P,
+    Span,
+    Table,
+    Tbody,
+    Td,
+    Th,
+    Thead,
+    Tr,
+    Ul,
+)
 
 
 def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
@@ -28,10 +45,7 @@ def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
         FastHTML component with preview
     """
     # Handle both dataclass and dict inputs
-    if hasattr(preview, "__dict__"):
-        preview_dict = preview.__dict__
-    else:
-        preview_dict = preview
+    preview_dict = getattr(preview, "__dict__", preview)
 
     total_files = preview_dict.get("total_files", 0)
     files_to_create = preview_dict.get("files_to_create", [])

@@ -13,12 +13,14 @@ Requires: Docker running with Neo4j testcontainer.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
 import pytest
 import pytest_asyncio
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from core.services.ingestion.batch import ingest_directory
 from core.services.ingestion.types import DryRunPreview, IngestionStats

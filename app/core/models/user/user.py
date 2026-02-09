@@ -32,12 +32,11 @@ from typing import Any
 from core.constants import GraphDepth
 from core.infrastructure.utils.factory_functions import create_default_energy_pattern
 from core.models.base_models_consolidated import BaseEntity
-from core.models.enums import UserRole
+from core.models.enums import Domain, EnergyLevel, LearningLevel, TimeOfDay, UserRole
 from core.models.query import QueryIntent
 
 # Phase 1: Query Infrastructure
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.enums import Domain, EnergyLevel, LearningLevel, TimeOfDay
 
 # ============================================================================
 # USER PREFERENCES

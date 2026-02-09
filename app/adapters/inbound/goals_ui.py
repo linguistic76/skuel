@@ -31,8 +31,8 @@ from components.goals_views import GoalsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
-from core.models.goal.goal_request import GoalCreateRequest
 from core.models.enums import Priority
+from core.models.goal.goal_request import GoalCreateRequest
 from core.services.protocols.facade_protocols import GoalsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
 from core.ui.daisy_components import (

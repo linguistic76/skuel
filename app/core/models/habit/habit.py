@@ -23,12 +23,12 @@ from datetime import date, datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from core.models.enums import Priority, RecurrencePattern
 from core.models.mixins import StatusChecksMixin
 from core.models.query import QueryIntent
 
 # Phase 1: Query Infrastructure
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.enums import Priority, RecurrencePattern
 
 if TYPE_CHECKING:
     from core.models.habit.habit_relationships import HabitRelationships

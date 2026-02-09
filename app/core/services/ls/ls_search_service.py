@@ -21,10 +21,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from core.models.enums import Domain
 from core.models.ls import Ls, StepDifficulty, StepStatus
 from core.models.ls.ls_dto import LearningStepDTO
 from core.models.search.query_parser import ParsedSearchQuery
-from core.models.enums import Domain
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.logging import get_logger

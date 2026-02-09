@@ -30,9 +30,9 @@ from typing import TYPE_CHECKING, Any, cast
 
 from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
+from core.models.enums import ActivityStatus, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.enums import ActivityStatus, RecurrencePattern
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 

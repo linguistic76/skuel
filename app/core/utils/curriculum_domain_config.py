@@ -47,6 +47,7 @@ if TYPE_CHECKING:
 
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.lp import Lp
+    from core.services.ku.ku_adaptive_service import KuAdaptiveService
     from core.services.ku.ku_core_service import KuCoreService
     from core.services.ku.ku_graph_service import KuGraphService
     from core.services.ku.ku_interaction_service import KuInteractionService

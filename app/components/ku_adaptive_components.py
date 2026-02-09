@@ -15,9 +15,9 @@ from typing import Any
 
 from fasthtml.common import H1, H2, P
 
+from core.models.enums import SELCategory
 from core.models.ku.ku import Ku
 from core.models.sel import SELCategoryProgress, SELJourney
-from core.models.enums import SELCategory
 from core.ui.daisy_components import Div, Progress
 from core.ui.enum_helpers import get_sel_icon
 from ui.patterns.entity_card import CardConfig, EntityCard

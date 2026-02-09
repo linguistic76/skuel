@@ -20,11 +20,11 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import GoalAchieved, GoalMilestoneReached, GoalProgressUpdated, publish_event
 from core.events.task_events import TaskCompleted
+from core.models.enums import ActivityStatus, Domain, GoalStatus
 from core.models.goal.goal import Goal, MeasurementType
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_relationships import GoalRelationships
 from core.models.graph_context import GraphContext
-from core.models.enums import ActivityStatus, Domain, GoalStatus
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import ProgressCalculationHelper

@@ -23,10 +23,10 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from core.models.enums import ActivityStatus, Domain, GoalStatus, Priority, RecurrencePattern
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit, HabitStatus
-from core.models.enums import ActivityStatus, Domain, GoalStatus, Priority, RecurrencePattern
 from core.models.task.task import Task
 
 # ============================================================================

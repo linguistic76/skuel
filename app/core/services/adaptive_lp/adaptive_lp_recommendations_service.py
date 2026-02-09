@@ -15,8 +15,8 @@ from datetime import datetime
 from operator import attrgetter
 from typing import Any
 
-from core.models.goal.goal_dto import GoalDTO
 from core.models.enums import ActivityStatus
+from core.models.goal.goal_dto import GoalDTO
 from core.models.task.task_dto import TaskDTO
 
 # Import dataclasses from shared models module (breaks circular dependency)

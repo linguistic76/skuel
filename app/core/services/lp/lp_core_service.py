@@ -31,10 +31,10 @@ from typing import TYPE_CHECKING, Any
 from core.constants import MasteryLevel
 from core.events import publish_event
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
+from core.models.enums import Domain
 from core.models.lp import Lp
 from core.models.lp.lp_dto import LpDTO
 from core.models.ls import Ls
-from core.models.enums import Domain
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.services.protocols import HasUID, get_enum_value

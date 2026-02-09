@@ -23,12 +23,12 @@ from enum import Enum
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from core.models.enums import Domain, Priority
 from core.models.mixins import StatusChecksMixin
 from core.models.query import QueryIntent
 
 # Phase 1: Query Infrastructure
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.enums import Domain, Priority
 
 if TYPE_CHECKING:
     from core.models.choice.choice_dto import ChoiceDTO

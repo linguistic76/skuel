@@ -20,12 +20,18 @@ Sub-services:
 - ReportProjectService: LLM instruction project management
 """
 
+from core.services.reports.progress_report_generator import (
+    ProgressReportGenerator,
+)
 from core.services.reports.report_feedback_service import ReportFeedbackService
 from core.services.reports.report_processing_types import (
     ReportAIInsights,
     ReportProcessingContext,
 )
 from core.services.reports.report_project_service import ReportProjectService
+from core.services.reports.report_schedule_service import (
+    ReportScheduleService,
+)
 from core.services.reports.report_sharing_service import (
     ReportSharingService,
 )
@@ -39,12 +45,6 @@ from core.services.reports.reports_relationship_service import (
 from core.services.reports.reports_search_service import ReportsSearchService
 from core.services.reports.reports_submission_service import (
     ReportSubmissionService,
-)
-from core.services.reports.progress_report_generator import (
-    ProgressReportGenerator,
-)
-from core.services.reports.report_schedule_service import (
-    ReportScheduleService,
 )
 
 __all__ = [

@@ -63,7 +63,7 @@ class IngestionHistoryEntry:
 class IngestionHistoryService:
     """Tracks ingestion operations in Neo4j for audit trail."""
 
-    def __init__(self, driver: AsyncDriver):
+    def __init__(self, driver: AsyncDriver) -> None:
         """
         Initialize ingestion history service.
 
@@ -116,7 +116,7 @@ class IngestionHistoryService:
         """
 
         try:
-            result = await self.driver.execute_query(
+            await self.driver.execute_query(
                 query,
                 {
                     "operation_id": operation_id,

@@ -31,11 +31,11 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth, QueryLimit
+from core.models.enums import ActivityStatus, CompletionStatus, Domain, EntityType
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.graph_context import GraphContext
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
-from core.models.enums import ActivityStatus, CompletionStatus, Domain, EntityType
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_relationships import TaskRelationships

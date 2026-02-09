@@ -22,12 +22,12 @@ from datetime import datetime
 from typing import Any
 
 from core.constants import GraphDepth
+from core.models.enums import Domain, LearningLevel, SELCategory, SystemConstants
 
 # Phase 1: Query Infrastructure
 from core.models.ku.ku_dto import KuDTO
 from core.models.query import QueryIntent
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.enums import Domain, LearningLevel, SELCategory, SystemConstants
 
 
 @dataclass(frozen=True)

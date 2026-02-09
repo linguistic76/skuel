@@ -33,7 +33,7 @@ from core.models.report.report_request import (
 )
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 logger = get_logger("skuel.routes.reports.progress")
 

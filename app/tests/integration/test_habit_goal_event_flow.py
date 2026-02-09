@@ -29,9 +29,9 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.habit_events import HabitCompleted
+from core.models.enums import Domain, GoalStatus
 from core.models.goal.goal import Goal, MeasurementType
 from core.models.habit.habit import Habit
-from core.models.enums import Domain, GoalStatus
 from core.services.goals.goals_progress_service import GoalsProgressService
 
 

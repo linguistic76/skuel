@@ -344,7 +344,7 @@ def test_progress_data_types():
     # Verify types
     assert isinstance(data["current"], int)
     assert isinstance(data["total"], int)
-    assert isinstance(data["percentage"], (int, float))
+    assert isinstance(data["percentage"], int | float)
     assert isinstance(data["current_file"], str)
     assert isinstance(data["eta_seconds"], int)
 

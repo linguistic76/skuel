@@ -29,8 +29,8 @@ from components.tasks_views import TasksViewComponents
 from components.todoist_task_components import TodoistTaskComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
-from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.enums import ActivityStatus, Priority
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.task.task_request import TaskCreateRequest
 from core.services.protocols.facade_protocols import TasksFacadeProtocol
 from core.ui.daisy_components import Button, ButtonT, Card

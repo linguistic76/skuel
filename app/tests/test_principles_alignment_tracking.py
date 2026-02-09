@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from core.models.enums import Priority
 from core.models.principle.principle import (
     AlignmentAssessment,
     AlignmentLevel,
@@ -23,7 +24,6 @@ from core.models.principle.principle import (
     PrincipleSource,
     PrincipleStrength,
 )
-from core.models.enums import Priority
 from core.services.principles.principles_alignment_service import PrinciplesAlignmentService
 from core.utils.result_simplified import Result
 

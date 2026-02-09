@@ -273,11 +273,11 @@ async def test_get_history_success(
     """Test successful retrieval of ingestion history."""
     # Mock query result with multiple entries
     mock_ih_node = Mock()
-    mock_ih_node.__getitem__ = lambda self, key: mock_ingestion_history_data[key]
+    mock_ih_node.__getitem__ = lambda _self, key: mock_ingestion_history_data[key]
     mock_ih_node.get = lambda key, default=None: mock_ingestion_history_data.get(key, default)
 
     mock_record = Mock()
-    mock_record.__getitem__ = lambda self, key: {
+    mock_record.__getitem__ = lambda _self, key: {
         "ih": mock_ih_node,
         "errors": [],
     }[key]
@@ -323,11 +323,11 @@ async def test_get_history_with_errors(
     """Test retrieval includes error nodes."""
     # Mock ingestion history with errors
     mock_ih_node = Mock()
-    mock_ih_node.__getitem__ = lambda self, key: mock_ingestion_history_data[key]
+    mock_ih_node.__getitem__ = lambda _self, key: mock_ingestion_history_data[key]
     mock_ih_node.get = lambda key, default=None: mock_ingestion_history_data.get(key, default)
 
     mock_error_node = Mock()
-    mock_error_node.__getitem__ = lambda self, key: {
+    mock_error_node.__getitem__ = lambda _self, key: {
         "file": "/vault/bad.md",
         "error": "Missing title",
         "stage": "validation",
@@ -342,7 +342,7 @@ async def test_get_history_with_errors(
     }.get(key, default)
 
     mock_record = Mock()
-    mock_record.__getitem__ = lambda self, key: {
+    mock_record.__getitem__ = lambda _self, key: {
         "ih": mock_ih_node,
         "errors": [mock_error_node],
     }[key]
@@ -382,11 +382,11 @@ async def test_get_entry_found(
 ):
     """Test successful retrieval of specific entry."""
     mock_ih_node = Mock()
-    mock_ih_node.__getitem__ = lambda self, key: mock_ingestion_history_data[key]
+    mock_ih_node.__getitem__ = lambda _self, key: mock_ingestion_history_data[key]
     mock_ih_node.get = lambda key, default=None: mock_ingestion_history_data.get(key, default)
 
     mock_record = Mock()
-    mock_record.__getitem__ = lambda self, key: {
+    mock_record.__getitem__ = lambda _self, key: {
         "ih": mock_ih_node,
         "errors": [],
     }[key]
@@ -437,7 +437,7 @@ async def test_get_total_count_success(ingestion_history_service, mock_neo4j_dri
     """Test successful retrieval of total count."""
     # Create mock record that supports subscript access
     mock_record = Mock()
-    mock_record.__getitem__ = lambda self, key: 150 if key == "total" else None
+    mock_record.__getitem__ = lambda _self, key: 150 if key == "total" else None
 
     mock_result = Mock()
     mock_result.records = [mock_record]
@@ -515,7 +515,7 @@ async def test_complete_ingestion_workflow(ingestion_history_service, mock_neo4j
 
     # Step 3: Retrieve entry (mock return)
     mock_ih_node = Mock()
-    mock_ih_node.__getitem__ = lambda self, key: {
+    mock_ih_node.__getitem__ = lambda _self, key: {
         "operation_id": operation_id,
         "operation_type": "directory",
         "started_at": datetime.now(),
@@ -548,7 +548,7 @@ async def test_complete_ingestion_workflow(ingestion_history_service, mock_neo4j
     )
 
     mock_neo4j_driver.execute_query.return_value = Mock(
-        records=[Mock(__getitem__=lambda self, key: {"ih": mock_ih_node, "errors": []}[key])]
+        records=[Mock(__getitem__=lambda _self, key: {"ih": mock_ih_node, "errors": []}[key])]
     )
 
     get_result = await ingestion_history_service.get_entry(operation_id)

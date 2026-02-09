@@ -50,6 +50,7 @@ if TYPE_CHECKING:
 
     from core.models.choice.choice import Choice
     from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
+    from core.models.enums import Domain
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
     from core.models.goal.goal_request import GoalCreateRequest
@@ -58,7 +59,6 @@ if TYPE_CHECKING:
     from core.models.lp import Lp
     from core.models.ls import Ls
     from core.models.principle.principle import Principle, PrincipleCategory
-    from core.models.enums import Domain
     from core.models.task.task import Task
     from core.models.task.task_request import TaskCreateRequest
     from core.services.user import UserContext

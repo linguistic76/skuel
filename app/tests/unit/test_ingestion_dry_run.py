@@ -53,10 +53,10 @@ class SimpleMockDriver:
 
                 # Create record object that supports subscript access
                 def make_getitem(data):
-                    return lambda self, k: data[k]
+                    return lambda _self, k: data[k]
 
                 def make_get(data):
-                    return lambda self, k, default=None: data.get(k, default)
+                    return lambda _self, k, default=None: data.get(k, default)
 
                 record_obj = type(
                     "Record",

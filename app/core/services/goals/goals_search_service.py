@@ -26,11 +26,11 @@ Changelog:
 
 from datetime import date, timedelta
 
+from core.models.enums import GoalStatus
 from core.models.goal.goal import Goal, GoalTimeframe
 from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
-from core.models.enums import GoalStatus
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import GoalsOperations

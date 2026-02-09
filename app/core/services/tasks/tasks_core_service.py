@@ -23,8 +23,8 @@ from datetime import date, datetime
 from typing import Any
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
-from core.models.relationship_names import RelationshipName
 from core.models.enums import ActivityStatus, EntityType
+from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest

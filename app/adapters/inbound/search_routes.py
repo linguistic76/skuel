@@ -29,9 +29,6 @@ from components.search_components import (
     render_search_results,
 )
 from core.auth import require_authenticated_user
-from core.models.relationship_names import RelationshipName
-from core.models.search import SearchRouter
-from core.models.search_request import SearchRequest
 from core.models.enums import (
     ActivityStatus,
     ContentType,
@@ -41,6 +38,9 @@ from core.models.enums import (
     Priority,
     SELCategory,
 )
+from core.models.relationship_names import RelationshipName
+from core.models.search import SearchRouter
+from core.models.search_request import SearchRequest
 
 if TYPE_CHECKING:
     from core.utils.services_bootstrap import Services

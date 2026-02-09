@@ -16,10 +16,10 @@ from datetime import date, time, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from core.models.enums import Priority, RecurrencePattern
 from core.models.event.event_dto import EventDTO
 from core.models.habit.habit import Habit, HabitCategory
 from core.models.habit.habit_dto import HabitDTO
-from core.models.enums import Priority, RecurrencePattern
 
 # Import protocol interfaces
 from core.utils.dto_helpers import to_domain_model

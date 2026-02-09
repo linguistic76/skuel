@@ -9,7 +9,7 @@ Components:
 - DomainIngestionModal: Modal for ingestion configuration
 """
 
-from fasthtml.common import *
+from fasthtml.common import FT, H3, Button, Dialog, Div, Form, Input, Label, P, Span
 
 
 def DomainIngestionTrigger(domain_name: str, is_admin: bool) -> FT | None:

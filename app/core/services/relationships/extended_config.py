@@ -15,9 +15,9 @@ Date: 2025-12-03
 from dataclasses import dataclass, field
 from typing import Any
 
+from core.models.enums import Domain
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import DomainRelationshipConfig
-from core.models.enums import Domain
 
 
 @dataclass(frozen=True)

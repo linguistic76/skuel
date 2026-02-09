@@ -6,7 +6,7 @@ Tests create_assessment, get_assessments_for_student,
 and get_assessments_by_teacher on ReportsCoreService.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -38,8 +38,7 @@ def mock_event_bus():
 @pytest.fixture
 def mock_sharing_service():
     """Create a mock sharing service."""
-    service = MagicMock()
-    return service
+    return MagicMock()
 
 
 @pytest.fixture

@@ -36,9 +36,9 @@ from components.habits_views import HabitsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
+from core.models.enums import Priority
 from core.models.habit.habit import HabitStatus
 from core.models.habit.habit_request import HabitCreateRequest
-from core.models.enums import Priority
 from core.services.protocols.facade_protocols import GoalsFacadeProtocol, HabitsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
 from core.ui.daisy_components import Button, ButtonT, Card, CardBody, Div, Size, Span
@@ -859,9 +859,9 @@ def create_habits_ui_routes(
 
         Handles form parsing, request building, and service call.
         """
+        from core.models.enums import RecurrencePattern
         from core.models.habit.habit import HabitCategory
         from core.models.habit.habit_request import HabitCreateRequest
-        from core.models.enums import RecurrencePattern
 
         # Extract form data
         name = form_data.get("name", "").strip()

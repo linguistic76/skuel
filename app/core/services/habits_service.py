@@ -34,10 +34,10 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums import ActivityStatus
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
-from core.models.enums import ActivityStatus
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 

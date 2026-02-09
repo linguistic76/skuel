@@ -18,6 +18,7 @@ from enum import Enum
 from typing import Any
 
 from core.constants import GraphDepth
+from core.models.enums import Domain
 
 # Import Ls from authoritative source (ls module)
 # Ls (Learning Step) is a cluster of Knowledge Units (ku:*)
@@ -26,7 +27,6 @@ from core.models.query import QueryIntent
 
 # Phase 1: Query Infrastructure
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.enums import Domain
 
 
 class LpType(str, Enum):

@@ -12,7 +12,7 @@ Components:
 
 from typing import Any
 
-from fasthtml.common import *
+from fasthtml.common import FT, H2, A, Button, Div, P, Span, Table, Tbody, Td, Th, Thead, Tr
 
 
 def IngestionHistoryDashboard(entries: list[Any], page: int, total_pages: int) -> FT:
@@ -81,10 +81,7 @@ def IngestionHistoryRow(entry: Any) -> FT:
         FastHTML component (Tr)
     """
     # Handle both dataclass and dict inputs
-    if hasattr(entry, "__dict__"):
-        entry_dict = entry.__dict__
-    else:
-        entry_dict = entry
+    entry_dict = getattr(entry, "__dict__", entry)
 
     operation_id = entry_dict.get("operation_id", "")
     operation_type = entry_dict.get("operation_type", "unknown")
@@ -94,10 +91,8 @@ def IngestionHistoryRow(entry: Any) -> FT:
     stats = entry_dict.get("stats", {})
 
     # Format datetime
-    if hasattr(started_at, "strftime"):
-        started_str = started_at.strftime("%Y-%m-%d %H:%M")
-    else:
-        started_str = str(started_at)
+    strftime = getattr(started_at, "strftime", None)
+    started_str = strftime("%Y-%m-%d %H:%M") if strftime else str(started_at)
 
     # Status badge styling
     status_badge_map = {

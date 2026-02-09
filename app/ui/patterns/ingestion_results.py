@@ -13,7 +13,7 @@ Components:
 
 from typing import Any
 
-from fasthtml.common import *
+from fasthtml.common import FT, H3, Div, Span, Strong, Table, Tbody, Td, Th, Thead, Tr
 
 
 def IngestionResultsSummary(stats: Any) -> FT:
@@ -27,10 +27,7 @@ def IngestionResultsSummary(stats: Any) -> FT:
         FastHTML component with formatted results
     """
     # Handle both dataclass and dict inputs
-    if hasattr(stats, "__dict__"):
-        stats_dict = stats.__dict__
-    else:
-        stats_dict = stats
+    stats_dict = getattr(stats, "__dict__", stats)
 
     total_files = stats_dict.get("total_files", 0)
     successful = stats_dict.get("successful", 0) or stats_dict.get("files_ingested", 0)

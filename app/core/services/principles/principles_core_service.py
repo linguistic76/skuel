@@ -17,10 +17,10 @@ from datetime import date, datetime
 from typing import Any
 
 from core.events import publish_event
+from core.models.enums import EntityType
 from core.models.enums.activity_enums import ActivityStatus
 from core.models.principle.principle import Principle, PrincipleCategory, PrincipleStrength
 from core.models.principle.principle_dto import PrincipleDTO
-from core.models.enums import EntityType
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import PrinciplesOperations

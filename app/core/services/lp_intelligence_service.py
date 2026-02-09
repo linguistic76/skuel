@@ -32,11 +32,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
+from core.models.enums import Domain
 from core.models.graph_context import GraphContext
 from core.models.lp import Lp
 from core.models.lp.lp_dto import LpDTO
 from core.models.query import QueryIntent
-from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
 from core.services.lp_intelligence.content_analyzer import ContentAnalyzer

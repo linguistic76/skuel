@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.models.choice.choice import Choice
+    from core.models.enums import Domain
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
@@ -45,7 +46,6 @@ if TYPE_CHECKING:
     from core.models.search.filters import BaseSearchFilters
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest
-    from core.models.enums import Domain
     from core.models.task.task import Task
     from core.services.user import UserContext
 

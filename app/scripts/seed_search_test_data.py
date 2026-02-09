@@ -24,11 +24,6 @@ from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
-from core.models.event.event import Event
-from core.models.goal.goal import Goal
-from core.models.habit.habit import Habit
-from core.models.ku import Ku
-from core.models.principle.principle import Principle
 from core.models.enums import (
     ActivityStatus,
     ContentType,
@@ -39,6 +34,11 @@ from core.models.enums import (
     RecurrencePattern,
     SELCategory,
 )
+from core.models.event.event import Event
+from core.models.goal.goal import Goal
+from core.models.habit.habit import Habit
+from core.models.ku import Ku
+from core.models.principle.principle import Principle
 from core.models.task.task import Task
 from core.utils.logging import get_logger
 

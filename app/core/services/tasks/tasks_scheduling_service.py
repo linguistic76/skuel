@@ -23,9 +23,9 @@ from datetime import date, timedelta
 from operator import itemgetter
 from typing import Any
 
+from core.models.enums import ActivityStatus, Domain, Priority
 from core.models.lp.lp_position import LpPosition
 from core.models.relationship_names import RelationshipName
-from core.models.enums import ActivityStatus, Domain, Priority
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest

@@ -23,9 +23,9 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from core.events import CalendarEventCompleted, publish_event
+from core.models.enums import ActivityStatus
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.enums import ActivityStatus
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import EventsOperations

@@ -7,15 +7,15 @@ and depth control with mocked dependencies.
 """
 
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from core.models.enums.report_enums import ProcessorType, ReportStatus, ReportType
 from core.models.report.report import Report
 from core.services.reports.progress_report_generator import (
-    ProgressReportGenerator,
     TIME_PERIOD_DAYS,
+    ProgressReportGenerator,
 )
 
 

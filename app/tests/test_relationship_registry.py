@@ -9,6 +9,7 @@ January 2026 Consolidation (ADR-026)
 February 2026: Removed parallel config tests (generator functions deleted)
 """
 
+from core.models.enums import Domain
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
@@ -30,7 +31,6 @@ from core.models.relationship_registry import (
     get_config_by_label,
     get_domain_config,
 )
-from core.models.enums import Domain
 
 
 class TestUnifiedRegistry:
