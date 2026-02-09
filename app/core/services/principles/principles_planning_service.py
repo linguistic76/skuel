@@ -252,16 +252,16 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
                 attention_threshold_days=attention_threshold_days,
             )
 
-            contextual = ContextualPrinciple(
+            contextual = ContextualPrinciple.from_entity_and_context(
                 uid=principle_uid,
-                title=name,  # Principles use 'name', map to base class 'title'
                 name=name,
-                attention_score=attention_score,
+                context=context,
                 alignment_score=alignment_score,
-                alignment_trend=alignment_trend,
                 days_since_reflection=days_since_reflection,
-                attention_reasons=tuple(reasons),
+                alignment_trend=alignment_trend,
+                attention_reasons=reasons,
                 suggested_action=self._suggest_attention_action(reasons),
+                priority_override=attention_score,
             )
             needing_attention.append(contextual)
 
@@ -377,15 +377,15 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
             )
 
             principle_name = data.get("name", "Unknown")
-            contextual = ContextualPrinciple(
+            contextual = ContextualPrinciple.from_entity_and_context(
                 uid=principle_uid,
-                title=principle_name,  # Principles use 'name', map to base class 'title'
                 name=principle_name,
-                relevance_score=min(1.0, relevance),
-                connected_task_uids=tuple(connected_tasks),
-                connected_event_uids=tuple(connected_events),
-                connected_goal_uids=tuple(connected_goals),
+                context=context,
+                connected_task_uids=connected_tasks,
+                connected_event_uids=connected_events,
+                connected_goal_uids=connected_goals,
                 practice_opportunity=practice_opportunity,
+                relevance_override=min(1.0, relevance),
             )
             result.append(contextual)
 

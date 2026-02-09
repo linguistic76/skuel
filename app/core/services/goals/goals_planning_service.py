@@ -189,45 +189,17 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             if progress < min_progress:
                 continue
 
-            # Calculate readiness (knowledge prerequisites met)
-            readiness = self._calculate_readiness_score_static(knowledge_uids, [], context)
-
             # Get contributing entities from context
             contributing_tasks = context.tasks_by_goal.get(goal_uid, [])
             contributing_habits = context.habits_by_goal.get(goal_uid, [])
 
-            # Calculate relevance based on alignment
-            relevance = self._calculate_relevance_score_static([goal_uid], principle_uids, context)
-
-            # Higher relevance for primary focus
-            if goal_uid == context.primary_goal_focus:
-                relevance = min(1.0, relevance + 0.3)
-
-            # Calculate urgency
-            is_at_risk = goal_uid in context.at_risk_goals
-            urgency = 0.8 if is_at_risk else 0.3
-
-            priority = (readiness * 0.3) + (relevance * 0.4) + (progress * 0.2) + (urgency * 0.1)
-
-            # Identify learning gaps
-            learning_gaps = [
-                ku_uid
-                for ku_uid in knowledge_uids
-                if context.knowledge_mastery.get(ku_uid, 0.0) < 0.7
-            ]
-
-            contextual = ContextualGoal(
+            contextual = ContextualGoal.from_entity_and_context(
                 uid=goal_uid,
                 title=title,
-                readiness_score=readiness,
-                relevance_score=relevance,
-                priority_score=priority,
-                current_progress=progress,
-                contributing_tasks=tuple(contributing_tasks),
-                contributing_habits=tuple(contributing_habits),
-                knowledge_required=tuple(knowledge_uids),
-                is_at_risk=is_at_risk,
-                learning_gaps=tuple(learning_gaps),
+                context=context,
+                contributing_task_uids=contributing_tasks,
+                contributing_habit_uids=contributing_habits,
+                required_knowledge_uids=knowledge_uids,
             )
             advancing_goals.append(contextual)
 
@@ -319,26 +291,18 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             if not contributing_habits and habit_uids:
                 blocking_reasons.append("Has required habits but none active")
 
-            # Calculate scores
-            readiness = self._calculate_readiness_score_static(knowledge_uids, [], context)
-            relevance = 0.7  # Stalled goals are still relevant
-
             # Get title safely
             title = getattr(goal, "title", str(goal_uid))
 
-            contextual = ContextualGoal(
+            contextual = ContextualGoal.from_entity_and_context(
                 uid=goal_uid,
                 title=title,
-                readiness_score=readiness,
-                relevance_score=relevance,
-                priority_score=relevance * (1 - progress),  # Higher priority for lower progress
-                current_progress=progress,
-                contributing_tasks=tuple(contributing_tasks),
-                contributing_habits=tuple(contributing_habits),
-                knowledge_required=tuple(knowledge_uids),
-                is_at_risk=True,  # Stalled = at risk
-                blocking_reasons=tuple(blocking_reasons[:3]),
-                learning_gaps=tuple(knowledge_gaps),
+                context=context,
+                contributing_task_uids=contributing_tasks,
+                contributing_habit_uids=contributing_habits,
+                required_knowledge_uids=knowledge_uids,
+                relevance_override=0.7,
+                priority_override=0.7 * (1 - progress),
             )
             stalled_goals.append(contextual)
 
@@ -408,30 +372,19 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             contributing_tasks = context.tasks_by_goal.get(goal_uid, [])
             contributing_habits = context.habits_by_goal.get(goal_uid, [])
 
-            # Identify what's left
-            remaining_knowledge = [
-                ku_uid
-                for ku_uid in knowledge_uids
-                if context.knowledge_mastery.get(ku_uid, 0.0) < 0.9
-            ]
-
-            # Calculate priority (closer = higher priority)
-            priority = progress * 1.2  # Boost near-completion
-
             # Get title safely
             title = getattr(goal, "title", str(goal_uid))
 
-            contextual = ContextualGoal(
+            contextual = ContextualGoal.from_entity_and_context(
                 uid=goal_uid,
                 title=title,
-                readiness_score=1.0,  # Near completion = ready
-                relevance_score=0.9,  # High relevance
-                priority_score=min(1.0, priority),
-                current_progress=progress,
-                contributing_tasks=tuple(contributing_tasks),
-                contributing_habits=tuple(contributing_habits),
-                knowledge_required=tuple(remaining_knowledge),
-                unlocks=tuple(unlocks),
+                context=context,
+                contributing_task_uids=contributing_tasks,
+                contributing_habit_uids=contributing_habits,
+                required_knowledge_uids=knowledge_uids,
+                readiness_override=1.0,
+                relevance_override=0.9,
+                priority_override=min(1.0, progress * 1.2),
             )
             achievable_goals.append(contextual)
 

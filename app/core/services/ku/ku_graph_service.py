@@ -1103,36 +1103,18 @@ class KuGraphService:
             prereq_uids = record.get("prereq_uids", [])
             dependent_count = record.get("dependent_count", 0)
 
-            # Calculate relevance based on goal alignment
-            relevance = self._calculate_knowledge_relevance(uid, context)
-
-            # Calculate priority score
-            priority = (readiness * 0.5) + (relevance * 0.3) + (min(1.0, dependent_count / 5) * 0.2)
-
-            # Determine blocking reasons (missing prerequisites)
-            missing_prereqs = [p for p in prereq_uids if p not in mastered_uids]
-            blocking_reasons = tuple(f"Missing prerequisite: {p}" for p in missing_prereqs[:3])
-
             # Find application opportunities (tasks/habits that apply this knowledge)
             application_opps = self._find_application_opportunities(uid, context)
 
-            contextual_ku = ContextualKnowledge(
+            contextual_ku = ContextualKnowledge.from_entity_and_context(
                 uid=uid,
                 title=title,
-                readiness_score=readiness,
-                relevance_score=relevance,
-                priority_score=priority,
-                user_mastery=context.knowledge_mastery.get(uid, 0.0),
-                prerequisites_met=readiness >= 0.9,
-                application_opportunities=tuple(application_opps),
-                prerequisite_count=record.get("total_prereqs", 0),
+                context=context,
+                prerequisite_uids=prereq_uids,
+                application_task_uids=application_opps,
                 dependent_count=dependent_count,
-                blocking_reasons=blocking_reasons,
-                unlocks=tuple(
-                    f"Enables {dependent_count} advanced topics"
-                    for _ in range(1)
-                    if dependent_count > 0
-                ),
+                readiness_override=readiness,  # Use Cypher-computed readiness
+                weights=(0.5, 0.3, 0.2),
             )
             contextual_kus.append(contextual_ku)
 
@@ -1237,28 +1219,15 @@ class KuGraphService:
             # Relevance is high because this blocks goals
             relevance = min(1.0, goals_blocked / max(1, len(target_goals)))
 
-            # Priority based on impact and readiness
-            priority = (relevance * 0.6) + (readiness * 0.4)
-
-            # Build blocking reasons
-            blocking_reasons = tuple(f"Blocks goal: {g}" for g in blocking_goal_uids[:3])
-
-            # Unlocks are the goals this would unblock
-            unlocks = tuple("Unblocks goal progress" for _ in range(1) if goals_blocked > 0)
-
-            contextual_ku = ContextualKnowledge(
+            contextual_ku = ContextualKnowledge.from_entity_and_context(
                 uid=uid,
                 title=title,
-                readiness_score=readiness,
-                relevance_score=relevance,
-                priority_score=priority,
-                user_mastery=0.0,  # This is a gap, so mastery is 0
-                prerequisites_met=readiness >= 0.9,
-                application_opportunities=tuple(blocking_goal_uids),  # Goals that need this
-                prerequisite_count=prereq_count,
-                dependent_count=goals_blocked,  # Goals blocked by this gap
-                blocking_reasons=blocking_reasons,
-                unlocks=unlocks,
+                context=context,
+                application_task_uids=blocking_goal_uids,  # Goals that need this
+                dependent_count=goals_blocked,
+                readiness_override=readiness,  # Use Cypher-computed readiness
+                relevance_override=relevance,
+                weights=(0.4, 0.6),  # 2D: readiness + relevance (impact-weighted)
             )
             contextual_kus.append(contextual_ku)
 
@@ -1362,9 +1331,6 @@ class KuGraphService:
             goal_relevance = data.get("goal_relevance", 0)
             dependent_count = data.get("dependent_count", 0)
 
-            # Readiness is high (already learned)
-            readiness = 0.9
-
             # Relevance based on goal usage
             relevance = (
                 min(1.0, goal_relevance / max(1, len(context.active_goal_uids)))
@@ -1372,28 +1338,16 @@ class KuGraphService:
                 else 0.5
             )
 
-            # Priority: lower mastery = higher priority, more goal-relevant = higher priority
-            decay_urgency = 1.0 - mastery
-            priority = (
-                (decay_urgency * 0.5) + (relevance * 0.3) + (min(1.0, dependent_count / 5) * 0.2)
-            )
-
-            contextual_ku = ContextualKnowledge(
+            contextual_ku = ContextualKnowledge.from_entity_and_context(
                 uid=uid,
                 title=title,
-                readiness_score=readiness,
-                relevance_score=relevance,
-                priority_score=priority,
-                user_mastery=mastery,
-                prerequisites_met=True,  # Already learned
-                application_opportunities=tuple(
-                    context.active_task_uids[:3]
-                ),  # Tasks to practice with
-                prerequisite_count=0,
+                context=context,
+                application_task_uids=list(context.active_task_uids[:3]),
                 dependent_count=dependent_count,
-                blocking_reasons=tuple(["Mastery decaying - needs reinforcement"]),
-                unlocks=tuple(),
                 substance_score=mastery,  # Use mastery as substance proxy
+                readiness_override=0.9,  # Already learned
+                relevance_override=relevance,
+                weights=(0.5, 0.3, 0.2),  # decay_urgency, relevance, impact
             )
             contextual_kus.append(contextual_ku)
 

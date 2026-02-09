@@ -211,45 +211,23 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                         graph_ctx = habit_data.get("graph_context", {})
                         break
 
-            # Calculate scores
-            is_at_risk = habit_uid in context.at_risk_habits
-            is_keystone = habit_uid in context.keystone_habits
-            is_identity = habit.is_identity_habit
-
             # Get goal associations from graph context
             goal_uids = [g.get("uid") for g in graph_ctx.get("linked_goals", []) if g.get("uid")]
             knowledge_uids = [
                 k.get("uid") for k in graph_ctx.get("applied_knowledge", []) if k.get("uid")
             ]
 
-            # Calculate urgency (streak-based)
-            urgency = self._calculate_urgency_score(habit, is_at_risk)
-
-            # Calculate relevance (goal + identity alignment)
-            relevance = self._calculate_relevance_score(
-                goal_uids, is_identity, is_keystone, context
-            )
-
-            # Calculate readiness (should do today based on frequency)
-            readiness = self._calculate_readiness_score(habit, date.today())
-
-            # Combined priority
-            priority = (urgency * 0.4) + (relevance * 0.3) + (readiness * 0.3)
-
-            contextual = ContextualHabit(
+            contextual = ContextualHabit.from_entity_and_context(
                 uid=habit_uid,
                 title=habit.name,
-                readiness_score=readiness,
-                relevance_score=relevance,
-                priority_score=priority,
+                context=context,
+                supported_goal_uids=goal_uids,
+                applied_knowledge_uids=knowledge_uids,
                 current_streak=habit.current_streak,
                 completion_rate=habit.success_rate,
-                is_at_risk=is_at_risk,
-                supports_goals=tuple(goal_uids),
-                is_keystone=is_keystone,
                 days_since_last=self._days_since_last_completion(habit),
                 best_streak=habit.best_streak,
-                applies_knowledge=tuple(knowledge_uids),
+                weights=(0.3, 0.3, 0.4),
             )
             prioritized.append(contextual)
 
@@ -321,33 +299,30 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
             if habit.last_completed and habit.last_completed.date() == today:
                 continue
 
-            # Calculate scores
-            is_at_risk = habit_uid in context.at_risk_habits
-            is_keystone = habit_uid in context.keystone_habits
-            is_identity = habit.is_identity_habit
-
             goal_uids = [g.get("uid") for g in graph_ctx.get("linked_goals", []) if g.get("uid")]
+            is_keystone = habit_uid in context.keystone_habits
 
+            # Compute urgency + relevance for custom weighting
+            is_at_risk = habit_uid in context.at_risk_habits
             urgency = self._calculate_urgency_score(habit, is_at_risk)
             relevance = self._calculate_relevance_score(
-                goal_uids, is_identity, is_keystone, context
+                goal_uids, habit.is_identity_habit, is_keystone, context
             )
-
             priority = (urgency * 0.5) + (relevance * 0.3) + (0.2 if is_keystone else 0.1)
 
-            contextual = ContextualHabit(
+            contextual = ContextualHabit.from_entity_and_context(
                 uid=habit_uid,
                 title=habit.name,
-                readiness_score=1.0,  # Due today = ready
-                relevance_score=relevance,
-                priority_score=priority,
+                context=context,
+                supported_goal_uids=goal_uids,
+                is_due_today=True,
                 current_streak=habit.current_streak,
                 completion_rate=habit.success_rate,
-                is_at_risk=is_at_risk,
-                supports_goals=tuple(goal_uids),
-                is_keystone=is_keystone,
                 days_since_last=self._days_since_last_completion(habit),
                 best_streak=habit.best_streak,
+                readiness_override=1.0,
+                relevance_override=relevance,
+                priority_override=priority,
             )
             actionable.append(contextual)
 
@@ -446,17 +421,16 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
             learning_overlap = len([k for k in knowledge_uids if k in learning_ku])
             learning_impact = min(1.0, learning_overlap * 0.3 + 0.4)
 
-            contextual = ContextualHabit(
+            contextual = ContextualHabit.from_entity_and_context(
                 uid=habit_uid,
                 title=habit.name,
-                readiness_score=0.8,  # Learning habits are generally ready
-                relevance_score=learning_impact,
-                priority_score=learning_impact,
+                context=context,
+                applied_knowledge_uids=knowledge_uids,
                 current_streak=habit.current_streak,
                 completion_rate=habit.success_rate,
-                is_at_risk=habit_uid in context.at_risk_habits,
-                applies_knowledge=tuple(knowledge_uids),
-                is_keystone=habit_uid in context.keystone_habits,
+                readiness_override=0.8,
+                relevance_override=learning_impact,
+                priority_override=learning_impact,
             )
             learning_habits.append(contextual)
 
@@ -528,19 +502,18 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
             # Calculate goal support score
             active_goal_support = len([g for g in supported_goals if g in context.active_goal_uids])
-            relevance = min(1.0, active_goal_support * 0.3 + 0.4)
+            goal_support_score = min(1.0, active_goal_support * 0.3 + 0.4)
 
-            contextual = ContextualHabit(
+            contextual = ContextualHabit.from_entity_and_context(
                 uid=habit_uid,
                 title=habit.name,
-                readiness_score=1.0 if habit.should_do_today(date.today().weekday()) else 0.5,
-                relevance_score=relevance,
-                priority_score=relevance,
+                context=context,
+                supported_goal_uids=supported_goals,
+                is_due_today=habit.should_do_today(date.today().weekday()),
                 current_streak=habit.current_streak,
                 completion_rate=habit.success_rate,
-                is_at_risk=habit_uid in context.at_risk_habits,
-                supports_goals=tuple(supported_goals),
-                is_keystone=habit_uid in context.keystone_habits,
+                relevance_override=goal_support_score,
+                priority_override=goal_support_score,
             )
             goal_habits.append(contextual)
 
@@ -612,17 +585,17 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
             is_established = prereq_streak >= ESTABLISHED_STREAK_THRESHOLD
 
-            contextual_prereq = ContextualHabit(
+            contextual_prereq = ContextualHabit.from_entity_and_context(
                 uid=prereq_uid,
                 title=prereq_habit.name,
-                readiness_score=1.0
-                if is_established
-                else prereq_streak / ESTABLISHED_STREAK_THRESHOLD,
-                relevance_score=0.8,  # Prerequisites are relevant
-                priority_score=0.9 if not is_established else 0.5,
+                context=context,
                 current_streak=prereq_streak,
                 completion_rate=prereq_habit.success_rate,
-                is_at_risk=prereq_uid in context.at_risk_habits,
+                readiness_override=1.0
+                if is_established
+                else prereq_streak / ESTABLISHED_STREAK_THRESHOLD,
+                relevance_override=0.8,
+                priority_override=0.9 if not is_established else 0.5,
             )
 
             if is_established:

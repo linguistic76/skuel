@@ -165,33 +165,13 @@ class TasksPlanningService(BasePlanningService[TasksOperations, Task]):
             dep_prereq_tasks = await self._get_related_uids("prerequisite_tasks", dep.uid)
             dep_goals: list[str] = []  # Would need goal relationship query
 
-            # Calculate scores using static methods
-            readiness = self._calculate_readiness_score(
-                dep_knowledge,
-                dep_prereq_tasks,
-                context,
-            )
-            relevance = self._calculate_relevance_score(dep_goals, [], context)
-            urgency = 0.5 if dep.uid in context.overdue_task_uids else 0.2
-            priority = (readiness * 0.4) + (relevance * 0.4) + (urgency * 0.2)
-
-            # Identify blocking reasons
-            blocking = self._identify_blocking_reasons(
-                dep_knowledge,
-                dep_prereq_tasks,
-                context,
-            )
-
-            contextual = ContextualTask(
+            contextual = ContextualTask.from_entity_and_context(
                 uid=dep.uid,
                 title=dep.title,
-                readiness_score=readiness,
-                relevance_score=relevance,
-                priority_score=priority,
-                can_start=readiness >= 0.7,
-                blocking_reasons=tuple(blocking),
-                is_overdue=dep.uid in context.overdue_task_uids,
-                dependency_count=len(dep_knowledge) + len(dep_prereq_tasks),
+                context=context,
+                goal_uids=dep_goals,
+                prerequisite_knowledge=dep_knowledge,
+                prerequisite_tasks=dep_prereq_tasks,
             )
             enriched.append(contextual)
 
@@ -333,27 +313,14 @@ class TasksPlanningService(BasePlanningService[TasksOperations, Task]):
                     if task_uid in t_uids:
                         goal_uids.append(g_uid)
 
-            # Calculate relevance
-            relevance = self._calculate_relevance_score(goal_uids, [], context)
-
-            # Calculate urgency
-            is_overdue = task_uid in context.overdue_task_uids
-            urgency = 0.9 if is_overdue else 0.3
-
-            priority = (readiness * 0.4) + (relevance * 0.4) + (urgency * 0.2)
-
-            contextual = ContextualTask(
+            contextual = ContextualTask.from_entity_and_context(
                 uid=task_uid,
                 title=title,
-                readiness_score=readiness,
-                relevance_score=relevance,
-                priority_score=priority,
-                can_start=True,  # Passed readiness check
-                contributes_to_goals=tuple(goal_uids),
-                applies_knowledge=tuple(applies_ku),
-                is_overdue=is_overdue,
-                is_milestone=task_uid in context.milestone_tasks,
-                dependency_count=len(knowledge_uids) + len(prereq_task_uids),
+                context=context,
+                goal_uids=goal_uids,
+                knowledge_uids=applies_ku,
+                prerequisite_knowledge=knowledge_uids,
+                prerequisite_tasks=prereq_task_uids,
             )
             actionable.append(contextual)
 
@@ -438,14 +405,14 @@ class TasksPlanningService(BasePlanningService[TasksOperations, Task]):
                 learning_impact = len([k for k in applies_ku if k in learning_ku])
                 priority = min(1.0, learning_impact * 0.3 + 0.4)
 
-                contextual = ContextualTask(
+                contextual = ContextualTask.from_entity_and_context(
                     uid=task.uid,
                     title=task.title,
-                    readiness_score=0.8,  # Assume ready if in active tasks
-                    relevance_score=0.7,  # Learning tasks are relevant
-                    priority_score=priority,
-                    can_start=True,
-                    applies_knowledge=tuple(applies_ku),
+                    context=context,
+                    knowledge_uids=applies_ku,
+                    readiness_override=0.8,
+                    relevance_override=0.7,
+                    priority_override=priority,
                 )
                 learning_tasks.append(contextual)
 

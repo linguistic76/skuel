@@ -58,8 +58,193 @@ Date: November 28, 2025
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any
+from datetime import date, datetime
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from core.services.user.unified_user_context import UserContext
+
+
+# =============================================================================
+# SCORING ENGINE - Pure Functions for Contextual Entity Scoring
+# =============================================================================
+
+
+def _compute_readiness(
+    required_knowledge: list[str],
+    required_tasks: list[str],
+    knowledge_mastery: dict[str, float],
+    completed_task_uids: set[str] | list[str],
+    threshold: float = 0.7,
+) -> float:
+    """
+    Calculate readiness score based on prerequisites met.
+
+    Args:
+        required_knowledge: Knowledge prerequisite UIDs
+        required_tasks: Task prerequisite UIDs
+        knowledge_mastery: Map of ku_uid -> mastery level (0.0-1.0)
+        completed_task_uids: Set of completed task UIDs
+        threshold: Minimum mastery to consider "met"
+
+    Returns:
+        Score from 0.0 (no prerequisites met) to 1.0 (all met)
+    """
+    total = len(required_knowledge) + len(required_tasks)
+    if total == 0:
+        return 1.0
+
+    met = 0
+    for ku_uid in required_knowledge:
+        if knowledge_mastery.get(ku_uid, 0.0) >= threshold:
+            met += 1
+    for task_uid in required_tasks:
+        if task_uid in completed_task_uids:
+            met += 1
+
+    return met / total
+
+
+def _compute_relevance(
+    goal_uids: list[str],
+    principle_uids: list[str],
+    active_goal_uids: set[str] | list[str],
+    primary_goal_focus: str,
+    core_principle_uids: set[str] | list[str],
+    principle_priorities: dict[str, float],
+) -> float:
+    """
+    Calculate relevance score based on goal and principle alignment.
+
+    Args:
+        goal_uids: Goals this entity contributes to
+        principle_uids: Principles this entity aligns with
+        active_goal_uids: User's active goals
+        primary_goal_focus: User's primary goal UID
+        core_principle_uids: User's core principles
+        principle_priorities: Map of principle_uid -> priority weight
+
+    Returns:
+        Score from 0.0 (not relevant) to 1.0 (highly relevant)
+    """
+    goal_score = 0.0
+    principle_score = 0.0
+
+    if goal_uids:
+        aligned = len([g for g in goal_uids if g in active_goal_uids])
+        goal_score = aligned / len(goal_uids)
+        if primary_goal_focus in goal_uids:
+            goal_score = min(1.0, goal_score + 0.2)
+
+    if principle_uids:
+        aligned_principles = [p for p in principle_uids if p in core_principle_uids]
+        principle_score = len(aligned_principles) / len(principle_uids)
+        for p_uid in aligned_principles:
+            priority = principle_priorities.get(p_uid, 0.5)
+            principle_score *= 0.5 + priority * 0.5
+
+    if goal_uids and principle_uids:
+        return (goal_score * 0.6) + (principle_score * 0.4)
+    elif goal_uids:
+        return goal_score
+    elif principle_uids:
+        return principle_score
+    else:
+        return 0.5
+
+
+def _compute_urgency(
+    deadline: date | None,
+    is_at_risk: bool,
+    streak_at_risk: bool,
+) -> float:
+    """
+    Calculate urgency score based on time pressure and risk.
+
+    Args:
+        deadline: Entity deadline (if any)
+        is_at_risk: Whether entity is flagged at risk
+        streak_at_risk: Whether a streak is at risk
+
+    Returns:
+        Score from 0.0 (no urgency) to 1.0 (critical urgency)
+    """
+    urgency = 0.0
+
+    if deadline:
+        days_until = (deadline - date.today()).days
+        if days_until < 0:
+            urgency = 1.0
+        elif days_until == 0:
+            urgency = 0.9
+        elif days_until <= 3:
+            urgency = 0.7
+        elif days_until <= 7:
+            urgency = 0.5
+        else:
+            urgency = 0.2
+
+    if is_at_risk:
+        urgency = max(urgency, 0.8)
+    if streak_at_risk:
+        urgency = max(urgency, 0.85)
+
+    return min(1.0, urgency)
+
+
+def _compute_priority(
+    dimensions: tuple[float, ...],
+    weights: tuple[float, ...],
+) -> float:
+    """
+    Calculate combined priority score from N dimensions and weights.
+
+    Args:
+        dimensions: Tuple of score values (0.0-1.0 each)
+        weights: Tuple of weights (should sum to ~1.0)
+
+    Returns:
+        Combined priority score, capped at 1.0
+    """
+    return min(1.0, sum(d * w for d, w in zip(dimensions, weights)))
+
+
+def _compute_blocking_reasons(
+    required_knowledge: list[str],
+    required_tasks: list[str],
+    knowledge_mastery: dict[str, float],
+    completed_task_uids: set[str] | list[str],
+    max_reasons: int = 3,
+) -> list[str]:
+    """
+    Identify reasons blocking engagement with an entity.
+
+    Args:
+        required_knowledge: Knowledge prerequisite UIDs
+        required_tasks: Task prerequisite UIDs
+        knowledge_mastery: Map of ku_uid -> mastery level
+        completed_task_uids: Set of completed task UIDs
+        max_reasons: Maximum reasons to return
+
+    Returns:
+        List of blocking reason strings
+    """
+    reasons: list[str] = []
+
+    for ku_uid in required_knowledge:
+        mastery = knowledge_mastery.get(ku_uid, 0.0)
+        if mastery < 0.7:
+            reasons.append(f"Missing knowledge: {ku_uid} (mastery: {mastery:.0%})")
+            if len(reasons) >= max_reasons:
+                return reasons
+
+    for task_uid in required_tasks:
+        if task_uid not in completed_task_uids:
+            reasons.append(f"Incomplete prerequisite: {task_uid}")
+            if len(reasons) >= max_reasons:
+                return reasons
+
+    return reasons
 
 # =============================================================================
 # BASE CONTEXTUAL TYPES
@@ -182,6 +367,70 @@ class ContextualTask(ContextualEntity):
     dependency_count: int = 0
     dependent_count: int = 0  # Tasks waiting on this one
 
+    @classmethod
+    def from_entity_and_context(
+        cls,
+        uid: str,
+        title: str,
+        context: "UserContext",
+        *,
+        goal_uids: list[str] | None = None,
+        knowledge_uids: list[str] | None = None,
+        prerequisite_knowledge: list[str] | None = None,
+        prerequisite_tasks: list[str] | None = None,
+        deadline: date | None = None,
+        estimated_time_minutes: int = 0,
+        readiness_override: float | None = None,
+        relevance_override: float | None = None,
+        urgency_override: float | None = None,
+        priority_override: float | None = None,
+        weights: tuple[float, float, float] = (0.4, 0.4, 0.2),
+    ) -> "ContextualTask":
+        """
+        Factory: build a ContextualTask from entity data + UserContext.
+
+        Standard path: readiness from prerequisites, relevance from goals,
+        urgency from deadline/overdue, priority from weighted sum.
+        """
+        req_knowledge = prerequisite_knowledge or []
+        req_tasks = prerequisite_tasks or []
+        goals = goal_uids or []
+        applies_ku = knowledge_uids or []
+
+        readiness = readiness_override if readiness_override is not None else _compute_readiness(
+            req_knowledge, req_tasks, context.knowledge_mastery, context.completed_task_uids,
+        )
+        relevance = relevance_override if relevance_override is not None else _compute_relevance(
+            goals, [], context.active_goal_uids, context.primary_goal_focus,
+            context.core_principle_uids, context.principle_priorities,
+        )
+        is_overdue = uid in context.overdue_task_uids
+        urgency = urgency_override if urgency_override is not None else _compute_urgency(
+            deadline=deadline, is_at_risk=is_overdue, streak_at_risk=False,
+        )
+        priority = priority_override if priority_override is not None else _compute_priority(
+            (readiness, relevance, urgency), weights,
+        )
+        blocking = _compute_blocking_reasons(
+            req_knowledge, req_tasks, context.knowledge_mastery, context.completed_task_uids,
+        )
+
+        return cls(
+            uid=uid,
+            title=title,
+            readiness_score=readiness,
+            relevance_score=relevance,
+            priority_score=priority,
+            can_start=readiness >= 0.7,
+            blocking_reasons=tuple(blocking),
+            contributes_to_goals=tuple(goals),
+            applies_knowledge=tuple(applies_ku),
+            is_overdue=is_overdue,
+            is_milestone=uid in context.milestone_tasks,
+            estimated_time_minutes=estimated_time_minutes,
+            dependency_count=len(req_knowledge) + len(req_tasks),
+        )
+
     @property
     def entity_type(self) -> str:
         return "task"
@@ -228,6 +477,71 @@ class ContextualKnowledge(ContextualEntity):
     prerequisite_count: int = 0
     dependent_count: int = 0  # Knowledge that requires this
     substance_score: float = 0.0  # Real-world application level
+
+    @classmethod
+    def from_entity_and_context(
+        cls,
+        uid: str,
+        title: str,
+        context: "UserContext",
+        *,
+        prerequisite_uids: list[str] | None = None,
+        application_task_uids: list[str] | None = None,
+        dependent_count: int = 0,
+        substance_score: float = 0.0,
+        readiness_override: float | None = None,
+        relevance_override: float | None = None,
+        priority_override: float | None = None,
+        weights: tuple[float, ...] = (0.5, 0.3, 0.2),
+    ) -> "ContextualKnowledge":
+        """
+        Factory: build a ContextualKnowledge from entity data + UserContext.
+
+        Standard path: mastery from context, prereqs_met check, readiness = 1.0
+        if met else 0.3, relevance = 1.0 - mastery (gap-based), third dimension =
+        dependent_count/5 (impact).
+        """
+        prereqs = prerequisite_uids or []
+        applications = application_task_uids or []
+
+        user_mastery = context.knowledge_mastery.get(uid, 0.0)
+        prereqs_met = (
+            all(context.knowledge_mastery.get(p, 0.0) >= 0.7 for p in prereqs) if prereqs else True
+        )
+
+        readiness = readiness_override if readiness_override is not None else (
+            1.0 if prereqs_met else 0.3
+        )
+        relevance = relevance_override if relevance_override is not None else (
+            1.0 - user_mastery if user_mastery < 0.9 else 0.1
+        )
+
+        if priority_override is not None:
+            priority = priority_override
+        else:
+            dims = (readiness, relevance, min(1.0, dependent_count / 5))
+            # Support 2D or 3D weights
+            priority = _compute_priority(dims[: len(weights)], weights)
+
+        blocking_reasons: list[str] = []
+        if not prereqs_met:
+            missing = [p for p in prereqs if context.knowledge_mastery.get(p, 0.0) < 0.7]
+            blocking_reasons = [f"Missing prerequisite: {p}" for p in missing[:3]]
+
+        return cls(
+            uid=uid,
+            title=title,
+            readiness_score=readiness,
+            relevance_score=relevance,
+            priority_score=priority,
+            user_mastery=user_mastery,
+            prerequisites_met=prereqs_met,
+            blocking_reasons=tuple(blocking_reasons),
+            application_opportunities=tuple(applications),
+            prerequisite_count=len(prereqs),
+            dependent_count=dependent_count,
+            substance_score=substance_score,
+        )
 
     def mastery_category(self) -> str:
         """Categorize mastery level."""
@@ -291,6 +605,78 @@ class ContextualGoal(ContextualEntity):
     milestone_count: int = 0
     milestones_completed: int = 0
 
+    @classmethod
+    def from_entity_and_context(
+        cls,
+        uid: str,
+        title: str,
+        context: "UserContext",
+        *,
+        contributing_task_uids: list[str] | None = None,
+        contributing_habit_uids: list[str] | None = None,
+        required_knowledge_uids: list[str] | None = None,
+        readiness_override: float | None = None,
+        relevance_override: float | None = None,
+        urgency_override: float | None = None,
+        priority_override: float | None = None,
+        weights: tuple[float, ...] = (0.3, 0.4, 0.2, 0.1),
+    ) -> "ContextualGoal":
+        """
+        Factory: build a ContextualGoal from entity data + UserContext.
+
+        Standard path: 4D — readiness from knowledge prereqs, relevance from
+        active+primary focus, progress from context, urgency from deadline/at-risk.
+        """
+        tasks = contributing_task_uids or []
+        habits = contributing_habit_uids or []
+        knowledge = required_knowledge_uids or []
+
+        progress = context.goal_progress.get(uid, 0.0)
+
+        readiness = readiness_override if readiness_override is not None else _compute_readiness(
+            knowledge, [], context.knowledge_mastery, context.completed_task_uids,
+        )
+        relevance = relevance_override if relevance_override is not None else (
+            1.0 if uid in context.active_goal_uids else 0.5
+        )
+
+        deadline = context.goal_deadlines.get(uid)
+        days_to_deadline = None
+        if deadline:
+            days_to_deadline = (deadline - date.today()).days
+
+        is_at_risk = uid in context.at_risk_goals
+        urgency = urgency_override if urgency_override is not None else _compute_urgency(
+            deadline=deadline,
+            is_at_risk=is_at_risk and progress < 0.3,
+            streak_at_risk=False,
+        )
+
+        if priority_override is not None:
+            priority = priority_override
+        else:
+            dims = (readiness, relevance, progress, urgency)
+            priority = _compute_priority(dims[: len(weights)], weights)
+
+        learning_gaps = [
+            ku for ku in knowledge if context.knowledge_mastery.get(ku, 0.0) < 0.7
+        ]
+
+        return cls(
+            uid=uid,
+            title=title,
+            readiness_score=readiness,
+            relevance_score=relevance,
+            priority_score=priority,
+            current_progress=progress,
+            contributing_tasks=tuple(tasks),
+            contributing_habits=tuple(habits),
+            knowledge_required=tuple(knowledge),
+            learning_gaps=tuple(learning_gaps[:5]),
+            days_to_deadline=days_to_deadline,
+            is_at_risk=is_at_risk,
+        )
+
     def is_near_completion(self, threshold: float = 0.8) -> bool:
         """Check if goal is near completion."""
         return self.current_progress >= threshold
@@ -350,6 +736,77 @@ class ContextualHabit(ContextualEntity):
     days_since_last: int = 0
     best_streak: int = 0
     applies_knowledge: tuple[str, ...] = field(default_factory=tuple)
+
+    @classmethod
+    def from_entity_and_context(
+        cls,
+        uid: str,
+        title: str,
+        context: "UserContext",
+        *,
+        supported_goal_uids: list[str] | None = None,
+        applied_knowledge_uids: list[str] | None = None,
+        is_due_today: bool = False,
+        current_streak: int | None = None,
+        completion_rate: float | None = None,
+        is_keystone: bool | None = None,
+        days_since_last: int = 0,
+        best_streak: int = 0,
+        readiness_override: float | None = None,
+        relevance_override: float | None = None,
+        urgency_override: float | None = None,
+        priority_override: float | None = None,
+        weights: tuple[float, float, float] = (0.3, 0.3, 0.4),
+    ) -> "ContextualHabit":
+        """
+        Factory: build a ContextualHabit from entity data + UserContext.
+
+        Standard path: readiness = 1.0 (habits always ready), relevance from
+        goal alignment + streak, urgency from at-risk/streak flags.
+        """
+        goals = supported_goal_uids or []
+        knowledge = applied_knowledge_uids or []
+
+        streak = current_streak if current_streak is not None else context.habit_streaks.get(uid, 0)
+        rate = completion_rate if completion_rate is not None else context.habit_completion_rates.get(uid, 0.0)
+        at_risk = uid in context.at_risk_habits
+        keystone = is_keystone if is_keystone is not None else uid in context.keystone_habits
+
+        readiness = readiness_override if readiness_override is not None else 1.0
+
+        if relevance_override is not None:
+            relevance = relevance_override
+        else:
+            goal_relevance = _compute_relevance(
+                goals, [], context.active_goal_uids, context.primary_goal_focus,
+                context.core_principle_uids, context.principle_priorities,
+            )
+            streak_relevance = min(1.0, streak / 30)
+            relevance = (goal_relevance * 0.6) + (streak_relevance * 0.4)
+
+        urgency = urgency_override if urgency_override is not None else _compute_urgency(
+            deadline=None, is_at_risk=at_risk, streak_at_risk=at_risk,
+        )
+
+        priority = priority_override if priority_override is not None else _compute_priority(
+            (readiness, relevance, urgency), weights,
+        )
+
+        return cls(
+            uid=uid,
+            title=title,
+            readiness_score=readiness,
+            relevance_score=relevance,
+            priority_score=priority,
+            current_streak=streak,
+            completion_rate=rate,
+            is_at_risk=at_risk,
+            supports_goals=tuple(goals),
+            is_keystone=keystone,
+            days_since_last=days_since_last,
+            best_streak=best_streak,
+            applies_knowledge=tuple(knowledge),
+        )
 
     def streak_status(self) -> str:
         """Categorize streak health."""
@@ -412,6 +869,36 @@ class ContextualEvent(ContextualEntity):
     duration_minutes: int = 0
     is_recurring: bool = False
     attendance_streak: int = 0
+
+    @classmethod
+    def from_entity_and_context(
+        cls,
+        uid: str,
+        title: str,
+        context: "UserContext",
+        *,
+        days_until: int = 0,
+        duration_minutes: int = 0,
+        supports_habits: list[str] | None = None,
+        applies_knowledge: list[str] | None = None,
+    ) -> "ContextualEvent":
+        """
+        Factory: build a ContextualEvent from entity data + UserContext.
+
+        Standard path: is_today check, readiness/relevance/priority from proximity.
+        """
+        is_today = days_until == 0
+        return cls(
+            uid=uid,
+            title=title,
+            readiness_score=1.0 if is_today else 0.8,
+            relevance_score=0.9 if is_today else 0.7,
+            priority_score=0.95 if is_today else 0.7,
+            days_until=days_until,
+            duration_minutes=duration_minutes,
+            supports_habits=tuple(supports_habits or []),
+            applies_knowledge=tuple(applies_knowledge or []),
+        )
 
     @property
     def entity_type(self) -> str:
@@ -476,7 +963,7 @@ class ContextualPrinciple(ContextualEntity):
 
     # Planning service fields (January 2026)
     attention_score: float = 0.0
-    relevance_score: float = 0.0
+    # NOTE: relevance_score inherited from ContextualEntity (no redeclaration)
     alignment_trend: str = "stable"  # "improving", "declining", "stable"
     days_since_reflection: int = 0
     attention_reasons: tuple[str, ...] = field(default_factory=tuple)
@@ -485,6 +972,73 @@ class ContextualPrinciple(ContextualEntity):
     connected_event_uids: tuple[str, ...] = field(default_factory=tuple)
     connected_goal_uids: tuple[str, ...] = field(default_factory=tuple)
     practice_opportunity: str = ""
+
+    @classmethod
+    def from_entity_and_context(
+        cls,
+        uid: str,
+        name: str,
+        context: "UserContext",
+        *,
+        alignment_score: float = 0.5,
+        days_since_reflection: int = 0,
+        alignment_trend: str = "stable",
+        attention_reasons: list[str] | None = None,
+        suggested_action: str = "",
+        connected_task_uids: list[str] | None = None,
+        connected_event_uids: list[str] | None = None,
+        connected_goal_uids: list[str] | None = None,
+        practice_opportunity: str = "",
+        priority_override: float | None = None,
+        relevance_override: float | None = None,
+    ) -> "ContextualPrinciple":
+        """
+        Factory: build a ContextualPrinciple from entity data + UserContext.
+
+        Standard path: readiness = 1.0, relevance = alignment_score,
+        priority = 0.8 if core else 0.5.
+
+        Attention path (when days_since_reflection > 0): compute attention_score.
+        """
+        is_core = uid in context.core_principle_uids
+
+        relevance = relevance_override if relevance_override is not None else alignment_score
+
+        # Attention path: compute attention_score when reflection data available
+        attention_score = 0.0
+        if days_since_reflection > 0:
+            reflection_urgency = min(1.0, days_since_reflection / 28)
+            alignment_weakness = 1.0 - alignment_score
+            trend_score = 0.0
+            if alignment_trend == "declining":
+                trend_score = 1.0
+            elif alignment_trend == "stable":
+                trend_score = 0.3
+            attention_score = (reflection_urgency * 0.4) + (alignment_weakness * 0.35) + (trend_score * 0.25)
+
+        priority = priority_override if priority_override is not None else (
+            attention_score if attention_score > 0 else (0.8 if is_core else 0.5)
+        )
+
+        return cls(
+            uid=uid,
+            title=name,
+            name=name,
+            readiness_score=1.0,
+            relevance_score=relevance,
+            priority_score=priority,
+            alignment_score=alignment_score,
+            is_core=is_core,
+            attention_score=attention_score,
+            alignment_trend=alignment_trend,
+            days_since_reflection=days_since_reflection,
+            attention_reasons=tuple(attention_reasons or []),
+            suggested_action=suggested_action,
+            connected_task_uids=tuple(connected_task_uids or []),
+            connected_event_uids=tuple(connected_event_uids or []),
+            connected_goal_uids=tuple(connected_goal_uids or []),
+            practice_opportunity=practice_opportunity,
+        )
 
     @property
     def entity_type(self) -> str:
@@ -550,6 +1104,36 @@ class ContextualChoice(ContextualEntity):
     # Choice-specific context
     is_resolved: bool = False
     impact_score: float = 0.0
+
+    @classmethod
+    def from_entity_and_context(
+        cls,
+        uid: str,
+        title: str,
+        context: "UserContext",
+        *,
+        priority_level: str = "medium",
+        informed_by_knowledge: list[str] | None = None,
+        aligned_principles: list[str] | None = None,
+    ) -> "ContextualChoice":
+        """
+        Factory: build a ContextualChoice from entity data + UserContext.
+
+        Standard path: readiness = 1.0, relevance = 0.7, priority from enum.
+        """
+        priority_scores = {"urgent": 0.9, "high": 0.7, "medium": 0.5, "low": 0.3}
+        priority = priority_scores.get(priority_level.lower(), 0.5)
+
+        return cls(
+            uid=uid,
+            title=title,
+            readiness_score=1.0,
+            relevance_score=0.7,
+            priority_score=priority,
+            informed_by_knowledge=tuple(informed_by_knowledge or []),
+            aligned_principles=tuple(aligned_principles or []),
+            is_resolved=False,
+        )
 
     @property
     def entity_type(self) -> str:
@@ -899,6 +1483,12 @@ class ScheduleAwareRecommendation:
 # =============================================================================
 
 __all__ = [
+    # Scoring engine
+    "_compute_readiness",
+    "_compute_relevance",
+    "_compute_urgency",
+    "_compute_priority",
+    "_compute_blocking_reasons",
     # Base types
     "ContextualEntity",
     # Domain contextual types

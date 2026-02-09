@@ -491,13 +491,8 @@ class PlanningMixin:
         """
         Get habits with streaks at risk of breaking.
 
-        A habit is "at risk" if:
-        - Current streak > 0 but days_since_last >= frequency threshold
-        - OR streak is about to hit a milestone that could be lost
-
         Context Fields Used:
         - at_risk_habits: UIDs of habits at risk
-        - active_habit_uids: User's active habits
         - active_habits_rich: Rich habit data with context
 
         Returns:
@@ -505,7 +500,6 @@ class PlanningMixin:
         """
         from core.models.context_types import ContextualHabit
 
-        # Use context's pre-computed at-risk list
         at_risk_uids = set(getattr(context, "at_risk_habits", []) or [])
         rich_habits = getattr(context, "active_habits_rich", []) or []
 
@@ -516,19 +510,18 @@ class PlanningMixin:
             if not uid or uid not in at_risk_uids:
                 continue
 
-            contextual = ContextualHabit(
+            contextual = ContextualHabit.from_entity_and_context(
                 uid=uid,
                 title=habit_dict.get("title", ""),
-                readiness_score=1.0,  # At-risk habits are always "ready" (need action)
-                relevance_score=0.9,  # High relevance since they need attention
-                priority_score=0.95,  # High priority to maintain streaks
-                is_at_risk=True,
+                context=context,
                 current_streak=habit_dict.get("current_streak", 0),
                 days_since_last=habit_dict.get("days_since_last", 0),
+                readiness_override=1.0,
+                relevance_override=0.9,
+                priority_override=0.95,
             )
             contextual_habits.append(contextual)
 
-        # Sort by streak (longer streaks = higher priority to maintain)
         contextual_habits.sort(key=get_streak_and_priority, reverse=True)
 
         return Result.ok(contextual_habits[:limit])
@@ -565,18 +558,16 @@ class PlanningMixin:
                 continue
 
             is_today = uid in today_uids
-            contextual = ContextualEvent(
+            days_until = 0 if is_today else event_dict.get("days_until", 1)
+            contextual = ContextualEvent.from_entity_and_context(
                 uid=uid,
                 title=event_dict.get("title", ""),
-                readiness_score=1.0 if is_today else 0.8,
-                relevance_score=0.9 if is_today else 0.7,
-                priority_score=0.95 if is_today else 0.7,
-                days_until=0 if is_today else event_dict.get("days_until", 1),
+                context=context,
+                days_until=days_until,
                 duration_minutes=event_dict.get("duration_minutes", 30),
             )
             contextual_events.append(contextual)
 
-        # Sort by days_until (today's events first)
         contextual_events.sort(key=get_days_until_and_priority)
 
         return Result.ok(contextual_events[:limit])
@@ -590,13 +581,7 @@ class PlanningMixin:
         """
         Get tasks user can start immediately, ranked by priority.
 
-        A task is "actionable" if:
-        - All prerequisites met (knowledge mastery >= 0.7)
-        - Not blocked by other incomplete tasks
-        - Status is active/in_progress
-
         Context Fields Used:
-        - active_task_uids: User's active tasks
         - active_tasks_rich: Rich task data with graph_context
         - overdue_task_uids: Overdue tasks (urgency boost)
         - knowledge_mastery: Knowledge mastery levels
@@ -639,20 +624,20 @@ class PlanningMixin:
             priority = task_dict.get("priority", "medium")
             priority_scores = {"urgent": 0.3, "high": 0.2, "medium": 0.1, "low": 0.0}
             base_priority = 0.5 + priority_scores.get(str(priority).lower(), 0.1)
+            overdue_boost = 0.3 if is_overdue else 0
 
-            contextual = ContextualTask(
+            contextual = ContextualTask.from_entity_and_context(
                 uid=uid,
                 title=task_dict.get("title", ""),
-                readiness_score=1.0,  # Passed all checks
-                relevance_score=0.7,
-                priority_score=min(1.0, base_priority + (0.3 if is_overdue else 0)),
-                can_start=True,
-                is_overdue=is_overdue,
-                dependency_count=len(knowledge_uids) + len(prereq_tasks),
+                context=context,
+                prerequisite_knowledge=knowledge_uids,
+                prerequisite_tasks=prereq_tasks,
+                readiness_override=1.0,  # Passed all checks above
+                relevance_override=0.7,
+                priority_override=min(1.0, base_priority + overdue_boost),
             )
             contextual_tasks.append(contextual)
 
-        # Sort by priority (overdue first, then by priority score)
         contextual_tasks.sort(key=get_overdue_and_priority, reverse=True)
 
         return Result.ok(contextual_tasks[:limit])
@@ -665,11 +650,6 @@ class PlanningMixin:
     ) -> Result[list[Any]]:
         """
         Get goals ready for progress advancement.
-
-        A goal is "advancing" if:
-        - Has active contributing tasks or habits
-        - Not stalled or at risk
-        - Has momentum (recent activity)
 
         Context Fields Used:
         - active_goal_uids: User's active goals
@@ -693,26 +673,22 @@ class PlanningMixin:
             if not uid or uid not in active_goal_uids:
                 continue
 
-            # Skip stalled goals (no momentum)
             if uid in stalled_uids:
                 continue
 
             is_at_risk = uid in at_risk_uids
             progress = goal_dict.get("progress", 0.0)
 
-            contextual = ContextualGoal(
+            contextual = ContextualGoal.from_entity_and_context(
                 uid=uid,
                 title=goal_dict.get("title", ""),
-                readiness_score=0.9 if not is_at_risk else 0.6,
-                relevance_score=0.8,
-                priority_score=0.7
-                + (progress * 0.2),  # Higher progress = higher priority to complete
-                current_progress=progress,
-                is_at_risk=is_at_risk,
+                context=context,
+                readiness_override=0.9 if not is_at_risk else 0.6,
+                relevance_override=0.8,
+                priority_override=0.7 + (progress * 0.2),
             )
             contextual_goals.append(contextual)
 
-        # Sort by priority (non-at-risk first, then by progress)
         contextual_goals.sort(key=get_risk_progress_priority, reverse=True)
 
         return Result.ok(contextual_goals[:limit])
@@ -725,10 +701,6 @@ class PlanningMixin:
     ) -> Result[list[Any]]:
         """
         Get choices/decisions awaiting resolution.
-
-        A choice is "pending" if:
-        - Status is pending/awaiting
-        - Has decision deadline approaching (if set)
 
         Context Fields Used:
         - pending_choice_uids: Pending choices
@@ -749,21 +721,15 @@ class PlanningMixin:
             if not uid or uid not in pending_uids:
                 continue
 
-            priority = choice_dict.get("priority", "medium")
-            priority_scores = {"urgent": 0.9, "high": 0.7, "medium": 0.5, "low": 0.3}
-            priority_score = priority_scores.get(str(priority).lower(), 0.5)
-
-            contextual = ContextualChoice(
+            priority_level = str(choice_dict.get("priority", "medium")).lower()
+            contextual = ContextualChoice.from_entity_and_context(
                 uid=uid,
                 title=choice_dict.get("title", ""),
-                readiness_score=1.0,  # Pending choices are ready for decision
-                relevance_score=0.7,
-                priority_score=priority_score,
-                is_resolved=False,
+                context=context,
+                priority_level=priority_level,
             )
             contextual_choices.append(contextual)
 
-        # Sort by priority score
         contextual_choices.sort(key=get_priority_score, reverse=True)
 
         return Result.ok(contextual_choices[:limit])
@@ -776,11 +742,6 @@ class PlanningMixin:
     ) -> Result[list[Any]]:
         """
         Get principles aligned with user's active focus.
-
-        Returns principles that:
-        - Are marked as core principles
-        - Guide active goals
-        - Have high alignment score
 
         Context Fields Used:
         - core_principle_uids: Core principles
@@ -801,21 +762,15 @@ class PlanningMixin:
             if not uid:
                 continue
 
-            is_core = uid in core_uids
             alignment = principle_dict.get("alignment_score", 0.5)
-
-            contextual = ContextualPrinciple(
+            contextual = ContextualPrinciple.from_entity_and_context(
                 uid=uid,
-                title=principle_dict.get("title", ""),
-                readiness_score=1.0,
-                relevance_score=alignment,
-                priority_score=0.8 if is_core else 0.5,
+                name=principle_dict.get("title", ""),
+                context=context,
                 alignment_score=alignment,
-                is_core=is_core,
             )
             contextual_principles.append(contextual)
 
-        # Sort by core status and alignment
         contextual_principles.sort(key=get_core_and_alignment, reverse=True)
 
         return Result.ok(contextual_principles[:limit])
