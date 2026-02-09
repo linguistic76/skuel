@@ -829,7 +829,9 @@ def create_journals_ui_routes(
 
             # Verify ownership
             if report.user_uid != user_uid:
-                logger.warning(f"User {user_uid} attempted to download report {uid} owned by {report.user_uid}")
+                logger.warning(
+                    f"User {user_uid} attempted to download report {uid} owned by {report.user_uid}"
+                )
                 return Div(
                     P("Not authorized to download this report", cls="text-center text-error"),
                 )

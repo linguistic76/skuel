@@ -64,10 +64,7 @@ class DeepgramAdapter:
             raise ValueError("Deepgram API key is required")
 
         # Initialize client with timeout configuration
-        config = DeepgramClientOptions(
-            api_key=api_key,
-            options={"timeout": timeout}
-        )
+        config = DeepgramClientOptions(api_key=api_key, options={"timeout": timeout})
         self.client = DeepgramClient(api_key=api_key, config=config)
         self.timeout = timeout
         self.logger = logger

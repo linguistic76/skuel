@@ -47,7 +47,7 @@ DOMAIN_MAPPINGS = {
         "label": "Ls",
         "import": "core.models.learning",
     },
-"goal": {"class": "Goal", "label": "Goal", "import": "core.models.goal"},
+    "goal": {"class": "Goal", "label": "Goal", "import": "core.models.goal"},
     "task": {"class": "Task", "label": "Task", "import": "core.models.task"},
 }
 

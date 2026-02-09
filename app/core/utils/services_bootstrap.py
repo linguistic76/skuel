@@ -1776,9 +1776,7 @@ async def compose_services(
         journal_generator = JournalOutputGenerator(
             openai_service=ai_service, storage_base=journal_storage
         )
-        logger.info(
-            f"✅ Journal output generator created (storage: {journal_storage})"
-        )
+        logger.info(f"✅ Journal output generator created (storage: {journal_storage})")
 
         report_processor = ReportsProcessingService(
             report_service=report_service,

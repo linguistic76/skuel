@@ -4188,6 +4188,5 @@ def create_habits_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
     return UniversalNeo4jBackend[HabitPure](driver, "Habit", HabitPure)
 
 
-
 # Pattern continues for all domains...
 # 12+ domain-specific files replaced by 12 simple factory functions

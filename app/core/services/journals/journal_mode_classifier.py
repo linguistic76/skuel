@@ -40,9 +40,7 @@ class JournalModeClassifier:
         self.logger = logger
 
         # Load classification prompt
-        prompt_path = (
-            Path(__file__).parent / "prompts" / "mode_classification.md"
-        )
+        prompt_path = Path(__file__).parent / "prompts" / "mode_classification.md"
         self.classification_prompt = prompt_path.read_text()
 
     async def infer_weights(
@@ -86,9 +84,7 @@ class JournalModeClassifier:
                 )
             )
 
-        self.logger.info(
-            f"Using declared mode '{declared_mode}': {weights.to_dict()}"
-        )
+        self.logger.info(f"Using declared mode '{declared_mode}': {weights.to_dict()}")
         return Result.ok(weights)
 
     async def _infer_from_content(self, content: str) -> Result[JournalWeights]:
@@ -139,9 +135,7 @@ class JournalModeClassifier:
                 exploration=exploration,
             )
 
-            self.logger.info(
-                f"Inferred weights: {weights.to_dict()} - {reasoning}"
-            )
+            self.logger.info(f"Inferred weights: {weights.to_dict()} - {reasoning}")
             return Result.ok(weights)
 
         except json.JSONDecodeError as e:
@@ -163,9 +157,7 @@ class JournalModeClassifier:
                 )
             )
 
-    def get_threshold_from_instructions(
-        self, instructions: dict[str, any] | None
-    ) -> float:
+    def get_threshold_from_instructions(self, instructions: dict[str, any] | None) -> float:
         """
         Extract processing threshold from ReportProject instructions.
 
