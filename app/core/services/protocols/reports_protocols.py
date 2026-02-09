@@ -174,6 +174,33 @@ class ReportsCoreOperations(Protocol):
         """Search reports (inherited from BaseService). Returns Result[list[Report]]."""
         ...
 
+    async def create_assessment(
+        self,
+        teacher_uid: str,
+        subject_uid: str,
+        title: str,
+        content: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> Result[Any]:
+        """Create a teacher assessment for a student. Returns Result[Report]."""
+        ...
+
+    async def get_assessments_for_student(
+        self,
+        student_uid: str,
+        limit: int = 50,
+    ) -> Result[list[Any]]:
+        """Get assessments received by a student. Returns Result[list[Report]]."""
+        ...
+
+    async def get_assessments_by_teacher(
+        self,
+        teacher_uid: str,
+        limit: int = 50,
+    ) -> Result[list[Any]]:
+        """Get assessments authored by a teacher. Returns Result[list[Report]]."""
+        ...
+
 
 @runtime_checkable
 class ReportsSearchOperations(Protocol):
@@ -377,4 +404,56 @@ class ReportFeedbackOperations(Protocol):
         max_tokens: int = 4000,
     ) -> Result[str]:
         """Generate AI feedback for an entry using a project. Returns Result[str]."""
+        ...
+
+
+@runtime_checkable
+class ProgressReportGeneratorOperations(Protocol):
+    """Progress report generation operations.
+
+    Route consumer: reports_progress_api.py
+    Implementation: ProgressReportGenerator
+    """
+
+    async def generate(
+        self,
+        user_uid: str,
+        time_period: str = "7d",
+        domains: list[str] | None = None,
+        depth: str = "standard",
+        include_insights: bool = True,
+    ) -> Result[Any]:
+        """Generate a progress report. Returns Result[Report]."""
+        ...
+
+
+@runtime_checkable
+class ReportScheduleOperations(Protocol):
+    """Report schedule CRUD operations.
+
+    Route consumer: reports_progress_api.py
+    Implementation: ReportScheduleService
+    """
+
+    async def create_schedule(
+        self,
+        user_uid: str,
+        schedule_type: str = "weekly",
+        day_of_week: int = 0,
+        domains: list[str] | None = None,
+        depth: str = "standard",
+    ) -> Result[Any]:
+        """Create a report generation schedule. Returns Result[ReportSchedule]."""
+        ...
+
+    async def get_user_schedule(self, user_uid: str) -> Result[Any]:
+        """Get the user's active report schedule. Returns Result[ReportSchedule | None]."""
+        ...
+
+    async def update_schedule(self, uid: str, updates: dict[str, Any]) -> Result[Any]:
+        """Update a schedule's configuration. Returns Result[ReportSchedule]."""
+        ...
+
+    async def deactivate_schedule(self, uid: str) -> Result[bool]:
+        """Deactivate a schedule (soft delete). Returns Result[bool]."""
         ...

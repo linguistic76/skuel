@@ -36,6 +36,14 @@ from core.models.report.report_project_request import (
     ReportProjectCreateRequest,
     ReportProjectUpdateRequest,
 )
+from core.models.report.report_schedule import (
+    ReportDepth,
+    ReportSchedule,
+    ReportScheduleDTO,
+    ScheduleType,
+    schedule_dto_to_pure,
+    schedule_pure_to_dto,
+)
 
 __all__ = [
     # Enums
@@ -62,4 +70,11 @@ __all__ = [
     "ReportFeedbackRequest",
     "ReportProjectCreateRequest",
     "ReportProjectUpdateRequest",
+    # Report Schedule
+    "ReportDepth",
+    "ReportSchedule",
+    "ReportScheduleDTO",
+    "ScheduleType",
+    "schedule_dto_to_pure",
+    "schedule_pure_to_dto",
 ]

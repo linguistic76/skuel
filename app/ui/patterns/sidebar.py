@@ -79,7 +79,9 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
                 Span(item.label, cls="font-medium"),
                 cls="flex items-center",
             ),
-            P(item.description, cls="text-xs opacity-60 mt-0.5 ml-7") if item.icon else P(item.description, cls="text-xs opacity-60 mt-0.5"),
+            P(item.description, cls="text-xs opacity-60 mt-0.5 ml-7")
+            if item.icon
+            else P(item.description, cls="text-xs opacity-60 mt-0.5"),
             cls="w-full",
         )
         return Li(

@@ -64,6 +64,9 @@ class Report:
     report_type: ReportType
     status: ReportStatus
 
+    # Subject (who the report is about — defaults to user_uid)
+    subject_uid: str | None = None
+
     # File metadata (optional — journals don't have files)
     original_filename: str | None = None
     file_path: str | None = None
@@ -146,6 +149,13 @@ class Report:
             object.__setattr__(self, "mentioned_places", [])
         if self.action_items is None:
             object.__setattr__(self, "action_items", [])
+
+        # Default subject_uid for PROGRESS and ASSESSMENT types
+        if self.subject_uid is None and self.report_type in (
+            ReportType.PROGRESS,
+            ReportType.ASSESSMENT,
+        ):
+            object.__setattr__(self, "subject_uid", self.user_uid)
 
         # Compute word_count and reading_time for journals
         if self.report_type == ReportType.JOURNAL and self.content:
@@ -239,6 +249,21 @@ class Report:
     # ========================================================================
 
     @property
+    def is_progress_report(self) -> bool:
+        """Check if this is a system-generated progress report."""
+        return self.report_type == ReportType.PROGRESS
+
+    @property
+    def is_assessment(self) -> bool:
+        """Check if this is a teacher assessment."""
+        return self.report_type == ReportType.ASSESSMENT
+
+    @property
+    def is_about_self(self) -> bool:
+        """Check if this report is about the user who created it."""
+        return self.subject_uid is None or self.subject_uid == self.user_uid
+
+    @property
     def is_journal(self) -> bool:
         """Check if this is a journal-type report."""
         return self.report_type == ReportType.JOURNAL
@@ -285,6 +310,9 @@ class ReportDTO:
     user_uid: str
     report_type: str
     status: str
+
+    # Subject
+    subject_uid: str | None = None
 
     # File metadata (optional)
     original_filename: str | None = None
@@ -351,6 +379,7 @@ def report_pure_to_dto(report: Report) -> ReportDTO:
         user_uid=report.user_uid,
         report_type=report.report_type.value,
         status=report.status.value,
+        subject_uid=report.subject_uid,
         original_filename=report.original_filename,
         file_path=report.file_path,
         file_size=report.file_size,
@@ -397,6 +426,7 @@ def report_dto_to_pure(dto: ReportDTO) -> Report:
         user_uid=dto.user_uid,
         report_type=ReportType(dto.report_type),
         status=ReportStatus(dto.status),
+        subject_uid=dto.subject_uid,
         original_filename=dto.original_filename,
         file_path=dto.file_path,
         file_size=dto.file_size,

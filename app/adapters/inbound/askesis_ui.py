@@ -36,10 +36,16 @@ logger = get_logger("skuel.ui.askesis")
 
 # Sidebar items for Askesis pages
 ASKESIS_SIDEBAR_ITEMS = [
-    SidebarItem("New Chat", "/askesis/new-chat", "new-chat", description="Start a fresh conversation"),
-    SidebarItem("Chat History", "/askesis/history", "history", description="View past conversations"),
+    SidebarItem(
+        "New Chat", "/askesis/new-chat", "new-chat", description="Start a fresh conversation"
+    ),
+    SidebarItem(
+        "Chat History", "/askesis/history", "history", description="View past conversations"
+    ),
     SidebarItem("Dashboard", "/askesis", "dashboard", description="AI assistant overview"),
-    SidebarItem("Analytics", "/askesis/analytics", "analytics", description="Intelligence insights"),
+    SidebarItem(
+        "Analytics", "/askesis/analytics", "analytics", description="Intelligence insights"
+    ),
     SidebarItem("Settings", "/askesis/settings", "settings", description="Configure assistant"),
 ]
 
@@ -224,6 +230,7 @@ class AskesisUI:
                 ),
                 cls="flex items-start p-4 bg-base-50 border border-base-300 rounded-lg",
             )
+
 
 def create_askesis_ui_routes(_app, rt, _askesis_service):
     """Create UI routes for Askesis AI assistant."""

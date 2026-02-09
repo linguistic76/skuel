@@ -593,6 +593,8 @@ REPORTS_SIDEBAR_ITEMS = [
     SidebarItem("Submit", "/reports/submit", "submit", icon="📤"),
     SidebarItem("Browse", "/reports/browse", "browse", icon="📂"),
     SidebarItem("Your Reports", "/reports/yours", "yours", icon="📋"),
+    SidebarItem("Feedback", "/reports/feedback", "feedback", icon="💬"),
+    SidebarItem("Progress", "/reports/progress", "progress", icon="📊"),
 ]
 
 
@@ -702,24 +704,41 @@ def _upload_form_script() -> Any:
 
 
 def _render_filters_section() -> Any:
-    """Render the status filter controls card."""
+    """Render the status and type filter controls card."""
     return Div(
         Div(
             Form(
                 Div(
-                    Label("Status", cls="label"),
-                    Select(
-                        Option("All Status", value="", selected=True),
-                        Option("Submitted", value="submitted"),
-                        Option("Queued", value="queued"),
-                        Option("Processing", value="processing"),
-                        Option("Completed", value="completed"),
-                        Option("Failed", value="failed"),
-                        Option("Manual Review", value="manual_review"),
-                        name="status",
-                        cls="select select-bordered w-full",
+                    Div(
+                        Label("Type", cls="label"),
+                        Select(
+                            Option("All Types", value="", selected=True),
+                            Option("Assignment", value="assignment"),
+                            Option("Transcript", value="transcript"),
+                            Option("Journal", value="journal"),
+                            Option("Progress Report", value="progress"),
+                            Option("Assessment", value="assessment"),
+                            name="report_type",
+                            cls="select select-bordered w-full",
+                        ),
+                        cls="flex-1",
                     ),
-                    cls="mb-2",
+                    Div(
+                        Label("Status", cls="label"),
+                        Select(
+                            Option("All Status", value="", selected=True),
+                            Option("Submitted", value="submitted"),
+                            Option("Queued", value="queued"),
+                            Option("Processing", value="processing"),
+                            Option("Completed", value="completed"),
+                            Option("Failed", value="failed"),
+                            Option("Manual Review", value="manual_review"),
+                            name="status",
+                            cls="select select-bordered w-full",
+                        ),
+                        cls="flex-1",
+                    ),
+                    cls="flex gap-4",
                 ),
                 **{
                     "hx-get": "/reports/grid",
@@ -1015,6 +1034,190 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
             logger.error(f"Error loading tags manager: {e}", exc_info=True)
             return Div("Error loading tags manager", cls="text-error")
 
+    # ========================================================================
+    # FEEDBACK PAGE (assessments received)
+    # ========================================================================
+
+    @rt("/reports/feedback")
+    async def reports_feedback_page(request: Request) -> Any:
+        """Feedback page: assessments received from teachers."""
+        require_authenticated_user(request)
+        content = Div(
+            PageHeader("Feedback", subtitle="Assessments and feedback from teachers"),
+            Div(
+                P("Loading feedback...", cls="text-center text-base-content/60"),
+                id="feedback-list",
+                cls="mt-4",
+                **{
+                    "hx-get": "/api/reports/assessments/received",
+                    "hx-trigger": "load",
+                    "hx-swap": "innerHTML",
+                },
+            ),
+            Script(
+                NotStr("""
+                document.body.addEventListener('htmx:afterRequest', function(evt) {
+                    if (evt.detail.elt.id === 'feedback-list') {
+                        try {
+                            var data = JSON.parse(evt.detail.xhr.responseText);
+                            var container = document.getElementById('feedback-list');
+                            if (!data.assessments || data.assessments.length === 0) {
+                                container.innerHTML = '<div class="text-center py-8"><p class="text-base-content/60">No feedback yet</p><p class="text-sm text-base-content/40 mt-2">Assessments from teachers will appear here</p></div>';
+                                return;
+                            }
+                            var html = '';
+                            data.assessments.forEach(function(a) {
+                                var date = a.created_at ? new Date(a.created_at).toLocaleDateString() : '';
+                                var summary = a.summary || (a.content ? a.content.substring(0, 200) + '...' : '');
+                                html += '<div class="card bg-base-100 shadow-sm mb-3"><div class="card-body p-4">';
+                                html += '<h4 class="font-semibold mb-1">' + (a.title || 'Assessment') + '</h4>';
+                                html += '<p class="text-sm text-base-content/60 mb-2">From: ' + (a.user_uid || '') + ' &bull; ' + date + '</p>';
+                                html += '<p class="text-sm">' + summary + '</p>';
+                                html += '<a href="/reports/' + a.uid + '" class="btn btn-sm btn-ghost mt-2">View Full</a>';
+                                html += '</div></div>';
+                            });
+                            container.innerHTML = html;
+                        } catch(e) { /* non-JSON response handled by HTMX */ }
+                    }
+                });
+            """)
+            ),
+        )
+        return await SidebarPage(
+            content=content,
+            items=REPORTS_SIDEBAR_ITEMS,
+            active="feedback",
+            title="Reports",
+            subtitle="Submit and manage files",
+            storage_key="reports-sidebar",
+            page_title="Feedback",
+            request=request,
+            active_page="reports",
+            title_href="/reports",
+        )
+
+    # ========================================================================
+    # PROGRESS PAGE (generate + view progress reports)
+    # ========================================================================
+
+    @rt("/reports/progress")
+    async def reports_progress_page(request: Request) -> Any:
+        """Progress page: generate and view progress reports."""
+        require_authenticated_user(request)
+
+        generate_card = Div(
+            Div(
+                H3("Generate Progress Report", cls="font-semibold mb-4"),
+                Form(
+                    Div(
+                        Label("Time Period", cls="label"),
+                        Select(
+                            Option("Last 7 days", value="7d", selected=True),
+                            Option("Last 14 days", value="14d"),
+                            Option("Last 30 days", value="30d"),
+                            Option("Last 90 days", value="90d"),
+                            name="time_period",
+                            cls="select select-bordered w-full",
+                        ),
+                        cls="mb-3",
+                    ),
+                    Div(
+                        Label("Depth", cls="label"),
+                        Select(
+                            Option("Summary (counts only)", value="summary"),
+                            Option("Standard (counts + examples)", value="standard", selected=True),
+                            Option("Detailed (full breakdown)", value="detailed"),
+                            name="depth",
+                            cls="select select-bordered w-full",
+                        ),
+                        cls="mb-4",
+                    ),
+                    Div(
+                        Button(
+                            "Generate Now",
+                            type="submit",
+                            variant=ButtonT.primary,
+                        ),
+                        cls="text-center",
+                    ),
+                    Div(id="generate-status", cls="mt-4"),
+                    **{
+                        "hx-post": "/api/reports/progress/generate",
+                        "hx-target": "#generate-status",
+                        "hx-swap": "innerHTML",
+                        "hx-vals": 'js:JSON.stringify({time_period: document.querySelector("[name=time_period]").value, depth: document.querySelector("[name=depth]").value, include_insights: true})',
+                        "hx-headers": '{"Content-Type": "application/json"}',
+                    },
+                ),
+                cls="card-body",
+            ),
+            cls="card bg-base-100 shadow-sm mb-6",
+        )
+
+        recent_reports = Div(
+            H3("Recent Progress Reports", cls="font-semibold mb-4"),
+            Div(
+                P("Loading...", cls="text-center text-base-content/60"),
+                id="progress-reports-list",
+                **{
+                    "hx-get": "/api/reports/progress?limit=10",
+                    "hx-trigger": "load",
+                    "hx-swap": "innerHTML",
+                },
+            ),
+            Script(
+                NotStr("""
+                document.body.addEventListener('htmx:afterRequest', function(evt) {
+                    if (evt.detail.elt.id === 'progress-reports-list') {
+                        try {
+                            var data = JSON.parse(evt.detail.xhr.responseText);
+                            var container = document.getElementById('progress-reports-list');
+                            if (!data.reports || data.reports.length === 0) {
+                                container.innerHTML = '<p class="text-center text-base-content/60 py-4">No progress reports yet. Generate your first one above!</p>';
+                                return;
+                            }
+                            var html = '';
+                            data.reports.forEach(function(r) {
+                                var date = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
+                                var stats = r.stats || r.metadata || {};
+                                var tasks = stats.tasks_completed || 0;
+                                var goals = stats.goals_progressed || 0;
+                                html += '<div class="card bg-base-100 shadow-sm mb-2"><div class="card-body p-4">';
+                                html += '<div class="flex items-center justify-between">';
+                                html += '<div><h4 class="font-semibold mb-0">' + (r.title || 'Progress Report') + '</h4>';
+                                html += '<p class="text-xs text-base-content/60">' + date + '</p></div>';
+                                html += '<div class="flex gap-2">';
+                                html += '<span class="badge badge-info">' + tasks + ' tasks</span>';
+                                html += '<span class="badge badge-success">' + goals + ' goals</span>';
+                                html += '<a href="/reports/' + r.uid + '" class="btn btn-xs btn-ghost">View</a>';
+                                html += '</div></div></div></div>';
+                            });
+                            container.innerHTML = html;
+                        } catch(e) { /* non-JSON response handled by HTMX */ }
+                    }
+                });
+            """)
+            ),
+        )
+
+        content = Div(
+            PageHeader("Progress Reports", subtitle="Track your activity over time"),
+            generate_card,
+            recent_reports,
+        )
+        return await SidebarPage(
+            content=content,
+            items=REPORTS_SIDEBAR_ITEMS,
+            active="progress",
+            title="Reports",
+            subtitle="Submit and manage files",
+            storage_key="reports-sidebar",
+            page_title="Progress Reports",
+            request=request,
+            active_page="reports",
+            title_href="/reports",
+        )
+
     @rt("/reports/{uid}/shared-users")
     async def get_shared_users_ui(request: Request, uid: str) -> Any:
         """
@@ -1146,6 +1349,8 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
         reports_submit_page,  # /reports/submit (specific)
         reports_browse_page,  # /reports/browse (specific)
         reports_yours_page,  # /reports/yours (specific)
+        reports_feedback_page,  # /reports/feedback (specific)
+        reports_progress_page,  # /reports/progress (specific)
         upload_report,  # /reports/upload (specific, HTMX POST)
         get_reports_grid,  # /reports/grid (specific, HTMX GET)
         get_report_info,  # /reports/{uid}/info (pattern + suffix)

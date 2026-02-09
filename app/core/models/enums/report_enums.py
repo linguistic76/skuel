@@ -32,6 +32,8 @@ class ReportType(str, Enum):
     IMAGE_ANALYSIS = "image_analysis"
     VIDEO_SUMMARY = "video_summary"
     JOURNAL = "journal"
+    PROGRESS = "progress"
+    ASSESSMENT = "assessment"
 
     def get_display_name(self) -> str:
         """Get human-readable display name for UI."""
@@ -41,15 +43,29 @@ class ReportType(str, Enum):
             ReportType.IMAGE_ANALYSIS: "Image Analysis",
             ReportType.VIDEO_SUMMARY: "Video Summary",
             ReportType.JOURNAL: "Journal",
+            ReportType.PROGRESS: "Progress Report",
+            ReportType.ASSESSMENT: "Teacher Assessment",
         }[self]
 
     def is_journal(self) -> bool:
         """Check if this is a journal-type report."""
         return self == ReportType.JOURNAL
 
+    def is_progress(self) -> bool:
+        """Check if this is a system-generated progress report."""
+        return self == ReportType.PROGRESS
+
+    def is_assessment(self) -> bool:
+        """Check if this is a teacher assessment."""
+        return self == ReportType.ASSESSMENT
+
+    def is_system_generated(self) -> bool:
+        """Check if this report type is system-generated (not user-submitted)."""
+        return self == ReportType.PROGRESS
+
     def is_file_based(self) -> bool:
         """Check if this report type requires file upload."""
-        return self != ReportType.JOURNAL
+        return self not in {ReportType.JOURNAL, ReportType.PROGRESS, ReportType.ASSESSMENT}
 
 
 class ReportStatus(str, Enum):

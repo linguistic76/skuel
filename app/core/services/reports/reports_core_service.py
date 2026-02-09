@@ -29,8 +29,8 @@ if TYPE_CHECKING:
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
-from core.events.report_events import ReportDeleted
-from core.models.enums.report_enums import JournalType, ReportStatus, ReportType
+from core.events.report_events import AssessmentCreated, ReportDeleted
+from core.models.enums.report_enums import JournalType, ProcessorType, ReportStatus, ReportType
 from core.models.report.report import (
     Report,
     ReportDTO,
@@ -1165,6 +1165,174 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
                 self.logger.info(f"FIFO cleanup: deleted voice journal {journal.uid}")
 
         return Result.ok(deleted_count)
+
+    # ========================================================================
+    # ASSESSMENT CRUD (Teacher Assessments)
+    # ========================================================================
+
+    @with_error_handling("create_assessment", error_type="database")
+    async def create_assessment(
+        self,
+        teacher_uid: str,
+        subject_uid: str,
+        title: str,
+        content: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> Result[Report]:
+        """
+        Create a teacher assessment for a student.
+
+        Creates a Report with report_type=ASSESSMENT, auto-shares with student.
+
+        Args:
+            teacher_uid: Teacher creating the assessment
+            subject_uid: Student being assessed
+            title: Assessment title
+            content: Assessment content (markdown)
+            metadata: Optional additional metadata
+
+        Returns:
+            Result containing the created Report
+        """
+        from core.models.enums.metadata_enums import Visibility
+
+        uid = UIDGenerator.generate_uid("report")
+
+        assessment = Report(
+            uid=uid,
+            user_uid=teacher_uid,
+            report_type=ReportType.ASSESSMENT,
+            status=ReportStatus.COMPLETED,
+            processor_type=ProcessorType.HUMAN,
+            title=title,
+            content=content,
+            subject_uid=subject_uid,
+            created_by=teacher_uid,
+            visibility=Visibility.SHARED,
+            metadata=metadata,
+        )
+
+        result = await self.backend.create(assessment)
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        # Create ASSESSMENT_OF relationship
+        try:
+            await self.backend.driver.execute_query(
+                """
+                MATCH (r:Report {uid: $report_uid})
+                MATCH (u:User {uid: $subject_uid})
+                MERGE (r)-[:ASSESSMENT_OF]->(u)
+                """,
+                report_uid=uid,
+                subject_uid=subject_uid,
+            )
+        except Exception as e:
+            self.logger.warning(f"Failed to create ASSESSMENT_OF relationship: {e}")
+
+        # Auto-share with student
+        try:
+            await self.backend.driver.execute_query(
+                """
+                MATCH (student:User {uid: $subject_uid})
+                MATCH (r:Report {uid: $report_uid})
+                MERGE (student)-[rel:SHARES_WITH]->(r)
+                SET rel.shared_at = datetime($now),
+                    rel.role = 'student'
+                """,
+                subject_uid=subject_uid,
+                report_uid=uid,
+                now=datetime.now().isoformat(),
+            )
+        except Exception as e:
+            self.logger.warning(f"Failed to auto-share assessment with student: {e}")
+
+        # Publish event
+        event = AssessmentCreated(
+            report_uid=uid,
+            teacher_uid=teacher_uid,
+            subject_uid=subject_uid,
+            occurred_at=datetime.now(),
+        )
+        await publish_event(self.event_bus, event, self.logger)
+
+        self.logger.info(f"Created assessment {uid}: teacher={teacher_uid}, student={subject_uid}")
+        return Result.ok(assessment)
+
+    @with_error_handling("get_assessments_for_student", error_type="database")
+    async def get_assessments_for_student(
+        self, student_uid: str, limit: int = 50
+    ) -> Result[list[Report]]:
+        """
+        Get assessments received by a student.
+
+        Args:
+            student_uid: Student user UID
+            limit: Maximum number of assessments to return
+
+        Returns:
+            Result containing list of assessment Reports
+        """
+        try:
+            records, _, _ = await self.backend.driver.execute_query(
+                """
+                MATCH (r:Report)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
+                WHERE r.report_type = 'assessment'
+                RETURN r
+                ORDER BY r.created_at DESC
+                LIMIT $limit
+                """,
+                student_uid=student_uid,
+                limit=limit,
+            )
+            reports = []
+            for record in records:
+                node = record["r"]
+                dto = ReportDTO(
+                    uid=node["uid"],
+                    user_uid=node.get("user_uid", ""),
+                    report_type=node.get("report_type", "assessment"),
+                    status=node.get("status", "completed"),
+                    subject_uid=node.get("subject_uid"),
+                    title=node.get("title"),
+                    content=node.get("content"),
+                    created_by=node.get("created_by"),
+                    created_at=node.get("created_at"),
+                    updated_at=node.get("updated_at"),
+                    visibility=node.get("visibility", "shared"),
+                )
+                from core.models.report.report import report_dto_to_pure
+
+                reports.append(report_dto_to_pure(dto))
+            return Result.ok(reports)
+        except Exception as e:
+            self.logger.error(f"Failed to get assessments for student {student_uid}: {e}")
+            return Result.fail(Errors.database(str(e)))
+
+    @with_error_handling("get_assessments_by_teacher", error_type="database")
+    async def get_assessments_by_teacher(
+        self, teacher_uid: str, limit: int = 50
+    ) -> Result[list[Report]]:
+        """
+        Get assessments authored by a teacher.
+
+        Args:
+            teacher_uid: Teacher user UID
+            limit: Maximum number of assessments to return
+
+        Returns:
+            Result containing list of assessment Reports
+        """
+        result = await self.backend.find_by(
+            user_uid=teacher_uid,
+            report_type=ReportType.ASSESSMENT.value,
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        reports = result.value or []
+        reports.sort(key=_get_created_at_key, reverse=True)
+        return Result.ok(reports[:limit])
 
     # ========================================================================
     # EVENT HANDLERS

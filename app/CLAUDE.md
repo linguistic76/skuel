@@ -223,7 +223,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
 
 **Content/Processing Domain (1)**:
-- **Reports** - All submissions dashboard (transcripts, assignments, journals). Journals are `Report` nodes with `report_type=JOURNAL`. Route `/journals` is a submission UX surface, not a standalone domain.
+- **Reports** - All content submissions and system-generated summaries. 7 report types: TRANSCRIPT, ASSIGNMENT, JOURNAL, JOURNAL_VOICE, JOURNAL_CURATED (user-submitted), PROGRESS (system-generated), ASSESSMENT (teacher-authored). Routes `/journals` and `/reports/progress` are UX surfaces, not standalone domains.
 
 **Organizational Domains (2)**:
 - **Groups** - Teacher-student class management (ADR-040). Teacher creates group, adds students via MEMBER_OF. Assignments target groups via FOR_GROUP.
@@ -496,7 +496,7 @@ EntityType.get_canonical()      # Normalizes aliases (KNOWLEDGE -> KU)
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, etc. | 6 protocols |
 | **Intelligence** | `intelligence_protocols.py` | Analytics operations | 1 protocol |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 protocols |
-| **Reports** | `reports_protocols.py` | Submission, sharing, processing | 7 protocols |
+| **Reports** | `reports_protocols.py` | Submission, sharing, processing, progress, scheduling | 9 protocols |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review | 2 protocols |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration | 9 protocols |
 

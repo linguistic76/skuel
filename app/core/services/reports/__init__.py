@@ -40,6 +40,12 @@ from core.services.reports.reports_search_service import ReportsSearchService
 from core.services.reports.reports_submission_service import (
     ReportSubmissionService,
 )
+from core.services.reports.progress_report_generator import (
+    ProgressReportGenerator,
+)
+from core.services.reports.report_schedule_service import (
+    ReportScheduleService,
+)
 
 __all__ = [
     "ReportsCoreService",
@@ -52,4 +58,6 @@ __all__ = [
     "ReportProjectService",
     "ReportAIInsights",
     "ReportProcessingContext",
+    "ProgressReportGenerator",
+    "ReportScheduleService",
 ]

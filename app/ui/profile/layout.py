@@ -194,7 +194,10 @@ def _build_profile_sidebar_items(
                 ),
                 cls="px-3 pt-2",
             ),
-            *[_profile_item_renderer(item, item.slug == active_domain) for item in curriculum_items],
+            *[
+                _profile_item_renderer(item, item.slug == active_domain)
+                for item in curriculum_items
+            ],
         ]
 
     return items, extra_sections

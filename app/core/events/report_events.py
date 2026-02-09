@@ -161,6 +161,27 @@ class ReportReviewed(BaseEvent):
 
 
 @dataclass(frozen=True)
+class AssessmentCreated(BaseEvent):
+    """
+    Published when a teacher creates an assessment for a student.
+
+    Triggers:
+    - Student notification
+    - Auto-sharing with student
+    """
+
+    report_uid: str
+    teacher_uid: str
+    subject_uid: str
+    occurred_at: datetime
+    metadata: dict[str, Any] | None = None
+
+    @property
+    def event_type(self) -> str:
+        return "report.assessment_created"
+
+
+@dataclass(frozen=True)
 class ReportRevisionRequested(BaseEvent):
     """
     Published when a teacher requests revision on a report.

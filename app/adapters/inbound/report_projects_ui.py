@@ -493,7 +493,12 @@ def parse_report_project_params(request: Request) -> ReportProjectParams:
 
 
 def create_report_projects_ui_routes(
-    app, rt, report_projects_service, transcript_service=None, user_service=None, **related_services: Any
+    app,
+    rt,
+    report_projects_service,
+    transcript_service=None,
+    user_service=None,
+    **related_services: Any,
 ):
     """
     Create report projects UI routes.

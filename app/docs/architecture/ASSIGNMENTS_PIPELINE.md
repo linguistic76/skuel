@@ -8,6 +8,8 @@ related: [ADR-019-transcription-service-standalone]
 ---
 
 > **Note:** As of 2026-02-06, the Assignments domain has been renamed to Reports. See `/docs/domains/reports.md`.
+>
+> **Note (2026-02-09):** Reports now includes PROGRESS (system-generated) and ASSESSMENT (teacher-authored) report types, plus `ReportScheduleService` for recurring progress generation. This document covers the original file submission pipeline only.
 
 ## Implementation Status (January 2026)
 

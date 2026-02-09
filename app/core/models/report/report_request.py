@@ -198,3 +198,93 @@ class JournalReportUpdateRequest(BaseModel):
     action_items: list[str] | None = Field(None, description="Action items")
     status: ReportStatus | None = Field(None, description="New status")
     metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
+
+
+# ========================================================================
+# PROGRESS REPORT REQUEST MODELS
+# ========================================================================
+
+
+class ProgressReportGenerateRequest(BaseModel):
+    """Request model for on-demand progress report generation."""
+
+    time_period: str = Field(
+        default="7d",
+        description="Time period: 7d, 14d, 30d, or 90d",
+        pattern=r"^(7d|14d|30d|90d)$",
+    )
+    domains: list[str] = Field(
+        default_factory=list,
+        description="Domains to include (empty = all activity domains)",
+    )
+    depth: str = Field(
+        default="standard",
+        description="Report depth: summary, standard, or detailed",
+        pattern=r"^(summary|standard|detailed)$",
+    )
+    include_insights: bool = Field(
+        default=True,
+        description="Include active insights from InsightStore",
+    )
+
+
+# ========================================================================
+# ASSESSMENT REQUEST MODELS
+# ========================================================================
+
+
+class AssessmentCreateRequest(BaseModel):
+    """Request model for creating a teacher assessment."""
+
+    subject_uid: str = Field(..., description="Student being assessed")
+    title: str = Field(..., min_length=1, max_length=500, description="Assessment title")
+    content: str = Field(..., min_length=1, description="Assessment content (markdown)")
+    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
+
+
+# ========================================================================
+# REPORT SCHEDULE REQUEST MODELS
+# ========================================================================
+
+
+class ReportScheduleCreateRequest(BaseModel):
+    """Request model for creating a report generation schedule."""
+
+    schedule_type: str = Field(
+        default="weekly",
+        description="Schedule frequency: weekly, biweekly, or monthly",
+        pattern=r"^(weekly|biweekly|monthly)$",
+    )
+    day_of_week: int = Field(
+        default=0,
+        ge=0,
+        le=6,
+        description="Day of week (0=Monday, 6=Sunday)",
+    )
+    domains: list[str] = Field(
+        default_factory=list,
+        description="Domains to include (empty = all)",
+    )
+    depth: str = Field(
+        default="standard",
+        description="Report depth: summary, standard, or detailed",
+        pattern=r"^(summary|standard|detailed)$",
+    )
+
+
+class ReportScheduleUpdateRequest(BaseModel):
+    """Request model for updating a report schedule. All fields optional."""
+
+    schedule_type: str | None = Field(
+        None,
+        description="Schedule frequency",
+        pattern=r"^(weekly|biweekly|monthly)$",
+    )
+    day_of_week: int | None = Field(None, ge=0, le=6, description="Day of week")
+    domains: list[str] | None = Field(None, description="Domains to include")
+    depth: str | None = Field(
+        None,
+        description="Report depth",
+        pattern=r"^(summary|standard|detailed)$",
+    )
+    is_active: bool | None = Field(None, description="Enable/disable schedule")

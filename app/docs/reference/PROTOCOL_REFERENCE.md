@@ -541,23 +541,25 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 
 | File | Protocols | Route Consumers |
 |------|-----------|-----------------|
-| `reports_protocols.py` | 7 protocols | `reports_api.py`, `reports_sharing_api.py`, `report_projects_api.py` |
+| `reports_protocols.py` | 9 protocols | `reports_api.py`, `reports_sharing_api.py`, `report_projects_api.py`, `reports_progress_api.py`, `reports_assessment_api.py` |
 | `group_protocols.py` | 2 protocols | `groups_api.py`, `teaching_api.py` |
 | `service_protocols.py` | 9 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py` |
 
 Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 
-### Reports Domain Protocols (7)
+### Reports Domain Protocols (9)
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
 | `ReportSubmissionOperations` | `reports` | 7 (submit_file, get_report, list_reports, get_file_content, get_processed_file_content, get_report_statistics, update_processed_content) | `reports_api.py` |
-| `ReportsCoreOperations` | `reports_core` | 14 (get_report, categorize, tags, publish, archive, draft, bulk ops, create_journal_report) | `reports_api.py`, `reports_sharing_api.py` |
+| `ReportsCoreOperations` | `reports_core` | 17 (get_report, categorize, tags, publish, archive, draft, bulk ops, create_journal_report, create_assessment, get_assessments_for_student, get_assessments_by_teacher) | `reports_api.py`, `reports_sharing_api.py`, `reports_assessment_api.py` |
 | `ReportsSearchOperations` | `reports_query` | 4 (search_reports, get_report_statistics, get_recent_reports, get_journal_for_report) | `reports_api.py` |
 | `ReportSharingOperations` | `reports_sharing` | 6 (share, unshare, get_shared_with_users, get_reports_shared_with_me, set_visibility, check_access) | `reports_sharing_api.py` |
 | `ReportsProcessingOperations` | `processing_pipeline` | 2 (process_report, reprocess_report) | `reports_api.py` |
 | `ReportProjectOperations` | `report_projects` | 5 (create, get, list, update, delete) | `report_projects_api.py` |
 | `ReportFeedbackOperations` | `report_feedback` | 1 (generate_feedback) | `report_projects_api.py` |
+| `ProgressReportGeneratorOperations` | `progress_generator` | 1 (generate) | `reports_progress_api.py` |
+| `ReportScheduleOperations` | `report_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `reports_progress_api.py` |
 
 ### Group & Teaching Protocols (2)
 

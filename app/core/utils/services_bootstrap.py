@@ -123,6 +123,8 @@ if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
+    from core.services.reports.progress_report_generator import ProgressReportGenerator
+    from core.services.reports.report_schedule_service import ReportScheduleService
     from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.choices.choices_lateral_service import ChoicesLateralService
@@ -412,6 +414,10 @@ class Services:
 
     # Background workers (January 2026)
     embedding_worker: "EmbeddingBackgroundWorker | None" = None
+
+    # Progress report generation (February 2026)
+    progress_generator: "ProgressReportGenerator | None" = None
+    report_schedule: "ReportScheduleService | None" = None
 
     # ========================================================================
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
@@ -1729,6 +1735,26 @@ async def compose_services(
             "✅ Reports query service created (unified query interface for all report types)"
         )
 
+        # Create progress report generator and schedule service (February 2026)
+        from core.services.reports.progress_report_generator import ProgressReportGenerator
+        from core.services.reports.report_schedule_service import ReportScheduleService
+
+        from core.models.report.report_schedule import ReportSchedule
+
+        report_schedule_backend = UniversalNeo4jBackend[ReportSchedule](
+            driver, NeoLabel.REPORT_SCHEDULE, ReportSchedule, prometheus_metrics=prometheus_metrics
+        )
+        report_schedule_service = ReportScheduleService(backend=report_schedule_backend)
+
+        progress_generator = ProgressReportGenerator(
+            driver=driver,
+            reports_backend=reports_backend,
+            user_service=core_services["user"],
+            insight_store=insight_store,
+            event_bus=event_bus,
+        )
+        logger.info("✅ Progress report generator and schedule service created")
+
         # Create analytics service
         from core.services.analytics_service import AnalyticsService
 
@@ -2319,6 +2345,9 @@ async def compose_services(
             report_processor=report_processor,
             processing_pipeline=report_processor,  # Alias for report_processor
             reports_query=reports_query_service,  # Phase 3 - Unified report queries
+            # Progress reports (February 2026)
+            progress_generator=progress_generator,
+            report_schedule=report_schedule_service,
             # System
             # Note: sync field removed (January 2026) - use unified_ingestion
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion

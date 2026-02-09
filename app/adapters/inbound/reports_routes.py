@@ -17,6 +17,8 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 from typing import Any
 
 from adapters.inbound.reports_api import create_reports_api_routes
+from adapters.inbound.reports_assessment_api import create_reports_assessment_api_routes
+from adapters.inbound.reports_progress_api import create_reports_progress_api_routes
 from adapters.inbound.reports_sharing_api import create_reports_sharing_api_routes
 from adapters.inbound.reports_ui import create_reports_ui_routes
 from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
@@ -69,6 +71,35 @@ def create_reports_routes(app: Any, rt: Any, services: Any, _sync_service=None) 
         )
         routes.extend(sharing_routes or [])
         logger.info("Report sharing routes registered (Portfolio feature)")
+
+    # Extension: progress report generation routes
+    progress_generator = getattr(services, "progress_generator", None)
+    if progress_generator and services.reports:
+        schedule_service = getattr(services, "report_schedule", None)
+        progress_routes = create_reports_progress_api_routes(
+            app,
+            rt,
+            progress_generator,
+            services.reports,
+            schedule_service=schedule_service,
+        )
+        routes.extend(progress_routes or [])
+        logger.info("Report progress routes registered")
+
+    # Extension: assessment routes (require TEACHER role)
+    if services and services.reports_core:
+
+        def get_user_service():
+            return services.user_service
+
+        assessment_routes = create_reports_assessment_api_routes(
+            app,
+            rt,
+            services.reports_core,
+            user_service_getter=get_user_service,
+        )
+        routes.extend(assessment_routes or [])
+        logger.info("Report assessment routes registered")
 
     return routes
 

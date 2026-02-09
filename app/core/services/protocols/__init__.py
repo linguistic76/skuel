@@ -259,8 +259,10 @@ from .query_types import (
 
 # Reports domain protocols (February 2026)
 from .reports_protocols import (
+    ProgressReportGeneratorOperations,
     ReportFeedbackOperations,
     ReportProjectOperations,
+    ReportScheduleOperations,
     ReportsCoreOperations,
     ReportSharingOperations,
     ReportsProcessingOperations,
@@ -475,9 +477,11 @@ __all__ = [
     "PydanticFieldInfo",
     "PydanticModel",
     "QueryBuilderOperations",
-    # ========== REPORTS DOMAIN PROTOCOLS (7 - February 2026) ==========
+    # ========== REPORTS DOMAIN PROTOCOLS (9 - February 2026) ==========
+    "ProgressReportGeneratorOperations",
     "ReportFeedbackOperations",
     "ReportProjectOperations",
+    "ReportScheduleOperations",
     "ReportsCoreOperations",
     "ReportsProcessingOperations",
     "ReportsSearchOperations",

@@ -87,6 +87,7 @@ class NeoLabel(str, Enum):
     JOURNAL_PROJECT = "JournalProject"  # Legacy — migration target is ReportProject
     REPORT = "Report"
     REPORT_PROJECT = "ReportProject"
+    REPORT_SCHEDULE = "ReportSchedule"
     TRANSCRIPTION = "Transcription"
 
     # =========================================================================

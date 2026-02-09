@@ -285,9 +285,9 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                 prometheus_metrics.relationships.relationships_by_layer.labels(
                     layer="hierarchical"
                 ).set(hierarchical_count)
-                prometheus_metrics.relationships.relationships_by_layer.labels(
-                    layer="lateral"
-                ).set(lateral_count)
+                prometheus_metrics.relationships.relationships_by_layer.labels(layer="lateral").set(
+                    lateral_count
+                )
                 prometheus_metrics.relationships.relationships_by_layer.labels(
                     layer="semantic"
                 ).set(semantic_count)

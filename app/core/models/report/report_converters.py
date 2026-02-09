@@ -28,6 +28,7 @@ def report_to_response(report: Report) -> dict[str, Any]:
         "user_uid": report.user_uid,
         "report_type": report.report_type.value,
         "status": report.status.value,
+        "subject_uid": report.subject_uid,
         "original_filename": report.original_filename,
         "file_size": report.file_size,
         "file_type": report.file_type,
@@ -72,6 +73,30 @@ def report_to_response(report: Report) -> dict[str, Any]:
                 "summary": report.get_summary(),
                 "is_voice_journal": report.is_voice_journal,
                 "is_curated_journal": report.is_curated_journal,
+            }
+        )
+
+    # Include progress report fields
+    if report.is_progress_report:
+        response.update(
+            {
+                "title": report.title,
+                "processed_content": report.processed_content,
+                "summary": report.get_summary(),
+            }
+        )
+        # Include metadata stats if available
+        if report.metadata:
+            response["stats"] = report.metadata
+
+    # Include assessment fields
+    if report.is_assessment:
+        response.update(
+            {
+                "title": report.title,
+                "content": report.content,
+                "subject_uid": report.subject_uid,
+                "summary": report.get_summary(),
             }
         )
 

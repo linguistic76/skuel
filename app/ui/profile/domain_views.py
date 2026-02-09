@@ -1531,7 +1531,10 @@ def _overview_insights(context: UserContext) -> Div:
 
     return Div(
         Div(cls="border-t border-base-200 mt-8 mb-6"),
-        H3("Insights", cls="text-sm font-semibold uppercase tracking-wider text-base-content/50 mb-3"),
+        H3(
+            "Insights",
+            cls="text-sm font-semibold uppercase tracking-wider text-base-content/50 mb-3",
+        ),
         Div(*insights, cls="space-y-2"),
     )
 
@@ -1558,7 +1561,10 @@ def _current_focus_card(context: UserContext) -> Div:
     if not context.current_task_focus:
         return A(
             Span("🎯", cls="text-lg mr-2"),
-            Span("No current focus set", cls="text-sm text-base-content/50 group-hover:text-primary transition-colors"),
+            Span(
+                "No current focus set",
+                cls="text-sm text-base-content/50 group-hover:text-primary transition-colors",
+            ),
             href="/profile/tasks",
             cls="flex items-center mb-4 group",
             **{"hx-boost": "false"},
@@ -1619,24 +1625,54 @@ def _domain_progress_grid(context: UserContext) -> Div:
     """
     # (icon, name, primary_count, primary_label, secondary_count, secondary_label)
     domain_data = [
-        ("✅", "Tasks",
-         len(context.active_task_uids), "active",
-         len(context.completed_task_uids), "completed"),
-        ("🔄", "Habits",
-         len(context.active_habit_uids), "active",
-         len(context.at_risk_habits), "at risk"),
-        ("🎯", "Goals",
-         len(context.active_goal_uids), "active",
-         len(context.completed_goal_uids), "completed"),
-        ("📅", "Events",
-         len(context.upcoming_event_uids), "upcoming",
-         len(context.today_event_uids), "today"),
-        ("⚖️", "Principles",
-         len(context.core_principle_uids), "total",
-         len(context.principle_conflicts), "conflicts"),
-        ("🔀", "Choices",
-         len(context.pending_choice_uids), "pending",
-         len(context.resolved_choice_uids), "resolved"),
+        (
+            "✅",
+            "Tasks",
+            len(context.active_task_uids),
+            "active",
+            len(context.completed_task_uids),
+            "completed",
+        ),
+        (
+            "🔄",
+            "Habits",
+            len(context.active_habit_uids),
+            "active",
+            len(context.at_risk_habits),
+            "at risk",
+        ),
+        (
+            "🎯",
+            "Goals",
+            len(context.active_goal_uids),
+            "active",
+            len(context.completed_goal_uids),
+            "completed",
+        ),
+        (
+            "📅",
+            "Events",
+            len(context.upcoming_event_uids),
+            "upcoming",
+            len(context.today_event_uids),
+            "today",
+        ),
+        (
+            "⚖️",
+            "Principles",
+            len(context.core_principle_uids),
+            "total",
+            len(context.principle_conflicts),
+            "conflicts",
+        ),
+        (
+            "🔀",
+            "Choices",
+            len(context.pending_choice_uids),
+            "pending",
+            len(context.resolved_choice_uids),
+            "resolved",
+        ),
     ]
 
     domain_items = []
@@ -1666,7 +1702,9 @@ def _domain_progress_grid(context: UserContext) -> Div:
                 Div(
                     secondary_el,
                     cls="mt-1 min-h-[1.25rem]",
-                ) if secondary_el else Div(cls="mt-1 min-h-[1.25rem]"),
+                )
+                if secondary_el
+                else Div(cls="mt-1 min-h-[1.25rem]"),
                 cls="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
             )
         )
