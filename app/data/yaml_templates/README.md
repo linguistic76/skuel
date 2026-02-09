@@ -29,6 +29,7 @@ exact YAML frontmatter fields the ingestion pipeline parses.
 | `principle_template.md` | Principle | `type: Principle` | Uses `name:` not `title:` |
 | `ls_template.md` | Learning Step | `type: LearningStep` | Curriculum (shared) |
 | `lp_template.md` | Learning Path | `type: LearningPath` | Uses `name:` not `title:` |
+| `assignment_template.md` | Assignment | `type: Assignment` | ReportProject with `scope: ASSIGNED` (ADR-040) |
 
 ## Relationship Fields by Domain
 
@@ -76,6 +77,16 @@ defined in the relationship registry and processed during ingestion.
 - `guides_goal` → GUIDES_GOAL (→ Goal)
 - `inspires_habit` → INSPIRES_HABIT (→ Habit)
 
+### Assignments (teacher-created, group-targeted)
+
+**Assignment** — `connections:`
+- `assesses_knowledge` → ASSESSES_KNOWLEDGE (→ Ku)
+- `serves_goal` → SERVES_GOAL (→ Goal)
+
+**Assignment** — top-level fields:
+- `group_uid` → FOR_GROUP (→ Group)
+- `rubric` → structured grading criteria (stored as node property)
+
 ## UID Format
 
 UIDs referenced in relationship fields use dot notation:
@@ -96,3 +107,4 @@ lp.python-fundamentals      # Learning Path
 |-------|---------|-------------|-----------|
 | **Shared** | KU, LS, LP, MOC | Admin only | Everyone |
 | **User-owned** | Task, Goal, Habit, Event, Choice, Principle | User (set `user_uid`) | Owner only |
+| **Assigned** | Assignment | Teacher (admin/teacher role) | Group members (students submit against it) |
