@@ -158,48 +158,6 @@ class GraphEntity(Protocol):
 
 
 @runtime_checkable
-class HasGuidances(Protocol):
-    """
-    Protocol for entities that have principle guidances.
-
-    Entities implementing this can be guided by principles with
-    explicit manifestations and strength ratings.
-    """
-
-    @property
-    def guidances(self) -> tuple[Any, ...]:
-        """Tuple of Guidance objects showing HOW principles guide this entity."""
-        ...
-
-    def get_strong_guidances(self) -> list[Any]:
-        """Get guidances with strength >= 0.7."""
-        ...
-
-    def get_guidance_manifestations(self) -> list[str]:
-        """Get list of HOW manifestations from guidances."""
-        ...
-
-
-@runtime_checkable
-class HasDerivation(Protocol):
-    """
-    Protocol for entities that have a choice derivation.
-
-    Entities implementing this were created by an explicit choice
-    with reasoning and confidence rating.
-    """
-
-    @property
-    def derivation(self) -> Any | None:
-        """Optional Derivation object showing WHY a choice created this entity."""
-        ...
-
-    def has_clear_derivation(self) -> bool:
-        """Check if this entity has explicit reasoning for its creation."""
-        ...
-
-
-@runtime_checkable
 class HasHabitSystem(Protocol):
     """
     Protocol for entities supported by a habit system.
@@ -301,7 +259,5 @@ __all__ = [
     "GraphEntity",
     "GraphEntityBase",
     "GraphEntityWithContext",
-    "HasDerivation",
-    "HasGuidances",
     "HasHabitSystem",
 ]

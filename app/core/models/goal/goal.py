@@ -23,16 +23,14 @@ from datetime import date, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from core.models.enums import Domain, GoalStatus, Priority
 from core.models.mixins import StatusChecksMixin
 from core.models.query import QueryIntent
 
 # Phase 1: Query Infrastructure
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.enums import Domain, GoalStatus, Priority
 
-# Relationship Context (Phase 1: Making Connections Comprehensible)
 if TYPE_CHECKING:
-    from core.models.entity_relationships import Derivation, Guidance
     from core.models.goal.goal_relationships import GoalRelationships
 
 
@@ -163,11 +161,6 @@ class Goal(StatusChecksMixin):
     # Choice Integration (INSPIRE → MOTIVATE bridge)
     inspired_by_choice_uid: str | None = None  # choice: UID that inspired this goal,
     selected_choice_option_uid: str | None = None  # Which option was chosen from the choice
-
-    # Relationship Context (Phase 1: Making Connections Comprehensible)
-    # Instead of just storing UIDs, we store HOW and WHY relationships exist
-    guidances: tuple[Guidance, ...] = ()  # HOW each principle guides this goal,
-    derivation: Derivation | None = None  # WHY a choice created this goal
 
     # Milestones
     milestones: tuple[Milestone, ...] = ()
@@ -1352,26 +1345,13 @@ class Goal(StatusChecksMixin):
             - What choice created it (if any)
             - Which principles guide it (if any)
             - How it fits in the larger system
-
-        Example:
-            "This goal exists because I chose to prioritize mental health (choice:meditation-now),
-             guided by the principle 'small steps > big plans' (principle:small-steps)."
         """
         parts = [f"{self.title}"]
 
-        # Add derivation reasoning (WHY a choice created this)
-        if self.derivation:
-            parts.append(f"Born from: {self.derivation.reasoning}")
-        elif self.inspired_by_choice_uid:
+        if self.inspired_by_choice_uid:
             parts.append(f"Inspired by choice: {self.inspired_by_choice_uid}")
 
-        # Add principle guidances (HOW principles shape this)
-        if self.guidances:
-            strong_guidances = [g for g in self.guidances if g.is_strong_guidance()]
-            if strong_guidances:
-                manifestations = [g.manifestation for g in strong_guidances]
-                parts.append(f"Guided by: {', '.join(manifestations)}")
-        elif rels and rels.guiding_principle_uids:
+        if rels and rels.guiding_principle_uids:
             parts.append(f"Guided by {len(rels.guiding_principle_uids)} principles")
 
         # Add system context
@@ -1380,36 +1360,6 @@ class Goal(StatusChecksMixin):
             parts.append(f"Supported by system with {essential_count} essential habits")
 
         return ". ".join(parts)
-
-    def get_strong_guidances(self) -> tuple[Guidance, ...]:
-        """
-        Get principles that strongly guide this goal.
-
-        Returns:
-            Tuple of Guidance objects with strength >= 0.7
-        """
-        return tuple(g for g in self.guidances if g.is_strong_guidance())
-
-    def get_guidance_manifestations(self) -> list[str]:
-        """
-        Get HOW each principle manifests in this goal.
-
-        Returns:
-            List of manifestation strings showing principle influence,
-
-        Example:
-            ["By limiting daily work to 4 hours", "By starting with 2-min sessions"]
-        """
-        return [g.manifestation for g in self.guidances]
-
-    def has_clear_derivation(self) -> bool:
-        """
-        Check if this goal has explicit reasoning for its creation.
-
-        Returns:
-            True if derivation exists with reasoning
-        """
-        return self.derivation is not None
 
     def get_relationship_summary(self, rels: GoalRelationships | None = None) -> dict:
         """
@@ -1431,22 +1381,6 @@ class Goal(StatusChecksMixin):
 
         return {
             "explanation": self.explain_existence(rels=rels),
-            "derivation": {
-                "reasoning": self.derivation.reasoning,
-                "confidence": self.derivation.confidence,
-                "choice_uid": self.derivation.choice_uid,
-            }
-            if self.derivation
-            else None,
-            "guidances": [
-                {
-                    "principle_uid": g.principle_uid,
-                    "manifestation": g.manifestation,
-                    "strength": g.strength,
-                    "strength_label": g.get_strength_label(),
-                }
-                for g in self.guidances
-            ],
             "habit_system": {
                 "exists": self.has_habit_system(),
                 "essential_count": essential_count,
@@ -1471,46 +1405,19 @@ class Goal(StatusChecksMixin):
         """
         influences = []
 
-        # 1. Derivation: Choice that created this goal
-        if self.derivation:
-            influences.append(
-                {
-                    "uid": self.derivation.choice_uid,
-                    "entity_type": "choice",
-                    "relationship_type": "derives_from",
-                    "reasoning": self.derivation.reasoning,
-                    "confidence": self.derivation.confidence,
-                    "confidence_label": self.derivation.get_confidence_label(),
-                }
-            )
-        elif self.inspired_by_choice_uid:
-            # Fallback to legacy choice UID (no reasoning)
+        # 1. Choice that inspired this goal
+        if self.inspired_by_choice_uid:
             influences.append(
                 {
                     "uid": self.inspired_by_choice_uid,
                     "entity_type": "choice",
                     "relationship_type": "inspired_by",
                     "reasoning": None,
-                    "confidence": None,
+                    "strength": None,
                 }
             )
 
-        # 2. Guidances: Principles that guide this goal
-        influences.extend(
-            [
-                {
-                    "uid": guidance.principle_uid,
-                    "entity_type": "principle",
-                    "relationship_type": "guided_by",
-                    "manifestation": guidance.manifestation,
-                    "strength": guidance.strength,
-                    "strength_label": guidance.get_strength_label(),
-                }
-                for guidance in self.guidances
-            ]
-        )
-
-        # 3. Legacy principle UIDs (without manifestations)
+        # 2. Guiding principles (from graph relationships)
         if rels:
             influences.extend(
                 [
@@ -1518,12 +1425,10 @@ class Goal(StatusChecksMixin):
                         "uid": principle_uid,
                         "entity_type": "principle",
                         "relationship_type": "guided_by",
-                        "manifestation": None,
+                        "reasoning": None,
                         "strength": None,
-                        "strength_label": None,
                     }
                     for principle_uid in rels.guiding_principle_uids
-                    if not any(g.principle_uid == principle_uid for g in self.guidances)
                 ]
             )
 
@@ -1670,23 +1575,8 @@ class Goal(StatusChecksMixin):
         GRAPH-NATIVE: UID list fields are NOT transferred from DTO to domain model.
         Relationships exist only as Neo4j edges, queried via service layer.
         """
-        from core.models.entity_relationships import Derivation, Guidance
-
         # Convert milestone DTOs to immutable Milestones
         milestones = tuple(Milestone(**m) if isinstance(m, dict) else m for m in dto.milestones)
-
-        # Convert guidances from dicts to immutable Guidance objects
-        guidances_list = getattr(dto, "guidances", [])
-        guidances = tuple(Guidance(**g) if isinstance(g, dict) else g for g in guidances_list)
-
-        # Convert derivation from dict to immutable Derivation object
-        derivation_dict = getattr(dto, "derivation", None)
-        derivation = None
-        if derivation_dict:
-            if isinstance(derivation_dict, dict):
-                derivation = Derivation(**derivation_dict)
-            else:
-                derivation = derivation_dict
 
         return cls(
             uid=dto.uid,
@@ -1716,8 +1606,6 @@ class Goal(StatusChecksMixin):
             curriculum_driven=getattr(dto, "curriculum_driven", False),
             inspired_by_choice_uid=getattr(dto, "inspired_by_choice_uid", None),
             selected_choice_option_uid=getattr(dto, "selected_choice_option_uid", None),
-            guidances=guidances,  # NEW: Relationship context
-            derivation=derivation,  # NEW: Relationship context
             milestones=milestones,
             progress_percentage=dto.progress_percentage,
             last_progress_update=dto.last_progress_update,
@@ -1758,12 +1646,6 @@ class Goal(StatusChecksMixin):
             for m in self.milestones
         ]
 
-        # Convert guidances to dicts
-        guidances_dicts = [g.to_dict() for g in self.guidances]
-
-        # Convert derivation to dict
-        derivation_dict = self.derivation.to_dict() if self.derivation else None
-
         # GRAPH-NATIVE: Relationship UIDs removed from DTO (Phase 3B migration)
         # Query relationships via service.relationships:
         #   - required_knowledge_uids: get_related_uids(uid, "REQUIRES_KNOWLEDGE", "outgoing")
@@ -1799,8 +1681,6 @@ class Goal(StatusChecksMixin):
             curriculum_driven=self.curriculum_driven,
             inspired_by_choice_uid=self.inspired_by_choice_uid,
             selected_choice_option_uid=self.selected_choice_option_uid,
-            guidances=guidances_dicts,  # Relationship context (Phase 1)
-            derivation=derivation_dict,  # Relationship context (Phase 1)
             milestones=milestone_dicts,
             progress_percentage=self.progress_percentage,
             last_progress_update=self.last_progress_update,

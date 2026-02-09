@@ -66,26 +66,6 @@ class GoalCreateRequest(BaseModel):
         description="Contribution weight to parent goal progress (default: 1.0 = equal weight)",
     )
 
-    # Relationship Context (Phase 1: Making Connections Comprehensible)
-    # Capture HOW principles guide and WHY choices create
-    principle_manifestations: dict[str, str] = Field(
-        default_factory=dict,
-        description="HOW each principle guides this goal (principle_uid -> manifestation)",
-    )
-    principle_strengths: dict[str, float] = Field(
-        default_factory=dict,
-        description="Strength of each principle's guidance (principle_uid -> 0-1)",
-    )
-    choice_reasoning: str | None = Field(
-        None, max_length=500, description="WHY a choice led to creating this goal"
-    )
-    choice_confidence: float | None = Field(
-        None, ge=0.0, le=1.0, description="Confidence in the choice that created this goal (0-1)"
-    )
-    inspired_by_choice_uid: str | None = Field(
-        None, description="UID of choice that inspired this goal"
-    )
-
     # Motivation
     why_important: str | None = Field(None, max_length=1000)
     success_criteria: str | None = Field(None, max_length=1000)

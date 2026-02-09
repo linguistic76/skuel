@@ -12,6 +12,7 @@ from datetime import date, datetime
 from typing import Any, ClassVar
 
 from core.models.activity_dto_mixin import ActivityDTOMixin
+from core.models.enums import Domain, GoalStatus, Priority
 
 # Import goal-specific enums
 # This works without circular import because:
@@ -19,7 +20,6 @@ from core.models.activity_dto_mixin import ActivityDTOMixin
 # 2. GoalDTO import is deferred to end of goal.py
 # 3. When this imports enums, Goal class hasn't referenced GoalDTO yet
 from core.models.goal.goal import GoalTimeframe, GoalType, MeasurementType
-from core.models.enums import Domain, GoalStatus, Priority
 
 
 @dataclass
@@ -75,11 +75,6 @@ class GoalDTO(ActivityDTOMixin):
     # Choice Integration (INSPIRE → MOTIVATE bridge)
     inspired_by_choice_uid: str | None = None
     selected_choice_option_uid: str | None = None
-
-    # Relationship Context (Phase 1: Making Connections Comprehensible)
-    # Capture HOW principles guide and WHY choices create
-    guidances: list[dict] = field(default_factory=list)  # List of Guidance dicts,
-    derivation: dict | None = None  # Derivation dict or None
 
     # Milestones (mutable list of dicts)
     milestones: list[dict] = field(default_factory=list)
@@ -192,7 +187,6 @@ class GoalDTO(ActivityDTOMixin):
                 "potential_obstacles",
                 "strategies",
                 "tags",
-                "guidances",
             ],
             dict_fields=["metadata"],
         )

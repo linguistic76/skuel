@@ -29,7 +29,6 @@ from core.models.finance.finance_request import (
     ExpenseUpdateRequest,
 )
 from core.models.goal.goal import Goal
-from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
@@ -357,109 +356,6 @@ class ConversionServiceV2:
     def goal_update_to_pure(cls, existing: GoalPure, schema: GoalUpdateRequest) -> GoalPure:
         """Apply GoalUpdateRequest to existing GoalPure using generic method."""
         return cls.update_to_pure(existing, schema)
-
-    @classmethod
-    def goal_create_to_dto(cls, uid: str, schema: GoalCreateRequest, user_uid: str) -> GoalDTO:
-        """
-        Convert GoalCreateRequest to GoalDTO with relationship context.
-
-        Creates Guidance and Derivation objects from form data.
-
-        Args:
-            uid: Generated goal UID
-            schema: Validated create request with relationship fields
-            user_uid: User UID (from authentication context)
-
-        Returns:
-            GoalDTO with guidances and derivation populated
-        """
-        from core.models.entity_relationships import Derivation, Guidance
-        from core.models.goal.goal_dto import GoalDTO
-
-        # Convert basic fields from schema to DTO
-        dto_data = schema.model_dump(exclude_none=False)
-
-        # Generate relationship context UIDs
-        guidances_list = []
-        derivation_dict = None
-
-        # Create Derivation if choice reasoning provided
-        if schema.choice_reasoning:
-            derivation_uid = (
-                f"derivation:{uid.split(':')[1]}" if ":" in uid else f"derivation:{uid}"
-            )
-            derivation = Derivation(
-                uid=derivation_uid,
-                choice_uid=schema.inspired_by_choice_uid or "choice:user-decision",
-                created_entity_uid=uid,
-                created_entity_type="goal",
-                reasoning=schema.choice_reasoning,
-                confidence=schema.choice_confidence if schema.choice_confidence else 0.8,
-                created_at=datetime.now(),
-            )
-            derivation_dict = derivation.to_dict()
-
-        # Create Guidances from principle guidance text (MVP approach)
-        if schema.principle_manifestations:
-            # Future: Handle per-principle manifestations
-            for principle_uid, manifestation in schema.principle_manifestations.items():
-                guidance_uid = (
-                    f"guidance:{uid.split(':')[1]}-{principle_uid.split(':')[1]}"
-                    if ":" in uid and ":" in principle_uid
-                    else f"guidance:{uid}-{principle_uid}"
-                )
-                strength = schema.principle_strengths.get(principle_uid, 1.0)
-
-                guidance = Guidance(
-                    uid=guidance_uid,
-                    principle_uid=principle_uid,
-                    entity_uid=uid,
-                    entity_type="goal",
-                    manifestation=manifestation,
-                    strength=strength,
-                    created_at=datetime.now(),
-                )
-                guidances_list.append(guidance.to_dict())
-
-        # MVP: Single free-text principle guidance (from Step 4 form)
-        # This is temporary until we have principle multi-select
-        # Note: principle_guidance handling moved to principle_manifestations above
-
-        # Create DTO with relationship context
-        # Note: GRAPH-NATIVE - Relationship UIDs (knowledge, habits, learning paths) are managed via graph edges
-        # These are NOT stored as DTO fields but created via GoalRelationshipService after entity creation
-        return GoalDTO(
-            uid=uid,
-            user_uid=user_uid,
-            title=dto_data["title"],
-            description=dto_data.get("description"),
-            vision_statement=dto_data.get("vision_statement"),
-            goal_type=schema.goal_type,
-            domain=schema.domain,
-            timeframe=schema.timeframe,
-            measurement_type=schema.measurement_type,
-            target_value=dto_data.get("target_value"),
-            unit_of_measurement=dto_data.get("unit_of_measurement"),
-            start_date=schema.start_date or datetime.now().date(),
-            target_date=dto_data.get("target_date"),
-            parent_goal_uid=dto_data.get("parent_goal_uid"),
-            target_identity=dto_data.get("target_identity"),
-            identity_evidence_required=dto_data.get("identity_evidence_required", 0),
-            source_learning_path_uid=dto_data.get("source_learning_path_uid"),
-            curriculum_driven=dto_data.get("curriculum_driven", False),
-            inspired_by_choice_uid=dto_data.get("inspired_by_choice_uid"),
-            selected_choice_option_uid=dto_data.get("selected_choice_option_uid"),
-            guidances=guidances_list,  # Relationship context
-            derivation=derivation_dict,  # Relationship context
-            why_important=dto_data.get("why_important"),
-            success_criteria=dto_data.get("success_criteria"),
-            potential_obstacles=list(dto_data.get("potential_obstacles", [])),
-            strategies=list(dto_data.get("strategies", [])),
-            priority=schema.priority,
-            tags=list(dto_data.get("tags", [])),
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-        )
 
     @classmethod
     def goal_update_to_dto(cls, schema: GoalUpdateRequest) -> dict:
