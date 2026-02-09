@@ -1,8 +1,8 @@
 """
-Journal Activity Extractor Service
+Report Activity Extractor Service
 ==================================
 
-Extracts Activity Lines from processed journal content and creates
+Extracts Activity Lines from processed report content and creates
 corresponding SKUEL entities across ALL 13 SKUEL domains:
 
 **Activity Domains (7) - What I DO:**
@@ -26,9 +26,9 @@ Audio/Text → Transcription → LLM Formatting → **Activity Extraction** → 
 
 **Design Principles:**
 
-1. **Non-destructive**: Extraction doesn't modify the journal content
+1. **Non-destructive**: Extraction doesn't modify the report content
 2. **Idempotent**: Re-extraction updates existing entities, doesn't duplicate
-3. **Graph-aware**: Creates relationships between entities and the source journal
+3. **Graph-aware**: Creates relationships between entities and the source report
 4. **Optional**: Activity extraction is opt-in via instructions
 5. **13-Domain Complete**: Covers all SKUEL domains for complete DSL support
 
@@ -133,7 +133,7 @@ class HasCreateEventMethod(Protocol):
 @dataclass
 class ActivityExtractionResult:
     """
-    Result of activity extraction from a journal.
+    Result of activity extraction from a report.
 
     Contains counts of created entities across ALL 13 SKUEL domains
     and any errors encountered.
@@ -343,13 +343,13 @@ class ActivityExtractionResult:
 
 
 # ============================================================================
-# JOURNAL ACTIVITY EXTRACTOR SERVICE
+# REPORT ACTIVITY EXTRACTOR SERVICE
 # ============================================================================
 
 
-class JournalActivityExtractorService:
+class ReportActivityExtractorService:
     """
-    Extracts Activity Lines from journal content and creates SKUEL entities
+    Extracts Activity Lines from report content and creates SKUEL entities
     across ALL 13 SKUEL domains + 1 destination.
 
     **Activity Domains (7) - What I DO:**
@@ -377,7 +377,7 @@ class JournalActivityExtractorService:
     **Usage:**
 
     ```python
-    extractor = JournalActivityExtractorService(
+    extractor = ReportActivityExtractorService(
         # Activity Domains (7)
         tasks_service=tasks_service,
         habits_service=habits_service,
@@ -398,7 +398,7 @@ class JournalActivityExtractorService:
         lifepath_service=lifepath_service,
     )
 
-    # Extract and create entities from a processed journal
+    # Extract and create entities from a processed report
     result = await extractor.extract_and_create(
         report=report,
         user_uid="user:mike",
@@ -508,7 +508,7 @@ class JournalActivityExtractorService:
         create_relationships: bool = True,
     ) -> Result[ActivityExtractionResult]:
         """
-        Extract Activity Lines from journal and create corresponding entities.
+        Extract Activity Lines from report and create corresponding entities.
 
         This is the main entry point for the extraction pipeline.
 
@@ -720,7 +720,7 @@ class JournalActivityExtractorService:
         # META DOMAINS (3) - How I ORGANIZE
         # ================================================================
 
-        # Note: Reports extracted from journals create new reports
+        # Note: Reports extracted from report content create new reports
         # This is a recursive pattern - content extracted from one report
         # can trigger creation of new reports
         if self.report_service and extraction.reports_found > 0:
@@ -1210,7 +1210,7 @@ class JournalActivityExtractorService:
         """
         Create a Report from parsed activity.
 
-        Note: This creates NEW reports extracted from journal content.
+        Note: This creates NEW reports extracted from report content.
         This is a recursive pattern where reports can contain
         requests for more reports (e.g., "Process my voice memo").
 
@@ -1343,7 +1343,7 @@ class JournalActivityExtractorService:
         Create/update a LifePath alignment from parsed activity.
 
         The LifePath represents the user's ultimate life goal - everything
-        flows toward this destination. LifePath entries from journals
+        flows toward this destination. LifePath entries from reports
         help refine and articulate this vision.
 
         Returns a lifepath reference UID or None if creation failed.
@@ -1393,7 +1393,7 @@ class JournalActivityExtractorService:
         """
         Store extraction results in report metadata.
 
-        This allows tracking which entities were extracted from which journal.
+        This allows tracking which entities were extracted from which report.
         Note: Uses suppress_errors=True since metadata updates are non-critical.
         """
         # Get current report
@@ -1429,7 +1429,7 @@ class JournalActivityExtractorService:
         Useful for preview/validation before committing to entity creation.
 
         Args:
-            content: Journal content to parse
+            content: Report content to parse
 
         Returns:
             Result containing ParsedJournal with all activities
@@ -1443,7 +1443,7 @@ class JournalActivityExtractorService:
         Returns a summary dict suitable for UI display covering ALL 13 SKUEL domains.
 
         Args:
-            content: Journal content to parse
+            content: Report content to parse
 
         Returns:
             Dict with activity counts and previews for all 13 domains + 1

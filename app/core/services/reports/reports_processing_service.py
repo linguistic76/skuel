@@ -69,7 +69,7 @@ class ReportsProcessingService:
         transcription_service=None,  # TranscriptionService (simplified, Dec 2025)
         transcript_processor=None,  # TranscriptProcessorService (for LLM processing)
         report_relationship_service=None,  # ReportsRelationshipService (Option A)
-        activity_extractor=None,  # JournalActivityExtractorService (DSL extraction)
+        activity_extractor=None,  # ReportActivityExtractorService (DSL extraction)
         event_bus=None,
     ) -> None:
         """
@@ -80,7 +80,7 @@ class ReportsProcessingService:
             transcription_service: TranscriptionService for audio transcription (simplified)
             transcript_processor: TranscriptProcessorService for LLM formatting
             report_relationship_service: ReportsRelationshipService for graph relationships (Option A)
-            activity_extractor: JournalActivityExtractorService for DSL-based entity extraction
+            activity_extractor: ReportActivityExtractorService for DSL-based entity extraction
             event_bus: Event bus for domain events (optional)
         """
         self.report_service = report_service

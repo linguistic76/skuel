@@ -18,7 +18,7 @@ from core.models.report.report import (
 )
 from core.services.dsl import (
     ActivityExtractionResult,
-    JournalActivityExtractorService,
+    ReportActivityExtractorService,
     activity_to_task_request,
     parse_journal_text,
 )
@@ -110,7 +110,7 @@ class TestActivityToTaskConversion:
 
 
 class TestJournalActivityExtractor:
-    """Test the JournalActivityExtractorService."""
+    """Test the ReportActivityExtractorService."""
 
     @pytest.fixture
     def mock_tasks_service(self):
@@ -159,7 +159,7 @@ Some reflections on the day...
     @pytest.fixture
     def extractor(self, mock_tasks_service):
         """Create extractor with mock services."""
-        return JournalActivityExtractorService(
+        return ReportActivityExtractorService(
             tasks_service=mock_tasks_service,
             habits_service=None,  # Not testing habit creation
             goals_service=None,

@@ -30,7 +30,7 @@ The @context() tag values are now parsed to `EntityType` enum values:
 - `ParsedActivityLine`: Intermediate representation with type-safe contexts
 - `ParsedJournal`: Collection of parsed activities from a document
 - `LLMDSLBridgeService`: LLM-powered natural text to DSL converter
-- `JournalActivityExtractorService`: Extracts activities and creates entities
+- `ReportActivityExtractorService`: Extracts activities and creates entities
 - `ActivityEntityConverter`: Converts parsed activities to create requests
 - `DSLKnowledgeConnector`: Plans semantic graph connections from DSL tags
 - `DSLConnectionExecutor`: Executes planned connections via relationship services
@@ -75,9 +75,9 @@ if result.is_ok:
         print(f"Task: {task.description}")
 
 # === PHASE 3: Entity Extraction (ParsedActivities → SKUEL Entities) ===
-from core.services.dsl import JournalActivityExtractorService
+from core.services.dsl import ReportActivityExtractorService
 
-extractor = JournalActivityExtractorService(
+extractor = ReportActivityExtractorService(
     tasks_service=tasks_service,
     habits_service=habits_service,
     ku_service=ku_service,  # All 15 domains supported
@@ -105,7 +105,7 @@ ActivityDSLParser.parse_journal()
         ↓
 ParsedJournal with EntityType contexts (type-safe!)
         ↓
-JournalActivityExtractorService.extract_and_create()
+ReportActivityExtractorService.extract_and_create()
         ↓
 SKUEL Entities (Tasks, Habits, Goals, KUs, etc.)
         ↓
@@ -147,9 +147,9 @@ from core.services.dsl.dsl_knowledge_connector import (
     plan_activity_connections,
     plan_journal_connections,
 )
-from core.services.dsl.journal_activity_extractor import (
+from core.services.dsl.report_activity_extractor import (
     ActivityExtractionResult,
-    JournalActivityExtractorService,
+    ReportActivityExtractorService,
 )
 from core.services.dsl.llm_dsl_bridge import (
     DOMAIN_RECOGNITION_PROMPT,
@@ -176,7 +176,7 @@ __all__ = [
     "EntityType",
     "GoalConnection",
     # Extractor
-    "JournalActivityExtractorService",
+    "ReportActivityExtractorService",
     "KnowledgeConnection",
     # LLM DSL Bridge
     "LLMDSLBridgeService",

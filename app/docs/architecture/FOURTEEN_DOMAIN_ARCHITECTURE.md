@@ -938,7 +938,7 @@ The complete pipeline from natural text to SKUEL entities:
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ PHASE 4: Entity Creation (Domain Dicts → SKUEL Entities)                │
 │                           ↓                                              │
-│       JournalActivityExtractorService.extract_and_create()              │
+│       ReportActivityExtractorService.extract_and_create()               │
 │                           ↓                                              │
 │ Created Entities:                                                        │
 │   - Task(uid="task:abc123", title="Finish report", ...)                 │
@@ -1366,7 +1366,7 @@ core/services/
 └── dsl/
     ├── activity_dsl_parser.py
     ├── activity_entity_converter.py
-    └── journal_activity_extractor.py
+    └── report_activity_extractor.py
 ```
 
 ### Meta Services
@@ -1495,7 +1495,7 @@ async def on_mastery_increased(ku_uid: str, new_mastery: float):
 |-----------|--------|----------|
 | DSL Parser (14 domains) | ✅ Complete | `core/services/dsl/activity_dsl_parser.py` |
 | Entity Converters (14 domains) | ✅ Complete | `core/services/dsl/activity_entity_converter.py` |
-| Activity Extractor (14 domains) | ✅ Complete | `core/services/dsl/journal_activity_extractor.py` |
+| Activity Extractor (14 domains) | ✅ Complete | `core/services/dsl/report_activity_extractor.py` |
 | Activity Domain Services (7) | ✅ Complete | `core/services/{domain}/` |
 | Curriculum Domain Services (3) | ✅ Complete | `core/services/ku/, ls/, lp/` |
 | UserContext | ✅ Complete | `core/services/user/unified_user_context.py` |
