@@ -39,7 +39,7 @@ SKUEL uses Python's Protocol typing (PEP 544) for dependency injection without f
 - **Zero concrete type dependencies** - All route signatures use facade or ISP protocols
 - **9 facade protocols** - Complete MyPy visibility for delegated methods
 - **19 route-facing ISP protocols** - Services container fields typed (February 2026)
-- **Services dataclass: zero `Any` fields** — all ~58 fields fully typed (February 2026)
+- **Services dataclass: zero `Any` fields** — all ~72 fields fully typed (February 2026)
 - **75% code reduction** through generic programming patterns
 - **27+ services** using protocol interfaces exclusively
 
@@ -91,7 +91,7 @@ core/
         ├── query_types.py             # TypedDicts for queries
         ├── reports_protocols.py       # Reports domain (7 protocols) [Feb 2026]
         ├── search_protocols.py        # Search operations (8 protocols)
-        └── service_protocols.py       # Route-facing services (9 protocols) [Feb 2026]
+        └── service_protocols.py       # Route-facing services (10 protocols) [Feb 2026]
 ```
 
 ### Protocol Categories

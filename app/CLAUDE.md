@@ -483,7 +483,7 @@ EntityType.get_canonical()      # Normalizes aliases (KNOWLEDGE -> KU)
 - All services use protocol-based backends
 - All facade services have MyPy-visible protocol declarations
 - Full type safety across 27+ services
-- **Services dataclass: zero `Any` fields** — all ~69 fields typed (protocols + TYPE_CHECKING)
+- **Services dataclass: zero `Any` fields** — all ~72 fields typed (protocols + TYPE_CHECKING)
 
 **Protocol Location:** `core/services/protocols/` - 11 protocol files covering all domains
 
@@ -501,7 +501,7 @@ EntityType.get_canonical()      # Normalizes aliases (KNOWLEDGE -> KU)
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 protocols |
 | **Reports** | `reports_protocols.py` | Submission, sharing, processing, progress, scheduling | 9 protocols |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review | 2 protocols |
-| **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration | 9 protocols |
+| **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration, Lateral | 10 protocols |
 
 **Three Typing Strategies (Services Dataclass):**
 

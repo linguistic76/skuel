@@ -543,7 +543,7 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 |------|-----------|-----------------|
 | `reports_protocols.py` | 9 protocols | `reports_api.py`, `reports_sharing_api.py`, `report_projects_api.py`, `reports_progress_api.py`, `reports_assessment_api.py` |
 | `group_protocols.py` | 2 protocols | `groups_api.py`, `teaching_api.py` |
-| `service_protocols.py` | 9 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py` |
+| `service_protocols.py` | 10 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
 Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 
@@ -649,9 +649,9 @@ class Services:
     calendar: CalendarServiceOperations | None = None
     graph_auth: GraphAuthOperations | None = None
 
-    # Internal: concrete classes via TYPE_CHECKING (~39 fields)
+    # Internal: concrete classes via TYPE_CHECKING (~53 fields)
     tasks_intelligence: "TasksIntelligenceService | None" = None
-    lateral: "LateralRelationshipService | None" = None
+    lateral: "LateralRelationshipOperations | None" = None  # Protocol-typed (Feb 2026)
     neo4j_driver: "AsyncDriver | None" = None
 ```
 

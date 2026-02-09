@@ -360,6 +360,7 @@ with hardcoded `RelationshipConfig` dicts that drifted from the registry:
 | 2026-01-07 | Claude | Initial implementation (Phase 1 + Phase 2) | 1.0 |
 | 2026-01-10 | Claude | Phase 3: Post-Query Processors (PostProcessor dataclass, PROCESSOR_REGISTRY) | 1.1 |
 | 2026-02-08 | Claude | Ingestion config unified — derived from registry, legacy edge types removed | 1.2 |
+| 2026-02-09 | Claude | Lateral specs added — `LateralRelationshipSpec` dataclass + 17 specs in registry, replacing `lateral_relationship_types.py` enum | 1.3 |
 
 ---
 
