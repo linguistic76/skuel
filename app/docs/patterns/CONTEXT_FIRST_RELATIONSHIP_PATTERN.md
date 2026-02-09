@@ -1,35 +1,42 @@
 ---
 title: Context-First Relationship Pattern
-updated: 2026-01-30
+updated: 2026-02-10
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
-related_docs: []
+- user-context-intelligence
+related_docs:
+- /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
+- /docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md
 ---
 
 # Context-First Relationship Pattern
 
-**Version:** 1.0.0
-**Date:** November 25, 2025
-**Status:** Design Document (Implemented 2026-11-26)
+**Version:** 2.0.0
+**Date:** February 10, 2026
+**Status:** Implemented
+**Canonical File:** `core/models/context_types.py`
+
 ## Related Skills
 
 For implementation guidance, see:
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+- [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
 
 
 ## Executive Summary
 
-This pattern extends relationship services to leverage `UnifiedUserContext` for **personalized graph queries**. Instead of returning all related entities, context-aware methods filter, rank, and enrich results based on the user's complete state.
+The Context-First pattern transforms raw graph entities into personalized, scored, and ranked recommendations by combining entity data with the ~240-field `UserContext`. Every relationship query becomes an opportunity to filter by readiness, rank by relevance, and enrich with actionable insights.
+
+**Architecture (February 2026):** A harmonized scoring engine with factory classmethods on frozen dataclasses. All 7 ContextualEntity subclasses have `from_entity_and_context()` classmethods that accept domain-specific parameters and optional score overrides, producing fully-scored frozen instances from a single call.
 
 ## The Problem
 
-Current relationship services operate "context-blind":
+Relationship services originally returned raw entities with no user awareness:
 
 ```python
-# Current Pattern - Returns ALL related entities
+# Old Pattern - Returns ALL related entities, context-blind
 async def get_task_dependencies(self, task_uid: str) -> Result[list[Task]]:
-    """Get task dependencies - no user awareness."""
     return await self.backend.get_task_dependencies(task_uid)
 
 # What this misses:
@@ -44,541 +51,661 @@ async def get_task_dependencies(self, task_uid: str) -> Result[list[Task]]:
 ### Core Principle: "Filter by readiness, rank by relevance, enrich with insights"
 
 ```python
-# NEW Pattern - Context-aware relationship queries
-async def get_task_dependencies_for_user(
+# Context-aware queries return scored, ranked, enriched results
+async def get_actionable_tasks_for_user(
     self,
-    task_uid: str,
-    context: UnifiedUserContext
-) -> Result[ContextualDependencies]:
-    """
-    Get task dependencies filtered and ranked by user context.
-
-    Filters by:
-    - User's mastery of required knowledge
-    - User's capacity and workload
-    - User's goal alignment
-
-    Ranks by:
-    - Readiness score (prerequisites met)
-    - Goal contribution (alignment with active goals)
-    - Urgency (deadlines, streaks at risk)
-
-    Enriches with:
-    - Blocking reasons (what's missing?)
-    - Unlocking potential (what does this enable?)
-    - Learning opportunities (knowledge gaps)
-    """
+    context: UserContext,
+    limit: int = 10,
+) -> Result[list[ContextualTask]]:
+    """Tasks the user can start NOW, ranked by priority."""
 ```
 
-## Pattern Architecture
+**Naming Convention:** `*_for_user()` suffix indicates context-awareness. Standard methods return raw data; context-first methods return `Contextual*` types.
 
-### Layer 1: Context-Aware Return Types
+
+## Architecture Overview
+
+The Context-First system has three layers:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Layer 1: Scoring Engine (5 pure functions)              │
+│  _compute_readiness, _compute_relevance,                 │
+│  _compute_urgency, _compute_priority,                    │
+│  _compute_blocking_reasons                               │
+├─────────────────────────────────────────────────────────┤
+│  Layer 2: Factory Classmethods (7 types)                 │
+│  ContextualTask.from_entity_and_context()                │
+│  ContextualGoal.from_entity_and_context()                │
+│  ... one per domain ...                                  │
+├─────────────────────────────────────────────────────────┤
+│  Layer 3: Service Methods (18 call sites)                │
+│  planning_mixin, context_first_mixin,                    │
+│  5 domain planning services                              │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key Design Decisions:**
+- Scoring functions are module-level pure functions (no `self`, no I/O)
+- Factory classmethods live on the frozen dataclasses (SKUEL pattern: logic on types)
+- Services are thin callers that extract domain-specific parameters, then delegate to factories
+- Override kwargs (`readiness_override`, `relevance_override`, etc.) let services bypass standard computation when they have domain-specific knowledge
+
+
+## Layer 1: Harmonized Scoring Engine
+
+Five pure functions in `core/models/context_types.py`, extracted from what was previously scattered across `ContextFirstMixin`, `PrerequisiteHelper`, and 5 domain planning services. Same formulas, one location, parameterized for all domains.
+
+### `_compute_readiness(required_knowledge, required_tasks, knowledge_mastery, completed_task_uids, threshold=0.7) -> float`
+
+Calculates what fraction of prerequisites are met.
 
 ```python
-from dataclasses import dataclass, field
-from typing import Any
+def _compute_readiness(
+    required_knowledge: list[str],
+    required_tasks: list[str],
+    knowledge_mastery: dict[str, float],
+    completed_task_uids: set[str] | list[str],
+    threshold: float = 0.7,
+) -> float:
+    total = len(required_knowledge) + len(required_tasks)
+    if total == 0:
+        return 1.0  # No prerequisites = always ready
 
+    met = 0
+    for ku_uid in required_knowledge:
+        if knowledge_mastery.get(ku_uid, 0.0) >= threshold:
+            met += 1
+    for task_uid in required_tasks:
+        if task_uid in completed_task_uids:
+            met += 1
+
+    return met / total
+```
+
+**Returns:** 0.0 (no prerequisites met) to 1.0 (all met). No prerequisites returns 1.0.
+
+### `_compute_relevance(goal_uids, principle_uids, active_goal_uids, primary_goal_focus, core_principle_uids, principle_priorities) -> float`
+
+Calculates alignment with user's goals and principles.
+
+```python
+def _compute_relevance(
+    goal_uids: list[str],           # Goals this entity contributes to
+    principle_uids: list[str],      # Principles this entity aligns with
+    active_goal_uids: set[str],     # User's active goals (from UserContext)
+    primary_goal_focus: str,        # User's primary goal UID
+    core_principle_uids: set[str],  # User's core principles
+    principle_priorities: dict[str, float],  # Principle priority weights
+) -> float:
+```
+
+**Scoring logic:**
+- **Goal score:** Ratio of entity's goals that are in user's active goals, +0.2 bonus if primary goal focus matches
+- **Principle score:** Ratio of aligned principles, weighted by principle priority
+- **Combination:** If both present: `(goal * 0.6) + (principle * 0.4)`. If only one, use that score.
+- **Default (neither):** 0.5
+
+### `_compute_urgency(deadline, is_at_risk, streak_at_risk) -> float`
+
+Calculates time pressure from deadlines and risk flags.
+
+| Condition | Score |
+|-----------|-------|
+| Overdue (past deadline) | 1.0 |
+| Due today | 0.9 |
+| Due within 3 days | 0.7 |
+| Due within 7 days | 0.5 |
+| Due later | 0.2 |
+| No deadline | 0.0 |
+| `is_at_risk` flag | max(current, 0.8) |
+| `streak_at_risk` flag | max(current, 0.85) |
+
+### `_compute_priority(dimensions, weights) -> float`
+
+**N-dimensional weighted sum**, capped at 1.0. This is the key generalization — different domains use different numbers of scoring dimensions:
+
+```python
+def _compute_priority(
+    dimensions: tuple[float, ...],  # Score values (0.0-1.0 each)
+    weights: tuple[float, ...],     # Weights (should sum to ~1.0)
+) -> float:
+    return min(1.0, sum(d * w for d, w in zip(dimensions, weights)))
+```
+
+**Domain Dimensionality:**
+
+| Domain | Dimensions | Default Weights | Rationale |
+|--------|-----------|-----------------|-----------|
+| Task | 3D: readiness, relevance, urgency | `(0.4, 0.4, 0.2)` | Readiness and relevance equally important |
+| Goal | 4D: readiness, relevance, progress, urgency | `(0.3, 0.4, 0.2, 0.1)` | Progress adds momentum dimension |
+| Habit | 3D: readiness, relevance, urgency | `(0.3, 0.3, 0.4)` | Urgency-led (streak protection) |
+| Knowledge | 3D: readiness, gap, impact | `(0.5, 0.3, 0.2)` | Readiness-led (prerequisites matter most) |
+| Knowledge (gaps) | 2D: readiness, relevance | `(0.4, 0.6)` | Relevance-led (blocking goals matters) |
+
+### `_compute_blocking_reasons(required_knowledge, required_tasks, knowledge_mastery, completed_task_uids, max_reasons=3) -> list[str]`
+
+Generates human-readable strings explaining what blocks engagement:
+
+```python
+# Example output:
+["Missing knowledge: ku_python-basics_abc123 (mastery: 45%)",
+ "Incomplete prerequisite: task_setup-env_xyz789"]
+```
+
+
+## Layer 2: Factory Classmethods on Frozen Dataclasses
+
+All 7 ContextualEntity subclasses have a `from_entity_and_context()` classmethod. This is the SKUEL pattern: logic lives on the types, not in the services.
+
+### Base Type: `ContextualEntity`
+
+```python
 @dataclass(frozen=True)
 class ContextualEntity:
-    """Base class for context-enriched entities."""
     uid: str
     title: str
 
-    # Context-derived scores
-    readiness_score: float  # 0.0-1.0: How ready is user for this?
-    relevance_score: float  # 0.0-1.0: How relevant to user's goals?
-    priority_score: float   # 0.0-1.0: Combined priority
+    # Context-derived scores (0.0-1.0)
+    readiness_score: float = 0.0
+    relevance_score: float = 0.0
+    priority_score: float = 0.0
 
     # Context-derived insights
-    blocking_reasons: list[str] = field(default_factory=list)
-    unlocks: list[str] = field(default_factory=list)  # What this enables
-    learning_gaps: list[str] = field(default_factory=list)
+    blocking_reasons: tuple[str, ...] = ()
+    unlocks: tuple[str, ...] = ()
+    learning_gaps: tuple[str, ...] = ()
 
-@dataclass(frozen=True)
-class ContextualTask(ContextualEntity):
-    """Task enriched with user context."""
-    can_start: bool = False
-    estimated_time_minutes: int = 0
-    contributes_to_goals: list[str] = field(default_factory=list)
-    applies_knowledge: list[str] = field(default_factory=list)
+    # Metadata
+    enriched_at: datetime = field(default_factory=datetime.now)
 
-@dataclass(frozen=True)
-class ContextualKnowledge(ContextualEntity):
-    """Knowledge unit enriched with user context."""
-    user_mastery: float = 0.0  # User's current mastery
-    prerequisites_met: bool = False
-    application_opportunities: list[str] = field(default_factory=list)
+    # Convenience methods
+    def is_ready(self, threshold=0.7) -> bool: ...
+    def is_relevant(self, threshold=0.5) -> bool: ...
+    def is_high_priority(self, threshold=0.7) -> bool: ...
+    def has_blockers(self) -> bool: ...
 
+    # Entity type discriminator for dispatch
+    @property
+    def entity_type(self) -> str: ...  # "task", "goal", "habit", etc.
+```
+
+**Entity Type Discriminator:** All 7 subclasses override `entity_type` for unified dispatch:
+
+| Class | entity_type |
+|-------|-------------|
+| ContextualTask | `"task"` |
+| ContextualKnowledge | `"knowledge"` |
+| ContextualGoal | `"goal"` |
+| ContextualHabit | `"habit"` |
+| ContextualEvent | `"event"` |
+| ContextualPrinciple | `"principle"` |
+| ContextualChoice | `"choice"` |
+
+### Factory Pattern: `from_entity_and_context()`
+
+Every factory classmethod follows the same structure:
+
+1. Accept `uid`, `title`, `context: "UserContext"` + domain-specific keyword args
+2. Accept optional `*_override` kwargs for bypassing standard computation
+3. Accept optional `weights` tuple for custom priority weighting
+4. Call scoring functions with UserContext fields unpacked
+5. Return frozen instance
+
+**Override Pattern:** When a service has domain-specific knowledge that should bypass the standard scoring formula, it passes `*_override` kwargs:
+
+```python
+# Standard path — scoring engine computes everything
+contextual = ContextualTask.from_entity_and_context(
+    uid=task_uid, title=title, context=context,
+    goal_uids=goals, prerequisite_knowledge=knowledge,
+)
+
+# Override path — service knows better for this specific case
+contextual = ContextualTask.from_entity_and_context(
+    uid=task_uid, title=title, context=context,
+    readiness_override=0.8,        # Learning task — known to be ready
+    relevance_override=0.7,        # Always relevant for learning
+    priority_override=0.3 * count + 0.4,  # Custom learning impact formula
+)
+```
+
+### `ContextualTask.from_entity_and_context()`
+
+```python
+@classmethod
+def from_entity_and_context(
+    cls, uid: str, title: str, context: "UserContext", *,
+    goal_uids: list[str] | None = None,
+    knowledge_uids: list[str] | None = None,
+    prerequisite_knowledge: list[str] | None = None,
+    prerequisite_tasks: list[str] | None = None,
+    deadline: date | None = None,
+    estimated_time_minutes: int = 0,
+    # Overrides
+    readiness_override: float | None = None,
+    relevance_override: float | None = None,
+    urgency_override: float | None = None,
+    priority_override: float | None = None,
+    weights: tuple[float, float, float] = (0.4, 0.4, 0.2),
+) -> "ContextualTask":
+```
+
+**Standard scoring path:** Readiness from prerequisite knowledge/tasks, relevance from goal alignment, urgency from deadline + overdue status, priority from 3D weighted sum.
+
+**Additional fields populated:** `can_start` (readiness >= 0.7), `is_overdue` (uid in `context.overdue_task_uids`), `is_milestone` (uid in `context.milestone_tasks`), `contributes_to_goals`, `applies_knowledge`, `blocking_reasons`.
+
+**Call sites (5):**
+- `context_first_mixin._enrich_task_with_context()` — default weights
+- `tasks_planning_service.get_task_dependencies_for_user()` — default weights
+- `tasks_planning_service.get_actionable_tasks_for_user()` — default weights, filter readiness >= 0.7
+- `tasks_planning_service.get_learning_tasks_for_user()` — `readiness_override=0.8, priority_override=learning_impact`
+- `planning_mixin.get_actionable_tasks_for_user()` — default weights with overdue boost
+
+### `ContextualKnowledge.from_entity_and_context()`
+
+```python
+@classmethod
+def from_entity_and_context(
+    cls, uid: str, title: str, context: "UserContext", *,
+    prerequisite_uids: list[str] | None = None,
+    application_task_uids: list[str] | None = None,
+    dependent_count: int = 0,
+    substance_score: float = 0.0,
+    readiness_override: float | None = None,
+    relevance_override: float | None = None,
+    priority_override: float | None = None,
+    weights: tuple[float, ...] = (0.5, 0.3, 0.2),
+) -> "ContextualKnowledge":
+```
+
+**Standard scoring path:** Mastery from `context.knowledge_mastery`, prerequisites check (all >= 0.7), readiness = 1.0 if met else 0.3, relevance = 1.0 - mastery (gap-based), third dimension = `dependent_count/5` (impact). **Supports 2D or 3D weights** — `dims[:len(weights)]` truncation handles both.
+
+**Call sites (4):**
+- `context_first_mixin._enrich_knowledge_with_context()` — default weights
+- `ku_graph_service.get_ready_to_learn_for_user()` — `weights=(0.5, 0.3, 0.2)`
+- `ku_graph_service.get_learning_gaps_for_user()` — `relevance_override=goals_blocked_ratio, weights=(0.4, 0.6)` (2D)
+- `ku_graph_service.get_knowledge_to_reinforce_for_user()` — `readiness_override=0.9`, decay as relevance
+
+### `ContextualGoal.from_entity_and_context()`
+
+```python
+@classmethod
+def from_entity_and_context(
+    cls, uid: str, title: str, context: "UserContext", *,
+    contributing_task_uids: list[str] | None = None,
+    contributing_habit_uids: list[str] | None = None,
+    required_knowledge_uids: list[str] | None = None,
+    readiness_override: float | None = None,
+    relevance_override: float | None = None,
+    urgency_override: float | None = None,
+    priority_override: float | None = None,
+    weights: tuple[float, ...] = (0.3, 0.4, 0.2, 0.1),
+) -> "ContextualGoal":
+```
+
+**Standard scoring path (4D):** Readiness from knowledge prerequisites, relevance = 1.0 if active else 0.5, progress from `context.goal_progress`, urgency from deadline + at-risk status. 4D weighted sum with `(readiness, relevance, progress, urgency)`.
+
+**Additional fields populated:** `current_progress`, `days_to_deadline`, `is_at_risk`, `contributing_tasks`, `contributing_habits`, `knowledge_required`, `learning_gaps`.
+
+**Call sites (5):**
+- `context_first_mixin._enrich_goal_with_context()` — standard path
+- `goals_planning_service.get_advancing_goals_for_user()` — default 4D weights
+- `goals_planning_service.get_stalled_goals_for_user()` — `relevance_override=0.7, priority_override=0.7*(1-progress)`
+- `goals_planning_service.get_achievable_goals_for_user()` — `readiness_override=1.0, relevance_override=0.9, priority_override=min(1.0, progress*1.2)`
+- `planning_mixin.get_advancing_goals_for_user()` — standard with at-risk check
+
+### `ContextualHabit.from_entity_and_context()`
+
+```python
+@classmethod
+def from_entity_and_context(
+    cls, uid: str, title: str, context: "UserContext", *,
+    supported_goal_uids: list[str] | None = None,
+    applied_knowledge_uids: list[str] | None = None,
+    is_due_today: bool = False,
+    current_streak: int | None = None,
+    completion_rate: float | None = None,
+    is_keystone: bool | None = None,
+    days_since_last: int = 0,
+    best_streak: int = 0,
+    readiness_override: float | None = None,
+    relevance_override: float | None = None,
+    urgency_override: float | None = None,
+    priority_override: float | None = None,
+    weights: tuple[float, float, float] = (0.3, 0.3, 0.4),
+) -> "ContextualHabit":
+```
+
+**Standard scoring path:** Readiness = 1.0 (habits are always "ready"), relevance from goal alignment (0.6) + streak ratio (0.4), urgency from at-risk flags. Default weights are urgency-led `(0.3, 0.3, 0.4)` because habits are about maintaining streaks.
+
+**Context lookups:** Streak from `context.habit_streaks`, completion rate from `context.habit_completion_rates`, at-risk from `context.at_risk_habits`, keystone from `context.keystone_habits`.
+
+**Call sites (7):**
+- `context_first_mixin._enrich_habit_with_context()` — standard path
+- `habits_planning_service.get_habit_priorities_for_user()` — `weights=(0.3, 0.3, 0.4)`
+- `habits_planning_service.get_actionable_habits_for_user()` — urgency-heavy weights + keystone bonus
+- `habits_planning_service.get_learning_habits_for_user()` — `readiness_override=0.8, priority_override=learning_impact`
+- `habits_planning_service.get_goal_supporting_habits_for_user()` — `priority_override=goal_support_score`
+- `habits_planning_service.get_habit_readiness_for_user()` — `readiness_override=streak/7`
+- `planning_mixin.get_at_risk_habits_for_user()` — `readiness_override=1.0, relevance_override=0.9, priority_override=0.95`
+
+### `ContextualEvent.from_entity_and_context()`
+
+```python
+@classmethod
+def from_entity_and_context(
+    cls, uid: str, title: str, context: "UserContext", *,
+    days_until: int = 0,
+    duration_minutes: int = 0,
+    supports_habits: list[str] | None = None,
+    applies_knowledge: list[str] | None = None,
+) -> "ContextualEvent":
+```
+
+**Simplified scoring:** Events use proximity-based scoring. Today's events get maximum priority (0.95), upcoming events get 0.7. No override kwargs — events are straightforward.
+
+**Call sites (1):**
+- `planning_mixin.get_upcoming_events_for_user()`
+
+### `ContextualPrinciple.from_entity_and_context()`
+
+```python
+@classmethod
+def from_entity_and_context(
+    cls, uid: str, name: str, context: "UserContext", *,
+    alignment_score: float = 0.5,
+    days_since_reflection: int = 0,
+    alignment_trend: str = "stable",
+    attention_reasons: list[str] | None = None,
+    suggested_action: str = "",
+    connected_task_uids: list[str] | None = None,
+    connected_event_uids: list[str] | None = None,
+    connected_goal_uids: list[str] | None = None,
+    practice_opportunity: str = "",
+    priority_override: float | None = None,
+    relevance_override: float | None = None,
+) -> "ContextualPrinciple":
+```
+
+**Two scoring paths:**
+
+1. **Standard path:** Readiness = 1.0, relevance = alignment_score, priority = 0.8 if core else 0.5.
+
+2. **Attention path** (when `days_since_reflection > 0`): Computes `attention_score` as a 3-factor formula:
+   - Reflection urgency: `min(1.0, days_since_reflection / 28)` — weight 0.4
+   - Alignment weakness: `1.0 - alignment_score` — weight 0.35
+   - Trend score: declining=1.0, stable=0.3, improving=0.0 — weight 0.25
+   - Priority defaults to `attention_score` when computed
+
+**Call sites (3):**
+- `planning_mixin.get_aligned_principles_for_user()` — standard path
+- `principles_planning_service.get_principles_needing_attention_for_user()` — attention path
+- `principles_planning_service.get_contextual_principles_for_user()` — `relevance_override=accumulated_relevance`
+
+### `ContextualChoice.from_entity_and_context()`
+
+```python
+@classmethod
+def from_entity_and_context(
+    cls, uid: str, title: str, context: "UserContext", *,
+    priority_level: str = "medium",
+    informed_by_knowledge: list[str] | None = None,
+    aligned_principles: list[str] | None = None,
+) -> "ContextualChoice":
+```
+
+**Simplified scoring:** Readiness = 1.0, relevance = 0.7, priority from enum mapping:
+
+| Priority Level | Score |
+|---------------|-------|
+| urgent | 0.9 |
+| high | 0.7 |
+| medium | 0.5 |
+| low | 0.3 |
+
+**Call sites (1):**
+- `planning_mixin.get_pending_decisions_for_user()`
+
+
+## Layer 3: Service Integration
+
+The 18 construction sites across 7 service files now delegate to factory classmethods. Each service extracts domain-specific parameters from its data source (rich context, graph queries, or entity attributes) and passes them to the factory.
+
+### Service Architecture
+
+```
+UserContext (MEGA-QUERY)
+    │
+    ├── context_first_mixin.py         (4 enrichment methods → 4 factories)
+    │   _enrich_task_with_context     → ContextualTask.from_entity_and_context()
+    │   _enrich_goal_with_context     → ContextualGoal.from_entity_and_context()
+    │   _enrich_habit_with_context    → ContextualHabit.from_entity_and_context()
+    │   _enrich_knowledge_with_context→ ContextualKnowledge.from_entity_and_context()
+    │
+    ├── planning_mixin.py              (6 methods → 6 factories)
+    │   get_at_risk_habits_for_user   → ContextualHabit.from_entity_and_context()
+    │   get_upcoming_events_for_user  → ContextualEvent.from_entity_and_context()
+    │   get_actionable_tasks_for_user → ContextualTask.from_entity_and_context()
+    │   get_advancing_goals_for_user  → ContextualGoal.from_entity_and_context()
+    │   get_pending_decisions_for_user→ ContextualChoice.from_entity_and_context()
+    │   get_aligned_principles_for_user→ContextualPrinciple.from_entity_and_context()
+    │
+    ├── tasks_planning_service.py      (3 methods → ContextualTask factory)
+    ├── goals_planning_service.py      (3 methods → ContextualGoal factory)
+    ├── habits_planning_service.py     (5 methods → ContextualHabit factory)
+    ├── principles_planning_service.py (2 methods → ContextualPrinciple factory)
+    └── ku_graph_service.py            (3 methods → ContextualKnowledge factory)
+```
+
+### Enrichment Adapter Pattern (`context_first_mixin.py`)
+
+The mixin's `_enrich_*_with_context()` methods are thin adapters that extract fields from domain objects and delegate to factories:
+
+```python
+async def _enrich_task_with_context(self, task, context, goal_uids=None, ...):
+    """Enrich a task with user context. Delegates to factory classmethod."""
+    uid = _get_attr(task, "uid", "")
+    title = _get_attr(task, "title", "")
+    deadline = _get_attr(task, "due_date")
+    return ContextualTask.from_entity_and_context(
+        uid=uid, title=title, context=context,
+        goal_uids=goal_uids, deadline=deadline, ...
+    )
+```
+
+### Domain Planning Service Pattern
+
+Planning services iterate over UserContext data, extract domain-specific parameters, and call the factory:
+
+```python
+# goals_planning_service.py — get_advancing_goals_for_user()
+for goal_uid in context.active_goal_uids:
+    goal_data = rich_goals_by_uid[goal_uid]
+    graph_ctx = goal_data.get("graph_context", {})
+
+    # Extract domain-specific parameters from rich context
+    knowledge_uids = [k.get("uid") for k in graph_ctx.get("required_knowledge", [])]
+    contributing_tasks = context.tasks_by_goal.get(goal_uid, [])
+    contributing_habits = context.habits_by_goal.get(goal_uid, [])
+
+    # Delegate to factory — scoring engine handles the rest
+    contextual = ContextualGoal.from_entity_and_context(
+        uid=goal_uid,
+        title=goal_dict.get("title", str(goal_uid)),
+        context=context,
+        contributing_task_uids=contributing_tasks,
+        contributing_habit_uids=contributing_habits,
+        required_knowledge_uids=knowledge_uids,
+    )
+    advancing_goals.append(contextual)
+```
+
+### Override Pattern in Practice
+
+Services use overrides when they have domain-specific scoring knowledge:
+
+```python
+# Stalled goals — inverted priority (more stalled = higher priority)
+contextual = ContextualGoal.from_entity_and_context(
+    uid=goal_uid, title=title, context=context,
+    relevance_override=0.7,
+    priority_override=0.7 * (1 - progress),  # Inversely proportional to progress
+)
+
+# Learning tasks — known readiness, custom learning impact formula
+contextual = ContextualTask.from_entity_and_context(
+    uid=task.uid, title=task.title, context=context,
+    readiness_override=0.8,        # Learning tasks are known-ready
+    relevance_override=0.7,        # Always relevant for learning
+    priority_override=min(1.0, learning_impact * 0.3 + 0.4),
+)
+
+# Achievable goals — near completion boost
+contextual = ContextualGoal.from_entity_and_context(
+    uid=goal_uid, title=title, context=context,
+    readiness_override=1.0,        # Always ready (near completion)
+    relevance_override=0.9,        # High relevance (finish line)
+    priority_override=min(1.0, progress * 1.2),  # Progress-proportional priority
+)
+```
+
+
+## Aggregate Types
+
+### `ContextualDependencies`
+
+Container for categorized dependency analysis:
+
+```python
 @dataclass(frozen=True)
 class ContextualDependencies:
-    """Complete dependency analysis with user context."""
-    task_uid: str
+    entity_uid: str
+    entity_type: str  # "Task", "Goal", "Habit", etc.
 
     # Categorized by readiness
-    ready_dependencies: list[ContextualTask] = field(default_factory=list)
-    blocked_dependencies: list[ContextualTask] = field(default_factory=list)
-
-    # Categorized by type
-    knowledge_requirements: list[ContextualKnowledge] = field(default_factory=list)
-    task_requirements: list[ContextualTask] = field(default_factory=list)
+    ready_dependencies: tuple[ContextualEntity, ...]
+    blocked_dependencies: tuple[ContextualEntity, ...]
 
     # Aggregated insights
     total_blocking_items: int = 0
-    estimated_unblock_time_minutes: int = 0
-    highest_priority_blocker: str | None = None
-
-    # User-specific recommendations
     recommended_next_action: str = ""
-    learning_path_suggestion: list[str] = field(default_factory=list)
 ```
 
-### Layer 2: Context-First Method Signatures
+Used by `TasksPlanningService.get_task_dependencies_for_user()` to return ready vs. blocked dependencies with an actionable recommendation.
+
+### `PracticeOpportunity`
+
+Separate frozen dataclass (not a ContextualEntity subclass) for principle practice opportunities:
 
 ```python
-class ContextFirstRelationshipService(GenericRelationshipService[Ops, Model, DtoType]):
-    """
-    Base class adding context-aware methods to relationship services.
-
-    **Philosophy:** Every relationship query can be enhanced with user context.
-    - Standard methods: Return raw relationships (for system operations)
-    - Context methods: Return personalized, enriched relationships (for user-facing features)
-
-    **Naming Convention:**
-    - Standard: get_task_dependencies(uid)
-    - Context-First: get_task_dependencies_for_user(uid, context)
-    """
-
-    # ==========================================================================
-    # CONTEXT-AWARE DEPENDENCY QUERIES
-    # ==========================================================================
-
-    async def get_dependencies_for_user(
-        self,
-        entity_uid: str,
-        context: UnifiedUserContext,
-        include_transitive: bool = False,
-        max_depth: int = 2,
-    ) -> Result[ContextualDependencies]:
-        """
-        Get dependencies filtered and ranked by user context.
-
-        **Context Fields Used:**
-        - knowledge_mastery: Filter by user's mastery levels
-        - prerequisites_completed: Determine readiness
-        - active_goal_uids: Calculate goal alignment
-        - current_workload_score: Adjust recommendations
-        - available_minutes_daily: Estimate completion feasibility
-
-        Args:
-            entity_uid: Entity to get dependencies for
-            context: User's complete context
-            include_transitive: Include dependencies of dependencies
-            max_depth: Maximum traversal depth
-
-        Returns:
-            ContextualDependencies with enriched, ranked dependencies
-        """
-        # Step 1: Get raw dependencies
-        raw_deps = await self.get_dependencies(entity_uid, max_depth)
-        if raw_deps.is_error:
-            return Result.fail(raw_deps.expect_error())
-
-        # Step 2: Enrich each dependency with context
-        ready = []
-        blocked = []
-
-        for dep in raw_deps.value:
-            contextual = await self._enrich_with_context(dep, context)
-
-            if contextual.can_start:
-                ready.append(contextual)
-            else:
-                blocked.append(contextual)
-
-        # Step 3: Rank by priority (goal alignment × readiness)
-        ready.sort(key=lambda x: x.priority_score, reverse=True)
-        blocked.sort(key=lambda x: x.relevance_score, reverse=True)
-
-        # Step 4: Generate recommendations
-        recommendation = self._generate_unblock_recommendation(blocked, context)
-
-        return Result.ok(ContextualDependencies(
-            task_uid=entity_uid,
-            ready_dependencies=ready,
-            blocked_dependencies=blocked,
-            total_blocking_items=len(blocked),
-            recommended_next_action=recommendation,
-        ))
-
-    async def _enrich_with_context(
-        self,
-        entity: Any,
-        context: UnifiedUserContext,
-    ) -> ContextualTask:
-        """
-        Enrich entity with user context scores and insights.
-
-        **Scoring Logic:**
-        - readiness_score: Based on prerequisites_completed, knowledge_mastery
-        - relevance_score: Based on goal alignment, principle alignment
-        - priority_score: readiness × relevance × urgency_factor
-        """
-        # Calculate readiness (prerequisites met?)
-        required_knowledge = await self.get_entity_knowledge(entity.uid)
-        mastered = sum(
-            1 for ku_uid in required_knowledge.value
-            if context.knowledge_mastery.get(ku_uid, 0) >= 0.7
-        )
-        readiness = mastered / len(required_knowledge.value) if required_knowledge.value else 1.0
-
-        # Calculate relevance (goal alignment)
-        entity_goals = await self.get_entity_goals(entity.uid)
-        aligned = sum(
-            1 for goal_uid in entity_goals.value
-            if goal_uid in context.active_goal_uids
-        )
-        relevance = aligned / len(entity_goals.value) if entity_goals.value else 0.5
-
-        # Calculate priority (combined score with urgency)
-        urgency = self._calculate_urgency(entity, context)
-        priority = (readiness * 0.4) + (relevance * 0.4) + (urgency * 0.2)
-
-        # Identify blocking reasons
-        blocking_reasons = []
-        if readiness < 1.0:
-            missing_knowledge = [
-                ku_uid for ku_uid in required_knowledge.value
-                if context.knowledge_mastery.get(ku_uid, 0) < 0.7
-            ]
-            blocking_reasons.extend([f"Missing knowledge: {ku}" for ku in missing_knowledge])
-
-        return ContextualTask(
-            uid=entity.uid,
-            title=entity.title,
-            readiness_score=readiness,
-            relevance_score=relevance,
-            priority_score=priority,
-            can_start=readiness >= 0.7,
-            blocking_reasons=blocking_reasons,
-            contributes_to_goals=[g for g in entity_goals.value if g in context.active_goal_uids],
-        )
-
-    def _generate_unblock_recommendation(
-        self,
-        blocked: list[ContextualTask],
-        context: UnifiedUserContext,
-    ) -> str:
-        """Generate actionable recommendation for unblocking."""
-        if not blocked:
-            return "All dependencies are ready!"
-
-        # Find highest-impact blocker to resolve
-        highest_impact = max(blocked, key=lambda x: x.relevance_score)
-
-        if highest_impact.learning_gaps:
-            return f"Learn '{highest_impact.learning_gaps[0]}' to unblock {highest_impact.title}"
-        elif highest_impact.blocking_reasons:
-            return highest_impact.blocking_reasons[0]
-        else:
-            return f"Complete prerequisites for {highest_impact.title}"
+@dataclass(frozen=True)
+class PracticeOpportunity:
+    principle_uid: str
+    principle_name: str
+    activity_type: str   # "task", "event", "goal", "habit"
+    activity_uid: str
+    activity_title: str
+    opportunity_type: str  # "direct_alignment", "practice_context", "reflection_trigger"
+    guidance: str
 ```
 
-### Layer 3: Domain-Specific Extensions
+Used by `PrinciplesPlanningService.get_principle_practice_opportunities_for_user()`. This is the only planning method that does NOT use a factory classmethod — it constructs a different type entirely.
 
-```python
-class TasksRelationshipService(ContextFirstRelationshipService[TasksOperations, Task, TaskDTO]):
-    """
-    Task relationships with context-first methods.
-
-    **Context-First Methods:**
-    - get_task_dependencies_for_user(): Dependencies filtered by readiness
-    - get_actionable_tasks_for_user(): Tasks user can start NOW
-    - get_learning_tasks_for_user(): Tasks that apply knowledge user is learning
-    - get_goal_tasks_for_user(): Tasks contributing to active goals
-    """
-
-    async def get_actionable_tasks_for_user(
-        self,
-        context: UnifiedUserContext,
-        limit: int = 10,
-    ) -> Result[list[ContextualTask]]:
-        """
-        Get tasks user can start immediately, ranked by priority.
-
-        **Filters Applied:**
-        1. Prerequisites completed (knowledge mastery >= 0.7)
-        2. Not blocked by other tasks
-        3. Within user's capacity (workload_score < 0.8)
-
-        **Ranking Factors:**
-        1. Goal alignment (contributes_to active goals)
-        2. Urgency (deadlines, dependencies waiting)
-        3. Learning value (applies knowledge user is building)
-        """
-        # Get all user's active tasks
-        all_tasks = context.active_task_uids
-
-        actionable = []
-        for task_uid in all_tasks:
-            # Check if user can start this task
-            deps_result = await self.get_dependencies_for_user(task_uid, context)
-            if deps_result.is_error:
-                continue
-
-            deps = deps_result.value
-            if deps.total_blocking_items == 0:
-                # Get task details and enrich
-                task_result = await self.backend.get_task(task_uid)
-                if task_result.is_ok and task_result.value:
-                    contextual = await self._enrich_with_context(
-                        task_result.value, context
-                    )
-                    actionable.append(contextual)
-
-        # Sort by priority and limit
-        actionable.sort(key=lambda x: x.priority_score, reverse=True)
-        return Result.ok(actionable[:limit])
-
-    async def get_learning_tasks_for_user(
-        self,
-        context: UnifiedUserContext,
-        knowledge_focus: list[str] | None = None,
-    ) -> Result[list[ContextualTask]]:
-        """
-        Get tasks that apply knowledge user is currently learning.
-
-        **Philosophy:** "Learn by doing" - find tasks that reinforce learning.
-
-        **Context Fields Used:**
-        - in_progress_knowledge_uids: Knowledge user is actively learning
-        - next_recommended_knowledge: Knowledge user should learn next
-        - knowledge_mastery: Filter by partially mastered (0.3-0.7)
-        """
-        # Focus on knowledge user is building (not mastered, not new)
-        learning_knowledge = knowledge_focus or list(context.in_progress_knowledge_uids)
-
-        learning_tasks = []
-        for ku_uid in learning_knowledge:
-            # Get tasks that apply this knowledge
-            tasks_result = await self.get_tasks_requiring_knowledge(ku_uid)
-            if tasks_result.is_ok:
-                for task in tasks_result.value:
-                    if task.uid in context.active_task_uids:
-                        contextual = await self._enrich_with_context(task, context)
-                        contextual = ContextualTask(
-                            **{**contextual.__dict__,
-                               'applies_knowledge': [ku_uid]}
-                        )
-                        learning_tasks.append(contextual)
-
-        # Deduplicate and sort by learning impact
-        seen = set()
-        unique_tasks = []
-        for task in learning_tasks:
-            if task.uid not in seen:
-                seen.add(task.uid)
-                unique_tasks.append(task)
-
-        unique_tasks.sort(key=lambda x: len(x.applies_knowledge), reverse=True)
-        return Result.ok(unique_tasks)
-```
 
 ## Integration with UserContextIntelligence
 
-**Location:** `core/services/user/intelligence/` (modular package, January 2026)
+**Location:** `core/services/user/intelligence/` (modular package)
 
-### Modular Package Structure
+The Context-First types are the output of intelligence methods. The 8 flagship methods produce `DailyWorkPlan`, `LifePathAlignment`, and other aggregate types that contain `ContextualTask`, `ContextualHabit`, `ContextualGoal`, and `ContextualKnowledge` instances.
 
-The intelligence service is decomposed into **5 mixins** for separation of concerns:
-
-```
-core/services/user/intelligence/
-├── __init__.py                   (95 lines)   - Package exports
-├── types.py                      (205 lines)  - Data classes (return types)
-├── learning_intelligence.py      (445 lines)  - LearningIntelligenceMixin (Methods 1-4)
-├── life_path_intelligence.py     (429 lines)  - LifePathIntelligenceMixin (Method 7)
-├── synergy_intelligence.py       (382 lines)  - SynergyIntelligenceMixin (Method 6)
-├── schedule_intelligence.py      (469 lines)  - ScheduleIntelligenceMixin (Method 8)
-├── daily_planning.py             (254 lines)  - DailyPlanningMixin (Method 5 - THE FLAGSHIP)
-├── graph_native.py               (366 lines)  - GraphNativeMixin (context-based methods)
-├── core.py                       (245 lines)  - UserContextIntelligence (composes mixins)
-└── factory.py                    (234 lines)  - UserContextIntelligenceFactory
-```
-
-### Factory Pattern with 13 Required Domain Services
-
-**UserContextIntelligenceFactory** holds all 13 domain services and creates intelligence instances:
+### DailyWorkPlan (THE FLAGSHIP OUTPUT)
 
 ```python
-# File: core/services/user/intelligence/factory.py (lines 94-167)
+@dataclass(frozen=True)
+class DailyWorkPlan:
+    # Contextual items (enriched with user context via factories)
+    contextual_tasks: tuple[ContextualTask, ...]
+    contextual_habits: tuple[ContextualHabit, ...]
+    contextual_goals: tuple[ContextualGoal, ...]
+    contextual_knowledge: tuple[ContextualKnowledge, ...]
 
-class UserContextIntelligenceFactory:
-    """
-    Factory for creating UserContextIntelligence instances.
-
-    **The 13 Required Domain Services:**
-    - Activity Domains (6): tasks, goals, habits, events, choices, principles
-    - Curriculum Domains (3): ku, ls, lp
-    - Processing Domains (3): assignments, journals, reports
-    - Temporal Domain (1): calendar
-
-    **Fail-Fast Validation:**
-    Raises ValueError if ANY of the 13 services is None.
-    """
-
-    def __init__(
-        self,
-        # Activity Domains (6) - All UnifiedRelationshipService with domain configs
-        tasks: UnifiedRelationshipService,
-        goals: UnifiedRelationshipService,
-        habits: UnifiedRelationshipService,
-        events: UnifiedRelationshipService,
-        choices: UnifiedRelationshipService,
-        principles: UnifiedRelationshipService,
-        # Curriculum Domains (3)
-        ku: KuGraphService,
-        ls: UnifiedRelationshipService,  # January 2026: Unified
-        lp: UnifiedRelationshipService,  # January 2026: Unified
-        # Processing Domains (3)
-        assignments: AssignmentRelationshipService,
-        journals: JournalRelationshipService,
-        reports: ReportRelationshipService,
-        # Temporal Domain (1)
-        calendar: CalendarService,
-    ) -> None:
-        # Fail-fast validation: ALL 13 services REQUIRED
-        required = {
-            "tasks": tasks, "goals": goals, "habits": habits,
-            "events": events, "choices": choices, "principles": principles,
-            "ku": ku, "ls": ls, "lp": lp,
-            "assignments": assignments, "journals": journals, "reports": reports,
-            "calendar": calendar,
-        }
-        missing = [name for name, service in required.items() if service is None]
-        if missing:
-            raise ValueError(
-                f"UserContextIntelligenceFactory requires all 13 domain services. "
-                f"Missing: {', '.join(missing)}"
-            )
-
-    def create(self, context: UserContext) -> UserContextIntelligence:
-        """Create intelligence instance bound to specific user context."""
-        return UserContextIntelligence(context=context, services=self)
+    # Capacity metrics
+    estimated_time_minutes: int = 0
+    fits_capacity: bool = True
+    workload_utilization: float = 0.0
 ```
 
-### The 8 Flagship Methods (via Mixin Composition)
-
-```python
-# Import from modular package
-from core.services.user.intelligence import UserContextIntelligence
-
-class UserContextIntelligence(
-    LearningIntelligenceMixin,
-    DailyPlanningMixin,
-    SynergyIntelligenceMixin,
-    LifePathIntelligenceMixin,
-    ScheduleIntelligenceMixin,
-    GraphNativeMixin,
-):
-    """
-    Intelligence methods powered by context-first relationship services.
-
-    **Core Methods (8) across 5 mixins:**
-    1. get_optimal_next_learning_steps() - LearningIntelligenceMixin
-    2. get_learning_path_critical_path() - LearningIntelligenceMixin
-    3. get_knowledge_application_opportunities() - LearningIntelligenceMixin
-    4. get_unblocking_priority_order() - LearningIntelligenceMixin
-    5. get_ready_to_work_on_today() - DailyPlanningMixin (THE FLAGSHIP)
-    6. get_cross_domain_synergies() - SynergyIntelligenceMixin
-    7. calculate_life_path_alignment() - LifePathIntelligenceMixin
-    8. get_schedule_aware_recommendations() - ScheduleIntelligenceMixin
-    """
-
-    def __init__(self, context: UserContext, services: UserContextIntelligenceFactory):
-        self.context = context
-        self.services = services  # Access all 13 domain services
-
-    async def get_ready_to_work_on_today(
-        self,
-        context: UnifiedUserContext,
-    ) -> Result[DailyWorkPlan]:
-        """
-        THE FLAGSHIP METHOD: What should user work on today?
-
-        **Combines Context-First Results From:**
-        - tasks.get_actionable_tasks_for_user() - Ready tasks
-        - ku.get_ready_to_learn_for_user() - Ready knowledge
-        - habits.get_at_risk_habits_for_user() - Habits to maintain
-        - goals.get_advancing_goals_for_user() - Goals to progress
-
-        **Respects:**
-        - context.available_minutes_daily (capacity)
-        - context.current_energy_level (cognitive load)
-        - context.current_workload_score (not overload)
-        - context.preferred_time (scheduling preferences)
-        """
-        # Get actionable items from each domain
-        tasks = await self.tasks.get_actionable_tasks_for_user(context, limit=5)
-        learning = await self.ku.get_ready_to_learn_for_user(context, limit=3)
-        habits = await self.habits.get_at_risk_habits_for_user(context)
-        goals = await self.goals.get_advancing_goals_for_user(context, limit=2)
-
-        # Build capacity-aware plan
-        available_minutes = context.available_minutes_daily
-        plan_items = []
-        total_time = 0
-
-        # Prioritize at-risk habits (maintain streaks)
-        for habit in habits.value:
-            if total_time + habit.estimated_time_minutes <= available_minutes:
-                plan_items.append(('habit', habit))
-                total_time += habit.estimated_time_minutes
-
-        # Then high-priority tasks
-        for task in tasks.value:
-            if total_time + task.estimated_time_minutes <= available_minutes:
-                plan_items.append(('task', task))
-                total_time += task.estimated_time_minutes
-
-        # Then learning if time permits
-        for ku in learning.value:
-            if total_time + 30 <= available_minutes:  # ~30 min per KU
-                plan_items.append(('learn', ku))
-                total_time += 30
-
-        return Result.ok(DailyWorkPlan(
-            learning=[item[1].uid for item in plan_items if item[0] == 'learn'],
-            tasks=[item[1].uid for item in plan_items if item[0] == 'task'],
-            habits=[item[1].uid for item in plan_items if item[0] == 'habit'],
-            goals=[g.uid for g in goals.value],
-            estimated_time_minutes=total_time,
-            fits_capacity=total_time <= available_minutes,
-            workload_utilization=total_time / available_minutes,
-            rationale=self._generate_plan_rationale(plan_items, context),
-        ))
+**Flow:**
+```
+UserContext (MEGA-QUERY)
+    → Planning Services call factory classmethods
+    → ContextualTask/Goal/Habit/Knowledge instances
+    → DailyWorkPlan aggregates ranked items
+    → UserContextIntelligence.get_ready_to_work_on_today()
+    → UI renders personalized daily plan
 ```
 
-## Implementation Status
 
-**Status:** Implemented (November 26, 2025)
-**Protocol Compliance:** Updated January 28, 2026
+## Complete Call Site Reference
 
-### Protocol Compliance Update (January 2026)
+| # | Service | Method | Factory | Key Overrides |
+|---|---------|--------|---------|---------------|
+| 1 | context_first_mixin | `_enrich_task_with_context` | ContextualTask | — |
+| 2 | context_first_mixin | `_enrich_goal_with_context` | ContextualGoal | — |
+| 3 | context_first_mixin | `_enrich_habit_with_context` | ContextualHabit | — |
+| 4 | context_first_mixin | `_enrich_knowledge_with_context` | ContextualKnowledge | — |
+| 5 | planning_mixin | `get_at_risk_habits_for_user` | ContextualHabit | readiness=1.0, relevance=0.9, priority=0.95 |
+| 6 | planning_mixin | `get_upcoming_events_for_user` | ContextualEvent | days_until |
+| 7 | planning_mixin | `get_actionable_tasks_for_user` | ContextualTask | overdue boost |
+| 8 | planning_mixin | `get_advancing_goals_for_user` | ContextualGoal | progress, at-risk |
+| 9 | planning_mixin | `get_pending_decisions_for_user` | ContextualChoice | priority_level |
+| 10 | planning_mixin | `get_aligned_principles_for_user` | ContextualPrinciple | alignment_score |
+| 11 | tasks_planning | `get_task_dependencies_for_user` | ContextualTask | — |
+| 12 | tasks_planning | `get_actionable_tasks_for_user` | ContextualTask | readiness filter |
+| 13 | tasks_planning | `get_learning_tasks_for_user` | ContextualTask | readiness=0.8, priority=impact |
+| 14 | goals_planning | `get_advancing_goals_for_user` | ContextualGoal | — |
+| 15 | goals_planning | `get_stalled_goals_for_user` | ContextualGoal | priority=0.7*(1-progress) |
+| 16 | goals_planning | `get_achievable_goals_for_user` | ContextualGoal | readiness=1.0, priority=progress*1.2 |
+| 17 | habits_planning | `get_habit_priorities_for_user` | ContextualHabit | weights=(0.3,0.3,0.4) |
+| 18 | habits_planning | `get_actionable_habits_for_user` | ContextualHabit | urgency-heavy + keystone |
+| 19 | habits_planning | `get_learning_habits_for_user` | ContextualHabit | priority=learning_impact |
+| 20 | habits_planning | `get_goal_supporting_habits_for_user` | ContextualHabit | priority=goal_support |
+| 21 | habits_planning | `get_habit_readiness_for_user` | ContextualHabit | readiness=streak/7 |
+| 22 | principles_planning | `get_principles_needing_attention` | ContextualPrinciple | attention path |
+| 23 | principles_planning | `get_contextual_principles` | ContextualPrinciple | relevance=accumulated |
+| 24 | ku_graph | `get_ready_to_learn_for_user` | ContextualKnowledge | weights=(0.5,0.3,0.2) |
+| 25 | ku_graph | `get_learning_gaps_for_user` | ContextualKnowledge | 2D weights=(0.4,0.6) |
+| 26 | ku_graph | `get_knowledge_to_reinforce` | ContextualKnowledge | readiness=0.9 |
 
-The UserContextIntelligence factory and relationship services were updated to use protocol-based interfaces:
+**Exception (stays direct):** `principles_planning_service.get_principle_practice_opportunities_for_user()` constructs `PracticeOpportunity` (different type, not ContextualEntity).
 
-- **Before:** Concrete backend types (e.g., `UniversalNeo4jBackend[T]`)
-- **After:** Protocol interfaces (e.g., `TasksOperations`, `GoalsOperations`)
-- **Impact:** Zero port dependencies - all services use Protocol interfaces exclusively
 
-This change maintains the context-first pattern while achieving 100% protocol compliance across the codebase.
+## Key Implementation Files
 
-**See:** `/docs/migrations/PROTOCOL_MIXIN_ALIGNMENT_COMPLETE_2026-01-29.md` for details on the protocol migration.
+| File | Purpose |
+|------|---------|
+| `core/models/context_types.py` | Scoring engine + 7 types + factories (canonical) |
+| `core/services/context_first_mixin.py` | 4 enrichment adapters → factory delegation |
+| `core/services/relationships/planning_mixin.py` | 6 methods → factory delegation |
+| `core/services/tasks/tasks_planning_service.py` | 3 task planning methods |
+| `core/services/goals/goals_planning_service.py` | 3 goal planning methods |
+| `core/services/habits/habits_planning_service.py` | 5 habit planning methods |
+| `core/services/principles/principles_planning_service.py` | 2 principle planning methods + 1 direct |
+| `core/services/ku/ku_graph_service.py` | 3 knowledge planning methods |
+| `core/utils/sort_functions.py` | Sorting helpers (`get_priority_score`, etc.) |
+| `core/services/infrastructure/` | `PrerequisiteHelper` (shared by tasks/scheduling) |
 
-## Summary
 
-The Context-First Pattern transforms relationship services from "data retrievers" into "intelligent advisors" by leveraging the ~240 fields of `UnifiedUserContext`. Every relationship query becomes an opportunity to provide personalized, actionable insights.
+## Implementation History
 
-**Key Insight:** UserContext isn't just data - it's the lens through which all relationships should be viewed.
+| Version | Date | Change |
+|---------|------|--------|
+| 1.0.0 | November 2025 | Original design: manual scoring in `_enrich_with_context()`, inline formulas |
+| 1.1.0 | January 2026 | Protocol compliance update, package restructuring |
+| **2.0.0** | **February 2026** | **Harmonized scoring engine + factory classmethods. 18 construction sites consolidated into 7 factory methods. One scoring engine, parameterized for all domains.** |
 
-**Architecture Evolution:** Originally implemented November 2025, updated January 2026 for protocol compliance as part of SKUEL's zero-dependency architecture.
+**See also:**
+- `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — UserContext architecture
+- `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` — Intelligence service catalog
+- `/docs/patterns/protocol_architecture.md` — Protocol-based architecture

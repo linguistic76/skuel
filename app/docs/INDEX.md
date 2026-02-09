@@ -113,7 +113,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [BackendOperations Protocol Architecture](patterns/BACKEND_OPERATIONS_ISP.md) | 2026-01-07 | 320 |
 | [Code Quality Enforcement - Linter Rules](patterns/linter_rules.md) | 2025-10-17 | 209 |
 | [Constants Usage Guide](patterns/constants_usage_guide.md) | 2025-11-27 | 493 |
-| [Context-First Relationship Pattern](patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md) | 2025-11-27 | 477 |
+| [Context-First Relationship Pattern](patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md) | 2026-02-10 | 712 |
 | [Domain Relationships Pattern (Graph-Native Archite...](patterns/DOMAIN_RELATIONSHIPS_PATTERN.md) | 2026-01-07 | 620 |
 | **[Domain Lateral Service Quick Start](patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md)** | **2026-01-31** | **350** |
 | [Domain-Specific Hooks Pattern](patterns/DOMAIN_SPECIFIC_HOOKS.md) | 2025-11-08 | 440 |

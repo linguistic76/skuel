@@ -422,7 +422,7 @@ For each documentation category, this section shows which skills are relevant.
 - [API_VALIDATION_PATTERNS.md](/docs/patterns/API_VALIDATION_PATTERNS.md) → @pydantic, @skuel-form-patterns
 - [ASYNC_SYNC_DESIGN_PATTERN.md](/docs/patterns/ASYNC_SYNC_DESIGN_PATTERN.md) → @python
 - [CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md](/docs/patterns/CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md) → @base-analytics-service
-- [CONTEXT_FIRST_RELATIONSHIP_PATTERN.md](/docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md) → @neo4j-cypher-patterns
+- [CONTEXT_FIRST_RELATIONSHIP_PATTERN.md](/docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md) → @neo4j-cypher-patterns, @user-context-intelligence
 - [CYPHER_VS_APOC_STRATEGY.md](/docs/patterns/CYPHER_VS_APOC_STRATEGY.md) → @neo4j-cypher-patterns
 - [DOCSTRING_STANDARDS.md](/docs/patterns/DOCSTRING_STANDARDS.md) → @docs-skills-evolution, @python
 - [DOMAIN_LATERAL_SERVICE_QUICK_START.md](/docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md) → @base-analytics-service
