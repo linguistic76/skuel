@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.services.user.intelligence.types import LifePathAlignment
+from core.models.context_types import LifePathAlignment
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import make_dict_score_getter
 
@@ -70,15 +70,8 @@ class LifePathIntelligenceMixin:
                     goal_score=0.0,
                     principle_score=0.0,
                     momentum_score=0.0,
-                    strengths=[],
-                    gaps=["No life path defined - consider defining your ultimate direction"],
-                    recommendations=["Define your life path to enable alignment tracking"],
-                    life_path_uid=None,
-                    life_path_milestones_completed=0,
-                    life_path_milestones_total=0,
-                    aligned_goals=[],
-                    supporting_habits=[],
-                    knowledge_gaps=[],
+                    gaps=("No life path defined - consider defining your ultimate direction",),
+                    recommendations=("Define your life path to enable alignment tracking",),
                 )
             )
 
@@ -130,15 +123,15 @@ class LifePathIntelligenceMixin:
                 goal_score=goal_score,
                 principle_score=principle_score,
                 momentum_score=momentum_score,
-                strengths=strengths,
-                gaps=gaps,
-                recommendations=recommendations,
+                strengths=tuple(strengths),
+                gaps=tuple(gaps),
+                recommendations=tuple(recommendations),
                 life_path_uid=self.context.life_path_uid,
                 life_path_milestones_completed=milestones_completed,
                 life_path_milestones_total=milestones_total,
-                aligned_goals=aligned_goals,
-                supporting_habits=supporting_habits,
-                knowledge_gaps=knowledge_gaps,
+                aligned_goals=tuple(aligned_goals),
+                supporting_habits=tuple(supporting_habits),
+                knowledge_gaps=tuple(knowledge_gaps),
             )
         )
 

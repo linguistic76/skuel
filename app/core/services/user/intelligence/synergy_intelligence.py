@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.services.user.intelligence.types import CrossDomainSynergy
+from core.models.context_types import CrossDomainSynergy
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -166,12 +166,12 @@ class SynergyIntelligenceMixin:
             synergy = CrossDomainSynergy(
                 source_uid=habit_uid,
                 source_domain="habit",
-                target_uids=goal_uids,
+                target_uids=tuple(goal_uids),
                 target_domain="goal",
                 synergy_type="supports",
                 synergy_score=synergy_score,
                 rationale=f"This habit supports {len(goal_uids)} goals simultaneously",
-                recommendations=recommendations,
+                recommendations=tuple(recommendations),
             )
             synergies.append(synergy)
 
@@ -209,12 +209,12 @@ class SynergyIntelligenceMixin:
                 synergy = CrossDomainSynergy(
                     source_uid=habit_uid,
                     source_domain="habit",
-                    target_uids=supporting_tasks[:5],  # Limit to top 5
+                    target_uids=tuple(supporting_tasks[:5]),
                     target_domain="task",
                     synergy_type="builds",
                     synergy_score=synergy_score,
                     rationale=f"{len(supporting_tasks)} tasks reinforce this habit",
-                    recommendations=recommendations,
+                    recommendations=tuple(recommendations),
                 )
                 synergies.append(synergy)
 
@@ -263,12 +263,12 @@ class SynergyIntelligenceMixin:
                 synergy = CrossDomainSynergy(
                     source_uid=ku_uid,
                     source_domain="knowledge",
-                    target_uids=enabled_tasks[:5],
+                    target_uids=tuple(enabled_tasks[:5]),
                     target_domain="task",
                     synergy_type="enables",
                     synergy_score=synergy_score,
                     rationale=f"Enables {len(enabled_tasks)} tasks with {mastery:.0%} mastery",
-                    recommendations=recommendations,
+                    recommendations=tuple(recommendations),
                 )
                 synergies.append(synergy)
 
@@ -314,12 +314,12 @@ class SynergyIntelligenceMixin:
                 synergy = CrossDomainSynergy(
                     source_uid=principle_uid,
                     source_domain="principle",
-                    target_uids=aligned_goals[:5],
+                    target_uids=tuple(aligned_goals[:5]),
                     target_domain="goal",
                     synergy_type="informs",
                     synergy_score=synergy_score,
                     rationale=f"Guides {len(aligned_goals)} goals with {importance:.0%} importance",
-                    recommendations=recommendations,
+                    recommendations=tuple(recommendations),
                 )
                 synergies.append(synergy)
 
@@ -367,13 +367,13 @@ class SynergyIntelligenceMixin:
             synergy = CrossDomainSynergy(
                 source_uid=ku_uid,
                 source_domain="knowledge",
-                target_uids=goal_uids,
+                target_uids=tuple(goal_uids),
                 target_domain="goal",
                 synergy_type="enables",
                 synergy_score=synergy_score,
                 rationale=f"Required by {len(goal_uids)} goals"
                 + (" (not yet mastered)" if not is_mastered else f" ({mastery:.0%} mastered)"),
-                recommendations=recommendations,
+                recommendations=tuple(recommendations),
             )
             synergies.append(synergy)
 

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.services.user.intelligence.types import LearningStep
+from core.models.context_types import LearningStep
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -121,13 +121,13 @@ class LearningIntelligenceMixin:
                     contextual_ku.uid, aligned_goals, unlocks_count, applications
                 ),
                 prerequisites_met=contextual_ku.prerequisites_met,
-                aligns_with_goals=aligned_goals,
+                aligns_with_goals=tuple(aligned_goals),
                 unlocks_count=unlocks_count,
                 estimated_time_minutes=self.context.estimated_time_to_mastery.get(
                     contextual_ku.uid, 60
                 ),
                 priority_score=contextual_ku.priority_score,
-                application_opportunities=applications,
+                application_opportunities={k: tuple(v) for k, v in applications.items()},
             )
 
             learning_steps.append(step)
@@ -180,11 +180,11 @@ class LearningIntelligenceMixin:
                     ku_uid, aligned_goals, unlocks_count, applications
                 ),
                 prerequisites_met=True,
-                aligns_with_goals=aligned_goals,
+                aligns_with_goals=tuple(aligned_goals),
                 unlocks_count=unlocks_count,
                 estimated_time_minutes=self.context.estimated_time_to_mastery.get(ku_uid, 60),
                 priority_score=priority_score,
-                application_opportunities=applications,
+                application_opportunities={k: tuple(v) for k, v in applications.items()},
             )
 
             learning_steps.append(step)
@@ -571,11 +571,11 @@ class LearningIntelligenceMixin:
                     ku_uid, aligned_goals, unlocks_count, applications
                 ),
                 prerequisites_met=prerequisites_met,
-                aligns_with_goals=aligned_goals,
+                aligns_with_goals=tuple(aligned_goals),
                 unlocks_count=unlocks_count,
                 estimated_time_minutes=self.context.estimated_time_to_mastery.get(ku_uid, 60),
                 priority_score=score,  # Use vector search score
-                application_opportunities=applications,
+                application_opportunities={k: tuple(v) for k, v in applications.items()},
             )
 
             learning_steps.append(step)

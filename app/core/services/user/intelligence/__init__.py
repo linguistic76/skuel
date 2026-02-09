@@ -12,7 +12,6 @@ UserContextIntelligence = UserContext + 13 Domain Services
                         = User State + Complete Graph Intelligence
 
 **Package Structure:**
-- types.py: Data classes (LifePathAlignment, DailyWorkPlan, etc.)
 - learning_intelligence.py: Methods 1-4 (learning steps, critical path)
 - life_path_intelligence.py: Method 7 (life path alignment)
 - synergy_intelligence.py: Method 6 (cross-domain synergies)
@@ -69,7 +68,7 @@ from core.services.user.intelligence.schedule_intelligence import ScheduleIntell
 from core.services.user.intelligence.synergy_intelligence import SynergyIntelligenceMixin
 
 # Data types
-from core.services.user.intelligence.types import (
+from core.models.context_types import (
     CrossDomainSynergy,
     DailyWorkPlan,
     LearningStep,

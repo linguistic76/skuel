@@ -13,7 +13,7 @@ from core.services.user.unified_user_context import UserContext
 from ui.patterns.empty_state import EmptyState
 
 if TYPE_CHECKING:
-    from core.services.user.intelligence.types import (
+    from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
         LearningStep,

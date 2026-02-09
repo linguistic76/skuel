@@ -47,14 +47,14 @@ if TYPE_CHECKING:
         AskesisRecommendation,
     )
     from core.services.user import UserContext
-    from core.services.user.intelligence import (
+    from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
         LearningStep,
         LifePathAlignment,
         ScheduleAwareRecommendation,
-        UserContextIntelligenceFactory,
     )
+    from core.services.user.intelligence import UserContextIntelligenceFactory
 
 logger = get_logger(__name__)
 

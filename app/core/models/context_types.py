@@ -703,191 +703,195 @@ class ContextualDependencies:
         }
 
 
+# =============================================================================
+# INTELLIGENCE OUTPUT TYPES
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class LifePathAlignment:
+    """
+    Comprehensive life path alignment analysis.
+
+    **Philosophy:** "Everything flows toward the life path"
+
+    Measures how well a user's daily activities, knowledge,
+    habits, goals, and principles align with their ultimate life path.
+
+    **Alignment Dimensions:**
+    1. Knowledge Alignment (25%): Mastery of life path knowledge
+    2. Activity Alignment (25%): Tasks/habits supporting life path goals
+    3. Goal Alignment (20%): Active goals contributing to life path
+    4. Principle Alignment (15%): Values supporting life path direction
+    5. Momentum (15%): Recent activity trend toward life path
+
+    **Score Scale:**
+    - 0.0-0.3: Drifting (significant misalignment)
+    - 0.4-0.6: Exploring (some alignment, room for growth)
+    - 0.7-0.8: Aligned (actively living the path)
+    - 0.9-1.0: Flourishing (fully integrated, embodied)
+    """
+
+    # Overall score
+    overall_score: float  # 0.0-1.0
+    alignment_level: str  # "drifting", "exploring", "aligned", "flourishing"
+
+    # Dimension scores (0.0-1.0 each)
+    knowledge_score: float  # Mastery of life path knowledge
+    activity_score: float  # Tasks/habits supporting life path
+    goal_score: float  # Goals contributing to life path
+    principle_score: float  # Values supporting life path
+    momentum_score: float  # Recent trend toward life path
+
+    # Insights
+    strengths: tuple[str, ...] = ()  # What's working well
+    gaps: tuple[str, ...] = ()  # Where alignment is lacking
+    recommendations: tuple[str, ...] = ()  # Actionable next steps
+
+    # Supporting data
+    life_path_uid: str | None = None
+    life_path_milestones_completed: int = 0
+    life_path_milestones_total: int = 0
+    aligned_goals: tuple[str, ...] = ()  # Goal UIDs aligned with life path
+    supporting_habits: tuple[str, ...] = ()  # Habit UIDs supporting life path
+    knowledge_gaps: tuple[str, ...] = ()  # KU UIDs needing more application
+
+
+@dataclass(frozen=True)
+class CrossDomainSynergy:
+    """
+    A detected synergy between entities across different domains.
+
+    **Examples:**
+    - Habit->Goal: "Morning meditation" supports "Mental clarity", "Reduce stress"
+    - Task->Habit: "Write journal entry" builds "Daily journaling" habit
+    - Knowledge->Task: "Python async programming" enables multiple coding tasks
+    - Principle->Choice: "Growth mindset" informs career decisions
+
+    **Synergy Score:**
+    - 0.0-0.3: Weak synergy (single connection)
+    - 0.4-0.6: Moderate synergy (multiple connections)
+    - 0.7-1.0: Strong synergy (hub entity, high leverage)
+    """
+
+    source_uid: str  # The entity creating synergy
+    source_domain: str  # "habit", "task", "knowledge", "principle"
+    target_uids: tuple[str, ...] = ()  # Entities benefiting from this
+    target_domain: str = ""  # "goal", "habit", "task", "choice"
+    synergy_type: str = ""  # "supports", "enables", "builds", "informs"
+    synergy_score: float = 0.0  # 0.0-1.0 (higher = more leverage)
+    rationale: str = ""  # Human-readable explanation
+    recommendations: tuple[str, ...] = ()  # Actionable suggestions
+
+
+@dataclass(frozen=True)
+class LearningStep:
+    """A recommended learning step with full context."""
+
+    ku_uid: str
+    title: str
+    rationale: str = ""
+    prerequisites_met: bool = False
+    aligns_with_goals: tuple[str, ...] = ()  # Goal UIDs this helps with
+    unlocks_count: int = 0  # How many items this unlocks
+    estimated_time_minutes: int = 60
+    priority_score: float = 0.0  # 0.0-1.0
+    application_opportunities: dict[str, tuple[str, ...]] = field(
+        default_factory=dict
+    )  # Where can this be applied?
+
+
 @dataclass(frozen=True)
 class DailyWorkPlan:
     """
-    Comprehensive plan for what user should work on today.
+    Comprehensive plan for what to work on today.
 
     **THE FLAGSHIP OUTPUT** of UserContextIntelligence.get_ready_to_work_on_today()
+
+    **Synthesizes ALL domains:**
+    - Activity Domains (6): tasks, habits, goals, events, choices, principles
+    - Curriculum Domains (3): ku, ls, lp
 
     **Respects:**
     - User's available time (capacity)
     - User's energy level (cognitive load)
     - User's current workload (not overloading)
-    - User's preferences (scheduling, learning style)
-
-    **Contains:**
-    - Prioritized lists of UIDs for each domain
-    - Estimated time and capacity utilization
-    - Rationale explaining the plan
     """
 
-    user_uid: str
-
     # Prioritized entity UIDs for each domain
-    learning: tuple[str, ...] = field(default_factory=tuple)  # KU UIDs to learn
-    tasks: tuple[str, ...] = field(default_factory=tuple)  # Task UIDs to complete
-    habits: tuple[str, ...] = field(default_factory=tuple)  # Habit UIDs to maintain
-    events: tuple[str, ...] = field(default_factory=tuple)  # Event UIDs to attend
-    goals: tuple[str, ...] = field(default_factory=tuple)  # Goal UIDs to advance
+    learning: tuple[str, ...] = ()  # KU UIDs to learn
+    tasks: tuple[str, ...] = ()  # Task UIDs to complete
+    habits: tuple[str, ...] = ()  # Habit UIDs to maintain
+    events: tuple[str, ...] = ()  # Event UIDs to attend
+    goals: tuple[str, ...] = ()  # Goal UIDs to advance
+    choices: tuple[str, ...] = ()  # Choice UIDs to consider
+    principles: tuple[str, ...] = ()  # Principle UIDs to embody
+
+    # Contextual items (enriched with user context)
+    contextual_tasks: tuple[ContextualTask, ...] = ()
+    contextual_habits: tuple[ContextualHabit, ...] = ()
+    contextual_goals: tuple[ContextualGoal, ...] = ()
+    contextual_knowledge: tuple[ContextualKnowledge, ...] = ()
 
     # Capacity metrics
     estimated_time_minutes: int = 0
-    available_time_minutes: int = 60
     fits_capacity: bool = True
     workload_utilization: float = 0.0  # 0.0-1.0
 
     # Plan metadata
     rationale: str = ""
-    priorities: tuple[str, ...] = field(default_factory=tuple)  # Ordered priority list
-    generated_at: datetime = field(default_factory=datetime.now)
-
-    # Insights
-    at_risk_items: tuple[str, ...] = field(default_factory=tuple)  # Items needing urgent attention
-    learning_opportunities: tuple[str, ...] = field(default_factory=tuple)
-    goal_contributions: dict[str, list[str]] = field(
-        default_factory=dict
-    )  # goal_uid -> [contributing_item_uids]
-
-    def total_items(self) -> int:
-        """Get total number of items in plan."""
-        return len(self.learning) + len(self.tasks) + len(self.habits) + len(self.events)
-
-    def is_overloaded(self) -> bool:
-        """Check if plan exceeds capacity."""
-        return not self.fits_capacity
-
-    def utilization_status(self) -> str:
-        """Categorize workload utilization."""
-        if self.workload_utilization >= 0.9:
-            return "full"
-        elif self.workload_utilization >= 0.7:
-            return "heavy"
-        elif self.workload_utilization >= 0.4:
-            return "moderate"
-        else:
-            return "light"
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for serialization."""
-        return {
-            "user_uid": self.user_uid,
-            "learning": list(self.learning),
-            "tasks": list(self.tasks),
-            "habits": list(self.habits),
-            "events": list(self.events),
-            "goals": list(self.goals),
-            "estimated_time_minutes": self.estimated_time_minutes,
-            "available_time_minutes": self.available_time_minutes,
-            "fits_capacity": self.fits_capacity,
-            "workload_utilization": self.workload_utilization,
-            "rationale": self.rationale,
-            "priorities": list(self.priorities),
-            "at_risk_items": list(self.at_risk_items),
-            "learning_opportunities": list(self.learning_opportunities),
-            "goal_contributions": self.goal_contributions,
-            "total_items": self.total_items(),
-            "utilization_status": self.utilization_status(),
-        }
+    priorities: tuple[str, ...] = ()  # Ordered priority list
+    warnings: tuple[str, ...] = ()  # Capacity warnings, conflicts
 
 
-# =============================================================================
-# FACTORY FUNCTIONS
-# =============================================================================
+@dataclass(frozen=True)
+class ScheduleAwareRecommendation:
+    """
+    A recommendation that considers the user's schedule and capacity.
 
+    **Schedule-aware recommendations take into account:**
+    - Current events and scheduled activities
+    - Energy levels and preferred times
+    - Available time slots
+    - Workload and capacity limits
+    - Event conflicts and constraints
 
-def create_contextual_task(
-    uid: str,
-    title: str,
-    readiness: float = 0.0,
-    relevance: float = 0.0,
-    can_start: bool = False,
-    blocking_reasons: list[str] | None = None,
-    contributes_to_goals: list[str] | None = None,
-    applies_knowledge: list[str] | None = None,
-    **kwargs: Any,
-) -> ContextualTask:
-    """Factory function to create ContextualTask with sensible defaults."""
-    priority = (readiness * 0.4) + (relevance * 0.4) + (0.2 if can_start else 0.0)
+    **Recommendation Types:**
+    - "learn": Knowledge unit to study
+    - "task": Task to complete
+    - "habit": Habit to maintain
+    - "goal": Goal to advance
+    - "rest": Rest recommendation (capacity exceeded)
+    - "reschedule": Reschedule suggestion for conflicts
+    """
 
-    return ContextualTask(
-        uid=uid,
-        title=title,
-        readiness_score=readiness,
-        relevance_score=relevance,
-        priority_score=priority,
-        can_start=can_start,
-        blocking_reasons=tuple(blocking_reasons or []),
-        contributes_to_goals=tuple(contributes_to_goals or []),
-        applies_knowledge=tuple(applies_knowledge or []),
-        **kwargs,
-    )
+    uid: str  # Entity UID (task_uid, ku_uid, habit_uid, etc.)
+    entity_type: str  # "task", "habit", "goal", "knowledge", "event"
+    recommendation_type: str  # "learn", "task", "habit", "goal", "rest", "reschedule"
+    title: str  # Human-readable title
+    rationale: str  # Why this is recommended NOW
 
+    # Schedule context
+    suggested_time_slot: str = ""  # "morning", "afternoon", "evening", "now", "later"
+    estimated_duration_minutes: int = 30
+    fits_available_time: bool = True
+    conflicts_with: tuple[str, ...] = ()  # Event UIDs that conflict
 
-def create_contextual_knowledge(
-    uid: str,
-    title: str,
-    user_mastery: float = 0.0,
-    prerequisites_met: bool = False,
-    blocking_reasons: list[str] | None = None,
-    application_opportunities: list[str] | None = None,
-    **kwargs: Any,
-) -> ContextualKnowledge:
-    """Factory function to create ContextualKnowledge with sensible defaults."""
-    # Readiness based on prerequisites
-    readiness = 1.0 if prerequisites_met else 0.3
+    # Scoring (why this is optimal for this time)
+    schedule_fit_score: float = 0.0  # 0.0-1.0 (how well it fits schedule)
+    energy_match_score: float = 0.0  # 0.0-1.0 (matches current energy)
+    priority_score: float = 0.0  # 0.0-1.0 (urgency/importance)
+    overall_score: float = 0.0  # Weighted combination
 
-    # Relevance inversely related to mastery (learn what you don't know)
-    relevance = 1.0 - user_mastery if user_mastery < 0.9 else 0.1
+    # Context for decision making
+    deadline: str | None = None  # Due date if applicable
+    streak_at_risk: bool = False  # For habits: is streak at risk?
+    blocks_other_work: bool = False  # Does completing this unblock others?
+    life_path_aligned: bool = False  # Aligned with life path?
 
-    priority = (readiness * 0.5) + (relevance * 0.5)
-
-    return ContextualKnowledge(
-        uid=uid,
-        title=title,
-        readiness_score=readiness,
-        relevance_score=relevance,
-        priority_score=priority,
-        user_mastery=user_mastery,
-        prerequisites_met=prerequisites_met,
-        blocking_reasons=tuple(blocking_reasons or []),
-        application_opportunities=tuple(application_opportunities or []),
-        **kwargs,
-    )
-
-
-def create_contextual_habit(
-    uid: str,
-    title: str,
-    current_streak: int = 0,
-    completion_rate: float = 0.0,
-    is_at_risk: bool = False,
-    supports_goals: list[str] | None = None,
-    **kwargs: Any,
-) -> ContextualHabit:
-    """Factory function to create ContextualHabit with sensible defaults."""
-    # At-risk habits are high priority
-    urgency = 1.0 if is_at_risk else 0.3
-
-    # Long streaks are high relevance (don't want to break them)
-    streak_factor = min(1.0, current_streak / 30)
-
-    readiness = 1.0  # Habits are always "ready" (daily actions)
-    relevance = (streak_factor * 0.5) + (urgency * 0.5)
-    priority = (readiness * 0.3) + (relevance * 0.4) + (urgency * 0.3)
-
-    return ContextualHabit(
-        uid=uid,
-        title=title,
-        readiness_score=readiness,
-        relevance_score=relevance,
-        priority_score=priority,
-        current_streak=current_streak,
-        completion_rate=completion_rate,
-        is_at_risk=is_at_risk,
-        supports_goals=tuple(supports_goals or []),
-        **kwargs,
-    )
+    # Actionable guidance
+    preparation_needed: tuple[str, ...] = ()  # What to prepare
+    alternatives: tuple[str, ...] = ()  # Alternative recommendations
 
 
 # =============================================================================
@@ -895,23 +899,23 @@ def create_contextual_habit(
 # =============================================================================
 
 __all__ = [
-    "ContextualChoice",
-    # Aggregate types
-    "ContextualDependencies",
     # Base types
     "ContextualEntity",
-    "ContextualEvent",
+    # Domain contextual types
+    "ContextualTask",
+    "ContextualKnowledge",
     "ContextualGoal",
     "ContextualHabit",
-    "ContextualKnowledge",
+    "ContextualEvent",
+    "ContextualChoice",
     "ContextualPrinciple",
-    # Domain types
-    "ContextualTask",
-    "DailyWorkPlan",
-    # Principle planning types (January 2026)
+    # Aggregate types
+    "ContextualDependencies",
     "PracticeOpportunity",
-    "create_contextual_habit",
-    "create_contextual_knowledge",
-    # Factory functions
-    "create_contextual_task",
+    # Intelligence output types
+    "DailyWorkPlan",
+    "LifePathAlignment",
+    "CrossDomainSynergy",
+    "LearningStep",
+    "ScheduleAwareRecommendation",
 ]

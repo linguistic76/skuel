@@ -14,12 +14,19 @@ This is the core value proposition: "What should I work on next?"
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from core.services.user.intelligence.types import DailyWorkPlan
+from core.models.context_types import DailyWorkPlan
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.context_types import (
+        ContextualGoal,
+        ContextualHabit,
+        ContextualKnowledge,
+        ContextualTask,
+    )
     from core.services.user.unified_user_context import UserContext
 
 
@@ -83,8 +90,22 @@ class DailyPlanningMixin:
         Returns:
             Result[DailyWorkPlan] with rationale and priorities
         """
-        plan = DailyWorkPlan()
         available_time = self.context.available_minutes_daily
+
+        # Accumulators for frozen DailyWorkPlan construction
+        habits_uids: list[str] = []
+        contextual_habits_list: list[ContextualHabit] = []
+        events_uids: list[str] = []
+        tasks_uids: list[str] = []
+        contextual_tasks_list: list[ContextualTask] = []
+        learning_uids: list[str] = []
+        contextual_knowledge_list: list[ContextualKnowledge] = []
+        goals_uids: list[str] = []
+        contextual_goals_list: list[ContextualGoal] = []
+        choices_uids: list[str] = []
+        principles_uids: list[str] = []
+        warnings_list: list[str] = []
+        estimated_time = 0
 
         # =====================================================================
         # PRIORITY 1: At-risk habits (maintain streaks - highest priority)
@@ -92,9 +113,9 @@ class DailyPlanningMixin:
         habits_result = await self.habits.get_at_risk_habits_for_user(self.context)
         if habits_result.is_ok and habits_result.value:
             for contextual_habit in habits_result.value[:3]:
-                plan.habits.append(contextual_habit.uid)
-                plan.contextual_habits.append(contextual_habit)
-                plan.estimated_time_minutes += 15  # ~15 min per habit
+                habits_uids.append(contextual_habit.uid)
+                contextual_habits_list.append(contextual_habit)
+                estimated_time += 15  # ~15 min per habit
 
         # =====================================================================
         # PRIORITY 2: Today's events (can't reschedule)
@@ -102,8 +123,8 @@ class DailyPlanningMixin:
         events_result = await self.events.get_upcoming_events_for_user(self.context)
         if events_result.is_ok and events_result.value:
             for contextual_event in events_result.value:
-                plan.events.append(contextual_event.uid)
-                plan.estimated_time_minutes += 30  # ~30 min per event
+                events_uids.append(contextual_event.uid)
+                estimated_time += 30  # ~30 min per event
 
         # =====================================================================
         # PRIORITY 3: Overdue and actionable tasks
@@ -115,31 +136,31 @@ class DailyPlanningMixin:
             regular = [t for t in tasks_result.value if not t.is_overdue]
 
             for contextual_task in overdue[:2] + regular[:3]:
-                if not respect_capacity or plan.estimated_time_minutes + 30 <= available_time:
-                    plan.tasks.append(contextual_task.uid)
-                    plan.contextual_tasks.append(contextual_task)
-                    plan.estimated_time_minutes += 30
+                if not respect_capacity or estimated_time + 30 <= available_time:
+                    tasks_uids.append(contextual_task.uid)
+                    contextual_tasks_list.append(contextual_task)
+                    estimated_time += 30
 
             if overdue:
-                plan.warnings.append(f"{len(overdue)} overdue tasks need attention")
+                warnings_list.append(f"{len(overdue)} overdue tasks need attention")
 
         # =====================================================================
         # PRIORITY 4: Daily habits (consistency)
         # =====================================================================
-        daily_habits = [h for h in self.context.daily_habits if h not in plan.habits]
+        daily_habits = [h for h in self.context.daily_habits if h not in habits_uids]
         for habit_uid in daily_habits[:3]:
-            if not respect_capacity or plan.estimated_time_minutes + 15 <= available_time:
-                plan.habits.append(habit_uid)
-                plan.estimated_time_minutes += 15
+            if not respect_capacity or estimated_time + 15 <= available_time:
+                habits_uids.append(habit_uid)
+                estimated_time += 15
 
         # =====================================================================
         # PRIORITY 5: Learning (if capacity allows)
         # Phase 1 Enhancement: Use semantic/learning-aware search if available
         # =====================================================================
-        if not respect_capacity or plan.estimated_time_minutes < available_time * 0.7:
+        if not respect_capacity or estimated_time < available_time * 0.7:
             # Try semantic-enhanced search first (Phase 1)
             if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
-                search_query = self._generate_daily_learning_query(plan)
+                search_query = self._generate_daily_learning_query(goals_uids, tasks_uids)
                 vector_result = await self.vector_search.learning_aware_search(
                     label="Ku",
                     text=search_query,
@@ -153,12 +174,9 @@ class DailyPlanningMixin:
                         node = result["node"]
                         ku_uid = node["uid"]
                         est_time = self.context.estimated_time_to_mastery.get(ku_uid, 30)
-                        if (
-                            not respect_capacity
-                            or plan.estimated_time_minutes + est_time <= available_time
-                        ):
-                            plan.learning.append(ku_uid)
-                            plan.estimated_time_minutes += est_time
+                        if not respect_capacity or estimated_time + est_time <= available_time:
+                            learning_uids.append(ku_uid)
+                            estimated_time += est_time
                 else:
                     # Fallback to standard KU service
                     learning_result = await self.ku.get_ready_to_learn_for_user(
@@ -169,26 +187,20 @@ class DailyPlanningMixin:
                             est_time = self.context.estimated_time_to_mastery.get(
                                 contextual_ku.uid, 30
                             )
-                            if (
-                                not respect_capacity
-                                or plan.estimated_time_minutes + est_time <= available_time
-                            ):
-                                plan.learning.append(contextual_ku.uid)
-                                plan.contextual_knowledge.append(contextual_ku)
-                                plan.estimated_time_minutes += est_time
+                            if not respect_capacity or estimated_time + est_time <= available_time:
+                                learning_uids.append(contextual_ku.uid)
+                                contextual_knowledge_list.append(contextual_ku)
+                                estimated_time += est_time
             else:
                 # Standard path: Use KU service
                 learning_result = await self.ku.get_ready_to_learn_for_user(self.context, limit=3)
                 if learning_result.is_ok and learning_result.value:
                     for contextual_ku in learning_result.value:
                         est_time = self.context.estimated_time_to_mastery.get(contextual_ku.uid, 30)
-                        if (
-                            not respect_capacity
-                            or plan.estimated_time_minutes + est_time <= available_time
-                        ):
-                            plan.learning.append(contextual_ku.uid)
-                            plan.contextual_knowledge.append(contextual_ku)
-                            plan.estimated_time_minutes += est_time
+                        if not respect_capacity or estimated_time + est_time <= available_time:
+                            learning_uids.append(contextual_ku.uid)
+                            contextual_knowledge_list.append(contextual_ku)
+                            estimated_time += est_time
 
         # =====================================================================
         # PRIORITY 6: Advancing goals
@@ -196,8 +208,8 @@ class DailyPlanningMixin:
         goals_result = await self.goals.get_advancing_goals_for_user(self.context, limit=2)
         if goals_result.is_ok and goals_result.value:
             for contextual_goal in goals_result.value:
-                plan.goals.append(contextual_goal.uid)
-                plan.contextual_goals.append(contextual_goal)
+                goals_uids.append(contextual_goal.uid)
+                contextual_goals_list.append(contextual_goal)
 
         # =====================================================================
         # PRIORITY 7: Pending decisions (if any high priority)
@@ -205,32 +217,50 @@ class DailyPlanningMixin:
         choices_result = await self.choices.get_pending_decisions_for_user(self.context)
         if choices_result.is_ok and choices_result.value:
             high_priority = [c for c in choices_result.value if c.priority_score > 0.7]
-            plan.choices = [c.uid for c in high_priority[:2]]
+            choices_uids = [c.uid for c in high_priority[:2]]
 
         # =====================================================================
         # PRIORITY 8: Aligned principles (for focus)
         # =====================================================================
         principles_result = await self.principles.get_aligned_principles_for_user(self.context)
         if principles_result.is_ok and principles_result.value:
-            plan.principles = [p.uid for p in principles_result.value[:3]]
+            principles_uids = [p.uid for p in principles_result.value[:3]]
 
         # =====================================================================
         # Calculate final metrics
         # =====================================================================
-        plan.workload_utilization = min(1.0, plan.estimated_time_minutes / max(available_time, 1))
-        plan.fits_capacity = plan.workload_utilization <= 1.0
-
-        # Build priorities list
-        plan.priorities = self._build_priority_list(plan)
-
-        # Generate rationale
-        plan.rationale = self._generate_daily_rationale(plan, prioritize_life_path)
+        workload_utilization = min(1.0, estimated_time / max(available_time, 1))
+        fits_capacity = workload_utilization <= 1.0
 
         # Final warnings
-        if plan.workload_utilization > 0.9:
-            plan.warnings.append("Very full schedule - consider reducing if feeling overwhelmed")
-        if not plan.learning and self.context.learning_goals:
-            plan.warnings.append("No learning time scheduled - consider your learning goals")
+        if workload_utilization > 0.9:
+            warnings_list.append("Very full schedule - consider reducing if feeling overwhelmed")
+        if not learning_uids and self.context.learning_goals:
+            warnings_list.append("No learning time scheduled - consider your learning goals")
+
+        # Construct frozen plan (without priorities/rationale — computed from plan)
+        plan = DailyWorkPlan(
+            learning=tuple(learning_uids),
+            tasks=tuple(tasks_uids),
+            habits=tuple(habits_uids),
+            events=tuple(events_uids),
+            goals=tuple(goals_uids),
+            choices=tuple(choices_uids),
+            principles=tuple(principles_uids),
+            contextual_tasks=tuple(contextual_tasks_list),
+            contextual_habits=tuple(contextual_habits_list),
+            contextual_goals=tuple(contextual_goals_list),
+            contextual_knowledge=tuple(contextual_knowledge_list),
+            estimated_time_minutes=estimated_time,
+            fits_capacity=fits_capacity,
+            workload_utilization=workload_utilization,
+            warnings=tuple(warnings_list),
+        )
+
+        # Build priorities and rationale from the constructed plan
+        priorities = self._build_priority_list(plan)
+        rationale = self._generate_daily_rationale(plan, prioritize_life_path)
+        plan = replace(plan, priorities=tuple(priorities), rationale=rationale)
 
         return Result.ok(plan)
 
@@ -299,7 +329,7 @@ class DailyPlanningMixin:
     # Vector Search Helpers (Phase 1 Enhancement)
     # =========================================================================
 
-    def _generate_daily_learning_query(self, plan: DailyWorkPlan) -> str:
+    def _generate_daily_learning_query(self, goals_uids: list[str], tasks_uids: list[str]) -> str:
         """
         Generate semantic search query for daily learning based on current plan context.
 
@@ -311,11 +341,11 @@ class DailyPlanningMixin:
         query_parts = []
 
         # Include goal context
-        if plan.goals:
+        if goals_uids:
             query_parts.append("goal-aligned learning")
 
         # Include task context
-        if plan.tasks:
+        if tasks_uids:
             query_parts.append("actionable knowledge")
 
         # Include life path

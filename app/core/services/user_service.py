@@ -31,11 +31,8 @@ from core.services.protocols.infrastructure_protocols import (
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 from core.services.user import UserContext
-from core.services.user.intelligence import (
-    DailyWorkPlan,
-    LearningStep,
-    UserContextIntelligenceFactory,
-)
+from core.models.context_types import DailyWorkPlan, LearningStep
+from core.services.user.intelligence import UserContextIntelligenceFactory
 from core.services.user.user_activity_service import UserActivityService
 from core.services.user.user_context_builder import UserContextBuilder
 from core.services.user.user_core_service import UserCoreService

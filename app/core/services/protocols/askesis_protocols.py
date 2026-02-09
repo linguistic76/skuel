@@ -49,7 +49,7 @@ if TYPE_CHECKING:
         AskesisRecommendation,
     )
     from core.services.user import UserContext
-    from core.services.user.intelligence import (
+    from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
         LearningStep,

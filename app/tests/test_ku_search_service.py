@@ -324,8 +324,10 @@ class TestSimilaritySearch:
 
     @pytest.fixture
     def service(self) -> KuSearchService:
-        """Create service with intelligence mock."""
+        """Create service with mocks supporting async calls."""
         backend = MagicMock()
+        backend.get = AsyncMock()
+        backend.execute_query = AsyncMock()
         content_repo = MagicMock()
         intelligence = MagicMock()
         query_builder = MagicMock()
@@ -337,18 +339,19 @@ class TestSimilaritySearch:
         )
 
     @pytest.mark.asyncio
-    async def test_find_similar_content_without_intelligence(self):
-        """Test that find_similar_content fails without intelligence service."""
+    async def test_find_similar_content_source_not_found_without_intelligence(self):
+        """Test that find_similar_content returns not_found when source unit missing."""
+        backend = MagicMock()
+        backend.get = AsyncMock(return_value=Result.fail(MagicMock()))
         service = KuSearchService(
-            backend=MagicMock(),
+            backend=backend,
             content_repo=MagicMock(),
             intelligence=None,
         )
 
-        result = await service.find_similar_content("ku.test.1")
+        result = await service.find_similar_content("ku.nonexistent")
 
         assert not result.is_ok
-        assert "not available" in str(result.error).lower()
 
     @pytest.mark.asyncio
     async def test_find_similar_content_unit_not_found(self, service):
@@ -361,28 +364,29 @@ class TestSimilaritySearch:
 
     @pytest.mark.asyncio
     async def test_find_similar_content_success(self, service):
-        """Test successful similar content search."""
+        """Test successful similar content search via keyword fallback."""
         ku_entity = make_ku_entity("ku.test.1", "Source")
-        similar_entity = make_ku_entity("ku.test.2", "Similar")
 
         # Mock source unit retrieval
-        service.backend.get = AsyncMock(
-            side_effect=[
-                Result.ok(ku_entity),  # First call for source
-                Result.ok(similar_entity),  # Second call for similar unit
-                Result.ok(similar_entity),  # Third call for second similar unit
-            ]
-        )
+        service.backend.get = AsyncMock(return_value=Result.ok(ku_entity))
 
-        # Mock intelligence service
-        service.intelligence.find_similar_content = AsyncMock(
-            return_value=Result.ok(["ku.test.2", "ku.test.3"])
+        # Mock keyword search fallback (no vector_search configured)
+        similar_record = {
+            "similar": {
+                "uid": "ku.test.2",
+                "title": "Similar",
+                "content": "Similar content",
+                "domain": "tech",
+            },
+        }
+        service.backend.execute_query = AsyncMock(
+            return_value=Result.ok([similar_record])
         )
 
         result = await service.find_similar_content("ku.test.1", limit=5)
 
         assert result.is_ok
-        service.intelligence.find_similar_content.assert_called_once_with(uid="ku.test.1", limit=5)
+        service.backend.execute_query.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_search_by_features_without_intelligence(self):

@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from core.services.user.intelligence.types import ScheduleAwareRecommendation
+from core.models.context_types import ScheduleAwareRecommendation
 
 if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
@@ -355,7 +355,7 @@ class ScheduleIntelligenceMixin:
                     priority_score=score["priority"],
                     overall_score=score["overall"],
                     life_path_aligned=is_life_path,
-                    preparation_needed=["Review prerequisites"] if not is_life_path else [],
+                    preparation_needed=("Review prerequisites",) if not is_life_path else (),
                 )
             )
 
