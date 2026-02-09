@@ -1,7 +1,7 @@
 - We use poetry for package management and for running files.
 
 ## One Path Forward - Core Development Philosophy
-*Last updated: 2026-01-31*
+*Last updated: 2026-02-09*
 
 **SKUEL does NOT maintain backward compatibility.** When a better pattern emerges, the old pattern is removed entirely.
 
@@ -117,7 +117,7 @@ async def get_learning_opportunities(
 | **Meta** | | |
 | docs-skills-evolution | `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/decisions/ADR-TEMPLATE.md` | Cross-reference validation |
 
-**Total:** 29 skills with comprehensive documentation mappings
+**Total:** 30 skills with comprehensive documentation mappings
 
 ## Documentation Architecture
 
@@ -161,7 +161,7 @@ See: /docs/architecture/ARCHITECTURE_NAME.md
 
 ## Architecture Decision Records (ADRs)
 
-**Location:** `/docs/decisions/` (33 ADRs)
+**Location:** `/docs/decisions/` (43 ADRs)
 **Template:** `/docs/decisions/ADR-TEMPLATE.md`
 **See:** `/docs/INDEX.md` for complete listing
 
@@ -183,21 +183,21 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`
 
-## SKUEL's 15-Domain + 5-System Architecture
+## SKUEL's 14-Domain + 5-System Architecture
 
 **Core Principle:** "Everything flows toward the life path"
 
-### The 15 Domains
+### The 14 Domains
 
 | # | Domain | Group | UID Format | Purpose |
 |---|--------|-------|-----------|---------|
 | 1-6 | Tasks, Goals, Habits, Events, Choices, Principles | Activity | `{type}_{slug}_{random}` | User activities |
 | 7 | Finance | Finance | `expense_{random}` | Admin-only bookkeeping |
 | 8-10 | KU, LS, LP | Curriculum | `ku_{slug}_{random}`, `ls:{random}`, `lp:{random}` | Knowledge organization |
-| 11-12 | Journals, Reports | Content | `journal_{random}`, `report_{random}` | Processing |
-| 13 | Groups | Organizational | `group_{slug}_{random}` | Teacher-student class management |
-| 14 | MOC | Organizational | `ku_{slug}_{random}` (MOC is a KU) | Non-linear KU navigation |
-| 15 | LifePath | Destination | `lp_{random}` | "Am I living my life path?" |
+| 11 | Reports | Content | `report_{random}` | Submissions (transcripts, assignments, journals) |
+| 12 | Groups | Organizational | `group_{slug}_{random}` | Teacher-student class management |
+| 13 | MOC | Organizational | `ku_{slug}_{random}` (MOC is a KU) | Non-linear KU navigation |
+| 14 | LifePath | Destination | `lp_{random}` | "Am I living my life path?" |
 
 ### Domain Category Details
 
@@ -222,9 +222,8 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - **Admin-only creation** - regular users consume curriculum, admins build it
 - **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
 
-**Content/Processing Domains (2)**:
-- `/journals` - Voice + text submission (type=JOURNAL hardcoded)
-- `/reports` - All file types dashboard
+**Content/Processing Domain (1)**:
+- **Reports** - All submissions dashboard (transcripts, assignments, journals). Journals are `Report` nodes with `report_type=JOURNAL`. Route `/journals` is a submission UX surface, not a standalone domain.
 
 **Organizational Domains (2)**:
 - **Groups** - Teacher-student class management (ADR-040). Teacher creates group, adds students via MEMBER_OF. Assignments target groups via FOR_GROUP.
@@ -260,7 +259,7 @@ All domains use `UniversalNeo4jBackend[T]` directly. Activity domains use `creat
 
 ### Cross-Domain Relationships
 
-All 15 domains connect through Neo4j graph relationships:
+All 14 domains connect through Neo4j graph relationships:
 
 ```
 Knowledge (ku:) <--> Activity Domains
@@ -355,7 +354,7 @@ Does the domain have 3+ business logic methods?
 | Pattern | Files | Tiers | Use For | Domains |
 |---------|-------|-------|---------|---------|
 | **A: Three-Tier** | 4-5 | Pydantic→DTO→Domain | Complex logic, immutability | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, User, LifePath (12 domains) |
-| **B: Two-Tier** | 2 | Pydantic→DTO | Simple CRUD, minimal logic | Finance, Journals (2 domains) |
+| **B: Two-Tier** | 2 | Pydantic→DTO | Simple CRUD, minimal logic | Finance (1 domain) |
 
 **Rule**: Default to Pattern A unless domain is genuinely simple (admin-only bookkeeping, no business logic).
 
@@ -398,7 +397,7 @@ async def admin_route(request, current_user): ...
 
 **Core Principle:** "UserContext is THE single object for understanding a user's complete state"
 
-**The Problem:** Without UserContext, understanding a user requires 15+ separate queries across 15 domains. Stats are disconnected from UIDs. Intelligence can't see across domain boundaries.
+**The Problem:** Without UserContext, understanding a user requires 14+ separate queries across 14 domains. Stats are disconnected from UIDs. Intelligence can't see across domain boundaries.
 
 **The Solution:** One object (~240 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Stats computed FROM UIDs — no duplication.
 
@@ -429,7 +428,7 @@ Graph --> MEGA-QUERY --> UserContext --> Intelligence --> "What should I work on
 
 Analytics is a meta-service, not a domain. No Analytics nodes in Neo4j. READ-ONLY queries across all domains.
 
-**See:** `/docs/architecture/ANALYTICS_ARCHITECTURE.md`
+**See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`
 
 ## Dynamic Enum Pattern
 
@@ -583,7 +582,7 @@ poetry run pytest tests/unit/test_protocol_mixin_compliance.py -v
 
 ```
 Content to Storage:
-Markdown -> UnifiedMarkdownSync -> KnowledgeUnit -> GraphNode -> Neo4j
+Markdown -> UnifiedIngestionService -> KnowledgeUnit -> GraphNode -> Neo4j
 
 Request Processing:
 HTTP -> FastHTML Route -> Pydantic -> Service -> Domain -> Repository -> Neo4j
@@ -1219,7 +1218,7 @@ SKUEL uses **Prometheus + Grafana** for aggregate operational metrics, following
 ### The Stack
 
 **Metrics**: 47 across 9 categories (System, HTTP, Database, Events, Domains, Relationships, Search, Queries, AI Services)
-**Alerts**: 14 production alerts (2 critical, 11 warning) with runbooks
+**Alerts**: 13 production alerts (2 critical, 11 warning) with runbooks
 **Dashboards**: 4 Grafana dashboards (System Health, Domain Activity, Graph Health, Search & Events)
 
 ### Key Metrics Categories
@@ -1256,7 +1255,7 @@ SKUEL uses **Prometheus + Grafana** for aggregate operational metrics, following
 
 ### Production Alerts
 
-**14 alerts** with severity levels and runbooks:
+**13 alerts** with severity levels and runbooks:
 
 **Critical (2)**:
 - HighErrorRate - HTTP error rate >5% for 5m
