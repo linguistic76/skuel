@@ -1,0 +1,37 @@
+
+
+  SEL is just a lens on KU
+
+  Look at what /sel actually does:
+
+  1. Queries KUs filtered by sel_category field
+  2. Ranks them by readiness/prerequisites/learning value
+  3. Links to /knowledge/{ku_uid} for actual reading
+
+  SEL doesn't own any entities. It has no nodes in Neo4j. It's purely a discovery/navigation layer over KUs — the same way MOC is a navigation layer over KUs.
+
+  The Natural Merge
+
+    /ku                     → Central hub (dashboard + navigation)
+    /ku/{uid}               → THE reading page (central route)
+    /ku?sel=self-awareness  → KU discovery filtered by SEL category
+    /ku?moc=yoga-fundamentals → KU discovery filtered by MOC
+
+  Two navigation patterns, one entity:
+  ┌────────────┬───────────────────────┬────────────────────────────────────────────────┐
+  │ Navigation │       Metaphor        │              How it navigates KUs              │
+  ├────────────┼───────────────────────┼────────────────────────────────────────────────┤
+  │ MOC        │ Mind map              │ KU-organizes-KU via ORGANIZES relationship     │
+  ├────────────┼───────────────────────┼────────────────────────────────────────────────┤
+  │ SEL        │ Pedagogical framework │ KU filtered by sel_category + adaptive ranking │
+  └────────────┴───────────────────────┴────────────────────────────────────────────────┘
+  Both are just ways to browse the same KU collection. Neither creates its own entities.
+
+  What the merge means concretely
+
+  AdaptiveSELService becomes a sub-service of KuService (or remains standalone but routes under /ku). The 5 SEL categories become a sidebar or tab navigation within the /ku hub — the same way MOC navigation exists within /ku/{uid}
+  breadcrumbs.
+
+  The reading app vision: /ku/{uid} is the gravity well. Every navigation path (SEL categories, MOC trees, LS sequences, LP paths) leads there. Reports are the user's response to what they read.
+
+  What to examine next

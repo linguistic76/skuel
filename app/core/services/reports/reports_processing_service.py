@@ -290,9 +290,24 @@ class ReportsProcessingService:
         processed_content = transcript_text
 
         # Update report with processed content (raw transcript)
-        return await self.report_service.update_processed_content(
+        update_result = await self.report_service.update_processed_content(
             uid=report.uid, processed_content=processed_content
         )
+
+        if update_result.is_error:
+            return update_result
+
+        # Extract activities if enabled (DSL integration)
+        if instructions and instructions.get("extract_activities", False):
+            if self.activity_extractor:
+                updated_report = update_result.value
+                await self._extract_activities(updated_report, report.user_uid, instructions)
+            else:
+                self.logger.warning(
+                    f"Activity extraction requested but extractor not configured for {report.uid}"
+                )
+
+        return update_result
 
     # ========================================================================
     # TEXT PROCESSING
@@ -332,9 +347,24 @@ class ReportsProcessingService:
         text_content = file_content_result.value.decode("utf-8")
 
         # Step 2: Update report with processed content (raw text)
-        return await self.report_service.update_processed_content(
+        update_result = await self.report_service.update_processed_content(
             uid=report.uid, processed_content=text_content
         )
+
+        if update_result.is_error:
+            return update_result
+
+        # Extract activities if enabled (DSL integration)
+        if instructions and instructions.get("extract_activities", False):
+            if self.activity_extractor:
+                updated_report = update_result.value
+                await self._extract_activities(updated_report, report.user_uid, instructions)
+            else:
+                self.logger.warning(
+                    f"Activity extraction requested but extractor not configured for {report.uid}"
+                )
+
+        return update_result
 
     # ========================================================================
     # ACTIVITY EXTRACTION (DSL Integration)

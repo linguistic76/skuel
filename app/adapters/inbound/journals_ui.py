@@ -655,8 +655,13 @@ def create_journals_ui_routes(
             report = result.value
 
             # Auto-trigger AI processing with resolved instructions
+            # extract_activities=True enables DSL parsing: @context() tags → entities
             process_result = await processing_service.process_report(
-                report.uid, instructions={"instructions": instructions_text}
+                report.uid,
+                instructions={
+                    "instructions": instructions_text,
+                    "extract_activities": True,  # Enable DSL entity extraction
+                },
             )
 
             if process_result.is_error:

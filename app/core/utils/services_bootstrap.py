@@ -1715,10 +1715,37 @@ async def compose_services(
             transcript_processor=transcript_processor,
         )
 
+        # Create report activity extractor (DSL integration for journal → entity extraction)
+        from core.services.dsl import ReportActivityExtractorService
+
+        activity_extractor = ReportActivityExtractorService(
+            # Activity Domains (6) - access .core for CRUD operations
+            tasks_service=activity_services["tasks"].core,
+            habits_service=activity_services["habits"].core,
+            goals_service=activity_services["goals"].core,
+            events_service=activity_services["events"].core,
+            principles_service=activity_services["principles"].core,
+            choices_service=activity_services["choices"].core,
+            # Finance Domain (1) - admin-only bookkeeping
+            finance_service=core_services["finance"],
+            # Curriculum Domains (3) - admin creates, all read
+            ku_service=learning_services["ku_service"],
+            ls_service=learning_services["learning_steps"],
+            lp_service=learning_services["learning_paths"],
+            # Meta Domains (3)
+            report_service=report_service,  # For metadata updates
+            analytics_service=None,  # Not needed for extraction
+            calendar_service=None,  # Not needed for extraction
+            # The Destination (+1)
+            lifepath_service=lifepath_service,
+        )
+        logger.info("✅ Report activity extractor created (DSL journal → entity extraction)")
+
         report_processor = ReportsProcessingService(
             report_service=report_service,
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
             transcript_processor=transcript_processor,  # For LLM formatting
+            activity_extractor=activity_extractor,  # NEW: DSL entity extraction
             event_bus=event_bus,
         )
 
