@@ -149,7 +149,7 @@ from datetime import date
 from pydantic import Field
 
 from core.models.request_base import CreateRequestBase
-from core.models.shared_enums import ActivityStatus, Priority
+from core.models.enums import ActivityStatus, Priority
 
 class TaskCreateRequest(CreateRequestBase):
     """External API request for creating a task."""
@@ -196,7 +196,7 @@ class TaskCreateRequest(CreateRequestBase):
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from core.models.shared_enums import ActivityStatus, Priority
+from core.models.enums import ActivityStatus, Priority
 
 @dataclass
 class TaskDTO:
@@ -320,7 +320,7 @@ class TaskDTO:
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from core.models.shared_enums import ActivityStatus, Priority
+from core.models.enums import ActivityStatus, Priority
 
 @dataclass(frozen=True)
 class Task:

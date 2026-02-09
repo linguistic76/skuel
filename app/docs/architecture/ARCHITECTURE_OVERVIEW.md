@@ -255,7 +255,7 @@ class Task:
 │   ├── event.py
 │   ├── event_dto.py
 │   └── event_request.py
-└── shared_enums.py        # Shared enumerations
+└── enums/                 # Shared enumerations (organized by domain)
 ```
 
 ---

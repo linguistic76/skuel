@@ -74,7 +74,7 @@ tags: [documentation, index, hub, architecture, patterns]
 | Context Builder | `/core/services/user/user_context_builder.py` |
 | Domain Configs | `/core/services/relationships/domain_configs.py` |
 | UnifiedRelationshipService | `/core/services/relationships/unified_relationship_service.py` |
-| EntityType Enum | `/core/models/shared_enums.py` |
+| EntityType Enum | `/core/models/enums/` |
 
 ---
 

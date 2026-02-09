@@ -131,7 +131,7 @@ class ExpenseStatus(Enum):
 | **Activity** | `activity_enums.py` | GoalStatus, TaskPriority, HabitFrequency |
 | **Learning** | `learning_enums.py` | MasteryLevel, LearningState |
 | **User** | `user_enums.py` | UserRole, ContextHealthScore |
-| **Shared** | `shared_enums.py` | Domain, EntityType, Priority, ActivityStatus |
+| **Shared** | `enums/` directory | Domain, EntityType, Priority, ActivityStatus |
 
 ## When to Consolidate
 
@@ -169,4 +169,4 @@ For these, evaluate:
 
 - **CLAUDE.md** § "Dynamic Enum Pattern & Centralized Constants"
 - **One Path Forward** philosophy - no duplicate definitions
-- `/core/models/shared_enums.py` - Cross-domain shared enums
+- `/core/models/enums/` - Cross-domain shared enums

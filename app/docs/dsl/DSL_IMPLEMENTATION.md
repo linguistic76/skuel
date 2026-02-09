@@ -111,7 +111,7 @@ tags = extract_tags(line)
 ### `@context()` Parsing
 
 ```python
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 
 def parse_context(value: str) -> list[EntityType]:
     """Parse @context() into EntityType list."""
@@ -358,7 +358,7 @@ desc = extract_description(line, tags)
 ```python
 from dataclasses import dataclass, field
 from datetime import datetime
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 
 @dataclass
 class ParsedActivityLine:
@@ -462,7 +462,7 @@ class ActivityDSLParser:
 
 ```python
 from core.services.dsl.activity_converter import ActivityEntityConverter
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 
 class ActivityEntityConverter:
     """Converts ParsedActivityLine to domain create requests."""
@@ -672,4 +672,4 @@ def parse_line_with_validation(self, line: str) -> Result[ParsedActivityLine]:
 - **Usage Examples:** `DSL_USAGE_GUIDE.md`
 - **Parser Implementation:** `/core/services/dsl/activity_parser.py`
 - **Entity Converter:** `/core/services/dsl/activity_converter.py`
-- **EntityType Enum:** `/core/models/shared_enums.py`
+- **EntityType Enum:** `/core/models/enums/`

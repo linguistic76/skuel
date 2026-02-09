@@ -143,7 +143,7 @@ def __init__(
 
 ## Analytics Domains Covered
 
-**From `AnalyticsDomain` enum (shared_enums.py):**
+**From `AnalyticsDomain` enum (`core/models/enums/`):**
 
 | AnalyticsDomain | Domain Queried | Key Metrics |
 |-----------------|----------------|-------------|

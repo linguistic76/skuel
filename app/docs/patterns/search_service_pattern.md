@@ -187,7 +187,7 @@ Search fields are configured centrally in `core/services/search/config.py`:
 
 ```python
 from core.services.search.config import SEARCH_FIELD_CONFIG, get_search_fields
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 
 # Get text search fields for an entity type
 fields = get_search_fields(EntityType.KU)  # ('title', 'content', 'tags')

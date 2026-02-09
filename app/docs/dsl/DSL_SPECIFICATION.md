@@ -103,7 +103,7 @@ metric     → data/measurement item
 @context(goal,learning)
 ```
 
-**Type Safety Note:** The `@context()` value maps to `EntityType` enum in `/core/models/shared_enums.py` for compile-time verification.
+**Type Safety Note:** The `@context()` value maps to `EntityType` enum in `/core/models/enums/` for compile-time verification.
 
 ---
 
@@ -403,5 +403,5 @@ Planned additions for future versions:
 
 - **Usage Guide:** `DSL_USAGE_GUIDE.md` - Examples and patterns
 - **Implementation Guide:** `DSL_IMPLEMENTATION.md` - Parser architecture
-- **EntityType Enum:** `/core/models/shared_enums.py`
+- **EntityType Enum:** `/core/models/enums/`
 - **Activity DSL Parser:** `/core/services/dsl/`

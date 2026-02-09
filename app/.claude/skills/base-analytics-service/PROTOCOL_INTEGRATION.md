@@ -306,7 +306,7 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence.orchestrator import GraphContextOrchestrator
 from core.services.protocols import TasksOperations, IntelligenceOperations
 from core.models.task import Task, TaskDTO
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 
 class TasksIntelligenceService(

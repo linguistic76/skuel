@@ -241,7 +241,7 @@ def has_relationship_filters() -> bool:
 
 ```python
 from core.models.search_request import SearchRequest
-from core.models.shared_enums import Domain, Priority
+from core.models.enums import Domain, Priority
 
 # Simple text search across all domains
 request = SearchRequest(query_text="self-awareness")

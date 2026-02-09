@@ -47,7 +47,7 @@ Activity Domains (6)     Curriculum (3)      Content/Org (3)   Destination (1)
 | What | Where |
 |------|-------|
 | Project rules | `/home/mike/skuel/app/CLAUDE.md` |
-| Domain enums | `/core/models/shared_enums.py` (EntityType, Domain, Priority) |
+| Domain enums | `/core/models/enums/` (EntityType, Domain, Priority) |
 | Relationship configs | `/core/models/relationship_registry.py` |
 | MEGA-QUERY | `/core/services/user/user_context_queries.py` |
 | Service bootstrap | `/core/utils/services_bootstrap.py` |
@@ -142,7 +142,7 @@ ls core/services/tasks/
 
 ```python
 from core.models.relationship_registry import DOMAIN_CONFIGS, TASKS_CONFIG
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 config = DOMAIN_CONFIGS[Domain.TASKS]  # or use TASKS_CONFIG directly
 ```

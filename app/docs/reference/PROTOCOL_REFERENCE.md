@@ -64,7 +64,7 @@ class EnumLike(Protocol):
 
 **Usage:**
 ```python
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 
 if isinstance(priority, EnumLike):
     db_value = priority.value  # "high", "medium", "low"
@@ -813,7 +813,7 @@ UserContext implements ALL these protocols, so you can still pass it anywhere.
 
 ```python
 # WRONG - using hasattr()
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 
 task_priority = Priority.HIGH
 priority_str = task_priority.value if hasattr(task_priority, 'value') else "medium"
@@ -927,7 +927,7 @@ Quick reference for common hasattr() patterns:
 
 ### Anti-Pattern 1: Checking Static Enums
 ```python
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 # WRONG - Domain enum is static, this check is meaningless
 knowledge = get_nodes(Domain.KNOWLEDGE) if hasattr(Domain, 'KNOWLEDGE') else []

@@ -341,7 +341,7 @@ The `MarkdownSyncService` automatically detects and routes each file type.
 | LP Model | `/core/models/lp/lp.py` | Learning Path definition |
 | MOC Service | `/core/services/moc_service.py` | MOC facade (KU-based) |
 | MOC Navigation | `/core/services/moc/moc_navigation_service.py` | MOC operations |
-| EntityType | `/core/models/shared_enums.py` | Type-safe entity identification |
+| EntityType | `/core/models/enums/` | Type-safe entity identification |
 | Markdown Sync | `/core/services/markdown_sync_service.py` | Sync all patterns from markdown |
 | Unified Registry | `/core/models/relationship_registry.py` | All domain relationship configs |
 

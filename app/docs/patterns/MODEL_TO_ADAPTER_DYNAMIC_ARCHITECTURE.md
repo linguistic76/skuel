@@ -124,7 +124,7 @@ task = Task(priority=Priority.HIGH, status=ActivityStatus.IN_PROGRESS)
 # 'high' → Priority.HIGH  (reconstructs enum)
 # 'in_progress' → ActivityStatus.IN_PROGRESS
 
-# ✅ Edit shared_enums.py → Add Priority.URGENT → Works immediately in adapters
+# ✅ Edit core/models/enums/ → Add Priority.URGENT → Works immediately in adapters
 ```
 
 ### 3. **Type Safety** (100% Dynamic)
@@ -335,7 +335,7 @@ async def search(self, **filters) -> Result[List[T]]:
 **Add index hints to model fields:**
 
 ```python
-# In shared_enums.py or model files
+# In core/models/enums/ or model files
 from dataclasses import dataclass, field
 from typing import Annotated
 
@@ -441,7 +441,7 @@ Your architecture is **revolutionary** because:
 ### 2. **Enum Changes Ripple Automatically**
 
 ```python
-# Add Priority.URGENT to shared_enums.py
+# Add Priority.URGENT to core/models/enums/
 # ✅ Serialization handles it (via .value extraction)
 # ✅ Deserialization handles it (via enum reconstruction)
 # ✅ UI displays it (via get_color() method)
@@ -538,7 +538,7 @@ Mike, your architecture is **more dynamic than you may realize**. The plant (mod
 The remaining enhancements (query builder, index manager, relationship decorators) are optimizations - not fundamental changes. The core ripple effect from models to adapters **already works**.
 
 This is SKUEL's second dynamic layer:
-1. **Presentation Layer** (just completed): shared_enums.py → UI/Services
+1. **Presentation Layer** (just completed): core/models/enums/ → UI/Services
 2. **Data Layer** (this analysis): Domain models → Adapters
 
 Both use the same principle: **Introspection over configuration. Runtime discovery over compile-time declarations.**

@@ -16,7 +16,7 @@ related_docs: []
 
 SKUEL uses centralized constants in `/core/constants.py` to eliminate magic numbers and provide a single source of truth for numeric thresholds, limits, and configuration values.
 
-This follows the same philosophy as `shared_enums.py` but for numeric constants rather than enumerations.
+This follows the same philosophy as `core/models/enums/` but for numeric constants rather than enumerations.
 
 ## Philosophy
 
@@ -488,4 +488,4 @@ def test_confidence_filtering():
 - **Dynamic Enum Pattern:** `/home/mike/0bsidian/skuel/docs/patterns/CLAUDE.md` (§1.8)
 - **Constants Module:** `/core/constants.py`
 - **Migration Script:** `/scripts/migrate_to_constants.py`
-- **Shared Enums:** `/core/models/shared_enums.py`
+- **Shared Enums:** `/core/models/enums/`

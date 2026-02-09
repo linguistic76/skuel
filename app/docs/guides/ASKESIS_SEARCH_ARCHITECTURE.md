@@ -81,17 +81,17 @@ AskesisResponse (with search results)
 
 ### 3. Intent System
 
-Askesis uses `Intent` enum from `shared_enums.py`, NOT `SearchIntent`:
+Askesis uses `Intent` enum from `core/models/enums`, NOT `SearchIntent`:
 
 ```python
-from core.models.shared_enums import Intent
+from core.models.enums import Intent
 
 # User intent detection
 detected_intent: Intent | None = None  # LEARN, PRACTICE, etc.
 ```
 
 **Intent enum locations**:
-- ✅ `shared_enums.Intent` - Used by Askesis
+- ✅ `core.models.enums.Intent` - Used by Askesis
 - ✅ `query.QueryIntent` - Infrastructure queries
 - ❌ `search.SearchIntent` - DEPRECATED
 
@@ -147,7 +147,7 @@ detected_intent: Intent | None = None  # LEARN, PRACTICE, etc.
    - SearchResultDTO
    - FacetSetRequest
 
-2. **Shared Enums** (/core/models/shared_enums.py)
+2. **Shared Enums** (/core/models/enums/)
    - Intent (not SearchIntent)
    - GuidanceMode
    - Personality
@@ -180,7 +180,7 @@ Askesis uses **transcription-domain search** which is:
 
 ```
 Askesis Layer:
-├── Uses Intent from shared_enums (universal)
+├── Uses Intent from core/models/enums (universal)
 ├── Uses QueryIntent from query infrastructure (universal)
 └── Uses SearchQueryRequest from transcription (domain-specific)
 

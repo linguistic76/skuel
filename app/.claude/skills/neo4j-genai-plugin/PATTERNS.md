@@ -419,7 +419,7 @@ Find high-similarity entities via vector search, create `SEMANTICALLY_RELATED` r
 ```python
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 from core.services.unified_relationship_service import UnifiedRelationshipService
-from core.models.shared_enums import RelationshipName
+from core.models.enums import RelationshipName
 from core.result import Result
 from core.errors import Errors
 from datetime import datetime
@@ -722,7 +722,7 @@ Boost by mastery:
 ```python
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 from core.services.user.unified_user_context import UserContext
-from core.models.shared_enums import MasteryLevel
+from core.models.enums import MasteryLevel
 from core.models.search.search_models import VectorSearchResult
 from core.result import Result
 

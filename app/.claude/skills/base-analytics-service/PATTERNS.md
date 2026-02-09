@@ -16,7 +16,7 @@ from typing import Any, ClassVar
 
 from core.events.habit_events import HabitCompleted, HabitStreakBroken
 from core.models.habit import Habit, HabitDTO
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence.orchestrator import GraphContextOrchestrator
 from core.services.protocols import HabitsOperations

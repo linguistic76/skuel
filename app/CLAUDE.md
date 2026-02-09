@@ -318,7 +318,7 @@ LifePath <--> All Domains
 
 | Component | File |
 |-----------|------|
-| Domain Enums | `/core/models/shared_enums.py` |
+| Domain Enums | `/core/models/enums/` |
 | Base Service | `/core/services/base_service.py` |
 | Base Analytics | `/core/services/base_analytics_service.py` |
 | Domain Config | `/core/services/domain_config.py` |
@@ -1501,7 +1501,7 @@ All 10 domain `*_intelligence_service.py` files extend `BaseAnalyticsService`. A
 **Usage:**
 ```python
 from core.utils.embedding_text_builder import build_embedding_text
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 
 # From dict (ingestion path)
 text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Details"})
@@ -1527,7 +1527,7 @@ text = build_embedding_text(EntityType.TASK, task_model)
 | Service composition | `/core/utils/services_bootstrap.py` |
 | Base service | `/core/services/base_service.py` |
 | Base analytics | `/core/services/base_analytics_service.py` |
-| Domain enums | `/core/models/shared_enums.py` |
+| Domain enums | `/core/models/enums/` |
 | Protocols | `/core/services/protocols/` |
 | Generic backend | `/adapters/persistence/neo4j/universal_backend.py` |
 | Event bus | `/core/events/event_bus.py` |

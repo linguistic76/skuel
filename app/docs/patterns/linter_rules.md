@@ -212,7 +212,7 @@ if "task" in contexts:
     ...
 
 # ✅ CORRECT - Use enum
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 if entity.entity_type == EntityType.TASK:
     ...
 if EntityType.TASK in activity.contexts:

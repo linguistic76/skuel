@@ -218,7 +218,7 @@ from core.models.choice.choice_request import (
     ChoiceOptionCreateRequest
 )
 from core.models.choice.choice import ChoiceType
-from core.models.shared_enums import Domain, Priority
+from core.models.enums import Domain, Priority
 
 # Create request with options
 choice_request = ChoiceCreateRequest(

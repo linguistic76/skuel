@@ -9,7 +9,7 @@ related: [ADR-018-user-roles-four-tier-system.md]
 
 # SKUEL Enum Reference
 
-**Generated from:** `core/models/shared_enums.py`, `core/models/enums/user_enums.py`
+**Generated from:** `core/models/enums/` (all enum modules)
 **Total Enums:** 35
 
 This document provides a complete reference for all enums used in SKUEL.
@@ -352,7 +352,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import ActivityStatus
+from core.models.enums import ActivityStatus
 
 # Using enum value
 status = ActivityStatus.DRAFT
@@ -679,7 +679,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import ActivityType
+from core.models.enums import ActivityType
 
 # Using enum value
 status = ActivityType.TASK
@@ -946,7 +946,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import BridgeType
+from core.models.enums import BridgeType
 
 # Using enum value
 status = BridgeType.DIRECT
@@ -1214,7 +1214,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import CacheStrategy
+from core.models.enums import CacheStrategy
 
 # Using enum value
 status = CacheStrategy.NO_CACHE
@@ -1494,7 +1494,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import CompletionStatus
+from core.models.enums import CompletionStatus
 
 # Using enum value
 status = CompletionStatus.DONE
@@ -1764,7 +1764,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import ContentType
+from core.models.enums import ContentType
 
 # Using enum value
 status = ContentType.CONCEPT
@@ -2033,7 +2033,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import Context
+from core.models.enums import Context
 
 # Using enum value
 status = Context.HOME
@@ -2303,7 +2303,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import ConversationState
+from core.models.enums import ConversationState
 
 # Using enum value
 status = ConversationState.IDLE
@@ -2611,7 +2611,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 # Using enum value
 status = Domain.KNOWLEDGE
@@ -2888,7 +2888,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import EnergyLevel
+from core.models.enums import EnergyLevel
 
 # Using enum value
 status = EnergyLevel.LOW
@@ -3155,7 +3155,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import ErrorSeverity
+from core.models.enums import ErrorSeverity
 
 # Using enum value
 status = ErrorSeverity.LOW
@@ -3422,7 +3422,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import ExtractionMethod
+from core.models.enums import ExtractionMethod
 
 # Using enum value
 status = ExtractionMethod.PATTERN
@@ -3695,7 +3695,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import FacetType
+from core.models.enums import FacetType
 
 # Using enum value
 status = FacetType.DOMAIN
@@ -3964,7 +3964,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import GoalStatus
+from core.models.enums import GoalStatus
 
 # Using enum value
 status = GoalStatus.PLANNED
@@ -4231,7 +4231,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import GuidanceMode
+from core.models.enums import GuidanceMode
 
 # Using enum value
 status = GuidanceMode.MINIMAL
@@ -4498,7 +4498,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import HealthStatus
+from core.models.enums import HealthStatus
 
 # Using enum value
 status = HealthStatus.HEALTHY
@@ -4808,7 +4808,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import Intent
+from core.models.enums import Intent
 
 # Using enum value
 status = Intent.GENERAL
@@ -5338,7 +5338,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import KnowledgeStatus
+from core.models.enums import KnowledgeStatus
 
 # Using enum value
 status = KnowledgeStatus.DRAFT
@@ -5605,7 +5605,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import KnowledgeType
+from core.models.enums import KnowledgeType
 
 # Using enum value
 status = KnowledgeType.DECLARATIVE
@@ -5882,7 +5882,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import LearningLevel
+from core.models.enums import LearningLevel
 
 # Using enum value
 status = LearningLevel.BEGINNER
@@ -6152,7 +6152,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import LearningModality
+from core.models.enums import LearningModality
 
 # Using enum value
 status = LearningModality.VISUAL
@@ -6422,7 +6422,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import MasteryStatus
+from core.models.enums import MasteryStatus
 
 # Using enum value
 status = MasteryStatus.NOT_STARTED
@@ -6688,7 +6688,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import MessageRole
+from core.models.enums import MessageRole
 
 # Using enum value
 status = MessageRole.USER
@@ -6976,7 +6976,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import Personality
+from core.models.enums import Personality
 
 # Using enum value
 status = Personality.KNOWLEDGEABLE_FRIEND
@@ -7243,7 +7243,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import PracticeLevel
+from core.models.enums import PracticeLevel
 
 # Using enum value
 status = PracticeLevel.BEGINNER
@@ -7520,7 +7520,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 
 # Using enum value
 status = Priority.LOW
@@ -7815,7 +7815,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import RecurrencePattern
+from core.models.enums import RecurrencePattern
 
 # Using enum value
 status = RecurrencePattern.NONE
@@ -8325,7 +8325,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import RelationshipType
+from core.models.enums import RelationshipType
 
 # Using enum value
 status = RelationshipType.BLOCKS
@@ -8596,7 +8596,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import ResponseTone
+from core.models.enums import ResponseTone
 
 # Using enum value
 status = ResponseTone.NEUTRAL
@@ -8863,7 +8863,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import SearchScope
+from core.models.enums import SearchScope
 
 # Using enum value
 status = SearchScope.LOCAL
@@ -9129,7 +9129,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import SeverityLevel
+from core.models.enums import SeverityLevel
 
 # Using enum value
 status = SeverityLevel.HIGH
@@ -9415,7 +9415,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import TimeOfDay
+from core.models.enums import TimeOfDay
 
 # Using enum value
 status = TimeOfDay.EARLY_MORNING
@@ -9681,7 +9681,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import TrendDirection
+from core.models.enums import TrendDirection
 
 # Using enum value
 status = TrendDirection.INCREASING
@@ -10063,7 +10063,7 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.shared_enums import Visibility
+from core.models.enums import Visibility
 
 # Using enum value
 status = Visibility.PRIVATE
@@ -10080,7 +10080,7 @@ print(result)
 
 ### Importing Enums
 ```python
-from core.models.shared_enums import Priority, ActivityStatus, Domain
+from core.models.enums import Priority, ActivityStatus, Domain
 ```
 
 ### Using Enum Values
@@ -10119,7 +10119,7 @@ Enums automatically validate in Pydantic models:
 
 ```python
 from pydantic import BaseModel
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 
 class Task(BaseModel):
     title: str
@@ -10135,7 +10135,7 @@ task = Task(title='Review', priority='invalid')
 
 ## Best Practices
 
-1. **Single Source of Truth**: Always import from `shared_enums.py`, never duplicate enum definitions
+1. **Single Source of Truth**: Always import from `core/models/enums/`, never duplicate enum definitions
 2. **Use Dynamic Methods**: Leverage enum methods (`.get_color()`, `.to_numeric()`) instead of hardcoded dictionaries
 3. **Type Hints**: Always use enum types in function signatures for better IDE support
 4. **Comparison**: Use enum members directly for comparison (`status == ActivityStatus.COMPLETED`)
@@ -10143,7 +10143,7 @@ task = Task(title='Review', priority='invalid')
 
 ## Adding New Enums
 
-When adding new enums to `shared_enums.py`:
+When adding new enums to `core/models/enums/`:
 
 1. Define the enum class with descriptive docstring
 2. Use `str, Enum` for string-based enums (most common)

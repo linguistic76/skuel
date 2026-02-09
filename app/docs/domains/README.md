@@ -75,7 +75,7 @@ The ultimate goal all domains flow toward:
 
 ```python
 from core.models.relationship_registry import DOMAIN_CONFIGS, TASKS_CONFIG
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 # Get config for a domain
 config = DOMAIN_CONFIGS[Domain.TASKS]  # or use TASKS_CONFIG directly

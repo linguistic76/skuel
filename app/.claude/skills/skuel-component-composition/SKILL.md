@@ -647,7 +647,7 @@ EmptyState(
 ```python
 from typing import Any
 from core.models.task.task import Task
-from core.models.shared_enums import ActivityStatus, Priority
+from core.models.enums import ActivityStatus, Priority
 from core.ui.daisy_components import Card, CardBody, Badge, Button, ButtonT, BadgeT, Size
 
 def _priority_badge(priority: Priority) -> BadgeT:

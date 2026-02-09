@@ -43,7 +43,7 @@ The model and service layers work in harmony through:
 ├── ontology_generator.py        # Pydantic schema to ontology generation
 ├── knowledge_dto.py             # Knowledge DTO with relationships
 ├── knowledge_content.py         # Content facet for knowledge units
-├── shared_enums.py             # All shared enumerations
+├── enums/                      # All shared enumerations (organized by domain)
 ├── constants.py                # System constants
 ├── type_hints.py               # Type definitions and guards
 ├── /learning/

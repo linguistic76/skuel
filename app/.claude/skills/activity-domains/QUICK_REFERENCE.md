@@ -86,7 +86,7 @@ from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 
 # Shared enums
-from core.models.shared_enums import Priority, Domain, ActivityStatus
+from core.models.enums import Priority, Domain, ActivityStatus
 
 # Results
 from core.utils.result_simplified import Result

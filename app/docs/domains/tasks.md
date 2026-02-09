@@ -256,7 +256,7 @@ The Tasks domain publishes domain events for cross-service communication:
 
 ```python
 from core.models.task.task_request import TaskCreateRequest
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 
 result = await tasks_service.create_task(
     TaskCreateRequest(

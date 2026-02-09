@@ -292,7 +292,7 @@ The Goals domain publishes domain events for cross-service communication:
 ```python
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.goal.goal import GoalType, GoalTimeframe
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 
 result = await goals_service.create_goal(
     GoalCreateRequest(
