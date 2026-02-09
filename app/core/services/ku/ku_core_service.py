@@ -30,7 +30,6 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.enums import Domain, KnowledgeStatus
-from core.models.enums.learning_enums import SELCategory
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
@@ -257,14 +256,12 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         """
         if self.chunking_service:
             # Create domain model for chunking
-            from core.models.enums import SELCategory
-
             knowledge = Ku(
                 uid=uid,
                 title=title.strip(),
                 content=body.strip(),
                 domain=metadata.get("domain", Domain.KNOWLEDGE),
-                sel_category=metadata.get("sel_category", SELCategory.SELF_MANAGEMENT),
+                sel_category=metadata.get("sel_category"),
                 tags=tuple(tags or []),
                 complexity=metadata.get("complexity", "medium"),
             )
@@ -333,7 +330,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
 
     @track_query_metrics("ku_get")
     @with_error_handling("get", error_type="database", uid_param="uid")
-    async def get(self, uid: str) -> Result[KuDTO]:
+    async def get(self, uid: str) -> Result[Ku]:
         """
         Get a knowledge unit with its content.
 
@@ -341,14 +338,14 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
             uid: Knowledge unit UID
 
         Returns:
-            Result containing KuDTO with content
+            Result containing Ku domain model with content
         """
         # Get unit data from backend
         unit_result = await self.backend.get(uid)
         if unit_result.is_error or not unit_result.value:
             return Result.fail(Errors.not_found(f"Knowledge unit {uid} not found"))
 
-        # Backend already returns KuDTO via from_neo4j_node()
+        # Backend returns Ku via from_neo4j_node() (entity_class=Ku)
         dto = unit_result.value
 
         # If content field is empty and we have a content repo, try fetching it
@@ -542,24 +539,24 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         # Return updated DTO
         return await self.get(uid)
 
-    async def _update_content(self, uid: str, new_body: str, existing_dto: KuDTO) -> None:
+    async def _update_content(self, uid: str, new_body: str, existing_dto: Ku) -> None:
         """
         Update content with optional re-chunking.
 
         Pattern: Re-chunk if chunking service available, fallback to simple update.
+
+        Note: existing_dto is actually a Ku instance (backend uses entity_class=Ku).
         """
         if self.chunking_service:
             # Re-create domain model for re-chunking
-            from core.models.enums import SELCategory
-
             knowledge = Ku(
                 uid=uid,
                 title=existing_dto.title,
                 content=new_body,
                 domain=existing_dto.domain,
-                sel_category=existing_dto.metadata.get("sel_category", SELCategory.SELF_MANAGEMENT),
+                sel_category=existing_dto.sel_category,
                 tags=existing_dto.tags,
-                complexity=existing_dto.metadata.get("complexity", "medium"),
+                complexity=existing_dto.complexity,
             )
 
             # Re-process with chunking
@@ -789,21 +786,10 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
 
         result = await self.backend.driver.execute_query(query, parent_uid=parent_uid, routing_="r")
 
-        # Convert to Ku domain objects
-        kus = []
-        for record in result.records:
-            ku_node = dict(record["child"])
-            ku = Ku(
-                uid=ku_node["uid"],
-                title=ku_node["title"],
-                content=ku_node.get("content", ""),
-                domain=Domain[ku_node.get("domain", "KNOWLEDGE")],
-                sel_category=SELCategory[ku_node.get("sel_category", "SELF_AWARENESS")],
-                tags=ku_node.get("tags", []),
-                created_at=ku_node.get("created_at"),
-                updated_at=ku_node.get("updated_at"),
-            )
-            kus.append(ku)
+        # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
+        from core.utils.neo4j_mapper import from_neo4j_node
+
+        kus = [from_neo4j_node(dict(record["child"]), Ku) for record in result.records]
 
         self.logger.info(f"Found {len(kus)} subKUs for parent {parent_uid} (depth={depth})")
         return Result.ok(kus)
@@ -838,20 +824,10 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
 
         result = await self.backend.driver.execute_query(query, ku_uid=ku_uid, routing_="r")
 
-        parents = []
-        for record in result.records:
-            parent_node = dict(record["parent"])
-            parent = Ku(
-                uid=parent_node["uid"],
-                title=parent_node["title"],
-                content=parent_node.get("content", ""),
-                domain=Domain[parent_node.get("domain", "KNOWLEDGE")],
-                sel_category=SELCategory[parent_node.get("sel_category", "SELF_AWARENESS")],
-                tags=parent_node.get("tags", []),
-                created_at=parent_node.get("created_at"),
-                updated_at=parent_node.get("updated_at"),
-            )
-            parents.append(parent)
+        # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
+        from core.utils.neo4j_mapper import from_neo4j_node
+
+        parents = [from_neo4j_node(dict(record["parent"]), Ku) for record in result.records]
 
         self.logger.info(f"Found {len(parents)} parent KUs for {ku_uid}")
         return Result.ok(parents)

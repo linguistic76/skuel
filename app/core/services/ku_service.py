@@ -356,8 +356,6 @@ class KuService(FacadeDelegationMixin):
             - Results are NOT cached (semantic search caches embeddings instead)
             - Consider adding pagination if knowledge base exceeds 10k units
         """
-        from core.models.ku.ku import Ku
-
         if not self.repo:
             return Result.fail(
                 Errors.system("Knowledge repository not available", operation="list_user_knowledge")
@@ -374,8 +372,8 @@ class KuService(FacadeDelegationMixin):
         # Unpack tuple: backend.list() returns (kus, total_count)
         kus_data, _ = result.value
 
-        # Convert DTOs to domain models for semantic search
-        kus = [Ku.from_dto(dto) for dto in kus_data]
+        # Backend returns Ku instances (entity_class=Ku), not KuDTOs
+        kus = list(kus_data)
 
         self.logger.info(
             f"Retrieved {len(kus)} knowledge units for semantic search (user: {user_uid})"

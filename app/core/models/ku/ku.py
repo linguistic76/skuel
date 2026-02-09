@@ -47,7 +47,7 @@ class Ku:
 
     SEL Integration (October 7, 2025):
     - Integrated with Social Emotional Learning (SEL) framework
-    - Each KU is mapped to a primary SEL category
+    - KU may optionally carry an SEL category (navigation lens, not inherent)
     - Supports adaptive learning paths via learning_level and relationships
     """
 
@@ -56,9 +56,9 @@ class Ku:
     title: str
     content: str
     domain: Domain
-    sel_category: SELCategory  # Primary SEL category for this knowledge unit
 
     # Optional fields (with defaults)
+    sel_category: SELCategory | None = None  # SEL lens — None if not classified
     summary: str = ""  # Brief description (auto-generated or user-provided)
     learning_level: LearningLevel = LearningLevel.BEGINNER  # Target learning level
 
@@ -364,27 +364,39 @@ class Ku:
         Create immutable Ku from mutable DTO.
 
         Converts mutable lists to immutable tuples.
-
-        Phase 3: Relationship fields removed - only core fields converted.
+        All 26 business fields are copied — lossless round-trip with to_dto().
         """
-
-        from core.models.enums import SELCategory
-
         return cls(
             uid=dto.uid,
             title=dto.title,
             content=dto.content,
             domain=dto.domain,
-            sel_category=getattr(
-                dto, "sel_category", SELCategory.SELF_MANAGEMENT
-            ),  # Default for backward compat
-            learning_level=getattr(dto, "learning_level", LearningLevel.BEGINNER),
+            # Learning metadata
+            sel_category=dto.sel_category,
+            summary=dto.summary,
+            learning_level=dto.learning_level,
+            estimated_time_minutes=dto.estimated_time_minutes,
+            difficulty_rating=dto.difficulty_rating,
+            # Semantic analysis
             quality_score=dto.quality_score,
             complexity=dto.complexity,
             semantic_links=tuple(dto.semantic_links),
+            # Metadata
             created_at=dto.created_at,
             updated_at=dto.updated_at,
             tags=tuple(dto.tags),
+            # Substance tracking counters
+            times_applied_in_tasks=dto.times_applied_in_tasks,
+            times_practiced_in_events=dto.times_practiced_in_events,
+            times_built_into_habits=dto.times_built_into_habits,
+            journal_reflections_count=dto.journal_reflections_count,
+            choices_informed_count=dto.choices_informed_count,
+            # Substance tracking timestamps
+            last_applied_date=dto.last_applied_date,
+            last_practiced_date=dto.last_practiced_date,
+            last_built_into_habit_date=dto.last_built_into_habit_date,
+            last_reflected_date=dto.last_reflected_date,
+            last_choice_informed_date=dto.last_choice_informed_date,
         )
 
     def to_dto(self) -> "KuDTO":
@@ -392,21 +404,39 @@ class Ku:
         Convert to mutable DTO for data operations.
 
         Converts immutable tuples back to mutable lists.
-
-        Phase 3: Relationship fields removed - only core fields converted.
+        All 26 business fields are copied — lossless round-trip with from_dto().
         """
-
         return KuDTO(
             uid=self.uid,
             title=self.title,
             content=self.content,
             domain=self.domain,
+            # Learning metadata
+            sel_category=self.sel_category,
+            summary=self.summary,
+            learning_level=self.learning_level,
+            estimated_time_minutes=self.estimated_time_minutes,
+            difficulty_rating=self.difficulty_rating,
+            # Semantic analysis
             quality_score=self.quality_score,
             complexity=self.complexity,
             semantic_links=list(self.semantic_links),
+            # Metadata
             created_at=self.created_at,
             updated_at=self.updated_at,
             tags=list(self.tags),
+            # Substance tracking counters
+            times_applied_in_tasks=self.times_applied_in_tasks,
+            times_practiced_in_events=self.times_practiced_in_events,
+            times_built_into_habits=self.times_built_into_habits,
+            journal_reflections_count=self.journal_reflections_count,
+            choices_informed_count=self.choices_informed_count,
+            # Substance tracking timestamps
+            last_applied_date=self.last_applied_date,
+            last_practiced_date=self.last_practiced_date,
+            last_built_into_habit_date=self.last_built_into_habit_date,
+            last_reflected_date=self.last_reflected_date,
+            last_choice_informed_date=self.last_choice_informed_date,
         )
 
     def has_content(self) -> bool:
@@ -736,7 +766,21 @@ class Ku:
         Get SEL-specific context for this knowledge unit.
 
         Returns comprehensive SEL metadata for adaptive curriculum delivery.
+        Returns empty SEL fields when sel_category is None.
         """
+        if self.sel_category is None:
+            return {
+                "sel_category": None,
+                "sel_category_icon": "",
+                "sel_category_color": "",
+                "sel_category_description": "",
+                "learning_level": self.learning_level.value,
+                "estimated_time_minutes": self.estimated_time_minutes,
+                "difficulty_rating": self.difficulty_rating,
+                "is_beginner_friendly": self.is_beginner_level(),
+                "is_quick_win": self.is_quick_win(),
+                "is_challenging": self.is_challenging(),
+            }
         return {
             "sel_category": self.sel_category.value,
             "sel_category_icon": self.sel_category.get_icon(),

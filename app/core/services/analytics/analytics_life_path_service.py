@@ -28,8 +28,6 @@ Implementation Date: October 24, 2025
 from datetime import datetime
 from typing import Any, TypedDict
 
-from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -305,7 +303,7 @@ class AnalyticsLifePathService:
             )
 
     async def _analyze_knowledge_substance(
-        self, knowledge_units: list[KuDTO], user_uid: str
+        self, knowledge_units: list, user_uid: str
     ) -> dict[str, Any]:
         """
         Analyze substance scores for knowledge units.
@@ -330,16 +328,15 @@ class AnalyticsLifePathService:
         theoretical: list[KnowledgeSubstanceInfo] = []  # < 0.3
 
         for ku_dto in knowledge_units:
-            # Convert DTO to domain model to access substance_score() method
-            ku = Ku.from_dto(ku_dto)
-            substance = ku.substance_score()
+            # Backend returns Ku instances (entity_class=Ku), not KuDTOs
+            substance = ku_dto.substance_score()
 
             total_substance += substance
 
             # Categorize by substance level
             ku_info: KnowledgeSubstanceInfo = {
-                "ku_uid": ku.uid,
-                "title": ku.title,
+                "ku_uid": ku_dto.uid,
+                "title": ku_dto.title,
                 "substance": round(substance, 2),
             }
 
@@ -374,7 +371,7 @@ class AnalyticsLifePathService:
         }
 
     async def _analyze_domain_contributions(
-        self, knowledge_units: list[KuDTO], user_uid: str
+        self, knowledge_units: list, user_uid: str
     ) -> dict[str, float]:
         """
         Analyze which Layer 1 domains contribute most to Life Path alignment.
@@ -410,10 +407,9 @@ class AnalyticsLifePathService:
         total_substance = 0.0
 
         for ku_dto in knowledge_units:
-            # Convert to domain model
-            ku = Ku.from_dto(ku_dto)
+            # Backend returns Ku instances (entity_class=Ku), not KuDTOs
             # Get substance breakdown if available (future feature)
-            breakdown = getattr(ku, "substance_by_type", None)
+            breakdown = getattr(ku_dto, "substance_by_type", None)
             if breakdown is not None:
                 for domain, value in breakdown.items():
                     domain_key = domain.lower()

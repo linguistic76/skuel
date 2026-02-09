@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.enums import Domain
+from core.models.enums import Domain, LearningLevel, SELCategory
 from core.services.protocols import get_enum_value
 from core.utils.uid_generator import UIDGenerator
 
@@ -47,6 +47,27 @@ class KuDTO:
     updated_at: datetime = field(default_factory=datetime.now)
     tags: list[str] = field(default_factory=list)
 
+    # Learning metadata
+    sel_category: SELCategory | None = None
+    summary: str = ""
+    learning_level: LearningLevel = LearningLevel.BEGINNER
+    estimated_time_minutes: int = 15
+    difficulty_rating: float = 0.5
+
+    # Substance tracking (event-driven counters)
+    times_applied_in_tasks: int = 0
+    times_practiced_in_events: int = 0
+    times_built_into_habits: int = 0
+    journal_reflections_count: int = 0
+    choices_informed_count: int = 0
+
+    # Substance tracking timestamps (spaced repetition)
+    last_applied_date: datetime | None = None
+    last_practiced_date: datetime | None = None
+    last_built_into_habit_date: datetime | None = None
+    last_reflected_date: datetime | None = None
+    last_choice_informed_date: datetime | None = None
+
     # =========================================================================
     # PHASE 3: RELATIONSHIP FIELDS REMOVED (October 6, 2025)
     # =========================================================================
@@ -75,6 +96,11 @@ class KuDTO:
         domain: Domain,
         tags: list[str] | None = None,
         complexity: str = "medium",
+        sel_category: SELCategory | None = None,
+        learning_level: LearningLevel = LearningLevel.BEGINNER,
+        summary: str = "",
+        estimated_time_minutes: int = 15,
+        difficulty_rating: float = 0.5,
     ) -> "KuDTO":
         """
         Factory method to create a new KuDTO with generated UID.
@@ -89,6 +115,11 @@ class KuDTO:
             domain=domain,
             tags=tags or [],
             complexity=complexity,
+            sel_category=sel_category,
+            learning_level=learning_level,
+            summary=summary,
+            estimated_time_minutes=estimated_time_minutes,
+            difficulty_rating=difficulty_rating,
         )
 
     def update_from(self, updates: dict[str, Any]) -> None:
@@ -111,6 +142,21 @@ class KuDTO:
                 "semantic_links",
                 "tags",
                 "metadata",
+                "sel_category",
+                "summary",
+                "learning_level",
+                "estimated_time_minutes",
+                "difficulty_rating",
+                "times_applied_in_tasks",
+                "times_practiced_in_events",
+                "times_built_into_habits",
+                "journal_reflections_count",
+                "choices_informed_count",
+                "last_applied_date",
+                "last_practiced_date",
+                "last_built_into_habit_date",
+                "last_reflected_date",
+                "last_choice_informed_date",
             },
         )
 
@@ -144,11 +190,39 @@ class KuDTO:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "tags": list(self.tags),  # Copy list
+            # Learning metadata
+            "sel_category": get_enum_value(self.sel_category) if self.sel_category else None,
+            "summary": self.summary,
+            "learning_level": get_enum_value(self.learning_level),
+            "estimated_time_minutes": self.estimated_time_minutes,
+            "difficulty_rating": self.difficulty_rating,
+            # Substance tracking
+            "times_applied_in_tasks": self.times_applied_in_tasks,
+            "times_practiced_in_events": self.times_practiced_in_events,
+            "times_built_into_habits": self.times_built_into_habits,
+            "journal_reflections_count": self.journal_reflections_count,
+            "choices_informed_count": self.choices_informed_count,
+            "last_applied_date": self.last_applied_date,
+            "last_practiced_date": self.last_practiced_date,
+            "last_built_into_habit_date": self.last_built_into_habit_date,
+            "last_reflected_date": self.last_reflected_date,
+            "last_choice_informed_date": self.last_choice_informed_date,
             "metadata": dict(self.metadata),  # Copy dict
         }
 
         # Convert datetimes to ISO format
-        convert_datetimes_to_iso(data, ["created_at", "updated_at"])
+        convert_datetimes_to_iso(
+            data,
+            [
+                "created_at",
+                "updated_at",
+                "last_applied_date",
+                "last_practiced_date",
+                "last_built_into_habit_date",
+                "last_reflected_date",
+                "last_choice_informed_date",
+            ],
+        )
 
         # Phase 3: Add relationships for YAML export if provided
         if include_relationships and relationships:
@@ -175,8 +249,20 @@ class KuDTO:
         return dto_from_dict(
             cls,
             data,
-            enum_fields={"domain": Domain},
-            datetime_fields=["created_at", "updated_at"],
+            enum_fields={
+                "domain": Domain,
+                "sel_category": SELCategory,
+                "learning_level": LearningLevel,
+            },
+            datetime_fields=[
+                "created_at",
+                "updated_at",
+                "last_applied_date",
+                "last_practiced_date",
+                "last_built_into_habit_date",
+                "last_reflected_date",
+                "last_choice_informed_date",
+            ],
             list_fields=["tags", "semantic_links"],
             deprecated_fields=["prerequisites", "enables", "related_to"],
         )

@@ -37,7 +37,6 @@ from typing import Any, Protocol, runtime_checkable
 
 from core.constants import QueryLimit
 from core.models.enums import ActivityStatus
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -776,9 +775,8 @@ class AnalyticsMetricsService:
             decay_warnings = []
 
             for ku_dto in knowledge_units:
-                # Convert DTO to domain model to access substance_score() method
-                # ku_dto is guaranteed to be KuDTO from filter at line 685
-                ku = Ku.from_dto(ku_dto)
+                # Backend returns Ku instances (entity_class=Ku), not KuDTOs
+                ku = ku_dto
                 substance = ku.substance_score()
 
                 total_substance += substance

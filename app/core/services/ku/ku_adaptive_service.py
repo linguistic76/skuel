@@ -114,6 +114,8 @@ class KuAdaptiveService:
         if not prereqs_met:
             return False
 
+        if ku.sel_category is None:
+            return True  # No SEL category = no level-based filtering
         user_level = self._determine_user_level(user_intel, ku.sel_category)
         return ku.is_appropriate_for_level(user_level)
 

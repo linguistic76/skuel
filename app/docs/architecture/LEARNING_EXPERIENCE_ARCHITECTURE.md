@@ -21,13 +21,23 @@ A Knowledge Unit is the atomic building block of learning. It is a frozen datacl
 ```
 Ku (frozen dataclass)
 ├── Identity: uid, title, content, domain
-├── Classification: sel_category (SELCategory), learning_level (LearningLevel)
-├── Difficulty: estimated_time_minutes, difficulty_rating (0.0-1.0)
+├── SEL Lens: sel_category (SELCategory | None) — optional filter, not inherent to every KU
+├── Difficulty: learning_level, estimated_time_minutes, difficulty_rating (0.0-1.0)
 ├── Quality: quality_score, complexity, semantic_links
 └── Substance: times_applied_in_tasks, times_practiced_in_events, ...
 ```
 
-Every KU belongs to exactly one **SEL category** — the Social Emotional Learning framework that organizes knowledge into five human competencies:
+A KU **may** carry an `sel_category` field — a classification into the Social Emotional Learning framework. SEL is a navigation lens over KUs, not an inherent property of every piece of knowledge.
+
+In the Python dataclass, `sel_category` is typed as `SELCategory | None` with a default of `None`. KUs without an intentional SEL classification carry `None` — no silent default is injected. 
+
+
+
+Previously - The `KuDTO` transfer layer does not carry `sel_category` at all, so `Ku.from_dto()` defaults to `None` via `getattr()`.
+
+Now the KuDTO is operating
+
+**The five SEL categories** (when a KU does carry one):
 
 | SELCategory | Human Meaning | Icon |
 |---|---|---|
@@ -39,9 +49,11 @@ Every KU belongs to exactly one **SEL category** — the Social Emotional Learni
 
 The `SELCategory` enum lives in `core/models/enums/learning_enums.py:305-351`. It carries presentation logic: `get_icon()`, `get_color()`, `get_description()`. The `DOMAIN_SEL_MAPPING` (line 354) bridges activity domains into the SEL framework — principles map to self-awareness, habits to self-management, choices to responsible decision-making.
 
+The adaptive curriculum service (`KuAdaptiveService`) uses `sel_category` as a **filter** — `find_by(sel_category=category.value)` — to surface KUs grouped by SEL competency. KUs without a meaningful SEL classification simply won't appear in category-filtered views, which is correct behavior: not all knowledge fits neatly into an SEL lens.
+
 ### How KUs Are Born: Markdown to Graph
 
-KUs originate as Markdown files with YAML frontmatter in the Obsidian vault (`/home/mike/0bsidian/skuel/docs/`). The ingestion pipeline (`core/services/ingestion/`) parses the frontmatter, extracts the `sel_category` field, and creates `:Ku` nodes in Neo4j. If no `sel_category` is specified, the default is `SELF_MANAGEMENT`.
+KUs originate as Markdown files with YAML frontmatter in the Obsidian vault (`/home/mike/0bsidian/skuel/docs/`). The ingestion pipeline (`core/services/ingestion/`) parses the frontmatter and, if present, extracts the `sel_category` field. A KU's Markdown may or may not include an SEL classification — it is optional metadata, not required for ingestion.
 
 ```
 yoga-fundamentals.md          core/services/ingestion/        Neo4j
@@ -275,7 +287,7 @@ USER BEHAVIOR                │ :MASTERED│               ┌─────�
 MODELS (frozen dataclasses)                             │ KuLearningJourney│
 ┌───────────────────────────────┐                       │ ├─ 5 categories  │
 │ Ku                            │                       │ │  └─ KuCategory │
-│ ├─ sel_category: SELCategory  │                       │ │     Progress   │
+│ ├─ sel_category: SELCategory? │                       │ │     Progress   │
 │ ├─ learning_level             │                       │ └─ overall_%    │
 │ ├─ difficulty_rating          │                       └────────┬─────────┘
 │ └─ substance_score()          │                                │

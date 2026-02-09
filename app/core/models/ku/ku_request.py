@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.models.enums import Domain
+from core.models.enums import Domain, LearningLevel, SELCategory
 
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
@@ -38,6 +38,13 @@ class KuCreateRequest(BaseModel):
         description="Difficulty level: 'basic', 'medium', or 'advanced' (NOT 'beginner'!)",
     )
 
+    # Learning metadata
+    sel_category: SELCategory | None = Field(None, description="SEL category lens")
+    learning_level: LearningLevel | None = Field(None, description="Target learning level")
+    summary: str | None = Field(None, max_length=500, description="Brief summary")
+    estimated_time_minutes: int | None = Field(None, ge=1, description="Estimated completion time")
+    difficulty_rating: float | None = Field(None, ge=0.0, le=1.0, description="Difficulty 0.0-1.0")
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -46,6 +53,8 @@ class KuCreateRequest(BaseModel):
                 "domain": "TECH",
                 "tags": ["python", "programming"],
                 "complexity": "basic",
+                "sel_category": "self_awareness",
+                "learning_level": "beginner",
             }
         }
     )
@@ -59,6 +68,13 @@ class KuUpdateRequest(BaseModel):
     tags: list[str] | None = None
     prerequisites: list[str] | None = None
     complexity: str | None = Field(None, pattern="^(basic|medium|advanced)$")
+
+    # Learning metadata
+    sel_category: SELCategory | None = None
+    learning_level: LearningLevel | None = None
+    summary: str | None = Field(None, max_length=500)
+    estimated_time_minutes: int | None = Field(None, ge=1)
+    difficulty_rating: float | None = Field(None, ge=0.0, le=1.0)
 
     model_config = ConfigDict(
         json_schema_extra={"example": {"title": "Updated Title", "tags": ["python", "advanced"]}}
@@ -82,6 +98,13 @@ class KuResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     tags: list[str]
+
+    # Learning metadata
+    sel_category: SELCategory | None = None
+    summary: str = ""
+    learning_level: LearningLevel = LearningLevel.BEGINNER
+    estimated_time_minutes: int = 15
+    difficulty_rating: float = Field(default=0.5, ge=0.0, le=1.0)
 
     # Relationships
     prerequisites: list[str]
@@ -121,6 +144,12 @@ class KuResponse(BaseModel):
             created_at=dto.created_at,
             updated_at=dto.updated_at,
             tags=dto.tags,
+            # Learning metadata
+            sel_category=dto.sel_category,
+            summary=dto.summary,
+            learning_level=dto.learning_level,
+            estimated_time_minutes=dto.estimated_time_minutes,
+            difficulty_rating=dto.difficulty_rating,
             prerequisites=[],  # GRAPH QUERY: backend.get_related_uids(uid, "REQUIRES_KNOWLEDGE", "outgoing")
             enables=[],  # GRAPH QUERY: backend.get_related_uids(uid, "ENABLES_KNOWLEDGE", "outgoing")
             word_count=word_count,

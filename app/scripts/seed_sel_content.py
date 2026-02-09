@@ -669,7 +669,7 @@ async def seed_sel_content(ku_backend):
             if result.is_ok:
                 logger.info(f"✅ Created: {ku.uid}")
                 logger.info(f"   Title: {ku.title}")
-                logger.info(f"   Category: {ku.sel_category.value}")
+                logger.info(f"   Category: {ku.sel_category.value if ku.sel_category else 'None'}")
                 logger.info(f"   Level: {ku.learning_level.value}")
                 created_count += 1
             else:
