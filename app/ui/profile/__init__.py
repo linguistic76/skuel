@@ -22,13 +22,11 @@ from ui.profile.domain_views import (
 )
 from ui.profile.layout import (
     ProfileDomainItem,
-    build_profile_sidebar,
     create_profile_page,
 )
 
 __all__ = [
     # Layout
-    "build_profile_sidebar",
     "create_profile_page",
     "ProfileDomainItem",
     # Domain views

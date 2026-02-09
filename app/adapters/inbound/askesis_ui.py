@@ -13,33 +13,35 @@ Calm design UI for Askesis AI assistant following 5 design principles:
 Philosophy: "Users can handle complexity, but they need visual calm to process it."
 """
 
-__version__ = "4.0"
+__version__ = "5.0"
 
 from typing import Any
 
 from fasthtml.common import (
     H1,
     H2,
-    Body,
     Form,
-    Head,
-    Html,
     Label,
-    Link,
-    Meta,
-    NotStr,
     P,
-    Script,
-    Title,
 )
 from starlette.requests import Request
 
 from core.auth import get_current_user
 from core.ui.daisy_components import Button, ButtonT, Card, Div, Option, Select, Span, Textarea
 from core.utils.logging import get_logger
-from ui.layouts.navbar import create_navbar_for_request
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.ui.askesis")
+
+
+# Sidebar items for Askesis pages
+ASKESIS_SIDEBAR_ITEMS = [
+    SidebarItem("New Chat", "/askesis/new-chat", "new-chat", description="Start a fresh conversation"),
+    SidebarItem("Chat History", "/askesis/history", "history", description="View past conversations"),
+    SidebarItem("Dashboard", "/askesis", "dashboard", description="AI assistant overview"),
+    SidebarItem("Analytics", "/askesis/analytics", "analytics", description="Intelligence insights"),
+    SidebarItem("Settings", "/askesis/settings", "settings", description="Configure assistant"),
+]
 
 
 class AskesisUI:
@@ -223,348 +225,23 @@ class AskesisUI:
                 cls="flex items-start p-4 bg-base-50 border border-base-300 rounded-lg",
             )
 
-    @staticmethod
-    def render_sidebar_layout(active_page: str, content: Any) -> NotStr:
-        """
-        SEL-inspired collapsible sidebar layout.
-
-        Follows the EXACT pattern from /sel routes with:
-        - Fixed sidebar with toggle
-        - Rich menu items (title + description)
-        - Active state styling
-        - Smooth transitions
-        - localStorage state persistence
-        - Mobile responsiveness
-        """
-        # Menu items (calm design - ChatGPT-inspired)
-        menu_items = [
-            ("New Chat", "new-chat", "Start a fresh conversation"),
-            ("Chat History", "history", "View past conversations"),
-            ("Dashboard", "dashboard", "AI assistant overview"),
-            ("Analytics", "analytics", "Intelligence insights"),
-            ("Settings", "settings", "Configure assistant"),
-        ]
-
-        # Build sidebar links HTML (SEL pattern with onclick handling)
-        sidebar_links = []
-        for title, slug, description in menu_items:
-            is_active = slug == active_page
-            active_class = "active-menu-item" if is_active else ""
-            href = "/askesis" if slug == "dashboard" else f"/askesis/{slug}"
-
-            sidebar_links.append(f"""
-                <a href="{href}" class="menu-item {active_class}" onclick="window.location.href='{href}'; return false;">
-                    <div class="menu-item-title">{title}</div>
-                    <div class="menu-item-desc">{description}</div>
-                </a>
-            """)
-
-        # Complete layout HTML (EXACT SEL pattern)
-        layout_html = f"""
-        <style>
-            /* Navbar positioning */
-            nav.navbar {{
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                z-index: 1000;
-                height: 64px;
-            }}
-
-            .askesis-container {{
-                display: flex;
-                min-height: calc(100vh - 64px);
-                position: relative;
-                margin-top: 64px;
-            }}
-
-            .askesis-sidebar {{
-                width: 256px;
-                background-color: oklch(var(--b2));
-                border-right: 1px solid oklch(var(--b3));
-                transition: transform 0.3s ease;
-                position: fixed;
-                top: 64px;
-                left: 0;
-                bottom: 0;
-                z-index: 40;
-                transform: translateX(0);
-            }}
-
-            .askesis-sidebar.collapsed {{
-                transform: translateX(-208px);
-            }}
-
-            .sidebar-inner {{
-                height: 100%;
-                overflow-y: auto;
-                position: relative;
-            }}
-
-            .askesis-content {{
-                flex: 1;
-                margin-left: 256px;
-                padding: 2rem;
-                transition: margin-left 0.3s ease;
-                background: oklch(var(--b1));
-                min-height: calc(100vh - 64px);
-            }}
-
-            .askesis-content.expanded {{
-                margin-left: 48px;
-            }}
-
-            .sidebar-toggle {{
-                position: absolute;
-                right: 10px;
-                top: 20px;
-                background: oklch(var(--b1));
-                border: 1px solid oklch(var(--b3));
-                cursor: pointer;
-                padding: 8px;
-                border-radius: 4px;
-                transition: background 0.2s;
-                z-index: 5;
-                width: 32px;
-                height: 32px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }}
-
-            .sidebar-toggle:hover {{
-                background: oklch(var(--b3));
-            }}
-
-            .sidebar-header {{
-                padding: 1.5rem;
-                padding-right: 60px;
-                font-size: 1.125rem;
-                font-weight: 700;
-                color: oklch(var(--bc));
-                border-bottom: 1px solid oklch(var(--b3));
-            }}
-
-            .askesis-sidebar.collapsed .sidebar-nav {{
-                opacity: 0;
-                visibility: hidden;
-            }}
-
-            .askesis-sidebar.collapsed .sidebar-header span {{
-                opacity: 0;
-            }}
-
-            .sidebar-nav {{
-                padding: 1rem;
-                position: relative;
-                z-index: 10;
-            }}
-
-            .menu-item {{
-                display: block;
-                padding: 0.75rem 1rem;
-                margin-bottom: 0.5rem;
-                border-radius: 8px;
-                text-decoration: none;
-                color: oklch(var(--bc) / 0.7);
-                transition: all 0.2s;
-                border-left: 3px solid transparent;
-                cursor: pointer;
-                position: relative;
-                z-index: 11;
-            }}
-
-            .menu-item:hover {{
-                background-color: oklch(var(--b1));
-                border-left-color: oklch(var(--bc) / 0.4);
-            }}
-
-            .menu-item.active-menu-item {{
-                background-color: oklch(var(--p) / 0.1);
-                border-left-color: oklch(var(--p));
-                color: oklch(var(--p));
-            }}
-
-            .menu-item-title {{
-                font-weight: 600;
-                margin-bottom: 0.25rem;
-            }}
-
-            .menu-item-desc {{
-                font-size: 0.75rem;
-                color: oklch(var(--bc) / 0.5);
-                line-height: 1.4;
-            }}
-
-            .active-menu-item .menu-item-desc {{
-                color: oklch(var(--p) / 0.7);
-            }}
-
-            .overlay {{
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
-                z-index: 30;
-                display: none;
-            }}
-
-            .overlay.active {{
-                display: block;
-            }}
-
-            /* Mobile responsiveness */
-            @media (max-width: 768px) {{
-                .askesis-sidebar {{
-                    width: 85%;
-                    max-width: 320px;
-                }}
-
-                .askesis-content {{
-                    margin-left: 0;
-                }}
-
-                .sidebar-toggle.shifted {{
-                    left: 16px;
-                }}
-            }}
-        </style>
-
-        <div class="askesis-container">
-            <!-- Overlay for mobile -->
-            <div class="overlay" onclick="toggleSidebar()"></div>
-
-            <!-- Sidebar -->
-            <aside class="askesis-sidebar" id="askesis-sidebar">
-                <div class="sidebar-inner">
-                    <!-- Toggle Button positioned absolutely -->
-                    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle Sidebar">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 18l6-6-6-6"></path>
-                        </svg>
-                    </button>
-
-                    <div class="sidebar-header">
-                        <span>Askesis</span>
-                    </div>
-                    <nav class="sidebar-nav">
-                        {"".join(sidebar_links)}
-                    </nav>
-                </div>
-            </aside>
-
-            <!-- Main Content -->
-            <main class="askesis-content" id="askesis-content">
-                {content}
-            </main>
-        </div>
-
-        <script>
-            let sidebarCollapsed = false;
-
-            function toggleSidebar() {{
-                const sidebar = document.getElementById('askesis-sidebar');
-                const content = document.getElementById('askesis-content');
-                const overlay = document.querySelector('.overlay');
-
-                sidebarCollapsed = !sidebarCollapsed;
-
-                if (sidebarCollapsed) {{
-                    sidebar.classList.add('collapsed');
-                    content.classList.add('expanded');
-                    overlay.classList.remove('active');
-                }} else {{
-                    sidebar.classList.remove('collapsed');
-                    content.classList.remove('expanded');
-
-                    // Show overlay on mobile
-                    if (window.innerWidth <= 768) {{
-                        overlay.classList.add('active');
-                    }}
-                }}
-
-                // Save state
-                localStorage.setItem('askesis-sidebar-collapsed', sidebarCollapsed);
-            }}
-
-            // Restore saved state on load
-            document.addEventListener('DOMContentLoaded', function() {{
-                const savedState = localStorage.getItem('askesis-sidebar-collapsed');
-                console.log('Askesis Sidebar: Initializing, saved state:', savedState, 'window width:', window.innerWidth);
-
-                // Only apply saved state on desktop
-                if (window.innerWidth > 768 && savedState === 'true') {{
-                    console.log('Askesis Sidebar: Applying saved collapsed state on desktop');
-                    toggleSidebar();
-                }}
-
-                // Always start collapsed on mobile
-                if (window.innerWidth <= 768) {{
-                    console.log('Askesis Sidebar: Collapsing on mobile');
-                    sidebarCollapsed = false; // Reset state
-                    toggleSidebar(); // Collapse it
-                }}
-
-                console.log('Askesis Sidebar: Final collapsed state:', sidebarCollapsed);
-            }});
-
-            // Handle window resize
-            window.addEventListener('resize', function() {{
-                const overlay = document.querySelector('.overlay');
-                if (window.innerWidth > 768) {{
-                    overlay.classList.remove('active');
-                }}
-            }});
-        </script>
-        """
-
-        return NotStr(layout_html)
-
-
 def create_askesis_ui_routes(_app, rt, _askesis_service):
-    """
-    Create UI routes for Askesis AI assistant.
-
-    Minimal route structure - just one main route with progressive disclosure.
-    """
+    """Create UI routes for Askesis AI assistant."""
 
     routes = []
 
     @rt("/askesis")
     async def askesis_home(request: Request) -> Any:
-        """
-        Main Askesis page.
-
-        Uses sidebar layout with progressive disclosure.
-        """
-        # Centered welcome screen (main content)
-        content = AskesisUI.render_centered_welcome()
-
-        # Wrap in sidebar layout (SEL pattern)
-        page_layout = AskesisUI.render_sidebar_layout("dashboard", content)
-
-        # Add navbar at top (session-aware for admin detection)
-        navbar = await _render_minimal_nav(request)
-
-        # Return proper HTML document with data-theme for DaisyUI styling
-        return Html(
-            Head(
-                Meta(charset="UTF-8"),
-                Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-                Title("Askesis - SKUEL"),
-                Link(rel="stylesheet", href="/static/css/output.css"),
-                Script(src="/static/vendor/htmx/htmx.1.9.10.min.js"),
-                Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
-            ),
-            Body(
-                navbar,
-                page_layout,
-                cls="bg-base-100 text-base-content",
-            ),
-            **{"data-theme": "light"},
+        """Main Askesis page with progressive disclosure."""
+        return await SidebarPage(
+            content=AskesisUI.render_centered_welcome(),
+            items=ASKESIS_SIDEBAR_ITEMS,
+            active="dashboard",
+            title="Askesis",
+            storage_key="askesis-sidebar",
+            page_title="Askesis - SKUEL",
+            request=request,
+            active_page="askesis",
         )
 
     routes.append(askesis_home)
@@ -572,25 +249,15 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
     @rt("/askesis/new-chat")
     async def askesis_new_chat(request: Request) -> Any:
         """Start a new chat conversation."""
-        content = AskesisUI.render_centered_welcome()
-        page_layout = AskesisUI.render_sidebar_layout("new-chat", content)
-        navbar = await _render_minimal_nav(request)
-
-        return Html(
-            Head(
-                Meta(charset="UTF-8"),
-                Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-                Title("New Chat - Askesis - SKUEL"),
-                Link(rel="stylesheet", href="/static/css/output.css"),
-                Script(src="/static/vendor/htmx/htmx.1.9.10.min.js"),
-                Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
-            ),
-            Body(
-                navbar,
-                page_layout,
-                cls="bg-base-100 text-base-content",
-            ),
-            **{"data-theme": "light"},
+        return await SidebarPage(
+            content=AskesisUI.render_centered_welcome(),
+            items=ASKESIS_SIDEBAR_ITEMS,
+            active="new-chat",
+            title="Askesis",
+            storage_key="askesis-sidebar",
+            page_title="New Chat - Askesis - SKUEL",
+            request=request,
+            active_page="askesis",
         )
 
     routes.append(askesis_new_chat)
@@ -609,24 +276,15 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                 cls="max-w-4xl mx-auto",
             ),
         )
-        page_layout = AskesisUI.render_sidebar_layout("history", content)
-        navbar = await _render_minimal_nav(request)
-
-        return Html(
-            Head(
-                Meta(charset="UTF-8"),
-                Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-                Title("Chat History - Askesis - SKUEL"),
-                Link(rel="stylesheet", href="/static/css/output.css"),
-                Script(src="/static/vendor/htmx/htmx.1.9.10.min.js"),
-                Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
-            ),
-            Body(
-                navbar,
-                page_layout,
-                cls="bg-base-100 text-base-content",
-            ),
-            **{"data-theme": "light"},
+        return await SidebarPage(
+            content=content,
+            items=ASKESIS_SIDEBAR_ITEMS,
+            active="history",
+            title="Askesis",
+            storage_key="askesis-sidebar",
+            page_title="Chat History - Askesis - SKUEL",
+            request=request,
+            active_page="askesis",
         )
 
     routes.append(askesis_history)
@@ -652,24 +310,15 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                 cls="max-w-4xl mx-auto",
             ),
         )
-        page_layout = AskesisUI.render_sidebar_layout("analytics", content)
-        navbar = await _render_minimal_nav(request)
-
-        return Html(
-            Head(
-                Meta(charset="UTF-8"),
-                Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-                Title("Analytics - Askesis - SKUEL"),
-                Link(rel="stylesheet", href="/static/css/output.css"),
-                Script(src="/static/vendor/htmx/htmx.1.9.10.min.js"),
-                Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
-            ),
-            Body(
-                navbar,
-                page_layout,
-                cls="bg-base-100 text-base-content",
-            ),
-            **{"data-theme": "light"},
+        return await SidebarPage(
+            content=content,
+            items=ASKESIS_SIDEBAR_ITEMS,
+            active="analytics",
+            title="Askesis",
+            storage_key="askesis-sidebar",
+            page_title="Analytics - Askesis - SKUEL",
+            request=request,
+            active_page="askesis",
         )
 
     routes.append(askesis_analytics)
@@ -713,24 +362,15 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                 cls="max-w-2xl mx-auto",
             ),
         )
-        page_layout = AskesisUI.render_sidebar_layout("settings", content)
-        navbar = await _render_minimal_nav(request)
-
-        return Html(
-            Head(
-                Meta(charset="UTF-8"),
-                Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-                Title("Settings - Askesis - SKUEL"),
-                Link(rel="stylesheet", href="/static/css/output.css"),
-                Script(src="/static/vendor/htmx/htmx.1.9.10.min.js"),
-                Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
-            ),
-            Body(
-                navbar,
-                page_layout,
-                cls="bg-base-100 text-base-content",
-            ),
-            **{"data-theme": "light"},
+        return await SidebarPage(
+            content=content,
+            items=ASKESIS_SIDEBAR_ITEMS,
+            active="settings",
+            title="Askesis",
+            storage_key="askesis-sidebar",
+            page_title="Settings - Askesis - SKUEL",
+            request=request,
+            active_page="askesis",
         )
 
     routes.append(askesis_settings)
@@ -782,17 +422,8 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
 
     routes.append(submit_message)
 
-    logger.info(f"✅ Askesis UI routes registered: {len(routes)} endpoints")
+    logger.info(f"Askesis UI routes registered: {len(routes)} endpoints")
     return routes
-
-
-async def _render_minimal_nav(request) -> Any:
-    """
-    Minimal bottom navigation (optional).
-
-    Uses create_navbar_for_request for session-aware admin detection.
-    """
-    return await create_navbar_for_request(request, active_page="askesis")
 
 
 # Export

@@ -84,7 +84,6 @@ def _build_head(
         # SKUEL JavaScript (Alpine components) - LOAD ONLY ONCE
         Script(src="/static/js/focus_trap.js"),
         Script(src="/static/js/skuel.js"),
-        Script(src="/static/js/profile_sidebar.js"),
     )
 
 

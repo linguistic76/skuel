@@ -7,8 +7,8 @@ Regular users upload files here to share with teachers, peers, or mentors.
 Processor type is auto-set to HUMAN — AI processing lives in Report Projects
 (role-gated to TEACHER+).
 
-Layout: Custom sidebar (3 nav items) + content area.
-Follows profile-hub sidebar pattern (profile_sidebar.css).
+Layout: Unified sidebar (Tailwind + Alpine) with 3 nav items.
+Desktop: collapsible sidebar. Mobile: horizontal tabs.
 """
 
 from dataclasses import dataclass
@@ -23,15 +23,11 @@ from fasthtml.common import (
     Form,
     Input,
     Label,
-    Li,
-    Main,
-    NotStr,
     Option,
     P,
     Script,
     Select,
     Span,
-    Ul,
 )
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
@@ -40,11 +36,9 @@ from core.auth import require_authenticated_user
 from core.models.enums.report_enums import ProcessorType, ReportType
 from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
-from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from ui.patterns.page_header import PageHeader
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-Anchor = A  # Alias for sidebar navigation links (matches KU pattern)
 logger = get_logger("skuel.routes.reports.ui")
 
 
@@ -594,118 +588,11 @@ def _render_sharing_section(report: Any) -> Any:
 # SIDEBAR NAVIGATION
 # ============================================================================
 
-REPORTS_NAV_ITEMS = [
-    ("Submit", "/reports/submit", "submit"),
-    ("Browse", "/reports/browse", "browse"),
-    ("Your Reports", "/reports/yours", "yours"),
+REPORTS_SIDEBAR_ITEMS = [
+    SidebarItem("Submit", "/reports/submit", "submit", icon="📤"),
+    SidebarItem("Browse", "/reports/browse", "browse", icon="📂"),
+    SidebarItem("Your Reports", "/reports/yours", "yours", icon="📋"),
 ]
-
-
-def _reports_sidebar(active_page: str = "submit") -> Any:
-    """Build the Reports sidebar with 3 navigation items.
-
-    Args:
-        active_page: "submit", "browse", or "yours"
-    """
-    chevron_svg = NotStr(
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" '
-        'stroke="currentColor" stroke-width="2" aria-hidden="true">'
-        '<path d="M15 18l-6-6 6-6"></path>'
-        "</svg>"
-    )
-
-    menu_items = [
-        Li(
-            Anchor(
-                label,
-                href=href,
-                cls=f"{'menu-active' if slug == active_page else ''}",
-                **{
-                    "hx-boost": "false",
-                    "onclick": "if(window.innerWidth<=1024)toggleProfileSidebar()",
-                },
-            )
-        )
-        for label, href, slug in REPORTS_NAV_ITEMS
-    ]
-
-    sidebar_menu = Ul(
-        Li(
-            Anchor(
-                "Reports",
-                href="/reports",
-                cls="text-xl font-bold text-primary hover:text-primary-focus",
-                id="reports-sidebar-heading",
-                **{"hx-boost": "false"},
-            ),
-            P("Submit and manage files", cls="text-xs opacity-60 mt-1"),
-            cls="px-4 py-4 sidebar-header-text",
-        ),
-        Li(cls="divider my-0"),
-        *menu_items,
-        cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
-        id="reports-sidebar-nav",
-    )
-
-    return Div(
-        Div(
-            Button(
-                chevron_svg,
-                onclick="toggleProfileSidebar()",
-                cls="sidebar-toggle",
-                title="Toggle Sidebar",
-                type="button",
-                aria_label="Toggle Reports sidebar",
-                aria_expanded="false",
-                aria_controls="reports-sidebar-nav",
-            ),
-            sidebar_menu,
-            cls="sidebar-inner",
-        ),
-        cls="profile-sidebar",
-        id="profile-sidebar",
-        role="dialog",
-        aria_modal="false",
-        aria_labelledby="reports-sidebar-heading",
-    )
-
-
-def _reports_page_layout(active_page: str, content: Any) -> Any:
-    """Assemble full layout: sidebar + overlay + content area."""
-    return Div(
-        Div(
-            cls="profile-overlay",
-            id="profile-overlay",
-            onclick="toggleProfileSidebar()",
-        ),
-        _reports_sidebar(active_page),
-        Div(
-            id="sidebar-sr-announcements",
-            role="status",
-            aria_live="polite",
-            cls="sr-only",
-        ),
-        Div(
-            Div(
-                Span("☰", aria_hidden="true"),
-                Span("Menu"),
-                cls="btn btn-ghost mobile-menu-button mb-4",
-                onclick="toggleProfileSidebar()",
-                role="button",
-                tabindex="0",
-                aria_label="Open Reports navigation",
-                aria_expanded="false",
-                aria_controls="profile-sidebar",
-            ),
-            Main(
-                Div(content, cls="max-w-6xl mx-auto"),
-                cls="p-6 lg:p-8",
-            ),
-            cls="profile-content",
-            id="profile-content",
-        ),
-        cls="profile-container",
-    )
 
 
 # ============================================================================
@@ -900,14 +787,17 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
             _render_upload_form(),
             _upload_form_script(),
         )
-        page_layout = _reports_page_layout("submit", content)
-        return await BasePage(
-            page_layout,
-            title="Submit Report",
-            page_type=PageType.STANDARD,
+        return await SidebarPage(
+            content=content,
+            items=REPORTS_SIDEBAR_ITEMS,
+            active="submit",
+            title="Reports",
+            subtitle="Submit and manage files",
+            storage_key="reports-sidebar",
+            page_title="Submit Report",
             request=request,
             active_page="reports",
-            extra_css=["/static/css/profile_sidebar.css"],
+            title_href="/reports",
         )
 
     @rt("/reports/browse")
@@ -919,14 +809,17 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
             _render_filters_section(),
             _render_reports_grid_container(),
         )
-        page_layout = _reports_page_layout("browse", content)
-        return await BasePage(
-            page_layout,
-            title="Browse Reports",
-            page_type=PageType.STANDARD,
+        return await SidebarPage(
+            content=content,
+            items=REPORTS_SIDEBAR_ITEMS,
+            active="browse",
+            title="Reports",
+            subtitle="Submit and manage files",
+            storage_key="reports-sidebar",
+            page_title="Browse Reports",
             request=request,
             active_page="reports",
-            extra_css=["/static/css/profile_sidebar.css"],
+            title_href="/reports",
         )
 
     @rt("/reports/yours")
@@ -937,14 +830,17 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
             PageHeader("Your Reports", subtitle="View and manage your submitted files"),
             _render_reports_grid_container(),
         )
-        page_layout = _reports_page_layout("yours", content)
-        return await BasePage(
-            page_layout,
-            title="Your Reports",
-            page_type=PageType.STANDARD,
+        return await SidebarPage(
+            content=content,
+            items=REPORTS_SIDEBAR_ITEMS,
+            active="yours",
+            title="Reports",
+            subtitle="Submit and manage files",
+            storage_key="reports-sidebar",
+            page_title="Your Reports",
             request=request,
             active_page="reports",
-            extra_css=["/static/css/profile_sidebar.css"],
+            title_href="/reports",
         )
 
     # ========================================================================

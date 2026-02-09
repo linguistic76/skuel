@@ -7,8 +7,8 @@ instructions. Distinct from /reports which sends files to human review.
 
 Processor type is auto-set to LLM — human review lives at /reports.
 
-Layout: Custom sidebar (2 nav items) + content area.
-Follows profile-hub sidebar pattern (profile_sidebar.css).
+Layout: Unified sidebar (Tailwind + Alpine) with 2 nav items.
+Desktop: collapsible sidebar. Mobile: horizontal tabs.
 """
 
 from typing import Any
@@ -20,15 +20,11 @@ from fasthtml.common import (
     Form,
     Input,
     Label,
-    Li,
-    Main,
-    NotStr,
     Option,
     P,
     Script,
     Select,
     Span,
-    Ul,
 )
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
@@ -37,11 +33,9 @@ from core.auth import require_admin, require_authenticated_user
 from core.models.enums.report_enums import ProcessorType, ReportType
 from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
-from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from ui.patterns.page_header import PageHeader
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-Anchor = A
 logger = get_logger("skuel.routes.journals.ui")
 
 
@@ -163,113 +157,10 @@ def _render_reports_grid(reports: list[Any]) -> Any:
 # SIDEBAR NAVIGATION
 # ============================================================================
 
-JOURNALS_NAV_ITEMS = [
-    ("Submit", "/journals/submit", "submit"),
-    ("AI Reports", "/journals/browse", "browse"),
+JOURNALS_SIDEBAR_ITEMS = [
+    SidebarItem("Submit", "/journals/submit", "submit", icon="📤"),
+    SidebarItem("AI Reports", "/journals/browse", "browse", icon="📄"),
 ]
-
-
-def _journals_sidebar(active_page: str = "submit") -> Any:
-    """Build the Journals sidebar with navigation items."""
-    chevron_svg = NotStr(
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" '
-        'stroke="currentColor" stroke-width="2" aria-hidden="true">'
-        '<path d="M15 18l-6-6 6-6"></path>'
-        "</svg>"
-    )
-
-    menu_items = [
-        Li(
-            Anchor(
-                label,
-                href=href,
-                cls=f"{'menu-active' if slug == active_page else ''}",
-                **{
-                    "hx-boost": "false",
-                    "onclick": "if(window.innerWidth<=1024)toggleProfileSidebar()",
-                },
-            )
-        )
-        for label, href, slug in JOURNALS_NAV_ITEMS
-    ]
-
-    sidebar_menu = Ul(
-        Li(
-            Anchor(
-                "Journals",
-                href="/journals",
-                cls="text-xl font-bold text-primary hover:text-primary-focus",
-                id="journals-sidebar-heading",
-                **{"hx-boost": "false"},
-            ),
-            P("Submit files to AI processing", cls="text-xs opacity-60 mt-1"),
-            cls="px-4 py-4 sidebar-header-text",
-        ),
-        Li(cls="divider my-0"),
-        *menu_items,
-        cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
-        id="journals-sidebar-nav",
-    )
-
-    return Div(
-        Div(
-            Button(
-                chevron_svg,
-                onclick="toggleProfileSidebar()",
-                cls="sidebar-toggle",
-                title="Toggle Sidebar",
-                type="button",
-                aria_label="Toggle Journals sidebar",
-                aria_expanded="false",
-                aria_controls="journals-sidebar-nav",
-            ),
-            sidebar_menu,
-            cls="sidebar-inner",
-        ),
-        cls="profile-sidebar",
-        id="profile-sidebar",
-        role="dialog",
-        aria_modal="false",
-        aria_labelledby="journals-sidebar-heading",
-    )
-
-
-def _journals_page_layout(active_page: str, content: Any) -> Any:
-    """Assemble full layout: sidebar + overlay + content area."""
-    return Div(
-        Div(
-            cls="profile-overlay",
-            id="profile-overlay",
-            onclick="toggleProfileSidebar()",
-        ),
-        _journals_sidebar(active_page),
-        Div(
-            id="sidebar-sr-announcements",
-            role="status",
-            aria_live="polite",
-            cls="sr-only",
-        ),
-        Div(
-            Div(
-                Span("\u2630", aria_hidden="true"),
-                Span("Menu"),
-                cls="btn btn-ghost mobile-menu-button mb-4",
-                onclick="toggleProfileSidebar()",
-                role="button",
-                tabindex="0",
-                aria_label="Open Journals navigation",
-                aria_expanded="false",
-                aria_controls="profile-sidebar",
-            ),
-            Main(
-                Div(content, cls="max-w-6xl mx-auto"),
-                cls="p-6 lg:p-8",
-            ),
-            cls="profile-content",
-            id="profile-content",
-        ),
-        cls="profile-container",
-    )
 
 
 # ============================================================================
@@ -526,14 +417,17 @@ def create_journals_ui_routes(
             _render_upload_form(projects),
             _upload_form_script(),
         )
-        page_layout = _journals_page_layout("submit", content)
-        return await BasePage(
-            page_layout,
-            title="Submit to AI",
-            page_type=PageType.STANDARD,
+        return await SidebarPage(
+            content=content,
+            items=JOURNALS_SIDEBAR_ITEMS,
+            active="submit",
+            title="Journals",
+            subtitle="Submit files to AI processing",
+            storage_key="journals-sidebar",
+            page_title="Submit to AI",
             request=request,
             active_page="journals",
-            extra_css=["/static/css/profile_sidebar.css"],
+            title_href="/journals",
         )
 
     @rt("/journals/browse")
@@ -545,14 +439,17 @@ def create_journals_ui_routes(
             _render_filters_section(),
             _render_reports_grid_container(),
         )
-        page_layout = _journals_page_layout("browse", content)
-        return await BasePage(
-            page_layout,
-            title="AI Reports",
-            page_type=PageType.STANDARD,
+        return await SidebarPage(
+            content=content,
+            items=JOURNALS_SIDEBAR_ITEMS,
+            active="browse",
+            title="Journals",
+            subtitle="Submit files to AI processing",
+            storage_key="journals-sidebar",
+            page_title="AI Reports",
             request=request,
             active_page="journals",
-            extra_css=["/static/css/profile_sidebar.css"],
+            title_href="/journals",
         )
 
     # ========================================================================

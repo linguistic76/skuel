@@ -1,7 +1,4 @@
-"""Profile Hub page layout using BasePage with /nous-style sidebar.
-
-Modern implementation using BasePage architecture for consistent UX.
-Sidebar collapses smoothly on desktop, slides in as drawer on mobile.
+"""Profile Hub page layout using unified sidebar (Tailwind + Alpine).
 
 Sidebar sections: Overview, Shared With Me, Curriculum.
 Activity Domains, Settings, and Sign out are in the navbar avatar dropdown (ui/layouts/navbar.py).
@@ -12,17 +9,13 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from fasthtml.common import A as Anchor
 from fasthtml.common import (
-    Button,
     Div,
     Li,
-    Main,
     P,
     Span,
-    Ul,
 )
 
-from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -40,7 +33,7 @@ class ProfileDomainItem:
     active_count: int  # Active/pending items
     status: str  # "healthy", "warning", "critical"
     href: str  # "/profile/tasks"
-    insight_count: int = 0  # NEW: Active insights for this domain (Phase 1 integration)
+    insight_count: int = 0  # Active insights for this domain
 
 
 # Default domain configuration
@@ -97,13 +90,12 @@ def _count_badge(count: int, active: int | None = None) -> "FT":
 
 
 def _insight_badge(insight_count: int) -> Optional["FT"]:
-    """Insight count badge (bell icon + count) for Profile Hub integration."""
+    """Insight count badge (bell icon + count)."""
     if insight_count <= 0:
         return None
 
     from fasthtml.common import NotStr
 
-    # Bell icon SVG (decorative - insight count conveys meaning)
     bell_svg = NotStr(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3" aria-hidden="true">'
         '<path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>'
@@ -118,158 +110,94 @@ def _insight_badge(insight_count: int) -> Optional["FT"]:
     )
 
 
-def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
-    """Single domain navigation item.
+# Store for ProfileDomainItem data keyed by slug, used by custom renderer
+_profile_domain_data: dict[str, ProfileDomainItem] = {}
 
-    Phase 3, Task 14: Added closeOnMobile() to auto-close drawer on mobile after navigation.
-    """
-    active_cls = "menu-active" if is_active else ""
 
-    # Build badges - include insight badge if available
-    badges = [
-        _count_badge(domain.count, domain.active_count),
-        _status_badge(domain.status),
-    ]
+def _profile_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
+    """Custom renderer for profile sidebar items with badges and status dots."""
+    active_cls = "bg-base-200 font-semibold" if is_active else ""
 
-    # Add insight badge if there are insights (Phase 1 integration)
-    insight_badge = _insight_badge(domain.insight_count)
-    if insight_badge:
-        badges.append(insight_badge)
+    # Check if this item has rich domain data
+    domain = _profile_domain_data.get(item.slug)
+    if domain:
+        badges: list[Any] = [
+            _count_badge(domain.count, domain.active_count),
+            _status_badge(domain.status),
+        ]
+        insight = _insight_badge(domain.insight_count)
+        if insight:
+            badges.append(insight)
 
+        return Li(
+            Anchor(
+                Span(item.icon, cls="text-lg", aria_hidden="true"),
+                Span(item.label, cls="flex-1"),
+                Div(*badges, cls="flex items-center gap-2"),
+                href=item.href,
+                cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px]"
+                f" transition-colors hover:bg-base-200 {active_cls}",
+                **{"hx-boost": "false"},
+            )
+        )
+
+    # Simple item (Overview, Shared With Me)
     return Li(
         Anchor(
-            Span(domain.icon, cls="text-lg", aria_hidden="true"),  # Decorative emoji
-            Span(domain.name, cls="flex-1"),
-            Div(
-                *badges,
-                cls="flex items-center gap-2",
-            ),
-            href=domain.href,
-            cls=f"flex items-center gap-2 {active_cls}",
-            x_on_click="closeOnMobile()",  # Close drawer on mobile after click
-            **{"hx-boost": "false"},  # Ensure standard navigation
+            Span(item.icon, cls="text-lg", aria_hidden="true") if item.icon else "",
+            Span(item.label, cls="flex-1"),
+            href=item.href,
+            cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px]"
+            f" transition-colors hover:bg-base-200 {active_cls}",
+            **{"hx-boost": "false"},
         )
     )
 
 
-def build_profile_sidebar(
-    domains: list[ProfileDomainItem],
-    active_domain: str = "",
-    user_display_name: str = "",
+def _build_profile_sidebar_items(
+    active_domain: str,
     curriculum_domains: list[ProfileDomainItem] | None = None,
-) -> "FT":
-    """Build the profile sidebar navigation using /nous-style pattern.
-
-    Enhanced with WCAG 2.1 Level AA accessibility:
-    - role="dialog" for mobile drawer context
-    - aria-modal for focus management
-    - aria-labelledby linking to sidebar heading
-    - aria-expanded on toggle button
-
-    Args:
-        domains: Activity domain items for sidebar navigation
-        active_domain: Currently active domain slug (empty = overview)
-        user_display_name: User's display name for header
-        curriculum_domains: Optional curriculum domain items
+) -> tuple[list[SidebarItem], list[Any] | None]:
+    """Build sidebar items and curriculum extra sections.
 
     Returns:
-        Sidebar component with toggle button and navigation
+        Tuple of (items, extra_sidebar_sections)
     """
-    from fasthtml.common import NotStr
+    items = [
+        SidebarItem("Overview", "/profile", "", icon="📊"),
+        SidebarItem("Shared With Me", "/profile/shared", "shared", icon="📥"),
+    ]
 
-    display_name = user_display_name or "Your Profile"
-    is_overview_active = active_domain == ""
-
-    # Build curriculum section if provided
-    curriculum_section = []
+    # Curriculum section as extra sidebar content
+    extra_sections = None
     if curriculum_domains:
-        curriculum_section = [
-            # Curriculum section header
+        # Store domain data for renderer
+        for d in curriculum_domains:
+            _profile_domain_data[d.slug] = d
+
+        curriculum_items = [
+            SidebarItem(
+                label=d.name,
+                href=d.href,
+                slug=d.slug,
+                icon=d.icon,
+            )
+            for d in curriculum_domains
+        ]
+
+        # Add curriculum items to main list with a section header
+        extra_sections = [
             Li(
                 Span(
                     "Curriculum",
                     cls="text-xs font-semibold uppercase tracking-wider opacity-60",
                 ),
-                cls="menu-title",
+                cls="px-3 pt-2",
             ),
-            # Curriculum navigation items
-            *[_domain_menu_item(d, d.slug == active_domain) for d in curriculum_domains],
+            *[_profile_item_renderer(item, item.slug == active_domain) for item in curriculum_items],
         ]
 
-    # Chevron icon for toggle button (decorative - button has aria-label)
-    chevron_svg = NotStr(
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">'
-        '<path d="M15 18l-6-6 6-6"></path>'
-        "</svg>"
-    )
-
-    # Build sidebar menu content
-    sidebar_menu = Ul(
-        # Profile header (P0: Add ID for aria-labelledby)
-        Li(
-            Anchor(
-                display_name,
-                href="/profile",
-                cls="text-xl font-bold text-primary hover:text-primary-focus",
-                id="profile-sidebar-heading",
-                **{"hx-boost": "false"},
-            ),
-            P("Profile", cls="text-xs opacity-60 mt-1"),
-            cls="px-4 py-4 sidebar-header-text",
-        ),
-        # Divider
-        Li(cls="divider my-0"),
-        # Overview link
-        Li(
-            Anchor(
-                Span("📊", cls="text-lg", aria_hidden="true"),  # Decorative emoji
-                "Overview",
-                href="/profile",
-                cls=f"flex items-center gap-2 {'menu-active' if is_overview_active else ''}",
-                **{"hx-boost": "false"},
-            )
-        ),
-        # Shared With Me link (Phase 1: Report Portfolio)
-        Li(
-            Anchor(
-                Span("📥", cls="text-lg", aria_hidden="true"),  # Decorative emoji
-                "Shared With Me",
-                href="/profile/shared",
-                cls=f"flex items-center gap-2 {'menu-active' if active_domain == 'shared' else ''}",
-                **{"hx-boost": "false"},
-            )
-        ),
-        # Activity Domains moved to navbar profile dropdown (2026-02-06)
-        # Curriculum section (if provided)
-        *curriculum_section,
-        # Account actions (Settings, Sign out) moved to navbar profile dropdown
-        cls="menu bg-white min-h-full w-full p-4 sidebar-nav",
-        id="profile-sidebar-nav",
-    )
-
-    return Div(
-        Div(
-            # P0: Enhanced toggle button with ARIA
-            Button(
-                chevron_svg,
-                onclick="toggleProfileSidebar()",
-                cls="sidebar-toggle",
-                title="Toggle Sidebar",
-                type="button",
-                aria_label="Toggle profile sidebar",
-                aria_expanded="false",
-                aria_controls="profile-sidebar-nav",
-            ),
-            # Sidebar navigation
-            sidebar_menu,
-            cls="sidebar-inner",
-        ),
-        cls="profile-sidebar",
-        id="profile-sidebar",
-        role="dialog",
-        aria_modal="false",
-        aria_labelledby="profile-sidebar-heading",
-    )
+    return items, extra_sections
 
 
 async def create_profile_page(
@@ -284,12 +212,7 @@ async def create_profile_page(
     unread_insights: int = 0,
     request: "Request | None" = None,
 ) -> "FT":
-    """Create profile page using BasePage with /nous-style sidebar.
-
-    Enhanced with mobile accessibility:
-    - Screen reader live region for state announcements
-    - ARIA attributes on mobile menu button
-    - Focus management on drawer open/close
+    """Create profile page using unified sidebar (Tailwind + Alpine).
 
     Args:
         content: Main content HTML
@@ -300,80 +223,36 @@ async def create_profile_page(
         is_authenticated: Whether user is authenticated (for navbar)
         is_admin: Whether user has admin role (shows Admin Dashboard in navbar)
         curriculum_domains: List of ProfileDomainItem for curriculum section
-        unread_insights: Number of unread insights for navbar badge (Phase 1 integration)
+        unread_insights: Number of unread insights for navbar badge
         request: Starlette request (enables BasePage auto-detection of auth/admin)
 
     Returns:
-        Complete HTML page using BasePage with custom sidebar layout
+        Complete HTML page using BasePage with sidebar layout
     """
-    # Build sidebar navigation
-    sidebar = build_profile_sidebar(
-        domains=domains,
+    display_name = user_display_name or "Your Profile"
+
+    items, extra_sections = _build_profile_sidebar_items(
         active_domain=active_domain,
-        user_display_name=user_display_name,
         curriculum_domains=curriculum_domains,
     )
 
-    # Build mobile overlay (like /nous)
-    overlay = Div(
-        cls="profile-overlay",
-        id="profile-overlay",
-        onclick="toggleProfileSidebar()",
-    )
-
-    # P0: Enhanced mobile menu button with ARIA
-    mobile_menu = Div(
-        Span("☰", cls="text-xl", aria_hidden="true"),
-        Span("Menu", cls="ml-2"),
-        cls="btn btn-ghost mobile-menu-button mb-4",
-        onclick="toggleProfileSidebar()",
-        aria_label="Open profile navigation",
-        aria_expanded="false",
-        aria_controls="profile-sidebar",
-        role="button",
-        tabindex="0",
-    )
-
-    # Wrap content with sidebar + overlay (like /nous DocsLayout)
-    wrapped_content = Div(
-        overlay,
-        sidebar,
-        # P1: Screen reader live region for announcements
-        Div(
-            id="sidebar-sr-announcements",
-            role="status",
-            aria_live="polite",
-            aria_atomic="true",
-            cls="sr-only",
-        ),
-        Div(
-            mobile_menu,
-            Div(
-                Div(content, cls="max-w-6xl mx-auto"),
-                cls="px-6 lg:px-8 py-4 lg:py-6",
-            ),
-            cls="profile-content",
-            id="profile-content",
-        ),
-        cls="profile-container",
-    )
-
-    # Use BasePage with CUSTOM type (we handle layout ourselves)
-    return await BasePage(
-        content=wrapped_content,
-        title=title,
-        page_type=PageType.CUSTOM,
+    return await SidebarPage(
+        content=content,
+        items=items,
+        active=active_domain or "",
+        title=display_name,
+        subtitle="Profile",
+        storage_key="profile-sidebar",
+        extra_sidebar_sections=extra_sections,
+        page_title=title,
         request=request,
         active_page="profile/hub",
-        extra_css=["/static/css/profile_sidebar.css"],
-        user_display_name=user_display_name,
-        is_authenticated=is_authenticated,
-        is_admin=is_admin,
+        item_renderer=_profile_item_renderer,
+        title_href="/profile",
     )
 
 
 __all__ = [
-    "build_profile_sidebar",
     "create_profile_page",
     "CURRICULUM_ORDER",
     "DEFAULT_DOMAIN_ICONS",

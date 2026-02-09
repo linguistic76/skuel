@@ -915,29 +915,30 @@
         });
 
         // ---------------------------------------------------------------------
-        // Profile Sidebar Component
+        // Collapsible Sidebar Component (Tailwind + Alpine)
         // ---------------------------------------------------------------------
-        // Handles profile hub drawer state with localStorage persistence
-        Alpine.data('profileSidebar', function() {
+        // Unified sidebar for all pages: Profile, KU, Reports, Journals, Askesis.
+        // Desktop: collapsible with toggle. Mobile: hidden (tabs shown instead).
+        // Multiple instances share state via storageKey parameter.
+        Alpine.data('collapsibleSidebar', function(storageKey) {
             return {
-                // Sync with drawer checkbox state
-                init: function() {
-                    var self = this;
-                    var checkbox = document.getElementById('profile-drawer');
-                    if (checkbox) {
-                        // Restore saved state on desktop
-                        if (window.innerWidth >= 1024) {
-                            var savedState = localStorage.getItem('profile-sidebar-open');
-                            // Default to open on desktop unless explicitly closed
-                            checkbox.checked = savedState !== 'false';
-                        }
+                collapsed: false,
 
-                        // Persist state changes
-                        checkbox.addEventListener('change', function() {
-                            if (window.innerWidth >= 1024) {
-                                localStorage.setItem('profile-sidebar-open', checkbox.checked);
-                            }
-                        });
+                init: function() {
+                    // Restore from localStorage on desktop
+                    if (window.innerWidth >= 1024) {
+                        var saved = localStorage.getItem(storageKey + '-collapsed');
+                        this.collapsed = saved === 'true';
+                    }
+                },
+
+                toggle: function() {
+                    this.collapsed = !this.collapsed;
+                    localStorage.setItem(storageKey + '-collapsed', this.collapsed.toString());
+                    // Screen reader announcement
+                    var state = this.collapsed ? 'collapsed' : 'expanded';
+                    if (window.SKUEL && window.SKUEL.announce) {
+                        window.SKUEL.announce('Sidebar ' + state);
                     }
                 }
             };
@@ -2557,121 +2558,7 @@
 
         // ---------------------------------------------------------------------
         // Profile Drawer Component (Phase 3, Task 14)
-        // ---------------------------------------------------------------------
-        /**
-         * Manages profile sidebar drawer with swipe gestures and smart persistence.
-         * Handles mobile drawer state, swipe-to-open/close, and localStorage persistence.
-         *
-         * @returns {Object} Alpine.js component
-         *
-         * @example
-         * <div x-data="profileDrawer()">
-         *   <input type="checkbox" id="profile-drawer" x-model="isOpen">
-         *   <div @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
-         *     <!-- Content -->
-         *   </div>
-         * </div>
-         */
-        Alpine.data('profileDrawer', function() {
-            return {
-                isOpen: false,
-                touchStartX: 0,
-                touchCurrentX: 0,
-                isSwiping: false,
-
-                init: function() {
-                    // Restore drawer state from localStorage
-                    var stored = localStorage.getItem('profile-drawer-open');
-                    if (stored !== null) {
-                        this.isOpen = stored === 'true';
-                    }
-
-                    // On tablet/desktop (≥768px), keep drawer open by default
-                    if (window.innerWidth >= 768 && stored === null) {
-                        this.isOpen = true;
-                    }
-
-                    // Sync with checkbox
-                    var checkbox = document.getElementById('profile-drawer');
-                    if (checkbox) {
-                        checkbox.checked = this.isOpen;
-                    }
-
-                    // Watch for window resize
-                    var self = this;
-                    window.addEventListener('resize', function() {
-                        // Auto-open on tablet+ if not explicitly closed
-                        if (window.innerWidth >= 768 && localStorage.getItem('profile-drawer-open') !== 'false') {
-                            self.isOpen = true;
-                            if (checkbox) checkbox.checked = true;
-                        }
-                    });
-                },
-
-                toggle: function() {
-                    this.isOpen = !this.isOpen;
-                    this.saveState();
-                },
-
-                open: function() {
-                    this.isOpen = true;
-                    this.saveState();
-                },
-
-                close: function() {
-                    this.isOpen = false;
-                    this.saveState();
-                },
-
-                saveState: function() {
-                    localStorage.setItem('profile-drawer-open', this.isOpen.toString());
-                    // Sync with checkbox
-                    var checkbox = document.getElementById('profile-drawer');
-                    if (checkbox) {
-                        checkbox.checked = this.isOpen;
-                    }
-                },
-
-                // Touch event handlers for swipe gestures
-                handleTouchStart: function(event) {
-                    this.touchStartX = event.touches[0].clientX;
-                    this.isSwiping = true;
-                },
-
-                handleTouchMove: function(event) {
-                    if (!this.isSwiping) return;
-                    this.touchCurrentX = event.touches[0].clientX;
-                },
-
-                handleTouchEnd: function(event) {
-                    if (!this.isSwiping) return;
-                    this.isSwiping = false;
-
-                    var deltaX = this.touchCurrentX - this.touchStartX;
-                    var threshold = 50; // Minimum swipe distance in pixels
-
-                    // Swipe right to open (only if starting from left edge)
-                    if (deltaX > threshold && this.touchStartX < 50 && !this.isOpen) {
-                        this.open();
-                    }
-                    // Swipe left to close
-                    else if (deltaX < -threshold && this.isOpen) {
-                        this.close();
-                    }
-
-                    // Reset
-                    this.touchStartX = 0;
-                    this.touchCurrentX = 0;
-                },
-
-                // Close drawer on mobile after navigation (optional)
-                closeOnMobile: function() {
-                    if (window.innerWidth < 768) {
-                        this.close();
-                    }
-                }
-            };
-        });
+        // (profileDrawer removed — replaced by collapsibleSidebar above)
 
         // ---------------------------------------------------------------------
         // Profile Intelligence Cache Component (Phase 4, Task 15)
