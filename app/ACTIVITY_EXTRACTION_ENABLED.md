@@ -1,11 +1,13 @@
 # Activity Extraction Feature Enabled
 
 **Date:** 2026-02-09
-**Status:** ✅ Complete
+**Status:** ✅ Complete (Multi-Modal Pipeline)
 
 ## What Was Implemented
 
-The `ReportActivityExtractorService` (DSL integration) is now **fully wired and enabled**. This powerful feature transforms passive journal entries into active task managers by automatically extracting Activity Lines and creating corresponding entities.
+The `ReportActivityExtractorService` (DSL integration) is now **fully wired and threshold-based**. This feature transforms passive journal entries into active task managers by automatically extracting Activity Lines when the journal's activity weight exceeds the threshold (default: 0.2).
+
+**Key Update (Feb 9, 2026):** Extraction is now **conditional** based on multi-modal journal weights. Only journals with significant activity content (weight > 0.2) trigger entity creation.
 
 ## How It Works
 
@@ -21,23 +23,59 @@ Had a productive day. Tomorrow I need to:
 - [ ] Start learning Python @context(goal) @deadline(2w)
 ```
 
-### 2. Processing Pipeline
+### 2. Multi-Modal Processing Pipeline
 
 ```
-Upload → Transcription (audio) → Raw Text → Activity Extraction → Entities Created
-         OR Read Text (text)
+Upload → Transcription (audio) → Raw Text → Mode Classification → je_output Generation
+         OR Read Text (text)                                            ↓
+                                                                Weight Analysis
+                                                                         ↓
+                                            IF activity weight > threshold (0.2):
+                                                   Activity Extraction → Entities Created
 ```
 
 **Step 1:** File is processed
 - Audio: Deepgram transcription → raw transcript text
 - Text: Direct file read → raw text content
 
-**Step 2:** Activity extraction (NEW - enabled)
-- `ReportActivityExtractorService.extract_and_create()` is called
-- Parses `@context()` tags using DSL parser
-- Creates entities in all 13 SKUEL domains
+**Step 2:** Mode classification (NEW - multi-modal)
+- `JournalModeClassifier.infer_weights()` analyzes content
+- Returns: `{activity: 0.7, articulation: 0.2, exploration: 0.1}`
+- Determines primary mode (highest weight)
 
-### 3. Entities Auto-Created
+**Step 3:** je_output generation
+- `JournalOutputGenerator.generate()` formats content
+- Uses mode-specific formatter (activity/articulation/exploration)
+- Saves to disk: `{STORAGE}/{YYYY-MM}/report_{uid}_output.md`
+
+**Step 4:** Conditional activity extraction
+- **IF** `weights.activity > threshold` (default: 0.2):
+  - `ReportActivityExtractorService.extract_and_create()` is called
+  - Parses `@context()` tags using DSL parser
+  - Creates entities in all 13 SKUEL domains
+- **ELSE:** Skip extraction (idea articulation / critical thinking journals)
+
+### 3. Threshold-Based Extraction
+
+**Three Journal Modes:**
+- **Activity Tracking** (weight: activity) — Extract tasks, habits, goals via DSL
+- **Idea Articulation** (weight: articulation) — Verbatim preservation, no extraction
+- **Critical Thinking** (weight: exploration) — Question-organized, no extraction
+
+**Extraction Logic:**
+```python
+if weights.activity > threshold:  # Default threshold: 0.2
+    extract_and_create()  # Create entities
+else:
+    skip_extraction()     # Just format je_output
+```
+
+**Examples:**
+- Journal with `{activity: 0.8, articulation: 0.1, exploration: 0.1}` → **Extracts entities** ✅
+- Journal with `{activity: 0.1, articulation: 0.7, exploration: 0.2}` → **Skips extraction** ❌
+- Journal with `{activity: 0.25, articulation: 0.45, exploration: 0.3}` → **Extracts entities** ✅
+
+### 4. Entities Auto-Created (When Threshold Met)
 
 From the example above, SKUEL automatically creates:
 - **Task**: "Call the bank" (priority 1, due tomorrow)
@@ -226,7 +264,11 @@ Each report's `metadata.activity_extraction` stores:
 
 ## References
 
+- **Multi-Modal Pipeline:** `MULTI_MODAL_JOURNALS_COMPLETE.md` (complete implementation guide)
 - **Service:** `core/services/dsl/report_activity_extractor.py`
+- **Mode Classifier:** `core/services/journals/journal_mode_classifier.py`
+- **Output Generator:** `core/services/journals/journal_output_generator.py`
 - **Tests:** `tests/test_dsl_integration.py`
 - **DSL Spec:** `docs/dsl/DSL_SPECIFICATION.md`
 - **Architecture:** `docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` (DSL section)
+- **Journals Domain:** `docs/domains/journals.md` (multi-modal architecture)

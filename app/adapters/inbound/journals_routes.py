@@ -28,6 +28,7 @@ JOURNALS_CONFIG = DomainRouteConfig(
         "processing_service": "report_processor",
         "report_projects_service": "report_projects",
         "user_service": "user_service",
+        "journal_generator": "journal_generator",
     },
 )
 

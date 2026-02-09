@@ -70,6 +70,8 @@ class ReportsProcessingService:
         transcript_processor=None,  # TranscriptProcessorService (for LLM processing)
         report_relationship_service=None,  # ReportsRelationshipService (Option A)
         activity_extractor=None,  # ReportActivityExtractorService (DSL extraction)
+        journal_classifier=None,  # JournalModeClassifier (LLM weight inference)
+        journal_generator=None,  # JournalOutputGenerator (je_output formatting)
         event_bus=None,
     ) -> None:
         """
@@ -81,6 +83,8 @@ class ReportsProcessingService:
             transcript_processor: TranscriptProcessorService for LLM formatting
             report_relationship_service: ReportsRelationshipService for graph relationships (Option A)
             activity_extractor: ReportActivityExtractorService for DSL-based entity extraction
+            journal_classifier: JournalModeClassifier for multi-modal weight inference
+            journal_generator: JournalOutputGenerator for je_output file generation
             event_bus: Event bus for domain events (optional)
         """
         self.report_service = report_service
@@ -88,6 +92,8 @@ class ReportsProcessingService:
         self.transcript_processor = transcript_processor
         self.report_relationship_service = report_relationship_service
         self.activity_extractor = activity_extractor
+        self.journal_classifier = journal_classifier
+        self.journal_generator = journal_generator
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.reports_processing")
 
@@ -297,17 +303,29 @@ class ReportsProcessingService:
         if update_result.is_error:
             return update_result
 
-        # Extract activities if enabled (DSL integration)
-        if instructions and instructions.get("extract_activities", False):
-            if self.activity_extractor:
-                updated_report = update_result.value
-                await self._extract_activities(updated_report, report.user_uid, instructions)
-            else:
-                self.logger.warning(
-                    f"Activity extraction requested but extractor not configured for {report.uid}"
-                )
+        updated_report = update_result.value
 
-        return update_result
+        # Process journal if this is a JOURNAL type report
+        if hasattr(report, "report_type"):
+            from core.models.enums.report_enums import ReportType
+
+            if report.report_type == ReportType.JOURNAL:
+                await self._process_journal(updated_report, transcript_text, instructions)
+                # Refresh report after journal processing
+                refresh_result = await self.report_service.get_report(report.uid)
+                if not refresh_result.is_error and refresh_result.value:
+                    updated_report = refresh_result.value
+        else:
+            # Legacy path: Extract activities if enabled (DSL integration)
+            if instructions and instructions.get("extract_activities", False):
+                if self.activity_extractor:
+                    await self._extract_activities(updated_report, report.user_uid, instructions)
+                else:
+                    self.logger.warning(
+                        f"Activity extraction requested but extractor not configured for {report.uid}"
+                    )
+
+        return Result.ok(updated_report)
 
     # ========================================================================
     # TEXT PROCESSING
@@ -354,17 +372,115 @@ class ReportsProcessingService:
         if update_result.is_error:
             return update_result
 
-        # Extract activities if enabled (DSL integration)
-        if instructions and instructions.get("extract_activities", False):
-            if self.activity_extractor:
-                updated_report = update_result.value
-                await self._extract_activities(updated_report, report.user_uid, instructions)
-            else:
-                self.logger.warning(
-                    f"Activity extraction requested but extractor not configured for {report.uid}"
-                )
+        updated_report = update_result.value
 
-        return update_result
+        # Process journal if this is a JOURNAL type report
+        if hasattr(report, "report_type"):
+            from core.models.enums.report_enums import ReportType
+
+            if report.report_type == ReportType.JOURNAL:
+                await self._process_journal(updated_report, text_content, instructions)
+                # Refresh report after journal processing
+                refresh_result = await self.report_service.get_report(report.uid)
+                if not refresh_result.is_error and refresh_result.value:
+                    updated_report = refresh_result.value
+        else:
+            # Legacy path: Extract activities if enabled (DSL integration)
+            if instructions and instructions.get("extract_activities", False):
+                if self.activity_extractor:
+                    await self._extract_activities(updated_report, report.user_uid, instructions)
+                else:
+                    self.logger.warning(
+                        f"Activity extraction requested but extractor not configured for {report.uid}"
+                    )
+
+        return Result.ok(updated_report)
+
+    # ========================================================================
+    # JOURNAL PROCESSING (Multi-Modal)
+    # ========================================================================
+
+    async def _process_journal(
+        self, report: Report, content: str, instructions: dict[str, Any] | None
+    ) -> None:
+        """
+        Process JOURNAL type report with multi-modal pipeline.
+
+        Pipeline:
+        1. Infer mode weights (activity, articulation, exploration)
+        2. Generate formatted je_output file
+        3. Extract activities if weight > threshold
+        4. Store weights and je_output_path in metadata
+
+        Args:
+            report: Report with processed_content
+            content: Raw content for classification
+            instructions: Processing instructions (may contain mode threshold)
+        """
+        if not self.journal_classifier or not self.journal_generator:
+            self.logger.warning(
+                f"Journal processing requested but services not configured for {report.uid}"
+            )
+            return
+
+        self.logger.info(f"Processing journal {report.uid} with multi-modal pipeline")
+
+        # Step 1: Infer mode weights
+        user_declared_mode = instructions.get("journal_mode") if instructions else None
+        weights_result = await self.journal_classifier.infer_weights(
+            content, user_declared_mode=user_declared_mode
+        )
+
+        if weights_result.is_error:
+            self.logger.error(f"Weight inference failed: {weights_result.error}")
+            return
+
+        weights = weights_result.value
+        threshold = (
+            self.journal_classifier.get_threshold_from_instructions(instructions)
+            if self.journal_classifier
+            else 0.2
+        )
+
+        # Step 2: Generate je_output file
+        output_result = await self.journal_generator.generate(
+            content=content,
+            weights=weights,
+            report_uid=report.uid,
+            threshold=threshold,
+        )
+
+        if output_result.is_error:
+            self.logger.error(f"je_output generation failed: {output_result.error}")
+            return
+
+        je_output_path = output_result.value
+
+        # Step 3: Extract activities if weight exceeds threshold
+        activities_extracted = 0
+        if weights.should_extract_activities(threshold) and self.activity_extractor:
+            self.logger.info(
+                f"Activity weight {weights.activity} > {threshold}, extracting entities"
+            )
+            await self._extract_activities(report, report.user_uid, instructions)
+            # Count would come from extraction result, but we don't have access here
+            # This is tracked in report metadata by _extract_activities
+            activities_extracted = 1  # Placeholder - actual count in metadata
+
+        # Step 4: Store journal processing metadata
+        current_metadata = report.metadata or {}
+        current_metadata["journal_weights"] = weights.to_dict()
+        current_metadata["je_output_path"] = je_output_path
+        current_metadata["mode_threshold"] = threshold
+
+        await self.report_service.update_report(
+            uid=report.uid,
+            updates={"metadata": current_metadata},
+        )
+
+        self.logger.info(
+            f"Journal processing complete: {report.uid} - {weights.get_primary_mode().value}"
+        )
 
     # ========================================================================
     # ACTIVITY EXTRACTION (DSL Integration)

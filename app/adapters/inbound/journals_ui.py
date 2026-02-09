@@ -12,6 +12,7 @@ Desktop: collapsible sidebar. Mobile: horizontal tabs.
 """
 
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,11 +32,14 @@ from fasthtml.common import (
 )
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
+from starlette.responses import FileResponse
 
 from core.auth import require_admin, require_authenticated_user
 from core.models.enums.report_enums import ProcessorType, ReportType
 from core.ui.daisy_components import Button, ButtonT
+from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -142,6 +146,33 @@ def _render_report_card(report: Any) -> Any:
     """Render a single report card for the AI reports grid."""
     file_size_mb = (report.file_size / 1024 / 1024) if getattr(report, "file_size", 0) else 0
     identifier = _get_report_identifier(report)
+
+    # Check if je_output file exists in metadata
+    metadata = getattr(report, "metadata", None)
+    has_je_output = False
+    if isinstance(metadata, dict):
+        je_output_path = metadata.get("je_output_path")
+        has_je_output = bool(je_output_path)
+
+    # Build action buttons
+    action_buttons = [
+        A(
+            "View",
+            href=f"/reports/{report.uid}",
+            cls="btn btn-sm btn-ghost",
+        ),
+    ]
+
+    # Add download button for completed reports with je_output
+    if has_je_output and report.status == "completed":
+        action_buttons.append(
+            A(
+                "Download",
+                href=f"/journals/{report.uid}/download",
+                cls="btn btn-sm btn-primary",
+            )
+        )
+
     return Div(
         Div(
             Div(
@@ -160,11 +191,7 @@ def _render_report_card(report: Any) -> Any:
                     ),
                 ),
                 Div(
-                    A(
-                        "View",
-                        href=f"/reports/{report.uid}",
-                        cls="btn btn-sm btn-ghost",
-                    ),
+                    *action_buttons,
                     cls="flex gap-2",
                 ),
                 cls="flex items-center gap-4",
@@ -418,6 +445,7 @@ def create_journals_ui_routes(
     processing_service,
     report_projects_service,
     user_service=None,
+    journal_generator=None,
 ):
     """
     Create journal UI routes (admin-only AI submission).
@@ -429,6 +457,7 @@ def create_journals_ui_routes(
         processing_service: ReportsProcessingService
         report_projects_service: ReportProjectService
         user_service: UserService for admin role checks
+        journal_generator: JournalOutputGenerator for cleanup operations
     """
 
     logger.info("Creating Journals UI routes (admin-only)")
@@ -722,6 +751,142 @@ def create_journals_ui_routes(
                 id="reports-grid-container",
             )
 
+    @rt("/journals/{uid}/download")
+    @require_admin(get_user_service)
+    async def download_je_output(request: Request, uid: str, current_user: Any = None) -> Any:
+        """Download formatted je_output file for a journal report.
+
+        Returns:
+            FileResponse with markdown file or error response
+        """
+        try:
+            user_uid = require_authenticated_user(request)
+
+            # Fetch the report
+            result = await report_service.get_report(uid)
+
+            if result.is_error:
+                logger.warning(f"Report {uid} not found for download")
+                return Div(
+                    P("Report not found", cls="text-center text-error"),
+                )
+
+            report = result.value
+
+            # Verify ownership
+            if report.user_uid != user_uid:
+                logger.warning(f"User {user_uid} attempted to download report {uid} owned by {report.user_uid}")
+                return Div(
+                    P("Not authorized to download this report", cls="text-center text-error"),
+                )
+
+            # Check for je_output_path in metadata
+            metadata = getattr(report, "metadata", None)
+            if not isinstance(metadata, dict):
+                logger.warning(f"Report {uid} has no metadata")
+                return Div(
+                    P("No je_output file available for this report", cls="text-center text-error"),
+                )
+
+            je_output_path = metadata.get("je_output_path")
+            if not je_output_path:
+                logger.warning(f"Report {uid} has no je_output_path in metadata")
+                return Div(
+                    P("No je_output file available for this report", cls="text-center text-error"),
+                )
+
+            # Verify file exists
+            je_output_file = Path(je_output_path)
+            if not je_output_file.exists():
+                logger.error(f"je_output file not found at {je_output_path} for report {uid}")
+                return Div(
+                    P("je_output file not found on disk", cls="text-center text-error"),
+                )
+
+            # Return file for download
+            logger.info(f"Serving je_output download for report {uid}: {je_output_path}")
+            return FileResponse(
+                path=str(je_output_file),
+                filename=f"{report.original_filename}_output.md",
+                media_type="text/markdown",
+            )
+
+        except Exception as e:
+            logger.error(f"Error downloading je_output for {uid}: {e}", exc_info=True)
+            return Div(
+                P(f"Download failed: {e}", cls="text-center text-error"),
+            )
+
+    # ========================================================================
+    # ADMIN API ENDPOINTS
+    # ========================================================================
+
+    @rt("/api/admin/journals/cleanup")
+    @require_admin(get_user_service)
+    @boundary_handler()
+    async def cleanup_je_outputs(
+        request: Request,
+        current_user: Any,
+        start_date: str,
+        end_date: str,
+    ) -> Result[dict[str, int]]:
+        """
+        Clean up je_output files from date range (ADMIN only).
+
+        Used after human has decomposed je_outputs and ingested pieces into Neo4j.
+
+        Query Parameters:
+            start_date: Start date (YYYY-MM-DD format)
+            end_date: End date (YYYY-MM-DD format)
+
+        Returns:
+            JSON with cleanup stats: {files_deleted: int, bytes_freed: int}
+        """
+        if not journal_generator:
+            return Result.fail(
+                Errors.system(
+                    message="Journal generator service not available",
+                    service="journal_generator",
+                )
+            )
+
+        # Parse dates
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError as e:
+            return Result.fail(
+                Errors.validation(
+                    message=f"Invalid date format. Use YYYY-MM-DD: {e}",
+                    field="start_date/end_date",
+                )
+            )
+
+        if start_dt > end_dt:
+            return Result.fail(
+                Errors.validation(
+                    message="start_date must be before or equal to end_date",
+                    field="start_date",
+                )
+            )
+
+        logger.info(
+            f"Admin {current_user.uid} cleaning up je_outputs from {start_date} to {end_date}"
+        )
+
+        result = journal_generator.cleanup_date_range(start_dt, end_dt)
+
+        if result.is_error:
+            return result
+
+        stats = result.value
+        logger.info(
+            f"Cleanup complete: {stats['files_deleted']} files deleted, "
+            f"{stats['bytes_freed']} bytes freed"
+        )
+
+        return Result.ok(stats)
+
     logger.info("Journals UI routes created successfully")
 
     return [
@@ -730,4 +895,6 @@ def create_journals_ui_routes(
         journals_browse_page,
         upload_journal,
         get_journals_grid,
+        download_je_output,
+        cleanup_je_outputs,
     ]

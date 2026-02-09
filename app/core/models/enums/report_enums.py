@@ -199,6 +199,50 @@ class ContentStatus(Enum):
     ARCHIVED = "archived"
 
 
+class JournalMode(str, Enum):
+    """
+    Journal processing modes - determines output formatting strategy.
+
+    Typical journal: 80% one mode + 20% mixed.
+    System infers weights via LLM, user can override.
+
+    ACTIVITY_TRACKING: Focus on extracting actionable entities
+        - High @context() tag density
+        - je_output: Structured format with DSL tags preserved
+        - Processing: ReportActivityExtractorService creates entities
+
+    IDEA_ARTICULATION: Focus on preserving original thought
+        - Conceptual vocabulary, definition patterns
+        - je_output: Verbatim with formatting improvements only
+        - Processing: No entity creation, human curates later
+
+    CRITICAL_THINKING: Focus on question exploration
+        - High question density ("what if", "how might")
+        - je_output: Organized by question threads
+        - Processing: No entity creation, human engages via Askesis
+    """
+
+    ACTIVITY_TRACKING = "activity_tracking"
+    IDEA_ARTICULATION = "idea_articulation"
+    CRITICAL_THINKING = "critical_thinking"
+
+    def get_display_name(self) -> str:
+        """Get human-readable display name."""
+        return {
+            JournalMode.ACTIVITY_TRACKING: "Activity Tracking",
+            JournalMode.IDEA_ARTICULATION: "Idea Articulation",
+            JournalMode.CRITICAL_THINKING: "Critical Thinking",
+        }[self]
+
+    def get_description(self) -> str:
+        """Get mode description for UI/help text."""
+        return {
+            JournalMode.ACTIVITY_TRACKING: "Extract tasks, goals, habits from your reflections",
+            JournalMode.IDEA_ARTICULATION: "Preserve your ideas with minimal processing",
+            JournalMode.CRITICAL_THINKING: "Organize your thoughts around questions",
+        }[self]
+
+
 class FormattingStyle(Enum):
     """Style for formatting transcripts during LLM processing."""
 

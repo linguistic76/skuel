@@ -269,6 +269,14 @@ class Services:
         None  # ReportProjectService - Reusable LLM project templates
     )
 
+    # Journal processing services (multi-modal journal pipeline)
+    journal_classifier: "JournalModeClassifier | None" = (
+        None  # JournalModeClassifier - LLM weight inference for journal modes
+    )
+    journal_generator: "JournalOutputGenerator | None" = (
+        None  # JournalOutputGenerator - je_output formatting and disk storage
+    )
+
     # Report services (Phase 1 - File submission pipeline)
     reports: ReportSubmissionOperations | None = (
         None  # ReportSubmissionService - File upload and report management
@@ -1741,11 +1749,28 @@ async def compose_services(
         )
         logger.info("✅ Report activity extractor created (DSL journal → entity extraction)")
 
+        # Create journal processing services (multi-modal journal pipeline)
+        from core.services.journals import JournalModeClassifier, JournalOutputGenerator
+
+        journal_classifier = JournalModeClassifier(openai_service=ai_service)
+        logger.info("✅ Journal mode classifier created (LLM weight inference)")
+
+        # Get journal storage path from environment (default: /tmp/skuel_journals)
+        journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
+        journal_generator = JournalOutputGenerator(
+            openai_service=ai_service, storage_base=journal_storage
+        )
+        logger.info(
+            f"✅ Journal output generator created (storage: {journal_storage})"
+        )
+
         report_processor = ReportsProcessingService(
             report_service=report_service,
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
             transcript_processor=transcript_processor,  # For LLM formatting
-            activity_extractor=activity_extractor,  # NEW: DSL entity extraction
+            activity_extractor=activity_extractor,  # DSL entity extraction
+            journal_classifier=journal_classifier,  # Multi-modal weight inference
+            journal_generator=journal_generator,  # je_output formatting and disk storage
             event_bus=event_bus,
         )
 
@@ -2361,6 +2386,8 @@ async def compose_services(
             transcript_processor=transcript_processor,
             report_feedback=report_feedback_service,  # LLM feedback on reports/journals
             report_projects=report_project_service,  # Reusable LLM project templates
+            journal_classifier=journal_classifier,  # Multi-modal weight inference
+            journal_generator=journal_generator,  # je_output formatting and disk storage
             # Group & Teaching (ADR-040: Teacher assignment workflow)
             group_service=group_service,
             teacher_review=teacher_review_service,
