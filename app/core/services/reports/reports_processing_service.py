@@ -306,10 +306,11 @@ class ReportsProcessingService:
         updated_report = update_result.value
 
         # Process journal if this is a JOURNAL type report
-        if hasattr(report, "report_type"):
+        report_type = getattr(report, "report_type", None)
+        if report_type is not None:
             from core.models.enums.report_enums import ReportType
 
-            if report.report_type == ReportType.JOURNAL:
+            if report_type == ReportType.JOURNAL:
                 await self._process_journal(updated_report, transcript_text, instructions)
                 # Refresh report after journal processing
                 refresh_result = await self.report_service.get_report(report.uid)
@@ -375,10 +376,11 @@ class ReportsProcessingService:
         updated_report = update_result.value
 
         # Process journal if this is a JOURNAL type report
-        if hasattr(report, "report_type"):
+        report_type = getattr(report, "report_type", None)
+        if report_type is not None:
             from core.models.enums.report_enums import ReportType
 
-            if report.report_type == ReportType.JOURNAL:
+            if report_type == ReportType.JOURNAL:
                 await self._process_journal(updated_report, text_content, instructions)
                 # Refresh report after journal processing
                 refresh_result = await self.report_service.get_report(report.uid)

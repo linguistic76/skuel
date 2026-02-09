@@ -49,12 +49,6 @@ class LegacyCodeDetector:
 
     def run_mypy(self) -> str:
         """Run MyPy and return output."""
-        # Try to use cached output first
-        cached_output = Path("/tmp/mypy_output_final.txt")
-        if cached_output.exists():
-            return cached_output.read_text()
-
-        # Otherwise run MyPy
         result = subprocess.run(
             ["poetry", "run", "mypy", "core/", "adapters/", "--show-error-codes"],
             cwd=self.root_path,

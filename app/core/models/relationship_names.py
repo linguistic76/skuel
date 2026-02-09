@@ -206,7 +206,6 @@ class RelationshipName(str, Enum):
     VIEWED = "VIEWED"  # (user)-[:VIEWED]->(ku) - User has seen/read this content
     IN_PROGRESS = "IN_PROGRESS"  # (user)-[:IN_PROGRESS]->(ku) - Actively learning
     MASTERED = "MASTERED"  # (user)-[:MASTERED]->(ku) - Knowledge acquired
-    LEARNING = "LEARNING"  # Legacy - use IN_PROGRESS for new code
 
     # =========================================================================
     # USER SOCIAL/PREFERENCE RELATIONSHIPS

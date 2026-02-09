@@ -51,7 +51,6 @@ def is_blocking_relationship(rel_type: RelationshipType) -> bool:
         RelationshipType.BLOCKS,
         RelationshipType.REQUIRES,
         RelationshipType.PREREQUISITE_FOR,
-        RelationshipType.PREREQUISITE,
     }
 
 
@@ -62,7 +61,7 @@ def is_hierarchical_relationship(rel_type: RelationshipType) -> bool:
         RelationshipType.CHILD_OF,
         RelationshipType.SUBTASK_OF,
         RelationshipType.PART_OF,
-        RelationshipType.PARENT_CHILD,
+        RelationshipType.PARENT_OF,
     }
 
 
@@ -87,7 +86,6 @@ def get_inverse_relationship(rel_type: RelationshipType) -> RelationshipType | N
         RelationshipType.AFTER: RelationshipType.BEFORE,
         RelationshipType.ENABLES: RelationshipType.REQUIRES,
         RelationshipType.PREREQUISITE_FOR: RelationshipType.BUILDS_ON,
-        RelationshipType.PREREQUISITE: RelationshipType.BUILDS_ON,
         RelationshipType.BUILDS_ON: RelationshipType.PREREQUISITE_FOR,
         RelationshipType.TRIGGERS: RelationshipType.REQUIRES,
         RelationshipType.REPLACES: RelationshipType.REQUIRES,

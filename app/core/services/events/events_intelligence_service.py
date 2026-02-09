@@ -685,13 +685,20 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
             user_level=user_engagement_level,
             user_evidence=user_evidence,
             user_reflection=user_reflection,
-            system_calculator=lambda _entity,
-            u_uid: self._calculate_system_engagement_for_dual_track(u_uid, period_days),
+            system_calculator=self._make_system_engagement_calculator(period_days),
             level_scorer=self._engagement_level_to_score,
             entity_type="user_events",
             insight_generator=self._generate_event_gap_insights,
             recommendation_generator=self._generate_event_gap_recommendations,
         )
+
+    def _make_system_engagement_calculator(self, period_days: int) -> Any:
+        """Create a system calculator for dual-track engagement assessment."""
+
+        async def _calculate(_entity: Any, u_uid: str) -> tuple[EngagementLevel, float, list[str]]:
+            return await self._calculate_system_engagement_for_dual_track(u_uid, period_days)
+
+        return _calculate
 
     async def _calculate_system_engagement_for_dual_track(
         self, user_uid: str, period_days: int = 30

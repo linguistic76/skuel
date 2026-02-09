@@ -113,9 +113,6 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
-    from adapters.personalized_knowledge_discovery_adapter import (
-        PersonalizedKnowledgeDiscoveryAdapter,
-    )
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
         AdaptiveLpCrossDomainService,
@@ -242,7 +239,6 @@ class Services:
     # Note: MOC is a Content/Organization domain, not Curriculum
     # ========================================================================
     ku: KuOperations | None = None  # KuService (Knowledge Units) - atomic knowledge content
-    personalized_discovery: "PersonalizedKnowledgeDiscoveryAdapter | None" = None
     # adaptive_sel removed — absorbed into KuService.adaptive (February 2026)
     cross_domain: "AdaptiveLpCrossDomainService | None" = None
 
@@ -617,9 +613,6 @@ def _create_learning_services(
     prometheus_metrics: Any = None,
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
-    from adapters.personalized_knowledge_discovery_adapter import (
-        create_personalized_knowledge_discovery_adapter,
-    )
     from core.services.ku_retrieval import KuRetrieval
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService  # Intelligence created internally
@@ -712,14 +705,6 @@ def _create_learning_services(
         chunking_service=chunking_service,
     )
 
-    # Create personalized discovery (ku_retrieval with optional embeddings)
-    personalized_discovery = create_personalized_knowledge_discovery_adapter(
-        user_service=user_service,
-        ku_retrieval=ku_retrieval,
-        driver=driver,
-        user_progress_service=user_progress,
-    )
-
     # Adaptive SEL removed — now KuService.adaptive sub-service (February 2026)
 
     # NOTE: Askesis creation MOVED to compose_services() (January 2026)
@@ -742,7 +727,6 @@ def _create_learning_services(
         "learning_paths": learning_paths,
         "learning_steps": ls_service,  # NEW: Dedicated LS service
         "ku_retrieval": ku_retrieval,
-        "personalized_discovery": personalized_discovery,
         # NOTE: "askesis" MOVED to compose_services() (January 2026)
         "cross_domain": cross_domain_service,
         "embeddings_service": embeddings_service,  # For intelligence services
@@ -2295,7 +2279,6 @@ async def compose_services(
             finance=core_services["finance"],
             # Knowledge
             ku=learning_services["ku_service"],
-            personalized_discovery=learning_services["personalized_discovery"],
             cross_domain=learning_services["cross_domain"],
             # Content
             transcript_processor=transcript_processor,

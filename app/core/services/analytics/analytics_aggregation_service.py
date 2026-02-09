@@ -152,9 +152,6 @@ class AnalyticsAggregationService:
         total_activity = self._calculate_total_activity(layer1_domains)
         domain_activity_ranking = self._rank_domains_by_activity(layer1_domains)
 
-        # Layer 1: Cross-domain patterns (existing)
-        layer1_patterns = self._detect_basic_patterns(layer1_domains)
-
         # NEW: Cross-layer synthesis (Phase 3)
         cross_layer_insights = self._synthesize_cross_layer_insights(
             layer1_domains=layer1_domains,
@@ -178,9 +175,6 @@ class AnalyticsAggregationService:
             "layer_2_reflection": journal_metrics,
             # Cross-layer synthesis (NEW)
             "cross_layer_insights": cross_layer_insights,
-            # Legacy keys for backward compatibility
-            "domains": layer1_domains,
-            "cross_domain_patterns": layer1_patterns,
             # Enhanced summary with all layers
             "summary": self._generate_cross_layer_summary_text(
                 domain_activity_ranking, knowledge_metrics, journal_metrics, cross_layer_insights

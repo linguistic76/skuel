@@ -5,7 +5,6 @@ Relationship Models
 Models for representing relationships in the knowledge graph.
 """
 
-from .relationships import GraphPath, Relationship
 from .semantic_relationships import (
     RelationshipMetadata,
     SemanticRelationship,
@@ -13,11 +12,7 @@ from .semantic_relationships import (
 )
 
 __all__ = [
-    "GraphPath",
-    # Basic graph models
-    "Relationship",
     "RelationshipMetadata",
-    # Semantic models
     "SemanticRelationship",
     "SemanticRelationshipType",
 ]

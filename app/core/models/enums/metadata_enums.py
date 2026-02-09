@@ -92,16 +92,13 @@ class RelationshipType(str, Enum):
     PARENT_OF = "parent_of"  # A is parent of B
     CHILD_OF = "child_of"  # A is child of B
     SUBTASK_OF = "subtask_of"  # A is subtask of B (specific parent type)
-    PARENT_CHILD = "parent_child"  # Legacy alias for PARENT_OF
 
     # Association relationships
     RELATED_TO = "related_to"  # General relation
-    RELATED = "related"  # Legacy alias for RELATED_TO
     PART_OF = "part_of"  # A is part of B (e.g., event part of project)
     SUPPORTS = "supports"  # A supports B (non-blocking helper)
     SUGGESTS = "suggests"  # A suggests B
     CONFLICTS_WITH = "conflicts_with"  # A conflicts with B (scheduling conflict)
-    CONFLICTS = "conflicts"  # Legacy alias for CONFLICTS_WITH
     DUPLICATES = "duplicates"  # A duplicates B
     CONTINUES = "continues"  # A continues B
 
@@ -113,7 +110,6 @@ class RelationshipType(str, Enum):
 
     # Learning relationships
     PREREQUISITE_FOR = "prerequisite_for"  # A is prerequisite for B
-    PREREQUISITE = "prerequisite"  # Legacy alias for PREREQUISITE_FOR
     BUILDS_ON = "builds_on"  # A builds on knowledge from B
     PRACTICES = "practices"  # A practices skill from B
     APPLIES_TO = "applies_to"  # Knowledge applies to domain/situation

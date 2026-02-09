@@ -180,7 +180,7 @@ class SemanticRelationshipType(str, Enum):
             RelationshipType.BLOCKS: cls.BLOCKS_UNTIL_COMPLETE,
             RelationshipType.ENABLES: cls.ENABLES_START_OF,
             RelationshipType.RELATED_TO: cls.SHARES_PRINCIPLE_WITH,
-            RelationshipType.PREREQUISITE: cls.REQUIRES_THEORETICAL_UNDERSTANDING,
+            RelationshipType.PREREQUISITE_FOR: cls.REQUIRES_THEORETICAL_UNDERSTANDING,
             RelationshipType.BEFORE: cls.OCCURS_BEFORE,
             RelationshipType.AFTER: cls.OCCURS_AFTER,
             RelationshipType.SUPPORTS: cls.PROVIDES_FOUNDATION_FOR,

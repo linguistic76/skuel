@@ -323,7 +323,7 @@ class SemanticSimilarityQueries:
             # Returns:
             # ku.react_19 (distance: 0.10, released: 30 days ago)
             # ku.server_components (distance: 0.25, trending: current)
-            # (EXCLUDES: ku.class_components - deprecated 2 years ago)
+            # (EXCLUDES: ku.class_components - deprecated)
         """
         cypher = """
         MATCH (source {uid: $source_uid})-[r:RELATED_TO|SIMILAR_TO]-(related)

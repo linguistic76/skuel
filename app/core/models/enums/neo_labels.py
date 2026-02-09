@@ -83,8 +83,6 @@ class NeoLabel(str, Enum):
     # =========================================================================
     # Content/Processing Domains
     # =========================================================================
-    JOURNAL = "Journal"  # Legacy — migration target is Report
-    JOURNAL_PROJECT = "JournalProject"  # Legacy — migration target is ReportProject
     REPORT = "Report"
     REPORT_PROJECT = "ReportProject"
     REPORT_SCHEDULE = "ReportSchedule"

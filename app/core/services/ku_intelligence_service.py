@@ -399,7 +399,8 @@ class KuIntelligenceService(BaseAnalyticsService[KuOperations, Ku]):
         ku_result = await self.backend.get(ku_uid)
         if ku_result.is_ok and ku_result.value:
             ku = ku_result.value
-            global_substance_score = ku.substance_score() if hasattr(ku, "substance_score") else 0.0
+            substance_fn = getattr(ku, "substance_score", None)
+            global_substance_score = substance_fn() if substance_fn else 0.0
 
         # Get mastery level from UserContext
         mastery_level = user_context.knowledge_mastery.get(ku_uid, 0.0)

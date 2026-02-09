@@ -209,11 +209,10 @@ class LpService(FacadeDelegationMixin):
         self.intelligence = subs.intelligence
         self.progress = subs.progress
 
-        # Store dependencies for legacy access
+        # Store dependencies
         self.driver = driver
         self.ls_service = ls_service
         self.ku_service = ku_service
-        self.progress_service = progress_service  # Legacy user progress service
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
         self.ai: LpAIService | None = ai_service

@@ -219,7 +219,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 
         # Validate: search-enabled services have required configuration
         # Check if service defines _search_fields (indicates search capability)
-        if hasattr(self.__class__, "_search_fields"):
+        if getattr(self.__class__, "_search_fields", None) is not None:
             dto_class = self._get_config_value("dto_class")
             model_class = self._get_config_value("model_class")
 

@@ -410,11 +410,15 @@ class UnifiedIngestionService:
 
         Delegates to batch.ingest_bundle.
         """
+
+        def _find_entity_file_with_size(bp: Path, uid: str) -> Path | None:
+            return find_entity_file(bp, uid, self.max_file_size_bytes)
+
         return await ingest_bundle(
             bundle_path=bundle_path,
             parse_yaml_fn=self.parse_yaml,
             ingest_file_fn=self.ingest_file,
-            find_entity_file_fn=lambda bp, uid: find_entity_file(bp, uid, self.max_file_size_bytes),
+            find_entity_file_fn=_find_entity_file_with_size,
         )
 
     # ========================================================================
