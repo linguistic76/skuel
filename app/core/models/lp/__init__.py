@@ -19,7 +19,7 @@ Usage:
 from core.models.ls import LearningStep, Ls, MasteryLevel
 
 from .lp import LearningPath, Lp, LpType
-from .lp_dto import LearningStepDTO, LpDTO
+from .lp_dto import LpDTO
 from .lp_request import (
     LearningStepCreateRequest,
     LearningStepUpdateRequest,
@@ -34,7 +34,6 @@ __all__ = [
     "LearningPath",
     "LearningStep",
     "LearningStepCreateRequest",
-    "LearningStepDTO",
     "LearningStepUpdateRequest",
     # Domain Models - Preferred abbreviated forms
     "Lp",

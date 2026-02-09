@@ -1,8 +1,9 @@
 """
-Learning Data Transfer Objects (Tier 2 - Transfer)
-===================================================
+Learning Path DTO (Tier 2 - Transfer)
+======================================
 
-Mutable DTOs for transferring learning data between layers.
+Mutable data transfer object for moving learning path data between layers.
+No business logic, just data structure.
 
 Phase 3 Graph-Native Migration (January 2026):
 - Relationship fields removed - relationships stored ONLY as Neo4j edges
@@ -15,63 +16,45 @@ from datetime import datetime
 from typing import Any
 
 from core.models.enums import Domain
+from core.services.protocols import get_enum_value
 
-
-@dataclass
-class LearningStepDTO:
-    """
-    Mutable DTO for transferring learning step data within LP context.
-
-    Used for data movement between service and backend layers.
-    Note: This is a simplified DTO for LP's embedded steps. For full
-    LearningStep operations, use core.models.ls.ls_dto.LearningStepDTO.
-    """
-
-    # Identity
-    uid: str
-    knowledge_uid: str  # Reference to Knowledge model
-    sequence: int  # Order in the path
-
-    # Requirements
-    mastery_threshold: float = 0.7  # Required mastery level (0.0-1.0),
-    estimated_hours: float = 1.0
-
-    # Status
-    current_mastery: float = 0.0
-    completed: bool = False
-    completed_at: datetime | None = None
-
-    # Optional fields
-    notes: str | None = None
+from .lp import LpType
 
 
 @dataclass
 class LpDTO:
     """
-    Mutable DTO for transferring learning path data.
+    Mutable data transfer object for learning paths.
 
-    Used for data movement between service and backend layers.
+    Used for:
+    - Moving data between service and repository layers
+    - Database operations (save/update)
+    - Service-to-service communication
     """
 
-    # Identity
+    # Core fields (required)
     uid: str
     name: str
-    goal: str  # What the learner will achieve
+    goal: str
     domain: Domain
 
     # Configuration
-    path_type: str = "structured"  # Using string for flexibility,
+    path_type: LpType = LpType.STRUCTURED
     difficulty: str = "intermediate"
 
-    # Steps (mutable list)
-    steps: list[LearningStepDTO] = field(default_factory=list)
-
     # Metadata
-    created_at: datetime | None = None
-
-    updated_at: datetime | None = None
-
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
     created_by: str | None = None
+
+    # Outcomes (text strings, NOT relationships)
+    outcomes: list[str] = field(default_factory=list)
+
+    # Time estimates
+    estimated_hours: float = 0.0
+
+    # Milestone checkpoints
+    checkpoint_week_intervals: list[int] = field(default_factory=list)
 
     # =========================================================================
     # PHASE 3: RELATIONSHIP FIELDS REMOVED (January 2026)
@@ -83,19 +66,71 @@ class LpDTO:
     #   prereqs = rels.prerequisite_uids
     #
     # OLD FIELDS REMOVED:
-    # - prerequisites: list[str]  # Was graph-populated from (lp)-[:REQUIRES_KNOWLEDGE]->(ku)
+    # - prerequisites: list[str]
     # =========================================================================
 
-    # Outcomes (text strings, NOT relationships - kept)
-    outcomes: list[str] = field(default_factory=list)  # Learning outcomes (text strings)
-
-    # Time estimates
-    estimated_hours: float = 0.0
-
     # Additional transfer fields
-    user_uid: str | None = None  # For user-specific paths,
-    source: str | None = None  # Where path originated,
-    tags: list[str] = field(default_factory=list)  # For categorization
-    metadata: dict[str, Any] = field(
-        default_factory=dict
-    )  # Rich context storage (graph neighborhoods, etc.)
+    user_uid: str | None = None
+    source: str | None = None
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert to dictionary for database operations.
+
+        Returns:
+            Dictionary representation with serialized enums and datetimes.
+        """
+        from core.models.dto_helpers import convert_datetimes_to_iso
+
+        data = {
+            "uid": self.uid,
+            "name": self.name,
+            "goal": self.goal,
+            "domain": get_enum_value(self.domain),
+            "path_type": get_enum_value(self.path_type),
+            "difficulty": self.difficulty,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "created_by": self.created_by,
+            "outcomes": list(self.outcomes),
+            "estimated_hours": self.estimated_hours,
+            "checkpoint_week_intervals": list(self.checkpoint_week_intervals),
+            "tags": list(self.tags),
+            "metadata": dict(self.metadata),
+        }
+
+        convert_datetimes_to_iso(data, ["created_at", "updated_at"])
+
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "LpDTO":
+        """
+        Create DTO from dictionary (from database).
+
+        Infrastructure fields (e.g., 'embedding', 'embedding_version') are
+        automatically filtered out by dto_from_dict.
+
+        See: /docs/decisions/ADR-037-embedding-infrastructure-separation.md
+        """
+        from core.models.dto_helpers import dto_from_dict
+
+        return dto_from_dict(
+            cls,
+            data,
+            enum_fields={
+                "domain": Domain,
+                "path_type": LpType,
+            },
+            datetime_fields=["created_at", "updated_at"],
+            list_fields=["outcomes", "tags", "checkpoint_week_intervals"],
+            deprecated_fields=["prerequisites"],
+        )
+
+    def __eq__(self, other: object) -> bool:
+        """Equality based on UID."""
+        if not isinstance(other, LpDTO):
+            return False
+        return self.uid == other.uid

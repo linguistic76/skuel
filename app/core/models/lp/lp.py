@@ -15,7 +15,10 @@ Phase 1-4 Integration (October 3, 2025):
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .lp_dto import LpDTO
 
 from core.constants import GraphDepth
 from core.models.enums import Domain
@@ -102,6 +105,60 @@ class Lp:
         if self.estimated_hours == 0.0 and self.steps:
             total_hours = sum(step.estimated_hours for step in self.steps)
             object.__setattr__(self, "estimated_hours", total_hours)
+
+    # ==========================================================================
+    # CONVERSIONS
+    # ==========================================================================
+
+    @classmethod
+    def from_dto(cls, dto: "LpDTO") -> "Lp":
+        """
+        Create immutable Lp from mutable DTO.
+
+        All 14 business fields are copied — lossless round-trip with to_dto().
+        Steps are NOT transferred (populated separately from graph relationships).
+        """
+        return cls(
+            uid=dto.uid,
+            name=dto.name,
+            goal=dto.goal,
+            domain=dto.domain,
+            path_type=dto.path_type if isinstance(dto.path_type, LpType) else LpType(dto.path_type),
+            difficulty=dto.difficulty,
+            steps=(),  # Steps come from HAS_STEP relationships, not DTO
+            created_at=dto.created_at,
+            updated_at=dto.updated_at,
+            created_by=dto.created_by,
+            outcomes=tuple(dto.outcomes),
+            estimated_hours=dto.estimated_hours,
+            checkpoint_week_intervals=tuple(dto.checkpoint_week_intervals),
+            metadata=dto.metadata or {},
+        )
+
+    def to_dto(self) -> "LpDTO":
+        """
+        Convert to mutable DTO for updates.
+
+        All 14 business fields are copied — lossless round-trip with from_dto().
+        Steps are NOT transferred (relationship data, not node property).
+        """
+        from .lp_dto import LpDTO
+
+        return LpDTO(
+            uid=self.uid,
+            name=self.name,
+            goal=self.goal,
+            domain=self.domain,
+            path_type=self.path_type,
+            difficulty=self.difficulty,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+            created_by=self.created_by,
+            outcomes=list(self.outcomes),
+            estimated_hours=self.estimated_hours,
+            checkpoint_week_intervals=list(self.checkpoint_week_intervals),
+            metadata=dict(self.metadata) if self.metadata else {},
+        )
 
     # ==========================================================================
     # KNOWLEDGE CARRIER PROTOCOL IMPLEMENTATION

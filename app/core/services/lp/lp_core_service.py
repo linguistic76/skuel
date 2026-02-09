@@ -40,6 +40,7 @@ from core.services.domain_config import create_curriculum_domain_config
 from core.services.protocols import HasUID, get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_sequence
 
@@ -121,6 +122,36 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         super().__init__(backend, "lp_core")
         self.ls_service = ls_service
         self.event_bus = event_bus
+
+    @staticmethod
+    def _build_lp_from_record(path_data: dict, steps: list[Ls]) -> Lp:
+        """Build Lp from Neo4j node dict + pre-built step list.
+
+        Uses from_neo4j_node for full field deserialization, then overrides
+        the steps field (which comes from HAS_STEP relationships, not node properties).
+        """
+        lp = from_neo4j_node(path_data, Lp)
+        object.__setattr__(lp, "steps", tuple(steps))
+        return lp
+
+    @staticmethod
+    def _build_steps_from_data(steps_data: list[dict]) -> list[Ls]:
+        """Build Ls list from step node dicts fetched via HAS_STEP join.
+
+        Uses from_neo4j_node for full field deserialization of each step.
+        """
+        if not steps_data:
+            return []
+
+        sorted_steps = sorted(steps_data, key=get_sequence)
+        steps: list[Ls] = []
+        for step_info in sorted_steps:
+            step_node = step_info.get("step") or step_info
+            if step_node:
+                step_dict = dict(step_node) if not isinstance(step_node, dict) else step_node
+                if step_dict.get("uid"):
+                    steps.append(from_neo4j_node(step_dict, Ls))
+        return steps
 
     def _build_prerequisite_query(self, knowledge_var: str = "k", depth: int = 3) -> str:
         """
@@ -267,40 +298,11 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         if query_result.is_error:
             return Result.fail(query_result)
 
-        paths_map = {}
+        paths_map: dict[str, Lp] = {}
         for record in query_result.value:
             path_data = dict(record["p"])
-            steps_data = record["steps_data"]
-
-            steps = []
-            if steps_data:
-                sorted_steps = sorted(steps_data, key=get_sequence)
-                for step_info in sorted_steps:
-                    if step_info["step"]:
-                        step_dict = dict(step_info["step"])
-                        steps.append(
-                            Ls(
-                                uid=step_dict["uid"],
-                                title=step_dict.get("title", "Learning Step"),
-                                intent=step_dict.get("intent", "Complete this learning step"),
-                                primary_knowledge_uids=tuple([step_dict["knowledge_uid"]])
-                                if "knowledge_uid" in step_dict
-                                else (),
-                                sequence=step_dict.get("sequence"),
-                                estimated_hours=step_dict.get("estimated_hours", 2.0),
-                                mastery_threshold=step_dict.get("mastery_threshold", 0.8),
-                                # Note: prerequisite_step_uids removed - graph relationship
-                            )
-                        )
-
-            path = Lp(
-                uid=path_data["uid"],
-                name=path_data["name"],
-                goal=path_data["goal"],
-                domain=Domain[path_data.get("domain", "LEARNING")],
-                steps=tuple(steps),
-                estimated_hours=path_data.get("estimated_hours", 0.0),
-            )
+            steps = self._build_steps_from_data(record["steps_data"])
+            path = self._build_lp_from_record(path_data, steps)
             paths_map[path.uid] = path
 
         # Return in same order as input UIDs
@@ -329,37 +331,8 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
 
         record = records[0]
         path_data = dict(record["p"])
-        steps_data = record["steps_data"]
-
-        steps = []
-        if steps_data:
-            sorted_steps = sorted(steps_data, key=get_sequence)
-            for step_info in sorted_steps:
-                if step_info["step"]:
-                    step_dict = dict(step_info["step"])
-                    steps.append(
-                        Ls(
-                            uid=step_dict["uid"],
-                            title=step_dict.get("title", "Learning Step"),
-                            intent=step_dict.get("intent", "Complete this learning step"),
-                            primary_knowledge_uids=tuple([step_dict["knowledge_uid"]])
-                            if "knowledge_uid" in step_dict
-                            else (),
-                            sequence=step_dict.get("sequence"),
-                            estimated_hours=step_dict.get("estimated_hours", 2.0),
-                            mastery_threshold=step_dict.get("mastery_threshold", 0.8),
-                            # Note: prerequisite_step_uids removed - graph relationship
-                        )
-                    )
-
-        path = Lp(
-            uid=path_data["uid"],
-            name=path_data["name"],
-            goal=path_data["goal"],
-            domain=Domain[path_data.get("domain", "LEARNING")],
-            steps=tuple(steps),
-            estimated_hours=path_data.get("estimated_hours", 0.0),
-        )
+        steps = self._build_steps_from_data(record["steps_data"])
+        path = self._build_lp_from_record(path_data, steps)
 
         return Result.ok(path)
 
@@ -500,19 +473,8 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
                         )
                     )
 
-        # Build Lp
-        path = Lp(
-            uid=path_data["uid"],
-            name=path_data["name"],
-            goal=path_data["goal"],
-            domain=Domain[path_data.get("domain", "LEARNING").upper()],
-            steps=tuple(steps),
-            estimated_hours=path_data.get("estimated_hours", 0.0),
-            path_type=path_data.get("path_type", "structured"),
-            difficulty=path_data.get("difficulty", "intermediate"),
-            created_by=path_data.get("created_by"),
-            checkpoint_week_intervals=tuple(path_data.get("checkpoint_week_intervals", [])),
-        )
+        # Build Lp — from_neo4j_node handles all fields from full node
+        path = self._build_lp_from_record(path_data, steps)
 
         # Calculate progress percentage
         total_steps = record["total_steps"]
@@ -594,39 +556,8 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         paths = []
         for record in query_result.value:
             path_data = dict(record["p"])
-            steps_data = record["steps_data"]
-
-            steps = []
-            if steps_data:
-                sorted_steps = sorted(steps_data, key=get_sequence)
-                for step_info in sorted_steps:
-                    if step_info["step"]:
-                        step_dict = dict(step_info["step"])
-                        steps.append(
-                            Ls(
-                                uid=step_dict["uid"],
-                                title=step_dict.get("title", "Learning Step"),
-                                intent=step_dict.get("intent", "Complete this learning step"),
-                                primary_knowledge_uids=tuple([step_dict["knowledge_uid"]])
-                                if "knowledge_uid" in step_dict
-                                else (),
-                                sequence=step_dict.get("sequence"),
-                                estimated_hours=step_dict.get("estimated_hours", 2.0),
-                                mastery_threshold=step_dict.get("mastery_threshold", 0.8),
-                                # Note: prerequisite_step_uids removed - graph relationship
-                            )
-                        )
-
-            paths.append(
-                Lp(
-                    uid=path_data["uid"],
-                    name=path_data["name"],
-                    goal=path_data["goal"],
-                    domain=Domain[path_data.get("domain", "LEARNING")],
-                    steps=tuple(steps),
-                    estimated_hours=path_data.get("estimated_hours", 0.0),
-                )
-            )
+            steps = self._build_steps_from_data(record["steps_data"])
+            paths.append(self._build_lp_from_record(path_data, steps))
 
         return Result.ok(paths)
 
@@ -673,39 +604,8 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
             paths = []
             async for record in result:
                 path_data = dict(record["p"])
-                steps_data = record["steps_data"]
-
-                steps = []
-                if steps_data:
-                    sorted_steps = sorted(steps_data, key=get_sequence)
-                    for step_info in sorted_steps:
-                        if step_info["step"]:
-                            step_dict = dict(step_info["step"])
-                            steps.append(
-                                Ls(
-                                    uid=step_dict["uid"],
-                                    title=step_dict.get("title", "Learning Step"),
-                                    intent=step_dict.get("intent", "Complete this learning step"),
-                                    primary_knowledge_uids=tuple([step_dict["knowledge_uid"]])
-                                    if "knowledge_uid" in step_dict
-                                    else (),
-                                    sequence=step_dict.get("sequence"),
-                                    estimated_hours=step_dict.get("estimated_hours", 2.0),
-                                    mastery_threshold=step_dict.get("mastery_threshold", 0.8),
-                                    # Note: prerequisite_step_uids removed - graph relationship
-                                )
-                            )
-
-                paths.append(
-                    Lp(
-                        uid=path_data["uid"],
-                        name=path_data["name"],
-                        goal=path_data["goal"],
-                        domain=Domain[path_data.get("domain", "LEARNING")],
-                        steps=tuple(steps),
-                        estimated_hours=path_data.get("estimated_hours", 0.0),
-                    )
-                )
+                steps = self._build_steps_from_data(record["steps_data"])
+                paths.append(self._build_lp_from_record(path_data, steps))
 
             return Result.ok(paths)
 
@@ -774,12 +674,17 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         set_clauses = []
         params = {"uid": path_uid}
 
-        allowed_fields = {"name", "goal", "domain", "estimated_hours"}
+        allowed_fields = {
+            "name", "goal", "domain", "estimated_hours",
+            "path_type", "difficulty", "outcomes", "checkpoint_week_intervals",
+        }
         for key, value in updates.items():
             if key in allowed_fields:
                 set_clauses.append(f"p.{key} = ${key}")
-                if key == "domain":
+                if key in ("domain", "path_type"):
                     params[key] = get_enum_value(value)
+                elif key in ("outcomes", "checkpoint_week_intervals"):
+                    params[key] = list(value) if value else []
                 else:
                     params[key] = value
 
@@ -816,29 +721,10 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
             steps = []
             for step_node in steps_data:
                 step_dict = dict(step_node)
-                steps.append(
-                    Ls(
-                        uid=step_dict["uid"],
-                        title=step_dict.get("title", "Learning Step"),
-                        intent=step_dict.get("intent", "Complete this learning step"),
-                        primary_knowledge_uids=tuple([step_dict["knowledge_uid"]])
-                        if "knowledge_uid" in step_dict
-                        else (),
-                        sequence=step_dict.get("sequence"),
-                        estimated_hours=step_dict.get("estimated_hours", 2.0),
-                        mastery_threshold=step_dict.get("mastery_threshold", 0.8),
-                        # Note: prerequisite_step_uids removed - graph relationship
-                    )
-                )
+                if step_dict.get("uid"):
+                    steps.append(from_neo4j_node(step_dict, Ls))
 
-            updated_path = Lp(
-                uid=path_data["uid"],
-                name=path_data["name"],
-                goal=path_data["goal"],
-                domain=Domain[path_data.get("domain", "LEARNING")],
-                steps=tuple(steps),
-                estimated_hours=path_data.get("estimated_hours", 0.0),
-            )
+            updated_path = self._build_lp_from_record(path_data, steps)
 
             logger.info(f"✅ Updated learning path {path_uid}")
             return Result.ok(updated_path)
@@ -917,12 +803,7 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         steps = []
         for record in result.records:
             ls_data = dict(record["ls"])
-            # Convert to Ls model using the LS adapter
-            from core.models.learning_step.learning_step import Ls
-            from core.models.learning_step.learning_step_dto import LsDTO
-
-            ls = self._to_domain_model(ls_data, LsDTO, Ls)
-            steps.append(ls)
+            steps.append(from_neo4j_node(ls_data, Ls))
 
         return Result.ok(steps)
 
@@ -1149,7 +1030,7 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
     async def _persist_path(self, path: Lp, user_uid: str) -> Result[bool]:
         """Persist a learning path to Neo4j graph."""
         async with self.backend.driver.session() as session:
-            # Create path node
+            # Create path node with all fields
             await session.run(
                 """
                 MERGE (u:User {uid: $user_uid})
@@ -1158,7 +1039,12 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
                     name: $name,
                     goal: $goal,
                     domain: $domain,
+                    path_type: $path_type,
+                    difficulty: $difficulty,
+                    created_by: $created_by,
                     estimated_hours: $estimated_hours,
+                    outcomes: $outcomes,
+                    checkpoint_week_intervals: $checkpoint_week_intervals,
                     created_at: datetime(),
                     updated_at: datetime()
                 })
@@ -1168,8 +1054,13 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
                 uid=path.uid,
                 name=path.name,
                 goal=path.goal,
-                domain=path.domain.value,
+                domain=get_enum_value(path.domain),
+                path_type=get_enum_value(path.path_type),
+                difficulty=path.difficulty,
+                created_by=path.created_by,
                 estimated_hours=path.estimated_hours,
+                outcomes=list(path.outcomes),
+                checkpoint_week_intervals=list(path.checkpoint_week_intervals),
             )
 
             # Create step nodes and relationships
