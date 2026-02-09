@@ -416,7 +416,7 @@ poetry run python main.py
 
 ### Related
 - **SEL Service:** `/core/services/sel/adaptive_sel_service.py`
-- **SEL Models:** `/core/models/sel/sel_progress.py`
+- **KU Progress Models:** `/core/models/ku/ku_progress.py`
 
 ---
 

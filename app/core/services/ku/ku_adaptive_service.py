@@ -31,7 +31,7 @@ from core.models.ku.ku_intelligence import (
 )
 from core.models.lp.lp import LearningPath
 from core.models.relationship_names import RelationshipName
-from core.models.sel import SELCategoryProgress, SELJourney
+from core.models.ku.ku_progress import KuCategoryProgress, KuLearningJourney
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -239,7 +239,7 @@ class KuAdaptiveService:
     # ==========================================================================
 
     @with_error_handling(error_type="system", operation="get_sel_journey")
-    async def get_sel_journey(self, user_uid: str) -> Result[SELJourney]:
+    async def get_sel_journey(self, user_uid: str) -> Result[KuLearningJourney]:
         """Get user's complete SEL journey across all categories."""
         category_progress = {}
 
@@ -251,7 +251,7 @@ class KuAdaptiveService:
         overall = total_progress / len(SELCategory)
 
         return Result.ok(
-            SELJourney(
+            KuLearningJourney(
                 user_uid=user_uid,
                 category_progress=category_progress,
                 overall_completion=overall,
@@ -260,7 +260,7 @@ class KuAdaptiveService:
 
     async def _calculate_category_progress(
         self, user_uid: str, category: SELCategory
-    ) -> SELCategoryProgress:
+    ) -> KuCategoryProgress:
         """Calculate progress in one SEL category."""
         try:
             all_kus_result = await self.ku_backend.find_by(sel_category=category.value)
@@ -277,7 +277,7 @@ class KuAdaptiveService:
 
             mastered = sum(1 for ku in all_kus if ku.uid in user_intel.current_masteries)
 
-            return SELCategoryProgress(
+            return KuCategoryProgress(
                 user_uid=user_uid, sel_category=category, kus_mastered=mastered, total_kus=total
             )
 
@@ -286,7 +286,7 @@ class KuAdaptiveService:
                 "Error calculating category progress - returning empty",
                 extra={"user_uid": user_uid, "category": category.value, "error": str(e)},
             )
-            return SELCategoryProgress(
+            return KuCategoryProgress(
                 user_uid=user_uid, sel_category=category, kus_mastered=0, total_kus=0
             )
 

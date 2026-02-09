@@ -23,9 +23,9 @@ from ui.profile.domain_stats_config import (
     habits_active,
     habits_count,
     habits_status_args,
-    learning_active,
-    learning_count,
-    learning_status,
+    knowledge_active,
+    knowledge_count,
+    knowledge_status,
     principles_active,
     principles_count,
     principles_status_args,
@@ -254,25 +254,25 @@ def test_choices_config() -> None:
 # ============================================================================
 
 
-def test_learning_count(mock_context: UserContext) -> None:
-    """Test learning count calculation (mastered + in_progress + ready)."""
-    assert learning_count(mock_context) == 5  # 2 mastered + 1 in_progress + 2 ready
+def test_knowledge_count(mock_context: UserContext) -> None:
+    """Test knowledge count calculation (mastered + in_progress + ready)."""
+    assert knowledge_count(mock_context) == 5  # 2 mastered + 1 in_progress + 2 ready
 
 
-def test_learning_active(mock_context: UserContext) -> None:
-    """Test learning active count calculation (in_progress + ready)."""
-    assert learning_active(mock_context) == 3  # 1 in_progress + 2 ready
+def test_knowledge_active(mock_context: UserContext) -> None:
+    """Test knowledge active count calculation (in_progress)."""
+    assert knowledge_active(mock_context) == 1  # 1 in_progress
 
 
-def test_learning_status_healthy(mock_context: UserContext) -> None:
-    """Test learning status calculation with low blocking."""
-    # 1 prerequisite needed, 1 enrolled path = 100% blocked but threshold is 50%
-    status = learning_status(mock_context)
-    assert status == "critical"  # 1 > 1 * 0.5
+def test_knowledge_status_warning(mock_context: UserContext) -> None:
+    """Test knowledge status calculation with some blocking."""
+    # 1 blocked, 2 mastered + 1 in_progress: 1 > 3*0.5=1.5 is False, but blocked > 0 = warning
+    status = knowledge_status(mock_context)
+    assert status == "warning"
 
 
-def test_learning_status_no_enrolled_paths() -> None:
-    """Test learning status with no enrolled paths."""
+def test_knowledge_status_no_enrolled_paths() -> None:
+    """Test knowledge status with no enrolled paths."""
     context = UserContext(
         user_uid="user_test",
         username="test",
@@ -280,7 +280,7 @@ def test_learning_status_no_enrolled_paths() -> None:
     context.prerequisites_needed = ["ku_1", "ku_2"]
     context.enrolled_path_uids = []
 
-    status = learning_status(context)
+    status = knowledge_status(context)
     assert status == "warning"  # Blocked but no enrolled paths = warning
 
 

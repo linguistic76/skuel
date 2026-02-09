@@ -1,13 +1,13 @@
 """
-SEL Progress Tracking Models
-============================
+KU Category Progress Tracking Models
+=====================================
 
-Models for tracking user progress through the Social Emotional Learning (SEL) framework.
+Models for tracking user progress through KU categories (e.g., SEL categories).
 
 These models support adaptive curriculum delivery by tracking:
-- Progress through each SEL category
+- Progress through each KU category
 - Current learning level
-- Overall SEL journey across all categories
+- Overall learning journey across all categories
 """
 
 from dataclasses import dataclass, field
@@ -17,9 +17,9 @@ from core.models.enums import LearningLevel, SELCategory
 
 
 @dataclass(frozen=True)
-class SELCategoryProgress:
+class KuCategoryProgress:
     """
-    Tracks user's progress through one SEL category.
+    Tracks user's progress through one KU category.
 
     Provides metrics for adaptive curriculum delivery, showing what the user
     has mastered, what's in progress, and what's available next.
@@ -100,21 +100,21 @@ class SELCategoryProgress:
 
 
 @dataclass(frozen=True)
-class SELJourney:
+class KuLearningJourney:
     """
-    Complete SEL journey for a user across all categories.
+    Complete learning journey for a user across all KU categories.
 
     Provides a holistic view of the user's progress through the entire
-    SEL framework, with recommendations for what to focus on next.
+    KU category framework, with recommendations for what to focus on next.
     """
 
     user_uid: str
-    category_progress: dict[SELCategory, SELCategoryProgress]
+    category_progress: dict[SELCategory, KuCategoryProgress]
     overall_completion: float = 0.0
 
     def get_next_recommended_category(self) -> SELCategory:
         """
-        Recommend which SEL category to focus on next.
+        Recommend which KU category to focus on next.
 
         Business rules:
         1. Start with Self-Awareness (foundation)
@@ -183,7 +183,7 @@ class SELJourney:
 
     def get_strongest_category(self) -> SELCategory:
         """
-        Get the SEL category with highest progress.
+        Get the KU category with highest progress.
 
         Returns:
             SELCategory with most completion
@@ -200,7 +200,7 @@ class SELJourney:
 
     def get_weakest_category(self) -> SELCategory:
         """
-        Get the SEL category with lowest progress.
+        Get the KU category with lowest progress.
 
         Returns:
             SELCategory with least completion

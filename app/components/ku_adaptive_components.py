@@ -17,7 +17,7 @@ from fasthtml.common import H1, H2, P
 
 from core.models.enums import SELCategory
 from core.models.ku.ku import Ku
-from core.models.sel import SELCategoryProgress, SELJourney
+from core.models.ku.ku_progress import KuCategoryProgress, KuLearningJourney
 from core.ui.daisy_components import Div, Progress
 from core.ui.enum_helpers import get_sel_icon
 from ui.patterns.entity_card import CardConfig, EntityCard
@@ -25,7 +25,7 @@ from ui.primitives.badge import Badge
 from ui.primitives.button import ButtonLink
 
 
-def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any:
+def SELCategoryCard(category: SELCategory, progress: KuCategoryProgress) -> Any:
     """Card showing progress in one SEL category."""
     category_title = f"{get_sel_icon(category.value)} {category.value.replace('_', ' ').title()}"
 
@@ -105,7 +105,7 @@ def AdaptiveKUCard(ku: Ku, prerequisites_met: bool = True) -> Any:
     )
 
 
-def SELJourneyOverview(journey: SELJourney) -> Div:
+def SELJourneyOverview(journey: KuLearningJourney) -> Div:
     """Complete SEL journey overview showing progress across all 5 categories."""
     next_category = journey.get_next_recommended_category()
 
