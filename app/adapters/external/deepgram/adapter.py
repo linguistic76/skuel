@@ -21,6 +21,7 @@ from typing import Any
 
 import aiofiles  # type: ignore[import-untyped]
 from deepgram import DeepgramClient, PrerecordedOptions
+from deepgram.options import DeepgramClientOptions
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -48,12 +49,13 @@ class DeepgramAdapter:
     No persistence, no state, no business logic.
     """
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, timeout: float = 120.0) -> None:
         """
         Initialize with Deepgram API key.
 
         Args:
             api_key: Deepgram API key (required)
+            timeout: API request timeout in seconds (default: 120s for large files)
 
         Raises:
             ValueError: If api_key is not provided
@@ -61,7 +63,13 @@ class DeepgramAdapter:
         if not api_key:
             raise ValueError("Deepgram API key is required")
 
-        self.client = DeepgramClient(api_key)
+        # Initialize client with timeout configuration
+        config = DeepgramClientOptions(
+            api_key=api_key,
+            options={"timeout": timeout}
+        )
+        self.client = DeepgramClient(api_key=api_key, config=config)
+        self.timeout = timeout
         self.logger = logger
 
     async def transcribe(
@@ -114,10 +122,14 @@ class DeepgramAdapter:
             )
 
             # Call Deepgram API
-            self.logger.info(f"Sending audio to Deepgram: {path.name}")
+            file_size_mb = len(audio_data) / (1024 * 1024)
+            self.logger.info(
+                f"Sending audio to Deepgram: {path.name} ({file_size_mb:.2f}MB, timeout={self.timeout}s)"
+            )
             response = self.client.listen.rest.v("1").transcribe_file(
                 {"buffer": audio_data, "mimetype": self._get_mimetype(path.suffix)},
                 options,
+                timeout=self.timeout,
             )
 
             # Extract results

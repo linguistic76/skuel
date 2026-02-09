@@ -306,25 +306,27 @@ def _render_upload_form(projects: list[Any]) -> Any:
                         ),
                         cls="mb-4",
                     ),
-                    # File input
+                    # File input (directly in form for proper HTMX serialization)
+                    Input(
+                        type="file",
+                        name="file",
+                        id="file-input",
+                        accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
+                        cls="hidden",
+                        required=True,
+                        **{"x-on:change": "handleFileSelect($event)"},
+                    ),
+                    # Custom file selector button
                     Div(
-                        Label(
-                            Div(
-                                P("Select File", cls="text-center mb-0"),
-                                P(
-                                    "Click to browse (audio, text, PDF, images, video)",
-                                    cls="text-sm text-base-content/60 text-center mt-0",
-                                ),
-                                cls="p-4 text-center bg-base-200 rounded-lg cursor-pointer border-2 border-dashed border-base-300",
+                        Div(
+                            P("Select File", cls="text-center mb-0", id="file-label-text"),
+                            P(
+                                "Click to browse (audio, text, PDF, images, video)",
+                                cls="text-sm text-base-content/60 text-center mt-0",
+                                id="file-label-hint",
                             ),
-                            Input(
-                                type="file",
-                                name="file",
-                                accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
-                                cls="hidden",
-                                required=True,
-                            ),
-                            cls="w-full cursor-pointer",
+                            cls="p-4 text-center bg-base-200 rounded-lg cursor-pointer border-2 border-dashed border-base-300",
+                            **{"x-on:click": "document.getElementById('file-input').click()"},
                         ),
                         cls="mb-4",
                     ),
@@ -347,7 +349,22 @@ def _render_upload_form(projects: list[Any]) -> Any:
                         "hx-encoding": "multipart/form-data",
                     },
                     id="upload-form",
-                    **{"x-data": "{ showUpload: false }"},
+                    **{
+                        "x-data": """{
+                            showUpload: false,
+                            selectedFile: null,
+                            handleFileSelect(event) {
+                                const file = event.target.files[0];
+                                if (file) {
+                                    this.selectedFile = file;
+                                    const labelText = document.getElementById('file-label-text');
+                                    const labelHint = document.getElementById('file-label-hint');
+                                    if (labelText) labelText.textContent = file.name;
+                                    if (labelHint) labelHint.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+                                }
+                            }
+                        }"""
+                    },
                 ),
                 cls="card-body",
             ),
@@ -357,12 +374,23 @@ def _render_upload_form(projects: list[Any]) -> Any:
 
 
 def _upload_form_script() -> Any:
-    """HTMX event handlers for upload form UX polish."""
+    """HTMX event handlers for upload form UX polish and error handling."""
     return Script(
         NotStr("""
         document.body.addEventListener('htmx:beforeRequest', function(evt) {
             var form = evt.detail.elt;
             if (form.id === 'upload-form') {
+                console.log('[Journals] Starting upload...');
+
+                // Check if file is selected
+                var fileInput = document.getElementById('file-input');
+                if (fileInput && fileInput.files.length === 0) {
+                    console.error('[Journals] No file selected');
+                    evt.preventDefault();
+                    alert('Please select a file first');
+                    return;
+                }
+
                 var btn = form.querySelector('button[type="submit"]');
                 if (btn) {
                     btn.disabled = true;
@@ -374,12 +402,38 @@ def _upload_form_script() -> Any:
         document.body.addEventListener('htmx:afterRequest', function(evt) {
             var form = evt.detail.elt;
             if (form.id === 'upload-form') {
+                console.log('[Journals] Upload request completed');
+
+                // Reset form (file input will be cleared)
                 form.reset();
+
+                // Clear custom file label
+                var labelText = document.getElementById('file-label-text');
+                var labelHint = document.getElementById('file-label-hint');
+                if (labelText) labelText.textContent = 'Select File';
+                if (labelHint) labelHint.textContent = 'Click to browse (audio, text, PDF, images, video)';
+
                 var btn = form.querySelector('button[type="submit"]');
                 if (btn) {
                     btn.disabled = false;
                     btn.textContent = 'Submit to AI';
                 }
+            }
+        });
+
+        document.body.addEventListener('htmx:responseError', function(evt) {
+            var form = evt.detail.elt;
+            if (form.id === 'upload-form') {
+                console.error('[Journals] Upload failed:', evt.detail.xhr.status, evt.detail.xhr.statusText);
+                alert('Upload failed: ' + evt.detail.xhr.status + ' - ' + evt.detail.xhr.statusText);
+            }
+        });
+
+        document.body.addEventListener('htmx:sendError', function(evt) {
+            var form = evt.detail.elt;
+            if (form.id === 'upload-form') {
+                console.error('[Journals] Network error:', evt.detail.error);
+                alert('Network error. Please check your connection and try again.');
             }
         });
     """)

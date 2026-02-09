@@ -100,7 +100,7 @@ class JournalModeClassifier:
 
         # Call OpenAI for classification
         try:
-            response = await self.openai_service.complete(
+            response = await self.openai_service.generate_completion(
                 prompt=prompt,
                 temperature=0.3,  # Lower temperature for consistent classification
                 max_tokens=150,  # Small response (just JSON)

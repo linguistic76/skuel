@@ -37,6 +37,7 @@ from core.auth import require_authenticated_user
 from core.models.enums.report_enums import ProcessorType, ReportType
 from core.ui.daisy_components import Button, ButtonT
 from core.utils.logging import get_logger
+from ui.layouts.base_page import BasePage
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 

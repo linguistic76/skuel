@@ -34,12 +34,12 @@ Analyze the journal entry below and assign weights to each mode.
 
 **Output Format:**
 ```json
-{
+{{
   "activity": 0.7,
   "articulation": 0.2,
   "exploration": 0.1,
   "reasoning": "Brief 1-sentence explanation of primary mode"
-}
+}}
 ```
 
 ## Journal Entry to Classify

@@ -548,7 +548,8 @@ def _create_core_services(
     from core.services.transcription import TranscriptionService
 
     # Create DeepgramAdapter (REQUIRED - fail-fast if key missing)
-    deepgram_adapter = DeepgramAdapter(deepgram_api_key)
+    # 120s timeout for large audio files (up to ~10MB / 10 minutes of audio)
+    deepgram_adapter = DeepgramAdapter(deepgram_api_key, timeout=120.0)
 
     return {
         "tasks": TasksService(
