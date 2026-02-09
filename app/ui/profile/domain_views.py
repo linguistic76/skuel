@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H2, H3, A, Button, Div, Label, Li, Option, P, Select, Span, Ul
 
-from core.models.enums.entity_enums import Domain
 from core.services.user.unified_user_context import UserContext
 from ui.patterns.empty_state import EmptyState
 
@@ -1372,17 +1371,17 @@ def OverviewView(
     from ui.patterns.skeleton import SkeletonIntelligence
 
     header = Div(
-        H2("Activity Overview", cls="text-2xl font-bold text-base-content"),
+        H2("Activity Overview", cls="text-xl font-semibold text-base-content"),
         P(
-            Span("Intelligence data ", cls="text-base-content/70"),
+            Span("Intelligence data ", cls="text-base-content/50"),
             Span(
                 **{"x-text": "lastUpdatedText", "x-show": "hasCache"},
-                cls="text-sm text-base-content/60",
+                cls="text-sm text-base-content/50",
             ),
-            cls="text-lg mt-1",
+            cls="text-sm mt-0.5",
             id="intelligence-status",
         ),
-        cls="mb-6",
+        cls="mb-4",
     )
 
     # Intelligence section with caching (Phase 4, Task 15)
@@ -1481,7 +1480,7 @@ def _intelligence_unavailable_card() -> Div:
 
 
 def _overview_insights(context: UserContext) -> Div:
-    """Cross-domain insights section."""
+    """Cross-domain insights — shown only when actionable, no gray box."""
     insights = []
 
     # Check for overdue tasks
@@ -1525,17 +1524,15 @@ def _overview_insights(context: UserContext) -> Div:
         )
 
     if not insights:
-        insights.append(
-            Div(
-                "Everything looks good! You're on track. 🎉",
-                cls="text-center text-base-content/60 py-4",
-            )
+        return Div(
+            Div(cls="border-t border-base-200 mt-8 mb-6"),
+            P("Everything looks good! You're on track.", cls="text-sm text-base-content/50"),
         )
 
     return Div(
-        H3("Insights", cls="text-lg font-semibold text-base-content mb-4"),
+        Div(cls="border-t border-base-200 mt-8 mb-6"),
+        H3("Insights", cls="text-sm font-semibold uppercase tracking-wider text-base-content/50 mb-3"),
         Div(*insights, cls="space-y-2"),
-        cls="bg-base-200 rounded-xl p-6",
     )
 
 
@@ -1557,18 +1554,14 @@ def _insight_item(level: str, message: str, href: str) -> A:
 
 
 def _current_focus_card(context: UserContext) -> Div:
-    """Current task focus highlight card.
-
-    Shows what the user is currently focusing on, with a link to the task.
-    """
+    """Current task focus — compact inline element."""
     if not context.current_task_focus:
-        return Div(
-            P("No current focus set", cls="text-base-content/60 text-sm"),
-            P(
-                "Set a focus to see it highlighted here",
-                cls="text-base-content/60 text-xs mt-1",
-            ),
-            cls="bg-base-200 rounded-lg p-4 mb-6",
+        return A(
+            Span("🎯", cls="text-lg mr-2"),
+            Span("No current focus set", cls="text-sm text-base-content/50 group-hover:text-primary transition-colors"),
+            href="/profile/tasks",
+            cls="flex items-center mb-4 group",
+            **{"hx-boost": "false"},
         )
 
     # Get task title from rich data if available
@@ -1580,26 +1573,19 @@ def _current_focus_card(context: UserContext) -> Div:
             break
 
     return Div(
-        H3("Current Focus", cls="text-sm font-semibold text-base-content/60 mb-2"),
-        Div(
-            Span("🎯", cls="text-2xl mr-3"),
-            Span(task_title, cls="text-lg font-medium text-base-content"),
-            cls="flex items-center",
-        ),
+        Span("🎯", cls="text-lg mr-2"),
+        Span("Focus: ", cls="text-sm font-medium text-base-content/50"),
         A(
-            "View Task →",
+            task_title,
             href=f"/tasks/get?uid={context.current_task_focus}",
-            cls="text-sm text-primary hover:text-primary-hover mt-2 inline-block",
+            cls="text-sm font-medium text-primary hover:underline",
         ),
-        cls="bg-primary/10 border border-accent/30 rounded-xl p-4 mb-6",
+        cls="flex items-center mb-4",
     )
 
 
 def _velocity_summary(context: UserContext) -> Div:
-    """Overall velocity and momentum indicators.
-
-    Shows whether the user is gaining or losing momentum across domains.
-    """
+    """Overall velocity — compact inline indicator, not a gray box."""
     total_velocity = sum(context.velocity_by_domain.values())
     total_time = sum(context.time_invested_hours_by_domain.values())
 
@@ -1607,95 +1593,87 @@ def _velocity_summary(context: UserContext) -> Div:
     if total_velocity > 0.5:
         momentum = ("🚀", "Strong Momentum", "text-success")
     elif total_velocity > 0:
-        momentum = ("📈", "Building Momentum", "text-primary")
+        momentum = ("📈", "Building", "text-primary")
     elif total_velocity > -0.3:
         momentum = ("➡️", "Steady", "text-base-content/60")
     else:
-        momentum = ("📉", "Losing Momentum", "text-warning")
+        momentum = ("📉", "Slowing", "text-warning")
 
     icon, label, color = momentum
 
     return Div(
-        Div(
-            Span(icon, cls="text-2xl mr-2"),
-            Span(label, cls=f"font-semibold {color}"),
-            cls="flex items-center",
-        ),
-        P(
-            f"Total time invested: {total_time:.1f} hours",
-            cls="text-sm text-base-content/60 mt-1",
-        ),
-        cls="bg-base-200 rounded-lg p-4 mb-6",
+        Span(icon, cls="text-lg mr-2"),
+        Span(label, cls=f"text-sm font-medium {color}"),
+        Span(" · ", cls="text-base-content/30 mx-2"),
+        Span(f"{total_time:.1f}h invested", cls="text-sm text-base-content/50"),
+        cls="flex items-center mb-6",
     )
 
 
 def _domain_progress_grid(context: UserContext) -> Div:
-    """Per-domain progress visualization.
+    """Per-domain item counts — the hero element of the profile page.
 
-    Shows progress bars, velocity indicators, and time invested for each
-    of the 6 Activity Domains.
+    Large, colorful cards with left accent borders showing item counts
+    per domain. Each domain gets a primary count (big number) and a
+    secondary breakdown for context.
     """
-    domain_items = []
-
-    # Map UserContext domains to Activity Domain metadata
-    domain_mapping = [
-        (Domain.TASKS, "✅", "Tasks"),
-        (Domain.HABITS, "🔄", "Habits"),
-        (Domain.GOALS, "🎯", "Goals"),
-        (Domain.EVENTS, "📅", "Events"),
-        (Domain.PRINCIPLES, "⚖️", "Principles"),
-        (Domain.CHOICES, "🔀", "Choices"),
+    # (icon, name, primary_count, primary_label, secondary_count, secondary_label)
+    domain_data = [
+        ("✅", "Tasks",
+         len(context.active_task_uids), "active",
+         len(context.completed_task_uids), "completed"),
+        ("🔄", "Habits",
+         len(context.active_habit_uids), "active",
+         len(context.at_risk_habits), "at risk"),
+        ("🎯", "Goals",
+         len(context.active_goal_uids), "active",
+         len(context.completed_goal_uids), "completed"),
+        ("📅", "Events",
+         len(context.upcoming_event_uids), "upcoming",
+         len(context.today_event_uids), "today"),
+        ("⚖️", "Principles",
+         len(context.core_principle_uids), "total",
+         len(context.principle_conflicts), "conflicts"),
+        ("🔀", "Choices",
+         len(context.pending_choice_uids), "pending",
+         len(context.resolved_choice_uids), "resolved"),
     ]
 
-    for domain, icon, name in domain_mapping:
-        progress = context.domain_progress.get(domain, 0.0)
-        velocity = context.velocity_by_domain.get(domain, 0.0)
-        time_invested = context.time_invested_hours_by_domain.get(domain, 0.0)
-
-        # Velocity indicator
-        velocity_indicator = None
-        if velocity > 0.1:
-            velocity_indicator = Span("↑", cls="text-xs text-success ml-1")
-        elif velocity < -0.1:
-            velocity_indicator = Span("↓", cls="text-xs text-warning ml-1")
-
-        # Progress bar width (ensure minimum visibility)
-        progress_width = max(int(progress * 100), 2) if progress > 0 else 0
+    domain_items = []
+    for icon, name, primary, primary_label, secondary, secondary_label in domain_data:
+        # Secondary line (only shown when count > 0)
+        secondary_el = (
+            Span(f"{secondary} {secondary_label}", cls="text-sm text-base-content/50")
+            if secondary > 0
+            else None
+        )
 
         domain_items.append(
             Div(
                 # Domain header
                 Div(
-                    Span(icon, cls="text-lg"),
-                    Span(name, cls="text-sm font-medium text-base-content"),
-                    cls="flex items-center gap-2 mb-2",
+                    Span(icon, cls="text-xl"),
+                    Span(name, cls="text-base font-semibold text-base-content"),
+                    cls="flex items-center gap-2 mb-3",
                 ),
-                # Progress bar
+                # Primary count — the hero number
                 Div(
-                    Div(
-                        cls="h-2 bg-primary rounded-full transition-all",
-                        style=f"width: {progress_width}%",
-                    ),
-                    cls="h-2 bg-base-200 rounded-full w-full",
+                    Span(str(primary), cls="text-3xl font-bold text-base-content"),
+                    Span(primary_label, cls="text-sm text-base-content/50 ml-2"),
+                    cls="flex items-baseline",
                 ),
-                # Stats row
+                # Secondary breakdown
                 Div(
-                    Span(f"{int(progress * 100)}%", cls="text-xs text-base-content/60"),
-                    velocity_indicator,
-                    Span(
-                        f"{time_invested:.1f}h",
-                        cls="text-xs text-base-content/60 ml-auto",
-                    ),
-                    cls="flex items-center mt-1",
-                ),
-                cls="bg-base-100 rounded-lg p-3 border border-base-300 shadow-sm",
+                    secondary_el,
+                    cls="mt-1 min-h-[1.25rem]",
+                ) if secondary_el else Div(cls="mt-1 min-h-[1.25rem]"),
+                cls="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
             )
         )
 
     return Div(
-        H3("Domain Progress", cls="text-lg font-semibold text-base-content mb-4"),
-        Div(*domain_items, cls="grid grid-cols-2 md:grid-cols-3 gap-3"),
-        cls="mb-6",
+        *domain_items,
+        cls="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5",
     )
 
 

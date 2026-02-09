@@ -23,8 +23,8 @@ from core.ui.daisy_components import Card, CardBody
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 from ui.patterns.breadcrumbs import Breadcrumbs
-from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 
 logger = get_logger("skuel.routes.ku.reading.ui")
@@ -226,36 +226,11 @@ def create_ku_reading_ui_routes(
             tag_badges = [Span(tag, cls="badge badge-outline badge-sm") for tag in ku.tags]
             tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mt-3")
 
-        # Content area: TOC sidebar + markdown (or just markdown if no TOC)
-        if has_toc:
-            content_area = Div(
-                # TOC sidebar (sticky on desktop)
-                Div(
-                    Div(
-                        H3("Contents", cls="font-semibold text-sm mb-2"),
-                        Div(
-                            NotStr(toc_html),
-                            cls="prose prose-sm max-w-none toc-nav",
-                        ),
-                        cls="p-4 bg-base-200/50 rounded-lg sticky top-4",
-                    ),
-                    cls="hidden lg:block lg:w-56 shrink-0",
-                ),
-                # Main content
-                Div(
-                    Div(
-                        NotStr(content_html or "No content available."),
-                        cls="prose prose-lg max-w-none",
-                    ),
-                    cls="flex-1 min-w-0",
-                ),
-                cls="flex gap-8",
-            )
-        else:
-            content_area = Div(
-                NotStr(content_html or "No content available."),
-                cls="prose prose-lg max-w-none",
-            )
+        # Reading content (markdown only — TOC is separate)
+        reading_content = Div(
+            NotStr(content_html or "No content available."),
+            cls="prose prose-lg max-w-none",
+        )
 
         # Navigation bar
         nav_section = Div(
@@ -280,23 +255,18 @@ def create_ku_reading_ui_routes(
             else Div()
         )
 
-        # Assemble page — text-focused layout: title → content → metadata at bottom
-        content = Div(
-            Breadcrumbs(path=breadcrumb_path),
-            PageHeader(
-                title=ku.title,
-                actions=[mark_read_btn, bookmark_btn],
+        # Main content column — breadcrumbs, content, actions, metadata, nav
+        main_column = Div(
+            Breadcrumbs(path=breadcrumb_path, show_home=False),
+            reading_content,
+            # Actions at the bottom of reading area
+            Div(
+                mark_read_btn,
+                bookmark_btn,
+                cls="flex gap-2 border-t border-base-200 pt-6 mt-8",
             ),
-            # Content card (the focus of the page)
-            Card(
-                CardBody(content_area),
-                cls="mt-2",
-            ),
-            # Metadata + tags
             metadata_footer,
-            # Navigation
             nav_section,
-            # Lateral relationships (Phase 5)
             Div(
                 EntityRelationshipsSection(
                     entity_uid=uid,
@@ -304,14 +274,32 @@ def create_ku_reading_ui_routes(
                 ),
                 cls="mt-8",
             ),
-            cls="max-w-5xl mx-auto p-6 lg:p-8",
+            cls="flex-1 min-w-0 max-w-4xl mx-auto px-6 lg:px-8 py-4 lg:py-6",
         )
+
+        if has_toc:
+            # Two-column layout: TOC pinned left, content centered
+            toc_sidebar = Div(
+                Div(
+                    H3("Contents", cls="font-semibold text-sm mb-3"),
+                    Div(
+                        NotStr(toc_html),
+                        cls="prose prose-sm max-w-none toc-nav",
+                    ),
+                    cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
+                ),
+                cls="hidden lg:block w-56 shrink-0 border-r border-base-200",
+            )
+            content = Div(toc_sidebar, main_column, cls="flex")
+        else:
+            content = main_column
 
         return await BasePage(
             content=content,
             title=ku.title,
             request=request,
             active_page="learning",
+            page_type=PageType.CUSTOM,
         )
 
     logger.info("KU reading UI routes registered: /ku/{uid}")

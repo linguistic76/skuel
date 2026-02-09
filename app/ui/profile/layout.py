@@ -348,9 +348,9 @@ async def create_profile_page(
         ),
         Div(
             mobile_menu,
-            Main(
+            Div(
                 Div(content, cls="max-w-6xl mx-auto"),
-                cls="p-6 lg:p-8",
+                cls="px-6 lg:px-8 py-4 lg:py-6",
             ),
             cls="profile-content",
             id="profile-content",
@@ -358,11 +358,11 @@ async def create_profile_page(
         cls="profile-container",
     )
 
-    # Use BasePage with STANDARD type (we handle layout ourselves)
+    # Use BasePage with CUSTOM type (we handle layout ourselves)
     return await BasePage(
         content=wrapped_content,
         title=title,
-        page_type=PageType.STANDARD,
+        page_type=PageType.CUSTOM,
         request=request,
         active_page="profile/hub",
         extra_css=["/static/css/profile_sidebar.css"],

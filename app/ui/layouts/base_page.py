@@ -172,6 +172,9 @@ async def BasePage(
             ),
             cls="flex",
         )
+    elif page_type == PageType.CUSTOM:
+        # Custom layout: page manages its own container and padding
+        main_area = Main(content, id="main-content")
     else:
         # Standard layout: centered content
         main_area = Main(

@@ -20,6 +20,7 @@ class PageType(str, Enum):
 
     HUB = "hub"  # Sidebar + multi-domain navigation (Profile Hub)
     STANDARD = "standard"  # Centered content, no sidebar (most pages)
+    CUSTOM = "custom"  # Full-width, page manages its own layout
 
 
 class PageConfig(TypedDict):
@@ -43,6 +44,12 @@ PAGE_CONFIG: dict[PageType, PageConfig] = {
         "sidebar_width": "",
         "container": "max-w-6xl mx-auto",
         "content_padding": "p-6 lg:p-8",
+    },
+    PageType.CUSTOM: {
+        "sidebar": False,
+        "sidebar_width": "",
+        "container": "",
+        "content_padding": "",
     },
 }
 
