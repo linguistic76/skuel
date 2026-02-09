@@ -17,14 +17,20 @@ class ReportType(str, Enum):
     """
     Type of report - determines processing pipeline and UI presentation.
 
-    File submission types:
-        TRANSCRIPT: Meeting notes, voice memos, document transcriptions
-        ASSIGNMENT: Document processing (PDF, Word)
-        IMAGE_ANALYSIS: Visual content analysis
-        VIDEO_SUMMARY: Video content summarization
+    Three categories:
 
-    Content types:
-        JOURNAL: Personal reflection/writing entry (merged February 2026)
+    File submissions (user uploads, /reports/submit):
+        TRANSCRIPT: Voice memos, audio recordings → transcription
+        ASSIGNMENT: Documents (PDF, Word) → human review
+        IMAGE_ANALYSIS: Visual content → analysis (planned)
+        VIDEO_SUMMARY: Video content → summarization (planned)
+
+    AI-processed content (admin uploads, /journals/submit):
+        JOURNAL: File processed by AI using ReportProject instructions (LLM)
+
+    System/teacher generated (no user upload):
+        PROGRESS: System-generated progress summaries (ProgressReportGenerator)
+        ASSESSMENT: Teacher-authored evaluations of students
     """
 
     TRANSCRIPT = "transcript"
