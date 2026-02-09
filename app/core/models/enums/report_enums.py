@@ -70,8 +70,8 @@ class ReportType(str, Enum):
         return self == ReportType.PROGRESS
 
     def is_file_based(self) -> bool:
-        """Check if this report type requires file upload."""
-        return self not in {ReportType.JOURNAL, ReportType.PROGRESS, ReportType.ASSESSMENT}
+        """Check if this report type can involve file upload."""
+        return self not in {ReportType.PROGRESS, ReportType.ASSESSMENT}
 
 
 class ReportStatus(str, Enum):

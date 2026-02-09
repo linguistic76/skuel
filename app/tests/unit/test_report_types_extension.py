@@ -44,6 +44,9 @@ class TestReportTypeEnum:
     def test_assignment_is_file_based(self):
         assert ReportType.ASSIGNMENT.is_file_based() is True
 
+    def test_journal_is_file_based(self):
+        assert ReportType.JOURNAL.is_file_based() is True
+
     def test_is_progress(self):
         assert ReportType.PROGRESS.is_progress() is True
         assert ReportType.ASSESSMENT.is_progress() is False
