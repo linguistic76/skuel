@@ -22,16 +22,20 @@ Usage:
     result = await lateral_service.create_lateral_relationship(
         source_uid="goal_a",
         target_uid="goal_b",
-        relationship_type=LateralRelationType.BLOCKS,
+        relationship_type=RelationshipName.BLOCKS,
         metadata={"reason": "Must complete setup first", "severity": "required"}
     )
 
 See: /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from core.models.enums.lateral_relationship_types import LateralRelationType
+from core.models.relationship_names import RelationshipName
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
+from core.models.relationship_registry import get_lateral_spec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -43,8 +47,8 @@ class LateralRelationshipService:
     Core service for managing lateral relationships in the graph.
 
     This service is domain-agnostic and provides the foundation for all
-    lateral relationship operations. Domain-specific services (GoalsLateralService,
-    TasksLateralService, etc.) use this as their backend.
+    lateral relationship operations. Routes pass domain_service for ownership
+    verification. Relationship metadata is defined in LateralRelationshipSpec.
 
     Responsibilities:
     - Create/delete lateral relationships
@@ -54,23 +58,19 @@ class LateralRelationshipService:
     - Store relationship metadata
     """
 
-    def __init__(self, driver: Any) -> None:
-        """
-        Initialize lateral relationship service.
-
-        Args:
-            driver: Neo4j driver for graph operations
-        """
+    def __init__(self, driver: "AsyncDriver") -> None:
         self.driver = driver
 
     async def create_lateral_relationship(
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: LateralRelationType,
+        relationship_type: RelationshipName,
         metadata: dict[str, Any] | None = None,
         validate: bool = True,
         auto_inverse: bool = True,
+        user_uid: str | None = None,
+        domain_service: Any | None = None,
     ) -> Result[bool]:
         """
         Create explicit lateral relationship between two entities.
@@ -82,32 +82,21 @@ class LateralRelationshipService:
             metadata: Optional relationship properties (strength, reason, etc.)
             validate: Perform validation checks before creation
             auto_inverse: Auto-create inverse relationship if asymmetric
+            user_uid: User creating the relationship (for ownership verification)
+            domain_service: Domain service with verify_ownership() (None = shared content)
 
         Returns:
             Result[bool]: Success if relationship created
-
-        Validation:
-            - Entities exist
-            - Relationship constraints met (same parent for SIBLING, etc.)
-            - No circular dependencies for BLOCKS/PREREQUISITE_FOR
-            - No duplicate relationships
-
-        Example:
-            ```python
-            result = await service.create_lateral_relationship(
-                source_uid="goal_learn_python",
-                target_uid="goal_build_app",
-                relationship_type=LateralRelationType.BLOCKS,
-                metadata={
-                    "reason": "Must learn language before building",
-                    "severity": "required",
-                    "created_by": user_uid,
-                },
-            )
-            ```
         """
         if source_uid == target_uid:
             return Result.fail(Errors.validation("Cannot create lateral relationship with self"))
+
+        # Ownership verification (if domain_service provided)
+        if user_uid and domain_service:
+            for uid in [source_uid, target_uid]:
+                ownership_result = await domain_service.verify_ownership(uid, user_uid)
+                if ownership_result.is_error:
+                    return Result.fail(Errors.not_found(f"Entity {uid} not found or access denied"))
 
         # Validation phase
         if validate:
@@ -120,8 +109,9 @@ class LateralRelationshipService:
         # Prepare metadata
         rel_metadata = metadata or {}
         rel_metadata["created_at"] = "timestamp()"
-        rel_metadata["relationship_category"] = relationship_type.get_category()
-        rel_metadata["is_symmetric"] = relationship_type.is_symmetric()
+        spec = get_lateral_spec(relationship_type)
+        rel_metadata["relationship_category"] = spec.category if spec else ""
+        rel_metadata["is_symmetric"] = spec.is_symmetric if spec else False
 
         # Create the relationship
         try:
@@ -152,8 +142,8 @@ class LateralRelationshipService:
             )
 
             # Auto-create inverse if asymmetric
-            if auto_inverse and not relationship_type.is_symmetric():
-                inverse_type = relationship_type.get_inverse()
+            if auto_inverse and spec and not spec.is_symmetric:
+                inverse_type = spec.inverse_type
                 if inverse_type:
                     await self._create_inverse_relationship(
                         source_uid=target_uid,  # Reversed
@@ -172,8 +162,10 @@ class LateralRelationshipService:
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: LateralRelationType,
+        relationship_type: RelationshipName,
         delete_inverse: bool = True,
+        user_uid: str | None = None,
+        domain_service: Any | None = None,
     ) -> Result[bool]:
         """
         Delete explicit lateral relationship.
@@ -183,10 +175,19 @@ class LateralRelationshipService:
             target_uid: Target entity UID
             relationship_type: Type of relationship to delete
             delete_inverse: Also delete inverse relationship if asymmetric
+            user_uid: User deleting the relationship (for ownership verification)
+            domain_service: Domain service with verify_ownership() (None = shared content)
 
         Returns:
             Result[bool]: Success if relationship deleted
         """
+        # Ownership verification
+        if user_uid and domain_service:
+            for uid in [source_uid, target_uid]:
+                ownership_result = await domain_service.verify_ownership(uid, user_uid)
+                if ownership_result.is_error:
+                    return Result.fail(Errors.not_found(f"Entity {uid} not found or access denied"))
+
         try:
             result = await self.driver.execute_query(
                 f"""
@@ -211,8 +212,9 @@ class LateralRelationshipService:
             )
 
             # Delete inverse if needed
-            if delete_inverse and not relationship_type.is_symmetric():
-                inverse_type = relationship_type.get_inverse()
+            spec = get_lateral_spec(relationship_type)
+            if delete_inverse and spec and not spec.is_symmetric:
+                inverse_type = spec.inverse_type
                 if inverse_type:
                     await self._delete_inverse_relationship(
                         source_uid=target_uid,
@@ -229,9 +231,11 @@ class LateralRelationshipService:
     async def get_lateral_relationships(
         self,
         entity_uid: str,
-        relationship_types: list[LateralRelationType] | None = None,
+        relationship_types: list[RelationshipName] | None = None,
         direction: str = "outgoing",  # "outgoing", "incoming", "both"
         include_metadata: bool = True,
+        user_uid: str | None = None,
+        domain_service: Any | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
         Get all lateral relationships for an entity.
@@ -257,12 +261,20 @@ class LateralRelationshipService:
             ]
             ```
         """
+        # Ownership verification
+        if user_uid and domain_service:
+            ownership_result = await domain_service.verify_ownership(entity_uid, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(
+                    Errors.not_found(f"Entity {entity_uid} not found or access denied")
+                )
+
         # Build type filter
         if relationship_types:
             type_filter = "|".join([rt.value for rt in relationship_types])
         else:
             # All lateral relationship types
-            all_types = [rt.value for rt in LateralRelationType]
+            all_types = [rt.value for rt in RelationshipName if rt.is_lateral_relationship()]
             type_filter = "|".join(all_types)
 
         # Build query based on direction
@@ -314,6 +326,8 @@ class LateralRelationshipService:
         self,
         entity_uid: str,
         include_explicit_only: bool = False,
+        user_uid: str | None = None,
+        domain_service: Any | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
         Get sibling entities (same parent).
@@ -322,15 +336,25 @@ class LateralRelationshipService:
             entity_uid: Entity UID
             include_explicit_only: Only return explicit SIBLING relationships
                                    (False = derive from hierarchy)
+            user_uid: User requesting siblings (for ownership verification)
+            domain_service: Domain service with verify_ownership() (None = shared content)
 
         Returns:
             Result with list of siblings
         """
+        # Ownership verification
+        if user_uid and domain_service:
+            ownership_result = await domain_service.verify_ownership(entity_uid, user_uid)
+            if ownership_result.is_error:
+                return Result.fail(
+                    Errors.not_found(f"Entity {entity_uid} not found or access denied")
+                )
+
         if include_explicit_only:
             # Query explicit SIBLING relationships
             return await self.get_lateral_relationships(
                 entity_uid,
-                relationship_types=[LateralRelationType.SIBLING],
+                relationship_types=[RelationshipName.SIBLING],
                 direction="both",
             )
         else:
@@ -439,7 +463,7 @@ class LateralRelationshipService:
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: LateralRelationType,
+        relationship_type: RelationshipName,
     ) -> Result[bool]:
         """
         Validate that lateral relationship can be created.
@@ -455,23 +479,27 @@ class LateralRelationshipService:
         if exists_result.is_error:
             return exists_result
 
+        # Look up spec from registry
+        spec = get_lateral_spec(relationship_type)
+        if not spec:
+            return Result.fail(
+                Errors.validation(f"Not a lateral relationship type: {relationship_type.value}")
+            )
+
         # Check same parent constraint
-        if relationship_type.requires_same_parent():
+        if spec.requires_same_parent:
             same_parent_result = await self._check_same_parent(source_uid, target_uid)
             if same_parent_result.is_error:
                 return same_parent_result
 
         # Check same depth constraint
-        if relationship_type.requires_same_depth():
+        if spec.requires_same_depth:
             same_depth_result = await self._check_same_depth(source_uid, target_uid)
             if same_depth_result.is_error:
                 return same_depth_result
 
-        # Check for circular dependencies (BLOCKS, PREREQUISITE_FOR)
-        if relationship_type in {
-            LateralRelationType.BLOCKS,
-            LateralRelationType.PREREQUISITE_FOR,
-        }:
+        # Check for circular dependencies
+        if spec.check_cycles:
             cycle_result = await self._check_no_cycles(source_uid, target_uid, relationship_type)
             if cycle_result.is_error:
                 return cycle_result
@@ -566,7 +594,7 @@ class LateralRelationshipService:
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: LateralRelationType,
+        relationship_type: RelationshipName,
     ) -> Result[bool]:
         """
         Check that creating this relationship won't create a circular dependency.
@@ -599,7 +627,7 @@ class LateralRelationshipService:
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: LateralRelationType,
+        relationship_type: RelationshipName,
         metadata: dict[str, Any],
     ) -> None:
         """Create inverse relationship for asymmetric types."""
@@ -624,7 +652,7 @@ class LateralRelationshipService:
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: LateralRelationType,
+        relationship_type: RelationshipName,
     ) -> None:
         """Delete inverse relationship for asymmetric types."""
         try:
@@ -899,7 +927,7 @@ class LateralRelationshipService:
         self,
         entity_uid: str,
         depth: int = 2,
-        relationship_types: list[LateralRelationType] | None = None,
+        relationship_types: list[RelationshipName] | None = None,
     ) -> Result[dict[str, Any]]:
         """
         Get relationship graph in Vis.js Network format.
@@ -954,8 +982,8 @@ class LateralRelationshipService:
                 "task_deploy",
                 depth=2,
                 relationship_types=[
-                    LateralRelationType.BLOCKS,
-                    LateralRelationType.PREREQUISITE_FOR,
+                    RelationshipName.BLOCKS,
+                    RelationshipName.PREREQUISITE_FOR,
                 ],
             )
             if not result.is_error:
@@ -969,7 +997,7 @@ class LateralRelationshipService:
         if relationship_types:
             type_filter = "|".join([rt.value for rt in relationship_types])
         else:
-            all_types = [rt.value for rt in LateralRelationType]
+            all_types = [rt.value for rt in RelationshipName if rt.is_lateral_relationship()]
             type_filter = "|".join(all_types)
 
         # Color mapping for relationship types

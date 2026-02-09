@@ -15,12 +15,14 @@ Protocols:
 - GraphAuthOperations — Graph-native authentication
 - GoalTaskGeneratorOperations — Goal→Task generation
 - HabitEventSchedulerOperations — Habit→Event scheduling
+- LateralRelationshipOperations — Lateral relationship CRUD + graph queries
 """
 
 from collections.abc import Callable
 from datetime import date, datetime
 from typing import Any, Literal, Protocol, runtime_checkable
 
+from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Result
 
 # ============================================================================
@@ -457,3 +459,60 @@ class HabitEventSchedulerOperations(Protocol):
     ) -> Result[Any]:
         """Schedule events for a habit. Returns Result[list[EventDTO]]."""
         ...
+
+
+# ============================================================================
+# LATERAL RELATIONSHIPS
+# ============================================================================
+
+
+@runtime_checkable
+class LateralRelationshipOperations(Protocol):
+    """Protocol for lateral relationship service operations."""
+
+    async def create_lateral_relationship(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: RelationshipName,
+        metadata: dict[str, Any] | None = None,
+        validate: bool = True,
+        auto_inverse: bool = True,
+        user_uid: str | None = None,
+        domain_service: Any | None = None,
+    ) -> Result[bool]: ...
+
+    async def delete_lateral_relationship(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: RelationshipName,
+        delete_inverse: bool = True,
+        user_uid: str | None = None,
+        domain_service: Any | None = None,
+    ) -> Result[bool]: ...
+
+    async def get_lateral_relationships(
+        self,
+        entity_uid: str,
+        relationship_types: list[RelationshipName] | None = None,
+        direction: str = "outgoing",
+        include_metadata: bool = True,
+        user_uid: str | None = None,
+        domain_service: Any | None = None,
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_blocking_chain(
+        self, entity_uid: str, max_depth: int = 10
+    ) -> Result[dict[str, Any]]: ...
+
+    async def get_alternatives_with_comparison(
+        self, entity_uid: str, comparison_fields: list[str] | None = None
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_relationship_graph(
+        self,
+        entity_uid: str,
+        depth: int = 2,
+        relationship_types: list[RelationshipName] | None = None,
+    ) -> Result[dict[str, Any]]: ...

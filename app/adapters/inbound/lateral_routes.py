@@ -2,25 +2,15 @@
 Lateral Relationship Routes - API Endpoints for All Domains
 ============================================================
 
-Registers lateral relationship routes for all 8 hierarchical domains:
+Registers lateral relationship routes for all 9 hierarchical domains:
 - Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
 - Curriculum Domains (3): KU, LS, LP
 
-Each domain gets a full set of lateral relationship endpoints:
-- POST /api/{domain}/{uid}/lateral/blocks - Create blocking
-- GET /api/{domain}/{uid}/lateral/blocking - Get blocking relationships
-- POST /api/{domain}/{uid}/lateral/prerequisites - Create prerequisite
-- GET /api/{domain}/{uid}/lateral/prerequisites - Get prerequisites
-- POST /api/{domain}/{uid}/lateral/alternatives - Create alternative
-- GET /api/{domain}/{uid}/lateral/alternatives - Get alternatives
-- POST /api/{domain}/{uid}/lateral/complementary - Create complementary
-- GET /api/{domain}/{uid}/lateral/complementary - Get complementary
-- GET /api/{domain}/{uid}/lateral/siblings - Get siblings (derived)
-- DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid} - Delete relationship
+Each domain gets a full set of lateral relationship endpoints via LateralRouteFactory.
+Domain-specific routes (habit stacking, event conflicts, KU enables) are registered
+separately using the core LateralRelationshipService directly.
 
-Domain-specific routes are added separately for unique relationship types.
-
-See: /docs/patterns/DOMAIN_LATERAL_SERVICES.md
+See: /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
 """
 
 from typing import Any
@@ -29,6 +19,7 @@ from fasthtml.common import Request
 
 from core.auth import require_authenticated_user
 from core.infrastructure.routes.lateral_route_factory import LateralRouteFactory
+from core.models.relationship_names import RelationshipName
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -38,27 +29,23 @@ logger = get_logger(__name__)
 
 def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     """
-    Register lateral relationship routes for all 8 domains.
+    Register lateral relationship routes for all 9 domains.
 
-    Args:
-        app: FastHTML app
-        rt: Route decorator
-        services: Services container with lateral services
-
-    Returns:
-        List of all registered routes
+    Uses one core LateralRelationshipService with domain_service for ownership.
     """
     all_routes = []
+    lateral = services.lateral  # Core LateralRelationshipService
 
     # ========================================================================
-    # ACTIVITY DOMAINS (6)
+    # ACTIVITY DOMAINS (6) — pass domain_service for ownership verification
     # ========================================================================
 
     # Tasks lateral routes
     tasks_factory = LateralRouteFactory(
         domain="tasks",
-        lateral_service=services.tasks_lateral,
+        lateral_service=lateral,
         entity_name="Task",
+        domain_service=services.tasks,
     )
     all_routes.extend(tasks_factory.register_routes(app, rt))
     logger.info("✅ Tasks lateral routes registered")
@@ -66,8 +53,9 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     # Goals lateral routes
     goals_factory = LateralRouteFactory(
         domain="goals",
-        lateral_service=services.goals_lateral,
+        lateral_service=lateral,
         entity_name="Goal",
+        domain_service=services.goals,
     )
     all_routes.extend(goals_factory.register_routes(app, rt))
     logger.info("✅ Goals lateral routes registered")
@@ -75,8 +63,9 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     # Habits lateral routes
     habits_factory = LateralRouteFactory(
         domain="habits",
-        lateral_service=services.habits_lateral,
+        lateral_service=lateral,
         entity_name="Habit",
+        domain_service=services.habits,
     )
     all_routes.extend(habits_factory.register_routes(app, rt))
 
@@ -93,12 +82,18 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         """Create STACKS_WITH relationship for habit chaining."""
         user_uid = require_authenticated_user(request)
 
-        result = await services.habits_lateral.create_stacking_relationship(
-            first_habit_uid=uid,
-            second_habit_uid=target_uid,
-            trigger=trigger,
-            strength=strength,
+        result = await lateral.create_lateral_relationship(
+            source_uid=uid,
+            target_uid=target_uid,
+            relationship_type=RelationshipName.STACKS_WITH,
+            metadata={
+                "trigger": trigger,
+                "strength": strength,
+                "domain": "habits",
+                "created_by": user_uid,
+            },
             user_uid=user_uid,
+            domain_service=services.habits,
         )
 
         if result.is_error:
@@ -119,7 +114,13 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         """Get all habits in the stacking chain."""
         user_uid = require_authenticated_user(request)
 
-        result = await services.habits_lateral.get_habit_stack(uid, user_uid=user_uid)
+        result = await lateral.get_lateral_relationships(
+            entity_uid=uid,
+            relationship_types=[RelationshipName.STACKS_WITH],
+            direction="both",
+            user_uid=user_uid,
+            domain_service=services.habits,
+        )
 
         if result.is_error:
             return result
@@ -137,8 +138,9 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     # Events lateral routes
     events_factory = LateralRouteFactory(
         domain="events",
-        lateral_service=services.events_lateral,
+        lateral_service=lateral,
         entity_name="Event",
+        domain_service=services.events,
     )
     all_routes.extend(events_factory.register_routes(app, rt))
 
@@ -155,12 +157,18 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         """Create CONFLICTS_WITH relationship for scheduling conflicts."""
         user_uid = require_authenticated_user(request)
 
-        result = await services.events_lateral.create_conflict_relationship(
-            event_a_uid=uid,
-            event_b_uid=target_uid,
-            conflict_type=conflict_type,
-            severity=severity,
+        result = await lateral.create_lateral_relationship(
+            source_uid=uid,
+            target_uid=target_uid,
+            relationship_type=RelationshipName.CONFLICTS_WITH,
+            metadata={
+                "conflict_type": conflict_type,
+                "severity": severity,
+                "domain": "events",
+                "created_by": user_uid,
+            },
             user_uid=user_uid,
+            domain_service=services.events,
         )
 
         if result.is_error:
@@ -181,7 +189,13 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         """Get events that conflict with this event."""
         user_uid = require_authenticated_user(request)
 
-        result = await services.events_lateral.get_conflicting_events(uid, user_uid=user_uid)
+        result = await lateral.get_lateral_relationships(
+            entity_uid=uid,
+            relationship_types=[RelationshipName.CONFLICTS_WITH],
+            direction="both",
+            user_uid=user_uid,
+            domain_service=services.events,
+        )
 
         if result.is_error:
             return result
@@ -199,8 +213,9 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     # Choices lateral routes
     choices_factory = LateralRouteFactory(
         domain="choices",
-        lateral_service=services.choices_lateral,
+        lateral_service=lateral,
         entity_name="Choice",
+        domain_service=services.choices,
     )
     all_routes.extend(choices_factory.register_routes(app, rt))
 
@@ -217,12 +232,18 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         """Create CONFLICTS_WITH relationship for incompatible choices."""
         user_uid = require_authenticated_user(request)
 
-        result = await services.choices_lateral.create_conflict_relationship(
-            choice_a_uid=uid,
-            choice_b_uid=target_uid,
-            conflict_type=conflict_type,
-            severity=severity,
+        result = await lateral.create_lateral_relationship(
+            source_uid=uid,
+            target_uid=target_uid,
+            relationship_type=RelationshipName.CONFLICTS_WITH,
+            metadata={
+                "conflict_type": conflict_type,
+                "severity": severity,
+                "domain": "choices",
+                "created_by": user_uid,
+            },
             user_uid=user_uid,
+            domain_service=services.choices,
         )
 
         if result.is_error:
@@ -243,7 +264,13 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         """Get choices that conflict with this choice."""
         user_uid = require_authenticated_user(request)
 
-        result = await services.choices_lateral.get_conflicting_choices(uid, user_uid=user_uid)
+        result = await lateral.get_lateral_relationships(
+            entity_uid=uid,
+            relationship_types=[RelationshipName.CONFLICTS_WITH],
+            direction="both",
+            user_uid=user_uid,
+            domain_service=services.choices,
+        )
 
         if result.is_error:
             return result
@@ -261,8 +288,9 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     # Principles lateral routes
     principles_factory = LateralRouteFactory(
         domain="principles",
-        lateral_service=services.principles_lateral,
+        lateral_service=lateral,
         entity_name="Principle",
+        domain_service=services.principles,
     )
     all_routes.extend(principles_factory.register_routes(app, rt))
 
@@ -280,13 +308,19 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         """Create CONFLICTS_WITH relationship for contradictory principles."""
         user_uid = require_authenticated_user(request)
 
-        result = await services.principles_lateral.create_conflict_relationship(
-            principle_a_uid=uid,
-            principle_b_uid=target_uid,
-            conflict_type=conflict_type,
-            tension_description=tension_description,
-            severity=severity,
+        result = await lateral.create_lateral_relationship(
+            source_uid=uid,
+            target_uid=target_uid,
+            relationship_type=RelationshipName.CONFLICTS_WITH,
+            metadata={
+                "conflict_type": conflict_type,
+                "tension_description": tension_description,
+                "severity": severity,
+                "domain": "principles",
+                "created_by": user_uid,
+            },
             user_uid=user_uid,
+            domain_service=services.principles,
         )
 
         if result.is_error:
@@ -307,8 +341,12 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         """Get principles that conflict with this principle (value tensions)."""
         user_uid = require_authenticated_user(request)
 
-        result = await services.principles_lateral.get_conflicting_principles(
-            uid, user_uid=user_uid
+        result = await lateral.get_lateral_relationships(
+            entity_uid=uid,
+            relationship_types=[RelationshipName.CONFLICTS_WITH],
+            direction="both",
+            user_uid=user_uid,
+            domain_service=services.principles,
         )
 
         if result.is_error:
@@ -325,13 +363,13 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     logger.info("✅ Principles lateral routes registered (including value tensions)")
 
     # ========================================================================
-    # CURRICULUM DOMAINS (3)
+    # CURRICULUM DOMAINS (3) — no ownership (shared content)
     # ========================================================================
 
     # KU lateral routes
     ku_factory = LateralRouteFactory(
         domain="ku",
-        lateral_service=services.ku_lateral,
+        lateral_service=lateral,
         entity_name="Knowledge Unit",
     )
     all_routes.extend(ku_factory.register_routes(app, rt))
@@ -346,14 +384,18 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         confidence: float = 0.8,
         topic_domain: str | None = None,
     ) -> Result[dict[str, Any]]:
-        """Create ENABLES relationship (learning A unlocks B)."""
+        """Create LATERAL_ENABLES relationship (learning A unlocks B)."""
         require_authenticated_user(request)
 
-        result = await services.ku_lateral.create_enables_relationship(
-            enabler_uid=uid,
-            enabled_uid=target_uid,
-            confidence=confidence,
-            topic_domain=topic_domain,
+        result = await lateral.create_lateral_relationship(
+            source_uid=uid,
+            target_uid=target_uid,
+            relationship_type=RelationshipName.LATERAL_ENABLES,
+            metadata={
+                "confidence": confidence,
+                "topic_domain": topic_domain,
+                "domain": "ku",
+            },
         )
 
         if result.is_error:
@@ -373,7 +415,11 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         """Get knowledge units that this KU enables."""
         require_authenticated_user(request)
 
-        result = await services.ku_lateral.get_enables(uid)
+        result = await lateral.get_lateral_relationships(
+            entity_uid=uid,
+            relationship_types=[RelationshipName.LATERAL_ENABLES],
+            direction="outgoing",
+        )
 
         if result.is_error:
             return result
@@ -391,7 +437,11 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         """Get knowledge units that enable this KU."""
         require_authenticated_user(request)
 
-        result = await services.ku_lateral.get_enabled_by(uid)
+        result = await lateral.get_lateral_relationships(
+            entity_uid=uid,
+            relationship_types=[RelationshipName.LATERAL_ENABLED_BY],
+            direction="incoming",
+        )
 
         if result.is_error:
             return result
@@ -409,7 +459,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     # LS lateral routes
     ls_factory = LateralRouteFactory(
         domain="ls",
-        lateral_service=services.ls_lateral,
+        lateral_service=lateral,
         entity_name="Learning Step",
     )
     all_routes.extend(ls_factory.register_routes(app, rt))
@@ -418,7 +468,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     # LP lateral routes
     lp_factory = LateralRouteFactory(
         domain="lp",
-        lateral_service=services.lp_lateral,
+        lateral_service=lateral,
         entity_name="Learning Path",
     )
     all_routes.extend(lp_factory.register_routes(app, rt))

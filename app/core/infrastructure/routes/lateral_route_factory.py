@@ -4,7 +4,7 @@ LateralRouteFactory - Unified API Routes for Lateral Relationships
 
 Provides HTMX-friendly endpoints for lateral relationships across all domains.
 
-Generic endpoints work for all 8 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP):
+Generic endpoints work for all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP):
 - POST /api/{domain}/{uid}/lateral/blocks - Create blocking relationship
 - GET /api/{domain}/{uid}/lateral/blocking - Get relationships that block this entity
 - GET /api/{domain}/{uid}/lateral/blocked - Get relationships blocked by this entity
@@ -25,8 +25,9 @@ Domain-specific routes can be added separately for unique relationship types:
 Usage:
     factory = LateralRouteFactory(
         domain="goals",
-        lateral_service=goals_lateral_service,
+        lateral_service=lateral_service,  # Core LateralRelationshipService
         entity_name="Goal",
+        domain_service=goals_service,     # For ownership verification
     )
     factory.register_routes(app, rt)
 
@@ -38,6 +39,7 @@ from typing import Any
 from fasthtml.common import Request
 
 from core.auth import require_authenticated_user
+from core.models.relationship_names import RelationshipName
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -51,12 +53,14 @@ class LateralRouteFactory:
     def __init__(
         self,
         domain: str,  # "goals", "tasks", "habits", etc.
-        lateral_service: Any,  # Domain lateral service (e.g., GoalsLateralService)
+        lateral_service: Any,  # LateralRelationshipService (core, not wrapper)
         entity_name: str,  # "Goal", "Task", "Habit", etc.
+        domain_service: Any | None = None,  # For ownership (None = shared/curriculum)
     ) -> None:
         self.domain = domain
         self.lateral_service = lateral_service
         self.entity_name = entity_name
+        self.domain_service = domain_service
 
     def register_routes(self, _app, rt) -> list[Any]:
         """Register all lateral relationship routes for this domain."""
@@ -98,12 +102,18 @@ class LateralRouteFactory:
             """
             user_uid = require_authenticated_user(request)
 
-            result = await self.lateral_service.create_blocking_relationship(
-                blocker_uid=uid,
-                blocked_uid=target_uid,
-                reason=reason,
-                severity=severity,
+            result = await self.lateral_service.create_lateral_relationship(
+                source_uid=uid,
+                target_uid=target_uid,
+                relationship_type=RelationshipName.BLOCKS,
+                metadata={
+                    "reason": reason,
+                    "severity": severity,
+                    "domain": self.domain,
+                    "created_by": user_uid,
+                },
                 user_uid=user_uid,
+                domain_service=self.domain_service,
             )
 
             if result.is_error:
@@ -126,7 +136,13 @@ class LateralRouteFactory:
             """Get entities that block this entity."""
             user_uid = require_authenticated_user(request)
 
-            result = await self.lateral_service.get_blocking_goals(uid, user_uid=user_uid)
+            result = await self.lateral_service.get_lateral_relationships(
+                entity_uid=uid,
+                relationship_types=[RelationshipName.BLOCKS],
+                direction="incoming",
+                user_uid=user_uid,
+                domain_service=self.domain_service,
+            )
 
             if result.is_error:
                 return result
@@ -147,7 +163,13 @@ class LateralRouteFactory:
             """Get entities blocked by this entity."""
             user_uid = require_authenticated_user(request)
 
-            result = await self.lateral_service.get_blocked_goals(uid, user_uid=user_uid)
+            result = await self.lateral_service.get_lateral_relationships(
+                entity_uid=uid,
+                relationship_types=[RelationshipName.BLOCKS],
+                direction="outgoing",
+                user_uid=user_uid,
+                domain_service=self.domain_service,
+            )
 
             if result.is_error:
                 return result
@@ -188,12 +210,18 @@ class LateralRouteFactory:
             """
             user_uid = require_authenticated_user(request)
 
-            result = await self.lateral_service.create_prerequisite_relationship(
-                prerequisite_uid=uid,
-                dependent_uid=target_uid,
-                strength=strength,
-                reasoning=reasoning,
+            result = await self.lateral_service.create_lateral_relationship(
+                source_uid=uid,
+                target_uid=target_uid,
+                relationship_type=RelationshipName.PREREQUISITE_FOR,
+                metadata={
+                    "strength": strength,
+                    "reasoning": reasoning,
+                    "domain": self.domain,
+                    "created_by": user_uid,
+                },
                 user_uid=user_uid,
+                domain_service=self.domain_service,
             )
 
             if result.is_error:
@@ -216,7 +244,16 @@ class LateralRouteFactory:
             """Get entities that are prerequisites for this entity."""
             user_uid = require_authenticated_user(request)
 
-            result = await self.lateral_service.get_prerequisites(uid, user_uid=user_uid)
+            result = await self.lateral_service.get_lateral_relationships(
+                entity_uid=uid,
+                relationship_types=[
+                    RelationshipName.PREREQUISITE_FOR,
+                    RelationshipName.REQUIRES_PREREQUISITE,
+                ],
+                direction="both",
+                user_uid=user_uid,
+                domain_service=self.domain_service,
+            )
 
             if result.is_error:
                 return result
@@ -257,12 +294,18 @@ class LateralRouteFactory:
             """
             user_uid = require_authenticated_user(request)
 
-            result = await self.lateral_service.create_alternative_relationship(
-                goal_a_uid=uid,
-                goal_b_uid=target_uid,
-                comparison_criteria=comparison_criteria,
-                tradeoffs=tradeoffs or [],
+            result = await self.lateral_service.create_lateral_relationship(
+                source_uid=uid,
+                target_uid=target_uid,
+                relationship_type=RelationshipName.ALTERNATIVE_TO,
+                metadata={
+                    "comparison_criteria": comparison_criteria,
+                    "tradeoffs": tradeoffs or [],
+                    "domain": self.domain,
+                    "created_by": user_uid,
+                },
                 user_uid=user_uid,
+                domain_service=self.domain_service,
             )
 
             if result.is_error:
@@ -285,7 +328,13 @@ class LateralRouteFactory:
             """Get alternative entities."""
             user_uid = require_authenticated_user(request)
 
-            result = await self.lateral_service.get_alternative_goals(uid, user_uid=user_uid)
+            result = await self.lateral_service.get_lateral_relationships(
+                entity_uid=uid,
+                relationship_types=[RelationshipName.ALTERNATIVE_TO],
+                direction="both",
+                user_uid=user_uid,
+                domain_service=self.domain_service,
+            )
 
             if result.is_error:
                 return result
@@ -326,12 +375,18 @@ class LateralRouteFactory:
             """
             user_uid = require_authenticated_user(request)
 
-            result = await self.lateral_service.create_complementary_relationship(
-                goal_a_uid=uid,
-                goal_b_uid=target_uid,
-                synergy_description=synergy_description,
-                synergy_score=synergy_score,
+            result = await self.lateral_service.create_lateral_relationship(
+                source_uid=uid,
+                target_uid=target_uid,
+                relationship_type=RelationshipName.COMPLEMENTARY_TO,
+                metadata={
+                    "synergy_description": synergy_description,
+                    "synergy_score": synergy_score,
+                    "domain": self.domain,
+                    "created_by": user_uid,
+                },
                 user_uid=user_uid,
+                domain_service=self.domain_service,
             )
 
             if result.is_error:
@@ -354,7 +409,13 @@ class LateralRouteFactory:
             """Get complementary entities."""
             user_uid = require_authenticated_user(request)
 
-            result = await self.lateral_service.get_complementary_goals(uid, user_uid=user_uid)
+            result = await self.lateral_service.get_lateral_relationships(
+                entity_uid=uid,
+                relationship_types=[RelationshipName.COMPLEMENTARY_TO],
+                direction="both",
+                user_uid=user_uid,
+                domain_service=self.domain_service,
+            )
 
             if result.is_error:
                 return result
@@ -380,7 +441,11 @@ class LateralRouteFactory:
             """Get sibling entities (same parent in hierarchy)."""
             user_uid = require_authenticated_user(request)
 
-            result = await self.lateral_service.get_sibling_goals(uid, user_uid=user_uid)
+            result = await self.lateral_service.get_siblings(
+                entity_uid=uid,
+                user_uid=user_uid,
+                domain_service=self.domain_service,
+            )
 
             if result.is_error:
                 return result
@@ -419,29 +484,26 @@ class LateralRouteFactory:
             """
             user_uid = require_authenticated_user(request)
 
-            # Map route type to service method
-            method_map = {
-                "blocks": "delete_blocking_relationship",
-                "prerequisites": "delete_prerequisite_relationship",
-                # Note: alternatives and complementary don't have delete methods in all services
-                # They can be deleted via core lateral service
+            # Map route type to RelationshipName
+            type_map = {
+                "blocks": RelationshipName.BLOCKS,
+                "prerequisites": RelationshipName.PREREQUISITE_FOR,
+                "alternatives": RelationshipName.ALTERNATIVE_TO,
+                "complementary": RelationshipName.COMPLEMENTARY_TO,
             }
 
-            method_name = method_map.get(relationship_type)
-            if not method_name:
+            rel_name = type_map.get(relationship_type)
+            if not rel_name:
                 return Result.fail(
                     Errors.validation(f"Unsupported relationship type: {relationship_type}")
                 )
 
-            delete_method = getattr(self.lateral_service, method_name, None)
-            if delete_method is None:
-                return Result.fail(
-                    Errors.validation(f"Delete method not available for {relationship_type}")
-                )
-            result = await delete_method(
-                blocker_uid=uid,
-                blocked_uid=target_uid,
+            result = await self.lateral_service.delete_lateral_relationship(
+                source_uid=uid,
+                target_uid=target_uid,
+                relationship_type=rel_name,
                 user_uid=user_uid,
+                domain_service=self.domain_service,
             )
 
             if result.is_error:
@@ -484,8 +546,7 @@ class LateralRouteFactory:
             """
             require_authenticated_user(request)
 
-            # Access the core lateral service through the domain lateral service
-            result = await self.lateral_service.lateral_service.get_blocking_chain(uid, max_depth)
+            result = await self.lateral_service.get_blocking_chain(uid, max_depth)
 
             if result.is_error:
                 return result
@@ -522,7 +583,7 @@ class LateralRouteFactory:
 
             comparison_fields = fields.split(",") if fields else None
 
-            result = await self.lateral_service.lateral_service.get_alternatives_with_comparison(
+            result = await self.lateral_service.get_alternatives_with_comparison(
                 uid, comparison_fields
             )
 
@@ -564,18 +625,14 @@ class LateralRouteFactory:
             require_authenticated_user(request)
 
             # Parse relationship types if provided
-            from core.models.enums.lateral_relationship_types import (
-                LateralRelationType,
-            )
-
             relationship_types = None
             if types:
                 try:
-                    relationship_types = [LateralRelationType(t.strip()) for t in types.split(",")]
+                    relationship_types = [RelationshipName(t.strip()) for t in types.split(",")]
                 except ValueError as e:
                     return Result.fail(Errors.validation(f"Invalid relationship type: {e!s}"))
 
-            result = await self.lateral_service.lateral_service.get_relationship_graph(
+            result = await self.lateral_service.get_relationship_graph(
                 uid, depth, relationship_types
             )
 

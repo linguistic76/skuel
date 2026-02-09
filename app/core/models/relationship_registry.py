@@ -170,6 +170,27 @@ class PostProcessor:
 
 
 @dataclass(frozen=True)
+class LateralRelationshipSpec:
+    """
+    Metadata for one lateral relationship type.
+
+    Part of the RelationshipRegistry — THE single source of truth
+    for lateral relationship behavior (symmetry, inverses, constraints).
+
+    See: /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
+    """
+
+    relationship: RelationshipName
+    is_symmetric: bool
+    auto_inverse: bool
+    inverse_type: RelationshipName | None = None
+    requires_same_parent: bool = False
+    requires_same_depth: bool = False
+    check_cycles: bool = False  # BLOCKS, PREREQUISITE_FOR
+    category: str = ""  # "structural", "dependency", "semantic", "associative"
+
+
+@dataclass(frozen=True)
 class UnifiedRelationshipDefinition:
     """
     Complete definition of one relationship type for a domain.
@@ -1933,6 +1954,142 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "Lp": LP_CONFIG,
     # Note: MapOfContent and MOCSection removed - MOC is now KU with ORGANIZES relationships
 }
+
+
+# =============================================================================
+# LATERAL RELATIONSHIP SPECS — Single source of truth for lateral metadata
+# =============================================================================
+
+LATERAL_RELATIONSHIP_SPECS: dict[RelationshipName, "LateralRelationshipSpec"] = {
+    # --- Structural ---
+    RelationshipName.SIBLING: LateralRelationshipSpec(
+        relationship=RelationshipName.SIBLING,
+        is_symmetric=True,
+        auto_inverse=False,
+        requires_same_parent=True,
+        requires_same_depth=True,
+        category="structural",
+    ),
+    RelationshipName.COUSIN: LateralRelationshipSpec(
+        relationship=RelationshipName.COUSIN,
+        is_symmetric=True,
+        auto_inverse=False,
+        requires_same_depth=True,
+        category="structural",
+    ),
+    RelationshipName.AUNT_UNCLE: LateralRelationshipSpec(
+        relationship=RelationshipName.AUNT_UNCLE,
+        is_symmetric=False,
+        auto_inverse=True,
+        inverse_type=RelationshipName.NIECE_NEPHEW,
+        category="structural",
+    ),
+    RelationshipName.NIECE_NEPHEW: LateralRelationshipSpec(
+        relationship=RelationshipName.NIECE_NEPHEW,
+        is_symmetric=False,
+        auto_inverse=True,
+        inverse_type=RelationshipName.AUNT_UNCLE,
+        category="structural",
+    ),
+    # --- Dependency ---
+    RelationshipName.BLOCKS: LateralRelationshipSpec(
+        relationship=RelationshipName.BLOCKS,
+        is_symmetric=False,
+        auto_inverse=True,
+        inverse_type=RelationshipName.BLOCKED_BY,
+        requires_same_parent=True,
+        check_cycles=True,
+        category="dependency",
+    ),
+    RelationshipName.BLOCKED_BY: LateralRelationshipSpec(
+        relationship=RelationshipName.BLOCKED_BY,
+        is_symmetric=False,
+        auto_inverse=True,
+        inverse_type=RelationshipName.BLOCKS,
+        category="dependency",
+    ),
+    RelationshipName.PREREQUISITE_FOR: LateralRelationshipSpec(
+        relationship=RelationshipName.PREREQUISITE_FOR,
+        is_symmetric=False,
+        auto_inverse=True,
+        inverse_type=RelationshipName.REQUIRES_PREREQUISITE,
+        check_cycles=True,
+        category="dependency",
+    ),
+    RelationshipName.REQUIRES_PREREQUISITE: LateralRelationshipSpec(
+        relationship=RelationshipName.REQUIRES_PREREQUISITE,
+        is_symmetric=False,
+        auto_inverse=True,
+        inverse_type=RelationshipName.PREREQUISITE_FOR,
+        category="dependency",
+    ),
+    RelationshipName.LATERAL_ENABLES: LateralRelationshipSpec(
+        relationship=RelationshipName.LATERAL_ENABLES,
+        is_symmetric=False,
+        auto_inverse=True,
+        inverse_type=RelationshipName.LATERAL_ENABLED_BY,
+        category="dependency",
+    ),
+    RelationshipName.LATERAL_ENABLED_BY: LateralRelationshipSpec(
+        relationship=RelationshipName.LATERAL_ENABLED_BY,
+        is_symmetric=False,
+        auto_inverse=True,
+        inverse_type=RelationshipName.LATERAL_ENABLES,
+        category="dependency",
+    ),
+    # --- Semantic ---
+    RelationshipName.RELATED_TO: LateralRelationshipSpec(
+        relationship=RelationshipName.RELATED_TO,
+        is_symmetric=True,
+        auto_inverse=False,
+        requires_same_depth=True,
+        category="semantic",
+    ),
+    RelationshipName.SIMILAR_TO: LateralRelationshipSpec(
+        relationship=RelationshipName.SIMILAR_TO,
+        is_symmetric=True,
+        auto_inverse=False,
+        category="semantic",
+    ),
+    RelationshipName.COMPLEMENTARY_TO: LateralRelationshipSpec(
+        relationship=RelationshipName.COMPLEMENTARY_TO,
+        is_symmetric=True,
+        auto_inverse=False,
+        category="semantic",
+    ),
+    RelationshipName.CONFLICTS_WITH: LateralRelationshipSpec(
+        relationship=RelationshipName.CONFLICTS_WITH,
+        is_symmetric=True,
+        auto_inverse=False,
+        category="semantic",
+    ),
+    # --- Associative ---
+    RelationshipName.ALTERNATIVE_TO: LateralRelationshipSpec(
+        relationship=RelationshipName.ALTERNATIVE_TO,
+        is_symmetric=True,
+        auto_inverse=False,
+        requires_same_depth=True,
+        category="associative",
+    ),
+    RelationshipName.RECOMMENDED_WITH: LateralRelationshipSpec(
+        relationship=RelationshipName.RECOMMENDED_WITH,
+        is_symmetric=True,
+        auto_inverse=False,
+        category="associative",
+    ),
+    RelationshipName.STACKS_WITH: LateralRelationshipSpec(
+        relationship=RelationshipName.STACKS_WITH,
+        is_symmetric=True,
+        auto_inverse=False,
+        requires_same_parent=True,
+        category="associative",
+    ),
+}
+
+
+def get_lateral_spec(rel_type: RelationshipName) -> LateralRelationshipSpec | None:
+    """Get lateral spec by relationship type. None if not a lateral type."""
+    return LATERAL_RELATIONSHIP_SPECS.get(rel_type)
 
 
 # =============================================================================

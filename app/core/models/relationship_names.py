@@ -291,6 +291,34 @@ class RelationshipName(str, Enum):
     HAS_RESET_TOKEN = "HAS_RESET_TOKEN"  # (user)-[:HAS_RESET_TOKEN]->(reset_token)
 
     # =========================================================================
+    # LATERAL RELATIONSHIPS (February 2026 - Unified from LateralRelationType)
+    # Within-domain relationships between entities at same/related hierarchy levels.
+    # These complement the cross-domain relationships above.
+    # =========================================================================
+
+    # Structural - Position in hierarchy
+    SIBLING = "SIBLING"  # Same parent, same depth (symmetric)
+    COUSIN = "COUSIN"  # Same depth, different parents, shared grandparent (symmetric)
+    AUNT_UNCLE = "AUNT_UNCLE"  # Parent's sibling (asymmetric, inverse: NIECE_NEPHEW)
+    NIECE_NEPHEW = "NIECE_NEPHEW"  # Inverse of AUNT_UNCLE
+
+    # Dependency - Ordering and constraints
+    # (BLOCKS, BLOCKED_BY, REQUIRES_PREREQUISITE already defined above)
+    PREREQUISITE_FOR = "PREREQUISITE_FOR"  # Inverse of REQUIRES_PREREQUISITE (soft dependency)
+    LATERAL_ENABLES = "ENABLES"  # Generic within-domain: completing X enables Y
+    LATERAL_ENABLED_BY = "ENABLED_BY"  # Inverse of LATERAL_ENABLES
+
+    # Semantic - Domain meaning beyond hierarchy
+    # (RELATED_TO, CONFLICTS_WITH already defined above)
+    SIMILAR_TO = "SIMILAR_TO"  # High semantic similarity (symmetric)
+    COMPLEMENTARY_TO = "COMPLEMENTARY_TO"  # Synergistic pairing (symmetric)
+
+    # Associative - Recommendations and alternatives
+    ALTERNATIVE_TO = "ALTERNATIVE_TO"  # Mutually exclusive options (symmetric)
+    RECOMMENDED_WITH = "RECOMMENDED_WITH"  # Often done together (symmetric)
+    STACKS_WITH = "STACKS_WITH"  # Sequential combination / habit stacking
+
+    # =========================================================================
     # HELPER METHODS
     # =========================================================================
 
@@ -439,3 +467,104 @@ class RelationshipName(str, Enum):
             self.REQUIRES_STEP,
         }
         return self in prerequisite_types
+
+    # =========================================================================
+    # LATERAL RELATIONSHIP HELPER METHODS
+    # =========================================================================
+
+    def is_lateral_relationship(self) -> bool:
+        """Check if this is a lateral (within-domain) relationship type."""
+        return self in _LATERAL_TYPES
+
+    def is_symmetric_lateral(self) -> bool:
+        """Check if this lateral relationship is symmetric (same type both ways)."""
+        return self in _SYMMETRIC_LATERAL_TYPES
+
+    def get_lateral_inverse(self) -> "RelationshipName | None":
+        """Get inverse for asymmetric lateral relationships. None if symmetric."""
+        return _LATERAL_INVERSES.get(self)
+
+    def lateral_requires_same_parent(self) -> bool:
+        """Check if lateral relationship requires entities to share same parent."""
+        return self in {self.SIBLING, self.BLOCKS, self.STACKS_WITH}
+
+    def lateral_requires_same_depth(self) -> bool:
+        """Check if lateral relationship requires entities at same depth."""
+        return self in {self.SIBLING, self.COUSIN, self.RELATED_TO, self.ALTERNATIVE_TO}
+
+    def get_lateral_category(self) -> str | None:
+        """Get category for lateral relationship types.
+
+        Returns:
+            "structural", "dependency", "semantic", "associative", or None if not lateral.
+        """
+        if self in {self.SIBLING, self.COUSIN, self.AUNT_UNCLE, self.NIECE_NEPHEW}:
+            return "structural"
+        if self in {
+            self.BLOCKS,
+            self.BLOCKED_BY,
+            self.PREREQUISITE_FOR,
+            self.REQUIRES_PREREQUISITE,
+            self.LATERAL_ENABLES,
+            self.LATERAL_ENABLED_BY,
+        }:
+            return "dependency"
+        if self in {
+            self.RELATED_TO,
+            self.SIMILAR_TO,
+            self.COMPLEMENTARY_TO,
+            self.CONFLICTS_WITH,
+        }:
+            return "semantic"
+        if self in {self.ALTERNATIVE_TO, self.RECOMMENDED_WITH, self.STACKS_WITH}:
+            return "associative"
+        return None
+
+
+# Module-level constants (computed once at import time, not per-call)
+
+_LATERAL_TYPES = frozenset(
+    {
+        RelationshipName.SIBLING,
+        RelationshipName.COUSIN,
+        RelationshipName.AUNT_UNCLE,
+        RelationshipName.NIECE_NEPHEW,
+        RelationshipName.BLOCKS,
+        RelationshipName.BLOCKED_BY,
+        RelationshipName.PREREQUISITE_FOR,
+        RelationshipName.REQUIRES_PREREQUISITE,
+        RelationshipName.LATERAL_ENABLES,
+        RelationshipName.LATERAL_ENABLED_BY,
+        RelationshipName.RELATED_TO,
+        RelationshipName.SIMILAR_TO,
+        RelationshipName.COMPLEMENTARY_TO,
+        RelationshipName.CONFLICTS_WITH,
+        RelationshipName.ALTERNATIVE_TO,
+        RelationshipName.RECOMMENDED_WITH,
+        RelationshipName.STACKS_WITH,
+    }
+)
+
+_SYMMETRIC_LATERAL_TYPES = frozenset(
+    {
+        RelationshipName.SIBLING,
+        RelationshipName.COUSIN,
+        RelationshipName.RELATED_TO,
+        RelationshipName.SIMILAR_TO,
+        RelationshipName.COMPLEMENTARY_TO,
+        RelationshipName.CONFLICTS_WITH,
+        RelationshipName.ALTERNATIVE_TO,
+        RelationshipName.RECOMMENDED_WITH,
+    }
+)
+
+_LATERAL_INVERSES: dict[RelationshipName, RelationshipName] = {
+    RelationshipName.BLOCKS: RelationshipName.BLOCKED_BY,
+    RelationshipName.BLOCKED_BY: RelationshipName.BLOCKS,
+    RelationshipName.PREREQUISITE_FOR: RelationshipName.REQUIRES_PREREQUISITE,
+    RelationshipName.REQUIRES_PREREQUISITE: RelationshipName.PREREQUISITE_FOR,
+    RelationshipName.LATERAL_ENABLES: RelationshipName.LATERAL_ENABLED_BY,
+    RelationshipName.LATERAL_ENABLED_BY: RelationshipName.LATERAL_ENABLES,
+    RelationshipName.AUNT_UNCLE: RelationshipName.NIECE_NEPHEW,
+    RelationshipName.NIECE_NEPHEW: RelationshipName.AUNT_UNCLE,
+}

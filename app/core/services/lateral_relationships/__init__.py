@@ -13,9 +13,8 @@ Philosophy:
     the rich semantics of how entities relate beyond parent-child structure."
 
 Components:
-    - LateralRelationshipService: Core domain-agnostic service
-    - LateralRelationType: Relationship type enum
-    - Domain-specific services: GoalsLateralService, TasksLateralService, etc.
+    - LateralRelationshipService: Core domain-agnostic service (with ownership verification)
+    - LateralRelationshipSpec: Metadata registry (in relationship_registry.py)
 
 See: /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
 """

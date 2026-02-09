@@ -127,35 +127,24 @@ if TYPE_CHECKING:
     from core.services.reports.report_schedule_service import ReportScheduleService
     from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
-    from core.services.choices.choices_lateral_service import ChoicesLateralService
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.events.events_intelligence_service import EventsIntelligenceService
-    from core.services.events.events_lateral_service import EventsLateralService
     from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
-    from core.services.goals.goals_lateral_service import GoalsLateralService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
-    from core.services.habits.habits_lateral_service import HabitsLateralService
     from core.services.insight.insight_store import InsightStore
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
-    from core.services.ku.ku_lateral_service import KuLateralService
     from core.services.ku_intelligence_service import KuIntelligenceService
-    from core.services.lateral_relationships.lateral_relationship_service import (
-        LateralRelationshipService,
-    )
-    from core.services.lp.lp_lateral_service import LpLateralService
-    from core.services.ls.ls_lateral_service import LsLateralService
+    from core.services.protocols.service_protocols import LateralRelationshipOperations
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.performance_optimization_service import PerformanceOptimizationService
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )
-    from core.services.principles.principles_lateral_service import PrinciplesLateralService
     from core.services.relationships.unified_relationship_service import (
         UnifiedRelationshipService,
     )
     from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
-    from core.services.tasks.tasks_lateral_service import TasksLateralService
     from core.services.transcript_processor_service import TranscriptProcessorService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
@@ -430,16 +419,7 @@ class Services:
     # ========================================================================
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
     # ========================================================================
-    lateral: "LateralRelationshipService | None" = None
-    tasks_lateral: "TasksLateralService | None" = None
-    goals_lateral: "GoalsLateralService | None" = None
-    habits_lateral: "HabitsLateralService | None" = None
-    events_lateral: "EventsLateralService | None" = None
-    choices_lateral: "ChoicesLateralService | None" = None
-    principles_lateral: "PrinciplesLateralService | None" = None
-    ku_lateral: "KuLateralService | None" = None
-    ls_lateral: "LsLateralService | None" = None
-    lp_lateral: "LpLateralService | None" = None
+    lateral: "LateralRelationshipOperations | None" = None
 
     # Services are ready when constructed - no lifecycle needed
 
@@ -1381,76 +1361,12 @@ async def compose_services(
         # Enables explicit modeling of sibling, cousin, dependency, and semantic relationships
         # across all 8 hierarchical domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP)
 
-        from core.services.choices.choices_lateral_service import ChoicesLateralService
-        from core.services.events.events_lateral_service import EventsLateralService
-        from core.services.goals.goals_lateral_service import GoalsLateralService
-        from core.services.habits.habits_lateral_service import HabitsLateralService
-        from core.services.ku.ku_lateral_service import KuLateralService
         from core.services.lateral_relationships import LateralRelationshipService
-        from core.services.lp.lp_lateral_service import LpLateralService
-        from core.services.ls.ls_lateral_service import LsLateralService
-        from core.services.principles.principles_lateral_service import PrinciplesLateralService
-        from core.services.tasks.tasks_lateral_service import TasksLateralService
 
         # Create core lateral relationship service (domain-agnostic)
+        # Ownership verification happens at route level via domain_service param
         lateral_service = LateralRelationshipService(driver)
-        logger.info("✅ Core LateralRelationshipService created (domain-agnostic)")
-
-        # Create domain-specific lateral services
-        tasks_lateral = TasksLateralService(
-            driver=driver,
-            tasks_service=activity_services["tasks"],
-        )
-
-        goals_lateral = GoalsLateralService(
-            driver=driver,
-            goals_service=activity_services["goals"],
-        )
-
-        habits_lateral = HabitsLateralService(
-            driver=driver,
-            habits_service=activity_services["habits"],
-        )
-
-        events_lateral = EventsLateralService(
-            driver=driver,
-            events_service=activity_services["events"],
-        )
-
-        choices_lateral = ChoicesLateralService(
-            driver=driver,
-            choices_service=activity_services["choices"],
-        )
-
-        principles_lateral = PrinciplesLateralService(
-            driver=driver,
-            principles_service=activity_services["principles"],
-        )
-
-        ku_lateral = KuLateralService(
-            driver=driver,
-            ku_service=learning_services["ku_service"],
-        )
-
-        ls_lateral = LsLateralService(
-            driver=driver,
-            ls_service=learning_services["learning_steps"],
-        )
-
-        lp_lateral = LpLateralService(
-            driver=driver,
-            lp_service=learning_services["learning_paths"],
-        )
-
-        logger.info("✅ Domain lateral services created (8 domains):")
-        logger.info("   - Activity Domains: Tasks, Goals, Habits, Events, Choices, Principles")
-        logger.info("   - Curriculum Domains: KU, LS, LP")
-        logger.info(
-            "   Lateral relationships: BLOCKS, PREREQUISITE_FOR, ALTERNATIVE_TO, COMPLEMENTARY_TO,"
-        )
-        logger.info(
-            "                         CONFLICTS_WITH, STACKS_WITH, RELATED_TO, SIMILAR_TO, ENABLES"
-        )
+        logger.info("✅ LateralRelationshipService created (9 domains, ownership at route level)")
 
         # Create Askesis core service (CRUD operations for AI assistant instances)
         from core.services.askesis.askesis_core_service import AskesisCoreService
@@ -2467,16 +2383,7 @@ async def compose_services(
             askesis_ai=askesis_ai,
             context_aware_ai=context_aware_ai,
             # Lateral relationship services (January 2026 - Core graph architecture)
-            lateral=lateral_service,  # Core domain-agnostic service
-            tasks_lateral=tasks_lateral,
-            goals_lateral=goals_lateral,
-            habits_lateral=habits_lateral,
-            events_lateral=events_lateral,
-            choices_lateral=choices_lateral,
-            principles_lateral=principles_lateral,
-            ku_lateral=ku_lateral,
-            ls_lateral=ls_lateral,
-            lp_lateral=lp_lateral,
+            lateral=lateral_service,
         )
 
         # ========================================================================
