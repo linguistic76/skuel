@@ -99,12 +99,6 @@ class TranscriptionDTO:
     sentences: list[str] = field(default_factory=list)
 
     # ========================================================================
-    # RELATIONS
-    # ========================================================================
-
-    journal_uid: str | None = None
-
-    # ========================================================================
     # CONFIGURATION
     # ========================================================================
 
@@ -174,9 +168,9 @@ class TranscriptionAnalyticsDTO:
     average_processing_time_seconds: float = 0.0
     processing_time_by_duration: dict[str, float] = field(default_factory=dict)
 
-    # Journal integration
-    transcriptions_with_journals: int = 0
-    journal_creation_rate: float = 0.0
+    # Report integration
+    transcriptions_with_reports: int = 0
+    report_creation_rate: float = 0.0
 
     # Metadata
     generated_at: datetime = field(default_factory=datetime.now)

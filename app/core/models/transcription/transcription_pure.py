@@ -100,12 +100,6 @@ class TranscriptionPure:
     sentences: list[str] = None  # type: ignore[assignment]
 
     # ========================================================================
-    # RELATIONS
-    # ========================================================================
-
-    journal_uid: str | None = None
-
-    # ========================================================================
     # CONFIGURATION
     # ========================================================================
 
@@ -300,7 +294,6 @@ class TranscriptionPure:
             "confidence": self.get_confidence_score(),
             "has_multiple_speakers": self.has_multiple_speakers(),
             "speaker_count": len(self.speakers),
-            "has_journal": bool(self.journal_uid),
         }
 
 

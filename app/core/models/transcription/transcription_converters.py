@@ -55,7 +55,6 @@ def transcription_create_request_to_dto(
         enable_punctuation=request.enable_punctuation,
         enable_paragraphs=request.enable_paragraphs,
         custom_vocabulary=request.custom_vocabulary or [],
-        journal_uid=request.journal_uid,
         tags=request.tags or [],
         notes=request.notes,
         processing_status=ProcessingStatus.PENDING,
@@ -100,9 +99,7 @@ def transcription_update_request_to_dto(
     if request.sentences is not None:
         updates["sentences"] = request.sentences
 
-    # Relations and metadata
-    if request.journal_uid is not None:
-        updates["journal_uid"] = request.journal_uid
+    # Metadata
     if request.error_message is not None:
         updates["error_message"] = request.error_message
     if request.tags is not None:
@@ -156,8 +153,6 @@ def transcription_dto_to_pure(dto: TranscriptionDTO) -> TranscriptionPure:
         speakers=dto.speakers.copy() if dto.speakers else [],
         paragraphs=dto.paragraphs.copy() if dto.paragraphs else [],
         sentences=dto.sentences.copy() if dto.sentences else [],
-        # Relations
-        journal_uid=dto.journal_uid,
         # Configuration
         service=dto.service,
         model=dto.model,
@@ -214,8 +209,6 @@ def transcription_pure_to_dto(pure: TranscriptionPure) -> TranscriptionDTO:
         speakers=pure.speakers.copy() if pure.speakers else [],
         paragraphs=pure.paragraphs.copy() if pure.paragraphs else [],
         sentences=pure.sentences.copy() if pure.sentences else [],
-        # Relations
-        journal_uid=pure.journal_uid,
         # Configuration
         service=pure.service,
         model=pure.model,
@@ -290,9 +283,6 @@ def transcription_dto_to_response(dto: TranscriptionDTO) -> dict[str, Any]:
         "speaker_count": len(dto.speakers),
         "paragraphs": dto.paragraphs,
         "sentences": dto.sentences,
-        # Relations
-        "journal_uid": dto.journal_uid,
-        "has_journal": bool(dto.journal_uid),
         # Configuration
         "service": dto.service.value
         if isinstance(dto.service, TranscriptionService)
@@ -351,9 +341,9 @@ def process_request_to_dto(
         notes=request.notes,
         processing_status=ProcessingStatus.PENDING,
         metadata={
-            "create_journal": request.create_journal,
-            "journal_title": request.journal_title,
-            "journal_category": request.journal_category,
+            "create_report": request.create_report,
+            "report_title": request.report_title,
+            "report_category": request.report_category,
             "extract_insights": request.extract_insights,
             "auto_paragraph": request.auto_paragraph,
         },

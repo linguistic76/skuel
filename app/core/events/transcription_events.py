@@ -3,13 +3,13 @@ Transcription Domain Events
 ============================
 
 Events for the transcription domain, enabling loose coupling
-with other services like Journals.
+with downstream services like ReportsCoreService.
 
 Event-Driven Architecture:
-- TranscriptionCompleted → JournalService can create journal from transcript
+- TranscriptionCompleted → ReportsCoreService creates journal-type Report from transcript
 - TranscriptionFailed → Monitoring/alerting can respond
 
-This replaces direct coupling between TranscriptionService and JournalService.
+This replaces direct coupling between TranscriptionService and ReportsCoreService.
 """
 
 from dataclasses import dataclass
@@ -24,7 +24,7 @@ class TranscriptionCompleted(BaseEvent):
     Published when a transcription completes successfully.
 
     Subscribers:
-    - JournalService: Can create journal from transcript
+    - ReportsCoreService: Creates journal-type Report from transcript
     - AnalyticsService: Can update transcription metrics
     - UserContextService: Can invalidate user context cache
     """

@@ -58,9 +58,6 @@ class TranscriptionCreateRequest(BaseModel):
         default_factory=list, description="Custom vocabulary words"
     )
 
-    # Relations
-    journal_uid: str | None = Field(default=None, description="Associated journal UID")
-
     # Additional metadata
     tags: list[str] = Field(default_factory=list, description="Tags for organization")
     notes: str | None = Field(default=None, max_length=1000, description="Processing notes")
@@ -103,9 +100,6 @@ class TranscriptionUpdateRequest(BaseModel):
     paragraphs: list[str] | None = Field(default=None, description="Text paragraphs")
     sentences: list[str] | None = Field(default=None, description="Extracted sentences")
 
-    # Relations
-    journal_uid: str | None = Field(default=None, description="Linked journal UID")
-
     # Error handling
     error_message: str | None = Field(default=None, max_length=500, description="Error message")
 
@@ -133,12 +127,12 @@ class TranscriptionProcessRequest(BaseModel):
     enable_paragraphs: bool = Field(default=True, description="Enable paragraph detection")
 
     # Processing flags
-    create_journal: bool = Field(default=False, description="Create journal from transcription")
-    journal_title: str | None = Field(
-        default=None, max_length=200, description="Title for created journal"
+    create_report: bool = Field(default=False, description="Create report from transcription")
+    report_title: str | None = Field(
+        default=None, max_length=200, description="Title for created report"
     )
-    journal_category: str = Field(default="daily", description="Category for created journal")
-    journal_project_uid: str | None = Field(
+    report_category: str = Field(default="daily", description="Category for created report")
+    report_project_uid: str | None = Field(
         default=None,
         max_length=100,
         description="UID of ReportProject for LLM processing of transcript",
@@ -152,13 +146,13 @@ class TranscriptionProcessRequest(BaseModel):
     tags: list[str] = Field(default_factory=list, description="Tags for transcription")
     notes: str | None = Field(default=None, max_length=1000, description="Processing notes")
 
-    @field_validator("journal_title")
+    @field_validator("report_title")
     @classmethod
-    def validate_journal_title(cls, v: str | None, info) -> str | None:
-        """Validate journal title when creating journal"""
-        create_journal = info.data.get("create_journal", False)
-        if create_journal and not v:
-            raise ValueError("journal_title is required when create_journal is True")
+    def validate_report_title(cls, v: str | None, info) -> str | None:
+        """Validate report title when creating report."""
+        create_report = info.data.get("create_report", False)
+        if create_report and not v:
+            raise ValueError("report_title is required when create_report is True")
         return v
 
 
@@ -173,8 +167,8 @@ class AudioProcessingRequest(BaseModel):
         default=None, max_length=200, description="Title for the transcription"
     )
 
-    create_journal: bool = Field(
-        default=True, description="Whether to create a journal entry from transcription"
+    create_report: bool = Field(
+        default=True, description="Whether to create a report from transcription"
     )
 
     # Processing options (defaults match TranscriptionProcessRequest)
@@ -230,10 +224,6 @@ class TranscriptionFilterRequest(BaseModel):
     search_query: str | None = Field(
         default=None, max_length=100, description="Search in transcript text"
     )
-
-    # Relationship filters
-    has_journal: bool | None = Field(default=None)
-    journal_uid: str | None = Field(default=None)
 
     # Tag filters
     tags: list[str] | None = Field(default=None)
@@ -298,8 +288,8 @@ class BatchTranscriptionRequest(BaseModel):
         default="deepgram", description="Service for all files"
     )
     language: LanguageCodeLiteral = Field(default="en", description="Language for all files")
-    create_journals: bool = Field(default=False, description="Create journals for all")
-    journal_category: str = Field(default="daily", description="Category for created journals")
+    create_reports: bool = Field(default=False, description="Create reports for all")
+    report_category: str = Field(default="daily", description="Category for created reports")
     processing_priority: Literal["low", "normal", "high"] = Field(default="normal")
     callback_url: str | None = Field(default=None, description="Webhook callback URL")
 
@@ -367,7 +357,7 @@ class TranscriptionAnalyticsRequest(BaseModel):
     include_language_breakdown: bool = Field(default=True)
     include_quality_metrics: bool = Field(default=True)
     include_processing_performance: bool = Field(default=True)
-    include_journal_integration: bool = Field(default=True)
+    include_report_integration: bool = Field(default=True)
 
     # Grouping
     group_by: Literal["day", "week", "month", "service", "language"] | None = Field(default="week")
