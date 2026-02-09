@@ -811,12 +811,14 @@ result: PrerequisiteResult = PrerequisiteHelper.check_prerequisites(
 
 **Evolution (2026-02-06):** Activity Domains moved from profile sidebar to **navbar avatar dropdown**. Profile sidebar now contains: Overview, Shared With Me, Curriculum, Account. Events remains a top-level nav item.
 
+**Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage` from `ui/patterns/sidebar.py`). Custom CSS/JS files deleted. Mobile uses horizontal DaisyUI tabs.
+
 **Key Files:**
 - `/ui/layouts/base_page.py` - Unified page wrapper (`BasePage`)
 - `/ui/layouts/page_types.py` - Page type enum and config
 - `/ui/layouts/navbar.py` - Navbar with profile dropdown (`_profile_dropdown`)
 - `/ui/layouts/nav_config.py` - `PROFILE_DROPDOWN_ITEMS` (5 activity domains)
-- `/ui/profile/layout.py` - Profile Hub custom sidebar (`build_profile_sidebar`, `create_profile_page`)
+- `/ui/patterns/sidebar.py` - Unified sidebar component (`SidebarItem`, `SidebarNav`, `SidebarPage`)
 - `/ui/tokens.py` - Spacing, container, card tokens
 - `/ui/patterns/` - PageHeader, SectionHeader components
 

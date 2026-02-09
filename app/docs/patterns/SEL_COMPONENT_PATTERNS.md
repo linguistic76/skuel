@@ -318,88 +318,47 @@ content = Div(
 - ✅ UIDs for keys, titles for display
 - ✅ Automatic keyboard navigation
 
-### 6. Profile-Style Sidebar Navigation
+### 6. Sidebar Navigation (SidebarPage)
 
-**Use Case:** Persistent sidebar menu for all SEL pages, reusing the profile sidebar pattern
+**Use Case:** Persistent sidebar menu for all SEL pages, using the unified `SidebarPage()` component
 
 **Pattern:**
 ```python
-from fasthtml.common import A as Anchor, Button, Li, Main, NotStr, P, Span, Ul
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-# Menu items defined at module level (title, href, slug, description)
-SEL_MENU_ITEMS = [
-    ("Overview", "/sel", "overview", "Introduction to SEL"),
-    ("Self Awareness", "/sel/self-awareness", "self-awareness", "Understanding thoughts/emotions"),
-    ("Self Management", "/sel/self-management", "self-management", "Managing emotions"),
+# Menu items defined at module level
+SEL_ITEMS = [
+    SidebarItem("Overview", "/sel", "overview", description="Introduction to SEL"),
+    SidebarItem("Self Awareness", "/sel/self-awareness", "self-awareness", description="Understanding thoughts/emotions"),
+    SidebarItem("Self Management", "/sel/self-management", "self-management", description="Managing emotions"),
     # ... rest
 ]
 
-def _sel_sidebar(active_slug: str):
-    """Build sidebar — mirrors build_profile_sidebar() structure."""
-    menu_items = [
-        Li(
-            Anchor(
-                title,
-                href=href,
-                cls=f"{'menu-active' if slug == active_slug else ''}",
-                **{
-                    "hx-boost": "false",
-                    "onclick": "if(window.innerWidth<=1024)toggleProfileSidebar()",
-                },
-            )
-        )
-        for title, href, slug, _desc in SEL_MENU_ITEMS
-    ]
-
-    return Div(
-        Div(
-            Button(..., cls="sidebar-toggle", onclick="toggleProfileSidebar()"),
-            Ul(*menu_items, cls="menu bg-white min-h-full w-full p-4 sidebar-nav", id="sel-sidebar-nav"),
-            cls="sidebar-inner",
-        ),
-        cls="profile-sidebar",
-        id="profile-sidebar",        # Required by profile_sidebar.js
-        role="dialog",
-    )
-
-def _sel_page_layout(active_slug: str, content: Any):
-    """Assemble the profile-container shell."""
-    return Div(
-        Div(id="profile-overlay", cls="profile-overlay", onclick="toggleProfileSidebar()"),
-        _sel_sidebar(active_slug),
-        Div(id="sidebar-sr-announcements", role="status", aria_live="polite", cls="sr-only"),
-        Div(
-            Div(Span("☰"), Span("Menu"), cls="btn btn-ghost mobile-menu-button mb-4",
-                onclick="toggleProfileSidebar()", role="button", tabindex="0"),
-            Main(Div(content, cls="max-w-6xl mx-auto"), cls="p-6 lg:p-8"),
-            cls="profile-content",
-            id="profile-content",     # Required by profile_sidebar.js
-        ),
-        cls="profile-container",
-    )
-
-# In route handler — extra_css loads the shared sidebar stylesheet
+# In route handler
 @rt("/sel/self-awareness")
 async def sel_self_awareness(request: Request) -> Any:
     content = Div(...)  # Your page content
-    page_layout = _sel_page_layout("self-awareness", content)
 
-    return await BasePage(
-        page_layout,
-        title="Self Awareness - SEL",
-        page_type=PageType.STANDARD,
+    return await SidebarPage(
+        content=content,
+        items=SEL_ITEMS,
+        active="self-awareness",
+        title="SEL",
+        subtitle="Social Emotional Learning",
+        storage_key="sel-sidebar",
         request=request,
         active_page="sel",
-        extra_css=["/static/css/profile_sidebar.css"],
     )
 ```
 
 **Key Techniques:**
-- ✅ Reuses `profile_sidebar.css` + `profile_sidebar.js` (loaded globally via `base_page.py`)
-- ✅ Four IDs required by `profile_sidebar.js`: `profile-sidebar`, `profile-content`, `profile-overlay`, `sidebar-sr-announcements`
-- ✅ Active page slug drives `menu-active` class
-- ✅ `onclick` on nav anchors closes drawer on mobile (`innerWidth <= 1024`)
-- ✅ `extra_css` on `BasePage` pulls in the sidebar stylesheet
+- ✅ Uses unified `SidebarPage()` from `ui/patterns/sidebar.py`
+- ✅ Desktop: Collapsible fixed sidebar with Alpine.js state
+- ✅ Mobile: Horizontal DaisyUI tabs (no drawer/overlay)
+- ✅ Active page slug drives highlighted item
+- ✅ No custom CSS files needed
+
+**See:** `@custom-sidebar-patterns` for complete implementation guide
 
 ## Best Practices
 

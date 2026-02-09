@@ -72,7 +72,7 @@ Use design tokens from `/ui/tokens.py` for spacing and containers:
 All layout surfaces use `bg-white`. Sections are separated by **borders**, not color contrast:
 - Navbar: `bg-white border-b border-gray-200`
 - HUB sidebar: `bg-white border-r border-gray-200`
-- Custom sidebars (Profile Hub, SEL): `bg-white` + CSS `border-right` via `profile_sidebar.css`
+- Sidebar pages (Profile, KU, Reports, Journals, Askesis): `bg-white border-r border-base-300` via Tailwind in `SidebarPage()`
 - Body / content area: `bg-white`
 
 Only interactive states (active nav links, hover tints) use non-white backgrounds.
@@ -209,70 +209,53 @@ async def get_admin_dashboard(request: Request):
 
 ---
 
-### Pattern 3: Custom Sidebar (Profile Hub)
+### Pattern 3: Sidebar Page (SidebarPage)
 
-**Use when:** You need collapsible sidebar with state persistence or special behavior
+**Use when:** You need collapsible sidebar with state persistence, multi-item navigation, or extra sections
 
 **Example:**
 ```python
-from ui.profile.layout import build_profile_sidebar, create_profile_page
-from ui.profile.layout import ProfileDomainItem
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-@rt("/profile")
-async def get_profile_hub(request: Request):
-    # Build domain items for sidebar
-    domains = [
-        ProfileDomainItem(
-            name="Tasks",
-            slug="tasks",
-            icon="✅",
-            count=10,
-            active_count=3,
-            status="healthy",
-            href="/profile/tasks",
-            insight_count=2,
-        ),
-        ProfileDomainItem(
-            name="Goals",
-            slug="goals",
-            icon="🎯",
-            count=5,
-            active_count=2,
-            status="attention",
-            href="/profile/goals",
-            insight_count=1,
-        ),
-        # ... more domains
+@rt("/reports")
+async def reports_hub(request: Request):
+    items = [
+        SidebarItem("Submit", "/reports/submit", "submit", icon="📤"),
+        SidebarItem("Browse", "/reports/browse", "browse", icon="📂"),
+        SidebarItem("Projects", "/reports/projects", "projects", icon="📋"),
     ]
 
-    # Main content
     content = Div(
-        H1("Tasks Overview"),
-        # ... task widgets ...
+        H1("Submit Report"),
+        # ... form content ...
     )
 
-    # Use custom profile page builder
-    return create_profile_page(
+    return await SidebarPage(
         content=content,
-        domains=domains,
-        active_domain="tasks",  # Highlight active domain
-        user_display_name="John Doe",
-        title="Profile Hub",
+        items=items,
+        active="submit",
+        title="Reports",
+        storage_key="reports-sidebar",
         request=request,
+        active_page="reports",
     )
 ```
 
 **Key Features:**
 - Collapsible sidebar (256px → 48px edge on desktop)
-- Pure CSS animations (no JavaScript complexity)
+- Alpine.js `collapsibleSidebar` + `Alpine.store()` for shared state
 - localStorage persistence (sidebar state saved)
-- Mobile: Full-width drawer with overlay
-- Chevron toggle button
+- Mobile: Horizontal DaisyUI tabs (no drawer/overlay)
+- Chevron toggle button with screen reader announcements
+- Extension: `extra_sidebar_sections`, `item_renderer`, `description` items
 
 **Files:**
-- `/ui/profile/layout.py` - `build_profile_sidebar()`, `create_profile_page()`
-- `/static/css/profile_sidebar.css` - Sidebar animations
-- `/static/js/profile_sidebar.js` - Toggle function
+- `/ui/patterns/sidebar.py` - `SidebarItem`, `SidebarNav`, `SidebarPage`
+- `/static/js/skuel.js` (lines 917-953) - `collapsibleSidebar` Alpine component
+
+**Current Adopters:** Profile, KU, Reports, Journals, Askesis (all 5 sidebar pages)
+
+**See:** `@custom-sidebar-patterns` for complete implementation guide
 
 ---
 
@@ -450,31 +433,25 @@ async def get_admin_dashboard(request: Request):
 **File:** `/ui/profile/layout.py:180`
 
 ```python
-def create_profile_page(
-    content: Any,
-    domains: list[ProfileDomainItem],
-    active_domain: str = "",
-    user_display_name: str = "",
-    title: str = "Profile Hub",
-    request: "Request | None" = None,
-) -> "FT":
-    """Create profile page with custom sidebar."""
-    sidebar = build_profile_sidebar(domains, active_domain, user_display_name)
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-    return BasePage(
-        Div(
-            sidebar,
-            Div(content, cls="flex-1 p-6 lg:p-8"),
-            cls="flex min-h-[calc(100vh-64px)]",
-        ),
-        title=title,
-        request=request,
-        active_page="profile",
-        extra_css=["/static/css/profile_sidebar.css"],
-    )
+items = [
+    SidebarItem("Overview", "/profile", "overview", icon="📊"),
+    SidebarItem("Shared", "/profile/shared", "shared", icon="📬"),
+]
+
+return await SidebarPage(
+    content=content,
+    items=items,
+    active="overview",
+    title="Profile",
+    storage_key="profile-sidebar",
+    request=request,
+    active_page="profile/hub",
+)
 ```
 
-**Pattern:** CUSTOM sidebar with collapse behavior
+**Pattern:** CUSTOM sidebar with collapse behavior via `SidebarPage()`
 
 ---
 
@@ -625,16 +602,20 @@ return create_profile_page(
 
 **Correct approach:**
 ```python
-# ✅ DO THIS
-return create_profile_page(
-    content,
-    domains=domains,
+# ✅ DO THIS — use SidebarPage for sidebar pages
+from ui.patterns.sidebar import SidebarItem, SidebarPage
+
+return await SidebarPage(
+    content=content,
+    items=items,
+    active="overview",
+    title="Profile",
+    storage_key="profile-sidebar",
     request=request,
-    extra_css=["/static/css/profile_sidebar.css"],
 )
 ```
 
-**Note:** `create_profile_page()` already includes profile_sidebar.css internally, but if building custom layouts, remember to include necessary CSS.
+**Note:** `SidebarPage()` handles all layout, BasePage wrapping, and Alpine.js state automatically.
 
 ---
 
@@ -686,10 +667,9 @@ When building a new page, verify:
 - `/ui/tokens.py` - Design tokens (Container, Spacing, Card)
 - `/ui/patterns/` - PageHeader, SectionHeader components
 
-### Custom Layouts
-- `/ui/profile/layout.py` - Profile Hub custom sidebar pattern
-- `/static/css/profile_sidebar.css` - Sidebar animations
-- `/static/js/profile_sidebar.js` - Toggle function
+### Sidebar Pages
+- `/ui/patterns/sidebar.py` - Unified sidebar component (`SidebarItem`, `SidebarNav`, `SidebarPage`)
+- `/static/js/skuel.js` (lines 917-953) - `collapsibleSidebar` Alpine component
 
 ### Documentation
 - `/docs/patterns/UI_COMPONENT_PATTERNS.md` - Complete UI patterns guide
@@ -714,7 +694,7 @@ When building a new page, verify:
 - [PROFILE_HUB_MODERNIZATION_2026-02-01.md](/docs/migrations/PROFILE_HUB_MODERNIZATION_2026-02-01.md) - Profile Hub migration to BasePage with custom sidebar
 
 **Implementation:**
-- `/ui/profile/layout.py` - Profile Hub custom sidebar example (create_profile_page, build_profile_sidebar)
+- `/ui/patterns/sidebar.py` - Unified sidebar component (`SidebarItem`, `SidebarNav`, `SidebarPage`)
 - `/ui/layouts/base_page.py` - BasePage implementation
 - `/ui/layouts/page_types.py` - PageType enum and config
 

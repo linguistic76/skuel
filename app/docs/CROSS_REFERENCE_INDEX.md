@@ -117,17 +117,6 @@ For each skill, this section shows all related documentation (architecture docs,
 **Patterns (Primary):**
 - [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)
 
-### @docker
-
-**Description:** SKUEL's Docker setup — the two-directory compose split, Dockerfile.production conventions, startup sequences, and local vs Droplet vs App Platform differences
-
-**Deployment:**
-- [DO_MIGRATION_GUIDE.md](/docs/deployment/DO_MIGRATION_GUIDE.md)
-- [AURADB_MIGRATION_GUIDE.md](/docs/deployment/AURADB_MIGRATION_GUIDE.md)
-
-**Development:**
-- [GENAI_SETUP.md](/docs/development/GENAI_SETUP.md)
-
 ### @docs-skills-evolution
 
 **Description:** How SKUEL's documentation and skills evolve in rhythm with the ecosystem
@@ -137,6 +126,23 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **Other:**
 - [ADR-TEMPLATE.md](/docs/decisions/ADR-TEMPLATE.md)
+
+### @domain-route-config
+
+**Description:** Configuration-driven route registration for *_routes.py files using DomainRouteConfig
+
+**Patterns (Primary):**
+- [DOMAIN_ROUTE_CONFIG_PATTERN.md](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md)
+
+**Other:**
+- [DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md](/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md)
+
+**Patterns (Additional):**
+- [ROUTE_FACTORIES.md](/docs/patterns/ROUTE_FACTORIES.md)
+- [FASTHTML_ROUTE_REGISTRATION.md](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md)
+
+**ADRs:**
+- [ADR-020](/docs/decisions/ADR-020.md)
 
 ### @fasthtml
 
@@ -422,15 +428,16 @@ For each documentation category, this section shows which skills are relevant.
 - [DOMAIN_LATERAL_SERVICE_QUICK_START.md](/docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md) → @base-analytics-service
 - [DOMAIN_PATTERNS_CATALOG.md](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) → @pydantic, @python
 - [DOMAIN_RELATIONSHIPS_PATTERN.md](/docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md) → @neo4j-cypher-patterns
-- [DOMAIN_ROUTE_CONFIG_PATTERN.md](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md) → @fasthtml
+- [DOMAIN_ROUTE_CONFIG_PATTERN.md](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md) → @domain-route-config, @fasthtml
 - [ERROR_HANDLING.md](/docs/patterns/ERROR_HANDLING.md) → @result-pattern, @ui-error-handling
-- [FASTHTML_ROUTE_REGISTRATION.md](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md) → @fasthtml, @html-htmx
+- [FASTHTML_ROUTE_REGISTRATION.md](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md) → @domain-route-config, @fasthtml, @html-htmx
 - [FASTHTML_TYPE_HINTS_GUIDE.md](/docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md) → @fasthtml, @html-htmx
 - [GRAPH_ACCESS_PATTERNS.md](/docs/patterns/GRAPH_ACCESS_PATTERNS.md) → @neo4j-cypher-patterns, @pytest
 - [HIERARCHICAL_RELATIONSHIPS_PATTERN.md](/docs/patterns/HIERARCHICAL_RELATIONSHIPS_PATTERN.md) → @neo4j-cypher-patterns
 - [HIERARCHY_COMPONENTS_GUIDE.md](/docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md) → @skuel-component-composition
 - [HTMX_ACCESSIBILITY_PATTERNS.md](/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md) → @accessibility-guide, @html-htmx
 - [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) → @neo4j-cypher-patterns, @vis-network
+- [MYPY_TYPE_SAFETY_PATTERNS.md](/docs/patterns/MYPY_TYPE_SAFETY_PATTERNS.md) → @python
 - [OWNERSHIP_VERIFICATION.md](/docs/patterns/OWNERSHIP_VERIFICATION.md) → @activity-domains, @curriculum-domains
 - [PERFORMANCE_MONITORING.md](/docs/patterns/PERFORMANCE_MONITORING.md) → @prometheus-grafana, @pydantic, @skuel-form-patterns
 - [PROTOCOL_LSP_COMPLIANCE.md](/docs/patterns/PROTOCOL_LSP_COMPLIANCE.md) → @python
@@ -438,7 +445,8 @@ For each documentation category, this section shows which skills are relevant.
 - [RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md](/docs/patterns/RELATIONSHIP_HELPERS_EXAMPLE_SERVICE.md) → @base-analytics-service, @neo4j-cypher-patterns, @pytest
 - [RELATIONSHIP_INFRASTRUCTURE_PATTERN.md](/docs/patterns/RELATIONSHIP_INFRASTRUCTURE_PATTERN.md) → @neo4j-cypher-patterns
 - [RETURN_TYPE_ERROR_PROPAGATION.md](/docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md) → @result-pattern, @ui-error-handling
-- [ROUTE_FACTORIES.md](/docs/patterns/ROUTE_FACTORIES.md) → @fasthtml
+- [ROUTE_DECORATOR_ARCHITECTURE.md](/docs/patterns/ROUTE_DECORATOR_ARCHITECTURE.md) → @domain-route-config, @fasthtml, @result-pattern
+- [ROUTE_FACTORIES.md](/docs/patterns/ROUTE_FACTORIES.md) → @domain-route-config, @fasthtml
 - [ROUTE_FACTORY_PATTERNS.md](/docs/patterns/ROUTE_FACTORY_PATTERNS.md) → @fasthtml
 - [ROUTE_NAMING_CONVENTION.md](/docs/patterns/ROUTE_NAMING_CONVENTION.md) → @fasthtml
 - [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) → @activity-domains, @base-analytics-service
@@ -457,15 +465,9 @@ For each documentation category, this section shows which skills are relevant.
 - [search_service_pattern.md](/docs/patterns/search_service_pattern.md) → @base-analytics-service, @neo4j-genai-plugin, @skuel-search-architecture
 - [three_tier_type_system.md](/docs/patterns/three_tier_type_system.md) → @pydantic, @python
 
-### Deployment Docs
-
-- [DO_MIGRATION_GUIDE.md](/docs/deployment/DO_MIGRATION_GUIDE.md) → @docker, @neo4j-genai-plugin
-- [AURADB_MIGRATION_GUIDE.md](/docs/deployment/AURADB_MIGRATION_GUIDE.md) → @docker, @neo4j-genai-plugin
-- [NEO4J_SETUP_MIGRATION_SUMMARY.md](/docs/deployment/NEO4J_SETUP_MIGRATION_SUMMARY.md) → @docker
-
 ### ADRs (Architecture Decision Records)
 
-- [ADR-020](/docs/decisions/ADR-020.md) → @fasthtml
+- [ADR-020](/docs/decisions/ADR-020.md) → @domain-route-config, @fasthtml
 - [ADR-022](/docs/decisions/ADR-022.md) → @python, @result-pattern
 - [ADR-023](/docs/decisions/ADR-023.md) → @curriculum-domains
 - [ADR-024](/docs/decisions/ADR-024.md) → @base-ai-service, @base-analytics-service
@@ -483,7 +485,7 @@ For each documentation category, this section shows which skills are relevant.
 - **Total skills:** 29
 - **Architecture docs:** 8 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
-- **Pattern docs:** 43 docs linked to skills
+- **Pattern docs:** 45 docs linked to skills
 - **ADRs:** 10 ADRs linked to skills
 
 ---

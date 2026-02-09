@@ -1,8 +1,10 @@
 # Profile Hub Modernization - Complete
 
+> **Note (2026-02-09):** The `profile_sidebar.css`, `profile_sidebar.js`, and `build_profile_sidebar()` described below were superseded by the unified Tailwind + Alpine.js sidebar in commit `949f201`. See `@custom-sidebar-patterns`.
+
 **Date:** 2026-02-01
-**Status:** ✅ Complete
-**Migration:** Legacy ProfileLayout → Modern BasePage + Custom Sidebar
+**Status:** ✅ Complete (sidebar files superseded 2026-02-09)
+**Migration:** Legacy ProfileLayout → Modern BasePage + Custom Sidebar → Unified SidebarPage
 
 ---
 

@@ -1,7 +1,9 @@
 # Tasks 9-10 Implementation Summary
 
+> **Note (2026-02-09):** The `profile_sidebar.css` and `profile_sidebar.js` files referenced below were superseded by the unified sidebar component in commit `949f201`. See `@custom-sidebar-patterns` for the current implementation.
+
 **Date:** 2026-02-02
-**Status:** ✅ Complete
+**Status:** ✅ Complete (sidebar files superseded 2026-02-09)
 **WCAG Compliance:** Level AA achieved
 
 ---

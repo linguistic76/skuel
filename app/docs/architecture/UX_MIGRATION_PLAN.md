@@ -1,6 +1,8 @@
 # SKUEL UX Migration Plan: FrankenUI → DaisyUI + Tailwind
 *Last updated: 2026-02-01*
 
+> **Note (2026-02-09):** The `profile_sidebar.css/js` and `build_profile_sidebar()` references below were superseded by the unified sidebar component (`SidebarPage`) in commit `949f201`. See `@custom-sidebar-patterns`.
+
 ## Executive Summary
 
 Migrate SKUEL's UI from **FrankenUI component DSL** to **semantic HTML + DaisyUI + Tailwind CSS**, following the successful pattern established in `/docs/` and `/components/drawer_layout.py`.

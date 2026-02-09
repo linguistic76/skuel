@@ -1,7 +1,9 @@
 # UX Skills Implementation Complete
 
+> **Note (2026-02-09):** The `profile_sidebar.css` and `profile_sidebar.js` files referenced below were superseded by the unified sidebar component in commit `949f201`. The `@custom-sidebar-patterns` skill has been rewritten to reflect the new Tailwind + Alpine.js pattern.
+
 **Date:** 2026-02-01
-**Status:** ✅ **COMPLETE** - All 6 SKUEL UX skills created and integrated
+**Status:** ✅ **COMPLETE** - All 6 SKUEL UX skills created and integrated (sidebar skill rewritten 2026-02-09)
 **Objective:** Bridge the gap between technology-focused skills and SKUEL-specific architectural patterns
 
 ---

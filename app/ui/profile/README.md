@@ -89,49 +89,48 @@ if config:
 
 **Tests:** `/tests/unit/ui/test_domain_stats_config.py` (31 tests, 100% passing)
 
-### 2. Custom Sidebar Layout
+### 2. Sidebar Layout (Unified)
 
-**Pattern:** `/nous`-style collapsible sidebar with state persistence.
+**Pattern:** Collapsible sidebar using unified `SidebarPage()` component.
 
 ```python
-from ui.profile.layout import build_profile_sidebar, create_profile_page
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-# Build domain items
-domains = [
-    ProfileDomainItem(
-        name="Tasks",
-        slug="tasks",
-        icon="✅",
-        count=10,
-        active_count=3,
-        status="healthy",  # "healthy" | "warning" | "critical"
-        href="/tasks",
-        insight_count=2,
-    ),
-    # ... more domains
+# Build sidebar items
+items = [
+    SidebarItem("Overview", "/profile", "overview", icon="📊"),
+    SidebarItem("Shared", "/profile/shared", "shared", icon="📬"),
+    SidebarItem("Knowledge", "/profile/knowledge", "knowledge", icon="📚"),
 ]
 
 # Create page
-return create_profile_page(
+return await SidebarPage(
     content=main_content,
-    domains=domains,
-    active_domain="tasks",
-    user_display_name="John Doe",
+    items=items,
+    active="overview",
+    title=user_display_name or "Your Profile",
+    subtitle="Profile",
+    storage_key="profile-sidebar",
+    item_renderer=_profile_item_renderer,  # Custom renderer for badges
+    title_href="/profile",
     request=request,
+    active_page="profile/hub",
 )
 ```
 
 **Features:**
 - Fixed 256px sidebar (collapses to 48px on desktop)
-- Mobile: Full-width drawer with overlay
-- localStorage persistence (collapsed state)
-- Smooth CSS transitions (0.3s ease-in-out)
-- Chevron toggle button
+- Mobile: Horizontal DaisyUI tabs (no drawer/overlay)
+- localStorage persistence via Alpine.js `collapsibleSidebar` + `Alpine.store()`
+- Smooth Tailwind transitions (300ms)
+- Chevron toggle button with screen reader announcements
 
 **Files:**
-- `/ui/profile/layout.py` - Python component builders
-- `/static/css/profile_sidebar.css` - Animations & responsive
-- `/static/js/profile_sidebar.js` - Toggle logic
+- `/ui/patterns/sidebar.py` - Unified sidebar component
+- `/ui/profile/layout.py` - Profile-specific `create_profile_page()` wrapper
+- `/static/js/skuel.js` (lines 917-953) - `collapsibleSidebar` Alpine component
+
+**See:** `@custom-sidebar-patterns` for complete implementation guide
 
 ### 3. Domain Status Badges
 

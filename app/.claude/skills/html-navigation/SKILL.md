@@ -358,6 +358,8 @@ def _mobile_menu(nav_items: list[NavItem], active_page: str) -> Div:
 
 ## Sidebar/Drawer Navigation
 
+> **SKUEL sidebar pages** (Profile, KU, Reports, Journals, Askesis) use `@custom-sidebar-patterns` — a unified Tailwind + Alpine.js component (`SidebarPage`), NOT DaisyUI drawer. The drawer pattern below is valid for new pages that prefer the CSS-only approach, but SKUEL chose `SidebarPage` for desktop collapse + mobile tabs.
+
 ### DaisyUI Drawer Pattern
 
 ```html
@@ -401,7 +403,7 @@ class MenuItem:
     icon: str = ""
 ```
 
-**See:** [sidebar-patterns.md](sidebar-patterns.md) for complete DrawerLayout implementation.
+**See:** [sidebar-patterns.md](sidebar-patterns.md) for DaisyUI DrawerLayout implementation. For SKUEL's sidebar pattern, see `@custom-sidebar-patterns`.
 
 ## Accessibility Checklist
 

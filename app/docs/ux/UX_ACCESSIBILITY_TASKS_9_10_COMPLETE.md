@@ -1,8 +1,10 @@
 # UX Accessibility Tasks 9-10 - Implementation Complete
 
+> **Note (2026-02-09):** The `profile_sidebar.js` focus management described below was superseded by the unified sidebar in commit `949f201`. Mobile drawer replaced by horizontal DaisyUI tabs (no focus trapping needed). See `@custom-sidebar-patterns`.
+
 **Date:** 2026-02-02
 **Tasks:** Task 9 (Mobile Drawer Focus Management) + Task 10 (HTMX + Live Region Integration)
-**Status:** ✅ Complete
+**Status:** ✅ Complete (sidebar focus management superseded 2026-02-09)
 
 ---
 

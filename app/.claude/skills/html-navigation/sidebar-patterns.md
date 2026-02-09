@@ -2,6 +2,8 @@
 
 Complete reference for sidebar and drawer navigation patterns using DaisyUI.
 
+> **SKUEL Note (2026-02-09):** SKUEL sidebar pages use `SidebarPage()` from `ui/patterns/sidebar.py` (Tailwind + Alpine.js), NOT the DaisyUI drawer pattern below. SKUEL chose this approach because DaisyUI drawer conflicts with BasePage container padding, doesn't support desktop collapse, and requires two toggle mechanisms. The DaisyUI drawer pattern below remains a valid reference for other use cases. See `@custom-sidebar-patterns` for SKUEL's implementation.
+
 ## DaisyUI Drawer Architecture
 
 The drawer pattern uses a **CSS-only toggle** based on a hidden checkbox:
@@ -305,7 +307,7 @@ def create_drawer_layout(
 
 ## Usage in Routes
 
-> **Note:** The SEL pages previously used `create_drawer_layout` here but have since migrated to the profile sidebar pattern (`profile_sidebar.css` / `profile_sidebar.js`). See `.claude/skills/custom-sidebar-patterns/SKILL.md` — "Example 3: SEL Pages" for the current implementation. The DaisyUI drawer pattern below remains valid for new pages that prefer the CSS-only approach.
+> **Note:** SKUEL sidebar pages (including SEL) now use `SidebarPage()` from `ui/patterns/sidebar.py` (Tailwind + Alpine.js). See `@custom-sidebar-patterns` for the current implementation. The DaisyUI drawer pattern below remains valid for other use cases.
 
 ```python
 from components.drawer_layout import create_drawer_layout

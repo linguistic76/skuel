@@ -917,15 +917,20 @@ Habit tracking layouts.
 
 Finance page layouts with custom sidebar.
 
-### Profile Layout
+### Sidebar Pages
 
-**Location:** `/ui/profile/layout.py`
+**Location:** `/ui/patterns/sidebar.py`
 
-Profile hub custom sidebar (CUSTOM page type).
+Unified sidebar component for all sidebar pages (Profile, KU, Reports, Journals, Askesis). Uses `PageType.CUSTOM`.
 
 **Functions:**
-- `build_profile_sidebar(domains, active_domain, is_admin, curriculum_domains)`
-- `create_profile_page(content, domains, request, ...)`
+- `SidebarPage(content, items, active, title, storage_key, request, ...)` - Full page with sidebar
+- `SidebarNav(items, active, title, ...)` - Sidebar + mobile tabs (no BasePage wrapper)
+
+**Dataclass:**
+- `SidebarItem(label, href, slug, icon, description, badge_text, ...)`
+
+**See:** `@custom-sidebar-patterns` for complete guide
 
 ---
 

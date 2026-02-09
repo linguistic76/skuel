@@ -687,6 +687,8 @@ DaisyUI classes are categorized as:
 </div>
 ```
 
+> **SKUEL Note:** SKUEL sidebar pages (Profile, KU, Reports, Journals, Askesis) use `@custom-sidebar-patterns` (Tailwind + Alpine.js `SidebarPage`), NOT DaisyUI drawer. DaisyUI drawer conflicts with BasePage container padding and doesn't support desktop collapse. Mobile sidebar pages use **DaisyUI tabs** (`tabs tabs-bordered`) for navigation.
+
 ### Dropdown
 
 ```html

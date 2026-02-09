@@ -70,6 +70,8 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 
 **Evolution (2026-02-06):** Activity Domains (Tasks, Goals, Habits, Choices, Principles) moved from profile sidebar to navbar avatar dropdown. Profile sidebar now contains: Overview, Shared With Me, Curriculum, Account. Events remains a top-level nav item.
 
+**Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal DaisyUI tabs instead of drawer/overlay.
+
 **Background Convention (2026-02-05):** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
 
 ### BasePage Usage
@@ -95,65 +97,65 @@ return BasePage(
     request=request,
 )
 
-# Custom sidebar layout (Profile Hub pattern)
-from ui.profile.layout import build_profile_sidebar, create_profile_page
+# Sidebar page (Profile, KU, Reports, Journals, Askesis)
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-sidebar = build_profile_sidebar(domains, active_domain, user_display_name)
-return create_profile_page(
-    content,
-    domains=domain_items,
-    request=request,  # Auto-detects auth/admin state
-    extra_css=["/static/css/profile_sidebar.css"],
+items = [SidebarItem("Overview", "/profile", "overview", icon="📊")]
+return await SidebarPage(
+    content=my_content,
+    items=items,
+    active="overview",
+    title="Profile",
+    storage_key="profile-sidebar",
+    request=request,
+    active_page="profile/hub",
 )
 ```
 
-### Profile Hub Custom Sidebar Pattern
+### Unified Sidebar Pattern (Tailwind + Alpine.js)
 
-**Added:** 2026-02-01
-**Updated:** 2026-02-06 — Activity domains moved to navbar dropdown
+**Added:** 2026-02-09 (unified from 3 implementations)
 
-The Profile Hub uses a custom `/nous`-style sidebar implementation that provides more control than the standard `PageType.HUB` pattern.
-
-**Sidebar Sections (2026-02-06):**
-- Overview (profile summary)
-- Shared With Me (assignment portfolio)
-- Curriculum (KU, LS, LP)
-- Account (Settings, Sign out)
-
-Activity Domains (Tasks, Goals, Habits, Choices, Principles) are now in the **navbar avatar dropdown** (`ui/layouts/navbar.py`), not the profile sidebar.
+All sidebar pages (Profile, KU, Reports, Journals, Askesis) use a single `SidebarPage()` component from `ui/patterns/sidebar.py`.
 
 **Key Features:**
-- Fixed sidebar (256px) with smooth collapse animation
-- Pure CSS + vanilla JavaScript (no Alpine.js complexity)
+- One component for all 5 sidebar pages
+- Desktop: Fixed sidebar (256px) with smooth collapse to 48px edge
+- Mobile: Horizontal DaisyUI tabs (no drawer/overlay)
+- Alpine.js `collapsibleSidebar` + `Alpine.store()` for shared reactive state
 - localStorage persistence of collapsed state
-- Mobile: Full-width drawer with overlay
-- Desktop: Collapses to 48px edge, chevron toggle button
+- Screen reader announcements on toggle
 
-**Implementation:**
+**Core API:**
 ```python
-from ui.profile.layout import create_profile_page
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-# Create page with custom sidebar (domains parameter kept for backward compat)
-return create_profile_page(
+items = [
+    SidebarItem("Overview", "/profile", "overview", icon="📊"),
+    SidebarItem("Shared", "/profile/shared", "shared", icon="📬"),
+]
+
+return await SidebarPage(
     content=main_content,
-    domains=[],  # Activity domains now in navbar dropdown
-    user_display_name="John Doe",
-    title="Profile Hub",
-    request=request,  # Enables auto-detection
-    curriculum_domains=curriculum_items,  # Optional curriculum section
+    items=items,
+    active="overview",
+    title="Profile",
+    storage_key="profile-sidebar",
+    request=request,
+    active_page="profile/hub",
 )
 ```
 
-**Files:**
-- `/ui/profile/layout.py` - `build_profile_sidebar()`, `create_profile_page()`
-- `/static/css/profile_sidebar.css` - Sidebar animations and responsive behavior
-- `/static/js/profile_sidebar.js` - Toggle function with localStorage
+**Extension Points:**
+- `extra_sidebar_sections` — additional content below nav items (KU uses for HTMX MOC list)
+- `item_renderer` — custom render function for complex items (Profile uses for badges)
+- `description` field on SidebarItem — two-line layout (Askesis uses for subtitles)
 
-**Why Custom vs HUB:**
-- More control over sidebar collapse behavior
-- `/nous`-style toggle pattern (cleaner UX)
-- Sidebar state persistence across sessions
-- Matches documentation (/nous, /docs) patterns
+**Files:**
+- `/ui/patterns/sidebar.py` - `SidebarItem`, `SidebarNav`, `SidebarPage`
+- `/static/js/skuel.js` (lines 917-953) - `collapsibleSidebar` Alpine component
+
+**See:** `@custom-sidebar-patterns` for complete implementation guide
 
 #### Configuration-Driven Domain Stats
 
@@ -1389,31 +1391,34 @@ def test_validate_task_form_data_missing_title():
 
 ## Legacy Pattern Removal (One Path Forward)
 
-**Completed:** 2026-02-01
+### Sidebar Unification (2026-02-09)
 
-Following SKUEL's "One Path Forward" philosophy, the legacy `ProfileLayout` class was completely removed with zero deprecation period.
+**Commits:** `949f201` (unify), `5856a7e` (fix shared state bug)
 
-### What Was Removed
+Three sidebar implementations (~590 lines custom CSS/JS) unified into one Tailwind + Alpine.js component.
 
-- **ProfileLayout class** (175 lines) - Legacy DaisyUI drawer implementation
-- **ProfileLayout.render()** method - Returned Div only (not full HTML document)
-- **ProfileLayout._build_sidebar_menu()** - Duplicate sidebar logic
-- **Unused imports** - `Input`, `Label`, `create_navbar` (no longer needed)
+**What Was Removed:**
+- `profile_sidebar.css` (172 lines) — custom CSS for sidebar animations
+- `profile_sidebar.js` (121 lines) — vanilla JS toggle + localStorage
+- Askesis inline CSS/JS (~300 lines) — separate breakpoints and behavior
+- `toggleProfileSidebar()`, `profileSidebarCollapsed`, `ProfileDomainItem`
 
-### What Replaced It
-
-**One Path:** `create_profile_page()` using BasePage + custom sidebar
+**What Replaced It:**
 
 ```python
-# THE way (no alternatives)
-from ui.profile import create_profile_page
+# THE way (all 5 sidebar pages)
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-return create_profile_page(
-    content,
-    domains=domain_items,
-    request=request,
-)
+return await SidebarPage(content=..., items=..., active=..., title=..., ...)
 ```
+
+**Result:** ~590 lines deleted, ~337 lines added (300 Python + 37 Alpine). One reusable component.
+
+### ProfileLayout Class (2026-02-01)
+
+**What Was Removed:**
+- **ProfileLayout class** (175 lines) — legacy DaisyUI drawer implementation
+- Replaced by `create_profile_page()` which now uses `SidebarPage()`
 
 ### Philosophy Applied
 
@@ -1424,8 +1429,6 @@ SKUEL does NOT maintain backward compatibility. When a better pattern emerges:
 - ✅ Clean removal
 - ✅ Update all call sites
 - ✅ One canonical way
-
-**Result:** Codebase reduced by 175 lines, zero technical debt, one clear path forward.
 
 ---
 

@@ -1,7 +1,9 @@
 # Profile Hub Sidebar - Mobile Enhancement Implementation Complete
 
+> **Superseded (2026-02-09):** The `profile_sidebar.css`, `profile_sidebar.js`, and mobile drawer pattern described below were replaced by the unified Tailwind + Alpine.js sidebar in commit `949f201`. Mobile now uses horizontal DaisyUI tabs instead of drawer/overlay. See `@custom-sidebar-patterns`.
+
 **Date:** 2026-02-01
-**Status:** ✅ Complete - Phase 1 & 2 (P0 + P1)
+**Status:** ✅ Complete — **Superseded by unified sidebar (2026-02-09)**
 **WCAG Compliance:** Level AA
 
 ## Summary
