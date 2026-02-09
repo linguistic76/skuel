@@ -11,6 +11,8 @@ Layout: Unified sidebar (Tailwind + Alpine) with 2 nav items.
 Desktop: collapsible sidebar. Mobile: horizontal tabs.
 """
 
+import tempfile
+from pathlib import Path
 from typing import Any
 
 from fasthtml.common import (
@@ -38,6 +40,39 @@ from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.routes.journals.ui")
+
+
+# ============================================================================
+# DEFAULT INSTRUCTIONS
+# ============================================================================
+
+DEFAULT_INSTRUCTIONS = """# General Processing Instructions
+
+## Purpose
+Transform raw content into a well-formatted, readable document.
+
+## Formatting Rules
+1. **Structure**: Organize into coherent paragraphs
+2. **Flow**: Remove verbal fillers ("um", "uh", "like")
+3. **Clarity**: Improve sentence structure while preserving meaning
+4. **Themes**: Identify main themes and group related content
+5. **Action Items**: Extract concrete action items mentioned
+6. **Title**: Generate concise, descriptive title
+
+## Context Integration
+- Reference active goals, tasks, habits when relevant
+- Link to recent journal themes for continuity
+- Identify learning opportunities from current paths
+
+## Output Format
+- Title (concise, descriptive)
+- Summary (2-3 sentences)
+- Main content (well-formatted paragraphs)
+- Key themes (bullet list)
+- Action items (if any)
+
+Preserve the author's voice and authenticity while improving readability.
+"""
 
 
 # ============================================================================
@@ -170,45 +205,61 @@ JOURNALS_SIDEBAR_ITEMS = [
 
 
 def _render_upload_form(projects: list[Any]) -> Any:
-    """Render the file upload form with ReportProject selector."""
-    project_options = [Option("-- Select a project --", value="", selected=True)]
-    project_options.extend(Option(f"{p.name} ({p.model})", value=p.uid) for p in projects)
+    """Render the file upload form with instructions selector.
 
-    no_projects_warning = None
-    if not projects:
-        no_projects_warning = Div(
-            Div(
-                P(
-                    "No Report Projects found. ",
-                    A(
-                        "Create one first",
-                        href="/ui/report-projects",
-                        cls="link link-primary",
-                    ),
-                    " to define AI instructions.",
-                    cls="mb-0",
-                ),
-                cls="alert alert-warning mb-4",
-            ),
-        )
+    Three instruction modes:
+    - Default: built-in general processing instructions
+    - Existing project: user-created instruction sets (stored as ReportProjects in Neo4j)
+    - Upload new: create a new instruction set from a .md file
+    """
+    project_options = [
+        Option("Default — General Processing", value="__default__", selected=True),
+    ]
+    project_options.extend(Option(p.name, value=p.uid) for p in projects)
+    project_options.append(
+        Option("Upload New Instructions...", value="__upload__"),
+    )
 
     return Div(
-        no_projects_warning,
         Div(
             Div(
                 Form(
-                    # ReportProject selector
+                    # Instructions selector with Alpine.js toggle
                     Div(
-                        Label("AI Instructions (Report Project)", cls="label"),
+                        Label("Instructions", cls="label"),
                         Select(
                             *project_options,
                             name="project_uid",
                             cls="select select-bordered w-full",
                             required=True,
+                            **{"x-on:change": "showUpload = $event.target.value === '__upload__'"},
                         ),
                         P(
-                            "The AI will process your file using these instructions",
+                            "Choose which instructions to process the file against. ",
+                            "Instruction sets are stored as ",
+                            A(
+                                "Report Projects",
+                                href="/ui/report-projects",
+                                cls="link link-primary",
+                            ),
+                            " in Neo4j.",
                             cls="text-xs text-base-content/60 mt-1",
+                        ),
+                        # Instructions file upload (shown when "Upload New" selected)
+                        Div(
+                            Label("Instructions File (.md)", cls="label"),
+                            Input(
+                                type="file",
+                                name="instructions_file",
+                                accept=".md,text/markdown,text/plain",
+                                cls="file-input file-input-bordered w-full",
+                            ),
+                            P(
+                                "Upload a markdown file with instructions. A new Report Project will be created from it.",
+                                cls="text-xs text-base-content/60 mt-1",
+                            ),
+                            cls="mt-3",
+                            **{"x-show": "showUpload", "x-cloak": True},
                         ),
                         cls="mb-4",
                     ),
@@ -269,6 +320,7 @@ def _render_upload_form(projects: list[Any]) -> Any:
                         "hx-encoding": "multipart/form-data",
                     },
                     id="upload-form",
+                    **{"x-data": "{ showUpload: false }"},
                 ),
                 cls="card-body",
             ),
@@ -435,8 +487,37 @@ def create_journals_ui_routes(
     @require_admin(get_user_service)
     async def journals_browse_page(request: Request, current_user: Any = None) -> Any:
         """Browse page: AI-processed reports with filters."""
+        user_uid = require_authenticated_user(request)
+
+        # Check if any projects exist for info guidance
+        has_projects = False
+        projects_result = await report_projects_service.list_user_projects(user_uid)
+        if not projects_result.is_error and projects_result.value:
+            has_projects = bool(projects_result.value)
+
+        no_projects_info = None
+        if not has_projects:
+            no_projects_info = Div(
+                Div(
+                    P(
+                        "No custom instruction sets created yet. ",
+                        A(
+                            "Create Report Projects",
+                            href="/ui/report-projects",
+                            cls="link link-primary",
+                        ),
+                        " to customize AI processing. Default instructions are always available on the ",
+                        A("Submit", href="/journals/submit", cls="link link-primary"),
+                        " page.",
+                        cls="mb-0",
+                    ),
+                    cls="alert alert-info mb-4",
+                ),
+            )
+
         content = Div(
             PageHeader("AI Reports", subtitle="Browse reports processed by AI"),
+            no_projects_info,
             _render_filters_section(),
             _render_reports_grid_container(),
         )
@@ -460,7 +541,13 @@ def create_journals_ui_routes(
     @rt("/journals/upload")
     @require_admin(get_user_service)
     async def upload_journal(request: Request, current_user: Any = None) -> Any:
-        """HTMX endpoint for file upload with AI processing."""
+        """HTMX endpoint for file upload with AI processing.
+
+        Three instruction modes based on project_uid value:
+        - __default__: Use built-in DEFAULT_INSTRUCTIONS
+        - __upload__: Read instructions from uploaded .md file, create new project
+        - Any other value: Fetch existing ReportProject by UID
+        """
         try:
             form = await request.form()
             uploaded_file = form.get("file")
@@ -471,9 +558,7 @@ def create_journals_ui_routes(
                 return _render_upload_status("error", "Identifier is required", is_error=True)
 
             if not project_uid:
-                return _render_upload_status(
-                    "error", "Please select a Report Project", is_error=True
-                )
+                return _render_upload_status("error", "Please select instructions", is_error=True)
 
             if not uploaded_file or not isinstance(uploaded_file, UploadFile):
                 return _render_upload_status("error", "No file provided", is_error=True)
@@ -482,19 +567,77 @@ def create_journals_ui_routes(
             file_content = await uploaded_file.read()
             filename = uploaded_file.filename or "unknown"
 
-            # Fetch the project to get instructions
-            project_result = await report_projects_service.get_project(project_uid)
-            if project_result.is_error or not project_result.value:
-                return _render_upload_status(
-                    "error", "Selected Report Project not found", is_error=True
+            # Resolve instructions based on selected mode
+            instructions_text = None
+            resolved_project_uid = project_uid
+
+            if project_uid == "__default__":
+                instructions_text = DEFAULT_INSTRUCTIONS
+                resolved_project_uid = "__default__"
+                logger.info(
+                    f"Journal upload: {filename} ({len(file_content)} bytes, "
+                    f"identifier={identifier}, instructions=default)"
                 )
 
-            project = project_result.value
+            elif project_uid == "__upload__":
+                instructions_file = form.get("instructions_file")
+                if not instructions_file or not isinstance(instructions_file, UploadFile):
+                    return _render_upload_status(
+                        "error",
+                        "Instructions file is required when uploading new instructions",
+                        is_error=True,
+                    )
+                instructions_content = await instructions_file.read()
+                instructions_filename = instructions_file.filename or "instructions.md"
 
-            logger.info(
-                f"Journal upload: {filename} ({len(file_content)} bytes, "
-                f"identifier={identifier}, project={project.name})"
-            )
+                # Save to temp file and create project via service
+                with tempfile.NamedTemporaryFile(
+                    mode="wb", suffix=".md", delete=False, dir="/tmp"
+                ) as tmp:
+                    tmp.write(instructions_content)
+                    tmp_path = tmp.name
+
+                try:
+                    # Rename temp file to preserve original filename for name extraction
+                    named_path = Path(tmp_path).parent / instructions_filename
+                    Path(tmp_path).rename(named_path)
+
+                    project_result = await report_projects_service.load_project_from_file(
+                        file_path=str(named_path), user_uid=user_uid
+                    )
+                    # Clean up temp file
+                    named_path.unlink(missing_ok=True)
+                except Exception:
+                    Path(tmp_path).unlink(missing_ok=True)
+                    raise
+
+                if project_result.is_error or not project_result.value:
+                    error_msg = "Failed to create project from instructions file"
+                    if project_result.error:
+                        error_msg = f"{error_msg}: {project_result.error.message}"
+                    return _render_upload_status("error", error_msg, is_error=True)
+
+                project = project_result.value
+                instructions_text = project.instructions
+                resolved_project_uid = project.uid
+                logger.info(
+                    f"Journal upload: {filename} ({len(file_content)} bytes, "
+                    f"identifier={identifier}, new project={project.name})"
+                )
+
+            else:
+                # Existing project — fetch by UID
+                project_result = await report_projects_service.get_project(project_uid)
+                if project_result.is_error or not project_result.value:
+                    return _render_upload_status(
+                        "error", "Selected instructions not found", is_error=True
+                    )
+                project = project_result.value
+                instructions_text = project.instructions
+                logger.info(
+                    f"Journal upload: {filename} ({len(file_content)} bytes, "
+                    f"identifier={identifier}, project={project.name})"
+                )
 
             # Submit file with LLM processor type
             result = await report_service.submit_file(
@@ -503,7 +646,7 @@ def create_journals_ui_routes(
                 user_uid=user_uid,
                 report_type=ReportType.ASSIGNMENT,
                 processor_type=ProcessorType.LLM,
-                metadata={"identifier": identifier, "project_uid": project_uid},
+                metadata={"identifier": identifier, "project_uid": resolved_project_uid},
             )
 
             if result.is_error:
@@ -511,9 +654,9 @@ def create_journals_ui_routes(
 
             report = result.value
 
-            # Auto-trigger AI processing with project instructions
+            # Auto-trigger AI processing with resolved instructions
             process_result = await processing_service.process_report(
-                report.uid, instructions={"instructions": project.instructions}
+                report.uid, instructions={"instructions": instructions_text}
             )
 
             if process_result.is_error:
