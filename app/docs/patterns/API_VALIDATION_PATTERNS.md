@@ -106,12 +106,12 @@ async def get_dashboard(request: Request, user_uid: str) -> Result[Any]:
 
 **Example:**
 ```python
-# core/models/context/context_request.py
+# core/models/task/task_request.py (context-aware models live in domain request files)
 
-from typing import Any, Literal
-from pydantic import BaseModel, Field
+from typing import Any
+from pydantic import BaseModel, ConfigDict, Field
 
-class TaskCompletionRequest(BaseModel):
+class ContextualTaskCompletionRequest(BaseModel):
     """Request model for completing a task with context awareness."""
 
     context: dict[str, Any] = Field(
@@ -124,8 +124,8 @@ class TaskCompletionRequest(BaseModel):
         description="Reflection notes on task completion"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "context": {
                     "knowledge_applied": ["ku.python"],
@@ -134,6 +134,7 @@ class TaskCompletionRequest(BaseModel):
                 "reflection": "Great learning experience"
             }
         }
+    )
 ```
 
 **Usage in Routes:**
@@ -381,11 +382,11 @@ core/models/{domain}/
 └── {domain}_request.py    # Pydantic request models (Tier 1)
 ```
 
-**Example:**
+**Example (context-aware models dissolved into domain request files):**
 ```
-core/models/context/
-├── __init__.py
-└── context_request.py     # TaskCompletionRequest, etc.
+core/models/task/task_request.py      # ContextualTaskCompletionRequest
+core/models/goal/goal_request.py      # ContextualGoalTaskGenerationRequest
+core/models/habit/habit_request.py    # ContextualHabitCompletionRequest
 ```
 
 ### Route Files
@@ -546,10 +547,10 @@ def test_validate_enum():
 
 ```python
 from pydantic import ValidationError
-from core.models.context import TaskCompletionRequest
+from core.models.task.task_request import ContextualTaskCompletionRequest
 
 def test_task_completion_request_valid():
-    req = TaskCompletionRequest(
+    req = ContextualTaskCompletionRequest(
         context={"knowledge_applied": ["ku.python"]},
         reflection="Great experience"
     )
@@ -557,13 +558,13 @@ def test_task_completion_request_valid():
 
 def test_task_completion_request_invalid():
     try:
-        TaskCompletionRequest(context="string")  # Should be dict
+        ContextualTaskCompletionRequest(context="string")  # Should be dict
         assert False, "Should raise ValidationError"
     except ValidationError as e:
         assert "context" in str(e)
 
 def test_task_completion_request_defaults():
-    req = TaskCompletionRequest()
+    req = ContextualTaskCompletionRequest()
     assert req.context == {}
     assert req.reflection == ""
 ```

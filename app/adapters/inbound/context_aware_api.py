@@ -22,11 +22,9 @@ from typing import Any
 
 from fasthtml.common import Request
 
-from core.models.context import (
-    GoalTaskGenerationRequest,
-    HabitCompletionRequest,
-    TaskCompletionRequest,
-)
+from core.models.goal.goal_request import ContextualGoalTaskGenerationRequest
+from core.models.habit.habit_request import ContextualHabitCompletionRequest
+from core.models.task.task_request import ContextualTaskCompletionRequest
 from core.services.protocols import UserContextOperations
 from core.services.protocols.query_types import ContextDashboard
 from core.utils.error_boundary import boundary_handler
@@ -102,7 +100,7 @@ def create_context_aware_api_routes(
     @rt("/api/context/task/complete", methods=["POST"])
     @boundary_handler(success_status=200)  # Changed to 200 (completion, not creation)
     async def complete_task_with_context_route(
-        request: Request, task_uid: str, body: TaskCompletionRequest
+        request: Request, task_uid: str, body: ContextualTaskCompletionRequest
     ) -> Result[Any]:
         """
         Complete task with context awareness.
@@ -124,7 +122,7 @@ def create_context_aware_api_routes(
     @rt("/api/context/goal/tasks", methods=["POST"])
     @boundary_handler(success_status=201)
     async def create_tasks_from_goal_context_route(
-        request: Request, goal_uid: str, body: GoalTaskGenerationRequest
+        request: Request, goal_uid: str, body: ContextualGoalTaskGenerationRequest
     ) -> Result[Any]:
         """
         Create contextually relevant tasks from goal.
@@ -146,7 +144,7 @@ def create_context_aware_api_routes(
     @rt("/api/context/habit/complete", methods=["POST"])
     @boundary_handler(success_status=200)  # Changed to 200 (completion, not creation)
     async def complete_habit_with_context_route(
-        request: Request, habit_uid: str, body: HabitCompletionRequest
+        request: Request, habit_uid: str, body: ContextualHabitCompletionRequest
     ) -> Result[Any]:
         """
         Complete habit with context tracking.

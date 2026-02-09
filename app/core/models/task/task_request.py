@@ -12,7 +12,7 @@ Uses:
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from core.models.enums import ActivityStatus, Priority, RecurrencePattern
 from core.models.request_base import (
@@ -302,6 +302,41 @@ class TaskStatusUpdateRequest(RequestBase):
         if info.data.get("status") == ActivityStatus.COMPLETED and not v:
             v = date.today()  # Default to today if not provided
         return v
+
+
+class ContextualTaskCompletionRequest(BaseModel):
+    """
+    Request model for completing a task with context awareness.
+
+    Used by: POST /api/context/task/complete
+
+    Fields:
+        context: Context data about the completion (knowledge applied, time, quality)
+        reflection: Optional reflection notes on the completion experience
+    """
+
+    context: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Context data (knowledge_applied, time_invested_minutes, quality)",
+    )
+    reflection: str = Field(
+        default="",
+        max_length=2000,
+        description="Reflection notes on task completion",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "context": {
+                    "knowledge_applied": ["ku.python", "ku.async-patterns"],
+                    "time_invested_minutes": 120,
+                    "quality": "good",
+                },
+                "reflection": "Learned about async context managers while implementing this feature.",
+            }
+        }
+    )
 
 
 class TaskListResponse(ListResponseBase):

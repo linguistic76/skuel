@@ -456,3 +456,37 @@ class HabitEssentialityChangeRequest(BaseModel):
             }
         }
     )
+
+
+class ContextualGoalTaskGenerationRequest(BaseModel):
+    """
+    Request model for generating tasks from a goal with context awareness.
+
+    Used by: POST /api/context/goal/tasks
+
+    Fields:
+        context_preferences: Preferences for task generation (e.g., time_available, difficulty)
+        auto_create: Whether to create tasks immediately (True) or return templates (False)
+    """
+
+    context_preferences: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Preferences for task generation (time_available, difficulty_preference, etc.)",
+    )
+    auto_create: bool = Field(
+        default=True,
+        description="If True, create tasks immediately; if False, return task templates",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "context_preferences": {
+                    "time_available_minutes": 180,
+                    "difficulty_preference": "moderate",
+                    "focus_area": "learning",
+                },
+                "auto_create": True,
+            }
+        }
+    )

@@ -155,38 +155,26 @@ core/models/{domain}/
 └── {domain}_request.py    # Pydantic request models (Tier 1)
 ```
 
-### Example: Context API Request Models
+### Example: Context-Aware Request Models (Dissolved into Domain Files)
 
 ```python
-# core/models/context/context_request.py
-
-from typing import Any, Literal
-from pydantic import BaseModel, Field
-
-class TaskCompletionRequest(BaseModel):
+# core/models/task/task_request.py
+class ContextualTaskCompletionRequest(BaseModel):
     """Request model for completing a task with context awareness."""
+    context: dict[str, Any] = Field(default_factory=dict)
+    reflection: str = Field(default="", max_length=2000)
 
-    context: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Context data (knowledge_applied, time_invested_minutes)"
-    )
-    reflection: str = Field(
-        default="",
-        max_length=2000,
-        description="Reflection notes on task completion"
-    )
-
-class HabitCompletionRequest(BaseModel):
+# core/models/habit/habit_request.py
+class ContextualHabitCompletionRequest(BaseModel):
     """Request model for completing a habit with quality tracking."""
+    quality: Literal["poor", "fair", "good", "excellent"] = Field(default="good")
+    environmental_factors: dict[str, Any] = Field(default_factory=dict)
 
-    quality: Literal["poor", "fair", "good", "excellent"] = Field(
-        default="good",
-        description="Quality rating of the habit completion"
-    )
-    environmental_factors: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Environmental context (location, mood, etc.)"
-    )
+# core/models/goal/goal_request.py
+class ContextualGoalTaskGenerationRequest(BaseModel):
+    """Request model for generating tasks from a goal with context awareness."""
+    context_preferences: dict[str, Any] = Field(default_factory=dict)
+    auto_create: bool = Field(default=True)
 ```
 
 ### Usage in Routes
@@ -262,10 +250,10 @@ See [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) for comprehensive v
 **Knowledge Domain** (`core/models/ku/ku_request.py`):
 - `KuCreateRequest`, `KuUpdateRequest`
 
-**Context Domain** (`core/models/context/context_request.py`):
-- `TaskCompletionRequest`
-- `GoalTaskGenerationRequest`
-- `HabitCompletionRequest`
+**Context-Aware Models** (dissolved into domain request files):
+- `ContextualTaskCompletionRequest` (`core/models/task/task_request.py`)
+- `ContextualGoalTaskGenerationRequest` (`core/models/goal/goal_request.py`)
+- `ContextualHabitCompletionRequest` (`core/models/habit/habit_request.py`)
 
 ## Frozen Dataclass Dynamic Defaults
 

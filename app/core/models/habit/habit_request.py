@@ -9,6 +9,7 @@ Uses shared validators from validation_rules.py for DRY compliance.
 """
 
 from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -333,3 +334,42 @@ class GetHabitProgressRequest(BaseModel):
 
     habit_uid: str = Field(description="UID of the habit")
     period: str = Field(default="month", description="Time period: 'week', 'month', or 'year'")
+
+
+# Type literal for context-aware quality validation
+ContextualQualityLiteral = Literal["poor", "fair", "good", "excellent"]
+
+
+class ContextualHabitCompletionRequest(BaseModel):
+    """
+    Request model for completing a habit with context tracking.
+
+    Used by: POST /api/context/habit/complete
+
+    Fields:
+        quality: Quality rating of the habit completion (poor/fair/good/excellent)
+        environmental_factors: Optional environmental context (location, time, mood, etc.)
+    """
+
+    quality: ContextualQualityLiteral = Field(
+        default="good",
+        description="Quality rating of the habit completion",
+    )
+    environmental_factors: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Environmental context (location, time_of_day, mood, obstacles, etc.)",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "quality": "excellent",
+                "environmental_factors": {
+                    "location": "home",
+                    "time_of_day": "morning",
+                    "mood": "energized",
+                    "obstacles": [],
+                },
+            }
+        }
+    )

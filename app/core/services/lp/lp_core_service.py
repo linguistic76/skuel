@@ -675,8 +675,14 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
         params = {"uid": path_uid}
 
         allowed_fields = {
-            "name", "goal", "domain", "estimated_hours",
-            "path_type", "difficulty", "outcomes", "checkpoint_week_intervals",
+            "name",
+            "goal",
+            "domain",
+            "estimated_hours",
+            "path_type",
+            "difficulty",
+            "outcomes",
+            "checkpoint_week_intervals",
         }
         for key, value in updates.items():
             if key in allowed_fields:
