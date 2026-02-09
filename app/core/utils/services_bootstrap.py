@@ -1723,6 +1723,21 @@ async def compose_services(
             transcript_processor=transcript_processor,
         )
 
+        # LIFEPATH SERVICE (Domain #14: The Destination)
+        # "Everything flows toward the life path"
+        # Vision capture → Alignment measurement → Recommendations
+        # =====================================================================
+        from core.services.lifepath import LifePathService
+
+        lifepath_service = LifePathService(
+            driver=driver,
+            lp_service=learning_services["learning_paths"],
+            ku_service=learning_services["ku_service"],
+            user_service=user_service,
+            llm_service=llm_service,
+        )
+        logger.info("✅ LifePath service created (Vision→Action bridge)")
+
         # Create report activity extractor (DSL integration for journal → entity extraction)
         from core.services.dsl import ReportActivityExtractorService
 
@@ -1827,21 +1842,6 @@ async def compose_services(
         logger.info("✅ Analytics service created")
 
         # =====================================================================
-        # LIFEPATH SERVICE (Domain #14: The Destination)
-        # "Everything flows toward the life path"
-        # Vision capture → Alignment measurement → Recommendations
-        # =====================================================================
-        from core.services.lifepath import LifePathService
-
-        lifepath_service = LifePathService(
-            driver=driver,
-            lp_service=learning_services["learning_paths"],
-            ku_service=learning_services["ku_service"],
-            user_service=user_service,
-            llm_service=llm_service,
-        )
-        logger.info("✅ LifePath service created (Vision→Action bridge)")
-
         # Create orchestration services (GoalTaskGenerator and HabitEventScheduler only)
         orchestration = _create_orchestration_services(
             goals_backend=goals_backend,

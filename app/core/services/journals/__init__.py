@@ -12,9 +12,13 @@ Key Components:
 See: /ACTIVITY_EXTRACTION_ENABLED.md for architecture overview.
 """
 
+from core.services.journals.journal_mode_classifier import JournalModeClassifier
+from core.services.journals.journal_output_generator import JournalOutputGenerator
 from core.services.journals.journal_types import JournalProcessingResult, JournalWeights
 
 __all__ = [
+    "JournalModeClassifier",
+    "JournalOutputGenerator",
     "JournalWeights",
     "JournalProcessingResult",
 ]
