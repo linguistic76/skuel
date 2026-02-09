@@ -89,8 +89,6 @@ if TYPE_CHECKING:
     from core.models.finance.invoice import InvoicePure
     from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
-
-    # NOTE: JournalPure import REMOVED (February 2026) - Journal merged into Reports
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
     from core.models.type_hints import EntityUID, Metadata

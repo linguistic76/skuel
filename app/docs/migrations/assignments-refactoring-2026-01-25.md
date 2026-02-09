@@ -122,9 +122,9 @@ return success_response({"assignment": assignment_to_response(assignment)})
 
 **Journals domain pattern:**
 ```python
-from core.models.journal import journal_dto_to_response
+from core.models.report import report_dto_to_response
 
-return JSONResponse(journal_dto_to_response(journal_pure_to_dto(journal)))
+return JSONResponse(report_dto_to_response(report_to_dto(report)))
 ```
 
 **Assignments domain pattern (now matches):**
@@ -174,8 +174,8 @@ def test_assignment_to_response():
 ### Journals Domain (Existing Pattern)
 
 **Files:**
-- `core/models/journal/journal_converters.py` - 306 lines
-- Contains: `journal_dto_to_response()`, `journal_pure_to_dto()`, etc.
+- `core/models/report/report_converters.py` - 306 lines
+- Contains: `report_dto_to_response()`, `report_to_dto()`, etc.
 
 **Usage in routes:**
 ```python

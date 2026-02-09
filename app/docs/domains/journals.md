@@ -95,16 +95,17 @@ Journals handle **personal reflections and metacognition** through a **two-tier 
 ## Data Model
 
 ```python
-from core.models.journal.journal_pure import JournalPure
-from core.models.enums.journal_enums import JournalType
+from core.models.report.report import Report
+from core.models.enums.report_enums import JournalType
 
 class JournalType(str, Enum):
     VOICE = "voice"      # PJ1: Ephemeral
     CURATED = "curated"  # PJ2: Permanent
 
-# JournalPure is a frozen dataclass
+# Note: JournalPure merged into Report (February 2026)
+# Report is a frozen dataclass
 @dataclass(frozen=True)
-class JournalPure:
+class Report:
     uid: str
     user_uid: str
     title: str
@@ -144,16 +145,16 @@ The `enforce_voice_journal_fifo()` method:
 | Project Service | `/core/services/reports/report_project_service.py` (migrated to Reports) |
 | Relationship Service | `/core/services/journals/journal_relationship_service.py` |
 | Types | `/core/services/journals/journals_types.py` |
-| **Models** | `/core/models/journal/` |
-| Domain Model | `/core/models/journal/journal_pure.py` |
-| DTOs | `/core/models/journal/journal_dto.py` |
-| Converters | `/core/models/journal/journal_converters.py` |
+| **Models** | `/core/models/report/` |
+| Domain Model | `/core/models/report/report.py` |
+| DTOs | `/core/models/report/report_dto.py` |
+| Converters | `/core/models/report/report_converters.py` |
 | **Routes** | |
 | API Routes | `/adapters/inbound/journals_api.py` |
 | UI Routes | `/adapters/inbound/journals_ui.py` |
 | **Enums** | `/core/models/enums/journal_enums.py` |
 
-## Model Fields (JournalPure)
+## Model Fields (Report)
 
 | Field | Type | Description |
 |-------|------|-------------|

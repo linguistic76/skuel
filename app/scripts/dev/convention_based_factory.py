@@ -47,12 +47,7 @@ DOMAIN_MAPPINGS = {
         "label": "Ls",
         "import": "core.models.learning",
     },
-    "journal": {
-        "class": "JournalPure",
-        "label": "Journal",
-        "import": "core.models.journal.journal_pure",
-    },
-    "goal": {"class": "Goal", "label": "Goal", "import": "core.models.goal"},
+"goal": {"class": "Goal", "label": "Goal", "import": "core.models.goal"},
     "task": {"class": "Task", "label": "Task", "import": "core.models.task"},
 }
 

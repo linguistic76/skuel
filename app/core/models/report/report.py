@@ -296,6 +296,31 @@ class Report:
             return text
         return text[: max_length - 3] + "..."
 
+    def to_markdown(self) -> str:
+        """Convert journal report to markdown format."""
+        title = self.title or "Untitled"
+        md = f"# {title}\n\n"
+        if self.entry_date:
+            md += f"*{self.entry_date.strftime('%B %d, %Y')}*\n\n"
+        if self.mood or self.energy_level:
+            md += "## Mood & Energy\n"
+            if self.mood:
+                md += f"- Mood: {self.mood}\n"
+            if self.energy_level:
+                md += f"- Energy: {self.energy_level}/10\n"
+            md += "\n"
+        text = self.content or self.processed_content or ""
+        if text:
+            md += f"{text}\n\n"
+        if self.action_items:
+            md += "## Action Items\n"
+            for item in self.action_items:
+                md += f"- [ ] {item}\n"
+            md += "\n"
+        if self.tags:
+            md += f"\n---\nTags: {', '.join(self.tags)}"
+        return md
+
 
 @dataclass
 class ReportDTO:

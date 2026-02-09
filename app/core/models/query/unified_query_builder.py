@@ -115,7 +115,7 @@ class ModelQueryBuilder[T]:
     ) -> None:
         self.model = model
         self.driver = driver
-        self.label = label  # Neo4j label (e.g., "Journal" instead of "JournalPure")
+        self.label = label  # Neo4j label (e.g., "Report" instead of Python class name)
         self._filters: dict[str, Any] = {}
         self._limit_val: int | None = None
         self._offset_val: int = 0

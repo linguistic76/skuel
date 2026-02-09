@@ -92,15 +92,15 @@ class ErrorContext:
 ### Layer 1: Backends (Data Layer)
 ```python
 # Backends ALWAYS return Result[T]
-@safe_backend_operation("create_journal")
-async def create(self, journal: JournalPure) -> Result[JournalPure]:
+@safe_backend_operation("create_report")
+async def create(self, report: Report) -> Result[Report]:
     try:
-        node = to_neo4j_node(journal)
+        node = to_neo4j_node(report)
         result = await self.execute_query(
-            "CREATE (j:Journal $props) RETURN j",
+            "CREATE (r:Report $props) RETURN r",
             props=node
         )
-        created = from_neo4j_node(result['j'], JournalPure)
+        created = from_neo4j_node(result['r'], Report)
         return Result.ok(created)
     except Neo4jError as e:
         # Automatically wrapped in Result.fail by decorator
@@ -110,16 +110,16 @@ async def create(self, journal: JournalPure) -> Result[JournalPure]:
 ### Layer 2: Services (Business Logic)
 ```python
 # Services use Result[T] throughout
-class JournalService:
-    async def create_journal(self, data: dict) -> Result[JournalPure]:
+class ReportService:
+    async def create_report(self, data: dict) -> Result[Report]:
         # Validation returns Result
         validation_result = self._validate_create(data)
         if not validation_result.is_ok:
             return validation_result
 
         # Backend also returns Result
-        journal = JournalPure(**data)
-        create_result = await self.backend.create(journal)
+        report = Report(**data)
+        create_result = await self.backend.create(report)
 
         # Chain operations without try/catch
         if create_result.is_ok:
@@ -127,6 +127,8 @@ class JournalService:
             await self._send_notification(create_result.value)
 
         return create_result  # Propagate Result
+
+# Note: JournalPure merged into Report (February 2026)
 ```
 
 ### Layer 3: Routes (System Boundary)
@@ -589,7 +591,7 @@ grep "SEVERITY_CRITICAL" logs/*.log
 Errors automatically capture origin:
 ```python
 error.source_location
-# "services/journal_service.py:create_journal:45"
+# "services/reports_core_service.py:create_report:45"
 ```
 
 ### Rich Context for Debugging
@@ -687,10 +689,10 @@ result.log_if_error("Failed to process user request")
 async def test_validation_error():
     # Mock backend to return specific error
     mock_backend.get.return_value = Result.fail(
-        Errors.not_found("Journal", "123")
+        Errors.not_found("Report", "123")
     )
 
-    result = await service.get_journal("123")
+    result = await service.get_report("123")
 
     assert not result.is_ok
     assert result.error.category == ErrorCategory.NOT_FOUND

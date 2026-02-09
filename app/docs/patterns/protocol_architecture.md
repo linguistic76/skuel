@@ -255,11 +255,11 @@ Service classes now use protocol types for backend parameters:
 
 ```python
 # Before: Concrete backend type
-class JournalsCoreService(BaseService[UniversalNeo4jBackend[JournalPure], JournalPure]):
+class JournalsCoreService(BaseService[UniversalNeo4jBackend[Report], Report]):
     ...
 
 # After: Protocol type
-class JournalsCoreService(BaseService[JournalsOperations, JournalPure]):
+class JournalsCoreService(BaseService[JournalsOperations, Report]):
     ...
 ```
 

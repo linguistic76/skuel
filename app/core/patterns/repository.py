@@ -318,49 +318,49 @@ class BaseRepository[T, ID](ABC):
 # ============================================================================
 
 """
-# Instead of 712 lines of JournalsBackendPort:
+# Instead of 712 lines of a monolithic backend port:
 
-class JournalRepository(Repository[JournalPure, str]):
+class ReportRepository(Repository[Report, str]):
     pass  # That's it! 5 methods instead of 36
 
 # Usage in service:
-async def get_draft_journals(self, repo: JournalRepository):
+async def get_draft_reports(self, repo: ReportRepository):
     spec = QuerySpec().where_eq("status", "draft").order("created_at", desc=True)
     return await repo.find(spec)
 
-async def get_journals_by_date(self, repo: JournalRepository, start: date, end: date):
+async def get_reports_by_date(self, repo: ReportRepository, start: date, end: date):
     spec = QuerySpec().where("entry_date", FilterOperator.BETWEEN, (start, end))
     return await repo.find(spec)
 
-async def search_journals(self, repo: JournalRepository, query: str):
+async def search_reports(self, repo: ReportRepository, query: str):
     spec = QuerySpec().where("content", FilterOperator.CONTAINS, query).limit(10)
     return await repo.find(spec)
 
 # For domain-specific needs, extend the base:
-class JournalRepositoryExtended(Repository[JournalPure, str]):
+class ReportRepositoryExtended(Repository[Report, str]):
     # Only add truly unique domain operations
     async def extract_insights(self, id: str) -> Result[dict]:
         # Domain-specific logic
         pass
 
 # Neo4j implementation:
-class Neo4jJournalRepository(BaseRepository[JournalPure, str]):
+class Neo4jReportRepository(BaseRepository[Report, str]):
     def __init__(self, driver):
-        super().__init__("Journal")
+        super().__init__("Report")
         self.driver = driver
 
-    async def _do_get(self, id: str) -> Optional[JournalPure]:
+    async def _do_get(self, id: str) -> Optional[Report]:
         # Neo4j specific implementation
-        query = "MATCH (j:Journal {uid: $uid}) RETURN j"
+        query = "MATCH (r:Report {uid: $uid}) RETURN r"
         # ... execute and map
 
-    async def _do_find(self, spec: QuerySpec) -> list[JournalPure]:
+    async def _do_find(self, spec: QuerySpec) -> list[Report]:
         # Build Cypher from QuerySpec
         query = self._build_query(spec)
         # ... execute and map
 
 # The service doesn't change:
-class JournalService:
-    def __init__(self, repo: JournalRepository):
+class ReportService:
+    def __init__(self, repo: ReportRepository):
         self.repo = repo  # Still uses protocol
 """

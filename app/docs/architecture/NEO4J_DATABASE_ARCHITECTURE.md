@@ -1309,7 +1309,7 @@ from core.utils.neo4j_mapper import to_neo4j_node, from_neo4j_node
 
 # Works for ANY dataclass entity
 node_props = to_neo4j_node(task)      # TaskPure → Neo4j
-node_props = to_neo4j_node(journal)   # JournalPure → Neo4j
+node_props = to_neo4j_node(report)    # Report → Neo4j
 node_props = to_neo4j_node(habit)     # HabitPure → Neo4j
 node_props = to_neo4j_node(event)     # EventPure → Neo4j
 node_props = to_neo4j_node(expense)   # ExpensePure → Neo4j
@@ -1317,7 +1317,7 @@ node_props = to_neo4j_node(user)      # User → Neo4j
 
 # Type-safe reconstruction using generics
 task = from_neo4j_node(data, TaskPure)       # Neo4j → TaskPure
-journal = from_neo4j_node(data, JournalPure) # Neo4j → JournalPure
+report = from_neo4j_node(data, Report)    # Neo4j → Report
 ```
 
 ### Implementation Across All Backends (COMPLETED)

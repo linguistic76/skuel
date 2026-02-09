@@ -27,7 +27,7 @@ DOMAINS SERVED BY THIS BACKEND (12 of 14)
     UniversalNeo4jBackend[LearningPath]  - lp_backend (lp:)
 
 **Content/Organization Domains (2 of 4):**
-    UniversalNeo4jBackend[JournalPure] - journals_backend
+    UniversalNeo4jBackend[Report]      - reports_backend (journals are Report with report_type=JOURNAL)
     UniversalNeo4jBackend[Moc]         - moc_backend
 
 DOMAINS NOT USING THIS BACKEND (2 of 14)
@@ -4187,12 +4187,6 @@ def create_habits_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
 
     return UniversalNeo4jBackend[HabitPure](driver, "Habit", HabitPure)
 
-
-def create_journals_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
-    """Create universal backend for journals."""
-    from core.models.journal.journal_pure import JournalPure
-
-    return UniversalNeo4jBackend[JournalPure](driver, "Journal", JournalPure)
 
 
 # Pattern continues for all domains...

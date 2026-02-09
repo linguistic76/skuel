@@ -243,7 +243,7 @@ class Task:
 | Choices | Choice | User's decisions |
 | Principles | Principle | User's values |
 | Finance | Expense | User's financial data |
-| Journals | JournalPure | User's reflections |
+| Reports | Report | User's submissions and reflections |
 
 ### Shared Domains (scope=ContentScope.SHARED)
 

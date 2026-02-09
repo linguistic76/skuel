@@ -61,7 +61,7 @@ user = await result.aflat_map(fetch_user)
 
 **Before (if/else)**:
 ```python
-async def get_journal_for_date(self, target_date: date) -> Result[Optional[JournalPure]]:
+async def get_journal_for_date(self, target_date: date) -> Result[Optional[Report]]:
     journals_result = await self.backend.find_by_date(target_date)
     if journals_result.is_error:
         return journals_result
@@ -74,7 +74,7 @@ async def get_journal_for_date(self, target_date: date) -> Result[Optional[Journ
 
 **After (chaining)**:
 ```python
-async def get_journal_for_date(self, target_date: date) -> Result[Optional[JournalPure]]:
+async def get_journal_for_date(self, target_date: date) -> Result[Optional[Report]]:
     result = await self.backend.find_by_date(target_date)
     return result.map(lambda journals: journals[0] if journals else None)
 ```
@@ -108,7 +108,7 @@ async def get_events_by_day(self, target_date: date, include_all_day: bool = Tru
 
 **Before (if/else)**:
 ```python
-async def get_journal(self, uid: str) -> Result[JournalPure]:
+async def get_journal(self, uid: str) -> Result[Report]:
     get_result = await self.backend.get(uid)
     if get_result.is_error:
         return get_result
@@ -122,7 +122,7 @@ async def get_journal(self, uid: str) -> Result[JournalPure]:
 
 **After (chaining)**:
 ```python
-async def get_journal(self, uid: str) -> Result[JournalPure]:
+async def get_journal(self, uid: str) -> Result[Report]:
     result = await self.backend.get(uid)
     return await result.aflat_map(
         lambda journal: Result.ok(journal) if journal
@@ -134,7 +134,7 @@ async def get_journal(self, uid: str) -> Result[JournalPure]:
 
 **Before (if/else)**:
 ```python
-async def create_journal(self, journal: JournalPure) -> Result[JournalPure]:
+async def create_journal(self, journal: Report) -> Result[Report]:
     # Check for duplicates
     if journal.occurred_at:
         existing_result = await self.backend.find_by_date(journal.occurred_at)
@@ -162,9 +162,9 @@ async def create_journal(self, journal: JournalPure) -> Result[JournalPure]:
 
 **After (chaining)**:
 ```python
-async def create_journal(self, journal: JournalPure) -> Result[JournalPure]:
+async def create_journal(self, journal: Report) -> Result[Report]:
     # Define validation as a function
-    async def check_duplicates(j: JournalPure) -> Result[JournalPure]:
+    async def check_duplicates(j: Report) -> Result[Report]:
         if not j.occurred_at:
             return Result.ok(j)
 

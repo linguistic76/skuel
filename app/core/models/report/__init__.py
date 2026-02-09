@@ -9,8 +9,11 @@ Unified domain for all user-submitted content:
 """
 
 from core.models.enums.report_enums import (
+    AnalysisDepth,
     ContentStatus,
     ContentType,
+    ContextEnrichmentLevel,
+    FormattingStyle,
     JournalCategory,
     JournalType,
     ProcessorType,
@@ -47,8 +50,11 @@ from core.models.report.report_schedule import (
 
 __all__ = [
     # Enums
+    "AnalysisDepth",
     "ContentStatus",
     "ContentType",
+    "ContextEnrichmentLevel",
+    "FormattingStyle",
     "JournalCategory",
     "JournalType",
     "ProcessorType",

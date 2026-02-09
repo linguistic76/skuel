@@ -125,12 +125,12 @@ def create_report_projects_api_routes(
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         # Get entry and project
-        entry_result = await transcript_service.get_journal(feedback_request.entry_uid)
-        if entry_result.is_error or not entry_result.value:
+        entry_result = await transcript_service.get(feedback_request.entry_uid)
+        if entry_result.is_error:
             return Result.fail(Errors.not_found("Entry", feedback_request.entry_uid))
 
         project_result = await report_projects_service.get_project(feedback_request.project_uid)
-        if project_result.is_error or not project_result.value:
+        if project_result.is_error:
             return Result.fail(Errors.not_found("Report project", feedback_request.project_uid))
 
         entry = entry_result.value
@@ -150,17 +150,16 @@ def create_report_projects_api_routes(
 
         feedback_text = feedback_result.value
 
-        # Optionally save to entry
+        # Optionally save feedback to the report
         if feedback_request.save_feedback:
-            from core.models.journal import journal_dto_to_pure, journal_pure_to_dto
-
-            dto = journal_pure_to_dto(entry)
-            dto.project_uid = feedback_request.project_uid
-            dto.feedback = feedback_text
-            dto.feedback_generated_at = datetime.now()
-
-            updated_entry = journal_dto_to_pure(dto)
-            update_result = await transcript_service.update_journal(updated_entry)
+            update_result = await transcript_service.update(
+                feedback_request.entry_uid,
+                {
+                    "project_uid": feedback_request.project_uid,
+                    "feedback": feedback_text,
+                    "feedback_generated_at": datetime.now().isoformat(),
+                },
+            )
 
             if update_result.is_error:
                 logger.warning(f"Generated feedback but failed to save: {update_result.error}")

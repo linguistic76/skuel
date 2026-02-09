@@ -373,8 +373,10 @@ The transcript processor was refactored to streamline journal processing:
 
 4. **Protocol Compliance (January 28, 2026)**
    - **Old:** `BaseService[UniversalNeo4jBackend[JournalPure], JournalPure]`
-   - **New:** `BaseService[JournalsOperations, JournalPure]`
+   - **New:** `BaseService[JournalsOperations, Report]`
    - Uses protocol-based backend for zero port dependencies
+
+> **Note:** JournalPure was merged into Report (February 2026). The Journal domain was absorbed into the Reports domain. See `/docs/domains/reports.md`.
 
 ### Updated Architecture
 

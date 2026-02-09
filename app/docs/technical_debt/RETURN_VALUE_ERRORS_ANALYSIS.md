@@ -161,17 +161,17 @@ async def get_with_context(
 **Example**:
 ```python
 # Declared non-optional
-async def get_journal(self, uid: str) -> Result[JournalPure]:
+async def get_journal(self, uid: str) -> Result[Report]:
     result = await self.backend.get(uid)
-    return result  # Result[JournalPure | None]!
+    return result  # Result[Report | None]!
 
 # Fix Option A: Update return type (if None is valid)
-async def get_journal(self, uid: str) -> Result[JournalPure | None]:
+async def get_journal(self, uid: str) -> Result[Report | None]:
     result = await self.backend.get(uid)
     return result
 
 # Fix Option B: Convert None to error (if None is error case)
-async def get_journal(self, uid: str) -> Result[JournalPure]:
+async def get_journal(self, uid: str) -> Result[Report]:
     result = await self.backend.get(uid)
     if result.is_error:
         return result
