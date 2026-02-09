@@ -30,7 +30,7 @@ from core.models.relationship_registry import (
     get_config_by_label,
     get_domain_config,
 )
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 
 class TestUnifiedRegistry:

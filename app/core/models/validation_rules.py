@@ -651,7 +651,7 @@ def validate_habit_target_days_by_pattern(
         if v is None:
             return v
 
-        from core.models.shared_enums import RecurrencePattern
+        from core.models.enums import RecurrencePattern
 
         pattern = info.data.get(pattern_field)
 

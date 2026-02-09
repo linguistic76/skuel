@@ -13,7 +13,7 @@ from typing import Any, cast
 from core.models.event.event import Event as EventPure
 from core.models.event.event_request import EventType
 from core.models.habit.habit import Habit as HabitPure
-from core.models.shared_enums import (
+from core.models.enums import (
     ActivityStatus,
     ActivityType,
     Priority,

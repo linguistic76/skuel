@@ -25,7 +25,7 @@ from core.constants import GraphDepth
 from core.models.mixins import StatusChecksMixin
 from core.models.query import QueryIntent
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.shared_enums import ActivityStatus, Priority, RecurrencePattern
+from core.models.enums import ActivityStatus, Priority, RecurrencePattern
 
 if TYPE_CHECKING:
     from core.models.task.task_dto import TaskDTO

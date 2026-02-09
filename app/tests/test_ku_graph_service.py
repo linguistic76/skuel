@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.ku.ku_dto import KuDTO
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.ku.ku_graph_service import KuGraphService
 from core.utils.result_simplified import Result
 

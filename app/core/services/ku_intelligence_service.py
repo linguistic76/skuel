@@ -27,7 +27,7 @@ from core.models.graph_context import GraphContext
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.intelligence import GraphContextOrchestrator

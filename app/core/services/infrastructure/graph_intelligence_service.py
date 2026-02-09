@@ -23,7 +23,7 @@ from typing import Any
 
 from neo4j import AsyncDriver
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.protocols import get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -956,7 +956,7 @@ class GraphIntelligenceService:
         Returns:
             Domain enum value
         """
-        from core.models.shared_enums import Domain
+        from core.models.enums import Domain
 
         # Check if domain is in properties
         if "domain" in node_dict:

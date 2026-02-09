@@ -19,7 +19,7 @@ from core.models.activity_dto_mixin import ActivityDTOMixin
 # 2. GoalDTO import is deferred to end of goal.py
 # 3. When this imports enums, Goal class hasn't referenced GoalDTO yet
 from core.models.goal.goal import GoalTimeframe, GoalType, MeasurementType
-from core.models.shared_enums import Domain, GoalStatus, Priority
+from core.models.enums import Domain, GoalStatus, Priority
 
 
 @dataclass

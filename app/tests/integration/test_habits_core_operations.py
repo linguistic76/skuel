@@ -32,7 +32,7 @@ from core.models.habit.habit import (
     HabitPolarity,
     HabitStatus,
 )
-from core.models.shared_enums import Priority, RecurrencePattern
+from core.models.enums import Priority, RecurrencePattern
 from core.services.habits.habits_core_service import HabitsCoreService
 
 

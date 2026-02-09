@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.shared_enums import ActivityStatus, Priority
+from core.models.enums import ActivityStatus, Priority
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest

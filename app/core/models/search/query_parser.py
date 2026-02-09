@@ -32,7 +32,7 @@ Date: 2025-11-29
 
 from dataclasses import dataclass
 
-from core.models.shared_enums import (
+from core.models.enums import (
     ActivityStatus,
     ContentType,
     Domain,

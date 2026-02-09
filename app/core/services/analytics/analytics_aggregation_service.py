@@ -39,7 +39,7 @@ import operator
 from datetime import date
 from typing import Any
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)

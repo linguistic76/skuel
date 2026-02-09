@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO

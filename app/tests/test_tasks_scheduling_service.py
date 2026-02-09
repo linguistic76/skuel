@@ -21,7 +21,7 @@ import pytest
 from core.models.lp.lp import LearningPath
 from core.models.lp.lp_position import LpPosition
 from core.models.ls import LearningStep
-from core.models.shared_enums import ActivityStatus, Domain, Priority
+from core.models.enums import ActivityStatus, Domain, Priority
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService

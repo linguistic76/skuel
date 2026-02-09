@@ -17,7 +17,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 
 class LpType(str, Enum):

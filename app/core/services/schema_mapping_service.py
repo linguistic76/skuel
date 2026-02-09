@@ -16,7 +16,7 @@ heuristics or duplicate enum mapping logic.
 from enum import Enum
 from typing import Any
 
-from core.models.shared_enums import Domain, KnowledgeStatus, Priority
+from core.models.enums import Domain, KnowledgeStatus, Priority
 from core.services.protocols import get_enum_value
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

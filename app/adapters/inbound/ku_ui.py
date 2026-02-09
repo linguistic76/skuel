@@ -21,7 +21,7 @@ from components.card_generator import CardGenerator
 from components.form_generator import FormGenerator
 from components.shared_ui_components import SharedUIComponents
 from core.models.ku.ku_request import KuCreateRequest
-from core.models.shared_enums import SELCategory
+from core.models.enums import SELCategory
 from core.ui.daisy_components import Button, ButtonT, Card, Div, Span
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -369,7 +369,7 @@ def validate_ku_form_data(form_data: dict[str, Any]) -> Result[None]:
     Returns:
         Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
     """
-    from core.models.shared_enums import Domain
+    from core.models.enums import Domain
     from core.utils.result_simplified import Errors, Result
 
     # Required: title

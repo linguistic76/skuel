@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.shared_enums import ActivityStatus
+from core.models.enums import ActivityStatus
 from core.utils.result_simplified import Errors, Result
 
 # Mark all tests in this module as async

@@ -42,7 +42,7 @@ from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.config.credential_store import get_credential
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 from core.models.task.task_dto import TaskDTO
 from core.utils.logging import get_logger
 

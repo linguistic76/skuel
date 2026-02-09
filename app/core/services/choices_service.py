@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
-from core.models.shared_enums import ActivityStatus
+from core.models.enums import ActivityStatus
 from core.services.base_service import BaseService
 
 # Import sub-services and mixins

@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     from core.models.lp import Lp
     from core.models.ls import Ls
     from core.models.principle.principle import Principle, PrincipleCategory
-    from core.models.shared_enums import Domain
+    from core.models.enums import Domain
     from core.models.task.task import Task
     from core.models.task.task_request import TaskCreateRequest
     from core.services.user import UserContext

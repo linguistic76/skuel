@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from core.models.shared_enums import ActivityStatus, Priority
+from core.models.enums import ActivityStatus, Priority
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.services.tasks.tasks_progress_service import TasksProgressService

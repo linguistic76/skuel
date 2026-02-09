@@ -118,7 +118,7 @@ Version: 0.4.0 (Type-safe EntityType contexts)
 """
 
 # Re-export EntityType for convenient access
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,
     ParsedActivityLine,

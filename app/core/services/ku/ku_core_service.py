@@ -33,7 +33,7 @@ from core.models.enums.learning_enums import SELCategory
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
-from core.models.shared_enums import Domain, KnowledgeStatus
+from core.models.enums import Domain, KnowledgeStatus
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.services.metadata_manager_mixin import MetadataManagerMixin
@@ -257,7 +257,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         """
         if self.chunking_service:
             # Create domain model for chunking
-            from core.models.shared_enums import SELCategory
+            from core.models.enums import SELCategory
 
             knowledge = Ku(
                 uid=uid,
@@ -550,7 +550,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         """
         if self.chunking_service:
             # Re-create domain model for re-chunking
-            from core.models.shared_enums import SELCategory
+            from core.models.enums import SELCategory
 
             knowledge = Ku(
                 uid=uid,

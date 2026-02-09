@@ -27,7 +27,7 @@ from core.models.choice.choice_request import (
     ChoiceResponse,
     ChoiceUpdateRequest,
 )
-from core.models.shared_enums import Domain, Priority
+from core.models.enums import Domain, Priority
 
 # =============================================================================
 # Choice Option Converters

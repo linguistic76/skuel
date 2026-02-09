@@ -158,7 +158,7 @@ async def test_dry_run_includes_relationships(
     test_file.write_text("# Test")
     mock_collect.return_value = [test_file]
 
-    from core.models.shared_enums import EntityType
+    from core.models.enums import EntityType
 
     # Mock entity with relationships
     mock_parse.return_value = (

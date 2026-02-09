@@ -10,7 +10,7 @@ from datetime import UTC
 from typing import Any
 from uuid import uuid4
 
-from core.models.shared_enums import EnergyLevel, TimeOfDay
+from core.models.enums import EnergyLevel, TimeOfDay
 
 
 def create_step_uid() -> str:
@@ -49,7 +49,7 @@ def create_default_energy_pattern() -> dict[TimeOfDay, EnergyLevel]:
 
 def create_default_user_energy_pattern() -> dict[TimeOfDay, EnergyLevel]:
     """Create default energy pattern dictionary for user schemas."""
-    from core.models.shared_enums import EnergyLevel, TimeOfDay
+    from core.models.enums import EnergyLevel, TimeOfDay
 
     return {
         TimeOfDay.MORNING: EnergyLevel.HIGH,

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.shared_enums import Domain
+    from core.models.enums import Domain
 
 
 @dataclass(frozen=True)

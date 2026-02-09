@@ -15,7 +15,7 @@ Architecture:
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.shared_enums import (
+from core.models.enums import (
     EnergyLevel,
     GuidanceMode,
     LearningLevel,

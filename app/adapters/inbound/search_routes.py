@@ -32,7 +32,7 @@ from core.auth import require_authenticated_user
 from core.models.relationship_names import RelationshipName
 from core.models.search import SearchRouter
 from core.models.search_request import SearchRequest
-from core.models.shared_enums import (
+from core.models.enums import (
     ActivityStatus,
     ContentType,
     EducationalLevel,

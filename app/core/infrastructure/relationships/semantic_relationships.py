@@ -19,7 +19,7 @@ from enum import Enum
 from typing import Any, Optional
 
 from core.constants import ConfidenceLevel
-from core.models.shared_enums import RelationshipType
+from core.models.enums import RelationshipType
 
 
 class RelationshipNamespace(str, Enum):

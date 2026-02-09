@@ -22,7 +22,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from core.models.shared_enums import (
+from core.models.enums import (
     Domain,
     EnergyLevel,
     GuidanceMode,
@@ -591,7 +591,7 @@ class TestUserContextBuilder:
         """Verify UserContextBuilder correctly populates context from real services."""
         from datetime import time, timedelta
 
-        from core.models.shared_enums import (
+        from core.models.enums import (
             ActivityStatus,
             GoalStatus,
             Priority,

@@ -19,7 +19,7 @@ Updated October 5, 2025:
 
 from typing import Any, TypeVar
 
-from core.models.shared_enums import RelationshipType
+from core.models.enums import RelationshipType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

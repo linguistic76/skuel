@@ -31,7 +31,7 @@ from core.models.ku.ku_intelligence import (
 from core.models.lp.lp import LearningPath
 from core.models.relationship_names import RelationshipName
 from core.models.sel import SELCategoryProgress, SELJourney
-from core.models.shared_enums import Domain, LearningLevel, SELCategory
+from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

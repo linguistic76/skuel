@@ -22,7 +22,7 @@ import pytest
 from starlette.responses import JSONResponse
 
 from core.infrastructure.routes.crud_route_factory import CRUDRouteFactory
-from core.models.shared_enums import ActivityStatus, Priority
+from core.models.enums import ActivityStatus, Priority
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 

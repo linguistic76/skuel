@@ -29,7 +29,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from core.models.shared_enums import ActivityStatus, Priority
+from core.models.enums import ActivityStatus, Priority
 from core.utils.result_simplified import Result
 
 

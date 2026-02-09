@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.protocols import get_enum_value
 from core.utils.uid_generator import UIDGenerator
 

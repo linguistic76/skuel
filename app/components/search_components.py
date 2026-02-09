@@ -26,7 +26,7 @@ from typing import Any
 from fasthtml.common import H3, H4, A, NotStr, P
 
 from core.models.search_request import SearchResponse
-from core.models.shared_enums import (
+from core.models.enums import (
     ContentType,
     EducationalLevel,
     LearningLevel,

@@ -28,7 +28,7 @@ from core.models.query import QueryIntent
 
 # Phase 1: Query Infrastructure
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.shared_enums import Domain, GoalStatus, Priority
+from core.models.enums import Domain, GoalStatus, Priority
 
 # Relationship Context (Phase 1: Making Connections Comprehensible)
 if TYPE_CHECKING:

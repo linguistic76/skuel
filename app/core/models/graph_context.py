@@ -14,7 +14,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 if TYPE_CHECKING:
     from core.infrastructure.database.schema import SchemaContext

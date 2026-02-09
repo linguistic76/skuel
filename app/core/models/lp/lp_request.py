@@ -11,7 +11,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.models.validation_rules import validate_required_string
 
 

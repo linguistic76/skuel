@@ -23,7 +23,7 @@ This service is part of the refactored UserService architecture:
 from typing import Any
 
 from core.events import publish_event
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 from core.models.user import User
 from core.services.protocols.infrastructure_protocols import UserOperations
 from core.services.user.debounced_invalidator import DebouncedContextInvalidator

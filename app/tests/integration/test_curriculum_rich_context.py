@@ -26,7 +26,7 @@ from core.models.lp import LpDTO
 from core.models.ls import LearningStepDTO
 from core.models.principle.principle import PrincipleCategory
 from core.models.principle.principle_dto import PrincipleDTO
-from core.models.shared_enums import Domain, Priority
+from core.models.enums import Domain, Priority
 from core.models.task.task_dto import TaskDTO
 from core.utils.uid_generator import UIDGenerator
 

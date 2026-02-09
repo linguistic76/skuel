@@ -64,7 +64,7 @@ from core.models.context_types import (
     ContextualKnowledge,
     ContextualTask,
 )
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 
 if TYPE_CHECKING:
     import logging

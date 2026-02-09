@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from core.models.shared_enums import Domain, Priority
+    from core.models.enums import Domain, Priority
 
 # ============================================================================
 # ENUMS - INSIGHT & RECOMMENDATION TYPES

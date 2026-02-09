@@ -17,7 +17,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
-from core.models.shared_enums import AnalyticsDomain
+from core.models.enums import AnalyticsDomain
 
 # ============================================================================
 # TIER 2 - DTO (Transfer Layer)

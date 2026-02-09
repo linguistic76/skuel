@@ -15,7 +15,7 @@ Validates:
 
 import pytest
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.search.search_intelligence_service import (
     SearchIntelligenceService,
     get_search_intelligence,

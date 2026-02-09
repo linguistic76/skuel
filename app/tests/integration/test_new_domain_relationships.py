@@ -227,7 +227,7 @@ class TestLpRelationships:
     @pytest.mark.asyncio
     async def test_lp_relationships_fetch(self, services):
         """Test fetch() method with real services."""
-        from core.models.shared_enums import Domain
+        from core.models.enums import Domain
 
         # Create a test learning path using core service
         lp_result = await services.lp.core.create_path(

@@ -32,7 +32,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.askesis.state_scoring import (
     calculate_domain_balance,
     calculate_momentum,

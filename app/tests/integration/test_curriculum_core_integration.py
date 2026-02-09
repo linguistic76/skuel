@@ -27,7 +27,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.ku.ku import Ku
 from core.models.lp.lp import Lp
 from core.models.ls.ls import Ls
-from core.models.shared_enums import Domain, LearningLevel, SELCategory
+from core.models.enums import Domain, LearningLevel, SELCategory
 
 # ============================================================================
 # FIXTURES

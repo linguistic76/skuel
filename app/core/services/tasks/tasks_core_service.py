@@ -24,7 +24,7 @@ from typing import Any
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.models.relationship_names import RelationshipName
-from core.models.shared_enums import ActivityStatus, EntityType
+from core.models.enums import ActivityStatus, EntityType
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
@@ -158,7 +158,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         # Business Rule 2: Overdue task priority protection
         # Cannot decrease priority of overdue tasks (prevents "sweeping under rug")
         if "priority" in updates and current.due_date and current.due_date < date.today():
-            from core.models.shared_enums import Priority
+            from core.models.enums import Priority
 
             new_priority = Priority(updates["priority"])
             if new_priority.to_numeric() < current.priority.to_numeric():

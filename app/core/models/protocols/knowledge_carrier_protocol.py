@@ -52,7 +52,7 @@ See Also:
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from core.models.shared_enums import Domain
+    from core.models.enums import Domain
 
 
 @runtime_checkable

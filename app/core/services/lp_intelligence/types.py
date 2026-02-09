@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
-from core.models.shared_enums import GuidanceMode
+from core.models.enums import GuidanceMode
 
 # ============================================================================
 # ENUMS

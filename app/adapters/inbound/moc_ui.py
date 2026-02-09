@@ -337,7 +337,7 @@ class MOCUIComponents:
     @staticmethod
     def render_moc_create_form() -> Any:
         """Create MOC form."""
-        from core.models.shared_enums import Domain
+        from core.models.enums import Domain
 
         domain_options = [
             (d.value, d.value.replace("_", " ").title())

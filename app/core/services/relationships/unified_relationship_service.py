@@ -1448,7 +1448,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         context = graph_context_result.value
 
         # Analyze impact across domains using scoring weights
-        from core.models.shared_enums import Domain
+        from core.models.enums import Domain
 
         impacted_goals = context.get_nodes_by_domain(Domain.GOALS)
         impacted_habits = context.get_nodes_by_domain(Domain.HABITS)

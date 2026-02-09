@@ -391,7 +391,7 @@ def create_ingestion_api_routes(
                 return Result.fail(Errors.not_found("Directory", str(source_path)))
 
             # Map domain to entity type
-            from core.models.shared_enums import EntityType
+            from core.models.enums import EntityType
 
             domain_to_entity = {
                 "ku": EntityType.KU,

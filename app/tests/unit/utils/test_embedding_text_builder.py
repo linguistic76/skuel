@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 from core.utils.embedding_text_builder import build_embedding_text
 
 

@@ -26,7 +26,7 @@ from components.timeline_components import (
     render_timeline_viewer_page,
 )
 from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
-from core.models.shared_enums import ActivityStatus
+from core.models.enums import ActivityStatus
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

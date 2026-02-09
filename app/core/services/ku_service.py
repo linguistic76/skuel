@@ -1007,7 +1007,7 @@ class KuService(FacadeDelegationMixin):
         Returns:
             Result with list of unique domain names
         """
-        from core.models.shared_enums import Domain
+        from core.models.enums import Domain
 
         # Return all domain enum values
         domains = [d.value for d in Domain]

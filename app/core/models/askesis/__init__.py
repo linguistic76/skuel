@@ -10,7 +10,7 @@ Tier 3 (Core): Immutable domain models with business logic
 """
 
 # GuidanceType doesn't exist - use GuidanceMode from shared_enums instead
-from core.models.shared_enums import GuidanceMode as GuidanceType
+from core.models.enums import GuidanceMode as GuidanceType
 
 # Import domain models that exist in other modules
 from core.models.user.conversation import ConversationSession

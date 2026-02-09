@@ -61,7 +61,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
-from core.models.shared_enums import (
+from core.models.enums import (
     ActivityStatus,
     ContentType,
     Domain,

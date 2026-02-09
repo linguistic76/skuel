@@ -22,7 +22,7 @@ from core.models.request_base import (
     ResponseBase,
     UpdateRequestBase,
 )
-from core.models.shared_enums import ActivityStatus, Priority, RecurrencePattern
+from core.models.enums import ActivityStatus, Priority, RecurrencePattern
 from core.models.validation_rules import (
     validate_future_date,
     validate_recurrence_end_after_start,

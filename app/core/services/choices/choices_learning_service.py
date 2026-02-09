@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_request import ChoiceCreateRequest
-from core.models.shared_enums import ActivityStatus, Domain, Priority
+from core.models.enums import ActivityStatus, Domain, Priority
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper

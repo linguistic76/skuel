@@ -32,7 +32,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
-from core.models.shared_enums import ActivityStatus
+from core.models.enums import ActivityStatus
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import EventsOperations

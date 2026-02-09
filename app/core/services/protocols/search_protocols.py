@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from core.models.search.filters import BaseSearchFilters
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest
-    from core.models.shared_enums import Domain
+    from core.models.enums import Domain
     from core.models.task.task import Task
     from core.services.user import UserContext
 
@@ -123,7 +123,7 @@ class DomainSearchOperations(Protocol[T]):
         Example:
             from dataclasses import dataclass
             from core.models.search import BaseSearchFilters
-            from core.models.shared_enums import ActivityStatus, Domain
+            from core.models.enums import ActivityStatus, Domain
 
             # Define domain-specific filters locally (see MocSearchFilters pattern)
             @dataclass(frozen=True)

@@ -67,7 +67,7 @@ Changes:
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 from core.services.protocols.search_protocols import (
     SupportsGraphAwareSearch,
     SupportsGraphTraversalSearch,

@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any
 
 from core.models.askesis.askesis_intelligence import ConversationStyle, QueryComplexity
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 
 
 @dataclass

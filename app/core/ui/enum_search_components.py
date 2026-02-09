@@ -38,7 +38,7 @@ Benefits:
 
 from typing import Any
 
-from core.models.shared_enums import (
+from core.models.enums import (
     ActivityStatus,
     ContentType,
     Domain,

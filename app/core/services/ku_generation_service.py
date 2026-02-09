@@ -29,7 +29,7 @@ from operator import attrgetter
 from typing import Any
 
 from core.models.ku.ku_dto import KuDTO
-from core.models.shared_enums import ActivityStatus, Domain, Priority
+from core.models.enums import ActivityStatus, Domain, Priority
 from core.models.task.task import Task
 from core.services.protocols import HasMetadata, HasSummary
 from core.utils.decorators import with_error_handling

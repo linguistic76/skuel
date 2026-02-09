@@ -15,7 +15,7 @@ from collections import defaultdict
 from operator import attrgetter
 from typing import Any
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 # Import dataclasses from shared models module (breaks circular dependency)
 from core.services.adaptive_lp.adaptive_lp_models import CrossDomainOpportunity

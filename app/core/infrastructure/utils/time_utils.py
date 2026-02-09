@@ -8,7 +8,7 @@ Ensures consistent timezone handling (UTC internally).
 
 from datetime import UTC, date, datetime, time, timedelta
 
-from core.models.shared_enums import TimeOfDay
+from core.models.enums import TimeOfDay
 
 
 class TimeHelper:

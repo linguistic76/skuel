@@ -10,7 +10,7 @@ from datetime import date, datetime, time
 from typing import Any, ClassVar
 
 from core.models.activity_dto_mixin import ActivityDTOMixin
-from core.models.shared_enums import ActivityStatus, Priority, RecurrencePattern, Visibility
+from core.models.enums import ActivityStatus, Priority, RecurrencePattern, Visibility
 
 
 @dataclass

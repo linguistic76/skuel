@@ -30,7 +30,7 @@ from core.models.goal.goal import Goal, GoalTimeframe
 from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
-from core.models.shared_enums import GoalStatus
+from core.models.enums import GoalStatus
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import GoalsOperations
@@ -194,7 +194,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
 
         # Priority level (0-20 points)
         if goal.priority:
-            from core.models.shared_enums import Priority
+            from core.models.enums import Priority
             from core.services.protocols import get_enum_value
 
             priority_value = get_enum_value(goal.priority)

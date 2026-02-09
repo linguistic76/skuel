@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_relationships import GoalRelationships
-from core.models.shared_enums import GoalStatus, Priority
+from core.models.enums import GoalStatus, Priority
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 

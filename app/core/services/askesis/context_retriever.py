@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.models.query import QueryIntent
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

@@ -35,7 +35,7 @@ from core.models.relationship_names import RelationshipName
 # - Principle.strength: PrincipleStrength (direct access)
 # - Principle does NOT have adherence_score - use default 0.5 where needed
 from core.models.shared.dual_track import DualTrackResult
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
     GraphContextOrchestrator,

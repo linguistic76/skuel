@@ -13,7 +13,7 @@ These models support adaptive curriculum delivery by tracking:
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from core.models.shared_enums import LearningLevel, SELCategory
+from core.models.enums import LearningLevel, SELCategory
 
 
 @dataclass(frozen=True)

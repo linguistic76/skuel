@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
-    from core.models.shared_enums import Domain, Priority
+    from core.models.enums import Domain, Priority
     from core.utils.result_simplified import Result as ResultType
     # Note: Result protocol defined at line 866 is for duck-typing Result-like objects
     # ResultType is the actual Result[T] class used in type annotations

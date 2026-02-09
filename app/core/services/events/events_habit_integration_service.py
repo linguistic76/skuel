@@ -25,7 +25,7 @@ from typing import Any
 from core.events import publish_event
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.shared_enums import ActivityStatus, RecurrencePattern
+from core.models.enums import ActivityStatus, RecurrencePattern
 from core.services.context_first_mixin import (
     parse_date_field,
     parse_datetime_field,

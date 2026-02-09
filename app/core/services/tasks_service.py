@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 # Knowledge generation service (Phase 4.1)
 # Protocol interfaces
 # Domain models
-from core.models.shared_enums import ActivityStatus
+from core.models.enums import ActivityStatus
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 
@@ -450,7 +450,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
 
         Reverts task status to IN_PROGRESS.
         """
-        from core.models.shared_enums import ActivityStatus
+        from core.models.enums import ActivityStatus
 
         return await self.core.update_task(uid, {"status": ActivityStatus.IN_PROGRESS})
 
@@ -677,7 +677,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
         """
         from operator import attrgetter
 
-        from core.models.shared_enums import ActivityStatus
+        from core.models.enums import ActivityStatus
         from core.models.task.task_relationships import TaskRelationships
 
         tasks_result = await self.core.get_user_tasks(user_uid)
@@ -745,7 +745,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
         """
         from datetime import date, timedelta
 
-        from core.models.shared_enums import ActivityStatus
+        from core.models.enums import ActivityStatus
 
         tasks_result = await self.core.get_user_tasks(user_uid)
         if tasks_result.is_error:

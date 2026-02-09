@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.adaptive_lp.adaptive_lp_models import (
     AdaptiveLp,
     AdaptiveRecommendation,

@@ -35,7 +35,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.example.example import Example  # Replace with your domain model
 
 # Import shared enums/types
-from core.models.shared_enums import Domain  # Import relevant enums
+from core.models.enums import Domain  # Import relevant enums
 
 # Import services (if testing service layer)
 from core.services.example_service import ExampleService  # Replace with your service

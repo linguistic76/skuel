@@ -12,7 +12,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.models.shared_enums import Priority, RecurrencePattern
+from core.models.enums import Priority, RecurrencePattern
 from core.models.validation_rules import (
     validate_habit_duration_by_difficulty,
     validate_habit_target_days_by_pattern,

@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from core.models.shared_enums import Domain, Priority
+from core.models.enums import Domain, Priority
 from core.models.validation_rules import (
     validate_date_after,
     validate_future_date,

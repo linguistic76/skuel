@@ -21,7 +21,7 @@ from datetime import date, datetime, timedelta
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
-from core.models.shared_enums import (
+from core.models.enums import (
     ActivityStatus,
     ActivityType,
     Priority,

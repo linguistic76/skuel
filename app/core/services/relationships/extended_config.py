@@ -17,7 +17,7 @@ from typing import Any
 
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import DomainRelationshipConfig
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 
 @dataclass(frozen=True)

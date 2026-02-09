@@ -37,7 +37,7 @@ from typing import Any
 from fasthtml.common import H4, P
 
 from core.models.event.calendar_models import CalendarItemType
-from core.models.shared_enums import (
+from core.models.enums import (
     ActivityStatus,
     ActivityType,
     BridgeType,

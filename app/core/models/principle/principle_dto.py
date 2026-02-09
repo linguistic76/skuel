@@ -10,7 +10,7 @@ from datetime import date, datetime
 from typing import Any, ClassVar
 
 from core.models.activity_dto_mixin import ActivityDTOMixin
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 
 from ..principle.principle import (
     AlignmentLevel,

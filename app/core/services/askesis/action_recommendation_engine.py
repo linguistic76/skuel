@@ -33,7 +33,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 from core.services.askesis.state_scoring import (
     calculate_momentum,
     find_key_blocker,

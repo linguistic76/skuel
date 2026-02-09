@@ -39,7 +39,7 @@ from datetime import date
 from typing import Any
 
 from core.models.relationship_names import RelationshipName
-from core.models.shared_enums import ActivityStatus, Domain
+from core.models.enums import ActivityStatus, Domain
 from core.services.protocols.base_protocols import Direction
 
 # =============================================================================

@@ -27,7 +27,7 @@ Phase: Consolidation Phase
 
 from typing import Any, TypeVar
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.base_service import BaseService
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

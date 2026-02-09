@@ -33,7 +33,7 @@ from core.constants import QueryLimit
 from core.models.lp.lp_position import LpPosition
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
-from core.models.shared_enums import ActivityStatus
+from core.models.enums import ActivityStatus
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.services.base_service import BaseService

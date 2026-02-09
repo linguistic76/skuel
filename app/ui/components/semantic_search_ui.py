@@ -28,7 +28,7 @@ from fasthtml.common import (
     Summary,
 )
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.ui.daisy_components import (
     Badge,
     Button,

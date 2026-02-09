@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 

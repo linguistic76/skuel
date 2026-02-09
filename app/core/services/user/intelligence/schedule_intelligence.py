@@ -426,7 +426,7 @@ class ScheduleIntelligenceMixin:
         - overall: Weighted combination (0.0-1.0)
         """
         # Import EntityType for comparison
-        from core.models.shared_enums import EntityType
+        from core.models.enums import EntityType
 
         # Schedule fit based on time slot appropriateness
         schedule_fit = 0.7  # Default

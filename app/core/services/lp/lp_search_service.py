@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from core.models.lp import Lp, LpType
 from core.models.lp.lp_dto import LpDTO
 from core.models.search.query_parser import ParsedSearchQuery
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.logging import get_logger

@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, ClassVar
 
 from core.models.activity_dto_mixin import ActivityDTOMixin
-from core.models.shared_enums import Priority, RecurrencePattern
+from core.models.enums import Priority, RecurrencePattern
 
 from ..habit.habit import HabitCategory, HabitDifficulty, HabitPolarity, HabitStatus
 

@@ -25,7 +25,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
-from core.models.shared_enums import ActivityStatus
+from core.models.enums import ActivityStatus
 from core.models.task.task import Task
 from core.models.task.task_relationships import TaskRelationships
 from core.utils.logging import get_logger
@@ -803,7 +803,7 @@ class KuAnalyticsEngine:
 
     def _extract_domains_from_knowledge_uids(self, knowledge_uids: list[str]) -> list[str]:
         """Extract domain names from knowledge UIDs."""
-        from core.models.shared_enums import EntityType
+        from core.models.enums import EntityType
 
         domains = []
         for ku_uid in knowledge_uids:

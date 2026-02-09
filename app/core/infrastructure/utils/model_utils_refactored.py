@@ -17,7 +17,7 @@ The utilities are now split into:
 from dataclasses import replace
 from typing import Any, TypeVar
 
-from core.models.shared_enums import ActivityStatus, Priority
+from core.models.enums import ActivityStatus, Priority
 
 T = TypeVar("T")
 

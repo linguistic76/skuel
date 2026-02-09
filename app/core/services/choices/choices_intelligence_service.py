@@ -22,7 +22,7 @@ from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.choices.choices_types import (
     ChoiceImpactAnalysis,

@@ -14,7 +14,7 @@ from typing import Any
 
 from core.models.event.event_dto import EventDTO
 from core.models.ku.ku_dto import KuDTO
-from core.models.shared_enums import Domain, Priority
+from core.models.enums import Domain, Priority
 from core.models.task.task_dto import TaskDTO
 from core.services.calendar_optimization_types import (
     CognitiveBalancedStrategy,

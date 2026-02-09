@@ -31,7 +31,7 @@ from core.models.goal.goal import Goal, GoalStatus, GoalType, MeasurementType
 from core.models.habit.habit import Habit, HabitStatus
 from core.models.ku.ku import Ku
 from core.models.principle.principle import Principle
-from core.models.shared_enums import (
+from core.models.enums import (
     Domain,
     SELCategory,
 )

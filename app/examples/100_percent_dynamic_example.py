@@ -16,7 +16,7 @@ from datetime import date, datetime
 from enum import Enum
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.shared_enums import RelationshipType
+from core.models.enums import RelationshipType
 from core.utils.relationship_decorator import add_relationships
 
 # ============================================================================

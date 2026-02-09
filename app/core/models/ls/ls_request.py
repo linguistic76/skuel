@@ -9,7 +9,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.models.shared_enums import Domain, Priority
+from core.models.enums import Domain, Priority
 
 from .ls import StepDifficulty, StepStatus
 

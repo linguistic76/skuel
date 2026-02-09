@@ -300,7 +300,7 @@ def create_ku_api_routes(
         request: Request, category: str, limit: int = 10
     ) -> Result[Any]:
         """Get personalized KU curriculum for an SEL category."""
-        from core.models.shared_enums import SELCategory
+        from core.models.enums import SELCategory
 
         user_uid = require_authenticated_user(request)
         try:
@@ -336,7 +336,7 @@ def create_ku_api_routes(
         """HTMX: Render personalized curriculum grid as HTML fragment."""
         from fasthtml.common import P
 
-        from core.models.shared_enums import SELCategory
+        from core.models.enums import SELCategory
         from core.ui.daisy_components import Div
 
         user_uid = require_authenticated_user(request)

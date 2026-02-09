@@ -27,7 +27,7 @@ Architecture:
 from datetime import datetime
 from typing import Any
 
-from core.models.shared_enums import GuidanceMode
+from core.models.enums import GuidanceMode
 from core.services.lp_intelligence.types import LearningAnalysis, LearningReadiness, ProgressSummary
 from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 from core.services.user import UserContext

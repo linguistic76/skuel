@@ -24,7 +24,7 @@ from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_relationships import HabitRelationships
-from core.models.shared_enums import RecurrencePattern as HabitFrequency
+from core.models.enums import RecurrencePattern as HabitFrequency
 from core.services.protocols.domain_protocols import HabitsOperations
 from core.services.protocols.query_types import HabitUpdatePayload
 from core.services.user import UserContext

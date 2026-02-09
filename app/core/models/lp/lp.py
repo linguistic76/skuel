@@ -26,7 +26,7 @@ from core.models.query import QueryIntent
 
 # Phase 1: Query Infrastructure
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 
 class LpType(str, Enum):

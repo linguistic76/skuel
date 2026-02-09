@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 
 from ..principle.principle import (
     AlignmentAssessment,

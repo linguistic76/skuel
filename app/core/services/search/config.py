@@ -82,7 +82,7 @@ Architecture Notes:
 
 from dataclasses import dataclass
 
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 
 
 @dataclass(frozen=True)

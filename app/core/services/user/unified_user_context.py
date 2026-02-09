@@ -79,7 +79,7 @@ from datetime import date, datetime, timedelta
 from operator import itemgetter
 from typing import Any
 
-from core.models.shared_enums import (
+from core.models.enums import (
     Domain,
     EnergyLevel,
     GuidanceMode,

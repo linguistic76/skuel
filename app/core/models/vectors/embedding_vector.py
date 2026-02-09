@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 
 @dataclass(frozen=True)

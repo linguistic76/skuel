@@ -29,7 +29,7 @@ from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.ku import Ku
 from core.models.principle.principle import Principle
-from core.models.shared_enums import (
+from core.models.enums import (
     ActivityStatus,
     ContentType,
     Domain,

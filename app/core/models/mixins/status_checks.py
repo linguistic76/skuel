@@ -10,7 +10,7 @@ which semantic states (completed, cancelled, active, terminal).
 
 Usage:
     from core.models.mixins import StatusChecksMixin
-    from core.models.shared_enums import ActivityStatus
+    from core.models.enums import ActivityStatus
 
     @dataclass(frozen=True)
     class Task(StatusChecksMixin):

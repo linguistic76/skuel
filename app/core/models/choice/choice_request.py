@@ -14,7 +14,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from core.models.choice.choice import ChoiceStatus, ChoiceType
-from core.models.shared_enums import Domain, Priority
+from core.models.enums import Domain, Priority
 from core.models.validation_rules import (
     validate_future_date,
     validate_list_max_length,

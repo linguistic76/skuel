@@ -37,7 +37,7 @@ from fasthtml.common import (
 )
 from starlette.requests import Request
 
-from core.models.shared_enums import AnalyticsDomain
+from core.models.enums import AnalyticsDomain
 from core.ui.daisy_components import Button, ButtonT
 from core.ui.shared_components import MetricCard, QuickMetricCard
 from core.utils.logging import get_logger

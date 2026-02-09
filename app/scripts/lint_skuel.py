@@ -112,7 +112,7 @@ result = await backend.execute_query(query)""",
         "severity": "ERROR",
         "description": """Use SemanticRelationshipType enum instead of magic strings
 for semantic relationship types. This ensures type safety and autocomplete.""",
-        "good": """from core.models.shared_enums import SemanticRelationshipType
+        "good": """from core.models.enums import SemanticRelationshipType
 rel_type = SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING""",
         "bad": """# Magic string - error prone
 rel_type = "REQUIRES_THEORETICAL_UNDERSTANDING" """,
@@ -256,7 +256,7 @@ await backend.add_relationship(uid1, "SERVES_GOAL", uid2)""",
         "severity": "WARNING",
         "description": """Use EntityType enum instead of magic strings for entity type
 identification. Provides type safety and compile-time verification.""",
-        "good": """from core.models.shared_enums import EntityType
+        "good": """from core.models.enums import EntityType
 if entity.entity_type == EntityType.TASK:
     ...
 if EntityType.TASK in activity.contexts:

@@ -23,8 +23,8 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.lp.lp_position import LpPosition
-from core.models.shared_enums import ActivityStatus, Domain
-from core.models.shared_enums import RecurrencePattern as HabitFrequency
+from core.models.enums import ActivityStatus, Domain
+from core.models.enums import RecurrencePattern as HabitFrequency
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper

@@ -24,7 +24,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.shared_enums import ActivityStatus, Priority
+from core.models.enums import ActivityStatus, Priority
 
 # ============================================================================
 # TEST FIXTURES - Domain Models (avoid "Test" prefix for pytest)

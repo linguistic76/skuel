@@ -395,7 +395,7 @@ def validate_lp_form_data(form_data: dict[str, Any]) -> Result[None]:
     Returns:
         Result.ok(None) if valid, Errors.validation() with user-friendly message if invalid
     """
-    from core.models.shared_enums import Domain
+    from core.models.enums import Domain
     from core.utils.result_simplified import Errors, Result
 
     # Required: name

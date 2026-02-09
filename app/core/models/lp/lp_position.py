@@ -15,7 +15,7 @@ from typing import Any
 
 from core.models.lp.lp import LearningPath
 from core.models.ls import LearningStep
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 
 @dataclass

@@ -12,7 +12,7 @@ from typing import Any, ClassVar
 
 from core.models.activity_dto_mixin import ActivityDTOMixin
 from core.models.choice.choice import ChoiceStatus, ChoiceType
-from core.models.shared_enums import Domain, Priority
+from core.models.enums import Domain, Priority
 from core.services.protocols import get_enum_value
 
 

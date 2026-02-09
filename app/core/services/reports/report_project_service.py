@@ -26,7 +26,7 @@ from core.models.report.report_project import (
     ReportProjectPure,
     create_report_project,
 )
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import get_enum_value

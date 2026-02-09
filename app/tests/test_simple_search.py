@@ -11,7 +11,7 @@ Tests the search Pydantic models and enum dynamic methods:
 import pytest
 
 from core.models.search_request import FacetCount, SearchRequest, SearchResponse
-from core.models.shared_enums import (
+from core.models.enums import (
     ContentType,
     Domain,
     EducationalLevel,

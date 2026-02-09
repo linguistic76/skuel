@@ -18,7 +18,7 @@ from pathlib import Path
 import yaml
 
 from core.models.choice.choice import Choice, ChoiceOption, ChoiceStatus, ChoiceType
-from core.models.shared_enums import Domain, Priority
+from core.models.enums import Domain, Priority
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)

@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
     from core.models.principle.principle import Principle
-    from core.models.shared_enums import Priority
+    from core.models.enums import Priority
     from core.models.task.task import Task
     from core.services.user import UserContext
 
@@ -286,7 +286,7 @@ def score_priority_level(
     Returns:
         ComponentScore for priority level
     """
-    from core.models.shared_enums import Priority
+    from core.models.enums import Priority
 
     if priority is None:
         return ComponentScore(

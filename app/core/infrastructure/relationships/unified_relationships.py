@@ -30,7 +30,7 @@ from core.infrastructure.relationships.semantic_relationships import (
 from core.infrastructure.relationships.semantic_relationships import (
     is_blocking_relationship as is_semantic_blocking,
 )
-from core.models.shared_enums import ActivityStatus, ActivityType, RelationshipType, SystemConstants
+from core.models.enums import ActivityStatus, ActivityType, RelationshipType, SystemConstants
 
 # Protocols
 from core.services.protocols import HasMetrics, HasStreaks, HasUID, MetricsLike, StreaksLike

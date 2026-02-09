@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from components.auth_components import AuthComponents
-from core.models.shared_enums import LearningLevel
+from core.models.enums import LearningLevel
 from core.models.user.user import User, UserPreferences
 from core.utils.result_simplified import Result
 

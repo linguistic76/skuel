@@ -10,7 +10,7 @@ Philosophy: "Simplicity and portability over advanced algorithms"
 Date: October 26, 2025
 """
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.infrastructure.graph_intelligence_service import (
     GraphIntelligenceService,
 )

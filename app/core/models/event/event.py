@@ -24,7 +24,7 @@ from core.models.event.event_dto import EventDTO
 from core.models.mixins import StatusChecksMixin
 from core.models.query import QueryIntent
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.shared_enums import ActivityStatus, Priority, RecurrencePattern, Visibility
+from core.models.enums import ActivityStatus, Priority, RecurrencePattern, Visibility
 
 
 @dataclass(frozen=True)

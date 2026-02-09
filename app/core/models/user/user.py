@@ -37,7 +37,7 @@ from core.models.query import QueryIntent
 
 # Phase 1: Query Infrastructure
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.shared_enums import Domain, EnergyLevel, LearningLevel, TimeOfDay
+from core.models.enums import Domain, EnergyLevel, LearningLevel, TimeOfDay
 
 # ============================================================================
 # USER PREFERENCES
@@ -426,7 +426,7 @@ class UserStatistics:
             return stats
 
         # Count by type
-        from core.models.shared_enums import ActivityStatus, ActivityType
+        from core.models.enums import ActivityStatus, ActivityType
 
         for progress in progress_records:
             if progress.entity_type == ActivityType.TASK:

@@ -24,7 +24,7 @@ from datetime import date, datetime, time
 from typing import Any
 from uuid import uuid4
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 
 # ============================================================================
 # LEARNING PATH MODELS (Structure Only)

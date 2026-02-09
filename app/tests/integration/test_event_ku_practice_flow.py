@@ -31,7 +31,7 @@ from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.ku_events import KnowledgePracticed
 from core.models.event.event import Event
 from core.models.ku.ku import Ku
-from core.models.shared_enums import (
+from core.models.enums import (
     ActivityStatus,
     Domain,
     SELCategory,

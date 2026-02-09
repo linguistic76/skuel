@@ -66,7 +66,7 @@ from core.models.principle.reflection import PrincipleReflection
 from core.models.principle.reflection_dto import PrincipleReflectionDTO
 from core.models.query import QueryIntent
 from core.models.relationship_names import RelationshipName
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 

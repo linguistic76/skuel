@@ -23,7 +23,7 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice, ChoiceOption, ChoiceStatus, ChoiceType
-from core.models.shared_enums import Domain, Priority
+from core.models.enums import Domain, Priority
 from core.services.choices.choices_core_service import ChoicesCoreService
 
 

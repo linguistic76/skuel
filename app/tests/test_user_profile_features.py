@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.shared_enums import (
+from core.models.enums import (
     LearningLevel,
     TimeOfDay,
 )

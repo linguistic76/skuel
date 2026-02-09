@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.habit.habit import Habit, HabitCategory
 from core.models.habit.habit_dto import HabitDTO
-from core.models.shared_enums import RecurrencePattern
+from core.models.enums import RecurrencePattern
 from core.services.base_planning_service import BasePlanningService
 from core.services.protocols.domain_protocols import HabitsOperations
 from core.utils.decorators import with_error_handling

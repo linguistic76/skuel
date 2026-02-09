@@ -34,7 +34,7 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.graph_context import GraphContext
 from core.models.habit.habit import Habit
 from core.models.shared.dual_track import DualTrackResult
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
     GoalCrossContext,

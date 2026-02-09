@@ -27,7 +27,7 @@ Date: October 16, 2025
 from typing import Any, TypeVar
 
 from core.models.graph_context import GraphContext
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

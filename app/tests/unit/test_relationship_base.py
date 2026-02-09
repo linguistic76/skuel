@@ -15,7 +15,7 @@ from core.infrastructure.relationships.relationship_base import (
     find_circular_dependencies,
     validate_no_self_references,
 )
-from core.models.shared_enums import RelationshipType
+from core.models.enums import RelationshipType
 
 
 @dataclass

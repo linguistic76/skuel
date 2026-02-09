@@ -57,7 +57,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

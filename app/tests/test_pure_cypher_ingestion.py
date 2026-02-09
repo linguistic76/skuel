@@ -142,7 +142,7 @@ def test_required_field_validation():
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    from core.models.shared_enums import EntityType
+    from core.models.enums import EntityType
     from core.services.ingestion import UnifiedIngestionService
 
     # Create mock driver
@@ -204,7 +204,7 @@ def test_user_uid_injection():
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    from core.models.shared_enums import EntityType
+    from core.models.enums import EntityType
     from core.services.ingestion import (
         ENTITY_CONFIGS,
         UnifiedIngestionService,
@@ -281,7 +281,7 @@ def test_entity_type_detection():
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    from core.models.shared_enums import EntityType
+    from core.models.enums import EntityType
     from core.services.ingestion import UnifiedIngestionService
 
     # Create mock driver

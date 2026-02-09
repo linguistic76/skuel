@@ -25,7 +25,7 @@ import pytest
 from core.models.event.event_dto import EventDTO
 from core.models.goal.goal_dto import GoalDTO
 from core.models.ku.ku_dto import KuDTO
-from core.models.shared_enums import ActivityStatus, Domain, GoalStatus, Priority
+from core.models.enums import ActivityStatus, Domain, GoalStatus, Priority
 from core.models.task.task_dto import TaskDTO
 
 

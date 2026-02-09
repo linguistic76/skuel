@@ -22,7 +22,7 @@ from core.infrastructure.routes.intelligence_route_factory import (
     IntelligenceRouteFactory,
 )
 from core.models.enums import ContentScope
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.utils.result_simplified import Result
 
 # ============================================================================

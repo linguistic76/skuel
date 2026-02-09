@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.events import TaskEmbeddingRequested
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 from core.models.task.task_request import TaskCreateRequest
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 from core.utils.embedding_text_builder import build_embedding_text

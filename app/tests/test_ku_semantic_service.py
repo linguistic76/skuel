@@ -15,7 +15,7 @@ from core.infrastructure.relationships.semantic_relationships import (
     SemanticTriple,
 )
 from core.models.ku.ku_dto import KuDTO
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.ku.ku_semantic_service import KuSemanticService
 from core.utils.result_simplified import Result
 

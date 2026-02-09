@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 from core.models.task.task_request import TaskCreateRequest
 from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Result
@@ -29,7 +29,7 @@ def mock_tasks_backend() -> Any:
     """Mock tasks backend for testing."""
     from datetime import datetime
 
-    from core.models.shared_enums import ActivityStatus
+    from core.models.enums import ActivityStatus
 
     backend = Mock()
 

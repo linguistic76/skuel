@@ -27,7 +27,7 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.event.event import Event
-from core.models.shared_enums import ActivityStatus, Priority, Visibility
+from core.models.enums import ActivityStatus, Priority, Visibility
 from core.services.events.events_core_service import EventsCoreService
 
 

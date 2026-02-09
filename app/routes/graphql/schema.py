@@ -22,7 +22,7 @@ import strawberry
 from strawberry.extensions import MaxTokensLimiter, QueryDepthLimiter
 
 from core.constants import ConfidenceLevel, QueryLimit
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from routes.graphql.config import get_graphql_config, validate_list_limit
 
 if TYPE_CHECKING:
@@ -340,7 +340,7 @@ class Query:
         # Filter and limit tasks
         filtered_tasks = result.value
         if not include_completed:
-            from core.models.shared_enums import ActivityStatus
+            from core.models.enums import ActivityStatus
 
             filtered_tasks = [t for t in filtered_tasks if t.status != ActivityStatus.COMPLETED]
         filtered_tasks = filtered_tasks[:safe_limit]

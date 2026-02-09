@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.infrastructure.graph_intelligence_service import (
     GraphIntelligenceService,
 )

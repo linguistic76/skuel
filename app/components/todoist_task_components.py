@@ -35,7 +35,7 @@ from fasthtml.common import (
     Ul,
 )
 
-from core.models.shared_enums import ActivityStatus, Priority
+from core.models.enums import ActivityStatus, Priority
 from core.ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
 from core.utils.logging import get_logger
 

@@ -27,7 +27,7 @@ from core.constants import GraphDepth
 from core.models.ku.ku_dto import KuDTO
 from core.models.query import QueryIntent
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.shared_enums import Domain, LearningLevel, SELCategory, SystemConstants
+from core.models.enums import Domain, LearningLevel, SELCategory, SystemConstants
 
 
 @dataclass(frozen=True)
@@ -368,7 +368,7 @@ class Ku:
         Phase 3: Relationship fields removed - only core fields converted.
         """
 
-        from core.models.shared_enums import SELCategory
+        from core.models.enums import SELCategory
 
         return cls(
             uid=dto.uid,

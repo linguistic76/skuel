@@ -15,7 +15,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from core.models.shared_enums import Priority
+from core.models.enums import Priority
 from core.services.askesis.action_recommendation_engine import ActionRecommendationEngine
 from core.services.askesis.types import AskesisRecommendation
 

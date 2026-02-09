@@ -12,7 +12,7 @@ and other relationship-bearing entities.
 
 from dataclasses import dataclass, field
 
-from core.models.shared_enums import RelationshipType
+from core.models.enums import RelationshipType
 
 
 @dataclass

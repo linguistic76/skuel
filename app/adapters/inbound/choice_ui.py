@@ -648,8 +648,8 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
             ChoiceCreateRequest,
             ChoiceOptionCreateRequest,
         )
-        from core.models.shared_enums import Domain as DomainEnum
-        from core.models.shared_enums import Priority as PriorityEnum
+        from core.models.enums import Domain as DomainEnum
+        from core.models.enums import Priority as PriorityEnum
 
         # VALIDATE EARLY
         validation_result = validate_choice_form_data(form_data)
@@ -997,8 +997,8 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         form = await request.form()
 
         from core.models.choice.choice_request import ChoiceUpdateRequest
-        from core.models.shared_enums import Domain as DomainEnum
-        from core.models.shared_enums import Priority as PriorityEnum
+        from core.models.enums import Domain as DomainEnum
+        from core.models.enums import Priority as PriorityEnum
 
         title = form.get("title", "").strip()
         description = form.get("description", "").strip() or None

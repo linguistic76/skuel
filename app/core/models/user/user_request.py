@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from core.infrastructure.utils.factory_functions import create_default_user_energy_pattern
 
 # Import enums directly for use in Pydantic models
-from core.models.shared_enums import (
+from core.models.enums import (
     EnergyLevel,
     LearningLevel,
     TimeOfDay,

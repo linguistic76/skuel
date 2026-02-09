@@ -11,7 +11,7 @@ Extracted from unified_ingestion_service.py for separation of concerns.
 from pathlib import Path
 from typing import Any
 
-from core.models.shared_enums import EntityType
+from core.models.enums import EntityType
 
 # ============================================================================
 # TYPE MAPPING

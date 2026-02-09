@@ -68,7 +68,7 @@ from pathlib import Path
 from typing import Any
 
 from core.models.analytics import AnalyticsSummary, AnalyticsSummaryDTO, dto_to_summary
-from core.models.shared_enums import AnalyticsDomain
+from core.models.enums import AnalyticsDomain
 from core.services.analytics import (
     AnalyticsAggregationService,
     AnalyticsLifePathService,

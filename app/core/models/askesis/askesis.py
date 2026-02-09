@@ -32,7 +32,7 @@ from core.models.askesis.askesis_intelligence import (
 from core.models.ku import KuDTO as KnowledgeUnitDTO
 from core.models.query import QueryIntent
 from core.models.query.graph_traversal import build_graph_context_query
-from core.models.shared_enums import GuidanceMode, Intent, Personality, ResponseTone
+from core.models.enums import GuidanceMode, Intent, Personality, ResponseTone
 from core.models.transcription.transcription_dto import (
     SearchResultDTO as CrossDomainSearchResultsSchema,
 )

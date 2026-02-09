@@ -15,7 +15,7 @@ Module Organization:
 Usage:
     from core.models.enums import Priority, ActivityStatus, EntityType
     # or
-    from core.models.shared_enums import Priority  # Legacy import still works
+    from core.models.enums import Priority  # Legacy import still works
 """
 
 # Activity enums - status and priority for trackable activities

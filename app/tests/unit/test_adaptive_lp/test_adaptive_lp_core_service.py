@@ -66,7 +66,7 @@ def create_mock_tasks_service() -> Mock:
     """Create mock TasksService for learning style detection."""
     from datetime import date
 
-    from core.models.shared_enums import ActivityStatus
+    from core.models.enums import ActivityStatus
 
     # Create mock task objects with ALL attributes accessed by the service
     # See adaptive_lp_core_service.py lines 238-264 for required attributes

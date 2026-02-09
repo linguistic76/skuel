@@ -21,7 +21,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.services.user.unified_user_context import UserContext
 
 

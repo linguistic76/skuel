@@ -16,7 +16,7 @@ This provides:
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from core.models.shared_enums import RelationshipType
+from core.models.enums import RelationshipType
 from core.models.unified_relationships import (  # type: ignore[import-not-found]
     EntityRelationship,
     ProgressAwareRelationship,

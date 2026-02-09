@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from core.infrastructure.utils.factory_functions import create_current_timestamp, create_turn_id
-from core.models.shared_enums import ConversationState, GuidanceMode, MessageRole, SystemConstants
+from core.models.enums import ConversationState, GuidanceMode, MessageRole, SystemConstants
 
 # NOTE: FacetExtraction removed - was deprecated search_archive dependency
 # Extraction field in ConversationTurn is now optional dict for flexibility

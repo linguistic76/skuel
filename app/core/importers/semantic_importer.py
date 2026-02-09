@@ -38,7 +38,7 @@ from core.infrastructure.relationships.semantic_relationships import (
     TripleBuilder,
     create_learning_path_relationships,
 )
-from core.models.shared_enums import Domain
+from core.models.enums import Domain
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

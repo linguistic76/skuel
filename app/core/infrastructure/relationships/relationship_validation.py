@@ -11,7 +11,7 @@ and unified_relationships.py.
 
 from typing import Any
 
-from core.models.shared_enums import ActivityStatus, RelationshipType
+from core.models.enums import ActivityStatus, RelationshipType
 
 
 class RelationshipValidator:
