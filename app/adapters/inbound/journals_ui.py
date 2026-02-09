@@ -20,6 +20,7 @@ from fasthtml.common import (
     Form,
     Input,
     Label,
+    NotStr,
     Option,
     P,
     Script,

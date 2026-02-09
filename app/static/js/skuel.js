@@ -922,21 +922,29 @@
         // Multiple instances share state via storageKey parameter.
         Alpine.data('collapsibleSidebar', function(storageKey) {
             return {
-                collapsed: false,
+                // Local getter reads from shared store
+                get collapsed() {
+                    var store = Alpine.store(storageKey);
+                    return store ? store.collapsed : false;
+                },
 
                 init: function() {
-                    // Restore from localStorage on desktop
-                    if (window.innerWidth >= 1024) {
-                        var saved = localStorage.getItem(storageKey + '-collapsed');
-                        this.collapsed = saved === 'true';
+                    // Register shared store if not yet created
+                    if (!Alpine.store(storageKey)) {
+                        var initial = false;
+                        if (window.innerWidth >= 1024) {
+                            initial = localStorage.getItem(storageKey + '-collapsed') === 'true';
+                        }
+                        Alpine.store(storageKey, { collapsed: initial });
                     }
                 },
 
                 toggle: function() {
-                    this.collapsed = !this.collapsed;
-                    localStorage.setItem(storageKey + '-collapsed', this.collapsed.toString());
+                    var store = Alpine.store(storageKey);
+                    store.collapsed = !store.collapsed;
+                    localStorage.setItem(storageKey + '-collapsed', store.collapsed.toString());
                     // Screen reader announcement
-                    var state = this.collapsed ? 'collapsed' : 'expanded';
+                    var state = store.collapsed ? 'collapsed' : 'expanded';
                     if (window.SKUEL && window.SKUEL.announce) {
                         window.SKUEL.announce('Sidebar ' + state);
                     }
