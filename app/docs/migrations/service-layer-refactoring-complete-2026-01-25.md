@@ -45,7 +45,7 @@ Successfully completed comprehensive refactoring of SKUEL's route layer, moving 
 - New file: `core/models/assignment/assignment_converters.py`
 - Converter function: `assignment_to_response()`
 
-**Result:** Consistent with journals domain pattern
+**Result:** Consistent with reports domain converter pattern
 
 ---
 
@@ -132,7 +132,7 @@ def assignment_to_response(assignment: Assignment) -> dict[str, Any]:
     return {...}
 ```
 
-**Matches:** `journal_converters.py` pattern
+**Matches:** `report_converters.py` pattern
 
 ---
 
@@ -153,7 +153,7 @@ def assignment_to_response(assignment: Assignment) -> dict[str, Any]:
 ## Clean Architecture Files ✅
 
 **Already following best practices:**
-- `journals_api.py` - Uses converters, thin routes
+- `journals_api.py` - Thin routes (journals merged into Reports domain Feb 2026)
 - `system_api.py` - No helpers, clean boundary handling
 - `ai_routes.py` - Consistent pass-through pattern
 - `tasks_api.py`, `goals_api.py`, `habits_api.py`, etc. - CRUD route factories

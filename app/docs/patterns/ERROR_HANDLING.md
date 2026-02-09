@@ -127,8 +127,6 @@ class ReportService:
             await self._send_notification(create_result.value)
 
         return create_result  # Propagate Result
-
-# Note: JournalPure merged into Report (February 2026)
 ```
 
 ### Layer 3: Routes (System Boundary)

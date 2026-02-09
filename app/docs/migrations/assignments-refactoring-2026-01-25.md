@@ -18,7 +18,7 @@ Successfully refactored `assignments_api.py` to use the converter pattern, follo
 
 **Created:** `core/models/assignment/assignment_converters.py` (52 lines)
 
-Following the pattern from `journal_converters.py`:
+Following the reports converter pattern:
 
 ```python
 def assignment_to_response(assignment: Assignment) -> dict[str, Any]:
@@ -38,7 +38,7 @@ def assignment_to_response(assignment: Assignment) -> dict[str, Any]:
 - Handles all enum-to-string conversions
 - Formats datetime fields to ISO strings
 - Includes computed convenience fields
-- Mirrors the `journal_dto_to_response()` pattern
+- Mirrors the `report_to_response()` pattern
 
 ---
 
@@ -171,16 +171,16 @@ def test_assignment_to_response():
 
 ## Pattern Comparison
 
-### Journals Domain (Existing Pattern)
+### Reports Domain (Existing Pattern)
 
 **Files:**
-- `core/models/report/report_converters.py` - 306 lines
-- Contains: `report_dto_to_response()`, `report_to_dto()`, etc.
+- `core/models/report/report_converters.py`
+- Contains: `report_to_response()`, `report_pure_to_dto()`, etc.
 
 **Usage in routes:**
 ```python
-dto = journal_pure_to_dto(result.value)
-return JSONResponse(journal_dto_to_response(dto))
+dto = report_pure_to_dto(result.value)
+return JSONResponse(report_to_response(dto))
 ```
 
 ### Assignments Domain (New Pattern)

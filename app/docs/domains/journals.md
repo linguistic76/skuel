@@ -102,8 +102,7 @@ class JournalType(str, Enum):
     VOICE = "voice"      # PJ1: Ephemeral
     CURATED = "curated"  # PJ2: Permanent
 
-# Note: JournalPure merged into Report (February 2026)
-# Report is a frozen dataclass
+# Journals are Report nodes with report_type=JOURNAL
 @dataclass(frozen=True)
 class Report:
     uid: str
@@ -152,7 +151,7 @@ The `enforce_voice_journal_fifo()` method:
 | **Routes** | |
 | API Routes | `/adapters/inbound/journals_api.py` |
 | UI Routes | `/adapters/inbound/journals_ui.py` |
-| **Enums** | `/core/models/enums/journal_enums.py` |
+| **Enums** | `/core/models/enums/report_enums.py` |
 
 ## Model Fields (Report)
 

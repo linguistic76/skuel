@@ -128,13 +128,13 @@ def _assignment_to_dict(assignment) -> dict[str, Any]:
 ```
 
 **Recommended Refactoring:**
-1. Create `assignment_converters.py` following the pattern in `journal_converters.py`
+1. Create `assignment_converters.py` following the reports converter pattern
 2. Move `_assignment_to_dict()` to `assignment_dto_to_response()` converter
 3. Use consistent converter pattern across codebase
 
-**Precedent:** Journals domain already follows this pattern:
-- `core/models/journal/journal_converters.py`
-- Uses `journal_dto_to_response()` instead of route helpers
+**Precedent:** Reports domain follows this pattern:
+- `core/models/report/report_converters.py`
+- Uses `report_to_response()` instead of route helpers
 
 **Impact:** 25 lines moved from routes → converters module
 
@@ -201,9 +201,8 @@ This is **borderline acceptable** because:
 ### Well-Architected Route Files
 
 **`journals_api.py`:**
-- ✅ Simple helper for sorting (`_get_journal_entry_date()`)
-- ✅ Uses converters: `journal_dto_to_response()`, `journal_pure_to_dto()`
-- ✅ Thin routes that pass through to service
+- ✅ Thin routes that pass through to Reports service
+- *(Journal converters deleted Feb 2026 — journals now use Report model directly)*
 
 **`system_api.py`:**
 - ✅ No helper functions
@@ -285,7 +284,7 @@ async def get_completion_chart(request: Request) -> JSONResponse:
 
 1. **Most route files are clean** - Only 3 of 44 files need refactoring
 2. **Visualization routes are the biggest offender** - Contains extensive business logic
-3. **Assignments should use converters** - Follow journals pattern
+3. **Assignments should use converters** - Follow reports converter pattern
 4. **Search parameter handling is borderline** - Could be improved but not critical
 
 ---

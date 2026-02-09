@@ -203,7 +203,8 @@ Neo4j → DTO → Pydantic Response (no business logic)
 
 **Pattern B (Two-Tier) implementations:**
 - Finance: `/core/models/finance/` (no `finance.py` domain model)
-- Journals: `/core/models/journal/` (no `journal.py` domain model)
+
+> *Note: Journals was previously a Pattern B domain at `/core/models/journal/`. Merged into Report (Pattern A) in February 2026.*
 
 ### Testing Strategy
 
