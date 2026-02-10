@@ -109,7 +109,7 @@ class Principle:
     # Identity
     uid: str
     user_uid: str  # REQUIRED - principle ownership
-    name: str  # Short name (e.g., "Continuous Learning")
+    title: str  # Short title (e.g., "Continuous Learning")
     statement: str  # Full statement (e.g., "I commit to learning every day")
     description: str | None = None
 

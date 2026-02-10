@@ -765,7 +765,7 @@ class PlanningMixin:
             alignment = principle_dict.get("alignment_score", 0.5)
             contextual = ContextualPrinciple.from_entity_and_context(
                 uid=uid,
-                name=principle_dict.get("title", ""),
+                title=principle_dict.get("title", ""),
                 context=context,
                 alignment_score=alignment,
             )

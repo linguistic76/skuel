@@ -127,7 +127,7 @@ class TestGoalRecommendationsFlow:
             habit = Habit(
                 uid=f"habit.tech_{i}",
                 user_uid=test_user_uid,
-                name=name,
+                title=name,
                 description=f"Maintain {name.lower()}",
                 category=HabitCategory.LEARNING,
                 status=HabitStatus.ACTIVE,
@@ -142,7 +142,7 @@ class TestGoalRecommendationsFlow:
         principle = Principle(
             uid="principle.continuous_learning",
             user_uid=test_user_uid,
-            name="Continuous Learning",
+            title="Continuous Learning",
             statement="Always be learning and growing",
             category=PrincipleCategory.PERSONAL,
         )

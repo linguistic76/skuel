@@ -1334,7 +1334,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
 
             # 5. Log structured insights
             self.logger.info(
-                f"Principle strength changed: {principle.name} ({event.old_strength} -> {event.new_strength})",
+                f"Principle strength changed: {principle.title} ({event.old_strength} -> {event.new_strength})",
                 extra={
                     "principle_uid": event.principle_uid,
                     "user_uid": event.user_uid,
@@ -1459,7 +1459,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
 
             # 5. Log base reflection insight
             self.logger.info(
-                f"Principle reflection recorded: {principle.name} ({event.alignment_level})",
+                f"Principle reflection recorded: {principle.title} ({event.alignment_level})",
                 extra={
                     "event_type": "principle.reflection.analyzed",
                     "principle_uid": event.principle_uid,
@@ -1474,7 +1474,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                     "trigger_uid": event.trigger_uid,
                     "insight": {
                         "type": "principle_reflection",
-                        "title": f"Reflection on {principle.name}: {alignment_category}",
+                        "title": f"Reflection on {principle.title}: {alignment_category}",
                         "description": (
                             f"Recorded reflection with {quality_assessment} quality. "
                             f"Alignment level: {event.alignment_level}."
@@ -1488,7 +1488,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             # 6. Generate cross-domain insight if triggered by another domain
             if is_cross_domain:
                 self.logger.info(
-                    f"Cross-domain principle activation: {event.trigger_type} -> {principle.name}",
+                    f"Cross-domain principle activation: {event.trigger_type} -> {principle.title}",
                     extra={
                         "event_type": "principle.cross_domain.insight",
                         "principle_uid": event.principle_uid,
@@ -1502,7 +1502,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                             "title": f"Principle activated by {event.trigger_type}",
                             "description": (
                                 f"Working on a {event.trigger_type} triggered reflection "
-                                f"on '{principle.name}'. This shows integrated living."
+                                f"on '{principle.title}'. This shows integrated living."
                             ),
                             "confidence": 0.8,
                             "impact": "medium",
@@ -1519,7 +1519,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             # 7. Check for misalignment that needs attention
             if alignment_category == "misaligned":
                 self.logger.warning(
-                    f"Principle misalignment detected: {principle.name}",
+                    f"Principle misalignment detected: {principle.title}",
                     extra={
                         "event_type": "principle.misalignment.detected",
                         "principle_uid": event.principle_uid,
@@ -1527,9 +1527,9 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                         "alignment_level": event.alignment_level,
                         "insight": {
                             "type": "misalignment_warning",
-                            "title": f"Misalignment with {principle.name}",
+                            "title": f"Misalignment with {principle.title}",
                             "description": (
-                                f"Your reflection indicates misalignment with '{principle.name}'. "
+                                f"Your reflection indicates misalignment with '{principle.title}'. "
                                 "Consider what changes could improve alignment."
                             ),
                             "confidence": 0.85,

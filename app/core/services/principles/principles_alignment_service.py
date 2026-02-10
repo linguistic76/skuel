@@ -403,7 +403,7 @@ class PrinciplesAlignmentService:
         gap, direction = self._calculate_perception_gap(user_alignment_level, system_alignment)
 
         # 6. Generate insights based on gap
-        insights = self._generate_gap_insights(direction, gap, principle.name)
+        insights = self._generate_gap_insights(direction, gap, principle.title)
 
         # 7. Generate recommendations
         recommendations = self._generate_gap_recommendations(
@@ -864,7 +864,7 @@ class PrinciplesAlignmentService:
             if alignment.alignment_level in [AlignmentLevel.MISALIGNED, AlignmentLevel.PARTIAL]:
                 principle = next(p for p in principles if p.uid == alignment.principle_uid)
                 recommendations.append(
-                    f"Consider how {goal.name} can better embody {principle.name}"
+                    f"Consider how {goal.name} can better embody {principle.title}"
                 )
 
         # Suggest habits that support aligned principles
@@ -884,7 +884,7 @@ class PrinciplesAlignmentService:
         for alignment in alignments:
             if alignment.alignment_score < 0.75:
                 principle = next(p for p in principles if p.uid == alignment.principle_uid)
-                recommendations.append(f"Modify {habit.name} to better practice {principle.name}")
+                recommendations.append(f"Modify {habit.name} to better practice {principle.title}")
 
         return recommendations[:5]
 
@@ -897,7 +897,7 @@ class PrinciplesAlignmentService:
 
         option_lower = option.lower()
         principle_keywords = (
-            principle.name.lower().split() + principle.description.lower().split()[:10]
+            principle.title.lower().split() + principle.description.lower().split()[:10]
         )
 
         # Check for keyword matches

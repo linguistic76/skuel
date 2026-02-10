@@ -27,7 +27,7 @@ Q1: Am I writing code that needs to know about principle relationships?
     (knowledge grounding, goals guided, habits inspired, related principles)
 
     YES → Use PrincipleRelationships.fetch()
-    NO  → Use principle.attribute directly (e.g., principle.name, principle.strength)
+    NO  → Use principle.attribute directly (e.g., principle.title, principle.strength)
 
 Q2: Do I have access to a PrinciplesRelationshipService instance?
 

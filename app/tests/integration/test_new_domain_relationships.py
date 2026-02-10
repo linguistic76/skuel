@@ -232,7 +232,7 @@ class TestLpRelationships:
         # Create a test learning path using core service
         lp_result = await services.lp.core.create_path(
             user_uid="test_user",
-            name="Test Learning Path",
+            title="Test Learning Path",
             goal="Testing relationship fetching",
             steps=[],  # Empty steps for testing
             domain=Domain.LEARNING,

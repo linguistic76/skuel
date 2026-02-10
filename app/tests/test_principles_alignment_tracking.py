@@ -48,7 +48,7 @@ def sample_principle_with_alignment() -> Principle:
     return Principle(
         uid="principle.integrity",
         user_uid="user.mike",  # REQUIRED - principle ownership
-        name="Integrity",
+        title="Integrity",
         statement="Act with honesty and consistency",
         description="Always do what I say I will do",
         category=PrincipleCategory.ETHICAL,
@@ -85,7 +85,7 @@ def sample_principle_no_alignment() -> Principle:
     return Principle(
         uid="principle.growth",
         user_uid="user.mike",  # REQUIRED - principle ownership
-        name="Growth",
+        title="Growth",
         statement="Continuously learn and improve",
         description="Never stop growing",
         category=PrincipleCategory.PERSONAL,
@@ -194,7 +194,7 @@ class TestCalculateAverageAlignment:
         principle1 = Principle(
             uid="p1",
             user_uid="user.mike",  # REQUIRED - principle ownership
-            name="P1",
+            title="P1",
             statement="Test",
             description="Test",
             category=PrincipleCategory.ETHICAL,
@@ -216,7 +216,7 @@ class TestCalculateAverageAlignment:
         principle2 = Principle(
             uid="p2",
             user_uid="user.mike",  # REQUIRED - principle ownership
-            name="P2",
+            title="P2",
             statement="Test",
             description="Test",
             category=PrincipleCategory.ETHICAL,

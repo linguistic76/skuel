@@ -1011,10 +1011,6 @@ class ContextualPrinciple(ContextualEntity):
     - practice_opportunity: Description of today's practice opportunity
     """
 
-    # Note: ContextualPrinciple uses 'name' field, not 'title'
-    # Override title to be optional since principles use 'name'
-    name: str = ""
-
     alignment_score: float = 0.0
     guided_goals: tuple[str, ...] = field(default_factory=tuple)
     guided_choices: tuple[str, ...] = field(default_factory=tuple)
@@ -1039,7 +1035,7 @@ class ContextualPrinciple(ContextualEntity):
     def from_entity_and_context(
         cls,
         uid: str,
-        name: str,
+        title: str,
         context: "UserContext",
         *,
         alignment_score: float = 0.5,
@@ -1088,8 +1084,7 @@ class ContextualPrinciple(ContextualEntity):
 
         return cls(
             uid=uid,
-            title=name,
-            name=name,
+            title=title,
             readiness_score=1.0,
             relevance_score=relevance,
             priority_score=priority,
@@ -1125,7 +1120,6 @@ class ContextualPrinciple(ContextualEntity):
         base = super().to_dict()
         base.update(
             {
-                "name": self.name,
                 "alignment_score": self.alignment_score,
                 "guided_goals": list(self.guided_goals),
                 "guided_choices": list(self.guided_choices),

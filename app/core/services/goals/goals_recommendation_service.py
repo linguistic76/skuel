@@ -167,7 +167,7 @@ class GoalsRecommendationService:
 
         // Get guiding principles
         OPTIONAL MATCH (goal)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
-        WITH goal, knowledge_units, habits, collect(DISTINCT {uid: principle.uid, title: principle.name}) as principles
+        WITH goal, knowledge_units, habits, collect(DISTINCT {uid: principle.uid, title: principle.title}) as principles
 
         RETURN goal.uid as uid,
                goal.title as title,

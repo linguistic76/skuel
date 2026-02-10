@@ -296,7 +296,7 @@ result = await principles_service.get_principles_needing_attention_for_user(
     limit=5,
 )
 for principle in result.value:
-    print(f"{principle.name}: {principle.suggested_action}")
+    print(f"{principle.title}: {principle.suggested_action}")
     # "Continuous Learning: Schedule time to reflect on this principle today"
 
 # Get principles relevant to today
@@ -305,7 +305,7 @@ result = await principles_service.get_contextual_principles_for_user(
     limit=3,
 )
 for principle in result.value:
-    print(f"{principle.name}: {principle.practice_opportunity}")
+    print(f"{principle.title}: {principle.practice_opportunity}")
     # "Integrity: Connected to 2 tasks and 1 event today"
 
 # Get practice opportunities

@@ -254,7 +254,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
 
             contextual = ContextualPrinciple.from_entity_and_context(
                 uid=principle_uid,
-                name=name,
+                title=name,
                 context=context,
                 alignment_score=alignment_score,
                 days_since_reflection=days_since_reflection,
@@ -379,7 +379,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
             principle_name = data.get("name", "Unknown")
             contextual = ContextualPrinciple.from_entity_and_context(
                 uid=principle_uid,
-                name=principle_name,
+                title=principle_name,
                 context=context,
                 connected_task_uids=connected_tasks,
                 connected_event_uids=connected_events,

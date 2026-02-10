@@ -237,7 +237,7 @@ def extract_alignment_summary(principle: Principle) -> dict[str, Any]:
     """
     return {
         "uid": principle.uid,
-        "name": principle.name,
+        "title": principle.title,
         "category": principle.category.value,
         "strength": principle.strength.value,
         "current_alignment": principle.current_alignment,
@@ -291,7 +291,7 @@ def extract_expression_summary(principle: Principle) -> dict[str, Any]:
     """
     return {
         "uid": principle.uid,
-        "name": principle.name,
+        "title": principle.title,
         "statement": principle.statement,
         "expressions": [
             {

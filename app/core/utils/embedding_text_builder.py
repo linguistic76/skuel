@@ -32,7 +32,7 @@ EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
     EntityType.HABIT: ("name", "title", "description", "cue", "reward"),
     EntityType.EVENT: ("title", "description", "location"),
     EntityType.CHOICE: ("title", "description", "decision_context", "outcome"),
-    EntityType.PRINCIPLE: ("name", "statement", "description"),
+    EntityType.PRINCIPLE: ("title", "statement", "description"),
 }
 
 

@@ -30,7 +30,7 @@ class PrincipleDTO(ActivityDTOMixin):
     # Identity
     uid: str
     user_uid: str  # REQUIRED - principle ownership
-    name: str
+    title: str
     statement: str
     description: str | None = None
 

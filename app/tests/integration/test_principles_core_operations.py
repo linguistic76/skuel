@@ -68,7 +68,7 @@ class TestPrinciplesCoreOperations:
         principle = Principle(
             uid="principle.continuous_learning",
             user_uid=test_user_uid,
-            name="Continuous Learning",
+            title="Continuous Learning",
             statement="I commit to learning something new every day",
             description="Lifelong learning is essential for personal growth and adaptability",
             category=PrincipleCategory.INTELLECTUAL,
@@ -94,7 +94,7 @@ class TestPrinciplesCoreOperations:
         principle = Principle(
             uid="principle.get_test",
             user_uid=test_user_uid,
-            name="Test Principle",
+            title="Test Principle",
             statement="This is a test principle statement for retrieval",
             category=PrincipleCategory.PERSONAL,
         )
@@ -126,7 +126,7 @@ class TestPrinciplesCoreOperations:
             Principle(
                 uid=f"principle.list_test_{i}",
                 user_uid=test_user_uid,
-                name=f"Principle {i}",
+                title=f"Principle {i}",
                 statement=f"This is test principle number {i} for comprehensive testing",
                 category=PrincipleCategory.PERSONAL,
             )
@@ -152,7 +152,7 @@ class TestPrinciplesCoreOperations:
             principle = Principle(
                 uid=f"principle.multi_{i}",
                 user_uid=test_user_uid,
-                name=f"Multiple Principle {i}",
+                title=f"Multiple Principle {i}",
                 statement=f"This is principle number {i} for testing multiple entries",
                 category=PrincipleCategory.PERSONAL,
             )
@@ -174,21 +174,21 @@ class TestPrinciplesCoreOperations:
         intellectual = Principle(
             uid="principle.intellectual",
             user_uid=test_user_uid,
-            name="Critical Thinking",
+            title="Critical Thinking",
             statement="I question assumptions and seek evidence before forming conclusions",
             category=PrincipleCategory.INTELLECTUAL,
         )
         ethical = Principle(
             uid="principle.ethical",
             user_uid=test_user_uid,
-            name="Honesty",
+            title="Honesty",
             statement="I always speak the truth and act with integrity in all situations",
             category=PrincipleCategory.ETHICAL,
         )
         personal = Principle(
             uid="principle.personal",
             user_uid=test_user_uid,
-            name="Growth Mindset",
+            title="Growth Mindset",
             statement="I embrace challenges as opportunities for personal development",
             category=PrincipleCategory.PERSONAL,
         )
@@ -220,14 +220,14 @@ class TestPrinciplesCoreOperations:
         core_principle = Principle(
             uid="principle.core",
             user_uid=test_user_uid,
-            name="Core Value",
+            title="Core Value",
             statement="This is a core, non-negotiable principle that defines my identity",
             strength=PrincipleStrength.CORE,
         )
         developing_principle = Principle(
             uid="principle.developing",
             user_uid=test_user_uid,
-            name="New Habit",
+            title="New Habit",
             statement="I am working on developing this principle in my daily life",
             strength=PrincipleStrength.DEVELOPING,
         )
@@ -258,7 +258,7 @@ class TestPrinciplesCoreOperations:
         philosophical = Principle(
             uid="principle.philosophical",
             user_uid=test_user_uid,
-            name="Stoic Principle",
+            title="Stoic Principle",
             statement="I focus on what I can control and accept what I cannot change",
             source=PrincipleSource.PHILOSOPHICAL,
             tradition="Stoicism",
@@ -266,7 +266,7 @@ class TestPrinciplesCoreOperations:
         personal = Principle(
             uid="principle.personal_exp",
             user_uid=test_user_uid,
-            name="Learned from Experience",
+            title="Learned from Experience",
             statement="I have learned through personal experience the value of persistence",
             source=PrincipleSource.PERSONAL,
         )
@@ -301,7 +301,7 @@ class TestPrinciplesCoreOperations:
         principle = Principle(
             uid="principle.invalid_short",
             user_uid=test_user_uid,
-            name="Invalid",
+            title="Invalid",
             statement="Too short",  # Only 9 characters
             category=PrincipleCategory.PERSONAL,
         )
@@ -319,7 +319,7 @@ class TestPrinciplesCoreOperations:
         principle = Principle(
             uid="principle.invalid_desc",
             user_uid=test_user_uid,
-            name="Invalid Description",
+            title="Invalid Description",
             statement="This is a valid statement with more than ten characters",
             description="Too short desc",  # Only 15 characters
             category=PrincipleCategory.PERSONAL,
@@ -351,7 +351,7 @@ class TestPrinciplesCoreOperations:
             principle = Principle(
                 uid=f"principle.strength_{strength.value}",
                 user_uid=test_user_uid,
-                name=f"{strength.value.capitalize()} Principle",
+                title=f"{strength.value.capitalize()} Principle",
                 statement=f"This is a principle with {strength.value} strength level for testing",
                 strength=strength,
             )
@@ -377,7 +377,7 @@ class TestPrinciplesCoreOperations:
             principle = Principle(
                 uid=f"principle.cat_{category.value}",
                 user_uid=test_user_uid,
-                name=f"{category.value.capitalize()} Principle",
+                title=f"{category.value.capitalize()} Principle",
                 statement=f"This is a principle in the {category.value} category for comprehensive testing",
                 category=category,
             )
@@ -391,7 +391,7 @@ class TestPrinciplesCoreOperations:
         principle = Principle(
             uid="principle.stoic_with_context",
             user_uid=test_user_uid,
-            name="Amor Fati",
+            title="Amor Fati",
             statement="I love my fate and embrace everything that happens to me",
             description="The Stoic practice of accepting and loving one's destiny, including all challenges",
             category=PrincipleCategory.SPIRITUAL,
@@ -424,7 +424,7 @@ class TestPrinciplesCoreOperations:
         principle = Principle(
             uid="principle.no_description",
             user_uid=test_user_uid,
-            name="No Description",
+            title="No Description",
             statement="This principle has no description field specified",
             description=None,  # Explicitly None
             category=PrincipleCategory.PERSONAL,
@@ -453,7 +453,7 @@ class TestPrinciplesCoreOperations:
             principle = Principle(
                 uid=f"principle.alignment_{alignment.value}",
                 user_uid=test_user_uid,
-                name=f"{alignment.value.replace('_', ' ').title()} Principle",
+                title=f"{alignment.value.replace('_', ' ').title()} Principle",
                 statement=f"This principle has {alignment.value} alignment for testing purposes",
                 current_alignment=alignment,
             )

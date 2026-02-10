@@ -371,9 +371,9 @@ async def seed_principles(driver):
         principle = Principle(**principle_data)
         result = await backend.create(principle)
         if result.is_ok:
-            logger.info(f"  ✓ Created: {principle.name}")
+            logger.info(f"  ✓ Created: {principle.title}")
         else:
-            logger.error(f"  ✗ Failed: {principle.name} - {result.error}")
+            logger.error(f"  ✗ Failed: {principle.title} - {result.error}")
 
     logger.info(f"Seeded {len(PRINCIPLES)} principles")
 

@@ -26,7 +26,7 @@ class PrincipleCreateRequest(BaseModel):
     """External request for creating a principle."""
 
     # Required fields
-    name: str = Field(..., min_length=1, max_length=100, description="Principle name")
+    title: str = Field(..., min_length=1, max_length=100, description="Principle title")
     statement: str = Field(..., min_length=1, max_length=500, description="Full statement")
 
     # Optional fields
@@ -62,7 +62,7 @@ class PrincipleCreateRequest(BaseModel):
     priority: Priority = Field(Priority.MEDIUM)
     tags: list[str] = Field(default_factory=list, max_length=20)
 
-    @field_validator("name", "statement")
+    @field_validator("title", "statement")
     @classmethod
     def validate_not_empty(cls, v) -> Any:
         if not v or v.strip() == "":
@@ -88,7 +88,7 @@ class PrincipleCreateRequest(BaseModel):
 class PrincipleUpdateRequest(BaseModel):
     """External request for updating a principle."""
 
-    name: str | None = Field(None, min_length=1, max_length=100)
+    title: str | None = Field(None, min_length=1, max_length=100)
     statement: str | None = Field(None, min_length=1, max_length=500)
     description: str | None = Field(None, max_length=1000)
 

@@ -65,7 +65,7 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Principle]):
         if not principle:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
-        search_text = f"{principle.name}"
+        search_text = f"{principle.title}"
         if principle.description:
             search_text += f" {principle.description}"
 
@@ -96,7 +96,7 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Principle]):
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
         context = {
-            "name": principle.name,
+            "name": principle.title,
             "description": principle.description or "No description",
             "category": principle.category.value if principle.category else "personal",
         }
@@ -119,7 +119,7 @@ Format each as KEY: [response]"""
         response = insight_result.value
         deepening: dict[str, Any] = {
             "principle_uid": principle_uid,
-            "principle_name": principle.name,
+            "principle_name": principle.title,
         }
 
         key_mapping = {
@@ -151,7 +151,7 @@ Format each as KEY: [response]"""
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
         context = {
-            "name": principle.name,
+            "name": principle.title,
             "description": principle.description or "No description",
             "category": principle.category.value if principle.category else "personal",
         }
@@ -205,7 +205,7 @@ WHEN: [when/where to apply it]"""
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
         context = {
-            "name": principle.name,
+            "name": principle.title,
             "description": principle.description or "No description",
             "strength": f"{(principle.strength or 0.5) * 100:.0f}%",
         }

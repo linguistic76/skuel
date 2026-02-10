@@ -52,7 +52,7 @@ class MockChoice:
 
 @dataclass
 class MockPrinciple:
-    name: str
+    title: str
     statement: str | None = None
     description: str | None = None
 
@@ -118,7 +118,7 @@ class TestBuildEmbeddingTextFromDict:
 
     def test_principle_with_all_fields(self):
         data = {
-            "name": "Integrity",
+            "title": "Integrity",
             "statement": "Be honest",
             "description": "Always tell truth",
         }
@@ -209,7 +209,7 @@ class TestBuildEmbeddingTextFromModel:
 
     def test_principle_model_with_all_fields(self):
         principle = MockPrinciple(
-            name="Integrity", statement="Be honest", description="Always tell truth"
+            title="Integrity", statement="Be honest", description="Always tell truth"
         )
         result = build_embedding_text(EntityType.PRINCIPLE, principle)
         assert result == "Integrity\nBe honest\nAlways tell truth"

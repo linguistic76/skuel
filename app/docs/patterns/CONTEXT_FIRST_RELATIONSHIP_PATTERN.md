@@ -413,7 +413,7 @@ def from_entity_and_context(
 ```python
 @classmethod
 def from_entity_and_context(
-    cls, uid: str, name: str, context: "UserContext", *,
+    cls, uid: str, title: str, context: "UserContext", *,
     alignment_score: float = 0.5,
     days_since_reflection: int = 0,
     alignment_trend: str = "stable",

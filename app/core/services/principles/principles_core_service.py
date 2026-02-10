@@ -616,7 +616,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             event = PrincipleDeleted(
                 principle_uid=uid,
                 user_uid=principle.user_uid,
-                principle_label=principle.name,
+                principle_label=principle.title,
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
