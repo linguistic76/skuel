@@ -9,7 +9,7 @@ See: ACTIVITY_EXTRACTION_ENABLED.md for architecture overview.
 
 from dataclasses import dataclass
 
-from core.models.enums.report_enums import JournalMode
+from core.models.enums.ku_enums import JournalMode
 
 
 @dataclass(frozen=True)

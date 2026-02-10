@@ -10,12 +10,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.report.report import (
-    ProcessorType,
-    Report,
-    ReportStatus,
-    ReportType,
-)
+from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
+from core.models.ku import Ku
 from core.services.dsl import (
     ActivityExtractionResult,
     ReportActivityExtractorService,
@@ -51,7 +47,7 @@ class TestActivityToTaskConversion:
 
     def test_convert_task_with_due_date(self):
         """@when maps to due_date."""
-        # ✅ Use dynamic future date to avoid validation errors
+        # Use dynamic future date to avoid validation errors
         from datetime import timedelta
 
         future_date = date.today() + timedelta(days=30)
@@ -124,19 +120,20 @@ class TestJournalActivityExtractor:
         return service
 
     @pytest.fixture
-    def mock_report(self):
-        """Create a mock report with journal content."""
-        # ✅ Use dynamic future date to avoid validation errors
+    def mock_ku(self):
+        """Create a mock Ku with journal content."""
+        # Use dynamic future date to avoid validation errors
         from datetime import timedelta
 
         future_date = date.today() + timedelta(days=30)
         when_str = future_date.strftime("%Y-%m-%dT10:00")
 
-        return Report(
+        return Ku(
             uid="report:test",
+            title="Test Journal",
             user_uid="user:mike",
-            report_type=ReportType.TRANSCRIPT,
-            status=ReportStatus.COMPLETED,
+            ku_type=KuType.ASSIGNMENT,
+            status=KuStatus.COMPLETED,
             processor_type=ProcessorType.LLM,
             original_filename="journal.md",
             file_path="/tmp/journal.md",
@@ -153,7 +150,6 @@ Had a productive morning.
 
 Some reflections on the day...
 """,
-            metadata={},
         )
 
     @pytest.fixture
@@ -168,10 +164,10 @@ Some reflections on the day...
         )
 
     @pytest.mark.asyncio
-    async def test_extract_finds_activities(self, extractor, mock_report):
+    async def test_extract_finds_activities(self, extractor, mock_ku):
         """Extractor finds all activity lines."""
         result = await extractor.extract_and_create(
-            report=mock_report,
+            report=mock_ku,
             user_uid="user:mike",
         )
 
@@ -182,10 +178,10 @@ Some reflections on the day...
         assert extraction.habits_found == 1
 
     @pytest.mark.asyncio
-    async def test_extract_creates_tasks(self, extractor, mock_report, mock_tasks_service):
+    async def test_extract_creates_tasks(self, extractor, mock_ku, mock_tasks_service):
         """Extractor creates tasks via service."""
         result = await extractor.extract_and_create(
-            report=mock_report,
+            report=mock_ku,
             user_uid="user:mike",
         )
 
@@ -200,22 +196,22 @@ Some reflections on the day...
     @pytest.mark.asyncio
     async def test_extract_handles_empty_content(self, extractor):
         """Extractor handles empty content gracefully."""
-        empty_report = Report(
+        empty_ku = Ku(
             uid="report:empty",
+            title="Empty",
             user_uid="user:mike",
-            report_type=ReportType.TRANSCRIPT,
-            status=ReportStatus.COMPLETED,
+            ku_type=KuType.ASSIGNMENT,
+            status=KuStatus.COMPLETED,
             processor_type=ProcessorType.LLM,
             original_filename="empty.md",
             file_path="/tmp/empty.md",
             file_type="text/plain",
             file_size=0,
             processed_content="",
-            metadata={},
         )
 
         result = await extractor.extract_and_create(
-            report=empty_report,
+            report=empty_ku,
             user_uid="user:mike",
         )
 
@@ -299,7 +295,7 @@ class TestFullPipeline:
 
     def test_parse_convert_flow(self):
         """Test parse → convert flow for a realistic journal."""
-        # ✅ Use dynamic future date to avoid validation errors
+        # Use dynamic future date to avoid validation errors
         from datetime import timedelta
 
         future_date = date.today() + timedelta(days=30)

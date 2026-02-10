@@ -1,19 +1,16 @@
 """
-Report Feedback Service
-========================
+Ku Feedback Service
+====================
 
-Generates transparent AI feedback for report/journal entries using Report Projects.
+Generates transparent AI feedback for Ku entries using KuProjects.
 
 Following SKUEL principles:
 - Transparent: User sees exact prompt sent to LLM
 - User-controlled: User provides instructions, selects model
 - Simple: Instructions + content -> LLM -> feedback
-
-Migrated from JournalFeedbackService (February 2026 — Journal->Report merge).
 """
 
-from core.models.report.report import Report
-from core.models.report.report_project import ReportProjectPure
+from core.models.ku import Ku, KuProject
 from core.services.ai_service import AnthropicService, OpenAIService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -21,12 +18,12 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger(__name__)
 
 
-class ReportFeedbackService:
+class KuFeedbackService:
     """
-    Generates AI feedback for report entries using project instructions.
+    Generates AI feedback for Ku entries using project instructions.
 
     Supports both OpenAI and Anthropic models.
-    User selects which model to use via ReportProject.model field.
+    User selects which model to use via KuProject.model field.
     """
 
     def __init__(
@@ -52,21 +49,21 @@ class ReportFeedbackService:
         if self.anthropic:
             available.append("Anthropic")
 
-        logger.info(f"ReportFeedbackService initialized with: {', '.join(available)}")
+        logger.info(f"KuFeedbackService initialized with: {', '.join(available)}")
 
     async def generate_feedback(
         self,
-        entry: Report,
-        project: ReportProjectPure,
+        entry: Ku,
+        project: KuProject,
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[str]:
         """
-        Generate AI feedback for a report entry using project instructions.
+        Generate AI feedback for a Ku entry using project instructions.
 
         Args:
-            entry: Report to analyze (uses content for journals, processed_content for others)
-            project: Project with instructions and model selection
+            entry: Ku to analyze (uses content or processed_content)
+            project: KuProject with instructions and model selection
             temperature: Sampling temperature (0-1, default 0.7)
             max_tokens: Maximum tokens to generate (default 4000)
 
@@ -79,11 +76,10 @@ class ReportFeedbackService:
                     Errors.validation("Invalid project: missing required fields", field="project")
                 )
 
-            # Use content for journals, processed_content for file-based reports
             entry_content = entry.content or entry.processed_content or ""
             if not entry_content:
                 return Result.fail(
-                    Errors.validation("Report has no content for feedback", field="content")
+                    Errors.validation("Ku has no content for feedback", field="content")
                 )
 
             prompt = project.get_feedback_prompt(entry_content)

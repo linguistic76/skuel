@@ -2,11 +2,11 @@
 Teacher Review Service
 =======================
 
-Manages the teacher review workflow for assigned reports.
+Manages the teacher review workflow for assigned Ku submissions.
 
-Reuses SHARES_WITH infrastructure. When a student submits a report against
-an ASSIGNED ReportProject, the report is auto-shared with the teacher.
-The teacher's review queue = reports shared with them via role="teacher".
+Reuses SHARES_WITH infrastructure. When a student submits a Ku against
+an ASSIGNED KuProject, the Ku is auto-shared with the teacher.
+The teacher's review queue = Ku shared with them via role="teacher".
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
@@ -16,7 +16,7 @@ from typing import Any
 
 from neo4j import Driver
 
-from core.models.enums.report_enums import ReportStatus
+from core.models.enums.ku_enums import KuStatus
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -24,7 +24,7 @@ logger = get_logger("skuel.services.teacher_review")
 
 
 class TeacherReviewService:
-    """Service for teacher review of student assignment submissions."""
+    """Service for teacher review of student Ku submissions."""
 
     def __init__(
         self,
@@ -49,12 +49,12 @@ class TeacherReviewService:
         """
         Get teacher's pending review queue.
 
-        Returns reports shared with the teacher via role="teacher",
+        Returns Ku shared with the teacher via role="teacher",
         optionally filtered by status.
 
         Args:
             teacher_uid: Teacher UID
-            status_filter: Optional status filter (e.g., "manual_review")
+            status_filter: Optional status filter (e.g., "submitted")
 
         Returns:
             Result containing list of review items
@@ -63,25 +63,25 @@ class TeacherReviewService:
         params: dict[str, Any] = {"teacher_uid": teacher_uid}
 
         if status_filter:
-            status_clause = "AND report.status = $status_filter"
+            status_clause = "AND ku.status = $status_filter"
             params["status_filter"] = status_filter
 
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[r:SHARES_WITH {{role: 'teacher'}}]->(report:Report)
+        MATCH (teacher:User {{uid: $teacher_uid}})-[r:SHARES_WITH {{role: 'teacher'}}]->(ku:Ku)
         WHERE true {status_clause}
-        OPTIONAL MATCH (student:User)-[:OWNS]->(report)
-        OPTIONAL MATCH (report)-[:FULFILLS_PROJECT]->(project:ReportProject)
-        RETURN report.uid as report_uid,
-               report.title as title,
-               report.status as status,
-               report.created_at as submitted_at,
+        OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
+        OPTIONAL MATCH (ku)-[:FULFILLS_PROJECT]->(project:KuProject)
+        RETURN ku.uid as ku_uid,
+               ku.title as title,
+               ku.status as status,
+               ku.created_at as submitted_at,
                student.uid as student_uid,
                student.name as student_name,
                project.uid as project_uid,
                project.name as project_name,
                project.due_date as due_date,
                r.shared_at as shared_at
-        ORDER BY report.created_at DESC
+        ORDER BY ku.created_at DESC
         """
 
         try:
@@ -89,7 +89,7 @@ class TeacherReviewService:
 
             items = [
                 {
-                    "report_uid": record["report_uid"],
+                    "ku_uid": record["ku_uid"],
                     "title": record["title"],
                     "status": record["status"],
                     "submitted_at": record["submitted_at"],
@@ -111,53 +111,52 @@ class TeacherReviewService:
 
     async def submit_feedback(
         self,
-        report_uid: str,
+        ku_uid: str,
         teacher_uid: str,
         feedback: str,
     ) -> Result[dict[str, Any]]:
         """
-        Submit teacher feedback for a report.
+        Submit teacher feedback for a Ku.
 
-        Updates the report's feedback field and sets status to COMPLETED.
+        Updates the Ku's feedback field and sets status to COMPLETED.
 
         Args:
-            report_uid: Report to provide feedback for
+            ku_uid: Ku to provide feedback for
             teacher_uid: Teacher providing feedback
             feedback: Feedback text
 
         Returns:
-            Result containing updated report info
+            Result containing updated Ku info
         """
-        # Verify teacher has SHARES_WITH access
-        access_check = await self._verify_teacher_access(report_uid, teacher_uid)
+        access_check = await self._verify_teacher_access(ku_uid, teacher_uid)
         if access_check.is_error:
             return access_check
 
         query = """
-        MATCH (report:Report {uid: $report_uid})
-        SET report.feedback = $feedback,
-            report.feedback_generated_at = datetime($now),
-            report.status = $status,
-            report.updated_at = datetime($now)
-        RETURN report.uid as uid, report.status as status
+        MATCH (ku:Ku {uid: $ku_uid})
+        SET ku.feedback = $feedback,
+            ku.feedback_generated_at = datetime($now),
+            ku.status = $status,
+            ku.updated_at = datetime($now)
+        RETURN ku.uid as uid, ku.status as status
         """
 
         try:
             records, _, _ = await self.driver.execute_query(
                 query,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
                 feedback=feedback,
                 now=datetime.now().isoformat(),
-                status=ReportStatus.COMPLETED.value,
+                status=KuStatus.COMPLETED.value,
             )
 
             if not records:
-                return Result.fail(Errors.not_found(f"Report {report_uid} not found"))
+                return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
 
-            logger.info(f"Teacher {teacher_uid} submitted feedback for report {report_uid}")
+            logger.info(f"Teacher {teacher_uid} submitted feedback for Ku {ku_uid}")
             return Result.ok(
                 {
-                    "report_uid": records[0]["uid"],
+                    "ku_uid": records[0]["uid"],
                     "status": records[0]["status"],
                     "feedback_submitted": True,
                 }
@@ -169,52 +168,52 @@ class TeacherReviewService:
 
     async def request_revision(
         self,
-        report_uid: str,
+        ku_uid: str,
         teacher_uid: str,
         notes: str,
     ) -> Result[dict[str, Any]]:
         """
-        Request revision for a student report.
+        Request revision for a student Ku.
 
         Sets status to REVISION_REQUESTED and stores revision notes.
 
         Args:
-            report_uid: Report needing revision
+            ku_uid: Ku needing revision
             teacher_uid: Teacher requesting revision
             notes: Revision notes/instructions
 
         Returns:
-            Result containing updated report info
+            Result containing updated Ku info
         """
-        access_check = await self._verify_teacher_access(report_uid, teacher_uid)
+        access_check = await self._verify_teacher_access(ku_uid, teacher_uid)
         if access_check.is_error:
             return access_check
 
         query = """
-        MATCH (report:Report {uid: $report_uid})
-        SET report.feedback = $notes,
-            report.feedback_generated_at = datetime($now),
-            report.status = $status,
-            report.updated_at = datetime($now)
-        RETURN report.uid as uid, report.status as status
+        MATCH (ku:Ku {uid: $ku_uid})
+        SET ku.feedback = $notes,
+            ku.feedback_generated_at = datetime($now),
+            ku.status = $status,
+            ku.updated_at = datetime($now)
+        RETURN ku.uid as uid, ku.status as status
         """
 
         try:
             records, _, _ = await self.driver.execute_query(
                 query,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
                 notes=notes,
                 now=datetime.now().isoformat(),
-                status=ReportStatus.REVISION_REQUESTED.value,
+                status=KuStatus.REVISION_REQUESTED.value,
             )
 
             if not records:
-                return Result.fail(Errors.not_found(f"Report {report_uid} not found"))
+                return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
 
-            logger.info(f"Teacher {teacher_uid} requested revision for report {report_uid}")
+            logger.info(f"Teacher {teacher_uid} requested revision for Ku {ku_uid}")
             return Result.ok(
                 {
-                    "report_uid": records[0]["uid"],
+                    "ku_uid": records[0]["uid"],
                     "status": records[0]["status"],
                     "revision_requested": True,
                 }
@@ -224,81 +223,81 @@ class TeacherReviewService:
             logger.error(f"Error requesting revision: {e}")
             return Result.fail(Errors.database("request_revision", str(e)))
 
-    async def approve_report(
+    async def approve_ku(
         self,
-        report_uid: str,
+        ku_uid: str,
         teacher_uid: str,
     ) -> Result[dict[str, Any]]:
         """
-        Approve a student report (mark as COMPLETED).
+        Approve a student Ku (mark as COMPLETED).
 
-        Also triggers mastery updates for any KUs linked via APPLIES_KNOWLEDGE.
+        Also triggers mastery updates for any curriculum Ku linked via APPLIES_KNOWLEDGE.
 
         Args:
-            report_uid: Report to approve
+            ku_uid: Ku to approve
             teacher_uid: Teacher approving
 
         Returns:
-            Result containing updated report info
+            Result containing updated Ku info
         """
-        access_check = await self._verify_teacher_access(report_uid, teacher_uid)
+        access_check = await self._verify_teacher_access(ku_uid, teacher_uid)
         if access_check.is_error:
             return access_check
 
         query = """
-        MATCH (report:Report {uid: $report_uid})
-        SET report.status = $status,
-            report.updated_at = datetime($now)
-        WITH report
-        OPTIONAL MATCH (student:User)-[:OWNS]->(report)
-        OPTIONAL MATCH (report)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
-        RETURN report.uid as uid,
-               report.status as status,
+        MATCH (ku:Ku {uid: $ku_uid})
+        SET ku.status = $status,
+            ku.updated_at = datetime($now)
+        WITH ku
+        OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
+        OPTIONAL MATCH (ku)-[:APPLIES_KNOWLEDGE]->(curriculum:Ku {ku_type: 'curriculum'})
+        RETURN ku.uid as uid,
+               ku.status as status,
                student.uid as student_uid,
-               collect(ku.uid) as linked_ku_uids
+               collect(curriculum.uid) as linked_ku_uids
         """
 
         try:
             records, _, _ = await self.driver.execute_query(
                 query,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
                 now=datetime.now().isoformat(),
-                status=ReportStatus.COMPLETED.value,
+                status=KuStatus.COMPLETED.value,
             )
 
             if not records:
-                return Result.fail(Errors.not_found(f"Report {report_uid} not found"))
+                return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
 
             record = records[0]
             student_uid = record["student_uid"]
             linked_ku_uids = [uid for uid in (record["linked_ku_uids"] or []) if uid]
 
-            # Update mastery for linked KUs
+            # Update mastery for linked curriculum Ku
             mastered_count = 0
             if self.ku_interaction_service and student_uid and linked_ku_uids:
-                for ku_uid in linked_ku_uids:
+                for linked_uid in linked_ku_uids:
                     mastery_result = await self.ku_interaction_service.mark_mastered(
                         user_uid=student_uid,
-                        ku_uid=ku_uid,
+                        ku_uid=linked_uid,
                         mastery_score=0.8,
-                        method="report_approval",
+                        method="ku_approval",
                     )
                     if mastery_result.is_ok:
                         mastered_count += 1
                     else:
                         logger.warning(
-                            f"Failed to update mastery for KU {ku_uid}: {mastery_result.error}"
+                            f"Failed to update mastery for KU {linked_uid}: {mastery_result.error}"
                         )
 
                 if mastered_count > 0:
                     logger.info(
-                        f"Updated mastery for {mastered_count} KUs from report {report_uid}"
+                        f"Updated mastery for {mastered_count} KUs from Ku {ku_uid}"
                     )
 
-            logger.info(f"Teacher {teacher_uid} approved report {report_uid}")
+            logger.info(f"Teacher {teacher_uid} approved Ku {ku_uid}")
             return Result.ok(
                 {
-                    "report_uid": record["uid"],
+                    "ku_uid": record["uid"],
                     "status": record["status"],
                     "approved": True,
                     "mastered_ku_count": mastered_count,
@@ -306,8 +305,8 @@ class TeacherReviewService:
             )
 
         except Exception as e:
-            logger.error(f"Error approving report: {e}")
-            return Result.fail(Errors.database("approve_report", str(e)))
+            logger.error(f"Error approving Ku: {e}")
+            return Result.fail(Errors.database("approve_ku", str(e)))
 
     # ========================================================================
     # PRIVATE HELPERS
@@ -315,12 +314,12 @@ class TeacherReviewService:
 
     async def _verify_teacher_access(
         self,
-        report_uid: str,
+        ku_uid: str,
         teacher_uid: str,
     ) -> Result[bool]:
-        """Verify teacher has SHARES_WITH access to the report."""
+        """Verify teacher has SHARES_WITH access to the Ku."""
         query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[r:SHARES_WITH {role: 'teacher'}]->(report:Report {uid: $report_uid})
+        MATCH (teacher:User {uid: $teacher_uid})-[r:SHARES_WITH {role: 'teacher'}]->(ku:Ku {uid: $ku_uid})
         RETURN true as has_access
         """
 
@@ -328,13 +327,13 @@ class TeacherReviewService:
             records, _, _ = await self.driver.execute_query(
                 query,
                 teacher_uid=teacher_uid,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
             )
 
             if not records:
                 return Result.fail(
                     Errors.not_found(
-                        f"Teacher {teacher_uid} does not have review access to report {report_uid}"
+                        f"Teacher {teacher_uid} does not have review access to Ku {ku_uid}"
                     )
                 )
 

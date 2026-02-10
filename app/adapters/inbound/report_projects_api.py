@@ -16,10 +16,10 @@ from core.auth import require_teacher
 from core.infrastructure.routes import CRUDRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.models.report.report_project_request import (
-    ReportFeedbackRequest,
-    ReportProjectCreateRequest,
-    ReportProjectUpdateRequest,
+from core.models.ku.ku_project_request import (
+    KuFeedbackGenerateRequest,
+    KuProjectCreateRequest,
+    KuProjectUpdateRequest,
 )
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
@@ -60,8 +60,8 @@ def create_report_projects_api_routes(
     crud_factory = CRUDRouteFactory(
         service=report_projects_service,
         domain_name="report-projects",
-        create_schema=ReportProjectCreateRequest,
-        update_schema=ReportProjectUpdateRequest,
+        create_schema=KuProjectCreateRequest,
+        update_schema=KuProjectUpdateRequest,
         uid_prefix="rp",
         scope=ContentScope.USER_OWNED,
         require_role=UserRole.TEACHER,
@@ -120,7 +120,7 @@ def create_report_projects_api_routes(
         # Parse request body
         try:
             body = await request.json()
-            feedback_request = ReportFeedbackRequest(**body)
+            feedback_request = KuFeedbackGenerateRequest(**body)
         except Exception as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 

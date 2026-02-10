@@ -13,13 +13,13 @@ Routes:
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.protocols.reports_protocols import ReportsCoreOperations
+    from core.services.protocols.reports_protocols import KuContentOperations
 
 from starlette.requests import Request
 
 from core.auth import require_authenticated_user, require_teacher
-from core.models.report import report_to_response
-from core.models.report.report_request import AssessmentCreateRequest
+from core.models.ku import ku_to_response
+from core.models.ku.ku_request import AssessmentCreateRequest
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -30,7 +30,7 @@ logger = get_logger("skuel.routes.reports.assessment")
 def create_reports_assessment_api_routes(
     _app: Any,
     rt: Any,
-    reports_core_service: "ReportsCoreOperations",
+    reports_core_service: "KuContentOperations",
     user_service_getter: Any,
 ) -> list[Any]:
     """
@@ -71,7 +71,7 @@ def create_reports_assessment_api_routes(
 
         return Result.ok(
             {
-                "report": report_to_response(result.value),
+                "report": ku_to_response(result.value),
                 "message": "Assessment created successfully",
             }
         )
@@ -94,7 +94,7 @@ def create_reports_assessment_api_routes(
         reports = result.value or []
         return Result.ok(
             {
-                "assessments": [report_to_response(r) for r in reports],
+                "assessments": [ku_to_response(r) for r in reports],
                 "count": len(reports),
             }
         )
@@ -117,7 +117,7 @@ def create_reports_assessment_api_routes(
         reports = result.value or []
         return Result.ok(
             {
-                "assessments": [report_to_response(r) for r in reports],
+                "assessments": [ku_to_response(r) for r in reports],
                 "count": len(reports),
             }
         )

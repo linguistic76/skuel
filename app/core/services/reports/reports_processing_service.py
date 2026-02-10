@@ -1,159 +1,123 @@
 """
-Reports Processing Service
-============================
+Ku Processing Service
+========================
 
-Orchestrates processing of submitted reports.
+Orchestrates processing of submitted Ku (assignments, journals, etc.).
 
-Routes reports to appropriate processors:
+Routes Ku to appropriate processors:
 - Audio files -> TranscriptionService -> LLM formatting -> Activity Extraction
 - Text files -> Direct LLM processing -> Activity Extraction
 - PDFs -> OCR -> LLM extraction (future)
 - Images -> Vision API -> LLM analysis (future)
-- Manual review -> Human review queue (future)
-
-This service is a facade that coordinates existing processors.
 
 **Activity Extraction (DSL Integration):**
 
 When `extract_activities=True` in instructions, the processor will:
 1. Parse processed content for Activity Lines (@context tags)
 2. Create corresponding entities (Tasks, Habits, Goals, Events)
-3. Store extraction results in report metadata
-
-This transforms journals from passive records into active task managers.
+3. Store extraction results in Ku metadata
 """
 
 from typing import Any
 
-from core.models.report.report import (
-    Report,
-    ReportStatus,
-)
-from core.services.reports.reports_submission_service import ReportSubmissionService
+from core.models.enums.ku_enums import KuStatus, KuType
+from core.models.ku import Ku
+from core.services.reports.reports_submission_service import KuSubmissionService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 
-class ReportsProcessingService:
+class KuProcessingService:
     """
-    Orchestrator service for report processing.
+    Orchestrator service for Ku processing.
 
-    Phase 1 Implementation:
-    - Audio processing (transcription + LLM formatting)
-    - Text processing (direct LLM formatting)
-    - Status tracking throughout pipeline
-
-    Future Enhancements:
-    - PDF processing (OCR + LLM extraction)
-    - Image processing (Vision API + LLM analysis)
-    - Video processing (transcription + scene analysis)
-    - Human review queue and workflow
-    - Retry logic and error recovery
-
-
-    Source Tag: "report_processor_explicit"
-    - Format: "report_processor_explicit" for user-created relationships
-    - Format: "report_processor_inferred" for system-generated relationships
-
-    Confidence Scoring:
-    - 0.9+: User explicitly defined relationship
-    - 0.7-0.9: Inferred from metadata
-    - 0.5-0.7: Suggested based on patterns
-    - <0.5: Low confidence, needs verification
-
+    Routes submitted Ku through appropriate processing pipelines
+    based on file type and Ku configuration.
     """
 
     def __init__(
         self,
-        report_service: ReportSubmissionService,
-        transcription_service=None,  # TranscriptionService (simplified, Dec 2025)
-        transcript_processor=None,  # TranscriptProcessorService (for LLM processing)
-        report_relationship_service=None,  # ReportsRelationshipService (Option A)
-        activity_extractor=None,  # ReportActivityExtractorService (DSL extraction)
-        journal_classifier=None,  # JournalModeClassifier (LLM weight inference)
-        journal_generator=None,  # JournalOutputGenerator (je_output formatting)
+        ku_submission_service: KuSubmissionService,
+        transcription_service=None,
+        transcript_processor=None,
+        ku_relationship_service=None,
+        activity_extractor=None,
+        journal_classifier=None,
+        journal_generator=None,
         event_bus=None,
     ) -> None:
         """
-        Initialize reports processing service.
+        Initialize Ku processing service.
 
         Args:
-            report_service: ReportSubmissionService for status updates
-            transcription_service: TranscriptionService for audio transcription (simplified)
+            ku_submission_service: KuSubmissionService for status updates
+            transcription_service: TranscriptionService for audio transcription
             transcript_processor: TranscriptProcessorService for LLM formatting
-            report_relationship_service: ReportsRelationshipService for graph relationships (Option A)
+            ku_relationship_service: KuRelationshipService for graph relationships
             activity_extractor: ReportActivityExtractorService for DSL-based entity extraction
             journal_classifier: JournalModeClassifier for multi-modal weight inference
             journal_generator: JournalOutputGenerator for je_output file generation
             event_bus: Event bus for domain events (optional)
         """
-        self.report_service = report_service
+        self.ku_submission_service = ku_submission_service
         self.transcription_service = transcription_service
         self.transcript_processor = transcript_processor
-        self.report_relationship_service = report_relationship_service
+        self.ku_relationship_service = ku_relationship_service
         self.activity_extractor = activity_extractor
         self.journal_classifier = journal_classifier
         self.journal_generator = journal_generator
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.reports_processing")
+        self.logger = get_logger("skuel.services.ku_processing")
 
     # ========================================================================
     # MAIN PROCESSING ENTRY POINT
     # ========================================================================
 
-    async def process_report(
-        self, report_uid: str, instructions: dict[str, Any] | None = None
-    ) -> Result[Report]:
+    async def process_ku(
+        self, ku_uid: str, instructions: dict[str, Any] | None = None
+    ) -> Result[Ku]:
         """
-        Process a report using appropriate processor.
+        Process a Ku using appropriate processor.
 
-        Routes to processor based on:
-        1. Report type (journal, transcript, report, etc.)
-        2. File type (audio, text, pdf, image, video)
-        3. Processor type (LLM, human, hybrid, automatic)
-
-        Updates report status throughout:
+        Routes to processor based on file type and configuration.
+        Updates Ku status throughout:
         SUBMITTED -> QUEUED -> PROCESSING -> COMPLETED (or FAILED)
 
         Args:
-            report_uid: Report UID to process
+            ku_uid: Ku UID to process
             instructions: Processor-specific instructions (optional)
 
         Returns:
-            Result containing processed report
+            Result containing processed Ku
         """
-        # Get report
-        report_result = await self.report_service.get_report(report_uid)
+        ku_result = await self.ku_submission_service.get_ku(ku_uid)
 
-        if report_result.is_error:
-            return Result.fail(report_result.expect_error())
+        if ku_result.is_error:
+            return Result.fail(ku_result.expect_error())
 
-        report = report_result.value
-        if not report:
-            return Result.fail(Errors.not_found("Report", report_uid))
+        ku = ku_result.value
+        if not ku:
+            return Result.fail(Errors.not_found("Ku", ku_uid))
 
-        # Check if already processed
-        if report.status in {ReportStatus.COMPLETED, ReportStatus.PROCESSING}:
+        if ku.status in {KuStatus.COMPLETED, KuStatus.PROCESSING}:
             return Result.fail(
                 Errors.validation(
-                    message=f"Report already {report.status.value}",
+                    message=f"Ku already {ku.status.value}",
                     field="status",
-                    value=report.status.value,
+                    value=ku.status.value,
                 )
             )
 
         # Update status to QUEUED
-        await self.report_service.update_report_status(report_uid, ReportStatus.QUEUED)
+        await self.ku_submission_service.update_ku_status(ku_uid, KuStatus.QUEUED)
 
-        # Route to appropriate processor
         try:
-            result = await self._route_to_processor(report, instructions)
+            result = await self._route_to_processor(ku, instructions)
 
             if result.is_error:
-                # Mark as failed
-                await self.report_service.update_report_status(
-                    report_uid,
-                    ReportStatus.FAILED,
+                await self.ku_submission_service.update_ku_status(
+                    ku_uid,
+                    KuStatus.FAILED,
                     error_message=result.error.user_message
                     if result.error
                     else "Processing failed",
@@ -161,29 +125,28 @@ class ReportsProcessingService:
                 return result
 
             # Mark as completed
-            await self.report_service.update_report_status(report_uid, ReportStatus.COMPLETED)
+            await self.ku_submission_service.update_ku_status(ku_uid, KuStatus.COMPLETED)
 
-            # Get updated report
-            updated_result = await self.report_service.get_report(report_uid)
+            # Get updated Ku
+            updated_result = await self.ku_submission_service.get_ku(ku_uid)
             if updated_result.is_error:
                 return Result.fail(updated_result.expect_error())
             if not updated_result.value:
-                return Result.fail(Errors.not_found("Report", report_uid))
+                return Result.fail(Errors.not_found("Ku", ku_uid))
             return Result.ok(updated_result.value)
 
         except Exception as e:
             self.logger.error(
-                f"Unexpected error processing report {report_uid}: {e}", exc_info=True
+                f"Unexpected error processing Ku {ku_uid}: {e}", exc_info=True
             )
 
-            # Mark as failed
-            await self.report_service.update_report_status(
-                report_uid, ReportStatus.FAILED, error_message=str(e)
+            await self.ku_submission_service.update_ku_status(
+                ku_uid, KuStatus.FAILED, error_message=str(e)
             )
 
             return Result.fail(
                 Errors.system(
-                    message=f"Processing failed: {e!s}", operation="process_report", exception=e
+                    message=f"Processing failed: {e!s}", operation="process_ku", exception=e
                 )
             )
 
@@ -192,43 +155,26 @@ class ReportsProcessingService:
     # ========================================================================
 
     async def _route_to_processor(
-        self, report: Report, instructions: dict[str, Any] | None
-    ) -> Result[Report]:
-        """
-        Route report to appropriate processor based on type and file type.
+        self, ku: Ku, instructions: dict[str, Any] | None
+    ) -> Result[Ku]:
+        """Route Ku to appropriate processor based on file type."""
+        await self.ku_submission_service.update_ku_status(ku.uid, KuStatus.PROCESSING)
 
-        Routing logic:
-        - Audio files -> Audio processor
-        - Text files -> Text processor
-        - Other types -> Error (not yet implemented)
-
-        Args:
-            report: Report to process
-            instructions: Processor-specific instructions
-
-        Returns:
-            Result containing processed report
-        """
-        # Update status to PROCESSING
-        await self.report_service.update_report_status(report.uid, ReportStatus.PROCESSING)
-
-        # Route based on file type
-        if not report.file_type:
-            return Result.fail(Errors.validation("Cannot process report without file_type"))
-        file_type = report.file_type.lower()
+        if not ku.file_type:
+            return Result.fail(Errors.validation("Cannot process Ku without file_type"))
+        file_type = ku.file_type.lower()
 
         if file_type.startswith("audio/"):
-            return await self._process_audio(report, instructions)
+            return await self._process_audio(ku, instructions)
 
         if file_type.startswith("text/"):
-            return await self._process_text(report, instructions)
+            return await self._process_text(ku, instructions)
 
-        # Unsupported type
         return Result.fail(
             Errors.validation(
-                message=f"File type not yet supported: {report.file_type}",
+                message=f"File type not yet supported: {ku.file_type}",
                 field="file_type",
-                value=report.file_type,
+                value=ku.file_type,
             )
         )
 
@@ -237,22 +183,15 @@ class ReportsProcessingService:
     # ========================================================================
 
     async def _process_audio(
-        self, report: Report, instructions: dict[str, Any] | None
-    ) -> Result[Report]:
+        self, ku: Ku, instructions: dict[str, Any] | None
+    ) -> Result[Ku]:
         """
         Process audio file: transcribe + LLM formatting.
 
         Pipeline:
         1. TranscriptionService.create() + process()
-        2. TranscriptProcessorService.process_transcript() (if journal type)
-        3. Update report with processed content
-
-        Args:
-            report: Report with audio file
-            instructions: Optional processing instructions
-
-        Returns:
-            Result containing processed report
+        2. Journal processing if metadata indicates journal type
+        3. Update Ku with processed content
         """
         if not self.transcription_service:
             return Result.fail(
@@ -262,16 +201,16 @@ class ReportsProcessingService:
                 )
             )
 
-        self.logger.info(f"Processing audio report: {report.uid}")
+        self.logger.info(f"Processing audio Ku: {ku.uid}")
 
         # Step 1: Create transcription record
         from core.models.transcription.transcription import TranscriptionCreateRequest
 
         create_request = TranscriptionCreateRequest(
-            audio_file_path=report.file_path,
-            original_filename=report.original_filename,
+            audio_file_path=ku.file_path,
+            original_filename=ku.original_filename,
         )
-        create_result = await self.transcription_service.create(create_request, report.user_uid)
+        create_result = await self.transcription_service.create(create_request, ku.user_uid)
 
         if create_result.is_error:
             return create_result
@@ -286,146 +225,115 @@ class ReportsProcessingService:
         transcription = process_result.value
         transcript_text = transcription.transcript_text
 
-        self.logger.info(f"Audio transcribed: {report.uid} ({len(transcript_text)} chars)")
-
-        # NOTE (January 2026): Journal-specific LLM processing REMOVED.
-        # Journals are now a separate domain with their own processing pipeline.
-        # Reports get the raw transcript as processed content.
-        # See: core/services/journals_core_service.py for journal processing
+        self.logger.info(f"Audio transcribed: {ku.uid} ({len(transcript_text)} chars)")
 
         processed_content = transcript_text
 
-        # Update report with processed content (raw transcript)
-        update_result = await self.report_service.update_processed_content(
-            uid=report.uid, processed_content=processed_content
+        # Update Ku with processed content
+        update_result = await self.ku_submission_service.update_processed_content(
+            uid=ku.uid, processed_content=processed_content
         )
 
         if update_result.is_error:
             return update_result
 
-        updated_report = update_result.value
+        updated_ku = update_result.value
 
-        # Process journal if this is a JOURNAL type report
-        report_type = getattr(report, "report_type", None)
-        if report_type is not None:
-            from core.models.enums.report_enums import ReportType
+        # Check if journal processing is needed (via metadata)
+        ku_metadata = ku.metadata or {}
+        is_journal = ku_metadata.get("journal_type") is not None
 
-            if report_type == ReportType.JOURNAL:
-                await self._process_journal(updated_report, transcript_text, instructions)
-                # Refresh report after journal processing
-                refresh_result = await self.report_service.get_report(report.uid)
-                if not refresh_result.is_error and refresh_result.value:
-                    updated_report = refresh_result.value
-        else:
-            # Legacy path: Extract activities if enabled (DSL integration)
-            if instructions and instructions.get("extract_activities", False):
-                if self.activity_extractor:
-                    await self._extract_activities(updated_report, report.user_uid, instructions)
-                else:
-                    self.logger.warning(
-                        f"Activity extraction requested but extractor not configured for {report.uid}"
-                    )
+        if is_journal:
+            await self._process_journal(updated_ku, transcript_text, instructions)
+            refresh_result = await self.ku_submission_service.get_ku(ku.uid)
+            if not refresh_result.is_error and refresh_result.value:
+                updated_ku = refresh_result.value
+        elif instructions and instructions.get("extract_activities", False):
+            if self.activity_extractor:
+                await self._extract_activities(updated_ku, ku.user_uid, instructions)
+            else:
+                self.logger.warning(
+                    f"Activity extraction requested but extractor not configured for {ku.uid}"
+                )
 
-        return Result.ok(updated_report)
+        return Result.ok(updated_ku)
 
     # ========================================================================
     # TEXT PROCESSING
     # ========================================================================
 
     async def _process_text(
-        self, report: Report, instructions: dict[str, Any] | None
-    ) -> Result[Report]:
+        self, ku: Ku, instructions: dict[str, Any] | None
+    ) -> Result[Ku]:
         """
         Process text file: read content and store.
 
         Pipeline:
         1. Read text file content
-        2. Update report with processed content
-
-        NOTE (January 2026): Journal-specific LLM processing REMOVED.
-        Journals are now a separate domain with their own processing pipeline.
-        See: core/services/journals_core_service.py
-
-        Args:
-            report: Report with text file
-            instructions: Optional processing instructions (unused after domain separation)
-
-        Returns:
-            Result containing processed report
+        2. Update Ku with processed content
         """
-        _ = instructions  # Unused after journal domain separation
-
-        self.logger.info(f"Processing text report: {report.uid}")
+        self.logger.info(f"Processing text Ku: {ku.uid}")
 
         # Step 1: Read text content
-        file_content_result = await self.report_service.get_file_content(report.uid)
+        file_content_result = await self.ku_submission_service.get_file_content(ku.uid)
 
         if file_content_result.is_error:
             return Result.fail(file_content_result.expect_error())
 
         text_content = file_content_result.value.decode("utf-8")
 
-        # Step 2: Update report with processed content (raw text)
-        update_result = await self.report_service.update_processed_content(
-            uid=report.uid, processed_content=text_content
+        # Step 2: Update Ku with processed content
+        update_result = await self.ku_submission_service.update_processed_content(
+            uid=ku.uid, processed_content=text_content
         )
 
         if update_result.is_error:
             return update_result
 
-        updated_report = update_result.value
+        updated_ku = update_result.value
 
-        # Process journal if this is a JOURNAL type report
-        report_type = getattr(report, "report_type", None)
-        if report_type is not None:
-            from core.models.enums.report_enums import ReportType
+        # Check if journal processing is needed
+        ku_metadata = ku.metadata or {}
+        is_journal = ku_metadata.get("journal_type") is not None
 
-            if report_type == ReportType.JOURNAL:
-                await self._process_journal(updated_report, text_content, instructions)
-                # Refresh report after journal processing
-                refresh_result = await self.report_service.get_report(report.uid)
-                if not refresh_result.is_error and refresh_result.value:
-                    updated_report = refresh_result.value
-        else:
-            # Legacy path: Extract activities if enabled (DSL integration)
-            if instructions and instructions.get("extract_activities", False):
-                if self.activity_extractor:
-                    await self._extract_activities(updated_report, report.user_uid, instructions)
-                else:
-                    self.logger.warning(
-                        f"Activity extraction requested but extractor not configured for {report.uid}"
-                    )
+        if is_journal:
+            await self._process_journal(updated_ku, text_content, instructions)
+            refresh_result = await self.ku_submission_service.get_ku(ku.uid)
+            if not refresh_result.is_error and refresh_result.value:
+                updated_ku = refresh_result.value
+        elif instructions and instructions.get("extract_activities", False):
+            if self.activity_extractor:
+                await self._extract_activities(updated_ku, ku.user_uid, instructions)
+            else:
+                self.logger.warning(
+                    f"Activity extraction requested but extractor not configured for {ku.uid}"
+                )
 
-        return Result.ok(updated_report)
+        return Result.ok(updated_ku)
 
     # ========================================================================
     # JOURNAL PROCESSING (Multi-Modal)
     # ========================================================================
 
     async def _process_journal(
-        self, report: Report, content: str, instructions: dict[str, Any] | None
+        self, ku: Ku, content: str, instructions: dict[str, Any] | None
     ) -> None:
         """
-        Process JOURNAL type report with multi-modal pipeline.
+        Process journal-type Ku with multi-modal pipeline.
 
         Pipeline:
         1. Infer mode weights (activity, articulation, exploration)
         2. Generate formatted je_output file
         3. Extract activities if weight > threshold
         4. Store weights and je_output_path in metadata
-
-        Args:
-            report: Report with processed_content
-            content: Raw content for classification
-            instructions: Processing instructions (may contain mode threshold)
         """
         if not self.journal_classifier or not self.journal_generator:
             self.logger.warning(
-                f"Journal processing requested but services not configured for {report.uid}"
+                f"Journal processing requested but services not configured for {ku.uid}"
             )
             return
 
-        self.logger.info(f"Processing journal {report.uid} with multi-modal pipeline")
+        self.logger.info(f"Processing journal Ku {ku.uid} with multi-modal pipeline")
 
         # Step 1: Infer mode weights
         user_declared_mode = instructions.get("journal_mode") if instructions else None
@@ -448,7 +356,7 @@ class ReportsProcessingService:
         output_result = await self.journal_generator.generate(
             content=content,
             weights=weights,
-            report_uid=report.uid,
+            report_uid=ku.uid,
             threshold=threshold,
         )
 
@@ -463,24 +371,21 @@ class ReportsProcessingService:
             self.logger.info(
                 f"Activity weight {weights.activity} > {threshold}, extracting entities"
             )
-            await self._extract_activities(report, report.user_uid, instructions)
-            # Count would come from extraction result, but we don't have access here
-            # This is tracked in report metadata by _extract_activities
-            # Actual count tracked in report metadata by _extract_activities
+            await self._extract_activities(ku, ku.user_uid, instructions)
 
         # Step 4: Store journal processing metadata
-        current_metadata = report.metadata or {}
+        current_metadata = ku.metadata or {}
         current_metadata["journal_weights"] = weights.to_dict()
         current_metadata["je_output_path"] = je_output_path
         current_metadata["mode_threshold"] = threshold
 
-        await self.report_service.update_report(
-            uid=report.uid,
+        await self.ku_submission_service.update_ku(
+            uid=ku.uid,
             updates={"metadata": current_metadata},
         )
 
         self.logger.info(
-            f"Journal processing complete: {report.uid} - {weights.get_primary_mode().value}"
+            f"Journal processing complete: {ku.uid} - {weights.get_primary_mode().value}"
         )
 
     # ========================================================================
@@ -488,31 +393,21 @@ class ReportsProcessingService:
     # ========================================================================
 
     async def _extract_activities(
-        self, report: Report, user_uid: str, instructions: dict[str, Any] | None
+        self, ku: Ku, user_uid: str, instructions: dict[str, Any] | None
     ) -> None:
         """
         Extract Activity Lines from processed content and create entities.
 
-        This step integrates the SKUEL DSL parser to transform journals
-        from passive records into active task managers.
-
-        Activity Lines are markdown lines with @context() tags:
-        ```
-        - [ ] Call mom @context(task) @priority(1)
-        - [ ] Morning meditation @context(habit) @duration(20m)
-        ```
-
         Args:
-            report: Processed report with content
+            ku: Processed Ku with content
             user_uid: User UID for entity ownership
-            instructions: Processing instructions (may contain extraction options)
+            instructions: Processing instructions
         """
-        self.logger.info(f"Extracting activities from report {report.uid}")
+        self.logger.info(f"Extracting activities from Ku {ku.uid}")
 
         try:
-            # Extract and create entities
             result = await self.activity_extractor.extract_and_create(
-                report=report,
+                report=ku,
                 user_uid=user_uid,
                 create_relationships=instructions.get("create_activity_relationships", True)
                 if instructions
@@ -522,7 +417,7 @@ class ReportsProcessingService:
             if result.is_ok:
                 extraction = result.value
                 self.logger.info(
-                    f"Activity extraction complete for {report.uid}: "
+                    f"Activity extraction complete for {ku.uid}: "
                     f"found {extraction.activities_found} activities, "
                     f"created {extraction.total_created} entities "
                     f"(tasks={extraction.tasks_created}, habits={extraction.habits_created}, "
@@ -531,17 +426,16 @@ class ReportsProcessingService:
 
                 if extraction.has_errors:
                     self.logger.warning(
-                        f"Activity extraction had errors for {report.uid}: "
+                        f"Activity extraction had errors for {ku.uid}: "
                         f"{len(extraction.parse_errors)} parse errors, "
                         f"{len(extraction.creation_errors)} creation errors"
                     )
             else:
-                self.logger.warning(f"Activity extraction failed for {report.uid}: {result.error}")
+                self.logger.warning(f"Activity extraction failed for {ku.uid}: {result.error}")
 
         except Exception as e:
-            # Activity extraction failure should not fail the entire processing
             self.logger.error(
-                f"Unexpected error during activity extraction for {report.uid}: {e}",
+                f"Unexpected error during activity extraction for {ku.uid}: {e}",
                 exc_info=True,
             )
 
@@ -549,27 +443,20 @@ class ReportsProcessingService:
     # REPROCESSING
     # ========================================================================
 
-    async def reprocess_report(
-        self, report_uid: str, new_instructions: dict[str, Any] | None = None
-    ) -> Result[Report]:
+    async def reprocess_ku(
+        self, ku_uid: str, new_instructions: dict[str, Any] | None = None
+    ) -> Result[Ku]:
         """
-        Reprocess an existing report with new instructions.
+        Reprocess an existing Ku with new instructions.
 
         Resets status to SUBMITTED and processes again.
 
         Args:
-            report_uid: Report UID
+            ku_uid: Ku UID
             new_instructions: New processing instructions
 
         Returns:
-            Result containing reprocessed report
+            Result containing reprocessed Ku
         """
-        # Reset status to SUBMITTED
-        await self.report_service.update_report_status(report_uid, ReportStatus.SUBMITTED)
-
-        # Process with new instructions
-        return await self.process_report(report_uid, new_instructions)
-
-
-# Backward compatibility alias
-ProcessingPipelineService = ReportsProcessingService
+        await self.ku_submission_service.update_ku_status(ku_uid, KuStatus.SUBMITTED)
+        return await self.process_ku(ku_uid, new_instructions)

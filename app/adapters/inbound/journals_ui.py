@@ -35,7 +35,7 @@ from starlette.requests import Request
 from starlette.responses import FileResponse
 
 from core.auth import require_admin, require_authenticated_user
-from core.models.enums.report_enums import ProcessorType, ReportType
+from core.models.enums.ku_enums import KuType, ProcessorType
 from core.ui.daisy_components import Button, ButtonT
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
@@ -727,7 +727,7 @@ def create_journals_ui_routes(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
-                report_type=ReportType.JOURNAL,
+                ku_type=KuType.ASSIGNMENT,
                 processor_type=ProcessorType.LLM,
                 metadata={"identifier": identifier, "project_uid": resolved_project_uid},
             )

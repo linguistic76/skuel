@@ -28,10 +28,10 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.services.protocols.reports_protocols import (
-        ReportsCoreOperations,
-        ReportsProcessingOperations,
-        ReportsSearchOperations,
-        ReportSubmissionOperations,
+        KuContentOperations,
+        KuContentSearchOperations,
+        KuProcessingOperations,
+        KuSubmissionOperations,
     )
 
 from starlette.background import BackgroundTask
@@ -39,14 +39,14 @@ from starlette.datastructures import UploadFile
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
-from core.models.report import report_to_response
-from core.models.report.report import ProcessorType, ReportStatus, ReportType
-from core.models.report.report_request import (
+from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
+from core.models.ku import ku_to_response
+from core.models.ku.ku_request import (
     AddTagsRequest,
     BulkCategorizeRequest,
     BulkDeleteRequest,
     BulkTagRequest,
-    CategorizeReportRequest,
+    CategorizeKuRequest,
     RemoveTagsRequest,
 )
 from core.utils.error_boundary import boundary_handler
@@ -77,10 +77,10 @@ def cleanup_temp_file(filepath: str):
 def create_reports_api_routes(
     _app: Any,
     rt: Any,
-    report_service: "ReportSubmissionOperations",
-    processing_service: "ReportsProcessingOperations",
-    reports_query_service: "ReportsSearchOperations | None" = None,
-    reports_core_service: "ReportsCoreOperations | None" = None,
+    report_service: "KuSubmissionOperations",
+    processing_service: "KuProcessingOperations",
+    reports_query_service: "KuContentSearchOperations | None" = None,
+    reports_core_service: "KuContentOperations | None" = None,
 ) -> list[Any]:
     """
     Create all report API routes.
@@ -147,7 +147,7 @@ def create_reports_api_routes(
 
         # Validate report_type
         try:
-            report_type = ReportType(report_type_str)
+            report_type = KuType(report_type_str)
         except ValueError:
             return Result.fail(
                 Errors.validation(
@@ -242,7 +242,7 @@ def create_reports_api_routes(
                 # Processing failed but upload succeeded
                 return Result.ok(
                     {
-                        "report": report_to_response(report),
+                        "report": ku_to_response(report),
                         "processing_status": "failed",
                         "processing_error": error.user_message or error.message,
                         "message": "File uploaded but processing failed",
@@ -254,7 +254,7 @@ def create_reports_api_routes(
         # Return success response
         return Result.ok(
             {
-                "report": report_to_response(report),
+                "report": ku_to_response(report),
                 "message": "File uploaded successfully",
             }
         )
@@ -293,7 +293,7 @@ def create_reports_api_routes(
         parsed_report_type = None
         if report_type:
             try:
-                parsed_report_type = ReportType(report_type)
+                parsed_report_type = KuType(report_type)
             except ValueError:
                 return Result.fail(
                     Errors.validation(f"Invalid report type: {report_type}", field="report_type")
@@ -302,7 +302,7 @@ def create_reports_api_routes(
         parsed_status = None
         if status:
             try:
-                parsed_status = ReportStatus(status)
+                parsed_status = KuStatus(status)
             except ValueError:
                 return Result.fail(Errors.validation(f"Invalid status: {status}", field="status"))
 
@@ -322,7 +322,7 @@ def create_reports_api_routes(
 
         return Result.ok(
             {
-                "reports": [report_to_response(a) for a in reports],
+                "reports": [ku_to_response(a) for a in reports],
                 "count": len(reports),
                 "limit": limit,
                 "offset": offset,
@@ -354,7 +354,7 @@ def create_reports_api_routes(
         if not report:
             return Result.fail(Errors.not_found(resource="Report", identifier=uid))
 
-        return Result.ok(report_to_response(report))
+        return Result.ok(ku_to_response(report))
 
     # ========================================================================
     # GET REPORT PROCESSED CONTENT
@@ -437,7 +437,7 @@ def create_reports_api_routes(
 
         return Result.ok(
             {
-                "report": report_to_response(report),
+                "report": ku_to_response(report),
                 "message": "Report processed successfully",
             }
         )
@@ -609,7 +609,7 @@ def create_reports_api_routes(
             - category: Category string
             """
             body = await request.json()
-            req = CategorizeReportRequest.model_validate(body)
+            req = CategorizeKuRequest.model_validate(body)
 
             # Verify ownership through get_report
             report_result = await report_service.get_report(report_uid)

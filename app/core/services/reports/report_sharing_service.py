@@ -1,20 +1,20 @@
 """
-Report Sharing Service
-===========================
+Ku Sharing Service
+====================
 
-Manages report sharing, access control, and visibility settings.
+Manages Ku sharing, access control, and visibility settings.
 
 Core Responsibilities:
-- Share/unshare reports with specific users
+- Share/unshare Ku with specific users
 - Set visibility levels (PRIVATE, SHARED, PUBLIC)
 - Check access permissions
-- Query shared reports
+- Query shared Ku
 
 Access Control Rules:
-1. Owner can always view their reports
-2. PUBLIC reports visible to all users
-3. SHARED reports visible to owner + users with SHARES_WITH relationship
-4. Only completed reports can be shared (quality control)
+1. Owner can always view their Ku
+2. PUBLIC Ku visible to all users
+3. SHARED Ku visible to owner + users with SHARES_WITH relationship
+4. Only completed Ku can be shared (quality control)
 
 See: /docs/patterns/SHARING_PATTERNS.md
 """
@@ -25,15 +25,15 @@ from typing import Any
 from neo4j import Driver
 
 from core.models.enums.metadata_enums import Visibility
-from core.models.report.report import ReportDTO
+from core.models.ku import KuDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-logger = get_logger("skuel.services.report_sharing")
+logger = get_logger("skuel.services.ku_sharing")
 
 
-class ReportSharingService:
-    """Service for managing report sharing and access control."""
+class KuSharingService:
+    """Service for managing Ku sharing and access control."""
 
     def __init__(self, driver: Driver) -> None:
         """
@@ -44,44 +44,41 @@ class ReportSharingService:
         """
         self.driver = driver
 
-    async def share_report(
+    async def share_ku(
         self,
-        report_uid: str,
+        ku_uid: str,
         owner_uid: str,
         recipient_uid: str,
         role: str = "viewer",
     ) -> Result[bool]:
         """
-        Share a report with a specific user.
+        Share a Ku with a specific user.
 
-        Creates a SHARES_WITH relationship from recipient to report.
-        Only the owner can share their reports.
-        Only completed reports can be shared.
+        Creates a SHARES_WITH relationship from recipient to Ku.
+        Only the owner can share their Ku.
+        Only completed Ku can be shared.
 
         Args:
-            report_uid: Report to share
-            owner_uid: Report owner (must match actual owner)
+            ku_uid: Ku to share
+            owner_uid: Ku owner (must match actual owner)
             recipient_uid: User to share with
             role: Recipient's role (e.g., "teacher", "peer", "mentor")
 
         Returns:
             Result[bool]: Success if shared, error if validation fails
         """
-        # Verify ownership
-        ownership_check = await self._verify_ownership(report_uid, owner_uid)
+        ownership_check = await self._verify_ownership(ku_uid, owner_uid)
         if ownership_check.is_error:
             return ownership_check
 
-        # Verify report is shareable (completed)
-        shareable_check = await self._verify_shareable(report_uid)
+        shareable_check = await self._verify_shareable(ku_uid)
         if shareable_check.is_error:
             return shareable_check
 
-        # Create SHARES_WITH relationship
         query = """
         MATCH (recipient:User {uid: $recipient_uid})
-        MATCH (report:Report {uid: $report_uid})
-        MERGE (recipient)-[r:SHARES_WITH]->(report)
+        MATCH (ku:Ku {uid: $ku_uid})
+        MERGE (recipient)-[r:SHARES_WITH]->(ku)
         SET r.shared_at = datetime($shared_at),
             r.role = $role
         RETURN true as success
@@ -91,51 +88,49 @@ class ReportSharingService:
             records, _, _ = await self.driver.execute_query(
                 query,
                 recipient_uid=recipient_uid,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
                 shared_at=datetime.now().isoformat(),
                 role=role,
             )
 
             if not records:
                 return Result.fail(
-                    Errors.not_found(f"User {recipient_uid} or Report {report_uid} not found")
+                    Errors.not_found(f"User {recipient_uid} or Ku {ku_uid} not found")
                 )
 
-            logger.info(f"Report {report_uid} shared with {recipient_uid} as {role}")
+            logger.info(f"Ku {ku_uid} shared with {recipient_uid} as {role}")
             return Result.ok(True)
 
         except Exception as e:
-            logger.error(f"Error sharing report: {e}")
-            return Result.fail(Errors.database("share_report", str(e)))
+            logger.error(f"Error sharing Ku: {e}")
+            return Result.fail(Errors.database("share_ku", str(e)))
 
-    async def unshare_report(
+    async def unshare_ku(
         self,
-        report_uid: str,
+        ku_uid: str,
         owner_uid: str,
         recipient_uid: str,
     ) -> Result[bool]:
         """
-        Revoke access to a shared report.
+        Revoke access to a shared Ku.
 
         Deletes the SHARES_WITH relationship.
-        Only the owner can unshare their reports.
+        Only the owner can unshare their Ku.
 
         Args:
-            report_uid: Report to unshare
-            owner_uid: Report owner (must match actual owner)
+            ku_uid: Ku to unshare
+            owner_uid: Ku owner (must match actual owner)
             recipient_uid: User to revoke access from
 
         Returns:
             Result[bool]: Success if unshared, error if validation fails
         """
-        # Verify ownership
-        ownership_check = await self._verify_ownership(report_uid, owner_uid)
+        ownership_check = await self._verify_ownership(ku_uid, owner_uid)
         if ownership_check.is_error:
             return ownership_check
 
-        # Delete SHARES_WITH relationship
         query = """
-        MATCH (recipient:User {uid: $recipient_uid})-[r:SHARES_WITH]->(report:Report {uid: $report_uid})
+        MATCH (recipient:User {uid: $recipient_uid})-[r:SHARES_WITH]->(ku:Ku {uid: $ku_uid})
         DELETE r
         RETURN count(r) as deleted_count
         """
@@ -144,41 +139,41 @@ class ReportSharingService:
             records, _, _ = await self.driver.execute_query(
                 query,
                 recipient_uid=recipient_uid,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
             )
 
             deleted_count = records[0]["deleted_count"] if records else 0
             if deleted_count == 0:
                 return Result.fail(
                     Errors.not_found(
-                        f"No sharing relationship found between {recipient_uid} and {report_uid}"
+                        f"No sharing relationship found between {recipient_uid} and {ku_uid}"
                     )
                 )
 
-            logger.info(f"Report {report_uid} unshared from {recipient_uid}")
+            logger.info(f"Ku {ku_uid} unshared from {recipient_uid}")
             return Result.ok(True)
 
         except Exception as e:
-            logger.error(f"Error unsharing report: {e}")
-            return Result.fail(Errors.database("unshare_report", str(e)))
+            logger.error(f"Error unsharing Ku: {e}")
+            return Result.fail(Errors.database("unshare_ku", str(e)))
 
     async def get_shared_with_users(
         self,
-        report_uid: str,
+        ku_uid: str,
     ) -> Result[list[dict[str, Any]]]:
         """
-        Get list of users a report is shared with.
+        Get list of users a Ku is shared with.
 
         Returns user UID, role, and share timestamp.
 
         Args:
-            report_uid: Report to query
+            ku_uid: Ku to query
 
         Returns:
             Result[list[dict]]: List of users with access
         """
         query = """
-        MATCH (user:User)-[r:SHARES_WITH]->(report:Report {uid: $report_uid})
+        MATCH (user:User)-[r:SHARES_WITH]->(ku:Ku {uid: $ku_uid})
         RETURN user.uid as user_uid,
                user.name as user_name,
                r.role as role,
@@ -189,7 +184,7 @@ class ReportSharingService:
         try:
             records, _, _ = await self.driver.execute_query(
                 query,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
             )
 
             users = [
@@ -208,26 +203,26 @@ class ReportSharingService:
             logger.error(f"Error fetching shared users: {e}")
             return Result.fail(Errors.database("get_shared_users", str(e)))
 
-    async def get_reports_shared_with_me(
+    async def get_kus_shared_with_me(
         self,
         user_uid: str,
         limit: int = 50,
-    ) -> Result[list[ReportDTO]]:
+    ) -> Result[list[KuDTO]]:
         """
-        Get reports shared with a specific user.
+        Get Ku shared with a specific user.
 
-        Returns reports where user has SHARES_WITH relationship.
+        Returns Ku where user has SHARES_WITH relationship.
 
         Args:
             user_uid: User to query for
-            limit: Maximum reports to return
+            limit: Maximum Ku to return
 
         Returns:
-            Result[list[ReportDTO]]: Shared reports
+            Result[list[KuDTO]]: Shared Ku
         """
         query = """
-        MATCH (user:User {uid: $user_uid})-[r:SHARES_WITH]->(report:Report)
-        RETURN report,
+        MATCH (user:User {uid: $user_uid})-[r:SHARES_WITH]->(ku:Ku)
+        RETURN ku,
                r.role as role,
                r.shared_at as shared_at
         ORDER BY r.shared_at DESC
@@ -241,74 +236,69 @@ class ReportSharingService:
                 limit=limit,
             )
 
-            reports = []
+            kus = []
             for record in records:
-                props = dict(record["report"])
+                props = dict(record["ku"])
+                dto = KuDTO.from_dict(props)
+                kus.append(dto)
 
-                # Convert to DTO (sharing metadata stored separately, not on DTO)
-                dto = ReportDTO(**props)
-                reports.append(dto)
-
-            return Result.ok(reports)
+            return Result.ok(kus)
 
         except Exception as e:
-            logger.error(f"Error fetching shared reports: {e}")
-            return Result.fail(Errors.database("get_shared_reports", str(e)))
+            logger.error(f"Error fetching shared Ku: {e}")
+            return Result.fail(Errors.database("get_kus_shared_with_me", str(e)))
 
     async def set_visibility(
         self,
-        report_uid: str,
+        ku_uid: str,
         owner_uid: str,
         visibility: Visibility,
     ) -> Result[bool]:
         """
-        Set report visibility level.
+        Set Ku visibility level.
 
         Only the owner can change visibility.
-        Only completed reports can be made SHARED or PUBLIC.
+        Only completed Ku can be made SHARED or PUBLIC.
 
         Args:
-            report_uid: Report to update
-            owner_uid: Report owner (must match actual owner)
+            ku_uid: Ku to update
+            owner_uid: Ku owner (must match actual owner)
             visibility: New visibility level
 
         Returns:
             Result[bool]: Success if updated, error if validation fails
         """
-        # Verify ownership
-        ownership_check = await self._verify_ownership(report_uid, owner_uid)
+        ownership_check = await self._verify_ownership(ku_uid, owner_uid)
         if ownership_check.is_error:
             return ownership_check
 
-        # If setting to SHARED or PUBLIC, verify report is shareable
         if visibility in (Visibility.SHARED, Visibility.PUBLIC):
-            shareable_check = await self._verify_shareable(report_uid)
+            shareable_check = await self._verify_shareable(ku_uid)
             if shareable_check.is_error:
                 return shareable_check
 
-        # Update visibility
         query = """
-        MATCH (report:Report {uid: $report_uid})
-        WHERE report.user_uid = $owner_uid
-        SET report.visibility = $visibility,
-            report.updated_at = datetime()
-        RETURN report.uid as uid
+        MATCH (ku:Ku {uid: $ku_uid})
+        WHERE ku.user_uid = $owner_uid
+        SET ku.visibility = $visibility,
+            ku.updated_at = datetime()
+        RETURN ku.uid as uid
         """
 
         try:
             records, _, _ = await self.driver.execute_query(
                 query,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
                 owner_uid=owner_uid,
                 visibility=visibility.value,
             )
 
             if not records:
                 return Result.fail(
-                    Errors.not_found(f"Report {report_uid} not found or not owned by {owner_uid}")
+                    Errors.not_found(f"Ku {ku_uid} not found or not owned by {owner_uid}")
                 )
 
-            logger.info(f"Report {report_uid} visibility set to {visibility.value}")
+            logger.info(f"Ku {ku_uid} visibility set to {visibility.value}")
             return Result.ok(True)
 
         except Exception as e:
@@ -317,48 +307,54 @@ class ReportSharingService:
 
     async def check_access(
         self,
-        report_uid: str,
+        ku_uid: str,
         user_uid: str,
     ) -> Result[bool]:
         """
-        Check if a user can access a report.
+        Check if a user can access a Ku.
 
         Access is granted if:
         - User is the owner
-        - Report is PUBLIC
-        - Report is SHARED and user has SHARES_WITH relationship
+        - Ku is PUBLIC
+        - Ku is SHARED and user has SHARES_WITH relationship
+        - Ku is CURRICULUM type (always public)
 
         Args:
-            report_uid: Report to check
+            ku_uid: Ku to check
             user_uid: User requesting access
 
         Returns:
             Result[bool]: True if access granted, False otherwise
         """
         query = """
-        MATCH (report:Report {uid: $report_uid})
-        OPTIONAL MATCH (user:User {uid: $user_uid})-[:SHARES_WITH]->(report)
-        RETURN report.user_uid as owner_uid,
-               report.visibility as visibility,
+        MATCH (ku:Ku {uid: $ku_uid})
+        OPTIONAL MATCH (user:User {uid: $user_uid})-[:SHARES_WITH]->(ku)
+        RETURN ku.user_uid as owner_uid,
+               ku.visibility as visibility,
+               ku.ku_type as ku_type,
                count(user) > 0 as has_share_relationship
         """
 
         try:
             records, _, _ = await self.driver.execute_query(
                 query,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
                 user_uid=user_uid,
             )
 
             if not records:
-                return Result.fail(Errors.not_found(f"Report {report_uid} not found"))
+                return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
 
             record = records[0]
             owner_uid = record["owner_uid"]
-            visibility = Visibility(record["visibility"])
+            visibility = Visibility(record["visibility"]) if record["visibility"] else Visibility.PRIVATE
+            ku_type = record["ku_type"]
             has_share = record["has_share_relationship"]
 
-            # Check access rules
+            # CURRICULUM Ku are always accessible
+            if ku_type == "curriculum":
+                return Result.ok(True)
+            # Owner always has access
             if user_uid == owner_uid:
                 return Result.ok(True)
             if visibility == Visibility.PUBLIC:
@@ -376,37 +372,28 @@ class ReportSharingService:
 
     async def _verify_ownership(
         self,
-        report_uid: str,
+        ku_uid: str,
         owner_uid: str,
     ) -> Result[bool]:
-        """
-        Verify that a user owns a report.
-
-        Args:
-            report_uid: Report to check
-            owner_uid: Claimed owner
-
-        Returns:
-            Result[bool]: Success if owner matches, error otherwise
-        """
+        """Verify that a user owns a Ku."""
         query = """
-        MATCH (report:Report {uid: $report_uid})
-        RETURN report.user_uid as actual_owner
+        MATCH (ku:Ku {uid: $ku_uid})
+        RETURN ku.user_uid as actual_owner
         """
 
         try:
             records, _, _ = await self.driver.execute_query(
                 query,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
             )
 
             if not records:
-                return Result.fail(Errors.not_found(f"Report {report_uid} not found"))
+                return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
 
             actual_owner = records[0]["actual_owner"]
             if actual_owner != owner_uid:
                 return Result.fail(
-                    Errors.validation(f"User {owner_uid} does not own report {report_uid}")
+                    Errors.validation(f"User {owner_uid} does not own Ku {ku_uid}")
                 )
 
             return Result.ok(True)
@@ -417,38 +404,28 @@ class ReportSharingService:
 
     async def _verify_shareable(
         self,
-        report_uid: str,
+        ku_uid: str,
     ) -> Result[bool]:
-        """
-        Verify that a report can be shared.
-
-        Only completed reports can be shared (quality control).
-
-        Args:
-            report_uid: Report to check
-
-        Returns:
-            Result[bool]: Success if shareable, error otherwise
-        """
+        """Verify that a Ku can be shared. Only completed Ku can be shared."""
         query = """
-        MATCH (report:Report {uid: $report_uid})
-        RETURN report.status as status
+        MATCH (ku:Ku {uid: $ku_uid})
+        RETURN ku.status as status
         """
 
         try:
             records, _, _ = await self.driver.execute_query(
                 query,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
             )
 
             if not records:
-                return Result.fail(Errors.not_found(f"Report {report_uid} not found"))
+                return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
 
             status = records[0]["status"]
             if status != "completed":
                 return Result.fail(
                     Errors.validation(
-                        f"Only completed reports can be shared. Current status: {status}"
+                        f"Only completed Ku can be shared. Current status: {status}"
                     )
                 )
 

@@ -3,15 +3,15 @@ Unit Tests for Assessment Service Methods
 ============================================
 
 Tests create_assessment, get_assessments_for_student,
-and get_assessments_by_teacher on ReportsCoreService.
+and get_assessments_by_teacher on KuCoreService.
 """
 
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums.report_enums import ReportType
-from core.models.report.report import Report
+from core.models.enums.ku_enums import KuType
+from core.models.ku import Ku
 from core.utils.result_simplified import Errors, Result
 
 
@@ -43,10 +43,10 @@ def mock_sharing_service():
 
 @pytest.fixture
 def core_service(mock_backend, mock_event_bus, mock_sharing_service):
-    """Create ReportsCoreService with mocked deps."""
-    from core.services.reports.reports_core_service import ReportsCoreService
+    """Create KuCoreService with mocked deps."""
+    from core.services.reports.reports_core_service import KuCoreService
 
-    return ReportsCoreService(
+    return KuCoreService(
         backend=mock_backend,
         event_bus=mock_event_bus,
         sharing_service=mock_sharing_service,
@@ -76,14 +76,14 @@ class TestCreateAssessment:
         )
 
         assert not result.is_error
-        # Verify backend.create was called with a Report
+        # Verify backend.create was called with a Ku
         assert mock_backend.create.call_count == 1
-        created_report = mock_backend.create.call_args[0][0]
-        assert isinstance(created_report, Report)
-        assert created_report.report_type == ReportType.ASSESSMENT
-        assert created_report.user_uid == "user_teacher"
-        assert created_report.subject_uid == "user_student"
-        assert created_report.title == "Midterm Assessment"
+        created_ku = mock_backend.create.call_args[0][0]
+        assert isinstance(created_ku, Ku)
+        assert created_ku.ku_type == KuType.FEEDBACK_REPORT
+        assert created_ku.user_uid == "user_teacher"
+        assert created_ku.subject_uid == "user_student"
+        assert created_ku.title == "Midterm Assessment"
 
     @pytest.mark.asyncio
     async def test_create_assessment_creates_relationships(self, core_service, mock_backend):
@@ -129,8 +129,8 @@ class TestCreateAssessment:
             metadata={"rubric": "A"},
         )
 
-        created_report = mock_backend.create.call_args[0][0]
-        assert created_report.metadata == {"rubric": "A"}
+        created_ku = mock_backend.create.call_args[0][0]
+        assert created_ku.metadata == {"rubric": "A"}
 
 
 # ============================================================================
@@ -147,10 +147,10 @@ class TestGetAssessments:
         mock_backend.driver.execute_query.return_value = (
             [
                 {
-                    "r": {
+                    "k": {
                         "uid": "report_123",
                         "user_uid": "user_teacher",
-                        "report_type": "assessment",
+                        "ku_type": "feedback_report",
                         "title": "Assessment 1",
                         "subject_uid": "user_student",
                     }

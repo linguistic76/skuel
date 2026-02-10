@@ -32,18 +32,19 @@ from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
-from core.models.enums.report_enums import ContentType, JournalType, ReportStatus, ReportType
-from core.models.report.report import Report, ReportDTO
+from core.models.enums.ku_enums import JournalType, KuStatus, KuType
+from core.models.enums.learning_enums import ContentType
+from core.models.ku import Ku, KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations, BaseUpdatePayload
-from core.services.reports.report_processing_types import ReportAIInsights, ReportProcessingContext
+from core.services.reports.report_processing_types import KuAIInsights, KuProcessingContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 
-class TranscriptProcessorService(BaseService[BackendOperations[Report], Report]):
+class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
     """
     Transcript processor service - transforms raw transcripts into formatted documents.
 
@@ -91,9 +92,9 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
     # DomainConfig (January 2026 Phase 3)
     # =========================================================================
     _config = DomainConfig(
-        dto_class=ReportDTO,
-        model_class=Report,
-        entity_label="Report",
+        dto_class=KuDTO,
+        model_class=Ku,
+        entity_label="Ku",
         search_fields=("title", "content", "processed_content"),
         search_order_by="created_at",
         user_ownership_relationship="OWNS",  # User-owned content
@@ -101,7 +102,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
 
     def __init__(
         self,
-        backend: UniversalNeo4jBackend[Report] | None = None,
+        backend: UniversalNeo4jBackend[Ku] | None = None,
         transcription_service=None,
         ai_service=None,  # For intelligent editing (OpenAI/Anthropic)
         event_bus=None,  # For publishing domain events
@@ -110,7 +111,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
         Initialize transcript processor service.
 
         Args:
-            backend: UniversalNeo4jBackend[Report] for storage,
+            backend: UniversalNeo4jBackend[Ku] for storage,
             transcription_service: TranscriptionService for audio → text,
             ai_service: AI service for intelligent editing (e.g., OpenAI),
             event_bus: Event bus for publishing domain events (optional)
@@ -127,8 +128,8 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Report entities."""
-        return "Report"
+        """Return the graph label for Ku entities."""
+        return "Ku"
 
     # ========================================================================
     # CORE PURPOSE: TRANSCRIPT PROCESSING
@@ -140,7 +141,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
         raw_transcript: str,
         instructions_uid: str | None = None,
         user_uid: str | None = None,
-    ) -> Result[ReportAIInsights]:
+    ) -> Result[KuAIInsights]:
         """
         Process raw transcript into formatted journal using Neo4j context.
 
@@ -148,7 +149,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
 
         REFACTORED (November 10, 2025) - Option A Implementation:
         - No longer creates or stores entities directly
-        - Returns ReportAIInsights (formatted data only)
+        - Returns KuAIInsights (formatted data only)
         - ReportsProcessingService stores insights in Report.processed_content
         - ReportsRelationshipService creates graph relationships
 
@@ -164,7 +165,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
             user_uid: User identifier (optional, enables context-aware processing)
 
         Returns:
-            Result containing ReportAIInsights (formatted content, title, summary, themes, actions)
+            Result containing KuAIInsights (formatted content, title, summary, themes, actions)
         """
         # Step 1: Pull context from Neo4j (optional, but improves quality)
         context_obj = await self._gather_context(user_uid) if user_uid else None
@@ -198,11 +199,11 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
         audio_file_path: str,
         instructions_uid: str | None = None,
         user_uid: str | None = None,
-    ) -> Result[ReportAIInsights]:
+    ) -> Result[KuAIInsights]:
         """
         Process audio file into formatted journal insights (full pipeline).
 
-        Pipeline: Audio → Transcription → Processing → ReportAIInsights
+        Pipeline: Audio → Transcription → Processing → KuAIInsights
 
         Args:
             audio_file_path: Path to audio file,
@@ -210,7 +211,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
             user_uid: User identifier (REQUIRED for context-aware processing)
 
         Returns:
-            Result containing ReportAIInsights (formatted content, title, summary, themes)
+            Result containing KuAIInsights (formatted content, title, summary, themes)
         """
         if not user_uid:
             return Result.fail(
@@ -252,7 +253,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
     )
     async def get_journal_context_for_processing(
         self, user_uid: str
-    ) -> Result[ReportProcessingContext]:
+    ) -> Result[KuProcessingContext]:
         """
         Get comprehensive context for intelligent journal processing.
 
@@ -265,21 +266,21 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
         - Trending topics (last 30 days) for thematic continuity
         - Recent mood averages for emotional awareness
 
-        Updated February 2026: Queries Report nodes with report_type="journal"
+        Updated February 2026: Queries Report nodes with ku_type="assignment"
         (Journal→Report merge).
 
         Args:
             user_uid: User identifier
 
         Returns:
-            Result containing ReportProcessingContext with all contextual data
+            Result containing KuProcessingContext with all contextual data
         """
         cypher = """
         MATCH (u:User {uid: $user_uid})
 
         // Recent journal-type reports (last 7 days)
-        OPTIONAL MATCH (u)-[:OWNS]->(recent:Report)
-        WHERE recent.report_type = 'journal'
+        OPTIONAL MATCH (u)-[:OWNS]->(recent:Ku)
+        WHERE recent.ku_type = 'assignment'
           AND recent.created_at >= datetime() - duration('P7D')
         WITH u, collect({
             uid: recent.uid,
@@ -301,8 +302,8 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
         }) as active_goals
 
         // Recent topics (from last 30 days) - journal-type reports
-        OPTIONAL MATCH (u)-[:OWNS]->(j:Report)
-        WHERE j.report_type = 'journal'
+        OPTIONAL MATCH (u)-[:OWNS]->(j:Ku)
+        WHERE j.ku_type = 'assignment'
           AND j.created_at >= datetime() - duration('P30D')
           AND j.key_topics IS NOT NULL
         WITH u, recent_journals, active_goals,
@@ -331,7 +332,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
             if not record:
                 # No data found - return empty context
                 return Result.ok(
-                    ReportProcessingContext(
+                    KuProcessingContext(
                         user_uid=user_uid,
                         gathered_at=datetime.now().isoformat(),
                         recent_journals=[],
@@ -439,7 +440,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
             }
 
             return Result.ok(
-                ReportProcessingContext(
+                KuProcessingContext(
                     user_uid=user_uid,
                     gathered_at=datetime.now().isoformat(),
                     recent_journals=recent_journals_list,
@@ -449,14 +450,14 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
                 )
             )
 
-    async def _gather_context(self, user_uid: str) -> ReportProcessingContext:
+    async def _gather_context(self, user_uid: str) -> KuProcessingContext:
         """
         Gather relevant context from Neo4j for intelligent editing.
 
         Step 3 Implementation (November 2025): Uses optimized single-query approach
         via get_journal_context_for_processing() instead of multiple separate queries.
 
-        This is a convenience wrapper that returns ReportProcessingContext directly (not Result[T])
+        This is a convenience wrapper that returns KuProcessingContext directly (not Result[T])
         for backward compatibility with existing code.
 
         Legacy multi-query helpers (_get_recent_journals, etc.) are kept for
@@ -473,7 +474,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
         if result.is_error:
             self.logger.warning(f"Failed to gather context: {result.error}")
             # Return empty context on error
-            return ReportProcessingContext(
+            return KuProcessingContext(
                 user_uid=user_uid,
                 gathered_at=datetime.now().isoformat(),
                 recent_journals=[],
@@ -488,7 +489,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
         """
         Get recent journal entries for context awareness.
 
-        Updated February 2026: Queries Report nodes with report_type="journal".
+        Updated February 2026: Queries Report nodes with ku_type="assignment".
 
         Args:
             user_uid: User identifier
@@ -584,7 +585,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
         """
         Extract recurring topics from recent journals.
 
-        Updated February 2026: Queries Report nodes with report_type="journal".
+        Updated February 2026: Queries Report nodes with ku_type="assignment".
 
         Args:
             user_uid: User identifier
@@ -676,7 +677,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
 
     @with_error_handling("create_journal_relationships", error_type="database")
     async def _create_journal_relationships(
-        self, journal: Report, context: ReportProcessingContext | None
+        self, journal: Report, context: KuProcessingContext | None
     ) -> Result[dict[str, int]]:
         """
         Create graph relationships connecting journal to context.
@@ -690,7 +691,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
 
         Args:
             journal: The newly created journal
-            context: ReportProcessingContext with recent data
+            context: KuProcessingContext with recent data
 
         Returns:
             Result containing counts of relationships created
@@ -728,8 +729,8 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
     async def _create_temporal_relationship(self, session, journal_uid: str, user_uid: str) -> int:
         """Create FOLLOWS relationship to most recent previous journal-type report."""
         cypher = """
-        MATCH (new:Report {uid: $journal_uid})
-        MATCH (prev:Report {user_uid: $user_uid, report_type: 'journal'})
+        MATCH (new:Ku {uid: $journal_uid})
+        MATCH (prev:Ku {user_uid: $user_uid, report_type: 'journal'})
         WHERE prev.uid <> $journal_uid
           AND prev.entry_date <= new.entry_date
         WITH new, prev
@@ -759,8 +760,8 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
             return 0
 
         cypher = """
-        MATCH (new:Report {uid: $journal_uid})
-        MATCH (other:Report {user_uid: $user_uid, report_type: 'journal'})
+        MATCH (new:Ku {uid: $journal_uid})
+        MATCH (other:Ku {user_uid: $user_uid, report_type: 'journal'})
         WHERE other.uid <> $journal_uid
           AND other.key_topics IS NOT NULL
         WITH new, other, other.key_topics as other_topics_json
@@ -840,7 +841,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Report], Report])
         # Load from Neo4j (instructions stored as ReportProject nodes)
         try:
             query = """
-            MATCH (i:ReportProject {uid: $uid})
+            MATCH (i:KuProject {uid: $uid})
             RETURN i.instructions as instructions, i.name as name
             """
 
@@ -917,7 +918,7 @@ Preserve the author's voice and authenticity while improving readability.
             uid = f"instructions:{name.lower().replace(' ', '-')}"
 
         query = """
-        CREATE (i:ReportProject {
+        CREATE (i:KuProject {
             uid: $uid,
             name: $name,
             instructions: $instructions,
@@ -937,7 +938,7 @@ Preserve the author's voice and authenticity while improving readability.
     async def list_instruction_sets(self) -> Result[list[dict[str, Any]]]:
         """List all available report projects."""
         query = """
-        MATCH (i:ReportProject)
+        MATCH (i:KuProject)
         RETURN i.uid as uid, i.name as name, i.char_count as char_count
         ORDER BY i.name
         """
@@ -959,7 +960,7 @@ Preserve the author's voice and authenticity while improving readability.
     @with_error_handling("apply_intelligent_editing", error_type="integration")
     async def _apply_intelligent_editing(
         self, raw_transcript: str, instructions: str, context: dict[str, Any] | None = None
-    ) -> Result[ReportAIInsights]:
+    ) -> Result[KuAIInsights]:
         """
         Apply AI-powered editing with context awareness.
 
@@ -969,7 +970,7 @@ Preserve the author's voice and authenticity while improving readability.
         3. Returns formatted, context-aware insights
 
         REFACTORED (November 10, 2025) - Option A Implementation:
-        - Returns ReportAIInsights directly (not dict)
+        - Returns KuAIInsights directly (not dict)
         - No entity creation
 
         Args:
@@ -978,7 +979,7 @@ Preserve the author's voice and authenticity while improving readability.
             context: Neo4j context (goals, tasks, recent journals)
 
         Returns:
-            Result containing ReportAIInsights (formatted content, metadata)
+            Result containing KuAIInsights (formatted content, metadata)
         """
         # Fail-fast: AI service is required for journal formatting
         if not self.ai_service:
@@ -1017,7 +1018,7 @@ Preserve the author's voice and authenticity while improving readability.
             f"Parsed AI response: title={insights.title[:50] if insights.title else 'None'}"
         )
 
-        # Return ReportAIInsights directly (not dict)
+        # Return KuAIInsights directly (not dict)
         return Result.ok(insights)
 
     def _build_editing_prompt(
@@ -1231,7 +1232,7 @@ Return ONLY Markdown in this structure:
 - [ ] Action 1
 """
 
-    def _parse_ai_response(self, ai_response: str) -> ReportAIInsights:
+    def _parse_ai_response(self, ai_response: str) -> KuAIInsights:
         """
         Parse AI response from Markdown format into structured format.
 
@@ -1250,7 +1251,7 @@ Return ONLY Markdown in this structure:
         # Defensive check: handle None or empty response
         if not ai_response:
             self.logger.warning("AI response is None or empty")
-            return ReportAIInsights(
+            return KuAIInsights(
                 title="Journal Entry",
                 formatted_content="",
                 summary="AI response was empty",
@@ -1319,7 +1320,7 @@ Return ONLY Markdown in this structure:
                 f"Parsed Markdown: title='{title[:50]}', themes={len(themes)}, actions={len(action_items)}"
             )
 
-            return ReportAIInsights(
+            return KuAIInsights(
                 title=title,
                 formatted_content=formatted_content,
                 summary=summary if summary else formatted_content[:200] + "...",
@@ -1332,7 +1333,7 @@ Return ONLY Markdown in this structure:
         except Exception as e:
             self.logger.error(f"Error parsing Markdown response: {e}", exc_info=True)
             # Fallback: treat entire response as formatted content
-            return ReportAIInsights(
+            return KuAIInsights(
                 title="Journal Entry",
                 formatted_content=ai_response,
                 summary=ai_response[:200] + "..." if len(ai_response) > 200 else ai_response,
@@ -1346,41 +1347,41 @@ Return ONLY Markdown in this structure:
     # BASIC CRUD (Minimal - for storing processed journals)
     # ========================================================================
 
-    async def create(self, report: Report) -> Result[Report]:
-        """Create report and publish event."""
-        result = await super().create(report)
+    async def create(self, ku: Ku) -> Result[Ku]:
+        """Create Ku and publish event."""
+        result = await super().create(ku)
 
         if result.is_ok:
             from core.events.report_events import ReportSubmitted
 
-            report_created = result.value
+            ku_created = result.value
             event = ReportSubmitted(
-                report_uid=report_created.uid,
-                user_uid=report_created.user_uid,
-                report_type=report_created.report_type.value,
+                report_uid=ku_created.uid,
+                user_uid=ku_created.user_uid,
+                report_type=ku_created.ku_type.value,
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
         return result
 
-    async def get(self, uid: str) -> Result[Report]:
-        """Get report by UID."""
+    async def get(self, uid: str) -> Result[Ku]:
+        """Get Ku by UID."""
         return await super().get(uid)
 
-    async def update(self, uid: str, updates: BaseUpdatePayload | dict[str, Any]) -> Result[Report]:
-        """Update report."""
+    async def update(self, uid: str, updates: BaseUpdatePayload | dict[str, Any]) -> Result[Ku]:
+        """Update Ku."""
         return await super().update(uid, updates)
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
-        """Delete report and publish event."""
-        # Get report before deletion for event data
-        report_result = await self.get(uid)
-        report_user_uid = "unknown"
+        """Delete Ku and publish event."""
+        # Get Ku before deletion for event data
+        ku_result = await self.get(uid)
+        ku_user_uid = "unknown"
 
-        if report_result.is_ok:
-            report = report_result.value
-            report_user_uid = report.user_uid
+        if ku_result.is_ok:
+            ku = ku_result.value
+            ku_user_uid = ku.user_uid
 
         result = await super().delete(uid, cascade=cascade)
 
@@ -1389,16 +1390,16 @@ Return ONLY Markdown in this structure:
 
             event = ReportDeleted(
                 report_uid=uid,
-                user_uid=report_user_uid,
-                report_type="journal",
+                user_uid=ku_user_uid,
+                ku_type="assignment",
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
         return result
 
-    async def list_reports(self, limit: int = 100, offset: int = 0) -> Result[list[Report]]:
-        """List reports with pagination."""
+    async def list_kus(self, limit: int = 100, offset: int = 0) -> Result[list[Ku]]:
+        """List Ku with pagination."""
         result = await self.backend.list(
             limit=limit, offset=offset, sort_by="entry_date", sort_order="desc"
         )
@@ -1418,7 +1419,7 @@ Return ONLY Markdown in this structure:
         user_uid: str,
         instructions_uid: str | None = None,
         store_result: bool = True,
-    ) -> Result[Report]:
+    ) -> Result[Ku]:
         """
         Process raw transcript text into a formatted journal report.
 
@@ -1448,25 +1449,27 @@ Return ONLY Markdown in this structure:
 
         from core.utils.uid_generator import UIDGenerator
 
-        report = Report(
-            uid=UIDGenerator.generate_uid("report"),
+        ku = Ku(
+            uid=UIDGenerator.generate_uid("ku"),
             user_uid=user_uid,
-            report_type=ReportType.JOURNAL,
-            status=ReportStatus.PROCESSING,
+            ku_type=KuType.ASSIGNMENT,
+            status=KuStatus.PROCESSING,
             title=insights.title,
             content=insights.formatted_content,
-            content_type=ContentType.AUDIO_TRANSCRIPT,
-            journal_type=JournalType.VOICE,
-            key_topics=insights.themes,
-            entry_date=date.today(),
-            source_type="transcript",
-            metadata={"summary": insights.summary},
+            metadata={
+                "summary": insights.summary,
+                "journal_type": JournalType.VOICE.value,
+                "content_type": ContentType.AUDIO_TRANSCRIPT.value,
+                "key_topics": insights.themes,
+                "entry_date": date.today().isoformat(),
+                "source_type": "transcript",
+            },
         )
 
         if store_result:
-            return await self.create(report)
+            return await self.create(ku)
 
-        return Result.ok(report)
+        return Result.ok(ku)
 
     async def search_journal_reports(
         self,
@@ -1474,7 +1477,7 @@ Return ONLY Markdown in this structure:
         user_uid: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> Result[tuple[list[Report], int]]:
+    ) -> Result[tuple[list[Ku], int]]:
         """
         Search journal-type reports by content text.
 
@@ -1488,7 +1491,7 @@ Return ONLY Markdown in this structure:
             Tuple of (matching reports, total_count)
         """
         # Get journal-type reports
-        filters: dict[str, Any] = {"report_type": ReportType.JOURNAL.value}
+        filters: dict[str, Any] = {"ku_type": KuType.ASSIGNMENT.value}
         if user_uid:
             filters["user_uid"] = user_uid
 
@@ -1520,7 +1523,7 @@ Return ONLY Markdown in this structure:
         transcription_result: dict[str, Any],
         user_uid: str,
         instructions_uid: str | None = None,
-    ) -> Result[Report]:
+    ) -> Result[Ku]:
         """
         Create a journal report from a transcription result.
 

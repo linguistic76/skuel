@@ -1,6 +1,6 @@
 """
-Integration Tests for Report Sharing Workflows
-===================================================
+Integration Tests for Ku Sharing Workflows
+===============================================
 
 End-to-end tests for the complete sharing system with real Neo4j interactions.
 
@@ -17,32 +17,35 @@ These tests use the actual service implementation with real Neo4j driver.
 import pytest
 
 from core.models.enums.metadata_enums import Visibility
-from core.services.reports.report_sharing_service import ReportSharingService
+from core.services.reports.report_sharing_service import KuSharingService
 
 
 @pytest.fixture
 async def sharing_service(neo4j_driver):
-    """Create ReportSharingService with real Neo4j driver."""
-    return ReportSharingService(driver=neo4j_driver)
+    """Create KuSharingService with real Neo4j driver."""
+    return KuSharingService(driver=neo4j_driver)
 
 
 @pytest.fixture
 async def test_report(neo4j_driver):
     """
-    Create a test report in Neo4j for testing.
+    Create a test Ku node and User nodes in Neo4j for testing.
 
-    Returns the report UID and cleans up after the test.
+    Returns the Ku UID and cleans up after the test.
     """
-    # Create report in Neo4j
+    # Create Ku node and owner User node in Neo4j
     report_uid = "test_report_integration_001"
     user_uid = "test_user_owner"
 
+    # Create owner User + Ku node
     query = """
-    CREATE (a:Report {
+    MERGE (u:User {uid: $user_uid})
+    SET u.name = 'Test Owner'
+    CREATE (a:Ku {
         uid: $uid,
         user_uid: $user_uid,
         original_filename: "test_report.pdf",
-        report_type: "report",
+        ku_type: "assignment",
         status: "completed",
         file_path: "/test/path",
         file_size: 1024,
@@ -61,15 +64,41 @@ async def test_report(neo4j_driver):
         user_uid=user_uid,
     )
 
+    # Create test recipient User nodes used across tests
+    recipient_uids = [
+        "test_user_teacher",
+        "test_user_recipient",
+        "test_user_authorized",
+        "test_user_unauthorized",
+        "test_user_other",
+        "test_user_random",
+        "test_user_imposter",
+        "test_user_peer1",
+        "test_user_peer2",
+        "test_user_never_shared",
+    ]
+    for ruid in recipient_uids:
+        await neo4j_driver.execute_query(
+            "MERGE (u:User {uid: $uid}) SET u.name = $uid",
+            uid=ruid,
+        )
+
     yield {"uid": report_uid, "owner_uid": user_uid}
 
     # Cleanup
     cleanup_query = """
-    MATCH (a:Report {uid: $uid})
+    MATCH (a:Ku {uid: $uid})
     OPTIONAL MATCH (a)<-[r:SHARES_WITH]-()
     DELETE r, a
     """
     await neo4j_driver.execute_query(cleanup_query, uid=report_uid)
+
+    # Cleanup test users
+    for ruid in [user_uid] + recipient_uids:
+        await neo4j_driver.execute_query(
+            "MATCH (u:User {uid: $uid}) WHERE u.uid STARTS WITH 'test_' DELETE u",
+            uid=ruid,
+        )
 
 
 # ============================================================================
@@ -84,9 +113,9 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     Test complete sharing workflow: create → share → view → unshare → verify revoked.
 
     Steps:
-    1. Create report (completed by fixture)
+    1. Create Ku (completed by fixture)
     2. Share with recipient
-    3. Recipient fetches shared reports
+    3. Recipient fetches shared Ku
     4. Recipient has access
     5. Owner unshares
     6. Recipient no longer has access
@@ -97,7 +126,7 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
 
     # Step 1: Set visibility to SHARED
     visibility_result = await sharing_service.set_visibility(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         owner_uid=owner_uid,
         visibility=Visibility.SHARED,
     )
@@ -105,8 +134,8 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     assert visibility_result.value is True
 
     # Step 2: Share with recipient
-    share_result = await sharing_service.share_report(
-        report_uid=report_uid,
+    share_result = await sharing_service.share_ku(
+        ku_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=recipient_uid,
         role="teacher",
@@ -115,7 +144,7 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     assert share_result.value is True
 
     # Step 3: Recipient can see it in "shared with me"
-    _shared_result = await sharing_service.get_reports_shared_with_me(
+    _shared_result = await sharing_service.get_kus_shared_with_me(
         user_uid=recipient_uid,
         limit=50,
     )
@@ -124,15 +153,15 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
 
     # Step 4: Recipient has access
     access_result = await sharing_service.check_access(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         user_uid=recipient_uid,
     )
     assert not access_result.is_error
     assert access_result.value is True
 
     # Step 5: Owner unshares
-    unshare_result = await sharing_service.unshare_report(
-        report_uid=report_uid,
+    unshare_result = await sharing_service.unshare_ku(
+        ku_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=recipient_uid,
     )
@@ -141,7 +170,7 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
 
     # Step 6: Recipient no longer has access
     access_after_unshare = await sharing_service.check_access(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         user_uid=recipient_uid,
     )
     assert not access_after_unshare.is_error
@@ -156,15 +185,15 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_private_visibility_restricts_access(sharing_service, test_report):
-    """Test PRIVATE reports only accessible to owner."""
+    """Test PRIVATE Ku only accessible to owner."""
     report_uid = test_report["uid"]
     owner_uid = test_report["owner_uid"]
     other_user = "test_user_other"
 
-    # Report defaults to PRIVATE
+    # Ku defaults to PRIVATE
     # Owner can access
     owner_access = await sharing_service.check_access(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         user_uid=owner_uid,
     )
     assert not owner_access.is_error
@@ -172,7 +201,7 @@ async def test_private_visibility_restricts_access(sharing_service, test_report)
 
     # Other user cannot access
     other_access = await sharing_service.check_access(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         user_uid=other_user,
     )
     assert not other_access.is_error
@@ -182,14 +211,14 @@ async def test_private_visibility_restricts_access(sharing_service, test_report)
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_public_visibility_allows_all_access(sharing_service, test_report):
-    """Test PUBLIC reports accessible to anyone."""
+    """Test PUBLIC Ku accessible to anyone."""
     report_uid = test_report["uid"]
     owner_uid = test_report["owner_uid"]
     anyone = "test_user_random"
 
     # Set visibility to PUBLIC
     visibility_result = await sharing_service.set_visibility(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         owner_uid=owner_uid,
         visibility=Visibility.PUBLIC,
     )
@@ -197,7 +226,7 @@ async def test_public_visibility_allows_all_access(sharing_service, test_report)
 
     # Anyone can access
     public_access = await sharing_service.check_access(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         user_uid=anyone,
     )
     assert not public_access.is_error
@@ -207,7 +236,7 @@ async def test_public_visibility_allows_all_access(sharing_service, test_report)
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_shared_visibility_requires_relationship(sharing_service, test_report):
-    """Test SHARED reports require SHARES_WITH relationship."""
+    """Test SHARED Ku require SHARES_WITH relationship."""
     report_uid = test_report["uid"]
     owner_uid = test_report["owner_uid"]
     authorized_user = "test_user_authorized"
@@ -215,15 +244,15 @@ async def test_shared_visibility_requires_relationship(sharing_service, test_rep
 
     # Set visibility to SHARED
     visibility_result = await sharing_service.set_visibility(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         owner_uid=owner_uid,
         visibility=Visibility.SHARED,
     )
     assert not visibility_result.is_error
 
     # Share with authorized user
-    share_result = await sharing_service.share_report(
-        report_uid=report_uid,
+    share_result = await sharing_service.share_ku(
+        ku_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=authorized_user,
         role="peer",
@@ -232,7 +261,7 @@ async def test_shared_visibility_requires_relationship(sharing_service, test_rep
 
     # Authorized user can access
     authorized_access = await sharing_service.check_access(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         user_uid=authorized_user,
     )
     assert not authorized_access.is_error
@@ -240,7 +269,7 @@ async def test_shared_visibility_requires_relationship(sharing_service, test_rep
 
     # Unauthorized user cannot access
     unauthorized_access = await sharing_service.check_access(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         user_uid=unauthorized_user,
     )
     assert not unauthorized_access.is_error
@@ -255,14 +284,14 @@ async def test_shared_visibility_requires_relationship(sharing_service, test_rep
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_only_owner_can_share(sharing_service, test_report):
-    """Test that non-owners cannot share reports."""
+    """Test that non-owners cannot share Ku."""
     report_uid = test_report["uid"]
     not_owner = "test_user_imposter"
     recipient = "test_user_recipient"
 
     # Non-owner tries to share
-    share_result = await sharing_service.share_report(
-        report_uid=report_uid,
+    share_result = await sharing_service.share_ku(
+        ku_uid=report_uid,
         owner_uid=not_owner,  # Not the actual owner
         recipient_uid=recipient,
         role="viewer",
@@ -275,7 +304,7 @@ async def test_only_owner_can_share(sharing_service, test_report):
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_only_owner_can_unshare(sharing_service, test_report):
-    """Test that non-owners cannot unshare reports."""
+    """Test that non-owners cannot unshare Ku."""
     report_uid = test_report["uid"]
     owner_uid = test_report["owner_uid"]
     recipient = "test_user_recipient"
@@ -283,20 +312,20 @@ async def test_only_owner_can_unshare(sharing_service, test_report):
 
     # Owner shares first
     await sharing_service.set_visibility(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         owner_uid=owner_uid,
         visibility=Visibility.SHARED,
     )
-    await sharing_service.share_report(
-        report_uid=report_uid,
+    await sharing_service.share_ku(
+        ku_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=recipient,
         role="viewer",
     )
 
     # Non-owner tries to unshare
-    unshare_result = await sharing_service.unshare_report(
-        report_uid=report_uid,
+    unshare_result = await sharing_service.unshare_ku(
+        ku_uid=report_uid,
         owner_uid=not_owner,  # Not the actual owner
         recipient_uid=recipient,
     )
@@ -314,7 +343,7 @@ async def test_only_owner_can_change_visibility(sharing_service, test_report):
 
     # Non-owner tries to change visibility
     visibility_result = await sharing_service.set_visibility(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         owner_uid=not_owner,  # Not the actual owner
         visibility=Visibility.PUBLIC,
     )
@@ -331,17 +360,17 @@ async def test_only_owner_can_change_visibility(sharing_service, test_report):
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_service):
-    """Test that non-completed reports cannot be shared."""
-    # Create report with status=processing
+    """Test that non-completed Ku cannot be shared."""
+    # Create Ku with status=processing
     report_uid = "test_report_processing"
     owner_uid = "test_user_owner"
 
     query = """
-    CREATE (a:Report {
+    CREATE (a:Ku {
         uid: $uid,
         user_uid: $user_uid,
         original_filename: "processing.pdf",
-        report_type: "report",
+        ku_type: "assignment",
         status: "processing",
         file_path: "/test/path",
         file_size: 1024,
@@ -357,21 +386,21 @@ async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_servic
     await neo4j_driver.execute_query(query, uid=report_uid, user_uid=owner_uid)
 
     try:
-        # Try to share processing report
-        share_result = await sharing_service.share_report(
-            report_uid=report_uid,
+        # Try to share processing Ku
+        share_result = await sharing_service.share_ku(
+            ku_uid=report_uid,
             owner_uid=owner_uid,
             recipient_uid="test_user_teacher",
             role="teacher",
         )
 
         assert share_result.is_error
-        assert "Only completed reports" in str(share_result.error)
+        assert "Only completed Ku" in str(share_result.error)
 
     finally:
         # Cleanup
         await neo4j_driver.execute_query(
-            "MATCH (a:Report {uid: $uid}) DELETE a",
+            "MATCH (a:Ku {uid: $uid}) DELETE a",
             uid=report_uid,
         )
 
@@ -384,7 +413,7 @@ async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_servic
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_get_shared_users_list(sharing_service, test_report):
-    """Test fetching list of users report is shared with."""
+    """Test fetching list of users Ku is shared with."""
     report_uid = test_report["uid"]
     owner_uid = test_report["owner_uid"]
 
@@ -396,14 +425,14 @@ async def test_get_shared_users_list(sharing_service, test_report):
     ]
 
     await sharing_service.set_visibility(
-        report_uid=report_uid,
+        ku_uid=report_uid,
         owner_uid=owner_uid,
         visibility=Visibility.SHARED,
     )
 
     for recipient_uid, role in users:
-        await sharing_service.share_report(
-            report_uid=report_uid,
+        await sharing_service.share_ku(
+            ku_uid=report_uid,
             owner_uid=owner_uid,
             recipient_uid=recipient_uid,
             role=role,
@@ -411,7 +440,7 @@ async def test_get_shared_users_list(sharing_service, test_report):
 
     # Get shared users list
     shared_users_result = await sharing_service.get_shared_with_users(
-        report_uid=report_uid,
+        ku_uid=report_uid,
     )
 
     # Note: This may return empty if User nodes don't exist
@@ -429,9 +458,9 @@ async def test_get_shared_users_list(sharing_service, test_report):
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_share_nonexistent_report(sharing_service):
-    """Test sharing a nonexistent report returns appropriate error."""
-    share_result = await sharing_service.share_report(
-        report_uid="nonexistent_report",
+    """Test sharing a nonexistent Ku returns appropriate error."""
+    share_result = await sharing_service.share_ku(
+        ku_uid="nonexistent_report",
         owner_uid="test_user_owner",
         recipient_uid="test_user_recipient",
         role="viewer",
@@ -444,13 +473,13 @@ async def test_share_nonexistent_report(sharing_service):
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_unshare_nonshared_report(sharing_service, test_report):
-    """Test unsharing a report that wasn't shared."""
+    """Test unsharing a Ku that wasn't shared."""
     report_uid = test_report["uid"]
     owner_uid = test_report["owner_uid"]
     never_shared_with = "test_user_never_shared"
 
-    unshare_result = await sharing_service.unshare_report(
-        report_uid=report_uid,
+    unshare_result = await sharing_service.unshare_ku(
+        ku_uid=report_uid,
         owner_uid=owner_uid,
         recipient_uid=never_shared_with,
     )
@@ -462,9 +491,9 @@ async def test_unshare_nonshared_report(sharing_service, test_report):
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_check_access_nonexistent_report(sharing_service):
-    """Test checking access for nonexistent report."""
+    """Test checking access for nonexistent Ku."""
     access_result = await sharing_service.check_access(
-        report_uid="nonexistent_report",
+        ku_uid="nonexistent_report",
         user_uid="test_user",
     )
 

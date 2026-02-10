@@ -1,16 +1,21 @@
 """
-Report Project Models
-======================
+KuProject Models (Tier 2 + Tier 3)
+====================================
 
-Three-tier type system for Report Projects.
+"Ku is the heartbeat of SKUEL."
 
-A Report Project is like Claude/ChatGPT Projects:
-- Simple instruction set (visible, editable text)
-- Optional context notes (reference materials)
-- User controls LLM model selection
-- Transparent feedback generation
+A KuProject is an instruction template for LLM processing of Ku content.
+Like Claude/ChatGPT Projects — simple instruction set, optional context,
+user-controlled model selection, transparent feedback generation.
 
-Works with any report type, not just journals.
+Three-tier type system:
+- KuProjectDTO (Tier 2) — Mutable transfer object
+- KuProject (Tier 3) — Immutable domain model
+
+Works with any KuType, not just ASSIGNMENT. Provides the `instructions`
+that drive AI processing of user-submitted content.
+
+See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
 from dataclasses import dataclass, field
@@ -19,7 +24,8 @@ from enum import Enum
 from typing import Any
 
 from core.models.enums import Domain
-from core.models.enums.report_enums import ProcessorType, ProjectScope
+from core.models.enums.ku_enums import ProcessorType, ProjectScope
+
 
 # ============================================================================
 # TIER 2 - DTO (Transfer Layer)
@@ -27,9 +33,9 @@ from core.models.enums.report_enums import ProcessorType, ProjectScope
 
 
 @dataclass
-class ReportProjectDTO:
+class KuProjectDTO:
     """
-    Mutable data transfer object for report projects.
+    Mutable data transfer object for Ku projects.
 
     Used for:
     - Moving data between service and persistence layers
@@ -42,8 +48,8 @@ class ReportProjectDTO:
     name: str
     instructions: str
     model: str = "claude-3-5-sonnet-20241022"
-    context_notes: list[str] = (field(default_factory=list),)
-    domain: Domain | None = (None,)
+    context_notes: list[str] = field(default_factory=list)
+    domain: Domain | None = None
     is_active: bool = True
     # Assignment fields (ADR-040)
     scope: str = "personal"  # ProjectScope value
@@ -51,12 +57,12 @@ class ReportProjectDTO:
     processor_type: str = "llm"  # ProcessorType value
     group_uid: str | None = None
     # Timestamps
-    created_at: datetime = (field(default_factory=datetime.now),)
-    updated_at: datetime = (field(default_factory=datetime.now),)
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for storage"""
+        """Convert to dictionary for storage."""
         return {
             "uid": self.uid,
             "user_uid": self.user_uid,
@@ -82,14 +88,14 @@ class ReportProjectDTO:
 
 
 @dataclass(frozen=True)
-class ReportProjectPure:
+class KuProject:
     """
-    Immutable domain model for report projects.
+    Immutable domain model for Ku projects (instruction templates).
 
-    A report project defines:
-    1. **Instructions** - Plain text prompt for LLM feedback
-    2. **Context** - Optional reference materials (like project knowledge)
-    3. **Model** - Which LLM to use (user-selectable)
+    A KuProject defines:
+    1. **Instructions** — Plain text prompt for LLM feedback
+    2. **Context** — Optional reference materials (like project knowledge)
+    3. **Model** — Which LLM to use (user-selectable)
 
     Transparency principles:
     - Instructions are visible and editable (no black box)
@@ -102,8 +108,8 @@ class ReportProjectPure:
     name: str
     instructions: str
     model: str = "claude-3-5-sonnet-20241022"
-    context_notes: list[str] = (field(default_factory=list),)
-    domain: Domain | None = (None,)
+    context_notes: list[str] = field(default_factory=list)
+    domain: Domain | None = None
 
     is_active: bool = True
     # Assignment fields (ADR-040)
@@ -112,18 +118,26 @@ class ReportProjectPure:
     processor_type: ProcessorType = ProcessorType.LLM
     group_uid: str | None = None
     # Timestamps
-    created_at: datetime = (field(default_factory=datetime.now),)
-    updated_at: datetime = (field(default_factory=datetime.now),)
+    created_at: datetime = None  # type: ignore[assignment]
+    updated_at: datetime = None  # type: ignore[assignment]
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """Initialize timestamps with proper defaults."""
+        now = datetime.now()
+        if self.created_at is None:
+            object.__setattr__(self, "created_at", now)
+        if self.updated_at is None:
+            object.__setattr__(self, "updated_at", now)
 
     def get_feedback_prompt(self, entry_content: str) -> str:
         """
         Generate the complete prompt for LLM feedback.
 
-        This is the FULL transparency - user can see exactly what goes to the LLM.
+        This is the FULL transparency — user can see exactly what goes to the LLM.
 
         Args:
-            entry_content: The report/journal entry text
+            entry_content: The Ku entry text to analyze
 
         Returns:
             Complete prompt: instructions + context + entry
@@ -139,7 +153,7 @@ class ReportProjectPure:
             prompt_parts.extend([f"- {note}" for note in self.context_notes])
             prompt_parts.append("")
 
-        prompt_parts.append("## Report Entry")
+        prompt_parts.append("## Entry")
         prompt_parts.append(entry_content)
         prompt_parts.append("")
 
@@ -163,7 +177,7 @@ class ReportProjectPure:
         return date.today() > self.due_date
 
     def get_summary(self) -> str:
-        """Get one-line summary of project"""
+        """Get one-line summary of project."""
         instruction_preview = (
             self.instructions[:80] + "..." if len(self.instructions) > 80 else self.instructions
         )
@@ -175,9 +189,9 @@ class ReportProjectPure:
 # ============================================================================
 
 
-def report_project_dto_to_pure(dto: ReportProjectDTO) -> ReportProjectPure:
-    """Convert DTO to immutable domain model"""
-    return ReportProjectPure(
+def ku_project_dto_to_domain(dto: KuProjectDTO) -> KuProject:
+    """Convert KuProjectDTO (Tier 2) to KuProject (Tier 3)."""
+    return KuProject(
         uid=dto.uid,
         user_uid=dto.user_uid,
         name=dto.name,
@@ -198,35 +212,35 @@ def report_project_dto_to_pure(dto: ReportProjectDTO) -> ReportProjectPure:
     )
 
 
-def report_project_pure_to_dto(pure: ReportProjectPure) -> ReportProjectDTO:
-    """Convert domain model to mutable DTO"""
-    return ReportProjectDTO(
-        uid=pure.uid,
-        user_uid=pure.user_uid,
-        name=pure.name,
-        instructions=pure.instructions,
-        model=pure.model,
-        context_notes=list(pure.context_notes),
-        domain=pure.domain,
-        is_active=pure.is_active,
-        scope=pure.scope.value if isinstance(pure.scope, ProjectScope) else pure.scope,
-        due_date=pure.due_date,
-        processor_type=pure.processor_type.value
-        if isinstance(pure.processor_type, ProcessorType)
-        else pure.processor_type,
-        group_uid=pure.group_uid,
-        created_at=pure.created_at,
-        updated_at=pure.updated_at,
-        metadata=dict(pure.metadata),
+def ku_project_domain_to_dto(project: KuProject) -> KuProjectDTO:
+    """Convert KuProject (Tier 3) to KuProjectDTO (Tier 2)."""
+    return KuProjectDTO(
+        uid=project.uid,
+        user_uid=project.user_uid,
+        name=project.name,
+        instructions=project.instructions,
+        model=project.model,
+        context_notes=list(project.context_notes),
+        domain=project.domain,
+        is_active=project.is_active,
+        scope=project.scope.value if isinstance(project.scope, ProjectScope) else project.scope,
+        due_date=project.due_date,
+        processor_type=project.processor_type.value
+        if isinstance(project.processor_type, ProcessorType)
+        else project.processor_type,
+        group_uid=project.group_uid,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+        metadata=dict(project.metadata),
     )
 
 
 # ============================================================================
-# FACTORY FUNCTIONS
+# FACTORY FUNCTION
 # ============================================================================
 
 
-def create_report_project(
+def create_ku_project(
     uid: str,
     user_uid: str,
     name: str,
@@ -238,9 +252,9 @@ def create_report_project(
     due_date: date | None = None,
     processor_type: ProcessorType = ProcessorType.LLM,
     group_uid: str | None = None,
-) -> ReportProjectPure:
+) -> KuProject:
     """
-    Factory function to create a new report project.
+    Factory function to create a new KuProject.
 
     Args:
         uid: Unique identifier
@@ -256,9 +270,9 @@ def create_report_project(
         group_uid: Target group UID for ASSIGNED scope
 
     Returns:
-        Immutable ReportProjectPure instance
+        Immutable KuProject instance
     """
-    return ReportProjectPure(
+    return KuProject(
         uid=uid,
         user_uid=user_uid,
         name=name,
@@ -271,7 +285,4 @@ def create_report_project(
         due_date=due_date,
         processor_type=processor_type,
         group_uid=group_uid,
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-        metadata={},
     )

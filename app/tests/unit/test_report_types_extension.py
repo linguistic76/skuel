@@ -1,145 +1,129 @@
 """
-Unit Tests for Report Types Extension
-=======================================
+Unit Tests for Ku Types Extension
+===================================
 
-Tests PROGRESS and ASSESSMENT enum values, display names,
-is_file_based, subject_uid on Report, and converter logic.
+Tests KuType enum values, display names,
+is_processable, subject_uid on Ku, and converter logic.
 """
 
-from core.models.enums.report_enums import ReportStatus, ReportType
-from core.models.report.report import Report, ReportDTO, report_dto_to_pure, report_pure_to_dto
+from core.models.enums.ku_enums import KuStatus, KuType
+from core.models.ku import Ku, KuDTO
 
 # ============================================================================
 # ENUM TESTS
 # ============================================================================
 
 
-class TestReportTypeEnum:
-    """Test ReportType enum extensions."""
+class TestKuTypeEnum:
+    """Test KuType enum extensions."""
 
-    def test_progress_enum_exists(self):
-        assert ReportType.PROGRESS.value == "progress"
+    def test_ai_report_enum_exists(self):
+        assert KuType.AI_REPORT.value == "ai_report"
 
-    def test_assessment_enum_exists(self):
-        assert ReportType.ASSESSMENT.value == "assessment"
+    def test_feedback_report_enum_exists(self):
+        assert KuType.FEEDBACK_REPORT.value == "feedback_report"
 
-    def test_progress_display_name(self):
-        assert ReportType.PROGRESS.get_display_name() == "Progress Report"
+    def test_ai_report_display_name(self):
+        assert KuType.AI_REPORT.get_display_name() == "AI Report"
 
-    def test_assessment_display_name(self):
-        assert ReportType.ASSESSMENT.get_display_name() == "Teacher Assessment"
+    def test_feedback_report_display_name(self):
+        assert KuType.FEEDBACK_REPORT.get_display_name() == "Feedback Report"
 
-    def test_progress_not_file_based(self):
-        assert ReportType.PROGRESS.is_file_based() is False
+    def test_ai_report_is_processable(self):
+        assert KuType.AI_REPORT.is_processable() is True
 
-    def test_assessment_not_file_based(self):
-        assert ReportType.ASSESSMENT.is_file_based() is False
+    def test_feedback_report_not_processable(self):
+        assert KuType.FEEDBACK_REPORT.is_processable() is False
 
-    def test_transcript_is_file_based(self):
-        assert ReportType.TRANSCRIPT.is_file_based() is True
+    def test_curriculum_not_processable(self):
+        assert KuType.CURRICULUM.is_processable() is False
 
-    def test_assignment_is_file_based(self):
-        assert ReportType.ASSIGNMENT.is_file_based() is True
+    def test_assignment_is_processable(self):
+        assert KuType.ASSIGNMENT.is_processable() is True
 
-    def test_journal_is_file_based(self):
-        assert ReportType.JOURNAL.is_file_based() is True
+    def test_curriculum_not_user_owned(self):
+        assert KuType.CURRICULUM.is_user_owned() is False
 
-    def test_is_progress(self):
-        assert ReportType.PROGRESS.is_progress() is True
-        assert ReportType.ASSESSMENT.is_progress() is False
+    def test_assignment_is_user_owned(self):
+        assert KuType.ASSIGNMENT.is_user_owned() is True
 
-    def test_is_assessment(self):
-        assert ReportType.ASSESSMENT.is_assessment() is True
-        assert ReportType.PROGRESS.is_assessment() is False
+    def test_feedback_report_is_user_owned(self):
+        assert KuType.FEEDBACK_REPORT.is_user_owned() is True
 
-    def test_is_system_generated(self):
-        assert ReportType.PROGRESS.is_system_generated() is True
-        assert ReportType.ASSESSMENT.is_system_generated() is False
-        assert ReportType.TRANSCRIPT.is_system_generated() is False
+    def test_is_derived(self):
+        assert KuType.ASSIGNMENT.is_derived() is True
+        assert KuType.AI_REPORT.is_derived() is True
+        assert KuType.FEEDBACK_REPORT.is_derived() is True
+        assert KuType.CURRICULUM.is_derived() is False
 
 
 # ============================================================================
-# REPORT MODEL TESTS
+# KU MODEL TESTS
 # ============================================================================
 
 
-class TestReportSubjectUid:
-    """Test subject_uid field on Report."""
+class TestKuSubjectUid:
+    """Test subject_uid field on Ku."""
 
     def test_subject_uid_defaults_none(self):
-        report = Report(
-            uid="report_test_123",
+        ku = Ku(
+            uid="ku_test_123",
+            title="Test Ku",
+            ku_type=KuType.ASSIGNMENT,
             user_uid="user_alice",
-            report_type=ReportType.TRANSCRIPT,
-            status=ReportStatus.COMPLETED,
+            status=KuStatus.COMPLETED,
         )
-        assert report.subject_uid is None
+        assert ku.subject_uid is None
 
     def test_subject_uid_set_explicitly(self):
-        report = Report(
-            uid="report_test_123",
+        ku = Ku(
+            uid="ku_test_123",
+            title="Midterm Feedback",
+            ku_type=KuType.FEEDBACK_REPORT,
             user_uid="user_teacher",
-            report_type=ReportType.ASSESSMENT,
-            status=ReportStatus.COMPLETED,
+            status=KuStatus.COMPLETED,
             subject_uid="user_student",
         )
-        assert report.subject_uid == "user_student"
+        assert ku.subject_uid == "user_student"
 
-    def test_progress_defaults_subject_to_self(self):
-        report = Report(
-            uid="report_test_123",
+    def test_is_ai_report_property(self):
+        ku = Ku(
+            uid="ku_test_123",
+            title="Progress Summary",
+            ku_type=KuType.AI_REPORT,
             user_uid="user_alice",
-            report_type=ReportType.PROGRESS,
-            status=ReportStatus.COMPLETED,
+            status=KuStatus.COMPLETED,
         )
-        assert report.subject_uid == "user_alice"
+        assert ku.is_ai_report is True
 
-    def test_assessment_defaults_subject_to_self(self):
-        report = Report(
-            uid="report_test_123",
+    def test_is_feedback_report_property(self):
+        ku = Ku(
+            uid="ku_test_123",
+            title="Teacher Feedback",
+            ku_type=KuType.FEEDBACK_REPORT,
             user_uid="user_teacher",
-            report_type=ReportType.ASSESSMENT,
-            status=ReportStatus.COMPLETED,
-        )
-        assert report.subject_uid == "user_teacher"
-
-    def test_is_progress_report_property(self):
-        report = Report(
-            uid="report_test_123",
-            user_uid="user_alice",
-            report_type=ReportType.PROGRESS,
-            status=ReportStatus.COMPLETED,
-        )
-        assert report.is_progress_report is True
-
-    def test_is_assessment_property(self):
-        report = Report(
-            uid="report_test_123",
-            user_uid="user_teacher",
-            report_type=ReportType.ASSESSMENT,
-            status=ReportStatus.COMPLETED,
+            status=KuStatus.COMPLETED,
             subject_uid="user_student",
         )
-        assert report.is_assessment is True
+        assert ku.is_feedback_report is True
 
-    def test_is_about_self(self):
-        report = Report(
-            uid="report_test_123",
+    def test_is_user_owned(self):
+        ku = Ku(
+            uid="ku_test_123",
+            title="My Submission",
+            ku_type=KuType.ASSIGNMENT,
             user_uid="user_alice",
-            report_type=ReportType.PROGRESS,
-            status=ReportStatus.COMPLETED,
+            status=KuStatus.COMPLETED,
         )
-        assert report.is_about_self is True
+        assert ku.is_user_owned is True
 
-    def test_is_about_other(self):
-        report = Report(
-            uid="report_test_123",
-            user_uid="user_teacher",
-            report_type=ReportType.ASSESSMENT,
-            status=ReportStatus.COMPLETED,
-            subject_uid="user_student",
+    def test_curriculum_not_user_owned(self):
+        ku = Ku(
+            uid="ku_test_123",
+            title="Shared Knowledge",
+            ku_type=KuType.CURRICULUM,
         )
-        assert report.is_about_self is False
+        assert ku.is_user_owned is False
 
 
 # ============================================================================
@@ -147,38 +131,41 @@ class TestReportSubjectUid:
 # ============================================================================
 
 
-class TestReportConversions:
+class TestKuConversions:
     """Test subject_uid roundtrips through DTO conversions."""
 
-    def test_pure_to_dto_preserves_subject_uid(self):
-        report = Report(
-            uid="report_test_123",
+    def test_to_dto_preserves_subject_uid(self):
+        ku = Ku(
+            uid="ku_test_123",
+            title="Teacher Feedback",
+            ku_type=KuType.FEEDBACK_REPORT,
             user_uid="user_teacher",
-            report_type=ReportType.ASSESSMENT,
-            status=ReportStatus.COMPLETED,
+            status=KuStatus.COMPLETED,
             subject_uid="user_student",
         )
-        dto = report_pure_to_dto(report)
+        dto = ku.to_dto()
         assert dto.subject_uid == "user_student"
 
-    def test_dto_to_pure_preserves_subject_uid(self):
-        dto = ReportDTO(
-            uid="report_test_123",
+    def test_from_dto_preserves_subject_uid(self):
+        dto = KuDTO(
+            uid="ku_test_123",
+            title="Teacher Feedback",
+            ku_type=KuType.FEEDBACK_REPORT,
             user_uid="user_teacher",
-            report_type=ReportType.ASSESSMENT.value,
-            status="completed",
+            status=KuStatus.COMPLETED,
             subject_uid="user_student",
         )
-        report = report_dto_to_pure(dto)
-        assert report.subject_uid == "user_student"
+        ku = Ku.from_dto(dto)
+        assert ku.subject_uid == "user_student"
 
     def test_roundtrip_none_subject_uid(self):
-        report = Report(
-            uid="report_test_123",
+        ku = Ku(
+            uid="ku_test_123",
+            title="My Submission",
+            ku_type=KuType.ASSIGNMENT,
             user_uid="user_alice",
-            report_type=ReportType.TRANSCRIPT,
-            status=ReportStatus.COMPLETED,
+            status=KuStatus.COMPLETED,
         )
-        dto = report_pure_to_dto(report)
-        restored = report_dto_to_pure(dto)
+        dto = ku.to_dto()
+        restored = Ku.from_dto(dto)
         assert restored.subject_uid is None

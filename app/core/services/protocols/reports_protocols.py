@@ -1,15 +1,26 @@
 """
-Reports Domain Protocols
-=========================
+Ku Content Protocols
+=====================
 
-Route-facing protocols for the Reports domain services.
+Route-facing protocols for Ku content operations (submission, processing,
+sharing, feedback, scheduling).
+
+These complement the KuOperations protocol in curriculum_protocols.py which
+handles backend CRUD. These protocols cover the higher-level content lifecycle:
+
+    KuSubmissionOperations       — File upload and Ku management
+    KuContentOperations          — Content management (tags, categories, journals, assessments)
+    KuContentSearchOperations    — Cross-type search and statistics
+    KuSharingOperations          — Visibility and sharing control
+    KuProcessingOperations       — Processing pipeline (transcription, LLM)
+    KuProjectOperations          — LLM instruction templates
+    KuFeedbackOperations         — LLM-based feedback generation
+    ProgressKuGeneratorOperations — Progress Ku generation
+    KuScheduleOperations         — Recurring progress Ku scheduling
+
 ISP-compliant: each protocol captures only the methods called from routes.
 
-Return types use Any where concrete types would create circular imports,
-matching the existing pattern in infrastructure_protocols.py.
-
 See: /docs/patterns/protocol_architecture.md
-See: /docs/patterns/SHARING_PATTERNS.md
 """
 
 from datetime import date
@@ -19,11 +30,11 @@ from core.utils.result_simplified import Result
 
 
 @runtime_checkable
-class ReportSubmissionOperations(Protocol):
-    """File upload and report management operations.
+class KuSubmissionOperations(Protocol):
+    """File upload and Ku management operations.
 
-    Route consumer: reports_api.py (primary service)
-    Implementation: ReportSubmissionService
+    Route consumer: ku_api.py (primary service)
+    Implementation: KuSubmissionService
     """
 
     async def submit_file(
@@ -31,40 +42,40 @@ class ReportSubmissionOperations(Protocol):
         file_content: bytes,
         original_filename: str,
         user_uid: str,
-        report_type: Any,
+        ku_type: Any,
         processor_type: Any = ...,
         file_type: str | None = None,
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
     ) -> Result[Any]:
-        """Submit a file for processing. Returns Result[Report]."""
+        """Submit a file for processing. Returns Result[Ku]."""
         ...
 
-    async def get_report(self, uid: str) -> Result[Any | None]:
-        """Get report by UID. Returns Result[Report | None]."""
+    async def get_ku(self, uid: str) -> Result[Any | None]:
+        """Get Ku by UID. Returns Result[Ku | None]."""
         ...
 
-    async def list_reports(
+    async def list_kus(
         self,
         user_uid: str,
-        report_type: Any | None = None,
+        ku_type: Any | None = None,
         status: Any | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> Result[list[Any]]:
-        """List reports for a user with filters. Returns Result[list[Report]]."""
+        """List Ku for a user with filters. Returns Result[list[Ku]]."""
         ...
 
-    async def get_file_content(self, report_uid: str) -> Result[bytes]:
+    async def get_file_content(self, ku_uid: str) -> Result[bytes]:
         """Get original file content. Returns Result[bytes]."""
         ...
 
-    async def get_processed_file_content(self, report_uid: str) -> Result[bytes]:
+    async def get_processed_file_content(self, ku_uid: str) -> Result[bytes]:
         """Get processed file content. Returns Result[bytes]."""
         ...
 
-    async def get_report_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
-        """Get report statistics for a user. Returns Result[dict]."""
+    async def get_ku_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Get Ku statistics for a user. Returns Result[dict]."""
         ...
 
     async def update_processed_content(
@@ -73,77 +84,77 @@ class ReportSubmissionOperations(Protocol):
         processed_content: str,
         processed_file_path: str | None = None,
     ) -> Result[Any]:
-        """Update processed content on a report. Returns Result[Report]."""
+        """Update processed content on a Ku. Returns Result[Ku]."""
         ...
 
 
 @runtime_checkable
-class ReportsCoreOperations(Protocol):
-    """Content management operations (categories, tags, bulk, journals).
+class KuContentOperations(Protocol):
+    """Content management operations (categories, tags, bulk, journals, assessments).
 
-    Route consumer: reports_api.py, reports_sharing_api.py
-    Implementation: ReportsCoreService
+    Route consumer: ku_api.py, ku_sharing_api.py
+    Implementation: KuContentService
     """
 
-    async def get_report(self, uid: str) -> Result[Any]:
-        """Get report by UID. Returns Result[Report]."""
+    async def get_ku(self, uid: str) -> Result[Any]:
+        """Get Ku by UID. Returns Result[Ku]."""
         ...
 
-    async def categorize_report(self, uid: str, category: str) -> Result[Any]:
-        """Set category on a report. Returns Result[Report]."""
+    async def categorize_ku(self, uid: str, category: str) -> Result[Any]:
+        """Set category on a Ku. Returns Result[Ku]."""
         ...
 
     async def add_tags(self, uid: str, tags: list[str]) -> Result[Any]:
-        """Add tags to a report. Returns Result[Report]."""
+        """Add tags to a Ku. Returns Result[Ku]."""
         ...
 
     async def remove_tags(self, uid: str, tags: list[str]) -> Result[Any]:
-        """Remove tags from a report. Returns Result[Report]."""
+        """Remove tags from a Ku. Returns Result[Ku]."""
         ...
 
-    async def publish_report(self, uid: str) -> Result[Any]:
-        """Publish a report. Returns Result[Report]."""
+    async def publish_ku(self, uid: str) -> Result[Any]:
+        """Publish a Ku (set status to COMPLETED). Returns Result[Ku]."""
         ...
 
-    async def archive_report(self, uid: str) -> Result[Any]:
-        """Archive a report. Returns Result[Report]."""
+    async def archive_ku(self, uid: str) -> Result[Any]:
+        """Archive a Ku. Returns Result[Ku]."""
         ...
 
     async def mark_as_draft(self, uid: str) -> Result[Any]:
-        """Mark report as draft. Returns Result[Report]."""
+        """Mark Ku as draft. Returns Result[Ku]."""
         ...
 
-    async def get_reports_by_category(
+    async def get_kus_by_category(
         self,
         category: str,
         limit: int = 50,
         user_uid: str | None = None,
     ) -> Result[list[Any]]:
-        """Get reports by category. Returns Result[list[Report]]."""
+        """Get Ku by category. Returns Result[list[Ku]]."""
         ...
 
-    async def get_recent_reports(
+    async def get_recent_kus(
         self,
         limit: int = 10,
         user_uid: str | None = None,
-        report_type: Any | None = None,
+        ku_type: Any | None = None,
     ) -> Result[list[Any]]:
-        """Get recent reports. Returns Result[list[Report]]."""
+        """Get recent Ku. Returns Result[list[Ku]]."""
         ...
 
     async def bulk_categorize(self, uids: list[str], category: str) -> Result[int]:
-        """Bulk categorize reports. Returns Result[int] (count updated)."""
+        """Bulk categorize Ku. Returns Result[int] (count updated)."""
         ...
 
     async def bulk_tag(self, uids: list[str], tags: list[str]) -> Result[int]:
-        """Bulk tag reports. Returns Result[int] (count updated)."""
+        """Bulk tag Ku. Returns Result[int] (count updated)."""
         ...
 
     async def bulk_delete(self, uids: list[str], soft_delete: bool = True) -> Result[int]:
-        """Bulk delete reports. Returns Result[int] (count deleted)."""
+        """Bulk delete Ku. Returns Result[int] (count deleted)."""
         ...
 
-    async def create_journal_report(
+    async def create_journal_ku(
         self,
         user_uid: str,
         title: str,
@@ -163,7 +174,7 @@ class ReportsCoreOperations(Protocol):
         source_file: str | None = None,
         transcription_uid: str | None = None,
     ) -> Result[Any]:
-        """Create a journal-type report. Returns Result[Report]."""
+        """Create a journal-type Ku (ASSIGNMENT with journal processing). Returns Result[Ku]."""
         ...
 
     async def search(
@@ -171,7 +182,7 @@ class ReportsCoreOperations(Protocol):
         query: str,
         limit: int = 50,
     ) -> Result[list[Any]]:
-        """Search reports (inherited from BaseService). Returns Result[list[Report]]."""
+        """Search Ku (inherited from BaseService). Returns Result[list[Ku]]."""
         ...
 
     async def create_assessment(
@@ -182,7 +193,7 @@ class ReportsCoreOperations(Protocol):
         content: str,
         metadata: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Create a teacher assessment for a student. Returns Result[Report]."""
+        """Create a teacher assessment Ku (FEEDBACK_REPORT). Returns Result[Ku]."""
         ...
 
     async def get_assessments_for_student(
@@ -190,7 +201,7 @@ class ReportsCoreOperations(Protocol):
         student_uid: str,
         limit: int = 50,
     ) -> Result[list[Any]]:
-        """Get assessments received by a student. Returns Result[list[Report]]."""
+        """Get assessment Ku received by a student. Returns Result[list[Ku]]."""
         ...
 
     async def get_assessments_by_teacher(
@@ -198,77 +209,77 @@ class ReportsCoreOperations(Protocol):
         teacher_uid: str,
         limit: int = 50,
     ) -> Result[list[Any]]:
-        """Get assessments authored by a teacher. Returns Result[list[Report]]."""
+        """Get assessment Ku authored by a teacher. Returns Result[list[Ku]]."""
         ...
 
 
 @runtime_checkable
-class ReportsSearchOperations(Protocol):
-    """Cross-domain query operations for all report types.
+class KuContentSearchOperations(Protocol):
+    """Cross-type query operations for all Ku types.
 
-    Route consumer: reports_api.py
-    Implementation: ReportsSearchService
+    Route consumer: ku_api.py
+    Implementation: KuContentSearchService
     """
 
-    async def search_reports(
+    async def search_kus(
         self,
         user_uid: str,
         query: str,
-        report_type: Any | None = None,
+        ku_type: Any | None = None,
         limit: int = 50,
     ) -> Result[list[Any]]:
-        """Search reports with filters. Returns Result[list[Report]]."""
+        """Search Ku with filters. Returns Result[list[Ku]]."""
         ...
 
-    async def get_report_statistics(
+    async def get_ku_statistics(
         self,
         user_uid: str,
         start_date: date,
         end_date: date,
-        report_type: Any | None = None,
+        ku_type: Any | None = None,
     ) -> Result[dict[str, Any]]:
-        """Get report statistics for a date range. Returns Result[dict]."""
+        """Get Ku statistics for a date range. Returns Result[dict]."""
         ...
 
-    async def get_recent_reports(
+    async def get_recent_kus(
         self,
         user_uid: str,
-        report_type: Any | None = None,
+        ku_type: Any | None = None,
         limit: int = 10,
     ) -> Result[list[Any]]:
-        """Get recent reports. Returns Result[list[Report]]."""
+        """Get recent Ku. Returns Result[list[Ku]]."""
         ...
 
-    async def get_journal_for_report(
+    async def get_journal_for_ku(
         self,
-        report_uid: str,
+        ku_uid: str,
         user_uid: str,
     ) -> Result[dict[str, Any] | None]:
-        """Get journal data for a report. Returns Result[dict | None]."""
+        """Get journal data for a Ku. Returns Result[dict | None]."""
         ...
 
 
 @runtime_checkable
-class ReportSharingOperations(Protocol):
+class KuSharingOperations(Protocol):
     """Content sharing and visibility control operations.
 
-    Route consumer: reports_sharing_api.py (primary service)
-    Implementation: ReportSharingService
+    Route consumer: ku_sharing_api.py (primary service)
+    Implementation: KuSharingService
     """
 
-    async def share_report(
+    async def share_ku(
         self,
-        report_uid: str,
+        ku_uid: str,
         owner_uid: str,
         recipient_uid: str,
         role: str = "viewer",
     ) -> Result[bool]:
-        """Share a report with a user. Returns Result[bool]."""
+        """Share a Ku with a user. Returns Result[bool]."""
         ...
 
-    async def unshare_report(
+    async def unshare_ku(
         self,
-        report_uid: str,
+        ku_uid: str,
         owner_uid: str,
         recipient_uid: str,
     ) -> Result[bool]:
@@ -277,68 +288,68 @@ class ReportSharingOperations(Protocol):
 
     async def get_shared_with_users(
         self,
-        report_uid: str,
+        ku_uid: str,
     ) -> Result[list[dict[str, Any]]]:
-        """Get users a report is shared with. Returns Result[list[dict]]."""
+        """Get users a Ku is shared with. Returns Result[list[dict]]."""
         ...
 
-    async def get_reports_shared_with_me(
+    async def get_kus_shared_with_me(
         self,
         user_uid: str,
         limit: int = 50,
     ) -> Result[list[Any]]:
-        """Get reports shared with user. Returns Result[list[ReportDTO]]."""
+        """Get Ku shared with user. Returns Result[list[KuDTO]]."""
         ...
 
     async def set_visibility(
         self,
-        report_uid: str,
+        ku_uid: str,
         owner_uid: str,
         visibility: Any,
     ) -> Result[bool]:
-        """Set report visibility level. Returns Result[bool]."""
+        """Set Ku visibility level. Returns Result[bool]."""
         ...
 
     async def check_access(
         self,
-        report_uid: str,
+        ku_uid: str,
         user_uid: str,
     ) -> Result[bool]:
-        """Check if user has access to report. Returns Result[bool]."""
+        """Check if user has access to Ku. Returns Result[bool]."""
         ...
 
 
 @runtime_checkable
-class ReportsProcessingOperations(Protocol):
-    """Report processing pipeline operations.
+class KuProcessingOperations(Protocol):
+    """Ku processing pipeline operations (transcription, LLM analysis).
 
-    Route consumer: reports_api.py, reports_ui.py
-    Implementation: ReportsProcessingService
+    Route consumer: ku_api.py, ku_ui.py
+    Implementation: KuProcessingService
     """
 
-    async def process_report(
+    async def process_ku(
         self,
-        report_uid: str,
+        ku_uid: str,
         instructions: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Process a report. Returns Result[Report]."""
+        """Process a Ku through the pipeline. Returns Result[Ku]."""
         ...
 
-    async def reprocess_report(
+    async def reprocess_ku(
         self,
-        report_uid: str,
+        ku_uid: str,
         new_instructions: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Reprocess a report with new instructions. Returns Result[Report]."""
+        """Reprocess a Ku with new instructions. Returns Result[Ku]."""
         ...
 
 
 @runtime_checkable
-class ReportProjectOperations(Protocol):
-    """Reusable LLM project template operations.
+class KuProjectOperations(Protocol):
+    """Reusable LLM instruction template operations.
 
-    Route consumer: report_projects_api.py (via CRUDRouteFactory)
-    Implementation: ReportProjectService
+    Route consumer: ku_projects_api.py (via CRUDRouteFactory)
+    Implementation: KuProjectService
     """
 
     async def create_project(
@@ -354,11 +365,11 @@ class ReportProjectOperations(Protocol):
         processor_type: Any = ...,
         group_uid: str | None = None,
     ) -> Result[Any]:
-        """Create a report project. Returns Result[ReportProjectPure]."""
+        """Create a KuProject. Returns Result[KuProject]."""
         ...
 
     async def get_project(self, uid: str) -> Result[Any | None]:
-        """Get project by UID. Returns Result[ReportProjectPure | None]."""
+        """Get project by UID. Returns Result[KuProject | None]."""
         ...
 
     async def list_user_projects(
@@ -366,7 +377,7 @@ class ReportProjectOperations(Protocol):
         user_uid: str,
         active_only: bool = True,
     ) -> Result[list[Any]]:
-        """List user's projects. Returns Result[list[ReportProjectPure]]."""
+        """List user's projects. Returns Result[list[KuProject]]."""
         ...
 
     async def update_project(
@@ -380,7 +391,7 @@ class ReportProjectOperations(Protocol):
         is_active: bool | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Update a project. Returns Result[ReportProjectPure]."""
+        """Update a project. Returns Result[KuProject]."""
         ...
 
     async def delete_project(self, uid: str) -> Result[bool]:
@@ -389,11 +400,11 @@ class ReportProjectOperations(Protocol):
 
 
 @runtime_checkable
-class ReportFeedbackOperations(Protocol):
+class KuFeedbackOperations(Protocol):
     """LLM-based feedback generation operations.
 
-    Route consumer: report_projects_api.py
-    Implementation: ReportFeedbackService
+    Route consumer: ku_projects_api.py
+    Implementation: KuFeedbackService
     """
 
     async def generate_feedback(
@@ -403,16 +414,16 @@ class ReportFeedbackOperations(Protocol):
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[str]:
-        """Generate AI feedback for an entry using a project. Returns Result[str]."""
+        """Generate AI feedback for a Ku entry using a KuProject. Returns Result[str]."""
         ...
 
 
 @runtime_checkable
-class ProgressReportGeneratorOperations(Protocol):
-    """Progress report generation operations.
+class ProgressKuGeneratorOperations(Protocol):
+    """Progress Ku generation operations.
 
-    Route consumer: reports_progress_api.py
-    Implementation: ProgressReportGenerator
+    Route consumer: ku_progress_api.py
+    Implementation: ProgressKuGenerator
     """
 
     async def generate(
@@ -423,16 +434,16 @@ class ProgressReportGeneratorOperations(Protocol):
         depth: str = "standard",
         include_insights: bool = True,
     ) -> Result[Any]:
-        """Generate a progress report. Returns Result[Report]."""
+        """Generate a progress Ku (AI_REPORT type). Returns Result[Ku]."""
         ...
 
 
 @runtime_checkable
-class ReportScheduleOperations(Protocol):
-    """Report schedule CRUD operations.
+class KuScheduleOperations(Protocol):
+    """Recurring progress Ku scheduling operations.
 
-    Route consumer: reports_progress_api.py
-    Implementation: ReportScheduleService
+    Route consumer: ku_progress_api.py
+    Implementation: KuScheduleService
     """
 
     async def create_schedule(
@@ -443,15 +454,15 @@ class ReportScheduleOperations(Protocol):
         domains: list[str] | None = None,
         depth: str = "standard",
     ) -> Result[Any]:
-        """Create a report generation schedule. Returns Result[ReportSchedule]."""
+        """Create a Ku generation schedule. Returns Result[KuSchedule]."""
         ...
 
     async def get_user_schedule(self, user_uid: str) -> Result[Any]:
-        """Get the user's active report schedule. Returns Result[ReportSchedule | None]."""
+        """Get the user's active Ku schedule. Returns Result[KuSchedule | None]."""
         ...
 
     async def update_schedule(self, uid: str, updates: dict[str, Any]) -> Result[Any]:
-        """Update a schedule's configuration. Returns Result[ReportSchedule]."""
+        """Update a schedule's configuration. Returns Result[KuSchedule]."""
         ...
 
     async def deactivate_schedule(self, uid: str) -> Result[bool]:

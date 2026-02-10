@@ -659,7 +659,7 @@ class AdminUIComponents:
         """Render a list of user report projects for admin user detail page.
 
         Args:
-            projects: List of ReportProjectPure domain objects.
+            projects: List of KuProject domain objects.
             _user_uid: User UID (reserved for future linking).
         """
         if not projects:

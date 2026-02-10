@@ -11,11 +11,11 @@ Module Organization:
 - learning_enums: LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus,
                   ContentType, PracticeLevel, KnowledgeType, SELCategory
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
+- ku_enums: KuType, KuStatus, ProcessorType, ProjectScope, JournalType, etc.
 
 Usage:
     from core.models.enums import Priority, ActivityStatus, EntityType
-    # or
-    from core.models.enums import Priority  # Legacy import still works
+    from core.models.enums import KuType, KuStatus, ProcessorType, ProjectScope
 """
 
 # Activity enums - status and priority for trackable activities
@@ -34,6 +34,22 @@ from .entity_enums import (
     Context,
     Domain,
     EntityType,
+)
+
+# Ku enums - unified knowledge unit identity, processing, and scheduling
+from .ku_enums import (
+    AnalysisDepth,
+    ContextEnrichmentLevel,
+    FormattingStyle,
+    JournalCategory,
+    JournalMode,
+    JournalType,
+    KuStatus,
+    KuType,
+    ProcessorType,
+    ProgressDepth,
+    ProjectScope,
+    ScheduleType,
 )
 
 # Learning enums - education, knowledge, and mastery tracking
@@ -90,53 +106,62 @@ __all__ = [
     "DOMAIN_SEL_MAPPING",
     "ActivityStatus",
     "ActivityType",
+    "AnalyticsDomain",
+    # Ku enums (LLM processing)
+    "AnalysisDepth",
     "BridgeType",
     "CacheStrategy",
     "CompletionStatus",
     "ContentScope",
     "ContentType",
     "Context",
+    "ContextEnrichmentLevel",
     "ContextHealthScore",
     "ConversationState",
     "Domain",
     "EducationalLevel",
     "EnergyLevel",
-    # Entity enums
     "EntityType",
     "ErrorSeverity",
     "ExtractionMethod",
     "FacetType",
+    "FormattingStyle",
     "GoalStatus",
     "GuidanceMode",
     "HealthStatus",
     "Intent",
+    # Ku enums (journal processing)
+    "JournalCategory",
+    "JournalMode",
+    "JournalType",
     "KnowledgeStatus",
     "KnowledgeType",
     "KuComplexity",
-    # Learning enums
+    # Ku enums (core)
+    "KuStatus",
+    "KuType",
     "LearningLevel",
     "LearningModality",
     "MasteryStatus",
     "MessageRole",
-    # Neo4j labels
     "NeoLabel",
     "Personality",
     "PracticeLevel",
-    # Activity enums
     "Priority",
-    # Scheduling enums
+    # Ku enums (processing + scheduling)
+    "ProcessorType",
+    "ProgressDepth",
+    "ProjectScope",
     "RecurrencePattern",
     "RelationshipType",
-    "AnalyticsDomain",
-    # Metadata enums
     "ResponseTone",
     "SELCategory",
+    "ScheduleType",
     "SearchScope",
     "SeverityLevel",
     "SystemConstants",
     "TimeOfDay",
     "TrendDirection",
-    # User enums
     "UserRole",
     "Visibility",
 ]

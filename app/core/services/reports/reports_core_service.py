@@ -1,23 +1,32 @@
 """
-Reports Core Service
+Ku Core Service
 ========================
 
-Content management operations for Report entities.
+Content management operations for Ku entities.
 Handles categories, tags, publish/archive workflow, bulk operations,
-and journal-specific CRUD (create_journal_report, FIFO cleanup, etc.).
+and journal-specific CRUD (create_journal_ku, FIFO cleanup, etc.).
 
 ARCHITECTURE (February 2026):
 ------------------------------
-Report nodes are the SINGLE SOURCE OF TRUTH for all submitted content.
-Journals are reports with report_type=JOURNAL (merged February 2026).
+Ku nodes are the SINGLE SOURCE OF TRUTH for all knowledge.
+"Ku is the heartbeat of SKUEL."
+
+Four manifestations:
+    CURRICULUM      → Admin-created shared knowledge (no owner)
+    ASSIGNMENT      → Student submission (user-owned), including journals
+    AI_REPORT       → AI-derived from assignment (user-owned)
+    FEEDBACK_REPORT → Teacher feedback on assignment (teacher-owned)
+
+Journal-specific fields (mood, energy_level, entry_date, journal_type,
+journal_category, etc.) live in metadata — they are NOT first-class Ku fields.
 
 Services:
-- ReportSubmissionService: File upload and storage
-- ReportsProcessingService: Content processing orchestration
-- ReportsCoreService: Content management + journal CRUD (THIS FILE)
-- ReportsSearchService: Read-only queries
-- ReportProjectService: LLM instruction projects
-- ReportFeedbackService: AI feedback generation
+- KuSubmissionService: File upload and storage
+- KuProcessingService: Content processing orchestration
+- KuCoreService: Content management + journal CRUD (THIS FILE)
+- KuSearchService: Read-only queries
+- KuProjectService: LLM instruction projects
+- KuFeedbackService: AI feedback generation
 """
 
 import json
@@ -30,11 +39,8 @@ if TYPE_CHECKING:
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
 from core.events.report_events import AssessmentCreated, ReportDeleted
-from core.models.enums.report_enums import JournalType, ProcessorType, ReportStatus, ReportType
-from core.models.report.report import (
-    Report,
-    ReportDTO,
-)
+from core.models.enums.ku_enums import JournalType, KuStatus, KuType, ProcessorType
+from core.models.ku import Ku, KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations
@@ -45,16 +51,16 @@ from core.utils.sort_functions import get_report_date
 from core.utils.uid_generator import UIDGenerator
 
 # ============================================================================
-# REPORT CATEGORY ENUM
+# KU CATEGORY CONSTANTS
 # ============================================================================
-# Categories for content organization (stored in metadata.category)
+# Categories for content organization (stored in metadata['category'])
 
 
-class ReportCategory:
+class KuCategory:
     """
-    Categories for report content organization.
+    Categories for Ku content organization.
 
-    Stored in Report.metadata['category'].
+    Stored in Ku.metadata['category'].
     Using constants instead of Enum for flexibility with existing data.
     """
 
@@ -101,23 +107,24 @@ class ReportCategory:
         ]
 
 
-class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
+class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
     """
-    Core report service for content management operations.
+    Core Ku service for content management operations.
 
     This service focuses on:
-    - Retrieving reports with content
+    - Retrieving Ku entities with content
     - Status workflow (publish, archive, draft)
     - Category management
     - Tag management
     - Bulk operations
     - Export functionality
+    - Journal CRUD (create_journal_ku, FIFO cleanup)
+    - Assessment CRUD (teacher feedback)
 
-    NOTE: For file submission, use ReportSubmissionService.
-    NOTE: For processing, use ReportsProcessingService.
+    NOTE: For file submission, use KuSubmissionService.
+    NOTE: For processing, use KuProcessingService.
 
-
-    Source Tag: "reports_core_service_explicit"
+    Source Tag: "ku_core_service_explicit"
 
     Confidence Scoring:
     - 0.9+: User explicitly defined relationship
@@ -127,35 +134,35 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
     """
 
     # =========================================================================
-    # DomainConfig (January 2026 Phase 3)
+    # DomainConfig
     # =========================================================================
     _config = DomainConfig(
-        dto_class=ReportDTO,
-        model_class=Report,
-        entity_label="Report",
-        search_fields=("original_filename", "processed_title", "processed_content"),
-        search_order_by="submitted_at",
-        category_field="report_type",
+        dto_class=KuDTO,
+        model_class=Ku,
+        entity_label="Ku",
+        search_fields=("title", "original_filename", "processed_content"),
+        search_order_by="created_at",
+        category_field="ku_type",
         user_ownership_relationship="OWNS",  # User-owned content
     )
 
     def __init__(
         self,
-        backend: UniversalNeo4jBackend[Report] | None = None,
+        backend: UniversalNeo4jBackend[Ku] | None = None,
         event_bus: EventBusOperations | None = None,
         sharing_service: Any | None = None,
         transcript_processor: Any | None = None,
     ) -> None:
         """
-        Initialize reports core service.
+        Initialize Ku core service.
 
         Args:
-            backend: Backend for Report persistence
+            backend: Backend for Ku persistence
             event_bus: Optional event bus for publishing events
             sharing_service: Optional sharing service for access control
             transcript_processor: Optional TranscriptProcessorService for AI processing
         """
-        super().__init__(backend, "ReportsCoreService")
+        super().__init__(backend, "KuCoreService")
         self.event_bus = event_bus
         self.sharing_service = sharing_service
         self.transcript_processor = transcript_processor
@@ -166,59 +173,59 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Report entities."""
-        return "Report"
+        """Return the graph label for Ku entities."""
+        return "Ku"
 
-    def _validate_report_exists(self, report: Report | None) -> Result[Report]:
-        """Validate report exists."""
-        if report:
-            return Result.ok(report)
-        return Result.fail(Errors.not_found("Report not found"))
+    def _validate_ku_exists(self, ku: Ku | None) -> Result[Ku]:
+        """Validate Ku exists."""
+        if ku:
+            return Result.ok(ku)
+        return Result.fail(Errors.not_found("Ku not found"))
 
     # ========================================================================
     # RETRIEVE
     # ========================================================================
 
-    async def get_report(self, uid: str) -> Result[Report]:
+    async def get_ku(self, uid: str) -> Result[Ku]:
         """
-        Get a report by UID.
+        Get a Ku by UID.
 
         Args:
-            uid: Report unique identifier
+            uid: Ku unique identifier
 
         Returns:
-            Result containing the report or an error
+            Result containing the Ku or an error
         """
         result = await self.backend.get(uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        report = result.value
-        if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+        ku = result.value
+        if not ku:
+            return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
 
-        return Result.ok(report)
+        return Result.ok(ku)
 
-    async def get_with_access_check(self, uid: str, user_uid: str) -> Result[Report]:
+    async def get_with_access_check(self, uid: str, user_uid: str) -> Result[Ku]:
         """
-        Get a report with access control verification.
+        Get a Ku with access control verification.
 
-        Checks if the user can view the report based on:
-        - Ownership (user owns the report)
-        - Visibility (PUBLIC reports visible to all)
-        - Sharing (SHARED reports with SHARES_WITH relationship)
+        Checks if the user can view the Ku based on:
+        - Ownership (user owns the Ku)
+        - Visibility (PUBLIC Ku visible to all)
+        - Sharing (SHARED Ku with SHARES_WITH relationship)
 
         Args:
-            uid: Report unique identifier
+            uid: Ku unique identifier
             user_uid: User requesting access
 
         Returns:
-            Result containing the report or an error if access denied
+            Result containing the Ku or an error if access denied
         """
         if not self.sharing_service:
             # Fall back to simple get if no sharing service
-            return await self.get_report(uid)
+            return await self.get_ku(uid)
 
         # Check access
         access_result = await self.sharing_service.check_access(uid, user_uid)
@@ -226,23 +233,23 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             return Result.fail(access_result.expect_error())
 
         if not access_result.value:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
 
-        # User has access, fetch the report
-        return await self.get_report(uid)
+        # User has access, fetch the Ku
+        return await self.get_ku(uid)
 
-    async def get_report_for_date(
+    async def get_ku_for_date(
         self, target_date: date, user_uid: str | None = None
-    ) -> Result[Report | None]:
+    ) -> Result[Ku | None]:
         """
-        Get the report for a specific date.
+        Get the Ku for a specific date.
 
         Args:
-            target_date: Date to find report for
+            target_date: Date to find Ku for
             user_uid: Optional user filter
 
         Returns:
-            Result containing the report if found, None otherwise
+            Result containing the Ku if found, None otherwise
         """
         filters: dict[str, Any] = {}
 
@@ -255,103 +262,93 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        reports = result.value
-        if not reports:
+        kus = result.value
+        if not kus:
             return Result.ok(None)
 
         # Filter by date (checking created_at date portion)
-        for report in reports:
-            if report.created_at:
-                report_date = report.created_at.date()
-                if report_date == target_date:
-                    return Result.ok(report)
+        for ku in kus:
+            if ku.created_at:
+                ku_date = ku.created_at.date()
+                if ku_date == target_date:
+                    return Result.ok(ku)
 
         return Result.ok(None)
 
-    async def get_recent_reports(
+    async def get_recent_kus(
         self,
         limit: int = 10,
         user_uid: str | None = None,
-        report_type: ReportType | None = None,
-    ) -> Result[list[Report]]:
+        ku_type: KuType | None = None,
+    ) -> Result[list[Ku]]:
         """
-        Get recent reports.
+        Get recent Ku entities.
 
         Args:
-            limit: Maximum number of reports to return
+            limit: Maximum number of Ku entities to return
             user_uid: Optional user filter
-            report_type: Optional type filter (e.g., JOURNAL, TRANSCRIPT)
+            ku_type: Optional type filter (e.g., ASSIGNMENT, AI_REPORT)
 
         Returns:
-            Result containing list of reports
+            Result containing list of Ku entities
         """
         filters: dict[str, Any] = {}
 
         if user_uid:
             filters["user_uid"] = user_uid
-        if report_type:
-            filters["report_type"] = report_type.value
+        if ku_type:
+            filters["ku_type"] = ku_type.value
 
         if filters:
             result = await self.backend.find_by(**filters)
         else:
             result = await self.backend.list(limit=limit)
             if result.is_ok:
-                reports_list = result.value
-                reports_list.sort(key=get_report_date, reverse=True)
-                return Result.ok(reports_list[:limit])
+                kus_list = result.value
+                kus_list.sort(key=get_report_date, reverse=True)
+                return Result.ok(kus_list[:limit])
             return Result.ok([])
 
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        reports = result.value or []
+        kus = result.value or []
         # Sort by created_at descending
-        reports.sort(key=get_report_date, reverse=True)
+        kus.sort(key=get_report_date, reverse=True)
 
-        return Result.ok(reports[:limit])
+        return Result.ok(kus[:limit])
 
     # ========================================================================
     # UPDATE
     # ========================================================================
 
-    async def update_report(self, uid: str, updates: dict[str, Any]) -> Result[Report]:
+    async def update_ku(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """
-        Update a report.
+        Update a Ku.
 
         Args:
-            uid: Report UID
+            uid: Ku UID
             updates: Dictionary of updates to apply
 
         Returns:
-            Result containing updated report or error
+            Result containing updated Ku or error
         """
-        # Define allowed fields
+        # Define allowed fields (Ku model first-class fields only)
         allowed_fields = {
             "status",
             "processed_content",
             "processed_file_path",
             "metadata",
             "processing_error",
-            # Journal fields
             "title",
             "content",
+            "summary",
             "tags",
-            "journal_category",
-            "journal_type",
-            "content_type",
-            "entry_date",
-            "mood",
-            "energy_level",
-            "key_topics",
-            "mentioned_people",
-            "mentioned_places",
-            "action_items",
-            "project_uid",
             "feedback",
             "feedback_generated_at",
             "word_count",
-            "reading_time_minutes",
+            "visibility",
+            "instructions",
         }
 
         # Filter updates to allowed fields
@@ -375,7 +372,7 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
 
         updated = result.value
         if not updated:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
 
         return Result.ok(updated)
 
@@ -383,24 +380,24 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
     # DELETE
     # ========================================================================
 
-    async def delete_report(self, uid: str) -> Result[bool]:
+    async def delete_ku(self, uid: str) -> Result[bool]:
         """
-        Delete a report.
+        Delete a Ku.
 
         Args:
-            uid: Report UID to delete
+            uid: Ku UID to delete
 
         Returns:
             Result indicating success or failure
         """
-        # Get report for event data before deletion
+        # Get Ku for event data before deletion
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+        ku = get_result.value
+        if not ku:
+            return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
 
         # Delete
         delete_result = await self.backend.delete(uid)
@@ -409,51 +406,51 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             return Result.fail(delete_result.expect_error())
 
         if delete_result.value:
-            # Publish event
+            # Publish event (reusing ReportDeleted event name for now)
             event = ReportDeleted(
                 report_uid=uid,
-                user_uid=report.user_uid,
-                report_type=report.report_type.value,
+                user_uid=ku.user_uid,
+                report_type=ku.ku_type.value,
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
             self.logger.debug(f"Published ReportDeleted event for {uid}")
             return Result.ok(True)
 
-        return Result.fail(Errors.system("Failed to delete report"))
+        return Result.fail(Errors.system("Failed to delete Ku"))
 
     # ========================================================================
     # STATUS MANAGEMENT
     # ========================================================================
 
-    async def publish_report(self, uid: str) -> Result[Report]:
-        """Publish a report (set status to completed/published)."""
-        return await self._update_report_status(uid, ReportStatus.COMPLETED)
+    async def publish_ku(self, uid: str) -> Result[Ku]:
+        """Publish a Ku (set status to completed/published)."""
+        return await self._update_ku_status(uid, KuStatus.COMPLETED)
 
-    async def archive_report(self, uid: str) -> Result[Report]:
-        """Archive a report by updating status in metadata."""
-        # Get current report
+    async def archive_ku(self, uid: str) -> Result[Ku]:
+        """Archive a Ku by updating status in metadata."""
+        # Get current Ku
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+        ku = get_result.value
+        if not ku:
+            return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
 
         # Update metadata to include archived flag
-        current_metadata = report.metadata or {}
+        current_metadata = ku.metadata or {}
         current_metadata["archived"] = True
         current_metadata["archived_at"] = datetime.now().isoformat()
 
-        return await self.update_report(uid, {"metadata": current_metadata})
+        return await self.update_ku(uid, {"metadata": current_metadata})
 
-    async def mark_as_draft(self, uid: str) -> Result[Report]:
-        """Mark a report as draft (submitted, not yet processed)."""
-        return await self._update_report_status(uid, ReportStatus.SUBMITTED)
+    async def mark_as_draft(self, uid: str) -> Result[Ku]:
+        """Mark a Ku as draft."""
+        return await self._update_ku_status(uid, KuStatus.DRAFT)
 
-    async def _update_report_status(self, uid: str, status: ReportStatus) -> Result[Report]:
-        """Update report status."""
+    async def _update_ku_status(self, uid: str, status: KuStatus) -> Result[Ku]:
+        """Update Ku status."""
         result = await self.backend.update(uid, {"status": status.value})
 
         if result.is_error:
@@ -461,52 +458,52 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
 
         updated = result.value
         if not updated:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+            return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
 
-        self.logger.info(f"Updated report {uid} status to {status.value}")
+        self.logger.info(f"Updated Ku {uid} status to {status.value}")
         return Result.ok(updated)
 
     # ========================================================================
     # CATEGORY MANAGEMENT
     # ========================================================================
 
-    async def categorize_report(self, uid: str, category: str) -> Result[Report]:
+    async def categorize_ku(self, uid: str, category: str) -> Result[Ku]:
         """
-        Categorize a report.
+        Categorize a Ku.
 
-        Categories are stored in Report.metadata['category'].
+        Categories are stored in Ku.metadata['category'].
 
         Args:
-            uid: Report UID
-            category: Category to assign (use ReportCategory constants)
+            uid: Ku UID
+            category: Category to assign (use KuCategory constants)
 
         Returns:
-            Updated report
+            Updated Ku
         """
         # Validate category
-        if category not in ReportCategory.all_categories():
+        if category not in KuCategory.all_categories():
             self.logger.warning(f"Unknown category '{category}', using anyway")
 
-        # Get current report to preserve metadata
+        # Get current Ku to preserve metadata
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+        ku = get_result.value
+        if not ku:
+            return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
 
         # Update metadata with category
-        current_metadata = report.metadata or {}
+        current_metadata = ku.metadata or {}
         current_metadata["category"] = category
 
-        return await self.update_report(uid, {"metadata": current_metadata})
+        return await self.update_ku(uid, {"metadata": current_metadata})
 
-    async def get_reports_by_category(
+    async def get_kus_by_category(
         self, category: str, limit: int = 50, user_uid: str | None = None
-    ) -> Result[list[Report]]:
+    ) -> Result[list[Ku]]:
         """
-        Get reports by category.
+        Get Ku entities by category.
 
         Args:
             category: Category to filter by
@@ -514,9 +511,9 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             user_uid: Optional user filter
 
         Returns:
-            List of reports in category
+            List of Ku entities in category
         """
-        # Get all reports and filter by metadata.category
+        # Get all Ku entities and filter by metadata.category
         filters: dict[str, Any] = {}
         if user_uid:
             filters["user_uid"] = user_uid
@@ -526,10 +523,10 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         else:
             result = await self.backend.list(limit=limit * 2)  # Fetch more, filter down
             if result.is_ok:
-                reports_list = result.value
+                kus_list = result.value
                 # Filter by category in metadata
                 filtered = [
-                    a for a in reports_list if a.metadata and a.metadata.get("category") == category
+                    k for k in kus_list if k.metadata and k.metadata.get("category") == category
                 ]
                 return Result.ok(filtered[:limit])
             return Result.ok([])
@@ -537,9 +534,9 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        reports = result.value or []
+        kus = result.value or []
         # Filter by category in metadata
-        filtered = [a for a in reports if a.metadata and a.metadata.get("category") == category]
+        filtered = [k for k in kus if k.metadata and k.metadata.get("category") == category]
 
         return Result.ok(filtered[:limit])
 
@@ -547,71 +544,71 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
     # TAG MANAGEMENT
     # ========================================================================
 
-    async def add_tags(self, uid: str, tags: list[str]) -> Result[Report]:
+    async def add_tags(self, uid: str, tags: list[str]) -> Result[Ku]:
         """
-        Add tags to a report.
+        Add tags to a Ku.
 
-        Tags are stored in Report.metadata['tags'].
+        Tags are stored in Ku.metadata['tags'].
 
         Args:
-            uid: Report UID
+            uid: Ku UID
             tags: Tags to add
 
         Returns:
-            Updated report
+            Updated Ku
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+        ku = get_result.value
+        if not ku:
+            return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
 
         # Merge with existing tags
-        current_metadata = report.metadata or {}
+        current_metadata = ku.metadata or {}
         current_tags = current_metadata.get("tags", [])
         if not isinstance(current_tags, list):
             current_tags = []
         new_tags = list(set(current_tags + tags))
         current_metadata["tags"] = new_tags
 
-        return await self.update_report(uid, {"metadata": current_metadata})
+        return await self.update_ku(uid, {"metadata": current_metadata})
 
-    async def remove_tags(self, uid: str, tags: list[str]) -> Result[Report]:
+    async def remove_tags(self, uid: str, tags: list[str]) -> Result[Ku]:
         """
-        Remove tags from a report.
+        Remove tags from a Ku.
 
         Args:
-            uid: Report UID
+            uid: Ku UID
             tags: Tags to remove
 
         Returns:
-            Updated report
+            Updated Ku
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+        ku = get_result.value
+        if not ku:
+            return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
 
         # Remove specified tags
-        current_metadata = report.metadata or {}
+        current_metadata = ku.metadata or {}
         current_tags = current_metadata.get("tags", [])
         if not isinstance(current_tags, list):
             current_tags = []
         updated_tags = [t for t in current_tags if t not in tags]
         current_metadata["tags"] = updated_tags
 
-        return await self.update_report(uid, {"metadata": current_metadata})
+        return await self.update_ku(uid, {"metadata": current_metadata})
 
-    async def get_reports_by_tag(
+    async def get_kus_by_tag(
         self, tag: str, limit: int = 50, user_uid: str | None = None
-    ) -> Result[list[Report]]:
+    ) -> Result[list[Ku]]:
         """
-        Get reports with a specific tag.
+        Get Ku entities with a specific tag.
 
         Args:
             tag: Tag to search for
@@ -619,9 +616,9 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             user_uid: Optional user filter
 
         Returns:
-            List of reports with the tag
+            List of Ku entities with the tag
         """
-        # Get all reports and filter by metadata.tags
+        # Get all Ku entities and filter by metadata.tags
         filters: dict[str, Any] = {}
         if user_uid:
             filters["user_uid"] = user_uid
@@ -631,10 +628,10 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         else:
             result = await self.backend.list(limit=limit * 2)
             if result.is_ok:
-                reports_list = result.value
+                kus_list = result.value
                 # Filter by tag in metadata
                 filtered = [
-                    a for a in reports_list if a.metadata and tag in (a.metadata.get("tags") or [])
+                    k for k in kus_list if k.metadata and tag in (k.metadata.get("tags") or [])
                 ]
                 return Result.ok(filtered[:limit])
             return Result.ok([])
@@ -642,9 +639,9 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        reports = result.value or []
+        kus = result.value or []
         # Filter by tag in metadata
-        filtered = [a for a in reports if a.metadata and tag in (a.metadata.get("tags") or [])]
+        filtered = [k for k in kus if k.metadata and tag in (k.metadata.get("tags") or [])]
 
         return Result.ok(filtered[:limit])
 
@@ -654,27 +651,27 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
 
     async def bulk_categorize(self, uids: list[str], category: str) -> Result[int]:
         """
-        Bulk categorize multiple reports.
+        Bulk categorize multiple Ku entities.
 
         Args:
-            uids: List of report UIDs to categorize
-            category: Category to assign to all reports
+            uids: List of Ku UIDs to categorize
+            category: Category to assign to all entities
 
         Returns:
-            Result containing count of successfully updated reports
+            Result containing count of successfully updated entities
         """
-        self.logger.info(f"Bulk categorizing {len(uids)} reports to category: {category}")
+        self.logger.info(f"Bulk categorizing {len(uids)} Ku entities to category: {category}")
 
         updated_count = 0
         errors = []
 
         for uid in uids:
-            result = await self.categorize_report(uid, category)
+            result = await self.categorize_ku(uid, category)
             if result.is_ok:
                 updated_count += 1
-                self.logger.debug(f"Updated report {uid} to category {category}")
+                self.logger.debug(f"Updated Ku {uid} to category {category}")
             else:
-                error_msg = f"Failed to update report {uid}: {result.error}"
+                error_msg = f"Failed to update Ku {uid}: {result.error}"
                 errors.append(error_msg)
                 self.logger.warning(error_msg)
 
@@ -682,22 +679,22 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             self.logger.warning(f"Bulk categorization completed with {len(errors)} errors")
 
         self.logger.info(
-            f"Bulk categorization completed: {updated_count}/{len(uids)} reports updated"
+            f"Bulk categorization completed: {updated_count}/{len(uids)} Ku entities updated"
         )
         return Result.ok(updated_count)
 
     async def bulk_tag(self, uids: list[str], tags: list[str]) -> Result[int]:
         """
-        Bulk add tags to multiple reports.
+        Bulk add tags to multiple Ku entities.
 
         Args:
-            uids: List of report UIDs to tag
-            tags: List of tags to add to all reports
+            uids: List of Ku UIDs to tag
+            tags: List of tags to add to all entities
 
         Returns:
-            Result containing count of successfully updated reports
+            Result containing count of successfully updated entities
         """
-        self.logger.info(f"Bulk tagging {len(uids)} reports with tags: {tags}")
+        self.logger.info(f"Bulk tagging {len(uids)} Ku entities with tags: {tags}")
 
         updated_count = 0
         errors = []
@@ -706,54 +703,54 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             result = await self.add_tags(uid, tags)
             if result.is_ok:
                 updated_count += 1
-                self.logger.debug(f"Added tags {tags} to report {uid}")
+                self.logger.debug(f"Added tags {tags} to Ku {uid}")
             else:
-                error_msg = f"Failed to tag report {uid}: {result.error}"
+                error_msg = f"Failed to tag Ku {uid}: {result.error}"
                 errors.append(error_msg)
                 self.logger.warning(error_msg)
 
         if errors:
             self.logger.warning(f"Bulk tagging completed with {len(errors)} errors")
 
-        self.logger.info(f"Bulk tagging completed: {updated_count}/{len(uids)} reports updated")
+        self.logger.info(f"Bulk tagging completed: {updated_count}/{len(uids)} Ku entities updated")
         return Result.ok(updated_count)
 
     async def bulk_delete(self, uids: list[str], soft_delete: bool = True) -> Result[int]:
         """
-        Bulk delete multiple reports.
+        Bulk delete multiple Ku entities.
 
         Args:
-            uids: List of report UIDs to delete
+            uids: List of Ku UIDs to delete
             soft_delete: If True, archive instead of permanent delete
 
         Returns:
-            Result containing count of successfully deleted reports
+            Result containing count of successfully deleted entities
         """
-        self.logger.info(f"Bulk deleting {len(uids)} reports (soft_delete={soft_delete})")
+        self.logger.info(f"Bulk deleting {len(uids)} Ku entities (soft_delete={soft_delete})")
 
         deleted_count = 0
         errors = []
 
         for uid in uids:
             if soft_delete:
-                result = await self.archive_report(uid)
+                result = await self.archive_ku(uid)
                 success = result.is_ok
             else:
-                delete_result = await self.delete_report(uid)
+                delete_result = await self.delete_ku(uid)
                 success = delete_result.is_ok and bool(delete_result.value)
 
             if success:
                 deleted_count += 1
-                self.logger.debug(f"Deleted report {uid}")
+                self.logger.debug(f"Deleted Ku {uid}")
             else:
-                error_msg = f"Failed to delete report {uid}"
+                error_msg = f"Failed to delete Ku {uid}"
                 errors.append(error_msg)
                 self.logger.warning(error_msg)
 
         if errors:
             self.logger.warning(f"Bulk deletion completed with {len(errors)} errors")
 
-        self.logger.info(f"Bulk deletion completed: {deleted_count}/{len(uids)} reports deleted")
+        self.logger.info(f"Bulk deletion completed: {deleted_count}/{len(uids)} Ku entities deleted")
         return Result.ok(deleted_count)
 
     # ========================================================================
@@ -762,39 +759,38 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
 
     async def export_to_markdown(self, uid: str) -> Result[str]:
         """
-        Export report to markdown format.
+        Export Ku to markdown format.
 
         Args:
-            uid: Report UID
+            uid: Ku UID
 
         Returns:
-            Markdown formatted report content
+            Markdown formatted Ku content
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        report = get_result.value
-        if not report:
-            return Result.fail(Errors.not_found("resource", f"Report {uid} not found"))
+        ku = get_result.value
+        if not ku:
+            return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
 
         # Extract metadata
-        metadata = report.metadata or {}
+        metadata = ku.metadata or {}
         category = metadata.get("category", "")
-        tags = metadata.get("tags", [])
-        title = metadata.get("title", report.original_filename)
+        tags_list = metadata.get("tags", [])
 
         # Format as markdown
         md_lines = [
-            f"# {title}",
-            f"*{report.created_at.strftime('%Y-%m-%d')}*" if report.created_at else "",
+            f"# {ku.title}",
+            f"*{ku.created_at.strftime('%Y-%m-%d')}*" if ku.created_at else "",
             "",
-            report.processed_content or "",
+            ku.processed_content or ku.content or "",
             "",
-            f"**Type:** {report.report_type.value}" if report.report_type else "",
+            f"**Type:** {ku.ku_type.value}" if ku.ku_type else "",
             f"**Category:** {category}" if category else "",
-            f"**Tags:** {', '.join(tags)}" if tags else "",
-            f"**Status:** {report.status.value}" if report.status else "",
+            f"**Tags:** {', '.join(tags_list)}" if tags_list else "",
+            f"**Status:** {ku.status.value}" if ku.status else "",
         ]
 
         markdown = "\n".join(line for line in md_lines if line)
@@ -802,10 +798,17 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
 
     # ========================================================================
     # JOURNAL CRUD (merged from JournalsCoreService — February 2026)
+    #
+    # Journals are ASSIGNMENT Ku with journal-specific fields in metadata:
+    #   metadata['journal_type'], metadata['journal_category'],
+    #   metadata['entry_date'], metadata['mood'], metadata['energy_level'],
+    #   metadata['key_topics'], metadata['action_items'],
+    #   metadata['source_type'], metadata['source_file'],
+    #   metadata['transcription_uid']
     # ========================================================================
 
-    @with_error_handling("create_journal_report", error_type="database")
-    async def create_journal_report(
+    @with_error_handling("create_journal_ku", error_type="database")
+    async def create_journal_ku(
         self,
         user_uid: str,
         title: str,
@@ -825,12 +828,13 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         source_type: str | None = None,
         source_file: str | None = None,
         transcription_uid: str | None = None,
-    ) -> Result[Report]:
+    ) -> Result[Ku]:
         """
-        Create a journal-type report.
+        Create a journal-type Ku (ASSIGNMENT with journal metadata).
 
-        Journals are Reports with report_type=JOURNAL. This method handles
-        journal-specific creation logic including FIFO cleanup for VOICE journals.
+        Journals are Ku entities with ku_type=ASSIGNMENT and journal-specific
+        fields stored in metadata. This method handles journal-specific
+        creation logic including FIFO cleanup for VOICE journals.
 
         Args:
             user_uid: User who owns this journal
@@ -844,52 +848,60 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             energy_level: Optional energy level (1-10)
             key_topics: Optional extracted topics
             action_items: Optional action items
-            project_uid: Optional ReportProject UID for AI feedback
+            project_uid: Optional KuProject UID for AI feedback
             metadata: Optional additional metadata
             enforce_fifo: If True, enforce FIFO cleanup for VOICE journals
 
         Returns:
-            Result containing the created Report
+            Result containing the created Ku
         """
-        from core.models.enums.report_enums import JournalCategory as JCat
+        from core.models.enums.ku_enums import JournalCategory as JCat
 
-        uid = UIDGenerator.generate_uid("report")
+        uid = UIDGenerator.generate_uid("ku")
 
-        # Build journal category enum if provided
-        category_enum = None
+        # Build journal metadata
+        journal_metadata = metadata.copy() if metadata else {}
+        journal_metadata["journal_type"] = journal_type.value
         if journal_category:
             try:
                 category_enum = JCat(journal_category)
+                journal_metadata["journal_category"] = category_enum.value
             except ValueError:
                 self.logger.warning(f"Unknown journal category '{journal_category}', ignoring")
+        journal_metadata["entry_date"] = (entry_date or date.today()).isoformat()
+        if mood:
+            journal_metadata["mood"] = mood
+        if energy_level is not None:
+            journal_metadata["energy_level"] = energy_level
+        if key_topics:
+            journal_metadata["key_topics"] = key_topics
+        if action_items:
+            journal_metadata["action_items"] = action_items
+        if project_uid:
+            journal_metadata["project_uid"] = project_uid
+        if source_type:
+            journal_metadata["source_type"] = source_type
+        if source_file:
+            journal_metadata["source_file"] = source_file
+        if transcription_uid:
+            journal_metadata["transcription_uid"] = transcription_uid
 
-        journal = Report(
+        journal = Ku(
             uid=uid,
-            user_uid=user_uid,
-            report_type=ReportType.JOURNAL,
-            status=ReportStatus.DRAFT,
             title=title,
+            ku_type=KuType.ASSIGNMENT,
+            user_uid=user_uid,
+            status=KuStatus.DRAFT,
             content=content,
-            journal_type=journal_type,
-            journal_category=category_enum,
-            entry_date=entry_date or date.today(),
-            tags=tags or [],
-            mood=mood,
-            energy_level=energy_level,
-            key_topics=key_topics or [],
-            action_items=action_items or [],
-            project_uid=project_uid,
-            metadata=metadata,
-            source_type=source_type,
-            source_file=source_file,
-            transcription_uid=transcription_uid,
+            tags=tuple(tags) if tags else (),
+            metadata=journal_metadata,
         )
 
         result = await self.backend.create(journal)
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        self.logger.info(f"Created journal report: {uid} - {title}")
+        self.logger.info(f"Created journal Ku: {uid} - {title}")
 
         # Enforce FIFO for voice journals
         if enforce_fifo and journal_type == JournalType.VOICE:
@@ -903,9 +915,9 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         user_uid: str,
         journal_type: JournalType,
         limit: int = 50,
-    ) -> Result[list[Report]]:
+    ) -> Result[list[Ku]]:
         """
-        Get journal reports by type for a user.
+        Get journal Ku entities by type for a user.
 
         Args:
             user_uid: User identifier
@@ -913,29 +925,32 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             limit: Maximum number of journals to return
 
         Returns:
-            Result containing list of journal reports, newest first
+            Result containing list of journal Ku entities, newest first
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
-            report_type=ReportType.JOURNAL.value,
-            journal_type=journal_type.value,
-            limit=limit,
+            ku_type=KuType.ASSIGNMENT.value,
         )
 
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        journals = result.value or []
+        kus = result.value or []
+        # Filter by journal_type in metadata
+        journals = [
+            k for k in kus
+            if k.metadata and k.metadata.get("journal_type") == journal_type.value
+        ]
         journals.sort(key=_get_entry_date_key, reverse=True)
         return Result.ok(journals[:limit])
 
     @with_error_handling("get_voice_journals", error_type="database")
-    async def get_voice_journals(self, user_uid: str, limit: int = 3) -> Result[list[Report]]:
+    async def get_voice_journals(self, user_uid: str, limit: int = 3) -> Result[list[Ku]]:
         """Get voice journals (ephemeral, max 3) for a user."""
         return await self.get_journals_by_type(user_uid, JournalType.VOICE, limit)
 
     @with_error_handling("get_curated_journals", error_type="database")
-    async def get_curated_journals(self, user_uid: str, limit: int = 50) -> Result[list[Report]]:
+    async def get_curated_journals(self, user_uid: str, limit: int = 50) -> Result[list[Ku]]:
         """Get curated journals (permanent) for a user."""
         return await self.get_journals_by_type(user_uid, JournalType.CURATED, limit)
 
@@ -947,9 +962,9 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         end_date: date,
         journal_type: JournalType | None = None,
         limit: int = 100,
-    ) -> Result[list[Report]]:
+    ) -> Result[list[Ku]]:
         """
-        Get journal reports within a date range.
+        Get journal Ku entities within a date range.
 
         Args:
             user_uid: User identifier
@@ -959,62 +974,83 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             limit: Maximum number to return
 
         Returns:
-            Result containing list of journal reports
+            Result containing list of journal Ku entities
         """
-        filters: dict[str, Any] = {
-            "user_uid": user_uid,
-            "report_type": ReportType.JOURNAL.value,
-            "entry_date__gte": start_date,
-            "entry_date__lte": end_date,
-        }
-
-        if journal_type:
-            filters["journal_type"] = journal_type.value
-
-        result = await self.backend.find_by(**filters, limit=limit)
+        result = await self.backend.find_by(
+            user_uid=user_uid,
+            ku_type=KuType.ASSIGNMENT.value,
+        )
 
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        journals = result.value or []
+        kus = result.value or []
+
+        # Filter by journal metadata
+        journals = []
+        for ku in kus:
+            if not ku.metadata or not ku.metadata.get("journal_type"):
+                continue
+            if journal_type and ku.metadata.get("journal_type") != journal_type.value:
+                continue
+            # Filter by entry_date in metadata
+            entry_date_str = ku.metadata.get("entry_date")
+            if entry_date_str:
+                try:
+                    entry = date.fromisoformat(entry_date_str)
+                    if start_date <= entry <= end_date:
+                        journals.append(ku)
+                except (ValueError, TypeError):
+                    pass
+
         journals.sort(key=_get_entry_date_key, reverse=True)
-        return Result.ok(journals)
+        return Result.ok(journals[:limit])
 
     @with_error_handling("promote_to_curated", error_type="database")
-    async def promote_to_curated(self, uid: str) -> Result[Report]:
+    async def promote_to_curated(self, uid: str) -> Result[Ku]:
         """
         Promote a voice journal to curated (permanent).
 
-        Changes journal_type from VOICE to CURATED.
+        Changes journal_type in metadata from VOICE to CURATED.
         This removes the journal from FIFO cleanup.
 
         Args:
-            uid: Report UID to promote
+            uid: Ku UID to promote
 
         Returns:
-            Result containing the promoted report
+            Result containing the promoted Ku
         """
-        return await self.update_report(uid, {"journal_type": JournalType.CURATED.value})
+        get_result = await self.backend.get(uid)
+        if get_result.is_error:
+            return Result.fail(get_result.expect_error())
 
-    async def get_journal_with_insights(self, uid: str) -> Result[Report | None]:
+        ku = get_result.value
+        if not ku:
+            return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
+
+        current_metadata = ku.metadata or {}
+        current_metadata["journal_type"] = JournalType.CURATED.value
+        return await self.update_ku(uid, {"metadata": current_metadata})
+
+    async def get_journal_with_insights(self, uid: str) -> Result[Ku | None]:
         """
-        Get a journal report with its extracted insights.
+        Get a journal Ku with its extracted insights.
 
         Args:
-            uid: Report UID
+            uid: Ku UID
 
         Returns:
-            Result containing the report (includes insights in model fields)
+            Result containing the Ku (includes insights in metadata)
         """
         result = await self.backend.get(uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        report = result.value
-        if not report or not report.is_journal:
+        ku = result.value
+        if not ku or not (ku.metadata and ku.metadata.get("journal_type")):
             return Result.ok(None)
 
-        return Result.ok(report)
+        return Result.ok(ku)
 
     # ========================================================================
     # FIFO CLEANUP FOR VOICE JOURNALS
@@ -1022,23 +1058,23 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
 
     async def process_assignment_submission(
         self,
-        report_uid: str,
+        ku_uid: str,
         project_uid: str,
     ) -> Result[bool]:
         """
-        Process a report submitted against an ASSIGNED ReportProject.
+        Process a Ku submitted against an ASSIGNED KuProject.
 
         When a student submits against an assigned project:
         1. Create FULFILLS_PROJECT relationship
         2. Look up the project's owner (teacher)
-        3. Auto-create SHARES_WITH from teacher to report
-        4. Set report status to MANUAL_REVIEW if processor_type is HUMAN
+        3. Auto-create SHARES_WITH from teacher to Ku
+        4. Set Ku status to SUBMITTED if processor_type is HUMAN
 
-        Called by routes after report creation when project_uid is provided.
+        Called by routes after Ku creation when project_uid is provided.
 
         Args:
-            report_uid: The submitted report UID
-            project_uid: The ReportProject UID this report fulfills
+            ku_uid: The submitted Ku UID
+            project_uid: The KuProject UID this Ku fulfills
 
         Returns:
             Result[bool]: True if assignment processing was applied
@@ -1049,7 +1085,7 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             # Check if the project is ASSIGNED scope
             records, _, _ = await self.backend.driver.execute_query(
                 """
-                MATCH (project:ReportProject {uid: $project_uid})
+                MATCH (project:KuProject {uid: $project_uid})
                 RETURN project.scope as scope,
                        project.user_uid as teacher_uid,
                        project.processor_type as processor_type
@@ -1070,12 +1106,12 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             # 1. Create FULFILLS_PROJECT relationship
             await self.backend.driver.execute_query(
                 f"""
-                MATCH (report:Report {{uid: $report_uid}})
-                MATCH (project:ReportProject {{uid: $project_uid}})
-                MERGE (report)-[:{RelationshipName.FULFILLS_PROJECT}]->(project)
+                MATCH (ku:Ku {{uid: $ku_uid}})
+                MATCH (project:KuProject {{uid: $project_uid}})
+                MERGE (ku)-[:{RelationshipName.FULFILLS_PROJECT}]->(project)
                 RETURN true as success
                 """,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
                 project_uid=project_uid,
             )
 
@@ -1083,42 +1119,42 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             await self.backend.driver.execute_query(
                 """
                 MATCH (teacher:User {uid: $teacher_uid})
-                MATCH (report:Report {uid: $report_uid})
-                MERGE (teacher)-[r:SHARES_WITH]->(report)
+                MATCH (ku:Ku {uid: $ku_uid})
+                MERGE (teacher)-[r:SHARES_WITH]->(ku)
                 SET r.shared_at = datetime($now),
                     r.role = 'teacher'
                 RETURN true as success
                 """,
                 teacher_uid=teacher_uid,
-                report_uid=report_uid,
+                ku_uid=ku_uid,
                 now=datetime.now().isoformat(),
             )
 
-            # 3. Set status to MANUAL_REVIEW if processor_type is HUMAN
+            # 3. Set status to SUBMITTED if processor_type is HUMAN
             if processor_type in ("human", "hybrid"):
                 await self.backend.driver.execute_query(
                     """
-                    MATCH (report:Report {uid: $report_uid})
-                    SET report.status = $status,
-                        report.processor_type = $processor_type,
-                        report.updated_at = datetime($now)
+                    MATCH (ku:Ku {uid: $ku_uid})
+                    SET ku.status = $status,
+                        ku.processor_type = $processor_type,
+                        ku.updated_at = datetime($now)
                     RETURN true as success
                     """,
-                    report_uid=report_uid,
-                    status=ReportStatus.MANUAL_REVIEW.value,
+                    ku_uid=ku_uid,
+                    status=KuStatus.SUBMITTED.value,
                     processor_type=processor_type,
                     now=datetime.now().isoformat(),
                 )
 
             self.logger.info(
-                f"Assignment submission processed: report={report_uid} -> project={project_uid}, "
+                f"Assignment submission processed: ku={ku_uid} -> project={project_uid}, "
                 f"teacher={teacher_uid}, processor={processor_type}"
             )
             return Result.ok(True)
 
         except Exception as e:
             self.logger.error(f"Error processing assignment submission: {e}")
-            return Result.ok(False)  # Non-fatal — report was still created
+            return Result.ok(False)  # Non-fatal — Ku was still created
 
     async def _enforce_voice_fifo(self, user_uid: str) -> Result[int]:
         """
@@ -1139,15 +1175,20 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
 
         result = await self.backend.find_by(
             user_uid=user_uid,
-            report_type=ReportType.JOURNAL.value,
-            journal_type=JournalType.VOICE.value,
+            ku_type=KuType.ASSIGNMENT.value,
         )
 
         if result.is_error:
-            self.logger.warning(f"Failed to get voice journals for FIFO: {result.error}")
+            self.logger.warning(f"Failed to get Ku entities for FIFO: {result.error}")
             return Result.ok(0)
 
-        journals = result.value or []
+        kus = result.value or []
+        # Filter to voice journals only
+        journals = [
+            k for k in kus
+            if k.metadata and k.metadata.get("journal_type") == JournalType.VOICE.value
+        ]
+
         if len(journals) <= max_retention:
             return Result.ok(0)
 
@@ -1167,7 +1208,7 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         return Result.ok(deleted_count)
 
     # ========================================================================
-    # ASSESSMENT CRUD (Teacher Assessments)
+    # ASSESSMENT CRUD (Teacher Assessments → FEEDBACK_REPORT Ku)
     # ========================================================================
 
     @with_error_handling("create_assessment", error_type="database")
@@ -1178,11 +1219,11 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         title: str,
         content: str,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[Report]:
+    ) -> Result[Ku]:
         """
-        Create a teacher assessment for a student.
+        Create a teacher assessment (feedback) for a student.
 
-        Creates a Report with report_type=ASSESSMENT, auto-shares with student.
+        Creates a Ku with ku_type=FEEDBACK_REPORT, auto-shares with student.
 
         Args:
             teacher_uid: Teacher creating the assessment
@@ -1192,19 +1233,19 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             metadata: Optional additional metadata
 
         Returns:
-            Result containing the created Report
+            Result containing the created Ku
         """
         from core.models.enums.metadata_enums import Visibility
 
-        uid = UIDGenerator.generate_uid("report")
+        uid = UIDGenerator.generate_uid("ku")
 
-        assessment = Report(
+        assessment = Ku(
             uid=uid,
-            user_uid=teacher_uid,
-            report_type=ReportType.ASSESSMENT,
-            status=ReportStatus.COMPLETED,
-            processor_type=ProcessorType.HUMAN,
             title=title,
+            ku_type=KuType.FEEDBACK_REPORT,
+            user_uid=teacher_uid,
+            status=KuStatus.COMPLETED,
+            processor_type=ProcessorType.HUMAN,
             content=content,
             subject_uid=subject_uid,
             created_by=teacher_uid,
@@ -1220,11 +1261,11 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
         try:
             await self.backend.driver.execute_query(
                 """
-                MATCH (r:Report {uid: $report_uid})
+                MATCH (k:Ku {uid: $ku_uid})
                 MATCH (u:User {uid: $subject_uid})
-                MERGE (r)-[:ASSESSMENT_OF]->(u)
+                MERGE (k)-[:ASSESSMENT_OF]->(u)
                 """,
-                report_uid=uid,
+                ku_uid=uid,
                 subject_uid=subject_uid,
             )
         except Exception as e:
@@ -1235,13 +1276,13 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             await self.backend.driver.execute_query(
                 """
                 MATCH (student:User {uid: $subject_uid})
-                MATCH (r:Report {uid: $report_uid})
-                MERGE (student)-[rel:SHARES_WITH]->(r)
+                MATCH (k:Ku {uid: $ku_uid})
+                MERGE (student)-[rel:SHARES_WITH]->(k)
                 SET rel.shared_at = datetime($now),
                     rel.role = 'student'
                 """,
                 subject_uid=subject_uid,
-                report_uid=uid,
+                ku_uid=uid,
                 now=datetime.now().isoformat(),
             )
         except Exception as e:
@@ -1262,7 +1303,7 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
     @with_error_handling("get_assessments_for_student", error_type="database")
     async def get_assessments_for_student(
         self, student_uid: str, limit: int = 50
-    ) -> Result[list[Report]]:
+    ) -> Result[list[Ku]]:
         """
         Get assessments received by a student.
 
@@ -1271,48 +1312,34 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             limit: Maximum number of assessments to return
 
         Returns:
-            Result containing list of assessment Reports
+            Result containing list of FEEDBACK_REPORT Ku entities
         """
         try:
             records, _, _ = await self.backend.driver.execute_query(
                 """
-                MATCH (r:Report)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
-                WHERE r.report_type = 'assessment'
-                RETURN r
-                ORDER BY r.created_at DESC
+                MATCH (k:Ku)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
+                WHERE k.ku_type = 'feedback_report'
+                RETURN k
+                ORDER BY k.created_at DESC
                 LIMIT $limit
                 """,
                 student_uid=student_uid,
                 limit=limit,
             )
-            reports = []
+            kus = []
             for record in records:
-                node = record["r"]
-                dto = ReportDTO(
-                    uid=node["uid"],
-                    user_uid=node.get("user_uid", ""),
-                    report_type=node.get("report_type", "assessment"),
-                    status=node.get("status", "completed"),
-                    subject_uid=node.get("subject_uid"),
-                    title=node.get("title"),
-                    content=node.get("content"),
-                    created_by=node.get("created_by"),
-                    created_at=node.get("created_at"),
-                    updated_at=node.get("updated_at"),
-                    visibility=node.get("visibility", "shared"),
-                )
-                from core.models.report.report import report_dto_to_pure
-
-                reports.append(report_dto_to_pure(dto))
-            return Result.ok(reports)
+                node = record["k"]
+                dto = KuDTO.from_dict(dict(node))
+                kus.append(Ku.from_dto(dto))
+            return Result.ok(kus)
         except Exception as e:
             self.logger.error(f"Failed to get assessments for student {student_uid}: {e}")
-            return Result.fail(Errors.database(str(e)))
+            return Result.fail(Errors.database("get_assessments_for_student", str(e)))
 
     @with_error_handling("get_assessments_by_teacher", error_type="database")
     async def get_assessments_by_teacher(
         self, teacher_uid: str, limit: int = 50
-    ) -> Result[list[Report]]:
+    ) -> Result[list[Ku]]:
         """
         Get assessments authored by a teacher.
 
@@ -1321,18 +1348,18 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             limit: Maximum number of assessments to return
 
         Returns:
-            Result containing list of assessment Reports
+            Result containing list of FEEDBACK_REPORT Ku entities
         """
         result = await self.backend.find_by(
             user_uid=teacher_uid,
-            report_type=ReportType.ASSESSMENT.value,
+            ku_type=KuType.FEEDBACK_REPORT.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        reports = result.value or []
-        reports.sort(key=_get_created_at_key, reverse=True)
-        return Result.ok(reports[:limit])
+        kus = result.value or []
+        kus.sort(key=_get_created_at_key, reverse=True)
+        return Result.ok(kus[:limit])
 
     # ========================================================================
     # EVENT HANDLERS
@@ -1340,12 +1367,12 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
 
     async def handle_transcription_completed(self, event: "TranscriptionCompleted") -> None:
         """
-        Create journal-type report when transcription completes.
+        Create journal-type Ku when transcription completes.
 
         Pipeline:
         1. Try AI processing via TranscriptProcessorService (if available)
         2. Fall back to raw transcript if AI fails
-        3. Create Report with report_type=JOURNAL via create_journal_report()
+        3. Create Ku with ku_type=ASSIGNMENT and journal metadata via create_journal_ku()
         4. Triggers FIFO cleanup for VOICE journals
 
         Args:
@@ -1355,11 +1382,9 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             Errors logged but not raised — journal creation is best-effort
             to prevent transcription failure if journal creation fails.
         """
-        from core.models.enums.report_enums import JournalType
-
         try:
             self.logger.info(
-                f"Creating journal report from transcription {event.transcription_uid} "
+                f"Creating journal Ku from transcription {event.transcription_uid} "
                 f"for user {event.user_uid}"
             )
 
@@ -1392,12 +1417,12 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
                     )
 
             # Build metadata
-            metadata: dict[str, str] = {}
+            journal_metadata: dict[str, str] = {}
             if summary:
-                metadata["summary"] = summary
+                journal_metadata["summary"] = summary
 
-            # Create journal report (triggers FIFO for VOICE journals)
-            result = await self.create_journal_report(
+            # Create journal Ku (triggers FIFO for VOICE journals)
+            result = await self.create_journal_ku(
                 user_uid=event.user_uid,
                 title=title,
                 content=content,
@@ -1407,16 +1432,17 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
                 source_type="audio",
                 source_file=event.audio_file_path,
                 transcription_uid=event.transcription_uid,
+                metadata=journal_metadata,
             )
 
             if result.is_ok:
                 self.logger.info(
-                    f"Created journal report {result.value.uid} from transcription "
+                    f"Created journal Ku {result.value.uid} from transcription "
                     f"{event.transcription_uid}"
                 )
             else:
                 self.logger.error(
-                    f"Failed to create journal report from {event.transcription_uid}: "
+                    f"Failed to create journal Ku from {event.transcription_uid}: "
                     f"{result.error}"
                 )
 
@@ -1426,11 +1452,18 @@ class ReportsCoreService(BaseService[BackendOperations[Report], Report]):
             )
 
 
-def _get_entry_date_key(report: Report) -> date:
-    """Get entry_date from report for sorting, with fallback to date.min."""
-    return report.entry_date if report.entry_date else date.min
+def _get_entry_date_key(ku: Ku) -> date:
+    """Get entry_date from Ku metadata for sorting, with fallback to date.min."""
+    if ku.metadata:
+        entry_date_str = ku.metadata.get("entry_date")
+        if entry_date_str:
+            try:
+                return date.fromisoformat(entry_date_str)
+            except (ValueError, TypeError):
+                pass
+    return date.min
 
 
-def _get_created_at_key(report: Report) -> datetime:
-    """Get created_at from report for sorting, with fallback to datetime.min."""
-    return report.created_at if report.created_at else datetime.min
+def _get_created_at_key(ku: Ku) -> datetime:
+    """Get created_at from Ku for sorting, with fallback to datetime.min."""
+    return ku.created_at if ku.created_at else datetime.min

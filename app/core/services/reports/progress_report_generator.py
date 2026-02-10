@@ -1,12 +1,12 @@
 """
-Progress Report Generator
+Progress Ku Generator
 ==========================
 
-Generates system-created progress reports by querying historical
+Generates system-created progress Ku by querying historical
 completions from Neo4j, cross-referencing with UserContext, and
 building structured markdown content.
 
-Reports are stored as Report nodes with report_type=PROGRESS.
+Progress Ku are stored as Ku nodes with ku_type=AI_REPORT.
 """
 
 from datetime import datetime, timedelta
@@ -18,15 +18,14 @@ if TYPE_CHECKING:
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
 from core.events.report_events import ReportSubmitted
-from core.models.enums.report_enums import ProcessorType, ReportStatus, ReportType
-from core.models.report.report import Report
-from core.models.report.report_schedule import ReportDepth
+from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType, ProgressDepth
+from core.models.ku import Ku
 from core.services.protocols.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
-logger = get_logger("skuel.services.reports.progress_generator")
+logger = get_logger("skuel.services.ku.progress_generator")
 
 # Time period mapping
 TIME_PERIOD_DAYS = {
@@ -37,13 +36,13 @@ TIME_PERIOD_DAYS = {
 }
 
 
-class ProgressReportGenerator:
+class ProgressKuGenerator:
     """
-    Generates progress reports by querying historical activity completions.
+    Generates progress Ku by querying historical activity completions.
 
     Constructor dependencies:
         driver: Neo4j async driver for direct Cypher queries
-        reports_backend: UniversalNeo4jBackend[Report] for creating Report nodes
+        ku_backend: UniversalNeo4jBackend[Ku] for creating Ku nodes
         user_service: UserOperations for building UserContext
         insight_store: InsightStore for referencing active insights
         event_bus: EventBusOperations for publishing events
@@ -52,13 +51,13 @@ class ProgressReportGenerator:
     def __init__(
         self,
         driver: Any,
-        reports_backend: UniversalNeo4jBackend[Report],
+        ku_backend: UniversalNeo4jBackend[Ku],
         user_service: Any | None = None,
         insight_store: "InsightStore | None" = None,
         event_bus: EventBusOperations | None = None,
     ) -> None:
         self.driver = driver
-        self.reports_backend = reports_backend
+        self.ku_backend = ku_backend
         self.user_service = user_service
         self.insight_store = insight_store
         self.event_bus = event_bus
@@ -70,27 +69,27 @@ class ProgressReportGenerator:
         domains: list[str] | None = None,
         depth: str = "standard",
         include_insights: bool = True,
-    ) -> Result[Report]:
+    ) -> Result[Ku]:
         """
-        Generate a progress report for a user.
+        Generate a progress Ku for a user.
 
         Args:
-            user_uid: User to generate report for
+            user_uid: User to generate progress Ku for
             time_period: Time window (7d, 14d, 30d, 90d)
             domains: Domains to include (empty = all activity domains)
-            depth: Report detail level (summary, standard, detailed)
+            depth: Detail level (summary, standard, detailed)
             include_insights: Whether to include active insights
 
         Returns:
-            Result containing the created Report
+            Result containing the created Ku
         """
         days = TIME_PERIOD_DAYS.get(time_period, 7)
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
-        report_depth = ReportDepth(depth) if depth else ReportDepth.STANDARD
+        progress_depth = ProgressDepth(depth) if depth else ProgressDepth.STANDARD
 
         logger.info(
-            f"Generating progress report for {user_uid}: period={time_period}, depth={depth}"
+            f"Generating progress Ku for {user_uid}: period={time_period}, depth={depth}"
         )
 
         try:
@@ -104,10 +103,10 @@ class ProgressReportGenerator:
                 if insights_result.is_ok:
                     insights = insights_result.value or []
 
-            # 3. Build report content
+            # 3. Build content
             title = f"Progress Report — {start_date.strftime('%b %d')} to {end_date.strftime('%b %d, %Y')}"
             content = self._build_report_content(
-                completions, insights, start_date, end_date, report_depth
+                completions, insights, start_date, end_date, progress_depth
             )
 
             # 4. Build metadata stats
@@ -122,25 +121,25 @@ class ProgressReportGenerator:
                 "insights_referenced": len(insights),
             }
 
-            # 5. Create Report node
-            uid = UIDGenerator.generate_uid("report")
-            report = Report(
+            # 5. Create Ku node
+            uid = UIDGenerator.generate_uid("ku")
+            ku = Ku(
                 uid=uid,
-                user_uid=user_uid,
-                report_type=ReportType.PROGRESS,
-                status=ReportStatus.COMPLETED,
-                processor_type=ProcessorType.AUTOMATIC,
                 title=title,
+                ku_type=KuType.AI_REPORT,
+                user_uid=user_uid,
+                status=KuStatus.COMPLETED,
+                processor_type=ProcessorType.AUTOMATIC,
                 processed_content=content,
                 subject_uid=user_uid,
                 metadata=metadata,
             )
 
-            create_result = await self.reports_backend.create(report)
+            create_result = await self.ku_backend.create(ku)
             if create_result.is_error:
                 return Result.fail(create_result.expect_error())
 
-            # 6. Create BASED_ON_INSIGHT relationships for referenced insights
+            # 6. Create BASED_ON_INSIGHT relationships
             if insights:
                 await self._create_insight_relationships(uid, insights)
 
@@ -148,18 +147,18 @@ class ProgressReportGenerator:
             event = ReportSubmitted(
                 report_uid=uid,
                 user_uid=user_uid,
-                report_type=ReportType.PROGRESS.value,
+                report_type=KuType.AI_REPORT.value,
                 processor_type=ProcessorType.AUTOMATIC.value,
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, logger)
 
-            logger.info(f"Generated progress report {uid} for {user_uid}")
-            return Result.ok(report)
+            logger.info(f"Generated progress Ku {uid} for {user_uid}")
+            return Result.ok(ku)
 
         except Exception as e:
-            logger.error(f"Failed to generate progress report for {user_uid}: {e}")
-            return Result.fail(Errors.system(f"Failed to generate progress report: {e}"))
+            logger.error(f"Failed to generate progress Ku for {user_uid}: {e}")
+            return Result.fail(Errors.system(f"Failed to generate progress Ku: {e}"))
 
     async def _query_completions(
         self,
@@ -218,12 +217,10 @@ class ProgressReportGenerator:
                     }
                     for r in records
                 ]
-                # Collect goal alignments
                 for r in completed:
                     for gt in r["goal_titles"]:
                         if gt:
                             result["goal_alignments"].append(gt)
-                # Collect KU applications
                 for r in completed:
                     for ku in r["ku_titles"]:
                         if ku:
@@ -323,7 +320,7 @@ class ProgressReportGenerator:
         insights: list[Any],
         start_date: datetime,
         end_date: datetime,
-        depth: ReportDepth,
+        depth: ProgressDepth,
     ) -> str:
         """Build markdown report content from completions data."""
         sections: list[str] = []
@@ -338,7 +335,7 @@ class ProgressReportGenerator:
             rate = (tasks_completed / tasks_total * 100) if tasks_total else 0
             sections.append("## Task Completion Summary")
             sections.append(f"- **Completed:** {tasks_completed} / {tasks_total} ({rate:.0f}%)")
-            if depth != ReportDepth.SUMMARY:
+            if depth != ProgressDepth.SUMMARY:
                 for task in completions.get("tasks_details", [])[:10]:
                     status_icon = "done" if task["status"] == "completed" else task["status"]
                     sections.append(f"  - {task['title']} [{status_icon}]")
@@ -353,7 +350,7 @@ class ProgressReportGenerator:
             if goal_alignments:
                 unique_goals = list(set(goal_alignments))
                 sections.append(f"- **Tasks served goals:** {', '.join(unique_goals[:5])}")
-            if depth != ReportDepth.SUMMARY:
+            if depth != ProgressDepth.SUMMARY:
                 for goal in completions.get("goals_details", [])[:10]:
                     progress = goal.get("progress") or "—"
                     sections.append(
@@ -376,7 +373,7 @@ class ProgressReportGenerator:
             sections.append("## Habit Activity")
             sections.append(f"- **Habits active:** {len(habits_details)}")
             sections.append(f"- **Completed this period:** {habits_completed}")
-            if depth != ReportDepth.SUMMARY:
+            if depth != ProgressDepth.SUMMARY:
                 for habit in habits_details[:10]:
                     streak = habit.get("streak") or 0
                     sections.append(f"  - {habit['title']} [{habit['status']}] (streak: {streak})")
@@ -389,7 +386,7 @@ class ProgressReportGenerator:
             sections.append("## Principle Alignment")
             sections.append(f"- **Choices made:** {len(choices_details)}")
             sections.append(f"- **Guided by principles:** {len(principled_choices)}")
-            if depth != ReportDepth.SUMMARY and principled_choices:
+            if depth != ProgressDepth.SUMMARY and principled_choices:
                 for choice in principled_choices[:5]:
                     principles = ", ".join(p for p in choice["principles"] if p)
                     sections.append(f"  - {choice['title']} (guided by: {principles})")
@@ -410,8 +407,8 @@ class ProgressReportGenerator:
 
         return "\n".join(sections)
 
-    async def _create_insight_relationships(self, report_uid: str, insights: list[Any]) -> None:
-        """Create BASED_ON_INSIGHT relationships between report and insights."""
+    async def _create_insight_relationships(self, ku_uid: str, insights: list[Any]) -> None:
+        """Create BASED_ON_INSIGHT relationships between Ku and insights."""
         for insight in insights:
             insight_uid = getattr(insight, "uid", None)
             if not insight_uid:
@@ -419,11 +416,11 @@ class ProgressReportGenerator:
             try:
                 await self.driver.execute_query(
                     """
-                    MATCH (r:Report {uid: $report_uid})
+                    MATCH (k:Ku {uid: $ku_uid})
                     MATCH (i:Insight {uid: $insight_uid})
-                    MERGE (r)-[:BASED_ON_INSIGHT]->(i)
+                    MERGE (k)-[:BASED_ON_INSIGHT]->(i)
                     """,
-                    report_uid=report_uid,
+                    ku_uid=ku_uid,
                     insight_uid=insight_uid,
                 )
             except Exception as e:

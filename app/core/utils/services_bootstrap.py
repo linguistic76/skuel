@@ -27,7 +27,7 @@ THE 14 DOMAINS COMPOSED HERE
     10. lp        → LpService         - Learning Paths (lp:)
 
 **Content/Organization Domain Services (4):**
-    11. reports → ReportsCoreService - File processing + journals (merged Feb 2026)
+    11. reports → KuCoreService - File processing + journals (unified Ku model Feb 2026)
     12. moc       → MocService        - Map of Content organization
     13. life_path → AnalyticsLifePathService - Life goal alignment
     14. analytics → AnalyticsService     - Statistical aggregation
@@ -141,8 +141,8 @@ if TYPE_CHECKING:
     from core.services.relationships.unified_relationship_service import (
         UnifiedRelationshipService,
     )
-    from core.services.reports.progress_report_generator import ProgressReportGenerator
-    from core.services.reports.report_schedule_service import ReportScheduleService
+    from core.services.reports.progress_report_generator import ProgressKuGenerator
+    from core.services.reports.report_schedule_service import KuScheduleService
     from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
     from core.services.transcript_processor_service import TranscriptProcessorService
     from core.services.transcription.transcription_service import TranscriptionService
@@ -181,14 +181,14 @@ from core.services.protocols import (
     LpOperations,
     LsOperations,
     PrinciplesOperations,
-    # Reports domain protocols (February 2026)
-    ReportFeedbackOperations,
-    ReportProjectOperations,
-    ReportsCoreOperations,
-    ReportSharingOperations,
-    ReportsProcessingOperations,
-    ReportsSearchOperations,
-    ReportSubmissionOperations,
+    # Ku content protocols (February 2026: unified Ku model)
+    KuContentOperations,
+    KuContentSearchOperations,
+    KuFeedbackOperations,
+    KuProcessingOperations,
+    KuProjectOperations,
+    KuSharingOperations,
+    KuSubmissionOperations,
     SearchOperations,
     SystemServiceOperations,
     # Domain operations
@@ -248,12 +248,12 @@ class Services:
     transcript_processor: "TranscriptProcessorService | None" = None
     transcription: "TranscriptionService | None" = None
 
-    # Report feedback services (LLM-based processing for any report type)
-    report_feedback: ReportFeedbackOperations | None = (
-        None  # ReportFeedbackService - LLM feedback on reports/journals
+    # Ku feedback services (LLM-based processing for any Ku type)
+    report_feedback: KuFeedbackOperations | None = (
+        None  # KuFeedbackService - LLM feedback on Ku content
     )
-    report_projects: ReportProjectOperations | None = (
-        None  # ReportProjectService - Reusable LLM project templates
+    report_projects: KuProjectOperations | None = (
+        None  # KuProjectService - Reusable LLM project templates
     )
 
     # Journal processing services (multi-modal journal pipeline)
@@ -264,24 +264,24 @@ class Services:
         None  # JournalOutputGenerator - je_output formatting and disk storage
     )
 
-    # Report services (Phase 1 - File submission pipeline)
-    reports: ReportSubmissionOperations | None = (
-        None  # ReportSubmissionService - File upload and report management
+    # Ku content services (unified submission pipeline)
+    reports: KuSubmissionOperations | None = (
+        None  # KuSubmissionService - File upload and Ku content management
     )
-    reports_core: ReportsCoreOperations | None = (
-        None  # ReportsCoreService - Content management (categories, tags, bulk operations)
+    reports_core: KuContentOperations | None = (
+        None  # KuCoreService - Content management (categories, tags, bulk operations)
     )
-    reports_sharing: ReportSharingOperations | None = (
-        None  # ReportSharingService - Content sharing and visibility control (Phase 1)
+    reports_sharing: KuSharingOperations | None = (
+        None  # KuSharingService - Content sharing and visibility control
     )
-    report_processor: ReportsProcessingOperations | None = (
-        None  # ReportsProcessingService - Orchestrates processing (LLM, human, hybrid)
+    report_processor: KuProcessingOperations | None = (
+        None  # KuProcessingService - Orchestrates processing (LLM, human, hybrid)
     )
-    processing_pipeline: ReportsProcessingOperations | None = None  # Alias for report_processor
+    processing_pipeline: KuProcessingOperations | None = None  # Alias for report_processor
 
-    # Reports query service (Unified query interface for all report types)
-    reports_query: ReportsSearchOperations | None = (
-        None  # ReportsSearchService - Query all report types (journals, essays, projects, etc.)
+    # Ku content search service (Unified query interface for all Ku types)
+    reports_query: KuContentSearchOperations | None = (
+        None  # KuSearchService - Query all Ku types (journals, essays, projects, etc.)
     )
 
     # ========================================================================
@@ -411,8 +411,8 @@ class Services:
     embedding_worker: "EmbeddingBackgroundWorker | None" = None
 
     # Progress report generation (February 2026)
-    progress_generator: "ProgressReportGenerator | None" = None
-    report_schedule: "ReportScheduleService | None" = None
+    progress_generator: "ProgressKuGenerator | None" = None
+    report_schedule: "KuScheduleService | None" = None
 
     # ========================================================================
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
@@ -1030,7 +1030,6 @@ async def compose_services(
         from core.models.principle.principle import Principle
         from core.models.principle.reflection import PrincipleReflection
         from core.models.progress import UserProgress
-        from core.models.report.report import Report
         from core.models.task.task import Task
         from core.models.transcription.transcription import Transcription
 
@@ -1062,8 +1061,8 @@ async def compose_services(
         invoice_backend = UniversalNeo4jBackend[InvoicePure](
             driver, NeoLabel.INVOICE, InvoicePure, prometheus_metrics=prometheus_metrics
         )
-        # NOTE: journals_backend REMOVED (February 2026) - Journal merged into Reports
-        # Journal entries are now Report nodes with report_type="journal"
+        # NOTE: journals_backend REMOVED (February 2026) - Journal merged into Ku
+        # Journal entries are now Ku nodes with ku_type="assignment" and journal metadata
         transcription_backend = UniversalNeo4jBackend[Transcription](
             driver, NeoLabel.TRANSCRIPTION, Transcription, prometheus_metrics=prometheus_metrics
         )
@@ -1096,8 +1095,10 @@ async def compose_services(
         # NOTE: MOC backend REMOVED (January 2026) - MOC is now KU-based
         # MOC is a KU with ORGANIZES relationships, uses KU backend via MOCService
         # See /docs/domains/moc.md for the KU-based architecture
-        reports_backend = UniversalNeo4jBackend[Report](
-            driver, NeoLabel.REPORT, Report, prometheus_metrics=prometheus_metrics
+        # February 2026: Unified Ku model — reports_backend uses :Ku label (same as knowledge_backend)
+        # Separate instance because report-related services were wired to reports_backend
+        reports_backend = UniversalNeo4jBackend[Ku](
+            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics
         )
         askesis_backend = UniversalNeo4jBackend[Askesis](
             driver, NeoLabel.ASKESIS, Askesis, prometheus_metrics=prometheus_metrics
@@ -1523,31 +1524,31 @@ async def compose_services(
         ai_service = OpenAIService(api_key=openai_api_key)
 
         transcript_processor = TranscriptProcessorService(
-            backend=reports_backend,  # February 2026: Uses reports backend (journal merged into reports)
+            backend=reports_backend,  # February 2026: Uses Ku backend (unified model)
             transcription_service=core_services["transcription"],
             ai_service=ai_service,  # REQUIRED - always available
             event_bus=event_bus,  # Event-driven architecture
         )
         logger.info("✅ Transcript processor service created")
 
-        # Create report feedback and project services (February 2026: Journal merged into Reports)
-        from core.models.report.report_project import ReportProjectPure
-        from core.services.reports import ReportFeedbackService, ReportProjectService
+        # Create Ku feedback and project services (February 2026: Unified Ku model)
+        from core.models.ku.ku_project import KuProject
+        from core.services.reports import KuFeedbackService, KuProjectService
 
-        report_feedback_service = ReportFeedbackService(
+        report_feedback_service = KuFeedbackService(
             openai_service=ai_service,
             anthropic_service=None,  # Only OpenAI configured for now
         )
 
-        report_projects_backend = UniversalNeo4jBackend[ReportProjectPure](
+        report_projects_backend = UniversalNeo4jBackend[KuProject](
             driver=driver,
-            label=NeoLabel.REPORT_PROJECT,
-            entity_class=ReportProjectPure,
+            label=NeoLabel.KU_PROJECT,
+            entity_class=KuProject,
             prometheus_metrics=prometheus_metrics,
         )
 
-        report_project_service = ReportProjectService(backend=report_projects_backend)
-        logger.info("✅ Report feedback and project services created")
+        report_project_service = KuProjectService(backend=report_projects_backend)
+        logger.info("✅ Ku feedback and project services created")
 
         # Create group service (ADR-040: Teacher Assignment Workflow)
         from core.models.group.group import Group
@@ -1597,29 +1598,29 @@ async def compose_services(
         except Exception as e:
             logger.warning(f"Failed to load default transcript project: {e}")
 
-        # Create report submission and processing pipeline services (Phase 1)
+        # Create Ku submission and processing pipeline services (unified Ku model)
         from core.services.reports import (
-            ReportsCoreService,
-            ReportsProcessingService,
-            ReportsSearchService,
-            ReportSubmissionService,
+            KuCoreService,
+            KuProcessingService,
+            KuSearchService,
+            KuSubmissionService,
         )
 
         # Get storage path from environment (default: /tmp/skuel_reports)
         storage_path = os.getenv("SKUEL_REPORT_STORAGE", "/tmp/skuel_reports")
 
-        report_service = ReportSubmissionService(
+        report_service = KuSubmissionService(
             backend=reports_backend, storage_path=storage_path, event_bus=event_bus
         )
 
-        # Create report sharing service (Phase 1: Report Portfolio)
-        from core.services.reports import ReportSharingService
+        # Create Ku sharing service (content sharing)
+        from core.services.reports import KuSharingService
 
-        report_sharing_service = ReportSharingService(driver=driver)
+        report_sharing_service = KuSharingService(driver=driver)
 
-        # Create reports core service (content management: categories, tags, bulk operations)
+        # Create Ku core service (content management: categories, tags, bulk operations)
         # February 2026: transcript_processor for handle_transcription_completed
-        reports_core_service = ReportsCoreService(
+        reports_core_service = KuCoreService(
             backend=reports_backend,
             event_bus=event_bus,
             sharing_service=report_sharing_service,
@@ -1680,7 +1681,7 @@ async def compose_services(
         )
         logger.info(f"✅ Journal output generator created (storage: {journal_storage})")
 
-        report_processor = ReportsProcessingService(
+        report_processor = KuProcessingService(
             report_service=report_service,
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
             transcript_processor=transcript_processor,  # For LLM formatting
@@ -1690,37 +1691,37 @@ async def compose_services(
             event_bus=event_bus,
         )
 
-        # Create reports query service (unified query interface)
-        reports_query_service = ReportsSearchService(
+        # Create Ku search service (unified query interface)
+        reports_query_service = KuSearchService(
             report_backend=reports_backend, event_bus=event_bus
         )
 
-        logger.info("✅ Report submission and processing pipeline services created (Phase 1)")
+        logger.info("✅ Ku submission and processing pipeline services created (unified model)")
         logger.info(
-            "✅ Reports core service created (content management: categories, tags, bulk ops)"
+            "✅ Ku core service created (content management: categories, tags, bulk ops)"
         )
         logger.info(
-            "✅ Reports query service created (unified query interface for all report types)"
+            "✅ Ku search service created (unified query interface for all Ku types)"
         )
 
-        # Create progress report generator and schedule service (February 2026)
-        from core.models.report.report_schedule import ReportSchedule
-        from core.services.reports.progress_report_generator import ProgressReportGenerator
-        from core.services.reports.report_schedule_service import ReportScheduleService
+        # Create progress Ku generator and schedule service (February 2026: Unified Ku model)
+        from core.models.ku.ku_schedule import KuSchedule
+        from core.services.reports.progress_report_generator import ProgressKuGenerator
+        from core.services.reports.report_schedule_service import KuScheduleService
 
-        report_schedule_backend = UniversalNeo4jBackend[ReportSchedule](
-            driver, NeoLabel.REPORT_SCHEDULE, ReportSchedule, prometheus_metrics=prometheus_metrics
+        report_schedule_backend = UniversalNeo4jBackend[KuSchedule](
+            driver, NeoLabel.KU_SCHEDULE, KuSchedule, prometheus_metrics=prometheus_metrics
         )
-        report_schedule_service = ReportScheduleService(backend=report_schedule_backend)
+        report_schedule_service = KuScheduleService(backend=report_schedule_backend)
 
-        progress_generator = ProgressReportGenerator(
+        progress_generator = ProgressKuGenerator(
             driver=driver,
             reports_backend=reports_backend,
             user_service=core_services["user"],
             insight_store=insight_store,
             event_bus=event_bus,
         )
-        logger.info("✅ Progress report generator and schedule service created")
+        logger.info("✅ Progress Ku generator and schedule service created")
 
         # Create analytics service
         from core.services.analytics_service import AnalyticsService
@@ -1988,7 +1989,7 @@ async def compose_services(
             reports_core_service.handle_transcription_completed,
         )
         logger.info(
-            "✅ ReportsCoreService subscribed to TranscriptionCompleted "
+            "✅ KuCoreService subscribed to TranscriptionCompleted "
             "(automatic journal report creation from voice transcriptions)"
         )
 
@@ -2383,13 +2384,13 @@ async def compose_services(
         # - Temporal Domain (1): Calendar
 
         from core.services.analytics_relationship_service import AnalyticsRelationshipService
-        from core.services.reports import ReportsRelationshipService
+        from core.services.reports import KuRelationshipService
         from core.services.user.intelligence import UserContextIntelligenceFactory
 
         # Create processing domain relationship services (Direct Driver pattern)
-        # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Reports
-        # ReportsRelationshipService handles both report and journal relationships
-        report_relationship_service = ReportsRelationshipService(driver)
+        # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Ku
+        # KuRelationshipService handles all Ku content relationships
+        report_relationship_service = KuRelationshipService(driver)
         analytics_relationship_service = AnalyticsRelationshipService(driver)
         logger.info("✅ Processing domain relationship services created (Reports, Analytics)")
 
@@ -2411,7 +2412,7 @@ async def compose_services(
                 "learning_paths"
             ].relationships,  # Factory expects 'lp' parameter name
             # Processing Domains (2) - journals merged into reports Feb 2026
-            reports=report_relationship_service,  # ReportsRelationshipService
+            reports=report_relationship_service,  # KuRelationshipService
             analytics=analytics_relationship_service,  # AnalyticsRelationshipService
             # Temporal Domain (1)
             calendar=calendar_service,

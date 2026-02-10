@@ -1,6 +1,6 @@
 """
-Unit Tests for ProgressReportGenerator
-=========================================
+Unit Tests for ProgressKuGenerator
+=====================================
 
 Tests generation flow, content building, time period parsing,
 and depth control with mocked dependencies.
@@ -11,11 +11,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums.report_enums import ProcessorType, ReportStatus, ReportType
-from core.models.report.report import Report
+from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
+from core.models.ku import Ku
 from core.services.reports.progress_report_generator import (
     TIME_PERIOD_DAYS,
-    ProgressReportGenerator,
+    ProgressKuGenerator,
 )
 
 
@@ -56,10 +56,10 @@ def mock_event_bus():
 
 @pytest.fixture
 def generator(mock_driver, mock_backend, mock_insight_store, mock_event_bus):
-    """Create ProgressReportGenerator with mocked deps."""
-    return ProgressReportGenerator(
+    """Create ProgressKuGenerator with mocked deps."""
+    return ProgressKuGenerator(
         driver=mock_driver,
-        reports_backend=mock_backend,
+        ku_backend=mock_backend,
         user_service=None,
         insight_store=mock_insight_store,
         event_bus=mock_event_bus,
@@ -96,8 +96,8 @@ class TestGenerate:
     """Test the generate() method."""
 
     @pytest.mark.asyncio
-    async def test_generate_creates_report(self, generator, mock_backend):
-        """Test that generate creates a Report with correct type."""
+    async def test_generate_creates_ku(self, generator, mock_backend):
+        """Test that generate creates a Ku with correct type."""
         from core.utils.result_simplified import Result
 
         mock_backend.create.return_value = Result.ok(MagicMock())
@@ -111,13 +111,13 @@ class TestGenerate:
         assert not result.is_error
         # Verify backend.create was called
         assert mock_backend.create.call_count == 1
-        created_report = mock_backend.create.call_args[0][0]
-        assert isinstance(created_report, Report)
-        assert created_report.report_type == ReportType.PROGRESS
-        assert created_report.status == ReportStatus.COMPLETED
-        assert created_report.processor_type == ProcessorType.AUTOMATIC
-        assert created_report.user_uid == "user_alice"
-        assert created_report.subject_uid == "user_alice"
+        created_ku = mock_backend.create.call_args[0][0]
+        assert isinstance(created_ku, Ku)
+        assert created_ku.ku_type == KuType.AI_REPORT
+        assert created_ku.status == KuStatus.COMPLETED
+        assert created_ku.processor_type == ProcessorType.AUTOMATIC
+        assert created_ku.user_uid == "user_alice"
+        assert created_ku.subject_uid == "user_alice"
 
     @pytest.mark.asyncio
     async def test_generate_sets_metadata(self, generator, mock_backend):
@@ -132,11 +132,11 @@ class TestGenerate:
             depth="detailed",
         )
 
-        created_report = mock_backend.create.call_args[0][0]
-        assert created_report.metadata["time_period"] == "30d"
-        assert created_report.metadata["depth"] == "detailed"
-        assert "start_date" in created_report.metadata
-        assert "end_date" in created_report.metadata
+        created_ku = mock_backend.create.call_args[0][0]
+        assert created_ku.metadata["time_period"] == "30d"
+        assert created_ku.metadata["depth"] == "detailed"
+        assert "start_date" in created_ku.metadata
+        assert "end_date" in created_ku.metadata
 
     @pytest.mark.asyncio
     async def test_generate_with_insights(self, generator, mock_backend, mock_insight_store):
@@ -156,8 +156,8 @@ class TestGenerate:
         )
 
         # Insight referenced in metadata
-        created_report = mock_backend.create.call_args[0][0]
-        assert created_report.metadata["insights_referenced"] == 1
+        created_ku = mock_backend.create.call_args[0][0]
+        assert created_ku.metadata["insights_referenced"] == 1
 
     @pytest.mark.asyncio
     async def test_generate_backend_failure(self, generator, mock_backend):
@@ -182,8 +182,8 @@ class TestGenerate:
             time_period="unknown",
         )
 
-        created_report = mock_backend.create.call_args[0][0]
-        assert created_report.metadata["time_period"] == "unknown"
+        created_ku = mock_backend.create.call_args[0][0]
+        assert created_ku.metadata["time_period"] == "unknown"
 
 
 # ============================================================================
@@ -196,7 +196,7 @@ class TestBuildReportContent:
 
     def test_summary_depth_no_details(self, generator):
         """Summary depth should not include per-item details."""
-        from core.models.report.report_schedule import ReportDepth
+        from core.models.enums.ku_enums import ProgressDepth
 
         completions = {
             "tasks_completed": 5,
@@ -215,7 +215,7 @@ class TestBuildReportContent:
         }
 
         content = generator._build_report_content(
-            completions, [], datetime.now() - timedelta(days=7), datetime.now(), ReportDepth.SUMMARY
+            completions, [], datetime.now() - timedelta(days=7), datetime.now(), ProgressDepth.SUMMARY
         )
 
         assert "5 / 10" in content
@@ -224,7 +224,7 @@ class TestBuildReportContent:
 
     def test_standard_depth_includes_details(self, generator):
         """Standard depth should include per-item details."""
-        from core.models.report.report_schedule import ReportDepth
+        from core.models.enums.ku_enums import ProgressDepth
 
         completions = {
             "tasks_completed": 1,
@@ -253,14 +253,14 @@ class TestBuildReportContent:
             [],
             datetime.now() - timedelta(days=7),
             datetime.now(),
-            ReportDepth.STANDARD,
+            ProgressDepth.STANDARD,
         )
 
         assert "Read Chapter 5" in content
 
     def test_empty_report_fallback(self, generator):
         """Empty completions should produce fallback text."""
-        from core.models.report.report_schedule import ReportDepth
+        from core.models.enums.ku_enums import ProgressDepth
 
         completions = {
             "tasks_completed": 0,
@@ -281,14 +281,14 @@ class TestBuildReportContent:
             [],
             datetime.now() - timedelta(days=7),
             datetime.now(),
-            ReportDepth.STANDARD,
+            ProgressDepth.STANDARD,
         )
 
         assert "No activity recorded" in content
 
     def test_insights_section(self, generator):
         """Active insights should appear in report content."""
-        from core.models.report.report_schedule import ReportDepth
+        from core.models.enums.ku_enums import ProgressDepth
 
         completions = {
             "tasks_completed": 0,
@@ -313,7 +313,7 @@ class TestBuildReportContent:
             [insight],
             datetime.now() - timedelta(days=7),
             datetime.now(),
-            ReportDepth.STANDARD,
+            ProgressDepth.STANDARD,
         )
 
         assert "Active Insights" in content

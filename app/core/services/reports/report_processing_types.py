@@ -1,11 +1,9 @@
 """
-Report AI Processing Types
-===========================
+Ku AI Processing Types
+========================
 
-Frozen dataclasses for report AI processing returns.
+Frozen dataclasses for Ku AI processing returns.
 Replaces dict[str, Any] with strongly-typed, immutable structures.
-
-Migrated from journals_types.py (February 2026 — Journal→Report merge).
 """
 
 from dataclasses import dataclass, field
@@ -13,9 +11,9 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class ReportProcessingContext:
+class KuProcessingContext:
     """
-    Context gathered from Neo4j for intelligent report/journal editing.
+    Context gathered from Neo4j for intelligent Ku editing.
 
     Used by TranscriptProcessorService to provide context-aware editing.
     """
@@ -29,8 +27,8 @@ class ReportProcessingContext:
 
 
 @dataclass(frozen=True)
-class ReportAIInsights:
-    """Parsed AI response for report/journal formatting."""
+class KuAIInsights:
+    """Parsed AI response for Ku formatting."""
 
     title: str
     formatted_content: str

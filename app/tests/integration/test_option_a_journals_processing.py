@@ -1,14 +1,12 @@
 """
-Integration Test: Report Processing Pipeline
-=============================================
+Integration Test: Ku Processing Pipeline
+=========================================
 
-Tests the Report processing pipeline for file submissions.
+Tests the Ku processing pipeline for file submissions.
 
-NOTE (January 2026): Tests updated for domain separation.
-Journals are now a separate domain (JournalsCoreService).
-Reports handle TRANSCRIPT, REPORT, IMAGE_ANALYSIS, VIDEO_SUMMARY types only.
-
-The ReportsProcessingService:
+NOTE (February 2026): Tests updated for unified Ku model.
+Reports are now Ku with ku_type=ASSIGNMENT.
+The KuProcessingService:
 - Routes files to appropriate processors based on file type
 - Audio files: transcribed via TranscriptionService
 - Text files: read directly from storage
@@ -22,7 +20,7 @@ Test Coverage:
 - Error handling and failure status
 
 Implementation Date: November 10, 2025
-Updated: January 2026 (Domain Separation - removed Journal-specific processing)
+Updated: February 2026 (Unified Ku model - Report → Ku)
 """
 
 from datetime import datetime
@@ -31,19 +29,15 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
-from core.models.report.report import (
-    ProcessorType,
-    Report,
-    ReportStatus,
-    ReportType,
-)
-from core.services.reports import ReportsProcessingService
+from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
+from core.models.ku import Ku
+from core.services.reports import KuProcessingService
 from core.utils.result_simplified import Errors, Result
 
 
 @pytest.mark.asyncio
 class TestOptionAJournalsProcessing:
-    """Integration tests for Report processing (post domain separation)."""
+    """Integration tests for Ku processing (post domain separation)."""
 
     # ==========================================================================
     # FIXTURES
@@ -51,15 +45,16 @@ class TestOptionAJournalsProcessing:
 
     @pytest_asyncio.fixture
     async def mock_report_service(self):
-        """Mock ReportSubmissionService."""
+        """Mock KuSubmissionService."""
         service = AsyncMock()
 
-        # Mock report with transcript type
-        report = Report(
+        # Mock Ku with transcript type
+        ku = Ku(
             uid="report.test_transcript",
+            title="Meeting Notes",
             user_uid="user.test",
-            report_type=ReportType.TRANSCRIPT,
-            status=ReportStatus.SUBMITTED,
+            ku_type=KuType.ASSIGNMENT,
+            status=KuStatus.SUBMITTED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",
             file_size=1024000,
@@ -70,7 +65,7 @@ class TestOptionAJournalsProcessing:
         )
 
         # Track state changes (mutable reference)
-        current_state = {"report": report}
+        current_state = {"report": ku}
 
         # get_report returns current state
         def mock_get_report(uid):
@@ -78,10 +73,11 @@ class TestOptionAJournalsProcessing:
 
         # update_report_status tracks status changes
         def mock_update_status(uid, status, error_message=None):
-            updated = Report(
+            updated = Ku(
                 uid=current_state["report"].uid,
+                title=current_state["report"].title,
                 user_uid=current_state["report"].user_uid,
-                report_type=current_state["report"].report_type,
+                ku_type=current_state["report"].ku_type,
                 status=status,
                 file_path=current_state["report"].file_path,
                 file_type=current_state["report"].file_type,
@@ -91,17 +87,17 @@ class TestOptionAJournalsProcessing:
                 created_at=current_state["report"].created_at,
                 updated_at=datetime.now(),
                 processed_content=current_state["report"].processed_content,
-                metadata=current_state["report"].metadata,
             )
             current_state["report"] = updated
             return Result.ok(updated)
 
         # update_processed_content stores the content
         def mock_update_content(uid, processed_content):
-            updated = Report(
+            updated = Ku(
                 uid=current_state["report"].uid,
+                title=current_state["report"].title,
                 user_uid=current_state["report"].user_uid,
-                report_type=current_state["report"].report_type,
+                ku_type=current_state["report"].ku_type,
                 status=current_state["report"].status,
                 file_path=current_state["report"].file_path,
                 file_type=current_state["report"].file_type,
@@ -111,13 +107,12 @@ class TestOptionAJournalsProcessing:
                 created_at=current_state["report"].created_at,
                 updated_at=datetime.now(),
                 processed_content=processed_content,
-                metadata=current_state["report"].metadata,
             )
             current_state["report"] = updated
             return Result.ok(updated)
 
-        service.get_report.side_effect = mock_get_report
-        service.update_report_status.side_effect = mock_update_status
+        service.get_ku.side_effect = mock_get_report
+        service.update_ku_status.side_effect = mock_update_status
         service.update_processed_content.side_effect = mock_update_content
 
         return service
@@ -155,16 +150,16 @@ class TestOptionAJournalsProcessing:
         mock_report_service,
         mock_transcription_service,
     ):
-        """Create ReportsProcessingService with mocked dependencies.
+        """Create KuProcessingService with mocked dependencies.
 
         Note: transcript_processor and report_relationship_service are NOT passed
         because they are NOT used after the January 2026 domain separation.
         """
-        return ReportsProcessingService(
-            report_service=mock_report_service,
+        return KuProcessingService(
+            ku_submission_service=mock_report_service,
             transcription_service=mock_transcription_service,
             transcript_processor=None,  # Not used - journals have their own domain
-            report_relationship_service=None,  # Not used - journals have their own domain
+            ku_relationship_service=None,  # Not used - journals have their own domain
             event_bus=None,
         )
 
@@ -180,7 +175,7 @@ class TestOptionAJournalsProcessing:
         report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_report(report_uid)
+        result = await processing_pipeline.process_ku(report_uid)
 
         # Assert
         assert result.is_ok
@@ -197,7 +192,7 @@ class TestOptionAJournalsProcessing:
         report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_report(report_uid)
+        result = await processing_pipeline.process_ku(report_uid)
 
         # Assert
         assert result.is_ok
@@ -217,21 +212,21 @@ class TestOptionAJournalsProcessing:
         report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_report(report_uid)
+        result = await processing_pipeline.process_ku(report_uid)
 
         # Assert
         assert result.is_ok
 
         # Verify status update calls
-        status_calls = mock_report_service.update_report_status.call_args_list
+        status_calls = mock_report_service.update_ku_status.call_args_list
 
         # Should have: QUEUED, PROCESSING, COMPLETED
         assert len(status_calls) >= 2
         statuses = [call[0][1] for call in status_calls]
 
-        assert ReportStatus.QUEUED in statuses
-        assert ReportStatus.PROCESSING in statuses
-        assert ReportStatus.COMPLETED in statuses
+        assert KuStatus.QUEUED in statuses
+        assert KuStatus.PROCESSING in statuses
+        assert KuStatus.COMPLETED in statuses
 
     # ==========================================================================
     # TEXT PROCESSING TESTS
@@ -239,12 +234,13 @@ class TestOptionAJournalsProcessing:
 
     async def test_text_processing_reads_content(self, mock_report_service):
         """Test that text files are read directly from storage."""
-        # Arrange - Create text file report
-        text_report = Report(
+        # Arrange - Create text file Ku
+        text_ku = Ku(
             uid="report.test_text",
+            title="Notes",
             user_uid="user.test",
-            report_type=ReportType.TRANSCRIPT,
-            status=ReportStatus.SUBMITTED,
+            ku_type=KuType.ASSIGNMENT,
+            status=KuStatus.SUBMITTED,
             file_path="/tmp/test_notes.txt",
             file_type="text/plain",
             file_size=1024,
@@ -254,18 +250,18 @@ class TestOptionAJournalsProcessing:
             updated_at=datetime.now(),
         )
 
-        mock_report_service.get_report.side_effect = lambda _uid: Result.ok(text_report)
+        mock_report_service.get_ku.side_effect = lambda _uid: Result.ok(text_ku)
         mock_report_service.get_file_content.return_value = Result.ok(
             b"This is the text file content."
         )
 
-        pipeline = ReportsProcessingService(
-            report_service=mock_report_service,
+        pipeline = KuProcessingService(
+            ku_submission_service=mock_report_service,
             transcription_service=None,  # Not needed for text
         )
 
         # Act
-        result = await pipeline.process_report("report.test_text")
+        result = await pipeline.process_ku("report.test_text")
 
         # Assert
         assert result.is_ok
@@ -285,36 +281,37 @@ class TestOptionAJournalsProcessing:
     async def test_transcription_failure_marks_report_failed(
         self, mock_report_service, mock_transcription_service
     ):
-        """Test that transcription failure marks report as FAILED."""
+        """Test that transcription failure marks Ku as FAILED."""
         # Arrange
         mock_transcription_service.create.return_value = Result.fail(
             Errors.system(message="Transcription service unavailable", operation="create")
         )
 
-        pipeline = ReportsProcessingService(
-            report_service=mock_report_service,
+        pipeline = KuProcessingService(
+            ku_submission_service=mock_report_service,
             transcription_service=mock_transcription_service,
         )
 
         # Act
-        result = await pipeline.process_report("report.test_transcript")
+        result = await pipeline.process_ku("report.test_transcript")
 
         # Assert
         assert result.is_error
 
         # Verify status was set to FAILED
-        status_calls = mock_report_service.update_report_status.call_args_list
+        status_calls = mock_report_service.update_ku_status.call_args_list
         final_status = status_calls[-1][0][1]
-        assert final_status == ReportStatus.FAILED
+        assert final_status == KuStatus.FAILED
 
     async def test_already_processing_report_rejected(self):
-        """Test that already-processing reports are rejected."""
-        # Arrange - Report already in PROCESSING state
-        processing_report = Report(
+        """Test that already-processing Ku are rejected."""
+        # Arrange - Ku already in PROCESSING state
+        processing_ku = Ku(
             uid="report.processing",
+            title="Processing",
             user_uid="user.test",
-            report_type=ReportType.TRANSCRIPT,
-            status=ReportStatus.PROCESSING,  # Already processing
+            ku_type=KuType.ASSIGNMENT,
+            status=KuStatus.PROCESSING,  # Already processing
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
             file_size=1024,
@@ -326,14 +323,14 @@ class TestOptionAJournalsProcessing:
 
         # Create fresh mock without side_effect interference
         mock_service = AsyncMock()
-        mock_service.get_report.return_value = Result.ok(processing_report)
+        mock_service.get_ku.return_value = Result.ok(processing_ku)
 
-        pipeline = ReportsProcessingService(
-            report_service=mock_service,
+        pipeline = KuProcessingService(
+            ku_submission_service=mock_service,
         )
 
         # Act
-        result = await pipeline.process_report("report.processing")
+        result = await pipeline.process_ku("report.processing")
 
         # Assert
         assert result.is_error
@@ -341,12 +338,13 @@ class TestOptionAJournalsProcessing:
 
     async def test_unsupported_file_type_rejected(self):
         """Test that unsupported file types return an error."""
-        # Arrange - Report with unsupported file type
-        pdf_report = Report(
+        # Arrange - Ku with unsupported file type
+        pdf_ku = Ku(
             uid="report.pdf",
+            title="PDF Report",
             user_uid="user.test",
-            report_type=ReportType.REPORT,
-            status=ReportStatus.SUBMITTED,
+            ku_type=KuType.ASSIGNMENT,
+            status=KuStatus.SUBMITTED,
             file_path="/tmp/test.pdf",
             file_type="application/pdf",  # Not yet supported
             file_size=1024,
@@ -358,14 +356,14 @@ class TestOptionAJournalsProcessing:
 
         # Create fresh mock without side_effect interference
         mock_service = AsyncMock()
-        mock_service.get_report.return_value = Result.ok(pdf_report)
+        mock_service.get_ku.return_value = Result.ok(pdf_ku)
 
-        pipeline = ReportsProcessingService(
-            report_service=mock_service,
+        pipeline = KuProcessingService(
+            ku_submission_service=mock_service,
         )
 
         # Act
-        result = await pipeline.process_report("report.pdf")
+        result = await pipeline.process_ku("report.pdf")
 
         # Assert
         assert result.is_error
@@ -375,14 +373,15 @@ class TestOptionAJournalsProcessing:
     # ARCHITECTURE VALIDATION TESTS
     # ==========================================================================
 
-    async def test_report_type_discriminator_works(self, mock_report_service):
-        """Test that report_type discriminator works correctly."""
+    async def test_ku_type_discriminator_works(self, mock_report_service):
+        """Test that ku_type discriminator works correctly."""
         # Arrange
-        transcript_report = Report(
+        assignment_ku = Ku(
             uid="report.transcript_type",
+            title="Transcript",
             user_uid="user.test",
-            report_type=ReportType.TRANSCRIPT,  # Type discriminator
-            status=ReportStatus.SUBMITTED,
+            ku_type=KuType.ASSIGNMENT,
+            status=KuStatus.SUBMITTED,
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
             file_size=1024,
@@ -393,35 +392,27 @@ class TestOptionAJournalsProcessing:
         )
 
         # Act & Assert
-        assert transcript_report.report_type == ReportType.TRANSCRIPT
+        assert assignment_ku.ku_type == KuType.ASSIGNMENT
 
-        # Can differentiate from other report types
-        report_type_report = Report(
-            uid="report.report_type",
-            user_uid="user.test",
-            report_type=ReportType.REPORT,  # Different type
-            status=ReportStatus.SUBMITTED,
-            file_path="/tmp/test.pdf",
-            file_type="application/pdf",
-            file_size=1024,
-            original_filename="report.pdf",
-            processor_type=ProcessorType.LLM,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
+        # Can differentiate from other ku types
+        curriculum_ku = Ku(
+            uid="ku.curriculum_type",
+            title="Curriculum Content",
+            ku_type=KuType.CURRICULUM,
         )
 
-        assert report_type_report.report_type != ReportType.TRANSCRIPT
-        assert report_type_report.report_type == ReportType.REPORT
+        assert curriculum_ku.ku_type != KuType.ASSIGNMENT
+        assert curriculum_ku.ku_type == KuType.CURRICULUM
 
     async def test_no_llm_processing_in_report_pipeline(
         self, processing_pipeline, mock_report_service
     ):
-        """Test that report pipeline does NOT do LLM processing (domain separation)."""
+        """Test that Ku pipeline does NOT do LLM processing (domain separation)."""
         # Arrange
         report_uid = "report.test_transcript"
 
         # Act
-        result = await processing_pipeline.process_report(report_uid)
+        result = await processing_pipeline.process_ku(report_uid)
 
         # Assert
         assert result.is_ok
@@ -434,21 +425,22 @@ class TestOptionAJournalsProcessing:
         assert content == "This is the transcribed meeting content."
         # NOT something like "# Meeting Notes\n\n## Summary\n..."
 
-    async def test_reprocess_report_resets_status(self, processing_pipeline, mock_report_service):
-        """Test that reprocessing a report resets its status."""
+    async def test_reprocess_ku_resets_status(self, processing_pipeline, mock_report_service):
+        """Test that reprocessing a Ku resets its status."""
         # First, complete initial processing
         report_uid = "report.test_transcript"
-        await processing_pipeline.process_report(report_uid)
+        await processing_pipeline.process_ku(report_uid)
 
         # Reset the mock to track reprocessing calls
-        mock_report_service.update_report_status.reset_mock()
+        mock_report_service.update_ku_status.reset_mock()
 
-        # Now, update the report to COMPLETED state for reprocessing test
-        completed_report = Report(
+        # Now, update the Ku to COMPLETED state for reprocessing test
+        completed_ku = Ku(
             uid="report.test_transcript",
+            title="Meeting Notes",
             user_uid="user.test",
-            report_type=ReportType.TRANSCRIPT,
-            status=ReportStatus.COMPLETED,
+            ku_type=KuType.ASSIGNMENT,
+            status=KuStatus.COMPLETED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",
             file_size=1024000,
@@ -458,15 +450,15 @@ class TestOptionAJournalsProcessing:
             updated_at=datetime.now(),
             processed_content="Old content",
         )
-        mock_report_service.get_report.return_value = Result.ok(completed_report)
+        mock_report_service.get_ku.return_value = Result.ok(completed_ku)
 
         # Act - reprocess
-        result = await processing_pipeline.reprocess_report(report_uid)
+        result = await processing_pipeline.reprocess_ku(report_uid)
 
         # Assert
         assert result.is_ok
 
         # Verify status was reset to SUBMITTED first
-        status_calls = mock_report_service.update_report_status.call_args_list
+        status_calls = mock_report_service.update_ku_status.call_args_list
         first_status = status_calls[0][0][1]
-        assert first_status == ReportStatus.SUBMITTED
+        assert first_status == KuStatus.SUBMITTED

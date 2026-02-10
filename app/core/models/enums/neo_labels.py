@@ -83,9 +83,8 @@ class NeoLabel(str, Enum):
     # =========================================================================
     # Content/Processing Domains
     # =========================================================================
-    REPORT = "Report"
-    REPORT_PROJECT = "ReportProject"
-    REPORT_SCHEDULE = "ReportSchedule"
+    KU_PROJECT = "KuProject"
+    KU_SCHEDULE = "KuSchedule"
     TRANSCRIPTION = "Transcription"
 
     # =========================================================================
@@ -138,8 +137,8 @@ class NeoLabel(str, Enum):
             EntityType.LS: cls.LS,
             EntityType.LP: cls.LP,
             EntityType.MOC: cls.MOC,
-            # Content Domains (JOURNAL canonicalizes to REPORT)
-            EntityType.REPORT: cls.REPORT,
+            # Content Domains (REPORT canonicalizes to KU in unified model)
+            EntityType.REPORT: cls.KU,
             # Organizational
             EntityType.GROUP: cls.GROUP,
         }

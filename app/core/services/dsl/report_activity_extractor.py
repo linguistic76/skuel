@@ -52,7 +52,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
-from core.models.report.report import Report
+from core.models.ku import Ku
 from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,
     ParsedActivityLine,
@@ -503,7 +503,7 @@ class ReportActivityExtractorService:
 
     async def extract_and_create(
         self,
-        report: Report,
+        report: Ku,
         user_uid: str,
         create_relationships: bool = True,
     ) -> Result[ActivityExtractionResult]:

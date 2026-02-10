@@ -14,7 +14,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from core.models.enums.report_enums import JournalMode
+from core.models.enums.ku_enums import JournalMode
 from core.services.ai_service import OpenAIService
 from core.services.journals.journal_types import JournalWeights
 from core.utils.logging import get_logger

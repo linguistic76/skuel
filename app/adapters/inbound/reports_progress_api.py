@@ -17,19 +17,19 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.services.protocols.reports_protocols import (
-        ProgressReportGeneratorOperations,
-        ReportScheduleOperations,
-        ReportSubmissionOperations,
+        KuScheduleOperations,
+        KuSubmissionOperations,
+        ProgressKuGeneratorOperations,
     )
 
 from starlette.requests import Request
 
 from core.auth import require_authenticated_user
-from core.models.report import report_to_response
-from core.models.report.report_request import (
-    ProgressReportGenerateRequest,
-    ReportScheduleCreateRequest,
-    ReportScheduleUpdateRequest,
+from core.models.ku import ku_to_response
+from core.models.ku.ku_request import (
+    KuScheduleCreateRequest,
+    KuScheduleUpdateRequest,
+    ProgressKuGenerateRequest,
 )
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
@@ -41,9 +41,9 @@ logger = get_logger("skuel.routes.reports.progress")
 def create_reports_progress_api_routes(
     _app: Any,
     rt: Any,
-    progress_generator: "ProgressReportGeneratorOperations",
-    report_service: "ReportSubmissionOperations",
-    schedule_service: "ReportScheduleOperations | None" = None,
+    progress_generator: "ProgressKuGeneratorOperations",
+    report_service: "KuSubmissionOperations",
+    schedule_service: "KuScheduleOperations | None" = None,
 ) -> list[Any]:
     """
     Create progress report and schedule API routes.
@@ -69,7 +69,7 @@ def create_reports_progress_api_routes(
         user_uid = require_authenticated_user(request)
 
         body = await request.json()
-        req = ProgressReportGenerateRequest.model_validate(body)
+        req = ProgressKuGenerateRequest.model_validate(body)
 
         result = await progress_generator.generate(
             user_uid=user_uid,
@@ -84,7 +84,7 @@ def create_reports_progress_api_routes(
 
         return Result.ok(
             {
-                "report": report_to_response(result.value),
+                "report": ku_to_response(result.value),
                 "message": "Progress report generated successfully",
             }
         )
@@ -108,7 +108,7 @@ def create_reports_progress_api_routes(
         reports = result.value or []
         return Result.ok(
             {
-                "reports": [report_to_response(r) for r in reports],
+                "reports": [ku_to_response(r) for r in reports],
                 "count": len(reports),
             }
         )
@@ -127,7 +127,7 @@ def create_reports_progress_api_routes(
             """Create or update a report generation schedule."""
             user_uid = require_authenticated_user(request)
             body = await request.json()
-            req = ReportScheduleCreateRequest.model_validate(body)
+            req = KuScheduleCreateRequest.model_validate(body)
 
             result = await schedule_service.create_schedule(
                 user_uid=user_uid,
@@ -165,7 +165,7 @@ def create_reports_progress_api_routes(
             """Update a report schedule."""
             _user_uid = require_authenticated_user(request)
             body = await request.json()
-            req = ReportScheduleUpdateRequest.model_validate(body)
+            req = KuScheduleUpdateRequest.model_validate(body)
 
             updates = {k: v for k, v in req.model_dump().items() if v is not None}
             result = await schedule_service.update_schedule(uid, updates)

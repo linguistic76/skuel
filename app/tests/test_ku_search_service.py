@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums import Domain, SELCategory
+from core.models.enums.ku_enums import KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.ku.ku_search_service import KuSearchService
@@ -21,6 +22,7 @@ def make_ku_entity(uid="ku.test.1", title="Test Title", domain=Domain.TECH):
     return Ku(
         uid=uid,
         title=title,
+        ku_type=KuType.CURRICULUM,
         domain=domain,
         sel_category=SELCategory.SELF_AWARENESS,  # Valid SELCategory value
         quality_score=0.0,
