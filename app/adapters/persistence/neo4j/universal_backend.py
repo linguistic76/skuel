@@ -210,6 +210,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         *,
         validate_label: bool = True,
         prometheus_metrics: Any | None = None,
+        default_filters: dict[str, Any] | None = None,
     ) -> None:
         """
         Initialize universal backend for any entity type.
@@ -221,6 +222,9 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             graph_intelligence_service: Optional GraphIntelligenceService for Phase 1-4 queries
             validate_label: If True, validates label against NeoLabel enum (default: True)
             prometheus_metrics: PrometheusMetrics instance for database instrumentation (Phase 2 - January 2026)
+            default_filters: Properties automatically applied to all queries and new nodes.
+                Used for Ku-type discrimination: ``default_filters={"ku_type": "task"}``
+                ensures this backend only sees/creates task-type Ku nodes.
 
         Raises:
             ValueError: If validate_label=True and label is not a valid NeoLabel
@@ -231,6 +235,11 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
             # Also supported: String label (validated by default)
             backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
+
+            # Ku-type discrimination (Unified Ku Model)
+            tasks_backend = UniversalNeo4jBackend[Ku](
+                driver, NeoLabel.KU, Ku, default_filters={"ku_type": "task"}
+            )
 
             # Skip validation for edge cases (e.g., tests with dynamic labels)
             backend = UniversalNeo4jBackend[Task](driver, "TestLabel", Task, validate_label=False)
@@ -253,6 +262,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         self.entity_class = entity_class
         self.graph_intel = graph_intelligence_service
         self.prometheus_metrics = prometheus_metrics
+        self.default_filters = default_filters or {}
         self.logger = get_logger(f"skuel.universal.{label_str.lower()}")
 
         # Phase 2: UnifiedQueryBuilder for all query building
@@ -260,8 +270,9 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
         intel_status = "with Phase 1-4" if graph_intelligence_service else "basic"
         metrics_status = "metrics-enabled" if prometheus_metrics else "no-metrics"
+        filters_status = f"filters={self.default_filters}" if self.default_filters else "no-filters"
         self.logger.info(
-            f"{label_str} universal backend initialized ({intel_status}, {metrics_status}) [UnifiedQueryBuilder]"
+            f"{label_str} universal backend initialized ({intel_status}, {metrics_status}, {filters_status}) [UnifiedQueryBuilder]"
         )
 
     def _track_db_metrics(self, operation: str, duration: float, is_error: bool = False) -> None:
@@ -289,6 +300,45 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             self.prometheus_metrics.db.query_errors.labels(operation=operation).inc()
 
     # ============================================================================
+    # DEFAULT FILTER HELPERS (Unified Ku Model - Phase 2)
+    # ============================================================================
+
+    def _default_filter_clause(self, node_var: str = "n") -> str:
+        """Generate AND-joined conditions from default_filters.
+
+        Returns empty string if no default_filters. Uses ``_df_`` prefixed
+        parameter names to avoid collisions with caller parameters.
+
+        Args:
+            node_var: Cypher variable name for the node (default "n").
+
+        Returns:
+            Condition string like ``n.ku_type = $_df_ku_type`` or empty string.
+        """
+        if not self.default_filters:
+            return ""
+        return " AND ".join(f"{node_var}.{k} = $_df_{k}" for k in self.default_filters)
+
+    def _default_filter_params(self) -> dict[str, Any]:
+        """Return default_filters as query params with ``_df_`` prefix."""
+        return {f"_df_{k}": v for k, v in self.default_filters.items()}
+
+    def _inject_default_filters(
+        self,
+        where_clauses: builtins.list[str],
+        params: dict[str, Any],
+        node_var: str = "n",
+    ) -> None:
+        """Append default_filter conditions to existing WHERE clause lists.
+
+        Mutates ``where_clauses`` and ``params`` in place. Safe to call when
+        ``default_filters`` is empty (no-op).
+        """
+        for k, v in self.default_filters.items():
+            where_clauses.append(f"{node_var}.{k} = $_df_{k}")
+            params[f"_df_{k}"] = v
+
+    # ============================================================================
     # UNIVERSAL CRUD - WORKS FOR ANY ENTITY TYPE
     # ============================================================================
 
@@ -302,6 +352,9 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         """
         start_time = time.time()
         node_data = to_neo4j_node(entity)
+
+        # Ensure default_filter properties are set on new nodes (e.g., ku_type)
+        node_data.update(self.default_filters)
 
         # Extract user_uid if present (for auto-relationship creation)
         user_uid = node_data.get("user_uid")
@@ -380,13 +433,20 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             - Not found is NOT an error - returns Result.ok(None)
             - For batch retrieval, use get_many() to avoid N+1 queries
         """
+        df_clause = self._default_filter_clause()
+        where_line = f"WHERE {df_clause}" if df_clause else ""
+
         query = f"""
         MATCH (n:{self.label} {{uid: $uid}})
+        {where_line}
         RETURN n
         """
 
+        params: dict[str, Any] = {"uid": uid}
+        params.update(self._default_filter_params())
+
         async with self.driver.session() as session:
-            result = await session.run(query, {"uid": uid})
+            result = await session.run(query, params)
             record = await result.single()
 
             if not record:
@@ -433,14 +493,20 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         if self._is_driver_closed():
             return Result.ok([])
 
+        df_clause = self._default_filter_clause()
+        extra_where = f" AND {df_clause}" if df_clause else ""
+
         query = f"""
         MATCH (n:{self.label})
-        WHERE n.uid IN $uids
+        WHERE n.uid IN $uids{extra_where}
         RETURN n
         """
 
+        params: dict[str, Any] = {"uids": uids}
+        params.update(self._default_filter_params())
+
         async with self.driver.session() as session:
-            result = await session.run(query, {"uids": uids})
+            result = await session.run(query, params)
             records = await result.data()
 
             # Create uid-to-entity map for fast lookup
@@ -508,14 +574,25 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         # Add updated_at timestamp
         updates["updated_at"] = datetime.now().isoformat()
 
+        # Prevent overwriting default_filter properties (e.g., ku_type)
+        for k in self.default_filters:
+            updates.pop(k, None)
+
+        df_clause = self._default_filter_clause()
+        where_line = f"WHERE {df_clause}" if df_clause else ""
+
         query = f"""
         MATCH (n:{self.label} {{uid: $uid}})
+        {where_line}
         SET n += $updates
         RETURN n
         """
 
+        params: dict[str, Any] = {"uid": uid, "updates": updates}
+        params.update(self._default_filter_params())
+
         async with self.driver.session() as session:
-            result = await session.run(query, {"uid": uid, "updates": updates})
+            result = await session.run(query, params)
             record = await result.single()
 
             if not record:
@@ -572,10 +649,14 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         """
         start_time = time.time()
 
+        df_clause = self._default_filter_clause()
+        where_line = f"WHERE {df_clause}" if df_clause else ""
+
         if cascade:
             # DETACH DELETE removes entity AND all relationships
             query = f"""
             MATCH (n:{self.label} {{uid: $uid}})
+            {where_line}
             DETACH DELETE n
             RETURN count(n) as deleted
             """
@@ -583,13 +664,17 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             # DELETE only - use DETACH to handle any relationships
             query = f"""
             MATCH (n:{self.label} {{uid: $uid}})
+            {where_line}
             DETACH DELETE n
             RETURN count(n) as deleted
             """
 
+        params: dict[str, Any] = {"uid": uid}
+        params.update(self._default_filter_params())
+
         async with self.driver.session() as session:
             try:
-                result = await session.run(query, {"uid": uid})
+                result = await session.run(query, params)
                 summary = await result.consume()
 
                 deleted = summary.counters.nodes_deleted > 0
@@ -636,6 +721,10 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             .limit(limit)
             .offset(offset)
         )
+
+        # Inject default_filters for Ku-type discrimination
+        if self.default_filters:
+            builder = builder.filter(**self.default_filters)
 
         if filters:
             builder = builder.filter(**filters)
@@ -904,8 +993,11 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         limit: int = 100,
     ) -> Result[builtins.list[T]]:
         """Find any entity within a date range."""
-        params = {"limit": limit}
-        where_clauses = []
+        params: dict[str, Any] = {"limit": limit}
+        where_clauses: builtins.list[str] = []
+
+        # Inject default_filters for Ku-type discrimination
+        self._inject_default_filters(where_clauses, params)
 
         # Build date range conditions
         if start_date:
@@ -1005,18 +1097,24 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             - SearchIntelligenceService: Semantic/embedding-based search
             - list(): Get all entities with filters
         """
+        df_clause = self._default_filter_clause()
+        extra_and = f"\n               AND {df_clause}" if df_clause else ""
+
         cypher = f"""
             MATCH (n:{self.label})
-            WHERE n.title CONTAINS $query
+            WHERE (n.title CONTAINS $query
                OR n.name CONTAINS $query
                OR n.description CONTAINS $query
-               OR n.content CONTAINS $query
+               OR n.content CONTAINS $query){extra_and}
             RETURN n
             LIMIT $limit
         """
 
+        params: dict[str, Any] = {"query": query, "limit": limit}
+        params.update(self._default_filter_params())
+
         async with self.driver.session() as session:
-            result = await session.run(cypher, {"query": query, "limit": limit})
+            result = await session.run(cypher, params)
             records = await result.data()
 
             entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
@@ -1067,13 +1165,16 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         sort_by = filters.pop("sort_by", None)
         sort_order = filters.pop("sort_order", "asc")
 
-        if not filters:
+        if not filters and not self.default_filters:
             return await self.list(limit=limit)  # type: ignore[no-any-return]
+
+        # Merge default_filters (non-overridable) with caller filters
+        all_filters = {**filters, **self.default_filters}
 
         # Phase 2: Use UnifiedQueryBuilder fluent API with explicit label
         query_builder = (
             self.query_builder.for_model(self.entity_class, label=self.label)
-            .filter(**filters)
+            .filter(**all_filters)
             .limit(limit)
         )
 
@@ -1105,10 +1206,13 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
         Phase 2: Now uses UnifiedQueryBuilder - supports the same filter syntax as find_by().
         """
+        # Merge default_filters with caller filters
+        all_filters = {**filters, **self.default_filters}
+
         # Use UnifiedQueryBuilder fluent API for counting
         count = await (
-            self.query_builder.for_model(self.entity_class, label=self.label).filter(**filters)
-            if filters
+            self.query_builder.for_model(self.entity_class, label=self.label).filter(**all_filters)
+            if all_filters
             else self.query_builder.for_model(self.entity_class, label=self.label)
         ).count()
 
@@ -1376,15 +1480,22 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                 return Result.fail(pattern_result.expect_error())
             pattern = pattern_result.value
 
+            df_clause = self._default_filter_clause()
+            where_line = f"WHERE {df_clause}" if df_clause else ""
+
             query = f"""
             MATCH (n:{self.label} {{uid: $uid}})
+            {where_line}
             MATCH {pattern}
             RETURN related
             LIMIT $limit
             """
 
+            params: dict[str, Any] = {"uid": uid, "limit": limit}
+            params.update(self._default_filter_params())
+
             async with self.driver.session() as session:
-                result = await session.run(query, {"uid": uid, "limit": limit})
+                result = await session.run(query, params)
                 records = [record async for record in result]
 
                 entities = []
@@ -2958,8 +3069,11 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                 relationship_type = f"HAS_{self.label.upper()}"
 
             # Build filter clause
-            filter_clauses = []
-            params = {"user_uid": user_uid, "limit": limit, "offset": offset}
+            filter_clauses: builtins.list[str] = []
+            params: dict[str, Any] = {"user_uid": user_uid, "limit": limit, "offset": offset}
+
+            # Inject default_filters for Ku-type discrimination
+            self._inject_default_filters(filter_clauses, params, node_var="e")
 
             if filters:
                 for key, value in filters.items():
@@ -3043,8 +3157,11 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
                 relationship_type = f"HAS_{self.label.upper()}"
 
             # Build filter clause
-            filter_clauses = []
-            params = {"user_uid": user_uid}
+            filter_clauses: builtins.list[str] = []
+            params: dict[str, Any] = {"user_uid": user_uid}
+
+            # Inject default_filters for Ku-type discrimination
+            self._inject_default_filters(filter_clauses, params, node_var="e")
 
             if filters:
                 for key, value in filters.items():
