@@ -267,9 +267,9 @@ class JournalsCoreService(BaseService[JournalsOperations, Report]):
 - `JournalsCoreService` → `JournalsOperations`
 - `TranscriptProcessorService` → `JournalsOperations`
 - `KuSearchService` → `KuOperations`
-- `ReportsCoreService` → `BackendOperations[Report]`
-- `ReportsQueryService` → `BackendOperations[Report]`
-- `ReportSubmissionService` → `BackendOperations[Report]`
+- `KuCoreService` → `BackendOperations[Ku]`
+- `KuSearchService` → `BackendOperations[Ku]`
+- `KuSubmissionService` → `BackendOperations[Ku]`
 
 ### Results
 - **Zero concrete type dependencies** in route signatures
@@ -312,7 +312,7 @@ class Services:
 
 | File | Protocols | Purpose |
 |------|-----------|---------|
-| `reports_protocols.py` | 7 | ReportSubmission, ReportsCore, ReportsSearch, ReportSharing, ReportsProcessing, ReportProject, ReportFeedback |
+| `reports_protocols.py` | 9 | KuSubmission, KuContent, KuContentSearch, KuSharing, KuProcessing, KuProject, KuFeedback, ProgressKuGenerator, KuSchedule |
 | `group_protocols.py` | 2 | GroupOperations (9 methods), TeacherReviewOperations (4 methods) |
 | `service_protocols.py` | 9 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler |
 

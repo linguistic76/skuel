@@ -194,7 +194,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 | 1-6 | Tasks, Goals, Habits, Events, Choices, Principles | Activity | `{type}_{slug}_{random}` | User activities |
 | 7 | Finance | Finance | `expense_{random}` | Admin-only bookkeeping |
 | 8-10 | KU, LS, LP | Curriculum | `ku_{slug}_{random}`, `ls:{random}`, `lp:{random}` | Knowledge organization |
-| 11 | Reports | Content | `report_{random}` | Submissions (transcripts, assignments, journals) |
+| 11 | Reports | Content | `ku_{slug}_{random}` | Submissions (transcripts, assignments, journals) — uses unified Ku model |
 | 12 | Groups | Organizational | `group_{slug}_{random}` | Teacher-student class management |
 | 13 | MOC | Organizational | `ku_{slug}_{random}` (MOC is a KU) | Non-linear KU navigation |
 | 14 | LifePath | Destination | `lp_{random}` | "Am I living my life path?" |
@@ -223,10 +223,11 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
 
 **Content/Processing Domain (1)**:
-- **Reports** - All content submissions and AI/system-generated summaries. Three categories of ReportType:
-  - **File submissions** (TRANSCRIPT, ASSIGNMENT, IMAGE_ANALYSIS, VIDEO_SUMMARY) — user uploads via `/reports/submit`, `ProcessorType.HUMAN`
-  - **AI-processed** (JOURNAL) — admin uploads via `/journals/submit`, `ProcessorType.LLM`, uses ReportProject instructions
-  - **System/teacher generated** (PROGRESS, ASSESSMENT) — no file upload, created by system or teacher
+- **Reports** - All content submissions and AI/system-generated summaries. Uses unified Ku model with KuType discriminator:
+  - **File submissions** (KuType.ASSIGNMENT) — user uploads via `/reports/submit`, `ProcessorType.HUMAN`
+  - **AI-processed** (KuType.JOURNAL) — admin uploads via `/journals/submit`, `ProcessorType.LLM`, uses KuProject instructions
+  - **AI-generated** (KuType.AI_REPORT) — system-generated progress reports, `ProcessorType.AUTOMATIC`
+  - **Teacher feedback** (KuType.FEEDBACK_REPORT) — teacher assessments with `subject_uid` for student
 
 **Organizational Domains (2)**:
 - **Groups** - Teacher-student class management (ADR-040). Teacher creates group, adds students via MEMBER_OF. Assignments target groups via FOR_GROUP.
@@ -282,10 +283,10 @@ Principles <--> Goals, Choices
     +-- GUIDES_GOAL (Principles inform Goal setting)
     +-- GUIDES_CHOICE (Principles inform decisions)
 
-Groups <--> ReportProjects, Users
+Groups <--> KuProjects, Users
     |
-    +-- FOR_GROUP (ReportProject targets Group)
-    +-- FULFILLS_PROJECT (Report fulfills ReportProject)
+    +-- FOR_GROUP (KuProject targets Group)
+    +-- FULFILLS_PROJECT (Ku fulfills KuProject)
     +-- MEMBER_OF (Student belongs to Group)
     +-- OWNS (Teacher owns Group)
 
@@ -499,7 +500,7 @@ EntityType.get_canonical()      # Normalizes aliases (KNOWLEDGE -> KU)
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, etc. | 6 protocols |
 | **Intelligence** | `intelligence_protocols.py` | Analytics operations | 1 protocol |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 protocols |
-| **Reports** | `reports_protocols.py` | Submission, sharing, processing, progress, scheduling | 9 protocols |
+| **Reports (Ku)** | `reports_protocols.py` | KuSubmission, KuContent, KuSharing, KuProcessing, KuProject, KuFeedback, ProgressKuGenerator, KuSchedule, KuContentSearch | 9 protocols |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review | 2 protocols |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration, Lateral | 10 protocols |
 
@@ -692,26 +693,26 @@ PUBLIC            → Anyone (portfolio showcase)
 ```
 
 **Two Sharing Modes:**
-1. **Manual sharing** — Student completes report → shares with teacher → teacher views in "Shared With Me" inbox
-2. **Assignment auto-sharing (ADR-040)** — Student submits report against ASSIGNED ReportProject → SHARES_WITH auto-created to teacher → appears in teacher review queue
+1. **Manual sharing** — Student completes Ku → shares with teacher → teacher views in "Shared With Me" inbox
+2. **Assignment auto-sharing (ADR-040)** — Student submits Ku against ASSIGNED KuProject → SHARES_WITH auto-created to teacher → appears in teacher review queue
 
 **Service:**
 ```python
-from core.services.reports import ReportSharingService
+from core.services.reports import KuSharingService
 
 # Manual share
-await sharing_service.share_report(
-    report_uid="report_123",
+await sharing_service.share_ku(
+    ku_uid="ku_assignment_123",
     owner_uid="user_student",
     recipient_uid="user_teacher",
     role="teacher"  # teacher, peer, mentor, viewer
 )
 
 # Check access
-await sharing_service.check_access(report_uid, user_uid)  # Returns Result[bool]
+await sharing_service.check_access(ku_uid, user_uid)  # Returns Result[bool]
 
 # Set visibility
-await sharing_service.set_visibility(report_uid, owner_uid, Visibility.PUBLIC)
+await sharing_service.set_visibility(ku_uid, owner_uid, Visibility.PUBLIC)
 ```
 
 **Teacher Review (ADR-040):**
@@ -736,11 +737,11 @@ await teacher_review.approve_report(report_uid, teacher_uid)
 - `/api/teaching/review/{uid}/feedback` - Submit feedback
 - `/api/teaching/review/{uid}/approve` - Approve report
 
-**Quality Control:** Only `COMPLETED` reports can be shared (prevents sharing failed/processing work).
+**Quality Control:** Only `COMPLETED` Ku can be shared (prevents sharing failed/processing work).
 
 **Graph Pattern:**
 ```cypher
-(user:User)-[:SHARES_WITH {shared_at, role}]->(report:Report)
+(user:User)-[:SHARES_WITH {shared_at, role}]->(ku:Ku)
 ```
 
 **Phase 2:** Extend to Events (same infrastructure, different entity type).
