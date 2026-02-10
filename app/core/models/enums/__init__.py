@@ -43,6 +43,7 @@ from .learning_enums import (
     EducationalLevel,
     KnowledgeStatus,
     KnowledgeType,
+    KuComplexity,
     LearningLevel,
     MasteryStatus,
     PracticeLevel,
@@ -111,6 +112,7 @@ __all__ = [
     "Intent",
     "KnowledgeStatus",
     "KnowledgeType",
+    "KuComplexity",
     # Learning enums
     "LearningLevel",
     "LearningModality",

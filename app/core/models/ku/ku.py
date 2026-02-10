@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import Any
 
 from core.constants import GraphDepth
-from core.models.enums import Domain, LearningLevel, SELCategory, SystemConstants
+from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
 
 # Phase 1: Query Infrastructure
 from core.models.ku.ku_dto import KuDTO
@@ -64,7 +64,7 @@ class Ku:
 
     # Semantic analysis results (immutable after creation)
     quality_score: float = 0.0
-    complexity: str = "medium"
+    complexity: KuComplexity = KuComplexity.MEDIUM
     semantic_links: tuple[str, ...] = ()
 
     # Metadata (immutable)
@@ -193,11 +193,11 @@ class Ku:
 
     def is_advanced(self) -> bool:
         """Check if this is advanced knowledge."""
-        return self.complexity == "advanced"
+        return self.complexity == KuComplexity.ADVANCED
 
     def is_basic(self) -> bool:
         """Check if this is basic knowledge."""
-        return self.complexity == "basic"
+        return self.complexity == KuComplexity.BASIC
 
     def requires_prerequisites(self) -> bool:
         """
@@ -281,7 +281,7 @@ class Ku:
         Phase 3: Simplified check. Use backend.get_prerequisites() and
         backend.get_enables() for complete foundational analysis.
         """
-        return self.complexity == "basic" and self.is_high_quality()
+        return self.complexity == KuComplexity.BASIC and self.is_high_quality()
 
     def is_terminal(self) -> bool:
         """
@@ -302,7 +302,11 @@ class Ku:
         Returns:
             1 for basic, 2 for medium, 3 for advanced
         """
-        mapping = {"basic": 1, "medium": 2, "advanced": 3}
+        mapping = {
+            KuComplexity.BASIC: 1,
+            KuComplexity.MEDIUM: 2,
+            KuComplexity.ADVANCED: 3,
+        }
         return mapping.get(self.complexity, 2)
 
     def is_recent(self, days: int = 7) -> bool:
@@ -344,7 +348,7 @@ class Ku:
         Create immutable Ku from mutable DTO.
 
         Converts mutable lists to immutable tuples.
-        All 26 business fields are copied — lossless round-trip with to_dto().
+        All 27 business fields are copied — lossless round-trip with to_dto().
         """
         return cls(
             uid=dto.uid,
@@ -365,6 +369,7 @@ class Ku:
             created_at=dto.created_at,
             updated_at=dto.updated_at,
             tags=tuple(dto.tags),
+            metadata=dto.metadata,
             # Substance tracking counters
             times_applied_in_tasks=dto.times_applied_in_tasks,
             times_practiced_in_events=dto.times_practiced_in_events,
@@ -384,7 +389,7 @@ class Ku:
         Convert to mutable DTO for data operations.
 
         Converts immutable tuples back to mutable lists.
-        All 26 business fields are copied — lossless round-trip with from_dto().
+        All 27 business fields are copied — lossless round-trip with from_dto().
         """
         return KuDTO(
             uid=self.uid,
@@ -405,6 +410,7 @@ class Ku:
             created_at=self.created_at,
             updated_at=self.updated_at,
             tags=list(self.tags),
+            metadata=self.metadata if self.metadata is not None else {},
             # Substance tracking counters
             times_applied_in_tasks=self.times_applied_in_tasks,
             times_practiced_in_events=self.times_practiced_in_events,

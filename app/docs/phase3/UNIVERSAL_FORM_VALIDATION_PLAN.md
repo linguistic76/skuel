@@ -88,8 +88,9 @@ def validate_{domain}_form_data(form_data: dict[str, Any]) -> Result[None]:
 
 **Optional Fields:**
 - `tags`: list[str]
-- `prerequisites`: list[str] (KU UIDs)
-- `complexity`: "basic" | "medium" | "advanced"
+- `complexity`: KuComplexity enum (BASIC | MEDIUM | ADVANCED)
+
+**Note:** `prerequisites` field removed (2026-02-10) - prerequisites are graph-native only via REQUIRES_KNOWLEDGE relationships.
 
 **Validation Rules:**
 ```python
@@ -113,12 +114,9 @@ def validate_ku_form_data(form_data: dict[str, Any]) -> Result[None]:
     if not domain:
         return Result.fail(Errors.validation("Knowledge domain is required"))
 
-    # Optional: complexity (if provided, must be valid)
-    complexity = form_data.get("complexity", "").strip()
-    if complexity and complexity not in ["basic", "medium", "advanced"]:
-        return Result.fail(
-            Errors.validation("Complexity must be 'basic', 'medium', or 'advanced'")
-        )
+    # Optional: complexity validation handled by Pydantic (KuComplexity enum)
+    # Pydantic will reject invalid complexity values with 422 before this runs
+    # Form validation can assume complexity is valid if present
 
     return Result.ok(None)
 ```
@@ -175,17 +173,19 @@ def test_validate_ku_form_data_title_too_long():
     assert result.is_error
     assert "200 characters or less" in result.error.message
 
-def test_validate_ku_form_data_invalid_complexity():
-    """Test invalid complexity value."""
+def test_validate_ku_form_data_valid_complexity():
+    """Test valid complexity value (enum handled by Pydantic)."""
     form_data = {
         "title": "Title",
         "content": "Content",
         "domain": "TECH",
-        "complexity": "expert",  # Invalid - should be basic/medium/advanced
+        "complexity": "BASIC",  # Valid - Pydantic converts to KuComplexity.BASIC
     }
     result = validate_ku_form_data(form_data)
-    assert result.is_error
-    assert "basic" in result.error.message.lower()
+    assert not result.is_error
+
+# Note: Invalid complexity values (e.g., "expert") are rejected by Pydantic
+# with 422 Unprocessable Entity before reaching form validation
 ```
 
 ### Integration Testing

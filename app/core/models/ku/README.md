@@ -1,5 +1,7 @@
 # Knowledge Domain Models
 
+*Last updated: 2026-02-10*
+
 **Purpose**: Core learning content units with markdown content and relationship management.
 
 ---
@@ -20,7 +22,7 @@
 
 | Field | Type | Default | Valid Values | Description |
 |-------|------|---------|--------------|-------------|
-| `domain` | Enum | `personal` | `personal`, `professional`, `technical`, `health`, `financial`, `social` | Knowledge domain classification |
+| `domain` | Enum | `PERSONAL` | `PERSONAL`, `PROFESSIONAL`, `TECHNICAL`, `HEALTH`, `FINANCIAL`, `SOCIAL` | Knowledge domain classification |
 | `complexity` | String | `medium` | `basic`, `medium`, `advanced` | Difficulty level ⚠️ Use `basic` NOT `beginner`! |
 | `quality_score` | Float | `0.0` | `0.0` to `1.0` | Quality rating of content |
 | `tags` | List[String] | `[]` | Any strings | Tags for categorization |
@@ -39,12 +41,12 @@
 ## Enum Values
 
 ### Domain
-- `personal` - Personal development
-- `professional` - Career/work
-- `technical` - Technical skills
-- `health` - Health and wellness
-- `financial` - Financial knowledge
-- `social` - Relationships and community
+- `PERSONAL` - Personal development
+- `PROFESSIONAL` - Career/work
+- `TECHNICAL` - Technical skills
+- `HEALTH` - Health and wellness
+- `FINANCIAL` - Financial literacy
+- `SOCIAL` - Social and relationships
 
 ### Complexity
 ⚠️ **IMPORTANT**: Do NOT use `beginner` - it will fail validation!
@@ -58,9 +60,13 @@
 ## Example YAML
 
 ```yaml
+# OLD (colon format, October 2025):
+# uid: ku:note-taking-basics
+
+# NEW (flat format, January 2026):
 version: 1.0
 type: KnowledgeUnit
-uid: ku:note-taking-basics
+uid: ku_note-taking-basics_a1b2c3d4
 title: Note-Taking Basics
 content: |
   # Note-Taking Basics
@@ -75,7 +81,7 @@ content: |
   - **Bullets**: Break down information
   - **Keywords**: Highlight important terms
 
-domain: personal
+domain: PERSONAL
 complexity: basic
 quality_score: 0.85
 tags:
@@ -84,9 +90,9 @@ tags:
   - beginner
 prerequisites: []
 enables:
-  - ku:spaced-repetition-basics
+  - ku_spaced-repetition-basics_xyz789
 related_to:
-  - ku:distraction-handling
+  - ku_distraction-handling_def456
 ```
 
 ---
@@ -120,9 +126,9 @@ content: |
 
 ## Model Files
 
-- **Pure Domain Model**: `knowledge.py` - Tier 3 (frozen dataclass)
-- **DTO**: `knowledge_dto.py` - Tier 2 (mutable transfer)
-- **Request Models**: `knowledge_request.py` - Tier 1 (Pydantic validation)
+- **Pure Domain Model**: `ku.py` - Tier 3 (frozen dataclass)
+- **DTO**: `ku_dto.py` - Tier 2 (mutable transfer)
+- **Request Models**: `ku_request.py` - Tier 1 (Pydantic validation)
 
 ---
 
@@ -140,16 +146,16 @@ YAML File
     ↓
 Python Dict
     ↓
-KnowledgeCreateRequest (Pydantic) ← Validation happens here
+KuCreateRequest (Pydantic) ← Validation happens here
     ↓
-KnowledgeDTO
+KuDTO
     ↓
-Knowledge (Pure domain model)
+Ku (Pure domain model)
     ↓
 Neo4j Database
 ```
 
-Validation errors will reference `KnowledgeCreateRequest` fields.
+Validation errors will reference `KuCreateRequest` fields.
 
 ---
 
@@ -160,8 +166,8 @@ Knowledge units that should be learned **before** this one.
 
 ```yaml
 prerequisites:
-  - ku:basic-concepts
-  - ku:fundamentals
+  - ku_basic-concepts_abc123
+  - ku_fundamentals_def456
 ```
 
 ### Enables
@@ -169,8 +175,8 @@ Knowledge units that this one **unlocks** (learner can tackle these next).
 
 ```yaml
 enables:
-  - ku:advanced-techniques
-  - ku:practical-applications
+  - ku_advanced-techniques_ghi789
+  - ku_practical-applications_jkl012
 ```
 
 ### Related To
@@ -178,8 +184,8 @@ Knowledge units that are **related but not dependencies**.
 
 ```yaml
 related_to:
-  - ku:similar-concept
-  - ku:alternative-approach
+  - ku_similar-concept_mno345
+  - ku_alternative-approach_pqr678
 ```
 
 ---
@@ -187,7 +193,7 @@ related_to:
 ## Notes
 
 1. **Content is markdown**: Use full markdown syntax with headers, bullets, code blocks, etc.
-2. **UIDs must be unique**: Use pattern `ku:topic-name` (lowercase, kebab-case)
+2. **UIDs must be unique**: Use pattern `ku_{slug}_{random}` (lowercase, kebab-case slug + random suffix)
 3. **Complexity validation**: Pattern enforced: `^(basic|medium|advanced)$`
 4. **Prerequisites are optional**: Knowledge can stand alone
 5. **Quality score is subjective**: 0.0-1.0 scale, used for content curation

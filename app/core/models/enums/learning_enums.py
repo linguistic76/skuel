@@ -12,6 +12,18 @@ if TYPE_CHECKING:
     from .activity_enums import ActivityStatus
 
 
+class KuComplexity(str, Enum):
+    """
+    Complexity level of a Knowledge Unit.
+
+    Used to indicate difficulty/sophistication of KU content.
+    """
+
+    BASIC = "basic"
+    MEDIUM = "medium"
+    ADVANCED = "advanced"
+
+
 class LearningLevel(str, Enum):
     """
     Learning proficiency levels for users and content.

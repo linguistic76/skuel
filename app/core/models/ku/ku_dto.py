@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.enums import Domain, LearningLevel, SELCategory
+from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.services.protocols import get_enum_value
 from core.utils.uid_generator import UIDGenerator
 
@@ -41,7 +41,7 @@ class KuDTO:
 
     # Semantic fields (always present, may have defaults)
     quality_score: float = 0.0
-    complexity: str = "medium"
+    complexity: KuComplexity = KuComplexity.MEDIUM
     semantic_links: list[str] = field(default_factory=list)
 
     # Metadata
@@ -97,7 +97,7 @@ class KuDTO:
         domain: Domain,
         word_count: int = 0,
         tags: list[str] | None = None,
-        complexity: str = "medium",
+        complexity: KuComplexity = KuComplexity.MEDIUM,
         sel_category: SELCategory | None = None,
         learning_level: LearningLevel = LearningLevel.BEGINNER,
         summary: str = "",
@@ -187,7 +187,7 @@ class KuDTO:
             "word_count": self.word_count,
             "domain": get_enum_value(self.domain),
             "quality_score": self.quality_score,
-            "complexity": self.complexity,
+            "complexity": get_enum_value(self.complexity),
             "semantic_links": list(self.semantic_links),  # Copy list
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -253,6 +253,7 @@ class KuDTO:
             data,
             enum_fields={
                 "domain": Domain,
+                "complexity": KuComplexity,
                 "sel_category": SELCategory,
                 "learning_level": LearningLevel,
             },

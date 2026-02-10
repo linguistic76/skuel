@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.models.enums import Domain, LearningLevel, SELCategory
+from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
@@ -28,14 +28,9 @@ class KuCreateRequest(BaseModel):
     tags: list[str] = Field(
         default_factory=list, description="Associated tags for categorization and search"
     )
-    prerequisites: list[str] = Field(
-        default_factory=list,
-        description="List of prerequisite KnowledgeUnit UIDs that should be learned first",
-    )
-    complexity: str | None = Field(
-        default="medium",
-        pattern="^(basic|medium|advanced)$",
-        description="Difficulty level: 'basic', 'medium', or 'advanced' (NOT 'beginner'!)",
+    complexity: KuComplexity = Field(
+        default=KuComplexity.MEDIUM,
+        description="Difficulty level: BASIC, MEDIUM, or ADVANCED",
     )
 
     # Learning metadata
@@ -52,7 +47,7 @@ class KuCreateRequest(BaseModel):
                 "content": "Python is a high-level programming language...",
                 "domain": "TECH",
                 "tags": ["python", "programming"],
-                "complexity": "basic",
+                "complexity": "BASIC",
                 "sel_category": "self_awareness",
                 "learning_level": "beginner",
             }
@@ -66,8 +61,7 @@ class KuUpdateRequest(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=200)
     content: str | None = Field(None, min_length=1)
     tags: list[str] | None = None
-    prerequisites: list[str] | None = None
-    complexity: str | None = Field(None, pattern="^(basic|medium|advanced)$")
+    complexity: KuComplexity | None = None
 
     # Learning metadata
     sel_category: SELCategory | None = None
@@ -91,7 +85,7 @@ class KuResponse(BaseModel):
 
     # Semantic fields
     quality_score: float = Field(ge=0.0, le=1.0)
-    complexity: str
+    complexity: KuComplexity
     semantic_links: list[str]
 
     # Metadata
@@ -125,7 +119,7 @@ class KuResponse(BaseModel):
 
         GRAPH-NATIVE: Relationship fields (prerequisites, enables) set to empty lists.
         Service layer must populate via graph queries:
-        - prerequisites: backend.get_related_uids(uid, "REQUIRES_KNOWLEDGE", "outgoing")
+        - prerequisites: backend.get_related_uids(uid, "REQUIRES_KNOWLEDGE", "incoming")
         - enables: backend.get_related_uids(uid, "ENABLES_KNOWLEDGE", "outgoing")
         """
 
@@ -149,8 +143,8 @@ class KuResponse(BaseModel):
             learning_level=dto.learning_level,
             estimated_time_minutes=dto.estimated_time_minutes,
             difficulty_rating=dto.difficulty_rating,
-            prerequisites=[],  # GRAPH QUERY: backend.get_related_uids(uid, "REQUIRES_KNOWLEDGE", "outgoing")
-            enables=[],  # GRAPH QUERY: backend.get_related_uids(uid, "ENABLES_KNOWLEDGE", "outgoing")
+            prerequisites=[],  # GRAPH-NATIVE: Query via backend.get_related_uids(uid, "REQUIRES_KNOWLEDGE", "incoming")
+            enables=[],  # GRAPH-NATIVE: Query via backend.get_related_uids(uid, "ENABLES_KNOWLEDGE", "outgoing")
             word_count=dto.word_count,
             estimated_reading_time=estimated_reading_time,
         )
