@@ -5,24 +5,68 @@ Unified Knowledge Request Models (Tier 1 - External)
 "Ku is the heartbeat of SKUEL."
 
 Pydantic models for API boundaries — validation and serialization.
-Four create requests (one per KuType), one update, one response.
+14 create requests (one per KuType), one update, one response.
 
-Create requests:
-    KuCurriculumCreateRequest  → Admin creates shared knowledge
-    KuAssignmentCreateRequest  → Student submits work
-    KuAiReportCreateRequest    → System creates AI-derived analysis
-    KuFeedbackCreateRequest    → Teacher provides feedback
+Create requests (Content Processing):
+    KuCurriculumCreateRequest    → Admin creates shared knowledge
+    KuAssignmentCreateRequest    → Student submits work
+    KuAiReportCreateRequest      → System creates AI-derived analysis
+    KuFeedbackCreateRequest      → Teacher provides feedback
+
+Create requests (Activity Domains):
+    KuTaskCreateRequest          → User creates task knowledge
+    KuGoalCreateRequest          → User creates goal knowledge
+    KuHabitCreateRequest         → User creates habit knowledge
+    KuEventCreateRequest         → User creates event knowledge
+    KuChoiceCreateRequest        → User creates choice knowledge
+    KuPrincipleCreateRequest     → User creates principle knowledge
+
+Create requests (Shared/Curriculum):
+    KuMocCreateRequest           → Admin creates MOC (shared)
+    KuLearningStepCreateRequest  → Admin creates learning step (shared)
+    KuLearningPathCreateRequest  → Admin creates learning path (shared)
+
+Create requests (Destination):
+    KuLifePathCreateRequest      → User creates life path knowledge
+
+Nested request models (used in create requests):
+    MilestoneRequest             → Goal milestones
+    ChoiceOptionRequest          → Choice options
+    PrincipleExpressionRequest   → Principle behavioral expressions
 
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
-from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
-from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
+from core.models.enums import (
+    Domain,
+    KuComplexity,
+    LearningLevel,
+    Priority,
+    RecurrencePattern,
+    SELCategory,
+)
+from core.models.enums.ku_enums import (
+    ChoiceType,
+    GoalTimeframe,
+    GoalType,
+    HabitCategory,
+    HabitDifficulty,
+    HabitPolarity,
+    KuStatus,
+    KuType,
+    LpType,
+    MeasurementType,
+    PrincipleCategory,
+    PrincipleSource,
+    PrincipleStrength,
+    ProcessorType,
+    StepDifficulty,
+)
 from core.models.enums.metadata_enums import Visibility
 from core.models.request_base import (
     CreateRequestBase,
@@ -36,7 +80,46 @@ if TYPE_CHECKING:
 
 
 # =============================================================================
-# CREATE REQUESTS (one per KuType)
+# NESTED REQUEST MODELS (used by create requests)
+# =============================================================================
+
+
+class MilestoneRequest(BaseModel):
+    """Request model for creating a milestone within a GOAL Ku."""
+
+    title: str = Field(min_length=1, max_length=200, description="Milestone title")
+    target_date: date = Field(description="When this milestone should be achieved")
+    description: str | None = Field(None, max_length=500, description="Detailed description")
+    target_value: float | None = Field(None, ge=0, description="Numeric target")
+    required_knowledge_uids: list[str] = Field(
+        default_factory=list, description="KU UIDs needed to reach this milestone"
+    )
+
+
+class ChoiceOptionRequest(BaseModel):
+    """Request model for creating an option within a CHOICE Ku."""
+
+    title: str = Field(min_length=1, max_length=200, description="Option title")
+    description: str = Field(default="", max_length=1000, description="Option description")
+    feasibility_score: float = Field(default=0.5, ge=0.0, le=1.0)
+    risk_level: float = Field(default=0.5, ge=0.0, le=1.0)
+    potential_impact: float = Field(default=0.5, ge=0.0, le=1.0)
+    resource_requirement: float = Field(default=0.5, ge=0.0, le=1.0)
+    estimated_duration: int | None = Field(None, ge=1, description="Duration in minutes")
+    dependencies: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+
+
+class PrincipleExpressionRequest(BaseModel):
+    """Request model for creating an expression within a PRINCIPLE Ku."""
+
+    context: str = Field(min_length=1, max_length=500, description="Life situation")
+    behavior: str = Field(min_length=1, max_length=500, description="Expected behavior")
+    example: str | None = Field(None, max_length=500, description="Concrete example")
+
+
+# =============================================================================
+# CREATE REQUESTS — Content Processing (original 4 KuTypes)
 # =============================================================================
 
 
@@ -124,31 +207,475 @@ class KuFeedbackCreateRequest(CreateRequestBase):
 
 
 # =============================================================================
+# CREATE REQUESTS — Activity Domains (6 new KuTypes)
+# =============================================================================
+
+
+class KuTaskCreateRequest(CreateRequestBase):
+    """Create a TASK Ku (knowledge about what needs doing)."""
+
+    title: str = Field(min_length=1, max_length=200, description="Task title")
+    description: str | None = Field(None, max_length=2000, description="Task description")
+
+    # Scheduling
+    due_date: date | None = Field(None, description="When this task is due")
+    scheduled_date: date | None = Field(None, description="When this task is scheduled")
+    duration_minutes: int = Field(default=30, ge=5, le=480, description="Estimated duration")
+    recurrence_pattern: RecurrencePattern | None = Field(None, description="Recurrence pattern")
+    recurrence_end_date: date | None = Field(None, description="When recurrence ends")
+
+    # Organization
+    priority: Priority = Field(default=Priority.MEDIUM, description="Task priority")
+    project: str | None = Field(None, max_length=200, description="Project name")
+    assignee: str | None = Field(None, description="Assigned user UID")
+    parent_uid: str | None = Field(None, description="Parent task UID (for subtasks)")
+    progress_weight: float = Field(
+        default=1.0, ge=0.0, description="Weight in parent goal progress"
+    )
+    tags: list[str] = Field(default_factory=list, description="Tags")
+
+    # Cross-domain relationships (services create graph edges)
+    fulfills_goal_uid: str | None = Field(None, description="Goal this task contributes to")
+    reinforces_habit_uid: str | None = Field(None, description="Habit this task reinforces")
+    applies_knowledge_uids: list[str] = Field(
+        default_factory=list, description="KU UIDs applied"
+    )
+    aligned_principle_uids: list[str] = Field(
+        default_factory=list, description="Principle UIDs"
+    )
+    prerequisite_knowledge_uids: list[str] = Field(
+        default_factory=list, description="Required KU UIDs"
+    )
+    prerequisite_task_uids: list[str] = Field(
+        default_factory=list, description="Required task UIDs"
+    )
+
+
+class KuGoalCreateRequest(CreateRequestBase):
+    """Create a GOAL Ku (knowledge about where you're heading)."""
+
+    title: str = Field(min_length=1, max_length=200, description="Goal title")
+    description: str | None = Field(None, max_length=2000, description="Goal description")
+    vision_statement: str | None = Field(
+        None, max_length=1000, description="What success looks like"
+    )
+
+    # Classification
+    goal_type: GoalType = Field(default=GoalType.OUTCOME, description="Goal type")
+    domain: Domain = Field(default=Domain.KNOWLEDGE, description="Knowledge domain")
+    timeframe: GoalTimeframe = Field(
+        default=GoalTimeframe.QUARTERLY, description="Timeframe"
+    )
+
+    # Measurement
+    measurement_type: MeasurementType = Field(
+        default=MeasurementType.PERCENTAGE, description="How to measure"
+    )
+    target_value: float | None = Field(None, ge=0, description="Target value")
+    unit_of_measurement: str | None = Field(
+        None, max_length=50, description="Unit label"
+    )
+
+    # Timing
+    start_date: date | None = Field(
+        default_factory=date.today, description="Start date"
+    )
+    target_date: date | None = Field(None, description="Target completion date")
+
+    # Organization
+    parent_uid: str | None = Field(None, description="Parent goal UID")
+    progress_weight: float = Field(
+        default=1.0, ge=0.0, description="Weight in parent goal"
+    )
+    priority: Priority = Field(default=Priority.MEDIUM, description="Goal priority")
+    tags: list[str] = Field(default_factory=list, max_length=20, description="Tags")
+
+    # Motivation
+    why_important: str | None = Field(
+        None, max_length=1000, description="Why this goal matters"
+    )
+    success_criteria: str | None = Field(
+        None, max_length=1000, description="Criteria for success"
+    )
+    potential_obstacles: list[str] = Field(
+        default_factory=list, max_length=10, description="Known obstacles"
+    )
+    strategies: list[str] = Field(
+        default_factory=list, max_length=10, description="Strategies to achieve"
+    )
+
+    # Milestones
+    milestones: list[MilestoneRequest] = Field(
+        default_factory=list, description="Goal milestones"
+    )
+
+    # Cross-domain relationships
+    required_knowledge_uids: list[str] = Field(
+        default_factory=list, description="Required KU UIDs"
+    )
+    supporting_habit_uids: list[str] = Field(
+        default_factory=list, description="Supporting habit UIDs"
+    )
+    guiding_principle_uids: list[str] = Field(
+        default_factory=list, description="Guiding principles"
+    )
+
+
+class KuHabitCreateRequest(CreateRequestBase):
+    """Create a HABIT Ku (knowledge about what you practice)."""
+
+    title: str = Field(min_length=1, max_length=200, description="Habit title")
+    description: str | None = Field(
+        None, max_length=1000, description="Habit description"
+    )
+
+    # Habit characteristics
+    polarity: HabitPolarity = Field(
+        default=HabitPolarity.BUILD, description="Build or break"
+    )
+    category: HabitCategory = Field(
+        default=HabitCategory.OTHER, description="Habit category"
+    )
+    difficulty: HabitDifficulty = Field(
+        default=HabitDifficulty.MODERATE, description="Difficulty level"
+    )
+
+    # Schedule
+    recurrence_pattern: RecurrencePattern = Field(
+        default=RecurrencePattern.DAILY, description="Frequency"
+    )
+    target_days_per_week: int = Field(
+        default=7, ge=1, le=7, description="Target days per week"
+    )
+    preferred_time: str | None = Field(
+        None, description="Preferred time: morning, afternoon, evening"
+    )
+    duration_minutes: int = Field(
+        default=15, ge=1, le=480, description="Duration per session"
+    )
+
+    # Behavior design (Atomic Habits)
+    cue: str | None = Field(None, max_length=500, description="Cue/trigger")
+    routine: str | None = Field(None, max_length=1000, description="The routine")
+    reward: str | None = Field(None, max_length=500, description="The reward")
+    reinforces_identity: str | None = Field(
+        None, max_length=200, description="Identity reinforced"
+    )
+    is_identity_habit: bool = Field(
+        default=False, description="Is this an identity habit?"
+    )
+
+    # Organization
+    priority: Priority = Field(default=Priority.MEDIUM, description="Habit priority")
+    tags: list[str] = Field(default_factory=list, max_length=20, description="Tags")
+
+    # Cross-domain relationships
+    linked_knowledge_uids: list[str] = Field(
+        default_factory=list, description="Linked KU UIDs"
+    )
+    linked_goal_uids: list[str] = Field(
+        default_factory=list, description="Linked goal UIDs"
+    )
+    linked_principle_uids: list[str] = Field(
+        default_factory=list, description="Linked principle UIDs"
+    )
+
+
+class KuEventCreateRequest(CreateRequestBase):
+    """Create an EVENT Ku (knowledge about what you attend)."""
+
+    title: str = Field(min_length=1, max_length=200, description="Event title")
+    description: str | None = Field(
+        None, max_length=2000, description="Event description"
+    )
+
+    # Scheduling
+    event_date: date = Field(description="Event date")
+    start_time: time = Field(description="Start time")
+    end_time: time = Field(description="End time")
+    recurrence_pattern: RecurrencePattern | None = Field(
+        None, description="Recurrence"
+    )
+    recurrence_end_date: date | None = Field(
+        None, description="When recurrence ends"
+    )
+    reminder_minutes: int | None = Field(
+        None, ge=0, le=10080, description="Reminder (minutes before)"
+    )
+
+    # Location & type
+    event_type: str = Field(default="personal", description="Event type")
+    visibility: Visibility = Field(
+        default=Visibility.PRIVATE, description="Visibility"
+    )
+    location: str | None = Field(
+        None, max_length=500, description="Physical location"
+    )
+    is_online: bool = Field(default=False, description="Is this an online event?")
+    meeting_url: str | None = Field(
+        None, description="Meeting URL for online events"
+    )
+
+    # Attendance
+    attendee_emails: list[str] = Field(
+        default_factory=list, description="Attendee emails"
+    )
+    max_attendees: int | None = Field(None, ge=1, description="Maximum attendees")
+
+    # Organization
+    priority: Priority = Field(default=Priority.MEDIUM, description="Event priority")
+    tags: list[str] = Field(default_factory=list, description="Tags")
+
+    # Cross-domain relationships
+    practices_knowledge_uids: list[str] = Field(
+        default_factory=list, description="KU UIDs practiced"
+    )
+    executes_tasks: list[str] = Field(
+        default_factory=list, description="Task UIDs executed at event"
+    )
+    reinforces_habit_uid: str | None = Field(
+        None, description="Habit UID reinforced"
+    )
+
+
+class KuChoiceCreateRequest(CreateRequestBase):
+    """Create a CHOICE Ku (knowledge about decisions you make)."""
+
+    title: str = Field(min_length=1, max_length=200, description="Choice title")
+    description: str = Field(
+        min_length=1, max_length=1000, description="Choice description"
+    )
+
+    # Decision characteristics
+    choice_type: ChoiceType = Field(
+        default=ChoiceType.MULTIPLE, description="Choice type"
+    )
+    domain: Domain = Field(default=Domain.PERSONAL, description="Domain")
+    decision_deadline: datetime | None = Field(
+        None, description="Decision deadline"
+    )
+    decision_criteria: list[str] = Field(
+        default_factory=list, description="Criteria for deciding"
+    )
+    constraints: list[str] = Field(
+        default_factory=list, description="Constraints"
+    )
+    stakeholders: list[str] = Field(
+        default_factory=list, description="Stakeholders"
+    )
+
+    # Options
+    options: list[ChoiceOptionRequest] = Field(
+        default_factory=list, description="Available options"
+    )
+
+    # Organization
+    priority: Priority = Field(default=Priority.MEDIUM, description="Choice priority")
+    tags: list[str] = Field(default_factory=list, description="Tags")
+
+    # Cross-domain relationships
+    informed_by_knowledge_uids: list[str] = Field(
+        default_factory=list, description="KU UIDs informing this choice"
+    )
+
+
+class KuPrincipleCreateRequest(CreateRequestBase):
+    """Create a PRINCIPLE Ku (knowledge about what you believe)."""
+
+    title: str = Field(min_length=1, max_length=100, description="Principle title")
+    statement: str = Field(
+        min_length=1, max_length=500, description="Core statement"
+    )
+    description: str | None = Field(
+        None, max_length=1000, description="Full description"
+    )
+
+    # Classification
+    category: PrincipleCategory = Field(
+        default=PrincipleCategory.PERSONAL, description="Category"
+    )
+    source: PrincipleSource = Field(
+        default=PrincipleSource.PERSONAL, description="Source"
+    )
+    strength: PrincipleStrength = Field(
+        default=PrincipleStrength.MODERATE, description="Strength"
+    )
+
+    # Origin
+    tradition: str | None = Field(
+        None, max_length=100, description="Tradition/school of thought"
+    )
+    original_source: str | None = Field(
+        None, max_length=200, description="Original source text"
+    )
+    personal_interpretation: str | None = Field(
+        None, max_length=1000, description="Personal interpretation"
+    )
+    why_important: str | None = Field(
+        None, max_length=1000, description="Why this principle matters"
+    )
+    origin_story: str | None = Field(
+        None, max_length=2000, description="How you came to this principle"
+    )
+
+    # Behavioral expression
+    key_behaviors: list[str] = Field(
+        default_factory=list, max_length=10, description="Key behaviors"
+    )
+    decision_criteria: list[str] = Field(
+        default_factory=list, max_length=10, description="Decision criteria"
+    )
+    expressions: list[PrincipleExpressionRequest] = Field(
+        default_factory=list, description="Context expressions"
+    )
+
+    # Organization
+    priority: Priority = Field(
+        default=Priority.MEDIUM, description="Principle priority"
+    )
+    tags: list[str] = Field(default_factory=list, max_length=20, description="Tags")
+
+
+# =============================================================================
+# CREATE REQUESTS — Shared/Curriculum (3 new KuTypes)
+# =============================================================================
+
+
+class KuMocCreateRequest(CreateRequestBase):
+    """Create a MOC Ku (Map of Content — KU organizing KUs). Admin-only, shared."""
+
+    title: str = Field(min_length=1, max_length=200, description="MOC title")
+    content: str | None = Field(None, description="MOC content")
+    summary: str | None = Field(None, max_length=500, description="Brief summary")
+    domain: Domain = Field(default=Domain.KNOWLEDGE, description="Knowledge domain")
+    tags: list[str] = Field(default_factory=list, description="Tags")
+
+
+class KuLearningStepCreateRequest(CreateRequestBase):
+    """Create a LEARNING_STEP Ku (step in a learning path). Admin-only, shared."""
+
+    title: str = Field(min_length=1, max_length=200, description="Step title")
+    intent: str = Field(min_length=1, description="Step intent/purpose")
+    description: str | None = Field(
+        None, max_length=2000, description="Step description"
+    )
+
+    # Curriculum placement
+    learning_path_uid: str | None = Field(None, description="Parent LP UID")
+    sequence: int | None = Field(None, ge=1, description="Order in learning path")
+
+    # Learning parameters
+    mastery_threshold: float = Field(
+        default=0.7, ge=0.0, le=1.0, description="Mastery threshold"
+    )
+    estimated_hours: float = Field(
+        default=1.0, gt=0, description="Estimated hours"
+    )
+    difficulty: StepDifficulty = Field(
+        default=StepDifficulty.MODERATE, description="Step difficulty"
+    )
+
+    # Organization
+    domain: Domain = Field(default=Domain.PERSONAL, description="Domain")
+    priority: Priority = Field(default=Priority.MEDIUM, description="Priority")
+    notes: str | None = Field(None, description="Additional notes")
+    tags: list[str] = Field(default_factory=list, description="Tags")
+
+    # Knowledge relationships
+    primary_knowledge_uids: list[str] = Field(
+        default_factory=list, description="Primary KU UIDs"
+    )
+    supporting_knowledge_uids: list[str] = Field(
+        default_factory=list, description="Supporting KU UIDs"
+    )
+    prerequisite_step_uids: list[str] = Field(
+        default_factory=list, description="Prerequisite step UIDs"
+    )
+    prerequisite_knowledge_uids: list[str] = Field(
+        default_factory=list, description="Prerequisite KU UIDs"
+    )
+
+
+class KuLearningPathCreateRequest(CreateRequestBase):
+    """Create a LEARNING_PATH Ku (ordered sequence of steps). Admin-only, shared."""
+
+    title: str = Field(min_length=1, max_length=200, description="Learning path title")
+    description: str | None = Field(
+        None, max_length=2000, description="Path description"
+    )
+    lp_goal: str = Field(min_length=1, description="Learning path goal statement")
+    domain: Domain = Field(description="Knowledge domain")
+
+    # Path characteristics
+    lp_type: LpType = Field(default=LpType.STRUCTURED, description="Path type")
+    difficulty_level: str = Field(
+        default="intermediate", description="Difficulty level"
+    )
+    estimated_hours: float | None = Field(
+        None, gt=0.0, description="Total estimated hours"
+    )
+
+    # Structure
+    prerequisites: list[str] = Field(
+        default_factory=list, description="Prerequisites"
+    )
+    outcomes: list[str] = Field(
+        default_factory=list, description="Expected outcomes"
+    )
+    tags: list[str] = Field(default_factory=list, description="Tags")
+
+
+# =============================================================================
+# CREATE REQUESTS — Destination (1 new KuType)
+# =============================================================================
+
+
+class KuLifePathCreateRequest(CreateRequestBase):
+    """Create a LIFE_PATH Ku (knowledge about your life direction)."""
+
+    title: str = Field(min_length=1, max_length=200, description="Life path title")
+    description: str | None = Field(
+        None, max_length=2000, description="Life path description"
+    )
+    vision_statement: str = Field(
+        min_length=10, max_length=2000, description="Vision statement"
+    )
+    domain: Domain = Field(default=Domain.PERSONAL, description="Domain")
+    tags: list[str] = Field(default_factory=list, description="Tags")
+
+
+# =============================================================================
 # UPDATE REQUEST (shared across all KuTypes)
 # =============================================================================
 
 
 class KuUpdateRequest(UpdateRequestBase):
-    """Update any Ku type. All fields optional."""
+    """Update any Ku type. All fields optional.
 
+    Services validate which fields are appropriate per KuType.
+    """
+
+    # --- COMMON ---
     title: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = None
     content: str | None = None
     summary: str | None = Field(None, max_length=500)
     domain: Domain | None = None
     tags: list[str] | None = None
+    priority: Priority | None = None
 
-    # Processing
+    # --- PROCESSING ---
     status: KuStatus | None = None
     processor_type: ProcessorType | None = None
     instructions: str | None = None
     processing_error: str | None = None
     processed_content: str | None = None
 
-    # Feedback
+    # --- FEEDBACK ---
     feedback: str | None = None
     subject_uid: str | None = None
 
-    # Learning metadata
+    # --- LEARNING METADATA ---
     complexity: KuComplexity | None = None
     learning_level: LearningLevel | None = None
     sel_category: SELCategory | None = None
@@ -156,8 +683,102 @@ class KuUpdateRequest(UpdateRequestBase):
     estimated_time_minutes: int | None = Field(None, ge=1)
     difficulty_rating: float | None = Field(None, ge=0.0, le=1.0)
 
-    # Sharing
+    # --- SHARING ---
     visibility: Visibility | None = None
+
+    # --- SCHEDULING (Tasks, Goals, Events, Choices) ---
+    due_date: date | None = None
+    scheduled_date: date | None = None
+    start_date: date | None = None
+    target_date: date | None = None
+    event_date: date | None = None
+    start_time: time | None = None
+    end_time: time | None = None
+    decision_deadline: datetime | None = None
+    duration_minutes: int | None = Field(None, ge=1, le=480)
+    reminder_minutes: int | None = Field(None, ge=0, le=10080)
+    recurrence_pattern: RecurrencePattern | None = None
+    recurrence_end_date: date | None = None
+
+    # --- PROGRESS (Goals, Tasks) ---
+    progress_percentage: float | None = Field(None, ge=0.0, le=100.0)
+    current_value: float | None = Field(None, ge=0)
+    target_value: float | None = Field(None, ge=0)
+    unit_of_measurement: str | None = Field(None, max_length=50)
+    measurement_type: MeasurementType | None = None
+    progress_weight: float | None = Field(None, ge=0.0)
+
+    # --- STREAK (Habits) ---
+    current_streak: int | None = Field(None, ge=0)
+    longest_streak: int | None = Field(None, ge=0)
+    total_completions: int | None = Field(None, ge=0)
+    target_days_per_week: int | None = Field(None, ge=1, le=7)
+    preferred_time: str | None = None
+
+    # --- GOAL-SPECIFIC ---
+    goal_type: GoalType | None = None
+    timeframe: GoalTimeframe | None = None
+    why_important: str | None = Field(None, max_length=1000)
+    success_criteria: str | None = Field(None, max_length=1000)
+    potential_obstacles: list[str] | None = None
+    strategies: list[str] | None = None
+    vision_statement: str | None = Field(None, max_length=2000)
+
+    # --- HABIT-SPECIFIC ---
+    polarity: HabitPolarity | None = None
+    category: HabitCategory | None = None
+    difficulty: HabitDifficulty | None = None
+    cue: str | None = Field(None, max_length=500)
+    routine: str | None = Field(None, max_length=1000)
+    reward: str | None = Field(None, max_length=500)
+    reinforces_identity: str | None = Field(None, max_length=200)
+    is_identity_habit: bool | None = None
+
+    # --- EVENT-SPECIFIC ---
+    event_type: str | None = None
+    location: str | None = Field(None, max_length=500)
+    is_online: bool | None = None
+    meeting_url: str | None = None
+    attendee_emails: list[str] | None = None
+    max_attendees: int | None = Field(None, ge=1)
+
+    # --- CHOICE-SPECIFIC ---
+    choice_type: ChoiceType | None = None
+    decision_criteria: list[str] | None = None
+    constraints: list[str] | None = None
+    stakeholders: list[str] | None = None
+    selected_option_uid: str | None = None
+    decision_rationale: str | None = Field(None, max_length=1000)
+
+    # --- PRINCIPLE-SPECIFIC ---
+    statement: str | None = Field(None, max_length=500)
+    principle_category: PrincipleCategory | None = None
+    principle_source: PrincipleSource | None = None
+    strength: PrincipleStrength | None = None
+    tradition: str | None = Field(None, max_length=100)
+    original_source: str | None = Field(None, max_length=200)
+    personal_interpretation: str | None = Field(None, max_length=1000)
+    origin_story: str | None = Field(None, max_length=2000)
+    key_behaviors: list[str] | None = None
+
+    # --- ORGANIZATION ---
+    parent_uid: str | None = None
+    project: str | None = Field(None, max_length=200)
+    assignee: str | None = None
+
+    # --- CURRICULUM STRUCTURE ---
+    sequence: int | None = Field(None, ge=1)
+    intent: str | None = None
+    mastery_threshold: float | None = Field(None, ge=0.0, le=1.0)
+    estimated_hours: float | None = Field(None, gt=0)
+    learning_path_uid: str | None = None
+    lp_goal: str | None = None
+    lp_type: LpType | None = None
+    difficulty_level: str | None = None
+    step_difficulty: StepDifficulty | None = None
+    prerequisites: list[str] | None = None
+    outcomes: list[str] | None = None
+    notes: str | None = None
 
 
 # =============================================================================
@@ -166,17 +787,23 @@ class KuUpdateRequest(UpdateRequestBase):
 
 
 class KuResponse(ResponseBase):
-    """API response for any Ku type."""
+    """API response for any Ku type.
+
+    Contains all fields needed to display any KuType. Fields that don't apply
+    to a specific KuType will be at their default value (None, 0, [], etc.).
+    """
 
     uid: str
     title: str
     ku_type: KuType
     user_uid: str | None = None
     parent_ku_uid: str | None = None
+    parent_uid: str | None = None
     domain: Domain
     created_by: str | None = None
 
     # Content
+    description: str | None = None
     content: str | None = None
     summary: str = ""
     word_count: int = 0
@@ -189,6 +816,7 @@ class KuResponse(ResponseBase):
     status: KuStatus
     processor_type: ProcessorType | None = None
     processing_error: str | None = None
+    priority: Priority | None = None
 
     # Feedback
     feedback: str | None = None
@@ -214,6 +842,74 @@ class KuResponse(ResponseBase):
     journal_reflections_count: int = 0
     choices_informed_count: int = 0
 
+    # Scheduling
+    due_date: date | None = None
+    scheduled_date: date | None = None
+    start_date: date | None = None
+    target_date: date | None = None
+    event_date: date | None = None
+    start_time: time | None = None
+    end_time: time | None = None
+    decision_deadline: datetime | None = None
+    duration_minutes: int | None = None
+    recurrence_pattern: RecurrencePattern | None = None
+
+    # Progress
+    progress_percentage: float = 0.0
+    current_value: float = 0.0
+    target_value: float | None = None
+    unit_of_measurement: str | None = None
+    measurement_type: MeasurementType | None = None
+
+    # Streak (Habits)
+    current_streak: int = 0
+    longest_streak: int = 0
+    total_completions: int = 0
+    target_days_per_week: int | None = None
+
+    # Goal-specific
+    goal_type: GoalType | None = None
+    timeframe: GoalTimeframe | None = None
+    vision_statement: str | None = None
+    why_important: str | None = None
+    success_criteria: str | None = None
+
+    # Habit-specific
+    polarity: HabitPolarity | None = None
+    category: HabitCategory | None = None
+    difficulty: HabitDifficulty | None = None
+    cue: str | None = None
+    routine: str | None = None
+    reward: str | None = None
+    is_identity_habit: bool = False
+
+    # Choice-specific
+    choice_type: ChoiceType | None = None
+    selected_option_uid: str | None = None
+    decision_rationale: str | None = None
+
+    # Principle-specific
+    statement: str | None = None
+    principle_category: PrincipleCategory | None = None
+    principle_source: PrincipleSource | None = None
+    strength: PrincipleStrength | None = None
+
+    # Curriculum structure
+    sequence: int | None = None
+    intent: str | None = None
+    mastery_threshold: float | None = None
+    estimated_hours: float | None = None
+    lp_type: LpType | None = None
+
+    # Event-specific
+    event_type: str | None = None
+    location: str | None = None
+    is_online: bool = False
+
+    # Organization
+    project: str | None = None
+    assignee: str | None = None
+
     # Meta
     tags: list[str] = []
     created_at: datetime
@@ -227,7 +923,9 @@ class KuResponse(ResponseBase):
     @classmethod
     def from_dto(cls, dto: "KuDTO") -> "KuResponse":
         """Create response from DTO."""
-        estimated_reading_time = max(1, dto.word_count // 200) if dto.word_count > 0 else 0
+        estimated_reading_time = (
+            max(1, dto.word_count // 200) if dto.word_count > 0 else 0
+        )
 
         return cls(
             # Identity
@@ -236,9 +934,11 @@ class KuResponse(ResponseBase):
             ku_type=dto.ku_type,
             user_uid=dto.user_uid,
             parent_ku_uid=dto.parent_ku_uid,
+            parent_uid=dto.parent_uid,
             domain=dto.domain,
             created_by=dto.created_by,
             # Content
+            description=dto.description,
             content=dto.content,
             summary=dto.summary,
             word_count=dto.word_count,
@@ -249,6 +949,7 @@ class KuResponse(ResponseBase):
             status=dto.status,
             processor_type=dto.processor_type,
             processing_error=dto.processing_error,
+            priority=dto.priority,
             # Feedback
             feedback=dto.feedback,
             feedback_generated_at=dto.feedback_generated_at,
@@ -269,6 +970,64 @@ class KuResponse(ResponseBase):
             times_built_into_habits=dto.times_built_into_habits,
             journal_reflections_count=dto.journal_reflections_count,
             choices_informed_count=dto.choices_informed_count,
+            # Scheduling
+            due_date=dto.due_date,
+            scheduled_date=dto.scheduled_date,
+            start_date=dto.start_date,
+            target_date=dto.target_date,
+            event_date=dto.event_date,
+            start_time=dto.start_time,
+            end_time=dto.end_time,
+            decision_deadline=dto.decision_deadline,
+            duration_minutes=dto.duration_minutes,
+            recurrence_pattern=dto.recurrence_pattern,
+            # Progress
+            progress_percentage=dto.progress_percentage,
+            current_value=dto.current_value,
+            target_value=dto.target_value,
+            unit_of_measurement=dto.unit_of_measurement,
+            measurement_type=dto.measurement_type,
+            # Streak
+            current_streak=dto.current_streak,
+            longest_streak=dto.longest_streak,
+            total_completions=dto.total_completions,
+            target_days_per_week=dto.target_days_per_week,
+            # Goal-specific
+            goal_type=dto.goal_type,
+            timeframe=dto.timeframe,
+            vision_statement=dto.vision_statement,
+            why_important=dto.why_important,
+            success_criteria=dto.success_criteria,
+            # Habit-specific
+            polarity=dto.polarity,
+            category=dto.habit_category,
+            difficulty=dto.habit_difficulty,
+            cue=dto.cue,
+            routine=dto.routine,
+            reward=dto.reward,
+            is_identity_habit=dto.is_identity_habit,
+            # Choice-specific
+            choice_type=dto.choice_type,
+            selected_option_uid=dto.selected_option_uid,
+            decision_rationale=dto.decision_rationale,
+            # Principle-specific
+            statement=dto.statement,
+            principle_category=dto.principle_category,
+            principle_source=dto.principle_source,
+            strength=dto.strength,
+            # Curriculum structure
+            sequence=dto.sequence,
+            intent=dto.intent,
+            mastery_threshold=dto.mastery_threshold,
+            estimated_hours=dto.estimated_hours,
+            lp_type=dto.lp_type,
+            # Event-specific
+            event_type=dto.event_type,
+            location=dto.location,
+            is_online=dto.is_online,
+            # Organization
+            project=dto.project,
+            assignee=dto.assignee,
             # Meta
             tags=dto.tags,
             created_at=dto.created_at,

@@ -4,33 +4,65 @@ Unified Knowledge Domain Model (Tier 3 - Core)
 
 "Ku is the heartbeat of SKUEL."
 
-Immutable domain model for ALL knowledge in the system. Four manifestations:
+Immutable domain model for ALL knowledge in the system. 14 manifestations:
 
-    CURRICULUM     → Admin-created shared knowledge (no owner)
-    ASSIGNMENT     → Student submission (user-owned)
-    AI_REPORT      → AI-derived from assignment (user-owned)
-    FEEDBACK_REPORT→ Teacher feedback on assignment (teacher-owned)
+    Knowledge (shared):
+        CURRICULUM      → Admin-created shared knowledge
+        MOC             → Map of Content (KU organizing KUs)
+    Curriculum Structure:
+        LEARNING_STEP   → Step in a learning path
+        LEARNING_PATH   → Ordered sequence of steps
+    Content Processing:
+        ASSIGNMENT      → Student submission (user-owned)
+        AI_REPORT       → AI-derived from assignment
+        FEEDBACK_REPORT → Teacher feedback on assignment
+    Activity (user-owned):
+        TASK            → Knowledge about what needs doing
+        GOAL            → Knowledge about where you're heading
+        HABIT           → Knowledge about what you practice
+        EVENT           → Knowledge about what you attend
+        CHOICE          → Knowledge about decisions you make
+        PRINCIPLE       → Knowledge about what you believe
+    Destination:
+        LIFE_PATH       → Knowledge about your life direction
 
-Derivation chain:
-    CURRICULUM → ASSIGNMENT → AI_REPORT / FEEDBACK_REPORT
-
-Each step creates a new Ku linked via parent_ku_uid.
-
-This model replaces both the old Ku (curriculum-only) and Report (user submissions)
-domains. One domain, one model, one pipeline. One Path Forward.
+~138 business fields organized in 15 sections.
 
 See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from math import exp, log
 from typing import Any
 
 from core.constants import GraphDepth
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
-from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
+from core.models.enums.ku_enums import (
+    AlignmentLevel,
+    ChoiceType,
+    GoalTimeframe,
+    GoalType,
+    HabitCategory,
+    HabitDifficulty,
+    HabitPolarity,
+    KuStatus,
+    KuType,
+    LpType,
+    MeasurementType,
+    PrincipleCategory,
+    PrincipleSource,
+    PrincipleStrength,
+    ProcessorType,
+    StepDifficulty,
+)
 from core.models.enums.metadata_enums import Visibility
+from core.models.ku.ku_nested_types import (
+    AlignmentAssessment,
+    ChoiceOption,
+    Milestone,
+    PrincipleExpression,
+)
 from core.models.query import QueryIntent
 from core.models.query.graph_traversal import build_graph_context_query
 
@@ -40,16 +72,27 @@ class Ku:
     """
     Immutable domain model representing a Knowledge Unit.
 
-    47 business fields organized in 9 sections:
+    ~138 business fields organized in 15 sections:
+
+    Existing (from Report→Ku unification):
     - Identity (7): uid, title, ku_type, user_uid, parent_ku_uid, domain, created_by
-    - Content (3): content, summary, word_count
+    - Content (4): content, summary, description, word_count
     - File (4): original_filename, file_path, file_size, file_type
     - Processing (7): status, processor_type, processing timestamps, instructions
     - Feedback (3): feedback, feedback_generated_at, subject_uid
-    - Learning (6): complexity, learning_level, sel_category, quality_score, time, difficulty
+    - Learning (7): complexity, learning_level, sel_category, quality_score, time, difficulty, priority
     - Sharing (1): visibility
     - Substance (10): 5 counters + 5 timestamps
     - Meta (6): semantic_links, tags, created_at, updated_at, metadata + embedding fields
+
+    New (Phase 1 — unified model expansion):
+    - Scheduling (18): dates, times, recurrence, reminders, event logistics
+    - Progress (26): goal tracking, milestones, task hierarchy, learning integration
+    - Streak (16): habit tracking, behavioral science, identity
+    - Decision (13): choice options, criteria, outcome tracking
+    - Conviction (15): principle expressions, alignment, philosophical context
+    - Alignment (10): life path designation, dimension scores
+    - Curriculum Structure (8): LS/LP fields — mastery, sequence, path type
     """
 
     # =========================================================================
@@ -58,7 +101,7 @@ class Ku:
     uid: str
     title: str
     ku_type: KuType = KuType.CURRICULUM
-    user_uid: str | None = None  # None for CURRICULUM (shared), required for all others
+    user_uid: str | None = None  # None for shared types (CURRICULUM, MOC, LS, LP)
     parent_ku_uid: str | None = None  # Derivation chain — what Ku this was based on
     domain: Domain = Domain.KNOWLEDGE
     created_by: str | None = None
@@ -68,6 +111,7 @@ class Ku:
     # =========================================================================
     content: str | None = None  # Body text (submissions, AI output, feedback)
     summary: str = ""  # Brief description
+    description: str | None = None  # Extended description (used by all activity domains)
     word_count: int = 0
 
     # =========================================================================
@@ -88,7 +132,7 @@ class Ku:
     processing_error: str | None = None
     processed_content: str | None = None
     processed_file_path: str | None = None
-    instructions: str | None = None  # LLM processing instructions (absorbed from ReportProject)
+    instructions: str | None = None  # LLM processing instructions
 
     # =========================================================================
     # FEEDBACK
@@ -107,11 +151,265 @@ class Ku:
     estimated_time_minutes: int = 15
     difficulty_rating: float = 0.5  # 0.0–1.0
     semantic_links: tuple[str, ...] = ()
+    priority: str | None = None  # Priority enum value (LOW/MEDIUM/HIGH/CRITICAL)
 
     # =========================================================================
     # SHARING
     # =========================================================================
     visibility: Visibility = None  # type: ignore[assignment]  # Set in __post_init__
+
+    # =========================================================================
+    # SCHEDULING (TASK, EVENT, HABIT, CHOICE)
+    # Dates, times, recurrence, reminders, event logistics
+    # =========================================================================
+    due_date: date | None = None  # type: ignore[assignment]  # TASK deadline
+    scheduled_date: date | None = None  # type: ignore[assignment]  # TASK planned date
+    completion_date: date | None = None  # type: ignore[assignment]  # TASK actual completion
+    event_date: date | None = None  # type: ignore[assignment]  # EVENT date
+    start_time: time | None = None  # EVENT start
+    end_time: time | None = None  # EVENT end
+    duration_minutes: int | None = None  # TASK/HABIT expected duration
+    actual_minutes: int | None = None  # TASK actual time spent
+    decision_deadline: datetime | None = None  # type: ignore[assignment]  # CHOICE deadline
+
+    # Event logistics
+    event_type: str | None = None  # EVENT type (e.g., "PERSONAL", "MEETING")
+    location: str | None = None  # EVENT location
+    is_online: bool = False  # EVENT online flag
+    meeting_url: str | None = None  # EVENT video call URL
+
+    # Recurrence (TASK, HABIT, EVENT)
+    recurrence_pattern: str | None = None  # RecurrencePattern enum value
+    recurrence_end_date: date | None = None  # type: ignore[assignment]
+    recurrence_parent_uid: str | None = None
+    target_days_per_week: int | None = None  # HABIT frequency
+    preferred_time: str | None = None  # HABIT preferred time of day
+
+    # Reminders
+    reminder_time: str | None = None  # HABIT reminder time
+    reminder_days: tuple[str, ...] = ()  # HABIT reminder days
+    reminder_enabled: bool = False  # HABIT reminder toggle
+    reminder_minutes: int | None = None  # EVENT reminder lead time
+    reminder_sent: bool = False  # EVENT reminder status
+
+    # Attendees (EVENT)
+    attendee_emails: tuple[str, ...] = ()
+    max_attendees: int | None = None
+
+    # Scheduling links
+    scheduled_event_uid: str | None = None  # TASK linked event
+
+    # =========================================================================
+    # PROGRESS (GOAL, TASK)
+    # Goal tracking, milestones, task hierarchy, learning integration
+    # =========================================================================
+    vision_statement: str | None = None  # GOAL/CHOICE/LIFE_PATH vision
+
+    # Goal classification
+    goal_type: GoalType | None = None
+    timeframe: GoalTimeframe | None = None
+    measurement_type: MeasurementType | None = None
+
+    # Goal measurement
+    target_value: float | None = None
+    current_value: float = 0.0
+    unit_of_measurement: str | None = None
+
+    # Goal timeline
+    start_date: date | None = None  # type: ignore[assignment]
+    target_date: date | None = None  # type: ignore[assignment]
+    achieved_date: date | None = None  # type: ignore[assignment]
+
+    # Goal milestones
+    milestones: tuple[Milestone, ...] = ()
+    progress_percentage: float = 0.0
+    last_progress_update: datetime | None = None  # type: ignore[assignment]
+    progress_history: tuple[dict, ...] = ()  # type: ignore[assignment]
+
+    # Goal motivation
+    why_important: str | None = None  # GOAL/PRINCIPLE
+    success_criteria: str | None = None
+    potential_obstacles: tuple[str, ...] = ()
+    strategies: tuple[str, ...] = ()
+
+    # Task hierarchy
+    parent_uid: str | None = None  # TASK parent (not derivation chain)
+    project: str | None = None  # TASK project grouping
+    assignee: str | None = None  # TASK assignee
+
+    # Cross-domain links
+    fulfills_goal_uid: str | None = None  # TASK → GOAL
+    reinforces_habit_uid: str | None = None  # TASK/EVENT → HABIT
+    source_learning_step_uid: str | None = None  # TASK/HABIT/EVENT → LS
+    source_learning_path_uid: str | None = None  # GOAL/HABIT/EVENT → LP
+
+    # Progress impact
+    goal_progress_contribution: float = 0.0  # TASK contribution to GOAL
+    knowledge_mastery_check: bool = False  # TASK knowledge verification
+    habit_streak_maintainer: bool = False  # TASK maintains habit streak
+    completion_updates_goal: bool = False  # TASK completion updates GOAL progress
+    curriculum_driven: bool = False  # GOAL derived from curriculum
+    curriculum_practice_type: str | None = None  # HABIT curriculum connection
+
+    # Knowledge intelligence (TASK)
+    knowledge_confidence_scores: dict[str, float] | None = None
+    knowledge_inference_metadata: dict[str, Any] | None = None
+    learning_opportunities_count: int = 0
+
+    # Choice integration (GOAL)
+    inspired_by_choice_uid: str | None = None
+    selected_choice_option_uid: str | None = None
+
+    # Event curriculum integration
+    milestone_celebration_for_goal: str | None = None  # EVENT → GOAL milestone
+    is_milestone_event: bool = False
+    milestone_type: str | None = None
+    curriculum_week: int | None = None
+
+    # Event quality tracking
+    habit_completion_quality: int | None = None
+    knowledge_retention_check: bool = False
+    recurrence_maintains_habit: bool = False
+    skip_breaks_habit_streak: bool = False
+
+    # =========================================================================
+    # STREAK (HABIT)
+    # Habit tracking, behavioral science, identity
+    # =========================================================================
+    polarity: HabitPolarity | None = None  # BUILD, BREAK, NEUTRAL
+    habit_category: HabitCategory | None = None
+    habit_difficulty: HabitDifficulty | None = None
+
+    # Streak tracking
+    current_streak: int = 0
+    best_streak: int = 0
+    total_completions: int = 0
+    total_attempts: int = 0
+    success_rate: float = 0.0
+    last_completed: datetime | None = None  # type: ignore[assignment]
+
+    # Behavioral science (Atomic Habits)
+    cue: str | None = None  # Habit loop: cue
+    routine: str | None = None  # Habit loop: routine
+    reward: str | None = None  # Habit loop: reward
+
+    # Identity
+    reinforces_identity: str | None = None  # "I am the type of person who..."
+    identity_votes_cast: int = 0
+    is_identity_habit: bool = False
+    target_identity: str | None = None  # GOAL identity target
+    identity_evidence_required: int = 0  # GOAL evidence needed
+
+    # Lifecycle
+    started_at: datetime | None = None  # type: ignore[assignment]  # HABIT start
+    completed_at: datetime | None = None  # type: ignore[assignment]  # HABIT completion
+
+    # =========================================================================
+    # DECISION (CHOICE)
+    # Choice options, criteria, outcome tracking
+    # =========================================================================
+    choice_type: ChoiceType | None = None
+    options: tuple[ChoiceOption, ...] = ()
+    selected_option_uid: str | None = None
+    decision_rationale: str | None = None
+
+    # Decision context
+    decision_criteria: tuple[str, ...] = ()  # CHOICE/PRINCIPLE
+    constraints: tuple[str, ...] = ()
+    stakeholders: tuple[str, ...] = ()
+
+    # Decision timing
+    decided_at: datetime | None = None  # type: ignore[assignment]
+
+    # Outcome
+    satisfaction_score: int | None = None
+    actual_outcome: str | None = None
+    lessons_learned: tuple[str, ...] = ()
+
+    # Choice-curriculum integration
+    inspiration_type: str | None = None
+    expands_possibilities: bool = False
+
+    # =========================================================================
+    # CONVICTION (PRINCIPLE)
+    # Principle expressions, alignment, philosophical context
+    # =========================================================================
+    statement: str | None = None  # Core principle statement
+
+    # Classification
+    principle_category: PrincipleCategory | None = None
+    principle_source: PrincipleSource | None = None
+    strength: PrincipleStrength | None = None
+
+    # Philosophical context
+    tradition: str | None = None  # Philosophical/religious tradition
+    original_source: str | None = None  # Source text/author
+    personal_interpretation: str | None = None
+
+    # Expressions & applications
+    expressions: tuple[PrincipleExpression, ...] = ()
+    key_behaviors: tuple[str, ...] = ()
+
+    # Alignment tracking
+    current_alignment: AlignmentLevel | None = None
+    alignment_history: tuple[AlignmentAssessment, ...] = ()
+    last_review_date: date | None = None  # type: ignore[assignment]
+
+    # Conflicts & tensions
+    potential_conflicts: tuple[str, ...] = ()
+    conflicting_principles: tuple[str, ...] = ()
+    resolution_strategies: tuple[str, ...] = ()
+
+    # Personal reflection
+    origin_story: str | None = None
+    evolution_notes: str | None = None
+
+    # Principle status
+    is_active: bool = True
+    adopted_date: date | None = None  # type: ignore[assignment]
+
+    # =========================================================================
+    # ALIGNMENT (LIFE_PATH)
+    # Life path designation and dimension scores
+    # =========================================================================
+    life_path_uid: str | None = None  # LP designated as life path
+    designated_at: datetime | None = None  # type: ignore[assignment]
+
+    # Scores
+    alignment_score: float = 0.0  # Overall 0.0-1.0
+    word_action_gap: float = 0.0  # Vision vs. behavior gap
+    alignment_level: AlignmentLevel | None = None
+
+    # Dimension scores (5 dimensions)
+    knowledge_alignment: float = 0.0
+    activity_alignment: float = 0.0
+    goal_alignment: float = 0.0
+    principle_alignment: float = 0.0
+    momentum: float = 0.0
+
+    # Vision
+    vision_themes: tuple[str, ...] = ()
+    vision_captured_at: datetime | None = None  # type: ignore[assignment]
+
+    # =========================================================================
+    # CURRICULUM STRUCTURE (LEARNING_STEP, LEARNING_PATH)
+    # =========================================================================
+    intent: str | None = None  # LS learning intent
+    primary_knowledge_uids: tuple[str, ...] = ()  # LS primary KU references
+    supporting_knowledge_uids: tuple[str, ...] = ()  # LS supporting KU references
+    learning_path_uid: str | None = None  # LS → LP relationship
+    sequence: int | None = None  # LS order in path
+
+    # Mastery
+    mastery_threshold: float = 0.7  # LS mastery target
+    current_mastery: float = 0.0  # LS current progress
+    estimated_hours: float | None = None  # LS/LP time estimate
+    step_difficulty: StepDifficulty | None = None  # LS difficulty
+
+    # Path configuration (LP)
+    path_type: LpType | None = None
+    outcomes: tuple[str, ...] = ()  # LP expected outcomes
+    checkpoint_week_intervals: tuple[int, ...] = ()  # LP milestone intervals
 
     # =========================================================================
     # SUBSTANCE TRACKING
@@ -162,16 +460,16 @@ class Ku:
         if self.metadata is None:
             object.__setattr__(self, "metadata", {})
 
-        # Default status: CURRICULUM is always COMPLETED, others start as DRAFT
+        # Default status from KuType (type-aware)
         if self.status is None:
-            if self.ku_type == KuType.CURRICULUM:
-                object.__setattr__(self, "status", KuStatus.COMPLETED)
-            else:
-                object.__setattr__(self, "status", KuStatus.DRAFT)
+            object.__setattr__(self, "status", self.ku_type.default_status())
 
-        # Default visibility: CURRICULUM is PUBLIC, others are PRIVATE
+        # Default visibility: shared types are PUBLIC, others are PRIVATE
         if self.visibility is None:
-            if self.ku_type == KuType.CURRICULUM:
+            if self.ku_type in {
+                KuType.CURRICULUM, KuType.MOC,
+                KuType.LEARNING_STEP, KuType.LEARNING_PATH,
+            }:
                 object.__setattr__(self, "visibility", Visibility.PUBLIC)
             else:
                 object.__setattr__(self, "visibility", Visibility.PRIVATE)
@@ -201,8 +499,36 @@ class Ku:
         return self.ku_type == KuType.FEEDBACK_REPORT
 
     @property
+    def is_task(self) -> bool:
+        return self.ku_type == KuType.TASK
+
+    @property
+    def is_goal(self) -> bool:
+        return self.ku_type == KuType.GOAL
+
+    @property
+    def is_habit(self) -> bool:
+        return self.ku_type == KuType.HABIT
+
+    @property
+    def is_event(self) -> bool:
+        return self.ku_type == KuType.EVENT
+
+    @property
+    def is_choice(self) -> bool:
+        return self.ku_type == KuType.CHOICE
+
+    @property
+    def is_principle(self) -> bool:
+        return self.ku_type == KuType.PRINCIPLE
+
+    @property
+    def is_life_path(self) -> bool:
+        return self.ku_type == KuType.LIFE_PATH
+
+    @property
     def is_user_owned(self) -> bool:
-        """Check if this Ku has an owner (non-curriculum)."""
+        """Check if this Ku has an owner (non-shared type)."""
         return self.user_uid is not None
 
     @property
@@ -678,7 +1004,7 @@ class Ku:
         Create immutable Ku from mutable DTO.
 
         Converts mutable lists to immutable tuples.
-        All 47 business fields are copied — lossless round-trip with to_dto().
+        All business fields are copied — lossless round-trip with to_dto().
         """
         from core.models.ku.ku_dto import KuDTO  # noqa: F811
 
@@ -694,6 +1020,7 @@ class Ku:
             # Content
             content=dto.content,
             summary=dto.summary,
+            description=dto.description,
             word_count=dto.word_count,
             # File
             original_filename=dto.original_filename,
@@ -721,8 +1048,161 @@ class Ku:
             estimated_time_minutes=dto.estimated_time_minutes,
             difficulty_rating=dto.difficulty_rating,
             semantic_links=tuple(dto.semantic_links),
+            priority=dto.priority,
             # Sharing
             visibility=dto.visibility,
+            # Scheduling
+            due_date=dto.due_date,
+            scheduled_date=dto.scheduled_date,
+            completion_date=dto.completion_date,
+            event_date=dto.event_date,
+            start_time=dto.start_time,
+            end_time=dto.end_time,
+            duration_minutes=dto.duration_minutes,
+            actual_minutes=dto.actual_minutes,
+            decision_deadline=dto.decision_deadline,
+            event_type=dto.event_type,
+            location=dto.location,
+            is_online=dto.is_online,
+            meeting_url=dto.meeting_url,
+            recurrence_pattern=dto.recurrence_pattern,
+            recurrence_end_date=dto.recurrence_end_date,
+            recurrence_parent_uid=dto.recurrence_parent_uid,
+            target_days_per_week=dto.target_days_per_week,
+            preferred_time=dto.preferred_time,
+            reminder_time=dto.reminder_time,
+            reminder_days=tuple(dto.reminder_days),
+            reminder_enabled=dto.reminder_enabled,
+            reminder_minutes=dto.reminder_minutes,
+            reminder_sent=dto.reminder_sent,
+            attendee_emails=tuple(dto.attendee_emails),
+            max_attendees=dto.max_attendees,
+            scheduled_event_uid=dto.scheduled_event_uid,
+            # Progress
+            vision_statement=dto.vision_statement,
+            goal_type=dto.goal_type,
+            timeframe=dto.timeframe,
+            measurement_type=dto.measurement_type,
+            target_value=dto.target_value,
+            current_value=dto.current_value,
+            unit_of_measurement=dto.unit_of_measurement,
+            start_date=dto.start_date,
+            target_date=dto.target_date,
+            achieved_date=dto.achieved_date,
+            milestones=tuple(dto.milestones),
+            progress_percentage=dto.progress_percentage,
+            last_progress_update=dto.last_progress_update,
+            progress_history=tuple(dto.progress_history),
+            why_important=dto.why_important,
+            success_criteria=dto.success_criteria,
+            potential_obstacles=tuple(dto.potential_obstacles),
+            strategies=tuple(dto.strategies),
+            parent_uid=dto.parent_uid,
+            project=dto.project,
+            assignee=dto.assignee,
+            fulfills_goal_uid=dto.fulfills_goal_uid,
+            reinforces_habit_uid=dto.reinforces_habit_uid,
+            source_learning_step_uid=dto.source_learning_step_uid,
+            source_learning_path_uid=dto.source_learning_path_uid,
+            goal_progress_contribution=dto.goal_progress_contribution,
+            knowledge_mastery_check=dto.knowledge_mastery_check,
+            habit_streak_maintainer=dto.habit_streak_maintainer,
+            completion_updates_goal=dto.completion_updates_goal,
+            curriculum_driven=dto.curriculum_driven,
+            curriculum_practice_type=dto.curriculum_practice_type,
+            knowledge_confidence_scores=dto.knowledge_confidence_scores,
+            knowledge_inference_metadata=dto.knowledge_inference_metadata,
+            learning_opportunities_count=dto.learning_opportunities_count,
+            inspired_by_choice_uid=dto.inspired_by_choice_uid,
+            selected_choice_option_uid=dto.selected_choice_option_uid,
+            milestone_celebration_for_goal=dto.milestone_celebration_for_goal,
+            is_milestone_event=dto.is_milestone_event,
+            milestone_type=dto.milestone_type,
+            curriculum_week=dto.curriculum_week,
+            habit_completion_quality=dto.habit_completion_quality,
+            knowledge_retention_check=dto.knowledge_retention_check,
+            recurrence_maintains_habit=dto.recurrence_maintains_habit,
+            skip_breaks_habit_streak=dto.skip_breaks_habit_streak,
+            # Streak
+            polarity=dto.polarity,
+            habit_category=dto.habit_category,
+            habit_difficulty=dto.habit_difficulty,
+            current_streak=dto.current_streak,
+            best_streak=dto.best_streak,
+            total_completions=dto.total_completions,
+            total_attempts=dto.total_attempts,
+            success_rate=dto.success_rate,
+            last_completed=dto.last_completed,
+            cue=dto.cue,
+            routine=dto.routine,
+            reward=dto.reward,
+            reinforces_identity=dto.reinforces_identity,
+            identity_votes_cast=dto.identity_votes_cast,
+            is_identity_habit=dto.is_identity_habit,
+            target_identity=dto.target_identity,
+            identity_evidence_required=dto.identity_evidence_required,
+            started_at=dto.started_at,
+            completed_at=dto.completed_at,
+            # Decision
+            choice_type=dto.choice_type,
+            options=tuple(dto.options),
+            selected_option_uid=dto.selected_option_uid,
+            decision_rationale=dto.decision_rationale,
+            decision_criteria=tuple(dto.decision_criteria),
+            constraints=tuple(dto.constraints),
+            stakeholders=tuple(dto.stakeholders),
+            decided_at=dto.decided_at,
+            satisfaction_score=dto.satisfaction_score,
+            actual_outcome=dto.actual_outcome,
+            lessons_learned=tuple(dto.lessons_learned),
+            inspiration_type=dto.inspiration_type,
+            expands_possibilities=dto.expands_possibilities,
+            # Conviction
+            statement=dto.statement,
+            principle_category=dto.principle_category,
+            principle_source=dto.principle_source,
+            strength=dto.strength,
+            tradition=dto.tradition,
+            original_source=dto.original_source,
+            personal_interpretation=dto.personal_interpretation,
+            expressions=tuple(dto.expressions),
+            key_behaviors=tuple(dto.key_behaviors),
+            current_alignment=dto.current_alignment,
+            alignment_history=tuple(dto.alignment_history),
+            last_review_date=dto.last_review_date,
+            potential_conflicts=tuple(dto.potential_conflicts),
+            conflicting_principles=tuple(dto.conflicting_principles),
+            resolution_strategies=tuple(dto.resolution_strategies),
+            origin_story=dto.origin_story,
+            evolution_notes=dto.evolution_notes,
+            is_active=dto.is_active,
+            adopted_date=dto.adopted_date,
+            # Alignment
+            life_path_uid=dto.life_path_uid,
+            designated_at=dto.designated_at,
+            alignment_score=dto.alignment_score,
+            word_action_gap=dto.word_action_gap,
+            alignment_level=dto.alignment_level,
+            knowledge_alignment=dto.knowledge_alignment,
+            activity_alignment=dto.activity_alignment,
+            goal_alignment=dto.goal_alignment,
+            principle_alignment=dto.principle_alignment,
+            momentum=dto.momentum,
+            vision_themes=tuple(dto.vision_themes),
+            vision_captured_at=dto.vision_captured_at,
+            # Curriculum Structure
+            intent=dto.intent,
+            primary_knowledge_uids=tuple(dto.primary_knowledge_uids),
+            supporting_knowledge_uids=tuple(dto.supporting_knowledge_uids),
+            learning_path_uid=dto.learning_path_uid,
+            sequence=dto.sequence,
+            mastery_threshold=dto.mastery_threshold,
+            current_mastery=dto.current_mastery,
+            estimated_hours=dto.estimated_hours,
+            step_difficulty=dto.step_difficulty,
+            path_type=dto.path_type,
+            outcomes=tuple(dto.outcomes),
+            checkpoint_week_intervals=tuple(dto.checkpoint_week_intervals),
             # Substance tracking
             times_applied_in_tasks=dto.times_applied_in_tasks,
             times_practiced_in_events=dto.times_practiced_in_events,
@@ -746,7 +1226,7 @@ class Ku:
         Convert to mutable DTO for data operations.
 
         Converts immutable tuples back to mutable lists.
-        All 47 business fields are copied — lossless round-trip with from_dto().
+        All business fields are copied — lossless round-trip with from_dto().
         """
         from core.models.ku.ku_dto import KuDTO
 
@@ -762,6 +1242,7 @@ class Ku:
             # Content
             content=self.content,
             summary=self.summary,
+            description=self.description,
             word_count=self.word_count,
             # File
             original_filename=self.original_filename,
@@ -789,8 +1270,161 @@ class Ku:
             estimated_time_minutes=self.estimated_time_minutes,
             difficulty_rating=self.difficulty_rating,
             semantic_links=list(self.semantic_links),
+            priority=self.priority,
             # Sharing
             visibility=self.visibility,
+            # Scheduling
+            due_date=self.due_date,
+            scheduled_date=self.scheduled_date,
+            completion_date=self.completion_date,
+            event_date=self.event_date,
+            start_time=self.start_time,
+            end_time=self.end_time,
+            duration_minutes=self.duration_minutes,
+            actual_minutes=self.actual_minutes,
+            decision_deadline=self.decision_deadline,
+            event_type=self.event_type,
+            location=self.location,
+            is_online=self.is_online,
+            meeting_url=self.meeting_url,
+            recurrence_pattern=self.recurrence_pattern,
+            recurrence_end_date=self.recurrence_end_date,
+            recurrence_parent_uid=self.recurrence_parent_uid,
+            target_days_per_week=self.target_days_per_week,
+            preferred_time=self.preferred_time,
+            reminder_time=self.reminder_time,
+            reminder_days=list(self.reminder_days),
+            reminder_enabled=self.reminder_enabled,
+            reminder_minutes=self.reminder_minutes,
+            reminder_sent=self.reminder_sent,
+            attendee_emails=list(self.attendee_emails),
+            max_attendees=self.max_attendees,
+            scheduled_event_uid=self.scheduled_event_uid,
+            # Progress
+            vision_statement=self.vision_statement,
+            goal_type=self.goal_type,
+            timeframe=self.timeframe,
+            measurement_type=self.measurement_type,
+            target_value=self.target_value,
+            current_value=self.current_value,
+            unit_of_measurement=self.unit_of_measurement,
+            start_date=self.start_date,
+            target_date=self.target_date,
+            achieved_date=self.achieved_date,
+            milestones=list(self.milestones),
+            progress_percentage=self.progress_percentage,
+            last_progress_update=self.last_progress_update,
+            progress_history=list(self.progress_history),
+            why_important=self.why_important,
+            success_criteria=self.success_criteria,
+            potential_obstacles=list(self.potential_obstacles),
+            strategies=list(self.strategies),
+            parent_uid=self.parent_uid,
+            project=self.project,
+            assignee=self.assignee,
+            fulfills_goal_uid=self.fulfills_goal_uid,
+            reinforces_habit_uid=self.reinforces_habit_uid,
+            source_learning_step_uid=self.source_learning_step_uid,
+            source_learning_path_uid=self.source_learning_path_uid,
+            goal_progress_contribution=self.goal_progress_contribution,
+            knowledge_mastery_check=self.knowledge_mastery_check,
+            habit_streak_maintainer=self.habit_streak_maintainer,
+            completion_updates_goal=self.completion_updates_goal,
+            curriculum_driven=self.curriculum_driven,
+            curriculum_practice_type=self.curriculum_practice_type,
+            knowledge_confidence_scores=self.knowledge_confidence_scores,
+            knowledge_inference_metadata=self.knowledge_inference_metadata,
+            learning_opportunities_count=self.learning_opportunities_count,
+            inspired_by_choice_uid=self.inspired_by_choice_uid,
+            selected_choice_option_uid=self.selected_choice_option_uid,
+            milestone_celebration_for_goal=self.milestone_celebration_for_goal,
+            is_milestone_event=self.is_milestone_event,
+            milestone_type=self.milestone_type,
+            curriculum_week=self.curriculum_week,
+            habit_completion_quality=self.habit_completion_quality,
+            knowledge_retention_check=self.knowledge_retention_check,
+            recurrence_maintains_habit=self.recurrence_maintains_habit,
+            skip_breaks_habit_streak=self.skip_breaks_habit_streak,
+            # Streak
+            polarity=self.polarity,
+            habit_category=self.habit_category,
+            habit_difficulty=self.habit_difficulty,
+            current_streak=self.current_streak,
+            best_streak=self.best_streak,
+            total_completions=self.total_completions,
+            total_attempts=self.total_attempts,
+            success_rate=self.success_rate,
+            last_completed=self.last_completed,
+            cue=self.cue,
+            routine=self.routine,
+            reward=self.reward,
+            reinforces_identity=self.reinforces_identity,
+            identity_votes_cast=self.identity_votes_cast,
+            is_identity_habit=self.is_identity_habit,
+            target_identity=self.target_identity,
+            identity_evidence_required=self.identity_evidence_required,
+            started_at=self.started_at,
+            completed_at=self.completed_at,
+            # Decision
+            choice_type=self.choice_type,
+            options=list(self.options),
+            selected_option_uid=self.selected_option_uid,
+            decision_rationale=self.decision_rationale,
+            decision_criteria=list(self.decision_criteria),
+            constraints=list(self.constraints),
+            stakeholders=list(self.stakeholders),
+            decided_at=self.decided_at,
+            satisfaction_score=self.satisfaction_score,
+            actual_outcome=self.actual_outcome,
+            lessons_learned=list(self.lessons_learned),
+            inspiration_type=self.inspiration_type,
+            expands_possibilities=self.expands_possibilities,
+            # Conviction
+            statement=self.statement,
+            principle_category=self.principle_category,
+            principle_source=self.principle_source,
+            strength=self.strength,
+            tradition=self.tradition,
+            original_source=self.original_source,
+            personal_interpretation=self.personal_interpretation,
+            expressions=list(self.expressions),
+            key_behaviors=list(self.key_behaviors),
+            current_alignment=self.current_alignment,
+            alignment_history=list(self.alignment_history),
+            last_review_date=self.last_review_date,
+            potential_conflicts=list(self.potential_conflicts),
+            conflicting_principles=list(self.conflicting_principles),
+            resolution_strategies=list(self.resolution_strategies),
+            origin_story=self.origin_story,
+            evolution_notes=self.evolution_notes,
+            is_active=self.is_active,
+            adopted_date=self.adopted_date,
+            # Alignment
+            life_path_uid=self.life_path_uid,
+            designated_at=self.designated_at,
+            alignment_score=self.alignment_score,
+            word_action_gap=self.word_action_gap,
+            alignment_level=self.alignment_level,
+            knowledge_alignment=self.knowledge_alignment,
+            activity_alignment=self.activity_alignment,
+            goal_alignment=self.goal_alignment,
+            principle_alignment=self.principle_alignment,
+            momentum=self.momentum,
+            vision_themes=list(self.vision_themes),
+            vision_captured_at=self.vision_captured_at,
+            # Curriculum Structure
+            intent=self.intent,
+            primary_knowledge_uids=list(self.primary_knowledge_uids),
+            supporting_knowledge_uids=list(self.supporting_knowledge_uids),
+            learning_path_uid=self.learning_path_uid,
+            sequence=self.sequence,
+            mastery_threshold=self.mastery_threshold,
+            current_mastery=self.current_mastery,
+            estimated_hours=self.estimated_hours,
+            step_difficulty=self.step_difficulty,
+            path_type=self.path_type,
+            outcomes=list(self.outcomes),
+            checkpoint_week_intervals=list(self.checkpoint_week_intervals),
             # Substance tracking
             times_applied_in_tasks=self.times_applied_in_tasks,
             times_practiced_in_events=self.times_practiced_in_events,

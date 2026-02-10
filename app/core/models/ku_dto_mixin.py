@@ -2,36 +2,52 @@
 KuDTOMixin - Conditional Ownership for Unified Ku DTOs
 ======================================================
 
-Like ActivityDTOMixin but with conditional user_uid validation based on KuType:
+Handles conditional user_uid validation based on KuType:
 
-    CURRICULUM:       user_uid must be None (shared content, admin-created)
-    ASSIGNMENT:       user_uid required (student submission)
-    AI_REPORT:        user_uid required (AI-derived, owned by student)
-    FEEDBACK_REPORT:  user_uid required (teacher-owned feedback)
+    Shared (user_uid must be None):
+        CURRICULUM, MOC, LEARNING_STEP, LEARNING_PATH
 
-UID generation:
-    CURRICULUM: ku_{slug}_{random}  (semantic UID from title)
-    Others:     {userid}_ku_{type}_{random}  (user-namespaced)
+    User-owned (user_uid required):
+        ASSIGNMENT, AI_REPORT, FEEDBACK_REPORT,
+        TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE, LIFE_PATH
 
-The mixin handles:
-- user_uid conditional validation (fail-fast per KuType)
-- UID generation with correct format per KuType
-- created_at/updated_at timestamp defaults
+UID generation per KuType:
+    CURRICULUM/MOC:     ku_{slug}_{random}  (semantic UID from title)
+    LEARNING_STEP:      ls_{random}
+    LEARNING_PATH:      lp_{random}
+    ASSIGNMENT/AI/FB:   {userid}_ku_{type}_{random}  (user-namespaced)
+    Activity domains:   {type}_{slug}_{random}  (semantic UID)
+    LIFE_PATH:          lp_{random}  (LP with life path designation)
 
-See: ActivityDTOMixin for the Activity Domain equivalent.
+Factory classmethods for each KuType (10 new + original 4 on KuDTO):
+    create_task, create_goal, create_habit, create_event,
+    create_choice, create_principle, create_moc,
+    create_learning_step, create_learning_path, create_life_path
+
+See: ActivityDTOMixin for the Activity Domain equivalent (to be removed in Phase 4).
 """
 
 from datetime import datetime
 from typing import Any, ClassVar, Self
 
-from core.models.enums.ku_enums import KuType
+from core.models.enums.ku_enums import KuStatus, KuType
+from core.models.enums.metadata_enums import Visibility
+
+# Shared types: no user_uid (admin-created or system content)
+_SHARED_KU_TYPES = frozenset({
+    KuType.CURRICULUM,
+    KuType.MOC,
+    KuType.LEARNING_STEP,
+    KuType.LEARNING_PATH,
+})
 
 
 class KuDTOMixin:
     """
     Mixin providing factory methods for unified Ku DTOs with conditional ownership.
 
-    CURRICULUM Ku are shared (no owner), all others require user_uid.
+    Shared types (CURRICULUM, MOC, LS, LP) have no owner.
+    All other types require user_uid.
 
     Class Variables:
         _uid_prefix: Default prefix for generated UIDs (always "ku")
@@ -44,16 +60,16 @@ class KuDTOMixin:
         """
         Validate user_uid based on KuType (fail-fast philosophy).
 
-        CURRICULUM must have user_uid=None (shared content).
-        All other types require user_uid (user-owned content).
+        Shared types must have user_uid=None.
+        All other types require user_uid.
 
         Raises:
             ValueError: If ownership doesn't match KuType requirements.
         """
-        if ku_type == KuType.CURRICULUM:
+        if ku_type in _SHARED_KU_TYPES:
             if user_uid is not None:
                 raise ValueError(
-                    "CURRICULUM Ku must have user_uid=None (shared content, admin-created)"
+                    f"{ku_type.value.upper()} Ku must have user_uid=None (shared content)"
                 )
         elif not user_uid:
             raise ValueError(
@@ -65,29 +81,48 @@ class KuDTOMixin:
         """
         Generate UID with correct format per KuType.
 
-        CURRICULUM:  ku_{slug}_{random}  (semantic UID from title)
-        Others:      {userid}_ku_{type}_{random}  (user-namespaced)
+        CURRICULUM/MOC:  ku_{slug}_{random}  (semantic UID from title)
+        LEARNING_STEP:   ls_{random}
+        LEARNING_PATH:   lp_{random}
+        Activity types:  {type}_{slug}_{random}  (semantic UID)
+        Content types:   {userid}_ku_{type}_{random}  (user-namespaced)
+        LIFE_PATH:       lp_{random}
 
         Args:
             ku_type: Type of Ku being created
-            user_uid: Owner UID (None for curriculum)
-            title: Title for semantic slug (curriculum only)
+            user_uid: Owner UID (None for shared types)
+            title: Title for semantic slug
 
         Returns:
             Generated UID string
         """
         from core.utils.uid_generator import UIDGenerator
 
-        if ku_type == KuType.CURRICULUM:
-            # Admin-created curriculum: ku_{slug}_{random}
+        # Shared knowledge: semantic UID from title
+        if ku_type in {KuType.CURRICULUM, KuType.MOC}:
             if title:
                 return UIDGenerator.generate_knowledge_uid(title)
             return UIDGenerator.generate_random_uid("ku")
 
-        # User-owned: {userid}_ku_{type}_{random}
-        # Strip "user_" prefix if present for cleaner UIDs
+        # Curriculum structure: type-specific prefix
+        if ku_type == KuType.LEARNING_STEP:
+            return UIDGenerator.generate_random_uid("ls")
+        if ku_type in {KuType.LEARNING_PATH, KuType.LIFE_PATH}:
+            return UIDGenerator.generate_random_uid("lp")
+
+        # Activity domains: {type}_{slug}_{random}
+        if ku_type in {
+            KuType.TASK, KuType.GOAL, KuType.HABIT,
+            KuType.EVENT, KuType.CHOICE, KuType.PRINCIPLE,
+        }:
+            prefix = ku_type.value  # "task", "goal", "habit", etc.
+            if title:
+                return UIDGenerator.generate_uid(prefix, title)
+            return UIDGenerator.generate_random_uid(prefix)
+
+        # Content processing (ASSIGNMENT, AI_REPORT, FEEDBACK_REPORT): user-namespaced
         user_id = user_uid.replace("user_", "") if user_uid else "unknown"
-        type_suffix = ku_type.value  # e.g., "assignment", "ai_report", "feedback_report"
+        type_suffix = ku_type.value
         return UIDGenerator.generate_random_uid(f"{user_id}_ku_{type_suffix}")
 
     @classmethod
@@ -107,9 +142,9 @@ class KuDTOMixin:
         3. Sets created_at/updated_at to now if not provided
 
         Args:
-            ku_type: Type of Ku (CURRICULUM, ASSIGNMENT, AI_REPORT, FEEDBACK_REPORT)
+            ku_type: Type of Ku (one of 14 KuTypes)
             title: Ku title (required)
-            user_uid: Owner UID (None for CURRICULUM, required for others)
+            user_uid: Owner UID (None for shared types, required for others)
             **kwargs: All other fields for the DTO
 
         Returns:
@@ -117,27 +152,6 @@ class KuDTOMixin:
 
         Raises:
             ValueError: If ownership doesn't match KuType requirements
-
-        Example:
-            ```python
-            @classmethod
-            def create_curriculum(cls, title: str, domain: Domain, **kwargs) -> "KuDTO":
-                return cls._create_ku_dto(
-                    ku_type=KuType.CURRICULUM,
-                    title=title,
-                    domain=domain,
-                    **kwargs,
-                )
-
-            @classmethod
-            def create_assignment(cls, user_uid: str, title: str, **kwargs) -> "KuDTO":
-                return cls._create_ku_dto(
-                    ku_type=KuType.ASSIGNMENT,
-                    title=title,
-                    user_uid=user_uid,
-                    **kwargs,
-                )
-            ```
         """
         # Validate ownership
         cls._validate_ku_ownership(ku_type, user_uid)
@@ -156,6 +170,167 @@ class KuDTOMixin:
             uid=uid,
             title=title,
             ku_type=ku_type,
+            user_uid=user_uid,
+            **kwargs,
+        )
+
+    # =========================================================================
+    # ACTIVITY DOMAIN FACTORY METHODS
+    # =========================================================================
+
+    @classmethod
+    def create_task(cls, user_uid: str, title: str, **kwargs: Any) -> Self:
+        """Create a TASK Ku (knowledge about what needs doing).
+
+        Requires user_uid. Status defaults to DRAFT.
+        """
+        kwargs.setdefault("status", KuStatus.DRAFT)
+        return cls._create_ku_dto(
+            ku_type=KuType.TASK,
+            title=title,
+            user_uid=user_uid,
+            **kwargs,
+        )
+
+    @classmethod
+    def create_goal(cls, user_uid: str, title: str, **kwargs: Any) -> Self:
+        """Create a GOAL Ku (knowledge about where you're heading).
+
+        Requires user_uid. Status defaults to DRAFT.
+        """
+        kwargs.setdefault("status", KuStatus.DRAFT)
+        return cls._create_ku_dto(
+            ku_type=KuType.GOAL,
+            title=title,
+            user_uid=user_uid,
+            **kwargs,
+        )
+
+    @classmethod
+    def create_habit(cls, user_uid: str, title: str, **kwargs: Any) -> Self:
+        """Create a HABIT Ku (knowledge about what you practice).
+
+        Requires user_uid. Status defaults to ACTIVE.
+        """
+        kwargs.setdefault("status", KuStatus.ACTIVE)
+        return cls._create_ku_dto(
+            ku_type=KuType.HABIT,
+            title=title,
+            user_uid=user_uid,
+            **kwargs,
+        )
+
+    @classmethod
+    def create_event(cls, user_uid: str, title: str, **kwargs: Any) -> Self:
+        """Create an EVENT Ku (knowledge about what you attend).
+
+        Requires user_uid. Status defaults to SCHEDULED.
+        """
+        kwargs.setdefault("status", KuStatus.SCHEDULED)
+        return cls._create_ku_dto(
+            ku_type=KuType.EVENT,
+            title=title,
+            user_uid=user_uid,
+            **kwargs,
+        )
+
+    @classmethod
+    def create_choice(cls, user_uid: str, title: str, **kwargs: Any) -> Self:
+        """Create a CHOICE Ku (knowledge about decisions you make).
+
+        Requires user_uid. Status defaults to DRAFT.
+        """
+        kwargs.setdefault("status", KuStatus.DRAFT)
+        return cls._create_ku_dto(
+            ku_type=KuType.CHOICE,
+            title=title,
+            user_uid=user_uid,
+            **kwargs,
+        )
+
+    @classmethod
+    def create_principle(cls, user_uid: str, title: str, **kwargs: Any) -> Self:
+        """Create a PRINCIPLE Ku (knowledge about what you believe).
+
+        Requires user_uid. Status defaults to ACTIVE.
+        """
+        kwargs.setdefault("status", KuStatus.ACTIVE)
+        return cls._create_ku_dto(
+            ku_type=KuType.PRINCIPLE,
+            title=title,
+            user_uid=user_uid,
+            **kwargs,
+        )
+
+    # =========================================================================
+    # SHARED / CURRICULUM FACTORY METHODS
+    # =========================================================================
+
+    @classmethod
+    def create_moc(cls, title: str, **kwargs: Any) -> Self:
+        """Create a MOC Ku (Map of Content — KU organizing KUs).
+
+        No user_uid — MOC is shared content.
+        Status defaults to COMPLETED, visibility to PUBLIC.
+        """
+        kwargs.pop("user_uid", None)
+        kwargs.setdefault("status", KuStatus.COMPLETED)
+        kwargs.setdefault("visibility", Visibility.PUBLIC)
+        return cls._create_ku_dto(
+            ku_type=KuType.MOC,
+            title=title,
+            user_uid=None,
+            **kwargs,
+        )
+
+    @classmethod
+    def create_learning_step(cls, title: str, **kwargs: Any) -> Self:
+        """Create a LEARNING_STEP Ku (step in a learning path).
+
+        No user_uid — curriculum structure is shared content.
+        Status defaults to DRAFT, visibility to PUBLIC.
+        """
+        kwargs.pop("user_uid", None)
+        kwargs.setdefault("status", KuStatus.DRAFT)
+        kwargs.setdefault("visibility", Visibility.PUBLIC)
+        return cls._create_ku_dto(
+            ku_type=KuType.LEARNING_STEP,
+            title=title,
+            user_uid=None,
+            **kwargs,
+        )
+
+    @classmethod
+    def create_learning_path(cls, title: str, **kwargs: Any) -> Self:
+        """Create a LEARNING_PATH Ku (ordered sequence of steps).
+
+        No user_uid — curriculum structure is shared content.
+        Status defaults to DRAFT, visibility to PUBLIC.
+        """
+        kwargs.pop("user_uid", None)
+        kwargs.setdefault("status", KuStatus.DRAFT)
+        kwargs.setdefault("visibility", Visibility.PUBLIC)
+        return cls._create_ku_dto(
+            ku_type=KuType.LEARNING_PATH,
+            title=title,
+            user_uid=None,
+            **kwargs,
+        )
+
+    # =========================================================================
+    # DESTINATION FACTORY METHOD
+    # =========================================================================
+
+    @classmethod
+    def create_life_path(cls, user_uid: str, title: str, **kwargs: Any) -> Self:
+        """Create a LIFE_PATH Ku (knowledge about your life direction).
+
+        Requires user_uid. Status defaults to ACTIVE.
+        """
+        kwargs.setdefault("status", KuStatus.ACTIVE)
+        return cls._create_ku_dto(
+            ku_type=KuType.LIFE_PATH,
+            title=title,
             user_uid=user_uid,
             **kwargs,
         )
