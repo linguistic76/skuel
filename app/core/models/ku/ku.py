@@ -804,7 +804,13 @@ class Ku:
                 return self._cached_substance_score
 
         # Recalculate with decay
-        return self._calculate_substance_with_decay()
+        score = self._calculate_substance_with_decay()
+
+        # Cache the result (using object.__setattr__ for frozen dataclass)
+        object.__setattr__(self, '_cached_substance_score', score)
+        object.__setattr__(self, '_substance_cache_timestamp', datetime.now())
+
+        return score
 
     def _calculate_substance_with_decay(self) -> float:
         """
