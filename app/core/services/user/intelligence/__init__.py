@@ -57,6 +57,14 @@ Date: 2026-01-08
 """
 
 # Core classes
+# Data types
+from core.models.context_types import (
+    CrossDomainSynergy,
+    DailyWorkPlan,
+    LearningStep,
+    LifePathAlignment,
+    ScheduleAwareRecommendation,
+)
 from core.services.user.intelligence.core import UserContextIntelligence
 
 # Mixins (for advanced usage/testing)
@@ -66,15 +74,6 @@ from core.services.user.intelligence.learning_intelligence import LearningIntell
 from core.services.user.intelligence.life_path_intelligence import LifePathIntelligenceMixin
 from core.services.user.intelligence.schedule_intelligence import ScheduleIntelligenceMixin
 from core.services.user.intelligence.synergy_intelligence import SynergyIntelligenceMixin
-
-# Data types
-from core.models.context_types import (
-    CrossDomainSynergy,
-    DailyWorkPlan,
-    LearningStep,
-    LifePathAlignment,
-    ScheduleAwareRecommendation,
-)
 
 __all__ = [
     # Core classes

@@ -43,7 +43,6 @@ class TestRichUserContextPattern:
         # Create prerequisite knowledge
         prereq_dto = KuDTO.create(
             title="Python Basics",
-            content="Fundamental Python concepts",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(prereq_dto.to_dict())
@@ -51,7 +50,6 @@ class TestRichUserContextPattern:
         # Create main knowledge unit
         ku_dto = KuDTO.create(
             title="Advanced Python",
-            content="Advanced Python patterns",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(ku_dto.to_dict())
@@ -182,7 +180,6 @@ class TestRichUserContextPattern:
         # Create test data
         ku_dto = KuDTO.create(
             title="Test Knowledge",
-            content="Test content",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(ku_dto.to_dict())
@@ -284,7 +281,6 @@ class TestRichUserContextPattern:
         # Create cross-domain test data
         ku_dto = KuDTO.create(
             title="Test Knowledge",
-            content="Test content",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(ku_dto.to_dict())

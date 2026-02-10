@@ -93,9 +93,8 @@ class KuSearchService(BaseService[KuOperations, Ku]):
         dto_class=KuDTO,
         model_class=Ku,
         domain_name="ku",
-        search_fields=("title", "content", "tags"),  # KU includes tags
+        search_fields=("title", "summary", "tags"),  # Content lives on :Content node, not :Ku
         search_order_by="updated_at",
-        content_field="content",
     )
 
     # =========================================================================
@@ -181,12 +180,12 @@ class KuSearchService(BaseService[KuOperations, Ku]):
 
     def _get_content_query(self) -> str:
         """
-        Return Cypher query fragment for fetching KU content.
+        Return Cypher query fragment for fetching KU metadata.
 
-        For Knowledge Units, content is stored inline in the content field.
+        Content lives on the :Content node (via HAS_CONTENT), not on the :Ku node.
         """
         return """
-        RETURN n, n.content as content
+        RETURN n
         """
 
     # =========================================================================
@@ -725,7 +724,7 @@ class KuSearchService(BaseService[KuOperations, Ku]):
         query = """
         MATCH (ku:Ku)
         WHERE toLower(ku.title) CONTAINS toLower($query_text)
-           OR toLower(ku.content) CONTAINS toLower($query_text)
+           OR toLower(ku.summary) CONTAINS toLower($query_text)
            OR any(tag IN ku.tags WHERE toLower(tag) CONTAINS toLower($query_text))
         RETURN ku
         ORDER BY ku.updated_at DESC
@@ -766,8 +765,8 @@ class KuSearchService(BaseService[KuOperations, Ku]):
         return KuDTO(
             uid=entity.uid,
             title=entity.title,
-            content=entity.content,
             domain=entity.domain,
+            word_count=entity.word_count,
             quality_score=entity.quality_score,
             complexity=entity.complexity,
             semantic_links=list(entity.semantic_links) if entity.semantic_links else [],

@@ -86,7 +86,7 @@ class KuResponse(BaseModel):
 
     uid: str
     title: str
-    content: str
+    content: str | None = None  # Populated on detail view from Content node
     domain: Domain
 
     # Semantic fields
@@ -129,14 +129,13 @@ class KuResponse(BaseModel):
         - enables: backend.get_related_uids(uid, "ENABLES_KNOWLEDGE", "outgoing")
         """
 
-        # Calculate computed fields
-        word_count = len(dto.content.split())
-        estimated_reading_time = max(1, word_count // 200)
+        # Use stored word_count from DTO
+        estimated_reading_time = max(1, dto.word_count // 200)
 
         return cls(
             uid=dto.uid,
             title=dto.title,
-            content=dto.content,
+            content=None,  # Content lives on :Content node, populated separately on detail views
             domain=dto.domain,
             quality_score=dto.quality_score,
             complexity=dto.complexity,
@@ -152,7 +151,7 @@ class KuResponse(BaseModel):
             difficulty_rating=dto.difficulty_rating,
             prerequisites=[],  # GRAPH QUERY: backend.get_related_uids(uid, "REQUIRES_KNOWLEDGE", "outgoing")
             enables=[],  # GRAPH QUERY: backend.get_related_uids(uid, "ENABLES_KNOWLEDGE", "outgoing")
-            word_count=word_count,
+            word_count=dto.word_count,
             estimated_reading_time=estimated_reading_time,
         )
 

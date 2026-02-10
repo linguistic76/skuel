@@ -206,7 +206,7 @@ def _compute_priority(
     Returns:
         Combined priority score, capped at 1.0
     """
-    return min(1.0, sum(d * w for d, w in zip(dimensions, weights)))
+    return min(1.0, sum(d * w for d, w in zip(dimensions, weights, strict=False)))
 
 
 def _compute_blocking_reasons(
@@ -245,6 +245,7 @@ def _compute_blocking_reasons(
                 return reasons
 
     return reasons
+
 
 # =============================================================================
 # BASE CONTEXTUAL TYPES
@@ -397,22 +398,51 @@ class ContextualTask(ContextualEntity):
         goals = goal_uids or []
         applies_ku = knowledge_uids or []
 
-        readiness = readiness_override if readiness_override is not None else _compute_readiness(
-            req_knowledge, req_tasks, context.knowledge_mastery, context.completed_task_uids,
+        readiness = (
+            readiness_override
+            if readiness_override is not None
+            else _compute_readiness(
+                req_knowledge,
+                req_tasks,
+                context.knowledge_mastery,
+                context.completed_task_uids,
+            )
         )
-        relevance = relevance_override if relevance_override is not None else _compute_relevance(
-            goals, [], context.active_goal_uids, context.primary_goal_focus,
-            context.core_principle_uids, context.principle_priorities,
+        relevance = (
+            relevance_override
+            if relevance_override is not None
+            else _compute_relevance(
+                goals,
+                [],
+                context.active_goal_uids,
+                context.primary_goal_focus,
+                context.core_principle_uids,
+                context.principle_priorities,
+            )
         )
         is_overdue = uid in context.overdue_task_uids
-        urgency = urgency_override if urgency_override is not None else _compute_urgency(
-            deadline=deadline, is_at_risk=is_overdue, streak_at_risk=False,
+        urgency = (
+            urgency_override
+            if urgency_override is not None
+            else _compute_urgency(
+                deadline=deadline,
+                is_at_risk=is_overdue,
+                streak_at_risk=False,
+            )
         )
-        priority = priority_override if priority_override is not None else _compute_priority(
-            (readiness, relevance, urgency), weights,
+        priority = (
+            priority_override
+            if priority_override is not None
+            else _compute_priority(
+                (readiness, relevance, urgency),
+                weights,
+            )
         )
         blocking = _compute_blocking_reasons(
-            req_knowledge, req_tasks, context.knowledge_mastery, context.completed_task_uids,
+            req_knowledge,
+            req_tasks,
+            context.knowledge_mastery,
+            context.completed_task_uids,
         )
 
         return cls(
@@ -509,11 +539,13 @@ class ContextualKnowledge(ContextualEntity):
             all(context.knowledge_mastery.get(p, 0.0) >= 0.7 for p in prereqs) if prereqs else True
         )
 
-        readiness = readiness_override if readiness_override is not None else (
-            1.0 if prereqs_met else 0.3
+        readiness = (
+            readiness_override if readiness_override is not None else (1.0 if prereqs_met else 0.3)
         )
-        relevance = relevance_override if relevance_override is not None else (
-            1.0 - user_mastery if user_mastery < 0.9 else 0.1
+        relevance = (
+            relevance_override
+            if relevance_override is not None
+            else (1.0 - user_mastery if user_mastery < 0.9 else 0.1)
         )
 
         if priority_override is not None:
@@ -633,11 +665,20 @@ class ContextualGoal(ContextualEntity):
 
         progress = context.goal_progress.get(uid, 0.0)
 
-        readiness = readiness_override if readiness_override is not None else _compute_readiness(
-            knowledge, [], context.knowledge_mastery, context.completed_task_uids,
+        readiness = (
+            readiness_override
+            if readiness_override is not None
+            else _compute_readiness(
+                knowledge,
+                [],
+                context.knowledge_mastery,
+                context.completed_task_uids,
+            )
         )
-        relevance = relevance_override if relevance_override is not None else (
-            1.0 if uid in context.active_goal_uids else 0.5
+        relevance = (
+            relevance_override
+            if relevance_override is not None
+            else (1.0 if uid in context.active_goal_uids else 0.5)
         )
 
         deadline = context.goal_deadlines.get(uid)
@@ -646,10 +687,14 @@ class ContextualGoal(ContextualEntity):
             days_to_deadline = (deadline - date.today()).days
 
         is_at_risk = uid in context.at_risk_goals
-        urgency = urgency_override if urgency_override is not None else _compute_urgency(
-            deadline=deadline,
-            is_at_risk=is_at_risk and progress < 0.3,
-            streak_at_risk=False,
+        urgency = (
+            urgency_override
+            if urgency_override is not None
+            else _compute_urgency(
+                deadline=deadline,
+                is_at_risk=is_at_risk and progress < 0.3,
+                streak_at_risk=False,
+            )
         )
 
         if priority_override is not None:
@@ -658,9 +703,7 @@ class ContextualGoal(ContextualEntity):
             dims = (readiness, relevance, progress, urgency)
             priority = _compute_priority(dims[: len(weights)], weights)
 
-        learning_gaps = [
-            ku for ku in knowledge if context.knowledge_mastery.get(ku, 0.0) < 0.7
-        ]
+        learning_gaps = [ku for ku in knowledge if context.knowledge_mastery.get(ku, 0.0) < 0.7]
 
         return cls(
             uid=uid,
@@ -768,7 +811,11 @@ class ContextualHabit(ContextualEntity):
         knowledge = applied_knowledge_uids or []
 
         streak = current_streak if current_streak is not None else context.habit_streaks.get(uid, 0)
-        rate = completion_rate if completion_rate is not None else context.habit_completion_rates.get(uid, 0.0)
+        rate = (
+            completion_rate
+            if completion_rate is not None
+            else context.habit_completion_rates.get(uid, 0.0)
+        )
         at_risk = uid in context.at_risk_habits
         keystone = is_keystone if is_keystone is not None else uid in context.keystone_habits
 
@@ -778,18 +825,33 @@ class ContextualHabit(ContextualEntity):
             relevance = relevance_override
         else:
             goal_relevance = _compute_relevance(
-                goals, [], context.active_goal_uids, context.primary_goal_focus,
-                context.core_principle_uids, context.principle_priorities,
+                goals,
+                [],
+                context.active_goal_uids,
+                context.primary_goal_focus,
+                context.core_principle_uids,
+                context.principle_priorities,
             )
             streak_relevance = min(1.0, streak / 30)
             relevance = (goal_relevance * 0.6) + (streak_relevance * 0.4)
 
-        urgency = urgency_override if urgency_override is not None else _compute_urgency(
-            deadline=None, is_at_risk=at_risk, streak_at_risk=at_risk,
+        urgency = (
+            urgency_override
+            if urgency_override is not None
+            else _compute_urgency(
+                deadline=None,
+                is_at_risk=at_risk,
+                streak_at_risk=at_risk,
+            )
         )
 
-        priority = priority_override if priority_override is not None else _compute_priority(
-            (readiness, relevance, urgency), weights,
+        priority = (
+            priority_override
+            if priority_override is not None
+            else _compute_priority(
+                (readiness, relevance, urgency),
+                weights,
+            )
         )
 
         return cls(
@@ -1014,10 +1076,14 @@ class ContextualPrinciple(ContextualEntity):
                 trend_score = 1.0
             elif alignment_trend == "stable":
                 trend_score = 0.3
-            attention_score = (reflection_urgency * 0.4) + (alignment_weakness * 0.35) + (trend_score * 0.25)
+            attention_score = (
+                (reflection_urgency * 0.4) + (alignment_weakness * 0.35) + (trend_score * 0.25)
+            )
 
-        priority = priority_override if priority_override is not None else (
-            attention_score if attention_score > 0 else (0.8 if is_core else 0.5)
+        priority = (
+            priority_override
+            if priority_override is not None
+            else (attention_score if attention_score > 0 else (0.8 if is_core else 0.5))
         )
 
         return cls(

@@ -45,7 +45,6 @@ class TestCascadeDeleteTrue:
         ku = Ku(
             uid="ku:cascade-delete-1",
             title="To Delete",
-            content="Content",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -68,14 +67,12 @@ class TestCascadeDeleteTrue:
         ku1 = Ku(
             uid="ku:cascade-source",
             title="Source",
-            content="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
         ku2 = Ku(
             uid="ku:cascade-target",
             title="Target",
-            content="Target",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -113,14 +110,12 @@ class TestCascadeDeleteTrue:
         ku1 = Ku(
             uid="ku:preserve-source",
             title="Source",
-            content="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
         ku2 = Ku(
             uid="ku:preserve-target",
             title="Target",
-            content="Target",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -147,7 +142,6 @@ class TestCascadeDeleteTrue:
         center = Ku(
             uid="ku:multi-center",
             title="Center",
-            content="Center",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -158,7 +152,6 @@ class TestCascadeDeleteTrue:
             related = Ku(
                 uid=f"ku:multi-related-{i}",
                 title=f"Related {i}",
-                content=f"Related {i}",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             )
@@ -210,7 +203,6 @@ class TestCascadeDeleteTrue:
         ku = Ku(
             uid="ku:cross-domain",
             title="Cross Domain KU",
-            content="Content",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -253,7 +245,6 @@ class TestCascadeDeleteFalse:
         ku = Ku(
             uid="ku:isolated-delete",
             title="Isolated",
-            content="No connections",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -275,14 +266,12 @@ class TestCascadeDeleteFalse:
         ku1 = Ku(
             uid="ku:non-cascade-source",
             title="Source",
-            content="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
         ku2 = Ku(
             uid="ku:non-cascade-target",
             title="Target",
-            content="Target",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -304,14 +293,12 @@ class TestCascadeDeleteFalse:
         ku1 = Ku(
             uid="ku:error-msg-source",
             title="Source",
-            content="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
         ku2 = Ku(
             uid="ku:error-msg-target",
             title="Target",
-            content="Target",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -338,14 +325,12 @@ class TestCascadeDeleteFalse:
         ku1 = Ku(
             uid="ku:preserve-entity",
             title="Preserved",
-            content="Should not be deleted",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
         ku2 = Ku(
             uid="ku:preserve-target",
             title="Target",
-            content="Target",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -371,14 +356,12 @@ class TestCascadeDeleteFalse:
         ku1 = Ku(
             uid="ku:preserve-rel-source",
             title="Source",
-            content="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
         ku2 = Ku(
             uid="ku:preserve-rel-target",
             title="Target",
-            content="Target",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -423,7 +406,6 @@ class TestDeleteEdgeCases:
         ku = Ku(
             uid="ku:idempotent-delete",
             title="Idempotent",
-            content="Delete me twice",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -446,21 +428,18 @@ class TestDeleteEdgeCases:
             Ku(
                 uid="ku:bidir-a",
                 title="A",
-                content="A",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             Ku(
                 uid="ku:bidir-b",
                 title="B",
-                content="B",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
             Ku(
                 uid="ku:bidir-c",
                 title="C",
-                content="C",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             ),
@@ -501,14 +480,12 @@ class TestDeleteEdgeCases:
         ku1 = Ku(
             uid="ku:props-source",
             title="Source",
-            content="Source",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
         ku2 = Ku(
             uid="ku:props-target",
             title="Target",
-            content="Target",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )

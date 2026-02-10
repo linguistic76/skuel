@@ -215,7 +215,7 @@ class Neo4jAdapter:
             # Define essential indexes for performance
             indexes = [
                 # Full-text search indexes
-                "CREATE FULLTEXT INDEX knowledge_fulltext IF NOT EXISTS FOR (ku:Ku) ON EACH [ku.title, ku.description, ku.content]",
+                "CREATE FULLTEXT INDEX knowledge_fulltext IF NOT EXISTS FOR (ku:Ku) ON EACH [ku.title, ku.description, ku.summary]",
                 "CREATE FULLTEXT INDEX tasks_fulltext IF NOT EXISTS FOR (t:Task) ON EACH [t.title, t.description, t.notes]",
                 "CREATE FULLTEXT INDEX journals_fulltext IF NOT EXISTS FOR (d:Document) ON EACH [d.title, d.description, d.content]",
                 # Legacy property indexes for filtering and sorting

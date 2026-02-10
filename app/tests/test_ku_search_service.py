@@ -16,12 +16,11 @@ from core.services.ku.ku_search_service import KuSearchService
 from core.utils.result_simplified import Result
 
 
-def make_ku_entity(uid="ku.test.1", title="Test Title", domain=Domain.TECH, content="Test content"):
+def make_ku_entity(uid="ku.test.1", title="Test Title", domain=Domain.TECH):
     """Helper to create Ku entity for tests."""
     return Ku(
         uid=uid,
         title=title,
-        content=content,
         domain=domain,
         sel_category=SELCategory.SELF_AWARENESS,  # Valid SELCategory value
         quality_score=0.0,
@@ -32,12 +31,11 @@ def make_ku_entity(uid="ku.test.1", title="Test Title", domain=Domain.TECH, cont
     )
 
 
-def make_unit_data(uid="ku.test.1", title="Test Title", domain="tech", content="Test content"):
+def make_unit_data(uid="ku.test.1", title="Test Title", domain="tech"):
     """Helper to create unit data dict for tests."""
     return {
         "uid": uid,
         "title": title,
-        "content": content,
         "domain": domain,
         "quality_score": 0.0,
         "complexity": "medium",
@@ -98,7 +96,7 @@ class TestKuSearchServiceInitialization:
         assert service._config.dto_class == KuDTO
         assert service._config.model_class == Ku
         assert "title" in service._config.search_fields
-        assert "content" in service._config.search_fields
+        assert "summary" in service._config.search_fields
         assert service._config.user_ownership_relationship is None  # Shared content
 
 
@@ -158,7 +156,6 @@ class TestTextSearch:
                         "entity": {
                             "uid": "ku.test.1",
                             "title": "Match",
-                            "content": "Test",
                             "domain": "tech",
                             "quality_score": 0.0,
                             "complexity": "medium",
@@ -375,13 +372,10 @@ class TestSimilaritySearch:
             "similar": {
                 "uid": "ku.test.2",
                 "title": "Similar",
-                "content": "Similar content",
                 "domain": "tech",
             },
         }
-        service.backend.execute_query = AsyncMock(
-            return_value=Result.ok([similar_record])
-        )
+        service.backend.execute_query = AsyncMock(return_value=Result.ok([similar_record]))
 
         result = await service.find_similar_content("ku.test.1", limit=5)
 

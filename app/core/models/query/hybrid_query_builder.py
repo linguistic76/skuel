@@ -139,7 +139,7 @@ class HybridQueryBuilder:
         # Add text search to property filters (indexed)
         if query_text:
             property_conditions.append(
-                "(ku.title CONTAINS $query_text OR ku.content CONTAINS $query_text)"
+                "(ku.title CONTAINS $query_text OR ku.summary CONTAINS $query_text)"
             )
             params["query_text"] = query_text
 

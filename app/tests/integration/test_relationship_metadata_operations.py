@@ -55,7 +55,6 @@ class TestRelationshipMetadataOperations:
         ku = Ku(
             uid="ku:python",
             title="Python",
-            content="Python programming",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -128,7 +127,6 @@ class TestRelationshipMetadataOperations:
         ku = Ku(
             uid="ku:algorithms",
             title="Algorithms",
-            content="Algorithm concepts",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -184,7 +182,6 @@ class TestRelationshipMetadataOperations:
         ku = Ku(
             uid="ku:databases",
             title="Databases",
-            content="Database concepts",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -251,7 +248,6 @@ class TestRelationshipMetadataOperations:
         ku = Ku(
             uid="ku:testing",
             title="Testing",
-            content="Testing concepts",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -311,7 +307,6 @@ class TestRelationshipMetadataOperations:
         ku = Ku(
             uid="ku:patterns",
             title="Patterns",
-            content="Design patterns",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )

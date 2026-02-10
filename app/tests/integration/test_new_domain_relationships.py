@@ -349,17 +349,17 @@ class TestKuRelationships:
             semantic_context={
                 "relationships": [
                     {
-                        "type": "REQUIRES",
+                        "type": "REQUIRES_KNOWLEDGE",
                         "target_uid": "ku.1",
                         "confidence": 0.9,
                     },
                     {
-                        "type": "REQUIRES",
+                        "type": "REQUIRES_KNOWLEDGE",
                         "target_uid": "ku.2",
                         "confidence": 0.85,
                     },
                     {
-                        "type": "REQUIRES",
+                        "type": "REQUIRES_KNOWLEDGE",
                         "target_uid": "ku.3",
                         "confidence": 0.6,  # Low confidence
                     },

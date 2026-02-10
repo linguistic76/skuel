@@ -96,7 +96,6 @@ class TestEventKuPracticeFlow:
             ku = Ku(
                 uid=f"ku.meditation_{i}",
                 title=title,
-                content=f"Learn about {title.lower()}",
                 domain=Domain.HEALTH,
                 sel_category=SELCategory.SELF_AWARENESS,
             )

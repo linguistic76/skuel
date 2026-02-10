@@ -15,12 +15,11 @@ from core.services.ku.ku_graph_service import KuGraphService
 from core.utils.result_simplified import Result
 
 
-def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech", content="Test content"):
+def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech"):
     """Helper to create complete KuDTO for tests."""
     return KuDTO(
         uid=uid,
         title=title,
-        content=content,
         domain=Domain(domain),
         quality_score=0.0,
         complexity="medium",

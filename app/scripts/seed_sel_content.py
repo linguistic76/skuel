@@ -652,6 +652,7 @@ async def seed_sel_content(ku_backend):
     for ku_data in EXAMPLE_SEL_KUS:
         try:
             # Create Ku object (prerequisites and enables are graph relationships, not fields)
+            content_body = ku_data.get("content", "")
             ku = Ku(
                 uid=ku_data["uid"],
                 title=ku_data["title"],
@@ -660,7 +661,7 @@ async def seed_sel_content(ku_backend):
                 learning_level=ku_data["learning_level"],
                 estimated_time_minutes=ku_data["estimated_time_minutes"],
                 difficulty_rating=ku_data["difficulty_rating"],
-                content=ku_data["content"],
+                word_count=len(content_body.split()) if content_body else 0,
             )
 
             # Create in database

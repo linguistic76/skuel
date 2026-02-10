@@ -276,6 +276,13 @@ class UnifiedIngestionService:
         if validation_result.is_error:
             return Result.fail(validation_result.expect_error())
 
+        # For KU: pop content before Neo4j storage — content lives on :Content node, not :Ku node
+        ku_content_body = ""
+        if entity_type == EntityType.KU:
+            ku_content_body = entity_data.pop("content", "")
+            if ku_content_body:
+                entity_data["word_count"] = len(ku_content_body.split())
+
         # Get engine for this entity type
         engine = self._get_engine(entity_type)
 
@@ -299,7 +306,7 @@ class UnifiedIngestionService:
         # Generate chunks immediately after successful KU ingestion for RAG-readiness
         chunks_generated = False
         if entity_type == EntityType.KU and self.chunking:
-            content_body = entity_data.get("content", "")
+            content_body = ku_content_body  # Already popped above
             if content_body:
                 chunk_result = await self.chunking.process_content_for_ingestion(
                     parent_uid=entity_data["uid"],

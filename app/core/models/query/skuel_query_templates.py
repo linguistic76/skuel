@@ -503,7 +503,7 @@ BULK_LEARNING_PATH_INGESTION = SkuelQueryTemplate(
     MERGE (ku:Ku {uid: ku_data.uid})
     SET
       ku.title = ku_data.title,
-      ku.content = ku_data.content,
+      ku.word_count = coalesce(ku_data.word_count, 0),
       ku.section = ku_data.section,
       ku.sequence_order = ku_data.sequence_order,
       ku.estimated_minutes = ku_data.estimated_minutes,

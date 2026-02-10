@@ -41,12 +41,6 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.askesis.types import (
-        AskesisAnalysis,
-        AskesisInsight,
-        AskesisRecommendation,
-    )
-    from core.services.user import UserContext
     from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
@@ -54,6 +48,12 @@ if TYPE_CHECKING:
         LifePathAlignment,
         ScheduleAwareRecommendation,
     )
+    from core.services.askesis.types import (
+        AskesisAnalysis,
+        AskesisInsight,
+        AskesisRecommendation,
+    )
+    from core.services.user import UserContext
     from core.services.user.intelligence import UserContextIntelligenceFactory
 
 logger = get_logger(__name__)

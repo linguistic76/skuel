@@ -112,7 +112,6 @@ class TestGoalRecommendationsFlow:
             ku = Ku(
                 uid=f"ku.tech_{i}",
                 title=title,
-                content=f"Learn about {title.lower()}",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             )

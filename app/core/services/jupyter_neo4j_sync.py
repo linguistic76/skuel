@@ -179,7 +179,7 @@ class JupyterNeo4jSync:
             update_query = """
             MATCH (ku:Ku {uid: $uid})
             SET ku.title = $title,
-                ku.content = $content,
+                ku.word_count = $word_count,
                 ku.domain = $domain,
                 ku.complexity = $complexity,
                 ku.quality_score = $quality_score,
@@ -197,7 +197,7 @@ class JupyterNeo4jSync:
                     {
                         "uid": uid,
                         "title": edited_content.get("title"),
-                        "content": content,
+                        "word_count": len(content.split()) if content else 0,
                         "domain": edited_content.get("domain", "personal"),
                         "complexity": edited_content.get("complexity", "basic"),
                         "quality_score": edited_content.get("quality_score", 0.85),

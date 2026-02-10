@@ -34,8 +34,10 @@ class KuDTO:
     # Core fields (required)
     uid: str
     title: str
-    content: str
     domain: Domain
+
+    # Content metadata (computed during ingestion)
+    word_count: int = 0
 
     # Semantic fields (always present, may have defaults)
     quality_score: float = 0.0
@@ -92,8 +94,8 @@ class KuDTO:
     def create(
         cls,
         title: str,
-        content: str,
         domain: Domain,
+        word_count: int = 0,
         tags: list[str] | None = None,
         complexity: str = "medium",
         sel_category: SELCategory | None = None,
@@ -111,8 +113,8 @@ class KuDTO:
         return cls(
             uid=UIDGenerator.generate_uid("knowledge"),
             title=title,
-            content=content,
             domain=domain,
+            word_count=word_count,
             tags=tags or [],
             complexity=complexity,
             sel_category=sel_category,
@@ -135,7 +137,7 @@ class KuDTO:
             updates,
             allowed_fields={
                 "title",
-                "content",
+                "word_count",
                 "domain",
                 "quality_score",
                 "complexity",
@@ -182,7 +184,7 @@ class KuDTO:
         data = {
             "uid": self.uid,
             "title": self.title,
-            "content": self.content,
+            "word_count": self.word_count,
             "domain": get_enum_value(self.domain),
             "quality_score": self.quality_score,
             "complexity": self.complexity,
@@ -264,7 +266,7 @@ class KuDTO:
                 "last_choice_informed_date",
             ],
             list_fields=["tags", "semantic_links"],
-            deprecated_fields=["prerequisites", "enables", "related_to"],
+            deprecated_fields=["prerequisites", "enables", "related_to", "content"],
         )
 
     def __eq__(self, other) -> bool:

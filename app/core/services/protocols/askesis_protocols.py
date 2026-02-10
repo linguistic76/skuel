@@ -43,12 +43,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from core.services.askesis.types import (
-        AskesisAnalysis,
-        AskesisInsight,
-        AskesisRecommendation,
-    )
-    from core.services.user import UserContext
     from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
@@ -56,6 +50,12 @@ if TYPE_CHECKING:
         LifePathAlignment,
         ScheduleAwareRecommendation,
     )
+    from core.services.askesis.types import (
+        AskesisAnalysis,
+        AskesisInsight,
+        AskesisRecommendation,
+    )
+    from core.services.user import UserContext
     from core.utils.result_simplified import Result
 
 

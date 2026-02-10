@@ -54,13 +54,13 @@ class Ku:
     # Core identity (required fields - no defaults)
     uid: str
     title: str
-    content: str
     domain: Domain
 
     # Optional fields (with defaults)
     sel_category: SELCategory | None = None  # SEL lens — None if not classified
     summary: str = ""  # Brief description (auto-generated or user-provided)
     learning_level: LearningLevel = LearningLevel.BEGINNER  # Target learning level
+    word_count: int = 0  # Computed metadata — stored on Ku node during ingestion
 
     # Semantic analysis results (immutable after creation)
     quality_score: float = 0.0
@@ -220,26 +220,6 @@ class Ku:
         """Check if semantic analysis has been performed."""
         return self.quality_score > 0 and len(self.semantic_links) > 0
 
-    def word_count(self) -> int:
-        """Calculate word count of content."""
-        return len(self.content.split())
-
-    def estimated_reading_time(self) -> int:
-        """
-        Estimate reading time in minutes.
-
-        Assumes average reading speed of 200 words per minute.
-        """
-        return max(1, self.word_count() // 200)
-
-    def is_substantial(self) -> bool:
-        """
-        Check if content is substantial enough.
-
-        Business rule: Content should have at least 100 words to be meaningful.
-        """
-        return self.word_count() >= 100
-
     def has_tag(self, tag: str) -> bool:
         """Check if knowledge has a specific tag."""
         return tag.lower() in [t.lower() for t in self.tags]
@@ -369,10 +349,10 @@ class Ku:
         return cls(
             uid=dto.uid,
             title=dto.title,
-            content=dto.content,
             domain=dto.domain,
             # Learning metadata
             sel_category=dto.sel_category,
+            word_count=dto.word_count,
             summary=dto.summary,
             learning_level=dto.learning_level,
             estimated_time_minutes=dto.estimated_time_minutes,
@@ -409,10 +389,10 @@ class Ku:
         return KuDTO(
             uid=self.uid,
             title=self.title,
-            content=self.content,
             domain=self.domain,
             # Learning metadata
             sel_category=self.sel_category,
+            word_count=self.word_count,
             summary=self.summary,
             learning_level=self.learning_level,
             estimated_time_minutes=self.estimated_time_minutes,
@@ -438,24 +418,6 @@ class Ku:
             last_reflected_date=self.last_reflected_date,
             last_choice_informed_date=self.last_choice_informed_date,
         )
-
-    def has_content(self) -> bool:
-        """
-        Check if this knowledge has associated content.
-
-        Note: Content is stored separately in KnowledgeContent for efficiency.
-        """
-        # This would be checked via the service/repository layer
-        # The Knowledge model itself doesn't store content
-        return len(self.content) > 0
-
-    def needs_chunking(self) -> bool:
-        """
-        Check if content needs chunking.
-
-        All content should be chunked for RAG retrieval.
-        """
-        return self.has_content() and self.word_count() > 50
 
     def __str__(self) -> str:
         """String representation."""
@@ -586,9 +548,10 @@ class Ku:
         elif self.is_terminal():
             parts.append("Advanced knowledge")
 
-        # Application context
-        if self.is_substantial():
-            parts.append(f"{self.word_count()} words, ~{self.estimated_reading_time()} min read")
+        # Size indicator
+        if self.word_count >= 100:
+            reading_time = max(1, self.word_count // 200)
+            parts.append(f"{self.word_count} words, ~{reading_time} min read")
 
         # Quality indicator
         if self.is_high_quality():
@@ -684,8 +647,7 @@ class Ku:
                 "domain": self.domain.value,
                 "complexity": self.complexity,
                 "quality_score": self.quality_score,
-                "word_count": self.word_count(),
-                "reading_time_minutes": self.estimated_reading_time(),
+                "word_count": self.word_count,
                 "is_foundational": self.is_foundational(),
                 "is_terminal": self.is_terminal(),
                 "is_connected": self.is_connected(),

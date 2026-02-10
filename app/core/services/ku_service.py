@@ -142,6 +142,7 @@ class KuService(FacadeDelegationMixin):
             "get_chunks": ("core", "get_chunks"),
             "analyze_content": ("core", "analyze_content"),
             "get_with_template": ("core", "get"),
+            "get_with_content": ("core", "get_with_content"),
         },
         # Search delegations (using search_service, not search to match sub-service name)
         {
@@ -1111,7 +1112,7 @@ class KuService(FacadeDelegationMixin):
             "uid": uid,
             "title": ku.title,
             "domain": ku.domain.value if ku.domain else None,
-            "content_length": len(ku.content or ""),
+            "word_count": ku.word_count,
             "tag_count": len(ku.tags or []),
             "prerequisite_count": prereq_count,
             "dependent_count": deps_count,

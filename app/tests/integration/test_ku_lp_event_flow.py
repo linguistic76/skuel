@@ -97,7 +97,6 @@ class TestKuLpEventFlow:
             ku = Ku(
                 uid=f"ku.python_basics_{i}",
                 title=title,
-                content=f"Learn about {title.lower()}",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             )
@@ -295,7 +294,6 @@ class TestKuLpEventFlow:
         unrelated_ku = Ku(
             uid="ku.advanced_algorithms",
             title="Advanced Algorithms",
-            content="Complex algorithmic concepts",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )

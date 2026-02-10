@@ -109,7 +109,6 @@ class TestKnowledgeUnitCRUD:
         ku = Ku(
             uid="ku:test_python_basics",
             title="Python Basics",
-            content="Introduction to Python programming",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
             learning_level=LearningLevel.BEGINNER,
@@ -128,7 +127,6 @@ class TestKnowledgeUnitCRUD:
         ku = Ku(
             uid="ku:test_get",
             title="Test Get",
-            content="Test content",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
@@ -150,7 +148,6 @@ class TestKnowledgeUnitCRUD:
         ku = Ku(
             uid="ku:test_update",
             title="Original Title",
-            content="Original content",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
@@ -175,7 +172,6 @@ class TestKnowledgeUnitCRUD:
         ku = Ku(
             uid="ku:test_delete",
             title="Test Delete",
-            content="Test content",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )

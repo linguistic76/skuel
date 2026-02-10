@@ -110,8 +110,8 @@ def create_ku_reading_ui_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        # Get KU
-        ku_result = await ku_service.get(uid)
+        # Get KU with content (content lives on :Content node)
+        ku_result = await ku_service.get_with_content(uid)
         if ku_result.is_error:
             return await BasePage(
                 content=Div(
@@ -128,7 +128,7 @@ def create_ku_reading_ui_routes(
                 request=request,
             )
 
-        ku = ku_result.value
+        ku, content_body = ku_result.value
 
         # Record view
         await ku_interaction_service.record_view(user_uid, uid)
@@ -181,7 +181,7 @@ def create_ku_reading_ui_routes(
         breadcrumb_path.append({"uid": uid, "title": ku.title, "url": ""})
 
         # Render markdown content with TOC
-        content_html, toc_html = render_markdown_with_toc(ku.content or "")
+        content_html, toc_html = render_markdown_with_toc(content_body or "")
         has_toc = bool(toc_html and toc_html.strip())
 
         # Action buttons

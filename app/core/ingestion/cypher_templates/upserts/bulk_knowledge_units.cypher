@@ -12,7 +12,7 @@ MERGE (ku:Ku {uid: i.uid})
     ku.status = coalesce(i.status, ku.status),
     ku.updated_at = datetime(),
     ku.description = i.description,
-    ku.content = i.content,
+    ku.word_count = coalesce(i.word_count, 0),
     ku.notes = i.notes,
     ku.tags = coalesce(i.tags, []),
     ku.level = coalesce(i.level, ku.level),

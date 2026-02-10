@@ -60,6 +60,7 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
         backend: KuOperations,
         llm_service: "LLMService",
         embeddings_service: "Neo4jGenAIEmbeddingsService",
+        content_repo: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:
         """
@@ -69,6 +70,7 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
             backend: KU backend operations (protocol)
             llm_service: LLM service for AI insights (REQUIRED)
             embeddings_service: Embeddings service for semantic search (REQUIRED)
+            content_repo: Content repository for fetching KU body text
             event_bus: Event bus for publishing events (optional)
 
         NOTE: Both llm_service and embeddings_service are REQUIRED.
@@ -80,6 +82,16 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
             embeddings_service=embeddings_service,
             event_bus=event_bus,
         )
+        self.content_repo = content_repo
+
+    async def _fetch_content(self, ku_uid: str) -> str:
+        """Fetch content body from Content node for a KU."""
+        if not self.content_repo:
+            return ""
+        content_result = await self.content_repo.get_content(ku_uid)
+        if content_result.is_ok and content_result.value:
+            return content_result.value.get("content", "")
+        return ""
 
     # ========================================================================
     # SEMANTIC SEARCH
@@ -109,10 +121,11 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
         if not ku:
             return Result.fail(Errors.not_found(resource="KnowledgeUnit", identifier=ku_uid))
 
+        content = await self._fetch_content(ku_uid)
         search_text = f"{ku.title} {ku.summary}"
-        if ku.content:
+        if content:
             # Use first 500 chars of content for embedding
-            search_text += f" {ku.content[:500]}"
+            search_text += f" {content[:500]}"
 
         # Get all KUs in the same domain for comparison
         all_kus_result = await self.backend.find_by(domain=ku.domain)
@@ -120,11 +133,7 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
             return Result.fail(all_kus_result.expect_error())
 
         all_kus = all_kus_result.value or []
-        candidates = [
-            (k.uid, f"{k.title} {k.summary} {k.content[:300] if k.content else ''}")
-            for k in all_kus
-            if k.uid != ku_uid
-        ]
+        candidates = [(k.uid, f"{k.title} {k.summary}") for k in all_kus if k.uid != ku_uid]
 
         if not candidates:
             return Result.ok([])
@@ -161,9 +170,7 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
         if not kus:
             return Result.ok([])
 
-        candidates = [
-            (k.uid, f"{k.title} {k.summary} {k.content[:300] if k.content else ''}") for k in kus
-        ]
+        candidates = [(k.uid, f"{k.title} {k.summary}") for k in kus]
 
         return await self._semantic_search(query, candidates, limit)
 
@@ -311,11 +318,12 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
         if not ku:
             return Result.fail(Errors.not_found(resource="KnowledgeUnit", identifier=ku_uid))
 
+        content = await self._fetch_content(ku_uid)
         context = {
             "title": ku.title,
             "domain": ku.domain.value,
             "learning_level": ku.learning_level.value,
-            "content": ku.content[:2000] if ku.content else "No content",
+            "content": content[:2000] if content else "No content",
         }
 
         prompt = f"""Summarize this knowledge unit in {max_words} words or fewer.
@@ -360,10 +368,11 @@ Be concise and educational."""
             "advanced": "Use precise terminology. Focus on nuances, edge cases, and deeper implications.",
         }
 
+        content = await self._fetch_content(ku_uid)
         context = {
             "title": ku.title,
             "domain": ku.domain.value,
-            "content": ku.content[:2000] if ku.content else "No content",
+            "content": content[:2000] if content else "No content",
             "current_level": ku.learning_level.value,
         }
 
@@ -483,10 +492,11 @@ NEXT: [topic name] - [why it follows naturally]"""
         if not ku:
             return Result.fail(Errors.not_found(resource="KnowledgeUnit", identifier=ku_uid))
 
+        content = await self._fetch_content(ku_uid)
         context = {
             "title": ku.title,
             "domain": ku.domain.value,
-            "content": ku.content[:1500] if ku.content else "No content",
+            "content": content[:1500] if content else "No content",
         }
 
         prompt = """Suggest practical applications for this knowledge.

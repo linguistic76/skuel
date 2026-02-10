@@ -36,28 +36,24 @@ class TestKuConfidenceFiltering:
         ku_basics = Ku(
             uid="ku:python_basics",
             title="Python Basics",
-            content="Basic Python programming",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
         ku_functions = Ku(
             uid="ku:python_functions",
             title="Python Functions",
-            content="Functions in Python",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
         ku_oop = Ku(
             uid="ku:python_oop",
             title="Python OOP",
-            content="Object-oriented programming in Python",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
         ku_advanced = Ku(
             uid="ku:python_advanced",
             title="Advanced Python",
-            content="Advanced Python concepts",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
@@ -260,21 +256,18 @@ class TestKuTypeFiltering:
         ku_basics = Ku(
             uid="ku:math_basics",
             title="Math Basics",
-            content="Basic mathematics",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
         ku_algebra = Ku(
             uid="ku:algebra",
             title="Algebra",
-            content="Algebraic concepts",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
         ku_calculus = Ku(
             uid="ku:calculus",
             title="Calculus",
-            content="Calculus fundamentals",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
@@ -364,7 +357,6 @@ class TestBatchPerformance:
                 Ku(
                     uid=uid,
                     title=f"Test KU {i}",
-                    content=f"Test content {i}",
                     domain=Domain.TECH,
                     sel_category=SELCategory.SELF_MANAGEMENT,
                 )

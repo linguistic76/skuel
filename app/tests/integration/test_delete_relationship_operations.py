@@ -45,7 +45,6 @@ class TestDeleteRelationshipOperations:
         ku = Ku(
             uid="ku:test-knowledge",
             title="Test Knowledge",
-            content="Test content",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
@@ -121,7 +120,6 @@ class TestDeleteRelationshipOperations:
             ku = Ku(
                 uid=ku_uid,
                 title=title,
-                content=f"Content for {title}",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             )
@@ -184,7 +182,6 @@ class TestDeleteRelationshipOperations:
             ku = Ku(
                 uid=ku_uid,
                 title=title,
-                content=f"Content for {title}",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             )
@@ -242,7 +239,6 @@ class TestDeleteRelationshipOperations:
             ku = Ku(
                 uid=ku_uid,
                 title=title,
-                content=f"Content for {title}",
                 domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             )

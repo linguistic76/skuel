@@ -29,9 +29,9 @@ from core.models.ku.ku_intelligence import (
     LearningVelocity,
     MasteryLevel,
 )
+from core.models.ku.ku_progress import KuCategoryProgress, KuLearningJourney
 from core.models.lp.lp import LearningPath
 from core.models.relationship_names import RelationshipName
-from core.models.ku.ku_progress import KuCategoryProgress, KuLearningJourney
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

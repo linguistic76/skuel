@@ -165,8 +165,11 @@ class ContextFirstMixin(ABC):
     ) -> float:
         """Calculate readiness score. Delegates to module-level scoring engine."""
         return _compute_readiness(
-            required_knowledge_uids, required_task_uids,
-            context.knowledge_mastery, context.completed_task_uids, mastery_threshold,
+            required_knowledge_uids,
+            required_task_uids,
+            context.knowledge_mastery,
+            context.completed_task_uids,
+            mastery_threshold,
         )
 
     def _calculate_relevance_score(
@@ -177,9 +180,12 @@ class ContextFirstMixin(ABC):
     ) -> float:
         """Calculate relevance score. Delegates to module-level scoring engine."""
         return _compute_relevance(
-            entity_goal_uids, entity_principle_uids,
-            context.active_goal_uids, context.primary_goal_focus,
-            context.core_principle_uids, context.principle_priorities,
+            entity_goal_uids,
+            entity_principle_uids,
+            context.active_goal_uids,
+            context.primary_goal_focus,
+            context.core_principle_uids,
+            context.principle_priorities,
         )
 
     def _calculate_urgency_score(
@@ -201,6 +207,7 @@ class ContextFirstMixin(ABC):
     ) -> float:
         """Calculate combined priority score. Delegates to module-level scoring engine."""
         from core.models.context_types import _compute_priority
+
         return _compute_priority((readiness, relevance, urgency), weights)
 
     # ==========================================================================
@@ -303,8 +310,11 @@ class ContextFirstMixin(ABC):
     ) -> list[str]:
         """Identify reasons blocking engagement. Delegates to module-level scoring engine."""
         return _compute_blocking_reasons(
-            required_knowledge, required_tasks,
-            context.knowledge_mastery, context.completed_task_uids, max_reasons,
+            required_knowledge,
+            required_tasks,
+            context.knowledge_mastery,
+            context.completed_task_uids,
+            max_reasons,
         )
 
     def _identify_unlocks(

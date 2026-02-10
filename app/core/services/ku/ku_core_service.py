@@ -84,13 +84,12 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         dto_class=KuDTO,
         model_class=Ku,
         domain_name="ku",
-        search_fields=("title", "content", "tags"),
+        search_fields=("title", "summary", "tags"),
         supports_user_progress=True,  # KU supports mastery tracking
         user_ownership_relationship=None,  # KU is shared content
         prerequisite_relationships=(RelationshipName.REQUIRES_KNOWLEDGE.value,),
         enables_relationships=(RelationshipName.ENABLES_KNOWLEDGE.value,),
     )
-    _content_field = "content"  # Keep as class attribute (not in DomainConfig schema)
 
     @property
     def entity_label(self) -> str:
@@ -99,12 +98,12 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
 
     def _get_content_query(self) -> str:
         """
-        Return Cypher query fragment for fetching KU content.
+        Return Cypher query fragment for fetching KU metadata.
 
-        KUs store content inline, so we just return the content field.
+        Content lives on the :Content node (via HAS_CONTENT), not on the :Ku node.
         """
         return """
-        RETURN n, n.content as content
+        RETURN n
         """
 
     def __init__(
@@ -184,11 +183,15 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         # Parent relationship handled separately via ORGANIZES edge
         uid = UIDGenerator.generate_knowledge_uid(title=title)
 
+        # Compute word_count from body (stored as metadata on Ku node)
+        word_count = len(body.strip().split())
+
         # Prepare unit data with timestamps (via MetadataManagerMixin)
+        # Content body is NOT stored on the Ku node — it goes to the :Content node
         unit_data = {
             "uid": uid,
             "title": title.strip(),
-            "content": body.strip(),  # Required for KuDTO
+            "word_count": word_count,
             "summary": summary or title[:100],
             "tags": tags or [],
             "status": KnowledgeStatus.DRAFT.value,
@@ -221,8 +224,8 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         dto = KuDTO(
             uid=uid,
             title=title.strip(),
-            content=body.strip(),
             domain=Domain[metadata.get("domain", "KNOWLEDGE")],
+            word_count=word_count,
             tags=tags or [],
             metadata=metadata,
         )
@@ -255,20 +258,9 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         Pattern: Try chunking first, fallback to simple storage.
         """
         if self.chunking_service:
-            # Create domain model for chunking
-            knowledge = Ku(
-                uid=uid,
-                title=title.strip(),
-                content=body.strip(),
-                domain=metadata.get("domain", Domain.KNOWLEDGE),
-                sel_category=metadata.get("sel_category"),
-                tags=tuple(tags or []),
-                complexity=metadata.get("complexity", "medium"),
-            )
-
-            # Process with chunking
+            # Process with chunking — pass body directly, not via Ku model
             chunking_result = await self.chunking_service.process_ku_content(
-                knowledge=knowledge, content_body=body.strip(), format="markdown"
+                knowledge=None, content_body=body.strip(), format="markdown", parent_uid=uid
             )
 
             if chunking_result.is_ok:
@@ -346,18 +338,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
             return Result.fail(Errors.not_found(f"Knowledge unit {uid} not found"))
 
         # Backend returns Ku via from_neo4j_node() (entity_class=Ku)
-        dto = unit_result.value
-
-        # If content field is empty and we have a content repo, try fetching it
-        # (This is for backward compatibility with old three-tier architecture)
-        if self.content_repo and (not dto.content or dto.content == ""):
-            content_result = await self.content_repo.get_content(uid)
-            if content_result.is_ok and content_result.value:
-                # Update the content field (bypass frozen via object.__setattr__)
-                new_content = content_result.value.get("content", dto.content)
-                object.__setattr__(dto, "content", new_content)
-
-        return Result.ok(dto)
+        return Result.ok(unit_result.value)
 
     @track_query_metrics("ku_get_with_context")
     @with_error_handling("get_with_context", error_type="database", uid_param="uid")
@@ -472,12 +453,6 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         # Build KuDTO from node
         dto = KuDTO.from_dict(dict(ku_node))
 
-        # Fetch content if needed
-        if not dto.content or dto.content == "":
-            content_result = await self.content_repo.get_content(uid)
-            if content_result.is_ok and content_result.value:
-                dto.content = content_result.value.get("content", dto.content)
-
         # Enrich metadata with graph context
         dto.metadata["graph_context"] = {
             "prerequisites": [p for p in record["prerequisites"] if p.get("uid")],
@@ -497,6 +472,35 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         )
 
         return Result.ok(dto)
+
+    @track_query_metrics("ku_get_with_content")
+    @with_error_handling("get_with_content", error_type="database", uid_param="uid")
+    async def get_with_content(self, uid: str) -> Result[tuple[Ku, str]]:
+        """
+        Get a knowledge unit with its full content body.
+
+        Content lives on the :Content node (via HAS_CONTENT), not on the :Ku node.
+        Use this method for detail views that need to render markdown.
+
+        Args:
+            uid: Knowledge unit UID
+
+        Returns:
+            Result containing (Ku, content_body) tuple
+        """
+        ku_result = await self.get(uid)
+        if ku_result.is_error:
+            return ku_result
+
+        ku = ku_result.value
+        content_body = ""
+
+        if self.content_repo:
+            content_result = await self.content_repo.get_content(uid)
+            if content_result.is_ok and content_result.value:
+                content_body = content_result.value.get("content", "")
+
+        return Result.ok((ku, content_body))
 
     # ========================================================================
     # UPDATE
@@ -544,24 +548,18 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         Update content with optional re-chunking.
 
         Pattern: Re-chunk if chunking service available, fallback to simple update.
+        Also recomputes word_count on the Ku node.
 
         Note: existing_dto is actually a Ku instance (backend uses entity_class=Ku).
         """
-        if self.chunking_service:
-            # Re-create domain model for re-chunking
-            knowledge = Ku(
-                uid=uid,
-                title=existing_dto.title,
-                content=new_body,
-                domain=existing_dto.domain,
-                sel_category=existing_dto.sel_category,
-                tags=existing_dto.tags,
-                complexity=existing_dto.complexity,
-            )
+        # Recompute word_count on the Ku node
+        new_word_count = len(new_body.strip().split())
+        await self.backend.update(uid, {"word_count": new_word_count})
 
-            # Re-process with chunking
+        if self.chunking_service:
+            # Re-process with chunking — pass body directly
             chunking_result = await self.chunking_service.update_ku_content(
-                knowledge=knowledge, new_content_body=new_body
+                knowledge=None, new_content_body=new_body, parent_uid=uid
             )
 
             if chunking_result.is_ok:

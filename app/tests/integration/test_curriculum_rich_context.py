@@ -45,14 +45,12 @@ class TestCurriculumRichContext:
         # Create knowledge units for step content
         primary_ku = KuDTO.create(
             title="Python Functions",
-            content="Learn about functions in Python",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(primary_ku.to_dict())
 
         supporting_ku = KuDTO.create(
             title="Python Variables",
-            content="Understanding variables",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(supporting_ku.to_dict())
@@ -60,7 +58,6 @@ class TestCurriculumRichContext:
         # Create prerequisite knowledge
         prereq_ku = KuDTO.create(
             title="Python Basics",
-            content="Basic Python syntax",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(prereq_ku.to_dict())
@@ -268,7 +265,6 @@ class TestCurriculumRichContext:
         # Create prerequisite knowledge
         prereq_ku = KuDTO.create(
             title="Programming Fundamentals",
-            content="Basic programming concepts",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(prereq_ku.to_dict())
@@ -467,7 +463,6 @@ class TestCurriculumRichContext:
         # Create knowledge for step
         ku = KuDTO.create(
             title="Python Functions",
-            content="Function concepts",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(ku.to_dict())

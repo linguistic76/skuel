@@ -25,14 +25,12 @@ class TestRelationshipPropertiesDebug:
         ku1 = Ku(
             uid="ku:test1",
             title="Test 1",
-            content="Test content 1",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
         ku2 = Ku(
             uid="ku:test2",
             title="Test 2",
-            content="Test content 2",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
