@@ -28,7 +28,7 @@ import pytest_asyncio
 from neo4j import AsyncGraphDatabase
 
 from core.models.ku.ku_dto import KuDTO
-from core.models.ls import Ls
+from core.models.ku import Ku
 from core.services.lp_service import LpService
 from core.services.ls_service import LsService
 from routes.graphql.types import LearningStep
@@ -167,13 +167,14 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
         for step in learning_steps:
             await session.run(
                 """
-                MERGE (s:Ls {uid: $uid})
+                MERGE (s:Ku {uid: $uid})
                 SET s.title = $title,
                     s.intent = $intent,
                     s.knowledge_uid = $knowledge_uid,
                     s.sequence = $sequence,
                     s.mastery_threshold = $mastery_threshold,
                     s.estimated_hours = $estimated_hours,
+                    s.ku_type = 'learning_step',
                     s.created_at = datetime()
                 RETURN s
                 """,
@@ -183,14 +184,14 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
         # Create learning path
         await session.run(
             """
-            MERGE (p:Lp {uid: 'lp.type_test_path'})
-            SET p.name = 'Type Testing Mastery',
-                p.goal = 'Master type testing techniques',
+            MERGE (p:Ku {uid: 'lp.type_test_path'})
+            SET p.title = 'Type Testing Mastery',
                 p.description = 'Comprehensive type testing learning path',
                 p.total_steps = 3,
                 p.estimated_hours = 9.0,
                 p.difficulty = 'intermediate',
                 p.domain = $domain,
+                p.ku_type = 'learning_path',
                 p.created_at = datetime()
             RETURN p
             """,
@@ -201,8 +202,8 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
         for i in range(1, 4):
             await session.run(
                 """
-                MATCH (p:Lp {uid: 'lp.type_test_path'})
-                MATCH (s:Ls {uid: $step_uid})
+                MATCH (p:Ku {uid: 'lp.type_test_path'})
+                MATCH (s:Ku {uid: $step_uid})
                 MERGE (p)-[r:HAS_STEP]->(s)
                 SET r.sequence = $sequence
                 """,
@@ -275,7 +276,7 @@ async def test_learning_path_service_returns_typed_steps(lp_service, type_contra
     # Assert - Each step is properly typed
     for i, step in enumerate(steps, 1):
         # Core type check
-        assert isinstance(step, Ls), f"Step {i} should be Ls instance, got {type(step)}"
+        assert isinstance(step, Ku), f"Step {i} should be Ku instance, got {type(step)}"
 
         # Required string fields
         assert isinstance(step.uid, str), f"Step {i} uid should be string"
@@ -470,10 +471,10 @@ async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service
         - Ls with empty primary_knowledge_uids tuple
         - Should return empty string for knowledge_uid (not crash)
     """
-    # Arrange - Create Ls with empty primary_knowledge_uids
-    from core.models.ls import Ls
+    # Arrange - Create Ku with empty primary_knowledge_uids
+    from core.models.ku import Ku
 
-    ls_with_no_knowledge = Ls(
+    ls_with_no_knowledge = Ku(
         uid="ls.test_no_knowledge",
         title="Test Step With No Knowledge",
         intent="Test intent",

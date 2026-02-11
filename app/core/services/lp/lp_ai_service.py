@@ -15,7 +15,7 @@ NOTE: LP is a Curriculum domain - content is SHARED (no user_uid ownership).
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.lp.lp import Lp
+from core.models.ku import Ku
 from core.services.base_ai_service import BaseAIService
 from core.services.protocols import LpOperations
 from core.utils.result_simplified import Errors, Result
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class LpAIService(BaseAIService[LpOperations, Lp]):
+class LpAIService(BaseAIService[LpOperations, Ku]):
     """
     AI-powered features for Learning Paths domain.
 
@@ -67,9 +67,9 @@ class LpAIService(BaseAIService[LpOperations, Lp]):
         if not lp:
             return Result.fail(Errors.not_found(resource="LearningPath", identifier=lp_uid))
 
-        search_text = f"{lp.name}"
-        if lp.goal:
-            search_text += f" {lp.goal}"
+        search_text = f"{lp.title}"
+        if lp.description:
+            search_text += f" {lp.description}"
         if lp.outcomes:
             search_text += f" {' '.join(lp.outcomes[:3])}"
 
@@ -77,8 +77,8 @@ class LpAIService(BaseAIService[LpOperations, Lp]):
         if all_paths_result.is_error:
             return Result.fail(all_paths_result.expect_error())
 
-        all_paths: list[Lp] = all_paths_result.value or []
-        candidates = [(p.uid, f"{p.name} {p.goal or ''}") for p in all_paths if p.uid != lp_uid]
+        all_paths: list[Ku] = all_paths_result.value or []
+        candidates = [(p.uid, f"{p.title} {p.description or ''}") for p in all_paths if p.uid != lp_uid]
 
         if not candidates:
             return Result.ok([])
@@ -98,8 +98,8 @@ class LpAIService(BaseAIService[LpOperations, Lp]):
         outcomes = ", ".join(lp.outcomes) if lp.outcomes else "Not specified"
 
         context = {
-            "name": lp.name,
-            "goal": lp.goal or "No goal specified",
+            "name": lp.title,
+            "goal": lp.description or "No goal specified",
             "domain": lp.domain.value if lp.domain else "General",
             "estimated_hours": lp.estimated_hours or "Not specified",
             "outcomes": outcomes,
@@ -123,7 +123,7 @@ Format each section with its label."""
         response = insight_result.value
         overview: dict[str, Any] = {
             "lp_uid": lp_uid,
-            "lp_name": lp.name,
+            "lp_name": lp.title,
         }
 
         key_mapping = {
@@ -153,9 +153,9 @@ Format each section with its label."""
             return Result.fail(Errors.not_found(resource="LearningPath", identifier=lp_uid))
 
         context = {
-            "name": lp.name,
+            "name": lp.title,
             "estimated_hours": lp.estimated_hours or "Unknown",
-            "difficulty": lp.difficulty,
+            "difficulty": lp.step_difficulty or "intermediate",
         }
 
         prompt = """Create a completion strategy for this learning path.
@@ -176,7 +176,7 @@ Format each as KEY: [response]"""
         response = insight_result.value
         strategy: dict[str, Any] = {
             "lp_uid": lp_uid,
-            "lp_name": lp.name,
+            "lp_name": lp.title,
         }
 
         key_mapping = {
@@ -206,7 +206,7 @@ Format each as KEY: [response]"""
             return Result.fail(Errors.not_found(resource="LearningPath", identifier=lp_uid))
 
         context = {
-            "name": lp.name,
+            "name": lp.title,
             "domain": lp.domain.value if lp.domain else "General",
             "estimated_hours": lp.estimated_hours or "Unknown",
         }

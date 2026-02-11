@@ -24,7 +24,7 @@ from operator import itemgetter
 from typing import Any
 
 from core.models.enums import ActivityStatus, Domain, Priority
-from core.models.lp.lp_position import LpPosition
+from core.models.ku.lp_position import LpPosition
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
@@ -384,25 +384,26 @@ class TasksSchedulingService(BaseService[TasksOperations, Task]):
                 # Suggest practice tasks for current step
                 suggestion = {
                     "title": f"Practice {ku_uid}",
-                    "description": f"Apply {ku_uid} knowledge from {path.name}",
-                    "learning_path": path.name,
+                    "description": f"Apply {ku_uid} knowledge from {path.title}",
+                    "learning_path": path.title,
                     "knowledge_uid": ku_uid,
                     "estimated_minutes": int(
                         current_step.estimated_hours * 60 / 3
                     ),  # Break into smaller tasks
                     "priority": Priority.MEDIUM.value,
                     "learning_relevance_score": 0.9,  # High relevance for current step
-                    "suggestion_reason": f"Aligns with current step in {path.name}",
+                    "suggestion_reason": f"Aligns with current step in {path.title}",
                 }
                 suggestions.append(suggestion)
 
                 # Suggest preparation for next step (find step that comes after current in sequence)
-                # Find current step index
+                # Steps stored in path.metadata["steps"] (unified Ku model)
+                path_steps = path.metadata.get("steps", []) if path.metadata else []
                 try:
-                    current_index = path.steps.index(current_step)
+                    current_index = path_steps.index(current_step)
                     # Get next step in sequence (not just next ready step)
-                    if current_index + 1 < len(path.steps):
-                        next_step = path.steps[current_index + 1]
+                    if current_index + 1 < len(path_steps):
+                        next_step = path_steps[current_index + 1]
                         next_ku_uid = (
                             next_step.primary_knowledge_uids[0]
                             if next_step.primary_knowledge_uids
@@ -410,13 +411,13 @@ class TasksSchedulingService(BaseService[TasksOperations, Task]):
                         )
                         prep_suggestion = {
                             "title": f"Prepare for {next_ku_uid}",
-                            "description": f"Research and prepare for upcoming {next_ku_uid} in {path.name}",
-                            "learning_path": path.name,
+                            "description": f"Research and prepare for upcoming {next_ku_uid} in {path.title}",
+                            "learning_path": path.title,
                             "knowledge_uid": next_ku_uid,
                             "estimated_minutes": 30,  # Short preparation task
                             "priority": Priority.LOW.value,
                             "learning_relevance_score": 0.7,
-                            "suggestion_reason": f"Preparation for next step in {path.name}",
+                            "suggestion_reason": f"Preparation for next step in {path.title}",
                         }
                         suggestions.append(prep_suggestion)
                 except ValueError:

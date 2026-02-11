@@ -502,8 +502,7 @@ async def services(neo4j_container):
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
     from core.models.ku.ku_dto import KuDTO
-    from core.models.lp.lp import Lp
-    from core.models.ls.ls import Ls
+    from core.models.ku.ku import Ku
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
     from core.models.user.user import User
@@ -585,11 +584,11 @@ async def services(neo4j_container):
     raw_events_backend = UniversalNeo4jBackend[Event](driver, "Event", Event)
     events_backend = TestBackendWrapper(raw_events_backend, Event)
 
-    raw_ls_backend = UniversalNeo4jBackend[Ls](driver, "Ls", Ls)
-    ls_backend = TestBackendWrapper(raw_ls_backend, Ls)
+    raw_ls_backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
+    ls_backend = TestBackendWrapper(raw_ls_backend, Ku)
 
-    raw_lp_backend = UniversalNeo4jBackend[Lp](driver, "Lp", Lp)
-    lp_backend = TestBackendWrapper(raw_lp_backend, Lp)
+    raw_lp_backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
+    lp_backend = TestBackendWrapper(raw_lp_backend, Ku)
 
     raw_principles_backend = UniversalNeo4jBackend[Principle](driver, "Principle", Principle)
     principles_backend = TestBackendWrapper(raw_principles_backend, Principle)

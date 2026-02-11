@@ -22,9 +22,7 @@ import pytest
 
 from core.models.enums import Domain, Priority
 from core.models.goal.goal_dto import GoalDTO
-from core.models.ku.ku_dto import KuDTO
-from core.models.lp import LpDTO
-from core.models.ls import LearningStepDTO
+from core.models.ku import KuDTO
 from core.models.principle.principle import PrincipleCategory
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.task.task_dto import TaskDTO
@@ -81,7 +79,7 @@ class TestCurriculumRichContext:
         await services.tasks.core.backend.create(task.to_dict())
 
         # Create prerequisite learning step
-        prereq_step = LearningStepDTO(
+        prereq_step = KuDTO(
             uid=UIDGenerator.generate_random_uid("ls"),
             title="Introduction to Python",
             intent="First step in Python learning",
@@ -90,7 +88,7 @@ class TestCurriculumRichContext:
         await services.ls.core.backend.create(prereq_step)
 
         # Create main learning step
-        main_step = LearningStepDTO(
+        main_step = KuDTO(
             uid=UIDGenerator.generate_random_uid("ls"),
             title="Master Python Functions",
             intent="Deep dive into function concepts",
@@ -99,10 +97,10 @@ class TestCurriculumRichContext:
         await services.ls.core.backend.create(main_step)
 
         # Create learning path for context
-        learning_path = LpDTO(
+        learning_path = KuDTO(
             uid=UIDGenerator.generate_random_uid("lp"),
-            name="Python Mastery Path",
-            goal="Complete Python learning journey",
+            title="Python Mastery Path",
+            description="Complete Python learning journey",
             domain=Domain.TECH,
         )
         await services.lp.core.backend.create(learning_path)
@@ -118,7 +116,7 @@ class TestCurriculumRichContext:
         await services.ls.core.backend.driver.execute_query(
             """
             // Primary knowledge
-            MATCH (ls:Ls {uid: $step_uid})
+            MATCH (ls:Ku {uid: $step_uid})
             MATCH (ku:Ku {uid: $primary_ku})
             CREATE (ls)-[:REQUIRES_KNOWLEDGE {type: 'primary', confidence: 0.95}]->(ku)
 
@@ -134,7 +132,7 @@ class TestCurriculumRichContext:
 
             // Prerequisite step
             WITH ls
-            MATCH (prereq_step:Ls {uid: $prereq_step})
+            MATCH (prereq_step:Ku {uid: $prereq_step})
             CREATE (ls)-[:REQUIRES_STEP]->(prereq_step)
 
             // Guiding principle
@@ -149,7 +147,7 @@ class TestCurriculumRichContext:
 
             // Learning path
             WITH ls
-            MATCH (lp:Lp {uid: $lp_uid})
+            MATCH (lp:Ku {uid: $lp_uid})
             CREATE (lp)-[:CONTAINS_STEP {sequence: 2}]->(ls)
             """,
             {
@@ -167,9 +165,9 @@ class TestCurriculumRichContext:
         # Debug: Verify learning path exists and has relationship
         check_result = await services.ls.core.backend.driver.execute_query(
             """
-            MATCH (lp:Lp {uid: $lp_uid})
-            OPTIONAL MATCH (lp)-[r:HAS_STEP|CONTAINS_STEP]->(ls:Ls {uid: $ls_uid})
-            RETURN lp.uid as lp_uid, lp.name as lp_name, type(r) as rel_type, r.sequence as sequence, ls.uid as ls_uid
+            MATCH (lp:Ku {uid: $lp_uid})
+            OPTIONAL MATCH (lp)-[r:HAS_STEP|CONTAINS_STEP]->(ls:Ku {uid: $ls_uid})
+            RETURN lp.uid as lp_uid, lp.title as lp_name, type(r) as rel_type, r.sequence as sequence, ls.uid as ls_uid
             """,
             {"lp_uid": learning_path.uid, "ls_uid": main_step.uid},
         )
@@ -288,7 +286,7 @@ class TestCurriculumRichContext:
         await services.principles.core.backend.create(principle.to_dict())
 
         # Create learning steps
-        step1 = LearningStepDTO(
+        step1 = KuDTO(
             uid=UIDGenerator.generate_random_uid("ls"),
             title="Python Basics",
             intent="Learn Python fundamentals",
@@ -296,7 +294,7 @@ class TestCurriculumRichContext:
         )
         await services.ls.core.backend.create(step1)
 
-        step2 = LearningStepDTO(
+        step2 = KuDTO(
             uid=UIDGenerator.generate_random_uid("ls"),
             title="Advanced Python",
             intent="Master advanced concepts",
@@ -305,10 +303,10 @@ class TestCurriculumRichContext:
         await services.ls.core.backend.create(step2)
 
         # Create learning path
-        learning_path = LpDTO(
+        learning_path = KuDTO(
             uid=UIDGenerator.generate_random_uid("lp"),
-            name="Python Developer Path",
-            goal="Complete path to Python mastery",
+            title="Python Developer Path",
+            description="Complete path to Python mastery",
             domain=Domain.TECH,
         )
         await services.lp.core.backend.create(learning_path)
@@ -320,7 +318,7 @@ class TestCurriculumRichContext:
         await services.lp.core.backend.driver.execute_query(
             """
             // Prerequisite knowledge
-            MATCH (lp:Lp {uid: $lp_uid})
+            MATCH (lp:Ku {uid: $lp_uid})
             MATCH (ku:Ku {uid: $prereq_ku})
             CREATE (lp)-[:REQUIRES_KNOWLEDGE]->(ku)
 
@@ -336,12 +334,12 @@ class TestCurriculumRichContext:
 
             // Steps (with sequence and completion)
             WITH lp
-            MATCH (step1:Ls {uid: $step1_uid})
+            MATCH (step1:Ku {uid: $step1_uid})
             CREATE (lp)-[:CONTAINS_STEP {sequence: 1}]->(step1)
             SET step1.completed = true
 
             WITH lp
-            MATCH (step2:Ls {uid: $step2_uid})
+            MATCH (step2:Ku {uid: $step2_uid})
             CREATE (lp)-[:CONTAINS_STEP {sequence: 2}]->(step2)
             SET step2.completed = false
 
@@ -435,16 +433,16 @@ class TestCurriculumRichContext:
         properly populated with full entities and graph neighborhoods.
         """
         # Create learning path
-        learning_path = LpDTO(
+        learning_path = KuDTO(
             uid=UIDGenerator.generate_random_uid("lp"),
-            name="Python Mastery",
-            goal="Complete Python curriculum",
+            title="Python Mastery",
+            description="Complete Python curriculum",
             domain=Domain.TECH,
         )
         await services.lp.core.backend.create(learning_path)
 
         # Create learning step
-        learning_step = LearningStepDTO(
+        learning_step = KuDTO(
             uid=UIDGenerator.generate_random_uid("ls"),
             title="Functions Deep Dive",
             intent="Master Python functions",
@@ -475,12 +473,12 @@ class TestCurriculumRichContext:
             """
             // Enroll user in path
             MATCH (user:User {uid: $user_uid})
-            MATCH (lp:Lp {uid: $lp_uid})
+            MATCH (lp:Ku {uid: $lp_uid})
             CREATE (user)-[:ENROLLED_IN]->(lp)
 
             // Add step to path
             WITH lp
-            MATCH (ls:Ls {uid: $ls_uid})
+            MATCH (ls:Ku {uid: $ls_uid})
             CREATE (lp)-[:CONTAINS_STEP {sequence: 1}]->(ls)
 
             // Align path with goal
@@ -530,7 +528,7 @@ class TestCurriculumRichContext:
         # Validate path properties
         path_props = path_rich["path"]
         assert path_props["uid"] == learning_path.uid
-        assert path_props["name"] == learning_path.name
+        assert path_props["name"] == learning_path.title
 
         # Validate path graph context
         path_context = path_rich["graph_context"]

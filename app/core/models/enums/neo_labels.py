@@ -134,8 +134,8 @@ class NeoLabel(str, Enum):
             EntityType.FINANCE: cls.EXPENSE,
             # Curriculum Domains
             EntityType.KU: cls.KU,
-            EntityType.LS: cls.LS,
-            EntityType.LP: cls.LP,
+            EntityType.LS: cls.KU,  # Phase 3: LS nodes are now :Ku{ku_type='learning_step'}
+            EntityType.LP: cls.KU,  # Phase 3: LP nodes are now :Ku{ku_type='learning_path'}
             EntityType.MOC: cls.MOC,
             # Content Domains (REPORT canonicalizes to KU in unified model)
             EntityType.REPORT: cls.KU,

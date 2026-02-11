@@ -56,8 +56,7 @@ if TYPE_CHECKING:
     from core.models.goal.goal_request import GoalCreateRequest
     from core.models.habit.habit import Habit
     from core.models.habit.habit_request import HabitCreateRequest
-    from core.models.lp import Lp
-    from core.models.ls import Ls
+    from core.models.ku import Ku
     from core.models.principle.principle import Principle, PrincipleCategory
     from core.models.task.task import Task
     from core.models.task.task_request import TaskCreateRequest
@@ -738,11 +737,11 @@ class LpFacadeProtocol(Protocol):
     async def create_path(
         self,
         user_uid: str,
-        name: str,
-        goal: str,
-        steps: list[Ls],
+        title: str,
+        description: str,
+        steps: list[Ku],
         domain: Domain = ...,
-    ) -> Result[Lp]:
+    ) -> Result[Ku]:
         """Create and persist a learning path."""
         ...
 
@@ -750,21 +749,21 @@ class LpFacadeProtocol(Protocol):
         self,
         user_uid: str,
         knowledge_units: list[Any],
-        name: str | None = None,
-        goal: str | None = None,
-    ) -> Result[Lp]:
+        title: str | None = None,
+        description: str | None = None,
+    ) -> Result[Ku]:
         """Create path from knowledge units."""
         ...
 
-    async def get_learning_path(self, path_uid: str) -> Result[Lp | None]:
+    async def get_learning_path(self, path_uid: str) -> Result[Ku | None]:
         """Get a single learning path by UID."""
         ...
 
-    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[Lp | None]]:
+    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[Ku | None]]:
         """Get multiple learning paths in one batched query."""
         ...
 
-    async def list_user_paths(self, user_uid: str, limit: int | None = None) -> Result[list[Lp]]:
+    async def list_user_paths(self, user_uid: str, limit: int | None = None) -> Result[list[Ku]]:
         """List all learning paths for a specific user."""
         ...
 
@@ -774,19 +773,19 @@ class LpFacadeProtocol(Protocol):
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> Result[list[Lp]]:
+    ) -> Result[list[Ku]]:
         """List all learning paths with pagination."""
         ...
 
-    async def get_path_steps(self, path_uid: str) -> Result[list[Ls]]:
+    async def get_path_steps(self, path_uid: str) -> Result[list[Ku]]:
         """Get all steps for a learning path."""
         ...
 
-    async def get_current_step(self, path_uid: str) -> Result[Ls | None]:
+    async def get_current_step(self, path_uid: str) -> Result[Ku | None]:
         """Get the current (first incomplete) step."""
         ...
 
-    async def update_path(self, path_uid: str, updates: dict[str, Any]) -> Result[Lp]:
+    async def update_path(self, path_uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """Update learning path properties."""
         ...
 
@@ -814,7 +813,7 @@ class LpFacadeProtocol(Protocol):
         """Recommend best path for user by readiness score."""
         ...
 
-    async def get_path_with_context(self, path_uid: str, depth: int = 2) -> Result[tuple[Lp, Any]]:
+    async def get_path_with_context(self, path_uid: str, depth: int = 2) -> Result[tuple[Ku, Any]]:
         """Get path with full graph context."""
         ...
 
@@ -828,7 +827,7 @@ class LpFacadeProtocol(Protocol):
 
     async def find_learning_sequence(
         self, user_uid: str, target_knowledge_uids: list[str]
-    ) -> Result[list[Ls]]:
+    ) -> Result[list[Ku]]:
         """Generate optimal learning sequence for knowledge targets."""
         ...
 
@@ -1322,15 +1321,15 @@ class LsFacadeProtocol(Protocol):
     # Core delegations (→ LsCoreService)
     # ========================================================================
 
-    async def create_step(self, entity: Ls, path_uid: str | None = None) -> Result[Ls]:
+    async def create_step(self, entity: Ku, path_uid: str | None = None) -> Result[Ku]:
         """Create a new learning step."""
         ...
 
-    async def get_step(self, uid: str) -> Result[Ls | None]:
+    async def get_step(self, uid: str) -> Result[Ku | None]:
         """Get a learning step by UID."""
         ...
 
-    async def update_step(self, uid: str, updates: dict[str, Any]) -> Result[Ls]:
+    async def update_step(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """Update a learning step."""
         ...
 
@@ -1346,7 +1345,7 @@ class LsFacadeProtocol(Protocol):
         order_by: str | None = None,
         order_desc: bool = False,
         user_uid: str | None = None,
-    ) -> Result[list[Ls]]:
+    ) -> Result[list[Ku]]:
         """List learning steps with pagination."""
         ...
 

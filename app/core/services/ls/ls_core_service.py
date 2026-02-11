@@ -34,8 +34,9 @@ from core.events.curriculum_events import (
     LearningStepDeleted,
     LearningStepUpdated,
 )
-from core.models.ls import Ls
-from core.models.ls.ls_dto import LearningStepDTO
+from core.models.enums.ku_enums import KuType
+from core.models.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.services.protocols import get_enum_value
@@ -52,7 +53,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
+class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
     """
     Core CRUD operations for learning steps.
 
@@ -93,8 +94,8 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
     # All configuration in one place, using centralized relationship registry
     # See: /docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
     _config = create_curriculum_domain_config(
-        dto_class=LearningStepDTO,
-        model_class=Ls,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="ls",
         search_fields=("title", "intent", "description"),  # LS-specific fields
         search_order_by="updated_at",
@@ -104,9 +105,9 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
     @property
     def entity_label(self) -> str:
         """Entity label for Neo4j queries."""
-        return "Ls"
+        return "Ku"
 
-    def __init__(self, backend: BackendOperations[Ls], event_bus: Any = None) -> None:
+    def __init__(self, backend: "BackendOperations[Ku]", event_bus: Any = None) -> None:
         """
         Initialize core step service.
 
@@ -121,7 +122,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
         self.event_bus = event_bus
 
     @with_error_handling(operation="create_step", error_type="database", uid_param="step.uid")
-    async def create_step(self, step: Ls, path_uid: str | None = None) -> Result[Ls]:
+    async def create_step(self, step: Ku, path_uid: str | None = None) -> Result[Ku]:
         """
         Create a standalone Ls or add to existing path.
 
@@ -138,8 +139,9 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             # GRAPH-NATIVE: Create step node with scalar properties only
             # Relationships (knowledge, prerequisites, etc.) stored as edges
             query = """
-            CREATE (s:Ls {
+            CREATE (s:Ku {
                 uid: $uid,
+                ku_type: 'learning_step',
                 title: $title,
                 intent: $intent,
                 description: $description,
@@ -148,7 +150,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                 mastery_threshold: $mastery_threshold,
                 current_mastery: $current_mastery,
                 estimated_hours: $estimated_hours,
-                difficulty: $difficulty,
+                step_difficulty: $step_difficulty,
                 status: $status,
                 completed: $completed,
                 completed_at: $completed_at,
@@ -179,7 +181,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             if path_uid:
                 query += """
                 WITH s
-                MATCH (p:Lp {uid: $path_uid})
+                MATCH (p:Ku {uid: $path_uid})
                 CREATE (p)-[:HAS_STEP {sequence: $sequence}]->(s)
                 """
 
@@ -199,7 +201,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                 "mastery_threshold": step.mastery_threshold,
                 "current_mastery": step.current_mastery,
                 "estimated_hours": step.estimated_hours,
-                "difficulty": get_enum_value(step.difficulty),
+                "step_difficulty": get_enum_value(step.step_difficulty),
                 "status": get_enum_value(step.status),
                 "completed": step.completed,
                 "completed_at": step.completed_at.isoformat() if step.completed_at else None,
@@ -235,7 +237,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             return Result.ok(step)
 
     @with_error_handling(operation="get_step", error_type="database", uid_param="step_uid")
-    async def get_step(self, step_uid: str) -> Result[Ls | None]:
+    async def get_step(self, step_uid: str) -> Result[Ku | None]:
         """
         Get a learning step by UID.
 
@@ -251,7 +253,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             # GRAPH-NATIVE: Query node + knowledge relationships
             result = await session.run(
                 """
-                MATCH (s:Ls {uid: $uid})
+                MATCH (s:Ku {uid: $uid})
                 OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
                 RETURN s, collect({uid: ku.uid, type: r.type}) as knowledge_rels
                 """,
@@ -276,8 +278,9 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                         # Default to primary if type not specified
                         primary_uids.append(rel["uid"])
 
-            step = Ls(
+            step = Ku(
                 uid=step_data["uid"],
+                ku_type=KuType.LEARNING_STEP,
                 title=step_data.get("title", "Learning Step"),
                 intent=step_data.get("intent", "Complete this learning step"),
                 description=step_data.get("description"),
@@ -288,8 +291,8 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                 mastery_threshold=step_data.get("mastery_threshold", 0.7),
                 current_mastery=step_data.get("current_mastery", 0.0),
                 estimated_hours=step_data.get("estimated_hours", 1.0),
-                difficulty=step_data.get("difficulty", "MODERATE"),
-                status=step_data.get("status", "NOT_STARTED"),
+                step_difficulty=step_data.get("step_difficulty"),
+                status=step_data.get("status"),
                 completed=step_data.get("completed", False),
                 completed_at=step_data.get("completed_at"),
                 domain=step_data.get("domain", "PERSONAL"),
@@ -306,7 +309,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
         min_confidence: float = 0.7,
         include_relationships: Sequence[str] | None = None,
         exclude_relationships: Sequence[str] | None = None,
-    ) -> Result[Ls]:
+    ) -> Result[Ku]:
         """
         Get learning step with comprehensive graph context (SINGLE QUERY).
 
@@ -338,7 +341,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
         async with self.backend.driver.session() as session:
             result = await session.run(
                 """
-                MATCH (ls:Ls {uid: $uid})
+                MATCH (ls:Ku {uid: $uid})
 
                 // 1. Primary and supporting knowledge
                 OPTIONAL MATCH (ls)-[r_ku:REQUIRES_KNOWLEDGE]->(ku:Ku)
@@ -350,7 +353,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                 }) as knowledge_rels
 
                 // 2. Prerequisite steps
-                OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:Ls)
+                OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:Ku {ku_type: 'learning_step'})
                 WITH ls, knowledge_rels, collect({
                     uid: prereq_step.uid,
                     title: prereq_step.title,
@@ -403,16 +406,16 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                 }) as events
 
                 // 9. Learning path context (if part of sequence)
-                OPTIONAL MATCH (lp:Lp)-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
+                OPTIONAL MATCH (lp:Ku {ku_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
                 WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, {
                     uid: lp.uid,
-                    name: lp.name,
+                    name: lp.title,
                     goal: lp.goal,
                     sequence: coalesce(r_path.sequence, 0)
                 } as path_context
 
                 // 10. Dependent steps (steps that require this one)
-                OPTIONAL MATCH (dependent:Ls)-[:REQUIRES_STEP]->(ls)
+                OPTIONAL MATCH (dependent:Ku {ku_type: 'learning_step'})-[:REQUIRES_STEP]->(ls)
                 WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, path_context, collect({
                     uid: dependent.uid,
                     title: dependent.title,
@@ -427,7 +430,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
 
             record = await result.single()
             if not record:
-                return Result.fail(Errors.not_found(resource="Ls", identifier=step_uid))
+                return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
 
             step_data = dict(record["ls"])
 
@@ -441,9 +444,10 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                     else:
                         primary_uids.append(rel["uid"])
 
-            # Build Ls with knowledge UIDs
-            step = Ls(
+            # Build Ku with knowledge UIDs
+            step = Ku(
                 uid=step_data["uid"],
+                ku_type=KuType.LEARNING_STEP,
                 title=step_data.get("title", "Learning Step"),
                 intent=step_data.get("intent", "Complete this learning step"),
                 description=step_data.get("description"),
@@ -454,8 +458,8 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                 mastery_threshold=step_data.get("mastery_threshold", 0.7),
                 current_mastery=step_data.get("current_mastery", 0.0),
                 estimated_hours=step_data.get("estimated_hours", 1.0),
-                difficulty=step_data.get("difficulty", "MODERATE"),
-                status=step_data.get("status", "NOT_STARTED"),
+                step_difficulty=step_data.get("step_difficulty"),
+                status=step_data.get("status"),
                 completed=step_data.get("completed", False),
                 completed_at=step_data.get("completed_at"),
                 domain=step_data.get("domain", "PERSONAL"),
@@ -518,7 +522,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             return Result.ok(step)
 
     @with_error_handling(operation="update_step", error_type="database", uid_param="step_uid")
-    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[Ls]:
+    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """
         Update a learning step.
 
@@ -535,7 +539,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             return Result.fail(get_result)
 
         if not get_result.value:
-            return Result.fail(Errors.not_found(resource="Ls", identifier=step_uid))
+            return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
 
         # Build SET clause dynamically
         set_clauses = []
@@ -549,7 +553,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             "sequence",
             "mastery_threshold",
             "estimated_hours",
-            "difficulty",
+            "step_difficulty",
             "status",
             "completed",
             "domain",
@@ -565,13 +569,13 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
         if not set_clauses:
             # No valid updates provided, return existing step
             if not get_result.value:
-                return Result.fail(Errors.not_found(resource="Ls", identifier=step_uid))
+                return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
             return Result.ok(get_result.value)
 
         async with self.backend.driver.session() as session:
             # GRAPH-NATIVE: Query includes knowledge relationships
             query = f"""
-            MATCH (s:Ls {{uid: $uid}})
+            MATCH (s:Ku {{uid: $uid}})
             SET {", ".join(set_clauses)}
             WITH s
             OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
@@ -601,8 +605,9 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                     else:
                         primary_uids.append(rel["uid"])
 
-            updated_step = Ls(
+            updated_step = Ku(
                 uid=step_data["uid"],
+                ku_type=KuType.LEARNING_STEP,
                 title=step_data.get("title", "Learning Step"),
                 intent=step_data.get("intent", "Complete this learning step"),
                 description=step_data.get("description"),
@@ -613,8 +618,8 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                 mastery_threshold=step_data.get("mastery_threshold", 0.7),
                 current_mastery=step_data.get("current_mastery", 0.0),
                 estimated_hours=step_data.get("estimated_hours", 1.0),
-                difficulty=step_data.get("difficulty", "MODERATE"),
-                status=step_data.get("status", "NOT_STARTED"),
+                step_difficulty=step_data.get("step_difficulty"),
+                status=step_data.get("status"),
                 completed=step_data.get("completed", False),
                 completed_at=step_data.get("completed_at"),
                 domain=step_data.get("domain", "PERSONAL"),
@@ -651,7 +656,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             return Result.fail(get_result)
 
         if not get_result.value:
-            return Result.fail(Errors.not_found(resource="Ls", identifier=step_uid))
+            return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
 
         step = get_result.value
         had_ku_links = bool(step.primary_knowledge_uids or step.supporting_knowledge_uids)
@@ -661,7 +666,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             # Delete step and its relationships
             result = await session.run(
                 """
-                MATCH (s:Ls {uid: $uid})
+                MATCH (s:Ku {uid: $uid})
                 DETACH DELETE s
                 RETURN count(s) as deleted_count
                 """,
@@ -700,7 +705,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
         order_by: str | None = None,
         order_desc: bool = False,
         user_uid: str | None = None,
-    ) -> Result[list[Ls]]:
+    ) -> Result[list[Ku]]:
         """
         List learning steps with pagination and sorting support.
 
@@ -729,7 +734,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             if path_uid:
                 # Get steps for specific path
                 query = f"""
-                MATCH (p:Lp {{uid: $path_uid}})-[:HAS_STEP]->(s:Ls)
+                MATCH (p:Ku {{uid: $path_uid}})-[:HAS_STEP]->(s:Ku {{ku_type: 'learning_step'}})
                 {where_clause}
                 OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
                 WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
@@ -742,7 +747,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             else:
                 # Get all steps
                 query = f"""
-                MATCH (s:Ls)
+                MATCH (s:Ku {{ku_type: 'learning_step'}})
                 {where_clause}
                 OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
                 WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
@@ -775,8 +780,9 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                             primary_uids.append(rel["uid"])
 
                 steps.append(
-                    Ls(
+                    Ku(
                         uid=step_data["uid"],
+                        ku_type=KuType.LEARNING_STEP,
                         title=step_data.get("title", "Learning Step"),
                         intent=step_data.get("intent", "Complete this learning step"),
                         description=step_data.get("description"),
@@ -787,8 +793,8 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
                         mastery_threshold=step_data.get("mastery_threshold", 0.7),
                         current_mastery=step_data.get("current_mastery", 0.0),
                         estimated_hours=step_data.get("estimated_hours", 1.0),
-                        difficulty=step_data.get("difficulty", "MODERATE"),
-                        status=step_data.get("status", "NOT_STARTED"),
+                        step_difficulty=step_data.get("step_difficulty"),
+                        status=step_data.get("status"),
                         completed=step_data.get("completed", False),
                         completed_at=step_data.get("completed_at"),
                         domain=step_data.get("domain", "PERSONAL"),
@@ -849,7 +855,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             )
 
         query = """
-        MATCH (ls:Ls {uid: $ls_uid})
+        MATCH (ls:Ku {uid: $ls_uid})
         MATCH (ku:Ku {uid: $ku_uid})
         MERGE (ls)-[r:CONTAINS_KNOWLEDGE]->(ku)
         SET r.type = $knowledge_type,
@@ -934,7 +940,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
         # Build query based on filter
         if knowledge_type:
             query = """
-            MATCH (ls:Ls {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE {type: $knowledge_type}]->(ku:Ku)
+            MATCH (ls:Ku {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE {type: $knowledge_type}]->(ku:Ku)
             RETURN ku.uid as uid,
                    ku.title as title,
                    ku.domain as domain,
@@ -945,7 +951,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             params = {"ls_uid": ls_uid, "knowledge_type": knowledge_type}
         else:
             query = """
-            MATCH (ls:Ls {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Ku)
+            MATCH (ls:Ku {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Ku)
             RETURN ku.uid as uid,
                    ku.title as title,
                    ku.domain as domain,
@@ -1011,7 +1017,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         query = """
-        MATCH (ls:Ls {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Ku {uid: $ku_uid})
+        MATCH (ls:Ku {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Ku {uid: $ku_uid})
         DELETE r
         RETURN count(r) as deleted
         """
@@ -1072,7 +1078,7 @@ class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
             # }
         """
         query = """
-        MATCH (ls:Ls {uid: $ls_uid})
+        MATCH (ls:Ku {uid: $ls_uid})
         OPTIONAL MATCH (ls)-[r:CONTAINS_KNOWLEDGE]->(ku:Ku)
         WITH ls, r, ku
         RETURN

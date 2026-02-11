@@ -105,7 +105,7 @@ class LpProgressService:
             # Query Neo4j to find learning paths that include this KU
             # Pattern: (LP)-[:INCLUDES_KU]->(KU) or (LP)-[:REQUIRES_KNOWLEDGE]->(KU)
             query = """
-            MATCH (lp:Lp)-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Ku {uid: $ku_uid})
+            MATCH (lp:Ku {ku_type: 'learning_path'})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Ku {uid: $ku_uid})
             RETURN DISTINCT lp.uid as lp_uid
             """
 
@@ -163,11 +163,11 @@ class LpProgressService:
         # Query all KUs in this learning path and count how many user has mastered
         query = """
         // Count total KUs in learning path
-        MATCH (lp:Lp {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Ku)
+        MATCH (lp:Ku {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Ku)
         WITH count(DISTINCT ku) as total_kus
 
         // Count KUs user has mastered
-        MATCH (lp:Lp {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Ku)
+        MATCH (lp:Ku {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Ku)
         MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ku)
         WITH total_kus, count(DISTINCT ku) as mastered_kus
 

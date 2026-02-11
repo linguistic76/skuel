@@ -50,13 +50,9 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 
-# Curriculum domain imports - Phase 2 (January 2026)
+# Curriculum domain imports - Phase 3 (February 2026): LS/LP unified into Ku
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.models.lp.lp import Lp
-from core.models.lp.lp_dto import LpDTO
-from core.models.ls.ls import Ls
-from core.models.ls.ls_dto import LearningStepDTO
 
 # NOTE (January 2026): MOC imports removed - MOC is now KU-based.
 # MOC is a KU with ORGANIZES relationships, not a separate entity.
@@ -594,7 +590,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Task → LifePath (task serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Lp",
+            "Ku",
             "outgoing",
             "life_path",
             "life_path",
@@ -679,14 +675,14 @@ GOALS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ALIGNED_WITH_PATH,
-            "Lp",
+            "Ku",
             "outgoing",
             "aligned_paths",
             "aligned_paths",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_PATH_COMPLETION,
-            "Lp",
+            "Ku",
             "outgoing",
             "required_paths",
             "required_paths",
@@ -792,7 +788,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Goal → LifePath (goal serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Lp",
+            "Ku",
             "outgoing",
             "life_path",
             "life_path",
@@ -944,7 +940,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Habit → LifePath (habit serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Lp",
+            "Ku",
             "outgoing",
             "life_path",
             "life_path",
@@ -1077,7 +1073,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Event → LifePath (event serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Lp",
+            "Ku",
             "outgoing",
             "life_path",
             "life_path",
@@ -1185,7 +1181,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.OPENS_LEARNING_PATH,
-            "Lp",
+            "Ku",
             "outgoing",
             "opened_paths",
             "learning_paths",
@@ -1215,7 +1211,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Outgoing: Choice → LifePath (choice serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Lp",
+            "Ku",
             "outgoing",
             "life_path",
             "life_path",
@@ -1397,7 +1393,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
         # Outgoing: Principle → LifePath (principle serves user's life path)
         UnifiedRelationshipDefinition(
             RelationshipName.SERVES_LIFE_PATH,
-            "Lp",
+            "Ku",
             "outgoing",
             "life_path",
             "life_path",
@@ -1677,10 +1673,10 @@ KU_CONFIG = DomainRelationshipConfig(
             "informs_choices",
             "informs_choices",
         ),
-        # Curriculum relationships
+        # Curriculum relationships (LS is now :Ku with ku_type='learning_step')
         UnifiedRelationshipDefinition(
             RelationshipName.CONTAINS_KNOWLEDGE,
-            "Ls",
+            "Ku",
             "incoming",
             "in_learning_steps",
             "in_steps",
@@ -1730,12 +1726,12 @@ KU_CONFIG = DomainRelationshipConfig(
     },
 )
 
-# LS (Learning Step)
+# LS (Learning Step) — Phase 3: Unified into Ku with ku_type='learning_step'
 LS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
-    entity_label="Ls",
-    dto_class=LearningStepDTO,
-    model_class=Ls,
+    entity_label="Ku",
+    dto_class=KuDTO,
+    model_class=Ku,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
@@ -1751,7 +1747,7 @@ LS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_STEP,
-            "Ls",
+            "Ku",
             "outgoing",
             "prerequisites",
             "prerequisite_steps",
@@ -1799,10 +1795,10 @@ LS_CONFIG = DomainRelationshipConfig(
             "scheduled_events",
             "practice_events",
         ),
-        # Incoming: Other → Ls
+        # Incoming: Other → Ls (LP is now also :Ku)
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_STEP,
-            "Lp",
+            "Ku",
             "incoming",
             "learning_paths",
             "in_paths",
@@ -1826,20 +1822,20 @@ LS_CONFIG = DomainRelationshipConfig(
     },
 )
 
-# LP (Learning Path)
+# LP (Learning Path) — Phase 3: Unified into Ku with ku_type='learning_path'
 LP_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
-    entity_label="Lp",
-    dto_class=LpDTO,
-    model_class=Lp,
+    entity_label="Ku",
+    dto_class=KuDTO,
+    model_class=Ku,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
     relationships=(
-        # Outgoing: Lp → Other
+        # Outgoing: Lp → Other (LS is now also :Ku)
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_STEP,
-            "Ls",
+            "Ku",
             "outgoing",
             "learning_steps",
             "steps",
@@ -1935,6 +1931,8 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
 }
 
 # Label-based lookup (THE authoritative way to get curriculum configs)
+# Phase 3 (February 2026): "Ls" and "Lp" kept as virtual config keys.
+# Their entity_label is now "Ku" (all curriculum nodes are :Ku in Neo4j).
 LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # Activity Domains (6)
     "Task": TASKS_CONFIG,
@@ -1948,11 +1946,10 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "User": USER_CONFIG,
     # Principle Reflection (January 2026)
     "PrincipleReflection": PRINCIPLE_REFLECTION_CONFIG,
-    # Curriculum Domains (3) - MOC removed (now KU-based, January 2026)
+    # Curriculum Domains — all :Ku in Neo4j, virtual keys for config lookup
     "Ku": KU_CONFIG,
-    "Ls": LS_CONFIG,
-    "Lp": LP_CONFIG,
-    # Note: MapOfContent and MOCSection removed - MOC is now KU with ORGANIZES relationships
+    "Ls": LS_CONFIG,  # Virtual key — nodes are :Ku{ku_type='learning_step'}
+    "Lp": LP_CONFIG,  # Virtual key — nodes are :Ku{ku_type='learning_path'}
 }
 
 

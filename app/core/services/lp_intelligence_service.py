@@ -34,8 +34,8 @@ from typing import TYPE_CHECKING, Any
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
-from core.models.lp import Lp
-from core.models.lp.lp_dto import LpDTO
+from core.models.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.query import QueryIntent
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
@@ -61,7 +61,7 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
 
-class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
+class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
     """
     Unified Learning Path Intelligence Service.
 
@@ -82,7 +82,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
     - Context: Path with full graph context
 
     Architecture:
-    - Extends BaseAnalyticsService[Any, Lp] for standardized infrastructure
+    - Extends BaseAnalyticsService[Any, Ku] for standardized infrastructure
     - Delegates state/content ops to 4 focused sub-services
     - Implements validation/analysis/adaptive/context directly
     - Single entry point for ALL learning intelligence
@@ -174,11 +174,11 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service and self.learning_backend:
-            self.orchestrator = GraphContextOrchestrator[Lp, LpDTO](
+            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
                 service=self,
                 backend_get_method="get",
-                dto_class=LpDTO,
-                model_class=Lp,
+                dto_class=KuDTO,
+                model_class=Ku,
                 domain=Domain.LEARNING,
             )
 
@@ -192,7 +192,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Lp, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
         """
         Get learning path with full graph context.
 
@@ -204,7 +204,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
             depth: Graph traversal depth (default: 2)
 
         Returns:
-            Result containing (Lp, GraphContext) tuple
+            Result containing (Ku, GraphContext) tuple
         """
         if self.orchestrator is None:
             return Result.fail(
@@ -537,8 +537,8 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
             Validation results with issues and recommendations
         """
         cypher_query = f"""
-        MATCH (path:Lp {{uid: $path_uid}})
-        MATCH (path)-[r:HAS_STEP]->(step:Ls)
+        MATCH (path:Ku {{uid: $path_uid}})
+        MATCH (path)-[r:HAS_STEP]->(step:Ku {{ku_type: 'learning_step'}})
         MATCH (k:Ku {{uid: step.knowledge_uid}})
 
         // Get all prerequisites using pure Cypher
@@ -546,7 +546,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
 
         // Check if prerequisites are in earlier steps
         WITH path, step, k, r.sequence as step_seq, prereqs
-        MATCH (path)-[r2:HAS_STEP]->(earlier:Ls)
+        MATCH (path)-[r2:HAS_STEP]->(earlier:Ku {{ku_type: 'learning_step'}})
         WHERE r2.sequence < step_seq
 
         WITH step, k, step_seq, prereqs,
@@ -624,14 +624,14 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
         """
         cypher_query = f"""
         MATCH (u:User {{uid: $user_uid}})
-        MATCH (path:Lp {{uid: $path_uid}})
+        MATCH (path:Ku {{uid: $path_uid}})
 
         // Get user's mastered knowledge
         OPTIONAL MATCH (u)-[m:MASTERED]->(mastered:Ku)
         WITH u, path, collect(mastered.uid) as mastered_uids
 
         // Get path steps
-        MATCH (path)-[r:HAS_STEP]->(step:Ls)
+        MATCH (path)-[r:HAS_STEP]->(step:Ku {{ku_type: 'learning_step'}})
         MATCH (k:Ku {{uid: step.knowledge_uid}})
 
         // Check prerequisites
@@ -739,11 +739,11 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
         WITH u, collect(mastered.uid) as mastered_uids
 
         // Get available paths
-        MATCH (path:Lp)
+        MATCH (path:Ku {{ku_type: 'learning_path'}})
         WHERE NOT (u)-[:COMPLETED]->(path) {domain_filter}
 
         // Calculate path readiness
-        MATCH (path)-[:HAS_STEP]->(step:Ls)
+        MATCH (path)-[:HAS_STEP]->(step:Ku {{ku_type: 'learning_step'}})
         MATCH (k:Ku {{uid: step.knowledge_uid}})
 
         // Get prerequisites
@@ -824,7 +824,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
         """
         Analyze the knowledge scope of a learning path.
 
-        Uses Lp model methods to provide comprehensive curriculum analysis.
+        Uses Ku model methods to provide comprehensive curriculum analysis.
 
         Args:
             path_uid: Learning path identifier
@@ -847,7 +847,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
 
         path = path_result.value
         if not path:
-            return Result.fail(Errors.not_found(resource="Lp", identifier=path_uid))
+            return Result.fail(Errors.not_found(resource="learning_path", identifier=path_uid))
 
         # Use model methods for analysis
         scope_summary = path.get_knowledge_scope_summary()
@@ -898,7 +898,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
 
         path = path_result.value
         if not path:
-            return Result.fail(Errors.not_found(resource="Lp", identifier=path_uid))
+            return Result.fail(Errors.not_found(resource="learning_path", identifier=path_uid))
 
         # Phase 3 Graph-Native: Practice relationship fields (task_uids, habit_uids,
         # event_template_uids) are NOT on Ls model. They require LsRelationships.fetch()
@@ -1223,11 +1223,11 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
         )
 
         cypher_query = f"""
-        MATCH (path:Lp {{uid: $path_uid}})
+        MATCH (path:Ku {{uid: $path_uid}})
         {user_match}
 
         // Get all steps with knowledge
-        MATCH (path)-[r:HAS_STEP]->(step:Ls)
+        MATCH (path)-[r:HAS_STEP]->(step:Ku {{ku_type: 'learning_step'}})
         MATCH (k:Ku {{uid: step.knowledge_uid}})
 
         // Get prerequisites using pure Cypher
@@ -1245,7 +1245,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Lp]):
              END as readiness
 
         // Get related paths
-        OPTIONAL MATCH (path)-[:SIMILAR_TO]-(related:Lp)
+        OPTIONAL MATCH (path)-[:SIMILAR_TO]-(related:Ku {{ku_type: 'learning_path'}})
 
         WITH path, collect({{
             step: step,

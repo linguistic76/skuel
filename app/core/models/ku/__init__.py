@@ -114,6 +114,7 @@ from .ku_schedule import (
     ku_schedule_domain_to_dto,
     ku_schedule_dto_to_domain,
 )
+from .lp_position import LpPosition, create_lp_position
 
 __all__ = [
     # Core domain models
@@ -186,4 +187,7 @@ __all__ = [
     "ku_schedule_domain_to_dto",
     # Functions
     "chunk_content",
+    # Learning Path Position
+    "LpPosition",
+    "create_lp_position",
 ]

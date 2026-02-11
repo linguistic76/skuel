@@ -20,7 +20,7 @@ from operator import itemgetter
 from typing import Any
 
 from core.models.enums import ActivityStatus, Domain
-from core.models.lp.lp_position import LpPosition
+from core.models.ku.lp_position import LpPosition
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest

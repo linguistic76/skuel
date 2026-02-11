@@ -34,7 +34,8 @@ from core.events.learning_events import (
 )
 from core.models.enums import Domain, SELCategory
 from core.models.ku.ku import Ku
-from core.models.lp.lp import Lp, LpType
+from core.models.ku import Ku
+from core.models.enums.ku_enums import LpType
 from core.services.lp.lp_progress_service import LpProgressService
 
 
@@ -54,8 +55,8 @@ class TestKuLpEventFlow:
 
     @pytest_asyncio.fixture
     async def lp_backend(self, neo4j_driver, clean_neo4j):
-        """Create LP backend with clean database."""
-        return UniversalNeo4jBackend[Lp](neo4j_driver, "Lp", Lp)
+        """Create LP backend with clean database (unified Ku model)."""
+        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
 
     @pytest_asyncio.fixture
     async def lp_progress_service(self, event_bus, neo4j_driver):
@@ -105,10 +106,10 @@ class TestKuLpEventFlow:
             kus.append(result.value)
 
         # Create learning path
-        lp = Lp(
+        lp = Ku(
             uid="lp.python_basics",
-            name="Python Basics",
-            goal="Master Python fundamentals",
+            title="Python Basics",
+            description="Master Python fundamentals",
             domain=Domain.TECH,
             path_type=LpType.STRUCTURED,
         )
@@ -121,7 +122,7 @@ class TestKuLpEventFlow:
             for ku in kus:
                 await session.run(
                     """
-                    MATCH (lp:Lp {uid: $lp_uid})
+                    MATCH (lp:Ku {uid: $lp_uid})
                     MATCH (ku:Ku {uid: $ku_uid})
                     MERGE (lp)-[:INCLUDES_KU]->(ku)
                     RETURN lp.uid, ku.uid
@@ -331,10 +332,10 @@ class TestKuLpEventFlow:
         lp1, kus = python_basics_path
 
         # Create second LP that also includes the first KU
-        lp2 = Lp(
+        lp2 = Ku(
             uid="lp.python_advanced",
-            name="Python Advanced",
-            goal="Master advanced Python",
+            title="Python Advanced",
+            description="Master advanced Python",
             domain=Domain.TECH,
             path_type=LpType.STRUCTURED,
         )
@@ -345,7 +346,7 @@ class TestKuLpEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (lp:Lp {uid: $lp_uid})
+                MATCH (lp:Ku {uid: $lp_uid})
                 MATCH (ku:Ku {uid: $ku_uid})
                 MERGE (lp)-[:INCLUDES_KU]->(ku)
                 """,

@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
-    from core.models.ls import Ls
+    from core.models.ku import Ku
     from core.services.ls.ls_intelligence_service import LsIntelligenceService
     from core.services.protocols.facade_protocols import LsFacadeProtocol
     from core.utils.result_simplified import Result
@@ -154,7 +154,7 @@ class LsService(FacadeDelegationMixin):
         # Import infrastructure
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.enums.neo_labels import NeoLabel
-        from core.models.ls import Ls as LsModel
+        from core.models.ku import Ku as KuModel
         from core.utils.curriculum_domain_config import (
             CurriculumCommonSubServices,
             create_curriculum_sub_services,
@@ -162,7 +162,10 @@ class LsService(FacadeDelegationMixin):
 
         # Create backend FIRST - shared by all sub-services (January 2026 Unified)
         # Use UniversalNeo4jBackend directly - no wrapper needed
-        ls_backend = UniversalNeo4jBackend[LsModel](driver, NeoLabel.LS, LsModel)
+        # Phase 3: LS nodes are :Ku{ku_type='learning_step'}
+        ls_backend = UniversalNeo4jBackend[KuModel](
+            driver, NeoLabel.KU, KuModel, default_filters={"ku_type": "learning_step"}
+        )
 
         # Create 4 common sub-services via factory (January 2026 - ADR-030)
         # This matches Activity Domain patterns exactly
@@ -205,19 +208,19 @@ class LsService(FacadeDelegationMixin):
     # ============================================================================
     # These methods make LsService compatible with CRUDRouteFactory
 
-    async def create(self, entity: Ls) -> Result[Ls]:
+    async def create(self, entity: "Ku") -> "Result[Ku]":
         """Create method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LsFacadeProtocol", self)
         return await typed_self.create_step(entity)
 
-    async def get(self, uid: str) -> Result[Ls | None]:
+    async def get(self, uid: str) -> "Result[Ku | None]":
         """Get method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LsFacadeProtocol", self)
         return await typed_self.get_step(uid)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Ls]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> "Result[Ku]":
         """Update method for CRUDRouteFactory compatibility."""
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
         typed_self = cast("LsFacadeProtocol", self)
@@ -236,7 +239,7 @@ class LsService(FacadeDelegationMixin):
         order_by: str | None = None,
         order_desc: bool = False,
         user_uid: str | None = None,
-    ) -> Result[builtins.list[Ls]]:
+    ) -> "Result[builtins.list[Ku]]":
         """
         List learning steps with pagination and sorting support.
 
@@ -283,7 +286,7 @@ class LsService(FacadeDelegationMixin):
         # If sequence not provided, get max sequence + 1 via direct query
         if sequence is None:
             seq_query = """
-            MATCH (p:Lp {uid: $path_uid})-[r:HAS_STEP]->()
+            MATCH (p:Ku {uid: $path_uid})-[r:HAS_STEP]->()
             RETURN coalesce(max(r.sequence), -1) + 1 as next_sequence
             """
             async with self.driver.session() as session:

@@ -24,7 +24,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.models.lp.lp_position import LpPosition
+    from core.models.ku.lp_position import LpPosition
 
 
 class ChoicesLearningService(BaseService[ChoicesOperations, Choice]):

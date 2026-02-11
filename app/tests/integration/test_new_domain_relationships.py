@@ -27,7 +27,7 @@ import pytest
 from core.models.choice.choice_relationships import ChoiceRelationships
 from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.ku.ku_relationships import KuRelationships
-from core.models.lp.lp_relationships import LpRelationships
+from core.models.ku.lp_relationships import LpRelationships
 from core.models.principle.principle_relationships import PrincipleRelationships
 
 # ============================================================================

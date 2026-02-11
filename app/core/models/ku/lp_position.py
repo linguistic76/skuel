@@ -2,11 +2,14 @@
 Simple Learning Path Position Context
 ====================================
 
-Leverages existing LearningPath and LearningStep models to provide learning path position context
-for service operations. This enables knowledge-first operations where learning path progression
-guides task, habit, goal, and other domain operations.
+Leverages existing Ku model (ku_type='learning_path' / 'learning_step') to provide
+learning path position context for service operations. This enables knowledge-first
+operations where learning path progression guides task, habit, goal, and other domain operations.
 
 Design Principle: "How does the user's learning path position frame this operation?"
+
+Phase 3 Unified Ku Model: LpPosition now uses Ku for both paths and steps.
+Steps are stored in path.metadata["steps"] (list[Ku]).
 """
 
 from dataclasses import dataclass
@@ -14,22 +17,37 @@ from datetime import datetime
 from typing import Any
 
 from core.models.enums import Domain
-from core.models.lp.lp import LearningPath
-from core.models.ls import LearningStep
+from core.models.ku.ku import Ku
+
+
+def _get_path_steps(path: Ku) -> list[Ku]:
+    """Get steps from a learning path Ku's metadata."""
+    if path.metadata:
+        return path.metadata.get("steps", [])
+    return []
+
+
+def _get_next_step(path: Ku, completed_step_uids: set[str]) -> Ku | None:
+    """Get the next incomplete step in a learning path."""
+    steps = _get_path_steps(path)
+    for step in steps:
+        if step.uid not in completed_step_uids:
+            return step
+    return None
 
 
 @dataclass
 class LpPosition:
     """
-    Simple learning path position using existing LearningPath models.
+    Simple learning path position using Ku model.
 
     This context frames operations by understanding where the user is
-    in their learning journey using existing domain models.
+    in their learning journey using the unified Ku model.
     """
 
-    # Core Learning State (using existing models)
-    active_paths: list[LearningPath]  # User's current learning paths
-    current_steps: dict[str, LearningStep]  # Current step in each path (path_uid -> step)
+    # Core Learning State (using Ku model)
+    active_paths: list[Ku]  # User's current learning paths (ku_type='learning_path')
+    current_steps: dict[str, Ku]  # Current step in each path (path_uid -> step Ku)
     completed_step_uids: set[str]  # All completed step UIDs across paths
     next_recommended: list[str]  # Next step UIDs ready to start
 
@@ -73,7 +91,7 @@ class LpPosition:
                         break  # Count each step once
 
                 # Check next steps for preparatory relevance
-                next_step = path.get_next_step(self.completed_step_uids)
+                next_step = _get_next_step(path, self.completed_step_uids)
                 if next_step:
                     for ku_uid in next_step.primary_knowledge_uids:
                         if ku_uid in task_knowledge_uids:
@@ -129,7 +147,7 @@ class LpPosition:
         for path in self.active_paths:
             current_step = self.current_steps.get(path.uid)
             if current_step:
-                suggestions.append(f"Practice {path.name} concepts daily")
+                suggestions.append(f"Practice {path.title} concepts daily")
                 # Use first primary knowledge UID for suggestion
                 if current_step.primary_knowledge_uids:
                     ku_uid = current_step.primary_knowledge_uids[0]
@@ -164,6 +182,7 @@ class LpPosition:
         # Check alignment with active learning paths
         for path in self.active_paths:
             path_support = 0.0
+            steps = _get_path_steps(path)
 
             # Domain alignment
             if str(path.domain.value) == goal_domain:
@@ -171,10 +190,8 @@ class LpPosition:
                 supporting_paths.append(path.uid)
 
                 # Timeline estimation based on remaining steps
-                len([s for s in path.steps if s.uid not in self.completed_step_uids])
-                estimated_hours = sum(
-                    s.estimated_hours for s in path.steps if s.uid not in self.completed_step_uids
-                )
+                remaining = [s for s in steps if s.uid not in self.completed_step_uids]
+                estimated_hours = sum(s.estimated_hours for s in remaining if s.estimated_hours)
 
                 if estimated_hours > 0:
                     weeks = max(1, int(estimated_hours / 10))  # 10 hours per week assumption
@@ -220,17 +237,17 @@ class LpPosition:
                 )
                 practice_frame["learning_applications"].append(
                     {
-                        "path": path.name,
+                        "path": path.title,
                         "step": ku_uid,
                         "application": f"Apply {principle_category} while learning {ku_uid}",
                     }
                 )
 
                 # Current step relevance
-                if principle_category.lower() in path.name.lower():
+                if principle_category.lower() in path.title.lower():
                     practice_frame["current_step_relevance"].append(
                         {
-                            "path": path.name,
+                            "path": path.title,
                             "relevance": "Direct principle practice in current learning",
                         }
                     )
@@ -269,7 +286,7 @@ class LpPosition:
         for path in self.active_paths:
             current_step = self.current_steps.get(path.uid)
             if current_step and any(
-                word in choice_description.lower() for word in path.name.lower().split()
+                word in choice_description.lower() for word in path.title.lower().split()
             ):
                 # Use first primary knowledge UID
                 ku_uid = (
@@ -279,8 +296,8 @@ class LpPosition:
                 )
                 learning_path_implications.append(
                     {
-                        "path": path.name,
-                        "impact": f"Choice may affect progression in {path.name}",
+                        "path": path.title,
+                        "impact": f"Choice may affect progression in {path.title}",
                         "current_step": ku_uid,
                     }
                 )
@@ -289,7 +306,7 @@ class LpPosition:
         if self.active_paths:
             primary_path = self.active_paths[0]  # Primary learning focus
             guidance["recommended_approach"] = (
-                f"Consider alignment with {primary_path.name} learning objectives"
+                f"Consider alignment with {primary_path.title} learning objectives"
             )
             guidance["long_term_learning_impact"] = (
                 "Evaluate how this choice supports your learning journey"
@@ -309,7 +326,7 @@ class LpPosition:
             "current_domains": list(set(str(path.domain.value) for path in self.active_paths)),
             "total_progress": len(self.completed_step_uids),
             "next_steps_available": len(self.next_recommended),
-            "primary_focus": self.active_paths[0].name if self.active_paths else None,
+            "primary_focus": self.active_paths[0].title if self.active_paths else None,
             "learning_readiness": sum(self.readiness_scores.values()) / len(self.readiness_scores)
             if self.readiness_scores
             else 0.0,
@@ -318,16 +335,16 @@ class LpPosition:
 
 def create_lp_position(
     user_uid: str,
-    active_paths: list[LearningPath],
+    active_paths: list[Ku],
     completed_step_uids: set[str],
     readiness_map: dict[str, bool] | None = None,
 ) -> LpPosition:
     """
-    Factory function to create LpPosition from existing models.
+    Factory function to create LpPosition from Ku models.
 
     Args:
         user_uid: User identifier,
-        active_paths: User's active learning paths,
+        active_paths: User's active learning paths (Ku with ku_type='learning_path'),
         completed_step_uids: Set of completed step UIDs
         readiness_map: Optional map of step UIDs to readiness status.
                       If None, all steps assumed ready. Use LsRelationshipService.is_ready()
@@ -342,8 +359,10 @@ def create_lp_position(
     readiness_scores = {}
 
     for path in active_paths:
+        # Get steps from metadata
+        steps = _get_path_steps(path)
         # Get current step (first incomplete step that's ready)
-        for step in path.steps:
+        for step in steps:
             if step.uid not in completed_step_uids:
                 # Use readiness_map if provided, otherwise assume ready
                 is_ready = readiness_map.get(step.uid, True) if readiness_map else True

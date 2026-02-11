@@ -29,8 +29,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
-from core.models.ls.ls import Ls
-from core.models.ls.ls_dto import LearningStepDTO
+from core.models.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.graph_query_executor import GraphQueryExecutor
 from core.services.intelligence import GraphContextOrchestrator
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ls]", "Ls"]):
+class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"]):
     """
     Intelligence service for Learning Steps.
 
@@ -65,7 +65,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ls]", "Ls"])
 
     def __init__(
         self,
-        backend: BackendOperations[Ls],
+        backend: "BackendOperations[Ku]",
         graph_intelligence_service: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
@@ -90,11 +90,11 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ls]", "Ls"])
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Ls, LearningStepDTO](
+            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
                 service=self,
                 backend_get_method="get",
-                dto_class=LearningStepDTO,
-                model_class=Ls,
+                dto_class=KuDTO,
+                model_class=Ku,
                 domain=Domain.LEARNING,
             )
 
@@ -104,7 +104,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ls]", "Ls"])
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ls, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
         """
         Get learning step with full graph context.
 
@@ -265,7 +265,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ls]", "Ls"])
 
         return await executor_result.value.execute(
             query="""
-                MATCH (ls:Ls {uid: $ls_uid})-[:REQUIRES_STEP]->(prereq:Ls)
+                MATCH (ls:Ku {uid: $ls_uid})-[:REQUIRES_STEP]->(prereq:Ku {ku_type: 'learning_step'})
                 RETURN collect(prereq.uid) as prereq_uids
             """,
             params={"ls_uid": ls_uid},
@@ -314,7 +314,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ls]", "Ls"])
 
         return await executor_result.value.execute(
             query="""
-                MATCH (ls:Ls {uid: $ls_uid})
+                MATCH (ls:Ku {uid: $ls_uid})
                 OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(h)
                 OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(t)
                 OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(e)
@@ -407,7 +407,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ls]", "Ls"])
 
         return await executor_result.value.execute(
             query="""
-                MATCH (ls:Ls {uid: $ls_uid})
+                MATCH (ls:Ku {uid: $ls_uid})
                 OPTIONAL MATCH (ls)-[:GUIDED_BY_PRINCIPLE]->(p)
                 OPTIONAL MATCH (ls)-[:OFFERS_CHOICE]->(c)
                 RETURN count(DISTINCT p) as principle_count,
@@ -449,7 +449,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ls]", "Ls"])
 
         return await self.executor.execute_exists(
             query="""
-                MATCH (ls:Ls {uid: $ls_uid})
+                MATCH (ls:Ku {uid: $ls_uid})
                 WHERE exists((ls)-[:REQUIRES_STEP]->()) OR exists((ls)-[:REQUIRES_KNOWLEDGE]->())
                 RETURN ls
             """,
@@ -480,7 +480,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ls]", "Ls"])
 
         return await self.executor.execute_exists(
             query="""
-                MATCH (ls:Ls {uid: $ls_uid})
+                MATCH (ls:Ku {uid: $ls_uid})
                 WHERE exists((ls)-[:GUIDED_BY_PRINCIPLE]->()) OR exists((ls)-[:OFFERS_CHOICE]->())
                 RETURN ls
             """,
@@ -519,7 +519,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ls]", "Ls"])
 
         return await self.executor.execute_exists(
             query="""
-                MATCH (ls:Ls {uid: $ls_uid})
+                MATCH (ls:Ku {uid: $ls_uid})
                 WHERE exists((ls)-[:BUILDS_HABIT]->())
                    OR exists((ls)-[:ASSIGNS_TASK]->())
                    OR exists((ls)-[:SCHEDULES_EVENT]->())

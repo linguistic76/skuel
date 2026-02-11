@@ -16,7 +16,7 @@ from routes.graphql.query_helpers import GraphQLQueryHelpers
 if TYPE_CHECKING:
     from strawberry.types import Info
 
-    from core.models.ls import Ls
+    from core.models.ku import Ku
     from core.utils.result_simplified import Result
     from routes.graphql.context import GraphQLContext
 
@@ -101,12 +101,12 @@ class LearningPath:
             return []
 
         # Get steps with type safety
-        result: Result[list[Ls]] = await context.services.lp.get_steps(self.uid)
+        result: Result[list[Ku]] = await context.services.lp.get_steps(self.uid)
 
         if result.is_error or not result.value:
             return []
 
-        steps: list[Ls] = result.value
+        steps: list[Ku] = result.value
 
         # Convert domain models to GraphQL DTOs using explicit from_domain()
         return [LearningStep.from_domain(step, i + 1) for i, step in enumerate(steps)]
@@ -130,9 +130,9 @@ class LearningStep:
     estimated_time: float
 
     @classmethod
-    def from_domain(cls, step: Ls, step_number: int) -> LearningStep:
+    def from_domain(cls, step: Ku, step_number: int) -> LearningStep:
         """
-        Convert Ls domain model to GraphQL DTO.
+        Convert Ku domain model to GraphQL DTO.
 
         This explicit conversion layer:
         - Catches type mismatches at conversion time

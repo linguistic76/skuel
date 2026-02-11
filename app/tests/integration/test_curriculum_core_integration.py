@@ -24,10 +24,8 @@ from testcontainers.neo4j import Neo4jContainer
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, LearningLevel, SELCategory
 
-# Domain models - use correct short class names
+# Domain models - use unified Ku model
 from core.models.ku.ku import Ku
-from core.models.lp.lp import Lp
-from core.models.ls.ls import Ls
 
 # ============================================================================
 # FIXTURES
@@ -46,25 +44,25 @@ def ku_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Ku]:
 
 
 @pytest.fixture
-def lp_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Lp]:
-    """Create LP backend with real Neo4j."""
+def lp_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Ku]:
+    """Create LP backend with real Neo4j (unified Ku model)."""
     from neo4j import AsyncGraphDatabase
 
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
 
-    return UniversalNeo4jBackend[Lp](driver, "Lp", Lp)
+    return UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
 
 
 @pytest.fixture
-def ls_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Ls]:
-    """Create LS backend with real Neo4j."""
+def ls_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Ku]:
+    """Create LS backend with real Neo4j (unified Ku model)."""
     from neo4j import AsyncGraphDatabase
 
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
 
-    return UniversalNeo4jBackend[Ls](driver, "Ls", Ls)
+    return UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
 
 
 @pytest.fixture
@@ -82,7 +80,7 @@ def clean_curriculum(
             # Delete all curriculum entities and relationships
             await session.run("""
                 MATCH (n)
-                WHERE n:Ku OR n:Lp OR n:Ls
+                WHERE n:Ku
                 OPTIONAL MATCH (n)-[r]-()
                 DETACH DELETE r, n
             """)
@@ -200,7 +198,7 @@ class TestLearningStepCRUD:
     @pytest.mark.asyncio
     async def test_create_learning_step(self, ls_backend, clean_curriculum) -> None:
         """Should create LS in Neo4j."""
-        ls = Ls(
+        ls = Ku(
             uid="ls:test_step_1",
             title="Step 1: Learn Python Basics",
             intent="Master Python fundamentals",
@@ -219,7 +217,7 @@ class TestLearningStepCRUD:
     async def test_get_learning_step(self, ls_backend, clean_curriculum) -> None:
         """Should retrieve LS from Neo4j."""
         # Create LS
-        ls = Ls(
+        ls = Ku(
             uid="ls:test_get",
             title="Test Get Step",
             intent="Test learning objective",
@@ -240,7 +238,7 @@ class TestLearningStepCRUD:
     async def test_update_learning_step(self, ls_backend, clean_curriculum) -> None:
         """Should update LS in Neo4j."""
         # Create LS
-        ls = Ls(
+        ls = Ku(
             uid="ls:test_update",
             title="Original Step Title",
             intent="Original learning objective",
@@ -269,7 +267,7 @@ class TestLearningStepCRUD:
     async def test_delete_learning_step(self, ls_backend, clean_curriculum) -> None:
         """Should delete LS from Neo4j."""
         # Create LS
-        ls = Ls(
+        ls = Ku(
             uid="ls:test_delete",
             title="Test Delete Step",
             intent="Test deletion",
@@ -300,10 +298,10 @@ class TestLearningPathCRUD:
     @pytest.mark.asyncio
     async def test_create_learning_path(self, lp_backend, clean_curriculum) -> None:
         """Should create LP in Neo4j."""
-        lp = Lp(
+        lp = Ku(
             uid="lp:test_python_journey",
-            name="Python Learning Journey",
-            goal="Complete path to Python mastery",
+            title="Python Learning Journey",
+            description="Complete path to Python mastery",
             domain=Domain.TECH,
             difficulty="intermediate",
         )
@@ -312,16 +310,16 @@ class TestLearningPathCRUD:
 
         assert result.is_ok
         assert result.value.uid == "lp:test_python_journey"
-        assert result.value.name == "Python Learning Journey"
+        assert result.value.title == "Python Learning Journey"
 
     @pytest.mark.asyncio
     async def test_get_learning_path(self, lp_backend, clean_curriculum) -> None:
         """Should retrieve LP from Neo4j."""
         # Create LP
-        lp = Lp(
+        lp = Ku(
             uid="lp:test_get",
-            name="Test Get Path",
-            goal="Test learning goal",
+            title="Test Get Path",
+            description="Test learning goal",
             domain=Domain.TECH,
         )
         result = await lp_backend.create(lp)
@@ -333,16 +331,16 @@ class TestLearningPathCRUD:
         assert result.is_ok
         assert result.value is not None
         assert result.value.uid == "lp:test_get"
-        assert result.value.name == "Test Get Path"
+        assert result.value.title == "Test Get Path"
 
     @pytest.mark.asyncio
     async def test_update_learning_path(self, lp_backend, clean_curriculum) -> None:
         """Should update LP in Neo4j."""
         # Create LP
-        lp = Lp(
+        lp = Ku(
             uid="lp:test_update",
-            name="Original Path Name",
-            goal="Original learning goal",
+            title="Original Path Name",
+            description="Original learning goal",
             domain=Domain.TECH,
             difficulty="beginner",
             estimated_hours=10.0,
@@ -352,16 +350,16 @@ class TestLearningPathCRUD:
 
         # Update LP with dictionary of changes
         updates = {
-            "name": "Updated Path Name",
-            "goal": "Updated learning goal",
+            "title": "Updated Path Name",
+            "description": "Updated learning goal",
             "difficulty": "advanced",
             "estimated_hours": 25.0,
         }
         update_result = await lp_backend.update("lp:test_update", updates)
 
         assert update_result.is_ok
-        assert update_result.value.name == "Updated Path Name"
-        assert update_result.value.goal == "Updated learning goal"
+        assert update_result.value.title == "Updated Path Name"
+        assert update_result.value.description == "Updated learning goal"
         assert update_result.value.difficulty == "advanced"
         assert update_result.value.estimated_hours == 25.0
 
@@ -369,10 +367,10 @@ class TestLearningPathCRUD:
     async def test_delete_learning_path(self, lp_backend, clean_curriculum) -> None:
         """Should delete LP from Neo4j."""
         # Create LP
-        lp = Lp(
+        lp = Ku(
             uid="lp:test_delete",
-            name="Test Delete Path",
-            goal="This path will be deleted",
+            title="Test Delete Path",
+            description="This path will be deleted",
             domain=Domain.TECH,
         )
         result = await lp_backend.create(lp)
@@ -449,21 +447,23 @@ class TestCurriculumRelationships:
         uri = neo4j_container.get_connection_url()
         driver = AsyncGraphDatabase.driver(uri)
 
-        # Create LP and LS with CONTAINS relationship
+        # Create LP and LS with CONTAINS relationship (both are Ku nodes)
         async with driver.session() as session:
             await session.run("""
-                CREATE (lp:Lp {
+                CREATE (lp:Ku {
                     uid: 'lp:python_journey',
                     title: 'Python Journey',
                     description: 'Learn Python',
                     domain: 'tech',
+                    ku_type: 'learning_path',
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ls:Ls {
+                CREATE (ls:Ku {
                     uid: 'ls:step_1',
                     title: 'Step 1',
                     description: 'First step',
+                    ku_type: 'learning_step',
                     order: 1,
                     created_at: datetime(),
                     updated_at: datetime()
@@ -474,7 +474,7 @@ class TestCurriculumRelationships:
         # Verify relationship exists
         async with driver.session() as session:
             result = await session.run("""
-                MATCH (lp:Lp {uid: 'lp:python_journey'})-[r:CONTAINS]->(ls:Ls {uid: 'ls:step_1'})
+                MATCH (lp:Ku {uid: 'lp:python_journey'})-[r:CONTAINS]->(ls:Ku {uid: 'ls:step_1'})
                 RETURN lp.uid as lp_uid, ls.uid as ls_uid, r.order as step_order
             """)
             record = await result.single()
@@ -669,17 +669,19 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (lp1:Lp {
+                CREATE (lp1:Ku {
                     uid: 'lp:python_journey',
                     title: 'Python Journey',
                     description: 'Complete Python learning',
+                    ku_type: 'learning_path',
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (lp2:Lp {
+                CREATE (lp2:Ku {
                     uid: 'lp:web_development',
                     title: 'Web Development',
                     description: 'Web dev path',
+                    ku_type: 'learning_path',
                     created_at: datetime(),
                     updated_at: datetime()
                 })
@@ -811,10 +813,11 @@ class TestCurriculumContextBuilder:
                 })
 
                 // Curriculum: Learning path
-                CREATE (lp:Lp {
+                CREATE (lp:Ku {
                     uid: 'lp:python_mastery',
                     title: 'Python Mastery',
                     description: 'Complete Python path',
+                    ku_type: 'learning_path',
                     created_at: datetime(),
                     updated_at: datetime()
                 })

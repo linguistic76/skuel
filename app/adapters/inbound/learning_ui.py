@@ -40,7 +40,7 @@ from fasthtml.common import (
 from starlette.responses import HTMLResponse
 
 from components.form_generator import FormGenerator
-from core.models.lp.lp_request import LpFilterRequest
+from core.models.ku.ku_request import KuLearningPathFilterRequest
 from core.ui.daisy_components import Button, ButtonT, Card, Div, Label, Option, Select, Span
 from core.ui.ui_types import (
     AchievementData,
@@ -87,7 +87,7 @@ class LearningUIComponents:
         Now: Uses custom_widgets for select dropdowns with "All" options.
         """
         return FormGenerator.from_model(
-            LpFilterRequest,
+            KuLearningPathFilterRequest,
             action="/api/learning/filter-paths",
             method="POST",
             include_fields=["difficulty", "domain", "duration"],

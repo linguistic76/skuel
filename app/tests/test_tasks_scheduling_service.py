@@ -19,9 +19,8 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums import ActivityStatus, Domain, Priority
-from core.models.lp.lp import LearningPath
-from core.models.lp.lp_position import LpPosition
-from core.models.ls import LearningStep
+from core.models.enums.ku_enums import KuType
+from core.models.ku import Ku, LpPosition
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
@@ -69,31 +68,34 @@ def user_context() -> UserContext:
 @pytest.fixture
 def learning_position() -> LpPosition:
     """Create sample learning position."""
-    # Create learning steps
-    step1 = LearningStep(
+    # Create learning steps (Ku with ku_type=LEARNING_STEP)
+    step1 = Ku(
         uid="ls:python_fundamentals",
         title="Python Fundamentals",
+        ku_type=KuType.LEARNING_STEP,
         intent="Learn Python basics",
         primary_knowledge_uids=("ku.python.basics",),
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
-    step2 = LearningStep(
+    step2 = Ku(
         uid="ls:python_advanced",
         title="Python Advanced",
+        ku_type=KuType.LEARNING_STEP,
         intent="Master advanced Python concepts",
         primary_knowledge_uids=("ku.python.advanced",),
         mastery_threshold=0.85,
         estimated_hours=20.0,
     )
 
-    # Create learning path
-    path = LearningPath(
+    # Create learning path (Ku with ku_type=LEARNING_PATH)
+    path = Ku(
         uid="lp:python_mastery",
-        name="Python Mastery",
-        goal="Master Python programming",
+        title="Python Mastery",
+        ku_type=KuType.LEARNING_PATH,
+        description="Master Python programming",
         domain=Domain.TECH,
-        steps=(step1, step2),
+        metadata={"steps": [step1, step2]},
     )
 
     return LpPosition(
@@ -420,44 +422,46 @@ async def test_full_learning_workflow(
 async def test_multiple_active_paths_suggestions(scheduling_service):
     """Test suggestions generation with multiple active learning paths."""
     # Setup - multiple paths
-    path1 = LearningPath(
+    python_step = Ku(
+        uid="ls:python_basics",
+        title="Python Basics",
+        ku_type=KuType.LEARNING_STEP,
+        intent="Learn Python basics",
+        primary_knowledge_uids=("ku.python.basics",),
+        mastery_threshold=0.8,
+        estimated_hours=10.0,
+    )
+    path1 = Ku(
         uid="lp:python",
-        name="Python",
-        goal="Learn Python programming",
+        title="Python",
+        ku_type=KuType.LEARNING_PATH,
+        description="Learn Python programming",
         domain=Domain.TECH,
-        steps=(
-            LearningStep(
-                uid="ls:python_basics",
-                title="Python Basics",
-                intent="Learn Python basics",
-                primary_knowledge_uids=("ku.python.basics",),
-                mastery_threshold=0.8,
-                estimated_hours=10.0,
-            ),
-        ),
+        metadata={"steps": [python_step]},
     )
 
-    path2 = LearningPath(
+    html_step = Ku(
+        uid="ls:html_basics",
+        title="HTML Basics",
+        ku_type=KuType.LEARNING_STEP,
+        intent="Learn HTML basics",
+        primary_knowledge_uids=("ku.html.basics",),
+        mastery_threshold=0.75,
+        estimated_hours=8.0,
+    )
+    path2 = Ku(
         uid="lp:web_dev",
-        name="Web Development",
-        goal="Learn web development",
+        title="Web Development",
+        ku_type=KuType.LEARNING_PATH,
+        description="Learn web development",
         domain=Domain.TECH,
-        steps=(
-            LearningStep(
-                uid="ls:html_basics",
-                title="HTML Basics",
-                intent="Learn HTML basics",
-                primary_knowledge_uids=("ku.html.basics",),
-                mastery_threshold=0.75,
-                estimated_hours=8.0,
-            ),
-        ),
+        metadata={"steps": [html_step]},
     )
 
     position = LpPosition(
         user_uid="user:123",
         active_paths=[path1, path2],
-        current_steps={"lp:python": path1.steps[0], "lp:web_dev": path2.steps[0]},
+        current_steps={"lp:python": python_step, "lp:web_dev": html_step},
         completed_step_uids=set(),
         next_recommended=["ls:python_basics", "ls:html_basics"],
         generated_at=datetime.now(),

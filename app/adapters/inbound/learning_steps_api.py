@@ -23,7 +23,7 @@ from fasthtml.common import Request
 from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.models.ls.ls_request import LearningStepCreateRequest, LearningStepUpdateRequest
+from core.models.ku.ku_request import KuLearningStepCreateRequest, KuUpdateRequest as KuStepUpdateRequest
 from core.services.protocols.facade_protocols import LsFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
@@ -58,8 +58,8 @@ def create_learning_steps_api_routes(
     crud_factory = CRUDRouteFactory(
         service=ls_service,
         domain_name="learning-steps",
-        create_schema=LearningStepCreateRequest,
-        update_schema=LearningStepUpdateRequest,
+        create_schema=KuLearningStepCreateRequest,
+        update_schema=KuStepUpdateRequest,
         uid_prefix="ls",
         scope=ContentScope.SHARED,
         require_role=UserRole.ADMIN,

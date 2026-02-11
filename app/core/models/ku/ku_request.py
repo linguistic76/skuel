@@ -1174,3 +1174,32 @@ class AssessmentCreateRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=500, description="Assessment title")
     content: str = Field(..., min_length=1, description="Assessment content (markdown)")
     metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
+
+
+# =============================================================================
+# LEARNING PATH FILTER & PROGRESS (migrated from lp_request.py)
+# =============================================================================
+
+
+class KuLearningPathFilterRequest(BaseModel):
+    """Filter request for learning path browsing UI.
+
+    Used by FormGenerator for filter form generation.
+    Migrated from LpFilterRequest in the old lp_request.py.
+    """
+
+    difficulty: str | None = Field(None, description="Filter by difficulty level")
+    domain: str | None = Field(None, description="Filter by domain")
+    duration: str | None = Field(None, description="Filter by time commitment")
+
+
+class KuLearningPathProgressRequest(BaseModel):
+    """Request model for updating learning progress on a step.
+
+    Migrated from LpProgressRequest in the old lp_request.py.
+    """
+
+    step_uid: str = Field(..., description="Step to update progress for")
+    mastery_level: float = Field(..., ge=0.0, le=1.0)
+    completed: bool | None = None
+    notes: str | None = None

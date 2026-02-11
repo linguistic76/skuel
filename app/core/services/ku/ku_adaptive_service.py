@@ -30,7 +30,6 @@ from core.models.ku.ku_intelligence import (
     MasteryLevel,
 )
 from core.models.ku.ku_progress import KuCategoryProgress, KuLearningJourney
-from core.models.lp.lp import LearningPath
 from core.models.relationship_names import RelationshipName
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence
 from core.utils.decorators import with_error_handling
@@ -502,7 +501,7 @@ class KuAdaptiveService:
             )
             return {}
 
-    async def _query_active_learning_paths(self, user_uid: str) -> list[LearningPath]:
+    async def _query_active_learning_paths(self, user_uid: str) -> list[Ku]:
         """Query user's active learning paths."""
         try:
             query = """
@@ -521,7 +520,7 @@ class KuAdaptiveService:
                 lp_node = record.get("lp")
                 if lp_node:
                     try:
-                        learning_path = from_neo4j_node(dict(lp_node), LearningPath)
+                        learning_path = from_neo4j_node(dict(lp_node), Ku)
                         learning_paths.append(learning_path)
                     except Exception:
                         continue

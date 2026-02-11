@@ -58,7 +58,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_dict_value_getter
 
 if TYPE_CHECKING:
-    from core.models.lp.lp_position import LpPosition
+    from core.models.ku.lp_position import LpPosition
     from core.services.goals.goals_progress_service import GoalsProgressService
     from core.services.protocols.infrastructure_protocols import EventBusOperations
     from core.services.user.unified_user_context import UserContext

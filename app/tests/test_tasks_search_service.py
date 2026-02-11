@@ -22,9 +22,8 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums import ActivityStatus, Domain, Priority
-from core.models.lp.lp import LearningPath
-from core.models.lp.lp_position import LpPosition
-from core.models.ls import LearningStep
+from core.models.enums.ku_enums import KuType
+from core.models.ku import Ku, LpPosition
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.services.tasks.tasks_search_service import TasksSearchService
@@ -139,29 +138,32 @@ def user_context() -> UserContext:
 @pytest.fixture
 def learning_position() -> LpPosition:
     """Create sample learning position."""
-    step1 = LearningStep(
+    step1 = Ku(
         uid="ls:python_fundamentals",
         title="Python Fundamentals",
+        ku_type=KuType.LEARNING_STEP,
         intent="Learn Python basics",
         primary_knowledge_uids=("ku.python.basics",),
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
-    step2 = LearningStep(
+    step2 = Ku(
         uid="ls:python_advanced",
         title="Python Advanced",
+        ku_type=KuType.LEARNING_STEP,
         intent="Master advanced Python concepts",
         primary_knowledge_uids=("ku.python.advanced",),
         mastery_threshold=0.85,
         estimated_hours=20.0,
     )
 
-    path = LearningPath(
+    path = Ku(
         uid="lp:python_mastery",
-        name="Python Mastery",
-        goal="Master Python programming",
+        title="Python Mastery",
+        ku_type=KuType.LEARNING_PATH,
+        description="Master Python programming",
         domain=Domain.TECH,
-        steps=(step1, step2),
+        metadata={"steps": [step1, step2]},
     )
 
     return LpPosition(

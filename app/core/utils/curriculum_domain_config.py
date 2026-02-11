@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-    from core.models.lp import Lp
+    from core.models.ku import Ku
     from core.services.ku.ku_adaptive_service import KuAdaptiveService
     from core.services.ku.ku_core_service import KuCoreService
     from core.services.ku.ku_graph_service import KuGraphService
@@ -110,7 +110,7 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         intelligence_class="LsIntelligenceService",
         relationship_config=LS_CONFIG,
         domain_name="ls",
-        entity_label="Ls",
+        entity_label="Ku",  # Phase 3: LS nodes are :Ku{ku_type='learning_step'}
     ),
     "lp": CurriculumDomainConfig(
         core_module="core.services.lp.lp_core_service",
@@ -121,7 +121,7 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         intelligence_class="LpIntelligenceService",
         relationship_config=LP_CONFIG,
         domain_name="lp",
-        entity_label="Lp",
+        entity_label="Ku",  # Phase 3: LP nodes are :Ku{ku_type='learning_path'}
     ),
 }
 
@@ -260,7 +260,7 @@ class LpSubServices:
     relationships: "UnifiedRelationshipService"
     intelligence: "LpIntelligenceService"
     progress: "LpProgressService"
-    backend: "UniversalNeo4jBackend[Lp]"
+    backend: "UniversalNeo4jBackend[Ku]"
 
 
 def create_ku_sub_services(
@@ -424,15 +424,15 @@ def create_lp_sub_services(
     # Lazy imports
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.enums.neo_labels import NeoLabel
-    from core.models.lp import Lp as LpModel
+    from core.models.ku import Ku as KuModel
     from core.services.lp.lp_core_service import LpCoreService
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
     from core.services.lp_intelligence_service import LpIntelligenceService
 
-    # Step 1: Create shared backend
-    lp_backend: UniversalNeo4jBackend[LpModel] = UniversalNeo4jBackend[LpModel](
-        driver, NeoLabel.LP, LpModel
+    # Step 1: Create shared backend — Phase 3: LP nodes are :Ku{ku_type='learning_path'}
+    lp_backend: UniversalNeo4jBackend[KuModel] = UniversalNeo4jBackend[KuModel](
+        driver, NeoLabel.KU, KuModel, default_filters={"ku_type": "learning_path"}
     )
 
     # Step 2: Create search (simple, no dependencies)
