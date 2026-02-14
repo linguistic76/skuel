@@ -103,14 +103,14 @@ class NeoLabel(str, Enum):
     # =========================================================================
 
     @classmethod
-    def from_ku_type(cls, ku_type: KuType) -> NeoLabel:
+    def from_ku_type(cls, _ku_type: KuType) -> NeoLabel:
         """
         Get the Neo4j label for a KuType.
 
         All KuTypes map to NeoLabel.KU (unified Ku model).
 
         Args:
-            ku_type: The KuType enum value
+            _ku_type: The KuType enum value (unused — all KuTypes map to KU)
 
         Returns:
             NeoLabel.KU (always)
