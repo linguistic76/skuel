@@ -6,8 +6,14 @@ Calculates alignment between user's life path and actual behavior.
 
 This service answers: "Am I living my life path?"
 
-Migrated from AnalyticsLifePathService with enhancements for
-the new vision-based architecture.
+All queries use the unified Ku model with ku_type discriminator:
+- Life path: Ku {ku_type: 'life_path'}
+- Learning steps: Ku {ku_type: 'learning_step'}
+- Knowledge: Ku {ku_type: 'curriculum'}
+- Tasks: Ku {ku_type: 'task'}
+- Habits: Ku {ku_type: 'habit'}
+- Goals: Ku {ku_type: 'goal'}
+- Principles: Ku {ku_type: 'principle'}
 
 Core Philosophy: "Everything flows toward the life path"
 """
@@ -17,9 +23,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.lifepath import (
-    AlignmentLevel,
-)
+from core.models.enums.ku_enums import AlignmentLevel
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -81,27 +85,7 @@ class LifePathAlignmentService:
             user_uid: User identifier
 
         Returns:
-            Result containing comprehensive alignment analysis:
-            {
-                "life_path_uid": "lp:mindful-software-engineer",
-                "life_path_title": "Become a Mindful Software Engineer",
-                "alignment_score": 0.73,  # 0.0-1.0
-                "alignment_level": "aligned",
-                "dimensions": {
-                    "knowledge": 0.80,
-                    "activity": 0.70,
-                    "goal": 0.65,
-                    "principle": 0.75,
-                    "momentum": 0.60
-                },
-                "knowledge_stats": {
-                    "total": 15,
-                    "embodied": 8,  # substance >= 0.7
-                    "theoretical": 7  # substance < 0.5
-                },
-                "gaps": [...],
-                "recommendations": [...]
-            }
+            Result containing comprehensive alignment analysis
         """
         logger.info(f"Calculating life path alignment for user {user_uid}")
 
@@ -172,7 +156,7 @@ class LifePathAlignmentService:
             return None
 
         query = """
-        MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Lp)
+        MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Ku {ku_type: 'life_path'})
         RETURN lp.uid AS life_path_uid
         """
 
@@ -200,10 +184,10 @@ class LifePathAlignmentService:
             lp_result = await self.lp_service.core.get(life_path_uid)
             if lp_result.is_ok and lp_result.value:
                 return {
-                    "title": lp_result.value.name,
-                    "goal": lp_result.value.goal,
+                    "title": lp_result.value.title,
+                    "description": lp_result.value.description,
                 }
-        return {"title": "Unknown", "goal": ""}
+        return {"title": "Unknown", "description": ""}
 
     async def _calculate_knowledge_alignment(self, user_uid: str, life_path_uid: str) -> float:
         """
@@ -216,14 +200,14 @@ class LifePathAlignmentService:
             return 0.0
 
         query = """
-        MATCH (lp:Lp {uid: $life_path_uid})-[:HAS_STEP]->(ls:Ls)-[:CONTAINS]->(ku:Ku)
+        MATCH (lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Ku {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Ku {ku_type: 'curriculum'})
         OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
         WITH ku, m,
              CASE WHEN m IS NOT NULL THEN m.mastery_level ELSE 0 END AS mastery
 
         // Get substance from knowledge applications
-        OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(task:Task {user_uid: $user_uid})
-        OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(habit:Habit {user_uid: $user_uid})
+        OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(task:Ku {ku_type: 'task', user_uid: $user_uid})
+        OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(habit:Ku {ku_type: 'habit', user_uid: $user_uid})
 
         WITH ku, mastery,
              count(DISTINCT task) AS task_count,
@@ -269,24 +253,24 @@ class LifePathAlignmentService:
 
         query = """
         // Get life path knowledge
-        MATCH (lp:Lp {uid: $life_path_uid})-[:HAS_STEP]->(ls:Ls)-[:CONTAINS]->(ku:Ku)
+        MATCH (lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Ku {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Ku {ku_type: 'curriculum'})
         WITH collect(ku.uid) AS lp_knowledge
 
         // Count aligned activities
         MATCH (u:User {uid: $user_uid})
-        OPTIONAL MATCH (u)-[:HAS_TASK]->(task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+        OPTIONAL MATCH (u)-[:OWNS]->(task:Ku {ku_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
         WHERE ku.uid IN lp_knowledge
         WITH lp_knowledge, count(DISTINCT task) AS aligned_tasks
 
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:HAS_HABIT]->(habit:Habit)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(habit:Ku {ku_type: 'habit'})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
         WHERE ku.uid IN lp_knowledge
         WITH aligned_tasks, count(DISTINCT habit) AS aligned_habits
 
         // Also count total activities
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:HAS_TASK]->(all_task:Task)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(all_task:Ku {ku_type: 'task'})
         WITH aligned_tasks, aligned_habits, count(DISTINCT all_task) AS total_tasks
 
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:HAS_HABIT]->(all_habit:Habit)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(all_habit:Ku {ku_type: 'habit'})
         WITH aligned_tasks, aligned_habits, total_tasks, count(DISTINCT all_habit) AS total_habits
 
         WITH aligned_tasks, aligned_habits, total_tasks, total_habits,
@@ -331,11 +315,11 @@ class LifePathAlignmentService:
             return 0.0
 
         query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_GOAL]->(g:Goal)
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Ku {ku_type: 'goal'})
         WHERE g.status IN ['active', 'in_progress']
 
         // Check for SERVES_LIFE_PATH relationship
-        OPTIONAL MATCH (g)-[:SERVES_LIFE_PATH]->(lp:Lp {uid: $life_path_uid})
+        OPTIONAL MATCH (g)-[:SERVES_LIFE_PATH]->(lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})
 
         WITH count(g) AS total_goals, count(lp) AS aligned_goals
 
@@ -375,11 +359,11 @@ class LifePathAlignmentService:
             return 0.0
 
         query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_PRINCIPLE]->(p:Principle)
-        WHERE p.is_active = true
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(p:Ku {ku_type: 'principle'})
+        WHERE p.status = 'active'
 
         // Check for alignment with life path
-        OPTIONAL MATCH (p)-[:SERVES_LIFE_PATH]->(lp:Lp {uid: $life_path_uid})
+        OPTIONAL MATCH (p)-[:SERVES_LIFE_PATH]->(lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})
 
         WITH count(p) AS total_principles, count(lp) AS aligned_principles
 
@@ -424,17 +408,17 @@ class LifePathAlignmentService:
         fourteen_days_ago = now - timedelta(days=14)
 
         query = """
-        MATCH (lp:Lp {uid: $life_path_uid})-[:HAS_STEP]->(ls:Ls)-[:CONTAINS]->(ku:Ku)
+        MATCH (lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Ku {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Ku {ku_type: 'curriculum'})
         WITH collect(ku.uid) AS lp_knowledge
 
         // Recent week activities
-        MATCH (u:User {uid: $user_uid})-[:HAS_TASK]->(task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Ku {ku_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
         WHERE ku.uid IN lp_knowledge
           AND task.created_at >= $seven_days_ago
         WITH lp_knowledge, count(task) AS recent_tasks
 
         // Previous week activities
-        MATCH (u:User {uid: $user_uid})-[:HAS_TASK]->(task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Ku {ku_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
         WHERE ku.uid IN lp_knowledge
           AND task.created_at >= $fourteen_days_ago
           AND task.created_at < $seven_days_ago
@@ -486,9 +470,8 @@ class LifePathAlignmentService:
         if not self.driver:
             return {"total": 0, "embodied": 0, "theoretical": 0}
 
-        # Simplified query for stats
         query = """
-        MATCH (lp:Lp {uid: $life_path_uid})-[:HAS_STEP]->(ls:Ls)-[:CONTAINS]->(ku:Ku)
+        MATCH (lp:Ku {uid: $life_path_uid, ku_type: 'life_path'})-[:HAS_STEP]->(ls:Ku {ku_type: 'learning_step'})-[:CONTAINS]->(ku:Ku {ku_type: 'curriculum'})
         OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
 
         WITH ku, COALESCE(m.substance_score, 0) AS substance

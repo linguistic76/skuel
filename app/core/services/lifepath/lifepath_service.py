@@ -25,15 +25,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.lifepath import (
-    WordActionAlignment,
-)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 from .lifepath_alignment_service import LifePathAlignmentService
 from .lifepath_core_service import LifePathCoreService
 from .lifepath_intelligence_service import LifePathIntelligenceService
+from .lifepath_types import WordActionAlignment
 from .lifepath_vision_service import LifePathVisionService
 
 if TYPE_CHECKING:

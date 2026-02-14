@@ -10,7 +10,9 @@ This service manages the user's life path designation:
 - Managing the ULTIMATE_PATH relationship
 
 Note: LifePath is NOT a stored entity - it's a designation on an LP.
-The data is stored on the User node and via ULTIMATE_PATH relationship.
+Vision data is stored on the User node. Alignment scores are stored
+on the ULTIMATE_PATH relationship. The designated Ku gets its
+ku_type changed from 'learning_path' to 'life_path'.
 """
 
 from __future__ import annotations
@@ -18,12 +20,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from core.models.lifepath import (
-    AlignmentLevel,
-    LifePathDesignation,
-)
+from core.models.enums.ku_enums import AlignmentLevel
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+from .lifepath_types import LifePathDesignation
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
@@ -37,8 +38,8 @@ class LifePathCoreService:
     """
     Core service for Life Path designation management.
 
-    Manages the ULTIMATE_PATH relationship and vision data
-    stored on the User node.
+    Manages the ULTIMATE_PATH relationship, vision data on the User node,
+    and alignment scores on the ULTIMATE_PATH relationship.
     """
 
     def __init__(
@@ -62,6 +63,7 @@ class LifePathCoreService:
         Get user's current life path designation.
 
         Returns None if user hasn't designated a life path yet.
+        Reads alignment scores from the ULTIMATE_PATH relationship.
 
         Args:
             user_uid: User identifier
@@ -74,13 +76,13 @@ class LifePathCoreService:
 
         query = """
         MATCH (u:User {uid: $user_uid})
-        OPTIONAL MATCH (u)-[r:ULTIMATE_PATH]->(lp:Lp)
+        OPTIONAL MATCH (u)-[r:ULTIMATE_PATH]->(lp:Ku {ku_type: 'life_path'})
         RETURN u.vision_statement AS vision_statement,
                u.vision_themes AS vision_themes,
                u.vision_captured_at AS vision_captured_at,
                lp.uid AS life_path_uid,
                r.designated_at AS designated_at,
-               u.life_path_alignment_score AS alignment_score
+               r.alignment_score AS alignment_score
         """
 
         try:
@@ -189,8 +191,8 @@ class LifePathCoreService:
         """
         Designate a Learning Path as the user's life path.
 
-        Creates the ULTIMATE_PATH relationship.
-        This is Step 2 of the vision capture flow.
+        Creates the ULTIMATE_PATH relationship and sets the target
+        Ku's ku_type from 'learning_path' to 'life_path'.
 
         Args:
             user_uid: User identifier
@@ -212,20 +214,21 @@ class LifePathCoreService:
 
         now = datetime.now()
 
-        # Remove existing ULTIMATE_PATH (if any) and create new one
+        # Remove existing ULTIMATE_PATH (if any), revert old LP's ku_type,
+        # then create new designation
         query = """
         MATCH (u:User {uid: $user_uid})
-        MATCH (lp:Lp {uid: $life_path_uid})
+        MATCH (lp:Ku {uid: $life_path_uid, ku_type: 'learning_path'})
 
-        // Remove existing designation
-        OPTIONAL MATCH (u)-[old:ULTIMATE_PATH]->()
+        // Revert previous designation's ku_type back to learning_path
+        OPTIONAL MATCH (u)-[old:ULTIMATE_PATH]->(old_lp:Ku {ku_type: 'life_path'})
+        SET old_lp.ku_type = 'learning_path'
         DELETE old
 
-        // Create new designation
+        // Create new designation and promote ku_type
+        WITH u, lp
         CREATE (u)-[r:ULTIMATE_PATH {designated_at: $designated_at}]->(lp)
-
-        // Update user's life_path_uid for quick access
-        SET u.life_path_uid = $life_path_uid
+        SET lp.ku_type = 'life_path'
 
         RETURN u.vision_statement AS vision_statement,
                u.vision_themes AS vision_themes,
@@ -272,7 +275,8 @@ class LifePathCoreService:
         """
         Remove user's life path designation.
 
-        Removes the ULTIMATE_PATH relationship but keeps vision data.
+        Removes the ULTIMATE_PATH relationship, reverts the Ku's ku_type
+        back to 'learning_path', but keeps vision data on the User node.
 
         Args:
             user_uid: User identifier
@@ -286,9 +290,9 @@ class LifePathCoreService:
             )
 
         query = """
-        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->()
+        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Ku {ku_type: 'life_path'})
+        SET lp.ku_type = 'learning_path'
         DELETE r
-        SET u.life_path_uid = null
         RETURN count(r) > 0 AS removed
         """
 
@@ -318,7 +322,7 @@ class LifePathCoreService:
         dimension_scores: dict[str, float] | None = None,
     ) -> Result[bool]:
         """
-        Update user's life path alignment score.
+        Update life path alignment score on the ULTIMATE_PATH relationship.
 
         Called by LifePathAlignmentService after calculation.
 
@@ -337,12 +341,12 @@ class LifePathCoreService:
 
         alignment_level = AlignmentLevel.from_score(alignment_score)
 
+        # Store alignment scores on the ULTIMATE_PATH relationship
         query = """
-        MATCH (u:User {uid: $user_uid})
-        SET u.life_path_alignment_score = $alignment_score,
-            u.life_path_alignment_level = $alignment_level,
-            u.life_path_alignment_updated_at = datetime()
-        RETURN u.uid AS uid
+        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Ku {ku_type: 'life_path'})
+        SET r.alignment_score = $alignment_score,
+            r.alignment_level = $alignment_level,
+            r.alignment_updated_at = datetime()
         """
 
         params: dict[str, Any] = {
@@ -353,15 +357,13 @@ class LifePathCoreService:
 
         # Add dimension scores if provided
         if dimension_scores:
-            query = query.replace(
-                "u.life_path_alignment_updated_at = datetime()",
-                """u.life_path_alignment_updated_at = datetime(),
-                   u.knowledge_alignment = $knowledge_alignment,
-                   u.activity_alignment = $activity_alignment,
-                   u.goal_alignment = $goal_alignment,
-                   u.principle_alignment = $principle_alignment,
-                   u.momentum = $momentum""",
-            )
+            query += """,
+            r.knowledge_alignment = $knowledge_alignment,
+            r.activity_alignment = $activity_alignment,
+            r.goal_alignment = $goal_alignment,
+            r.principle_alignment = $principle_alignment,
+            r.momentum = $momentum
+            """
             params.update(
                 {
                     "knowledge_alignment": dimension_scores.get("knowledge", 0.0),
@@ -371,6 +373,8 @@ class LifePathCoreService:
                     "momentum": dimension_scores.get("momentum", 0.0),
                 }
             )
+
+        query += "\nRETURN r.alignment_score AS score"
 
         try:
             result = await self.driver.execute_query(query, params, database_="neo4j")

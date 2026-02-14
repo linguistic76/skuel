@@ -5,14 +5,14 @@ LifePath Service Package
 Domain #14: The Destination - "Everything flows toward the life path"
 
 This package provides services for:
-1. Vision capture (user's words → themes)
-2. Life path designation (LP selection)
-3. Alignment calculation (vision→action measurement)
+1. Vision capture (user's words -> themes)
+2. Life path designation (LP selection via ULTIMATE_PATH)
+3. Alignment calculation (vision->action measurement)
 4. Intelligence (recommendations)
 
-Philosophy:
-    "The user's vision is understood via the words user uses to communicate,
-    the UserContext is determined via user's actions."
+LifePath is NOT a stored entity - it's a designation that elevates a
+Learning Path (Ku with ku_type='learning_path') to life-path status
+(ku_type='life_path'). The ULTIMATE_PATH relationship is the mechanism.
 
 Sub-Services:
 - LifePathVisionService: Capture and analyze user's vision statement
@@ -33,10 +33,6 @@ Main Entry Point:
 
     # Calculate alignment
     alignment = await lifepath.alignment.calculate_alignment(user_uid)
-
-Version: 1.0.0
-Date: 2026-01-07
-Architecture: Facade pattern with specialized sub-services
 """
 
 from .lifepath_alignment_service import LifePathAlignmentService

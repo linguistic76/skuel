@@ -4,7 +4,7 @@ Ku Enums - Unified Knowledge Unit Identity and Processing
 
 Enums for the unified Ku model where "Ku is the heartbeat of SKUEL."
 
-Organized in 12 sections:
+Organized in 13 sections:
 1. Core Identity: KuType (14 values — role and domain manifestation)
 2. Processing Lifecycle: KuStatus (14 values — type-aware transitions), ProcessorType
 3. Project/Assignment: ProjectScope (teacher assignment workflow)
@@ -17,6 +17,7 @@ Organized in 12 sections:
 10. Principle: PrincipleCategory, PrincipleSource, PrincipleStrength
 11. Alignment: AlignmentLevel (unified — principles + life path)
 12. Curriculum Structure: LpType, StepDifficulty
+13. Vision Themes: ThemeCategory (life path vision capture)
 
 Per One Path Forward: These are THE canonical location for all Ku-related enums.
 """
@@ -24,7 +25,6 @@ Per One Path Forward: These are THE canonical location for all Ku-related enums.
 from __future__ import annotations
 
 from enum import Enum
-
 
 # =============================================================================
 # 1. CORE IDENTITY
@@ -928,3 +928,28 @@ class StepDifficulty(str, Enum):
     MODERATE = "moderate"
     CHALLENGING = "challenging"
     ADVANCED = "advanced"
+
+
+# =============================================================================
+# 13. VISION THEMES (Life Path)
+# =============================================================================
+
+
+class ThemeCategory(str, Enum):
+    """
+    Categories for extracted vision themes.
+
+    Maps to SKUEL's domain structure for LP recommendation
+    during the vision capture flow.
+    """
+
+    PERSONAL_GROWTH = "personal_growth"
+    CAREER = "career"
+    HEALTH = "health"
+    RELATIONSHIPS = "relationships"
+    FINANCIAL = "financial"
+    CREATIVE = "creative"
+    SPIRITUAL = "spiritual"
+    INTELLECTUAL = "intellectual"
+    IMPACT = "impact"
+    LIFESTYLE = "lifestyle"

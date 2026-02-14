@@ -23,15 +23,16 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
-from core.models.lifepath import (
+from core.models.enums.ku_enums import ThemeCategory
+from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
+
+from .lifepath_types import (
     LpRecommendation,
-    ThemeCategory,
     VisionCapture,
     VisionTheme,
     WordActionAlignment,
 )
-from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.llm_service import LLMService
@@ -338,14 +339,15 @@ Focus on actionable aspirations, not generic words."""
 
         for lp in lps:
             # Calculate match score based on how many themes appear in LP
-            lp_text = f"{lp.name} {lp.goal} {' '.join(lp.outcomes)}".lower()
+            lp_description = lp.description or ""
+            lp_text = f"{lp.title} {lp_description} {' '.join(lp.outcomes)}".lower()
             matching = [t for t in themes if t.lower() in lp_text]
             match_score = len(matching) / len(themes) if themes else 0
 
             recommendations.append(
                 LpRecommendation(
                     lp_uid=lp.uid,
-                    lp_name=lp.name,
+                    lp_name=lp.title,
                     match_score=match_score,
                     matching_themes=tuple(matching),
                     lp_domain=lp.domain.value if lp.domain else None,
