@@ -84,10 +84,18 @@ def _render_queue_item(item: dict[str, Any]) -> Div:
     ku_type = item.get("ku_type")
     project_name = item.get("project_name")
     ku_uid = item.get("ku_uid", "")
+    feedback_count = item.get("feedback_count", 0)
 
     subtitle_parts = [f"by {student_name}"]
     if project_name:
         subtitle_parts.append(f"for {project_name}")
+
+    feedback_indicator = ""
+    if feedback_count > 0:
+        feedback_indicator = Span(
+            f"{feedback_count} feedback",
+            cls="badge badge-sm badge-info",
+        )
 
     return Div(
         Div(
@@ -98,6 +106,7 @@ def _render_queue_item(item: dict[str, Any]) -> Div:
                     cls="flex-1",
                 ),
                 Div(
+                    feedback_indicator,
                     _ku_type_badge(ku_type),
                     _status_badge(status),
                     cls="flex gap-2 items-center",
@@ -116,6 +125,39 @@ def _render_queue_item(item: dict[str, Any]) -> Div:
             cls="card-body p-4",
         ),
         cls="card bg-base-100 shadow-sm mb-2",
+    )
+
+
+def _render_feedback_item(fb: dict[str, Any]) -> Div:
+    """Render a single feedback history item."""
+    teacher_name = fb.get("teacher_name") or fb.get("teacher_uid") or "Teacher"
+    content = fb.get("content") or ""
+    created_at = fb.get("created_at", "")
+    title = fb.get("title", "")
+
+    time_display = ""
+    if created_at:
+        if hasattr(created_at, "strftime"):
+            time_display = created_at.strftime("%b %d, %H:%M")
+        else:
+            time_display = str(created_at)[:16]
+
+    is_revision = "revision" in title.lower() if title else False
+    border_cls = "border-l-warning" if is_revision else "border-l-info"
+    type_label = "Revision Request" if is_revision else "Feedback"
+
+    return Div(
+        Div(
+            Div(
+                Span(type_label, cls="font-medium text-sm"),
+                Span(f" by {teacher_name}", cls="text-sm text-base-content/60"),
+                Span(f" · {time_display}", cls="text-xs text-base-content/40") if time_display else "",
+                cls="mb-1",
+            ),
+            P(content, cls="text-sm whitespace-pre-wrap"),
+            cls="p-3",
+        ),
+        cls=f"border-l-4 {border_cls} bg-base-200/50 rounded-r mb-2",
     )
 
 
@@ -232,9 +274,22 @@ def create_teaching_ui_routes(
     @rt("/teaching/review/{uid}")
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_review_detail(request: Request, uid: str, current_user: Any = None) -> Any:
-        """Review detail page — feedback form + action buttons."""
+        """Review detail page — feedback form + action buttons + feedback history."""
+        # Fetch feedback history for this submission
+        feedback_history_section: Any = ""
+        history_result = await teacher_review_service.get_feedback_history(uid)
+        if not history_result.is_error and history_result.value:
+            feedback_items = [_render_feedback_item(fb) for fb in history_result.value]
+            feedback_history_section = Div(
+                H3("Feedback History", cls="text-lg font-semibold mb-3"),
+                Div(*feedback_items),
+                cls="mb-6",
+            )
+
         content = Div(
             PageHeader("Review Submission"),
+            # Feedback history (if any)
+            feedback_history_section,
             # Feedback form
             Div(
                 Div(

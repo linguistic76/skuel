@@ -92,8 +92,16 @@ class TeacherReviewOperations(Protocol):
         self,
         teacher_uid: str,
         status_filter: str | None = None,
+        ku_type_filter: str | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """Get teacher's pending review queue. Returns Result[list[dict]]."""
+        ...
+
+    async def get_feedback_history(
+        self,
+        submission_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """Get FEEDBACK_REPORT nodes linked to a submission. Returns Result[list[dict]]."""
         ...
 
     async def submit_feedback(

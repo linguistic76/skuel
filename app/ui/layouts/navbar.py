@@ -117,7 +117,7 @@ def _notification_button(unread_count: int = 0) -> Button:
         *button_content,
         type="button",
         cls="btn btn-ghost btn-circle text-base-content/70 hover:text-base-content relative",
-        **{"hx-get": "/insights", "hx-boost": "false"},  # Navigate to insights on click
+        **{"hx-get": "/notifications", "hx-boost": "false"},  # Navigate to notifications on click
     )
 
 
@@ -392,7 +392,10 @@ def create_navbar(
 
 
 async def create_navbar_for_request(
-    request: Request, active_page: str = "", insight_store: Any = None
+    request: Request,
+    active_page: str = "",
+    insight_store: Any = None,
+    notification_service: Any = None,
 ) -> Nav:
     """
     Create navbar with automatic user/admin detection from session.
@@ -404,6 +407,7 @@ async def create_navbar_for_request(
         request: Starlette/FastHTML request object
         active_page: Current page slug for highlighting (e.g., "calendar", "search")
         insight_store: Optional InsightStore for fetching unread insight count (Phase 1)
+        notification_service: Optional NotificationService for unread notification count
 
     Returns:
         FastHTML Nav element with proper authentication state
@@ -425,13 +429,26 @@ async def create_navbar_for_request(
         except Exception:
             pass  # Silently fail - navbar should always render
 
+    # Get unread notification count
+    unread_notifications = 0
+    if is_authenticated(request) and notification_service:
+        try:
+            from core.auth import require_authenticated_user
+
+            user_uid = require_authenticated_user(request)
+            count_result = await notification_service.get_unread_count(user_uid)
+            if not count_result.is_error:
+                unread_notifications = count_result.value
+        except Exception:
+            pass  # Silently fail - navbar should always render
+
     return create_navbar(
         current_user=get_current_user(request),
         is_authenticated=is_authenticated(request),
         active_page=active_page,
         is_admin=get_is_admin(request),
         is_teacher=get_is_teacher(request),
-        unread_insights=unread_insights,
+        unread_insights=unread_insights + unread_notifications,
     )
 
 

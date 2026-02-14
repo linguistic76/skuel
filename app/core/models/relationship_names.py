@@ -281,6 +281,15 @@ class RelationshipName(str, Enum):
     ASSESSMENT_OF = (
         "ASSESSMENT_OF"  # (Report)-[:ASSESSMENT_OF]->(User) - Teacher assessment targets student
     )
+    FEEDBACK_FOR = (
+        "FEEDBACK_FOR"  # (Ku)-[:FEEDBACK_FOR]->(Ku) - Teacher feedback targets submission
+    )
+
+    # =========================================================================
+    # NOTIFICATION RELATIONSHIPS
+    # In-app notification delivery
+    # =========================================================================
+    HAS_NOTIFICATION = "HAS_NOTIFICATION"  # (User)-[:HAS_NOTIFICATION]->(Notification)
 
     # =========================================================================
     # AUTHENTICATION RELATIONSHIPS

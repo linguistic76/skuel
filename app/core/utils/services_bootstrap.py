@@ -150,6 +150,7 @@ if TYPE_CHECKING:
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
     )
+    from core.services.notifications.notification_service import NotificationService
     from core.services.user_progress_service import UserProgressService
     from core.services.user_relationship_service import UserRelationshipService
 
@@ -291,6 +292,9 @@ class Services:
     group_service: GroupOperations | None = None  # GroupService - CRUD + membership for groups
     teacher_review: TeacherReviewOperations | None = (
         None  # TeacherReviewService - review queue + feedback
+    )
+    notification_service: "NotificationService | None" = (
+        None  # NotificationService - in-app notifications
     )
 
     # System services
@@ -1603,6 +1607,12 @@ async def compose_services(
         )
         logger.info("✅ TeacherReviewService created (ADR-040)")
 
+        # Create notification service
+        from core.services.notifications.notification_service import NotificationService
+
+        notification_service = NotificationService(driver=driver)
+        logger.info("✅ NotificationService created")
+
         # Load default transcript instructions from file
         # This creates/updates a reusable project that users can edit by modifying the file
         default_instructions_path = "/home/mike/skuel/app/data/instructions - transcripts 0.md"
@@ -2043,6 +2053,28 @@ async def compose_services(
             "(automatic FULFILLS_PROJECT + SHARES_WITH creation)"
         )
 
+        # Subscribe to feedback events for student notifications
+        from core.events.handlers.feedback_notification_handler import (
+            handle_report_reviewed,
+            handle_revision_requested,
+        )
+        from core.events.report_events import ReportReviewed, ReportRevisionRequested
+
+        feedback_reviewed_handler = functools.partial(
+            handle_report_reviewed,
+            notification_service=notification_service,
+        )
+        revision_requested_handler = functools.partial(
+            handle_revision_requested,
+            notification_service=notification_service,
+        )
+        event_bus.subscribe(ReportReviewed, feedback_reviewed_handler)
+        event_bus.subscribe(ReportRevisionRequested, revision_requested_handler)
+        logger.info(
+            "✅ Feedback notification handlers subscribed to ReportReviewed + "
+            "ReportRevisionRequested (student notifications)"
+        )
+
         # Subscribe to learning events
         event_bus.subscribe(KnowledgeCreated, invalidate_context_on_learning_event)
         event_bus.subscribe(KnowledgeMastered, invalidate_context_on_learning_event)
@@ -2341,6 +2373,8 @@ async def compose_services(
             # Group & Teaching (ADR-040: Teacher assignment workflow)
             group_service=group_service,
             teacher_review=teacher_review_service,
+            # Notifications
+            notification_service=notification_service,
             # Note: audio_service removed (Dec 2025) - use transcription service directly
             # Reports (Phase 1 - File submission pipeline)
             reports=report_service,

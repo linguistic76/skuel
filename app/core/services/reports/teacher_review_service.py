@@ -8,7 +8,13 @@ Reuses SHARES_WITH infrastructure. When a student submits a Ku against
 an ASSIGNED KuProject, the Ku is auto-shared with the teacher.
 The teacher's review queue = Ku shared with them via role="teacher".
 
+When providing feedback or requesting revision, a FEEDBACK_REPORT Ku node
+is created and linked to the submission via FEEDBACK_FOR. This makes every
+feedback round a first-class graph entity — searchable, queryable, and
+supporting revision cycles.
+
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/architecture/SUBMISSION_FEEDBACK_LOOP.md
 """
 
 from datetime import datetime
@@ -18,9 +24,10 @@ from neo4j import Driver
 
 from core.events import publish_event
 from core.events.report_events import ReportReviewed, ReportRevisionRequested
-from core.models.enums.ku_enums import KuStatus
+from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger("skuel.services.teacher_review")
 
@@ -56,7 +63,8 @@ class TeacherReviewService:
         Get teacher's pending review queue.
 
         Returns Ku shared with the teacher via role="teacher",
-        optionally filtered by status or ku_type.
+        optionally filtered by status or ku_type. Includes count of
+        existing feedback rounds per submission.
 
         Args:
             teacher_uid: Teacher UID
@@ -84,6 +92,8 @@ class TeacherReviewService:
         {where_clause}
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
         OPTIONAL MATCH (ku)-[:FULFILLS_PROJECT]->(project:KuProject)
+        OPTIONAL MATCH (fb:Ku {{ku_type: 'feedback_report'}})-[:FEEDBACK_FOR]->(ku)
+        WITH ku, student, project, r, count(fb) as feedback_count
         RETURN ku.uid as ku_uid,
                ku.title as title,
                ku.status as status,
@@ -94,7 +104,8 @@ class TeacherReviewService:
                project.uid as project_uid,
                project.name as project_name,
                project.due_date as due_date,
-               r.shared_at as shared_at
+               r.shared_at as shared_at,
+               feedback_count
         ORDER BY ku.created_at DESC
         """
 
@@ -114,6 +125,7 @@ class TeacherReviewService:
                     "project_name": record["project_name"],
                     "due_date": record["due_date"],
                     "shared_at": record["shared_at"],
+                    "feedback_count": record["feedback_count"],
                 }
                 for record in records
             ]
@@ -124,6 +136,56 @@ class TeacherReviewService:
             logger.error(f"Error fetching review queue: {e}")
             return Result.fail(Errors.database("get_review_queue", str(e)))
 
+    async def get_feedback_history(
+        self,
+        submission_uid: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get all FEEDBACK_REPORT nodes linked to a submission via FEEDBACK_FOR.
+
+        Args:
+            submission_uid: The submission Ku UID
+
+        Returns:
+            Result containing list of feedback items ordered by creation date
+        """
+        query = """
+        MATCH (fb:Ku {ku_type: 'feedback_report'})-[:FEEDBACK_FOR]->(submission:Ku {uid: $submission_uid})
+        OPTIONAL MATCH (teacher:User)-[:OWNS]->(fb)
+        RETURN fb.uid as uid,
+               fb.title as title,
+               fb.content as content,
+               fb.status as status,
+               fb.created_at as created_at,
+               teacher.uid as teacher_uid,
+               teacher.name as teacher_name
+        ORDER BY fb.created_at ASC
+        """
+
+        try:
+            records, _, _ = await self.driver.execute_query(
+                query, submission_uid=submission_uid
+            )
+
+            items = [
+                {
+                    "uid": record["uid"],
+                    "title": record["title"],
+                    "content": record["content"],
+                    "status": record["status"],
+                    "created_at": record["created_at"],
+                    "teacher_uid": record["teacher_uid"],
+                    "teacher_name": record["teacher_name"],
+                }
+                for record in records
+            ]
+
+            return Result.ok(items)
+
+        except Exception as e:
+            logger.error(f"Error fetching feedback history: {e}")
+            return Result.fail(Errors.database("get_feedback_history", str(e)))
+
     async def submit_feedback(
         self,
         report_uid: str,
@@ -133,46 +195,90 @@ class TeacherReviewService:
         """
         Submit teacher feedback for a Ku.
 
-        Updates the Ku's feedback field and sets status to COMPLETED.
+        Creates a FEEDBACK_REPORT Ku node linked to the submission via FEEDBACK_FOR.
+        Also writes feedback to submission's feedback field (denormalized for quick access)
+        and sets submission status to COMPLETED.
 
         Args:
-            report_uid: Ku UID to provide feedback for
+            report_uid: Submission Ku UID to provide feedback for
             teacher_uid: Teacher providing feedback
             feedback: Feedback text
 
         Returns:
-            Result containing updated Ku info
+            Result containing feedback Ku info
         """
         access_check = await self._verify_teacher_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check.expect_error())
 
+        feedback_uid = UIDGenerator.generate_uid("ku")
+        now = datetime.now().isoformat()
+
+        # Create FEEDBACK_REPORT node, link via FEEDBACK_FOR, share with student,
+        # and update submission status — all in one transaction
         query = """
-        MATCH (ku:Ku {uid: $report_uid})
-        SET ku.feedback = $feedback,
-            ku.feedback_generated_at = datetime($now),
-            ku.status = $status,
-            ku.updated_at = datetime($now)
-        WITH ku
-        OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        RETURN ku.uid as uid, ku.status as status, student.uid as student_uid
+        MATCH (submission:Ku {uid: $report_uid})
+        OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
+
+        // Update submission with denormalized feedback
+        SET submission.feedback = $feedback,
+            submission.feedback_generated_at = datetime($now),
+            submission.status = $completed_status,
+            submission.updated_at = datetime($now)
+
+        // Create FEEDBACK_REPORT Ku node
+        CREATE (fb:Ku {
+            uid: $feedback_uid,
+            title: $title,
+            ku_type: $ku_type,
+            user_uid: $teacher_uid,
+            status: $completed_status,
+            processor_type: $processor_type,
+            content: $feedback,
+            created_by: $teacher_uid,
+            created_at: datetime($now),
+            updated_at: datetime($now)
+        })
+
+        // Teacher owns the feedback
+        WITH submission, student, fb
+        MATCH (teacher:User {uid: $teacher_uid})
+        CREATE (teacher)-[:OWNS]->(fb)
+        CREATE (fb)-[:FEEDBACK_FOR]->(submission)
+
+        // Share feedback with student (if student exists)
+        WITH submission, student, fb
+        WHERE student IS NOT NULL
+        CREATE (student)-[:SHARES_WITH {shared_at: datetime($now), role: 'student'}]->(fb)
+
+        RETURN submission.uid as uid,
+               submission.status as status,
+               student.uid as student_uid,
+               fb.uid as feedback_uid
         """
 
         try:
-            now = datetime.now().isoformat()
             records, _, _ = await self.driver.execute_query(
                 query,
                 report_uid=report_uid,
+                feedback_uid=feedback_uid,
+                teacher_uid=teacher_uid,
                 feedback=feedback,
+                title=f"Feedback: {report_uid[:30]}",
+                ku_type=KuType.FEEDBACK_REPORT.value,
+                completed_status=KuStatus.COMPLETED.value,
+                processor_type=ProcessorType.HUMAN.value,
                 now=now,
-                status=KuStatus.COMPLETED.value,
             )
 
             if not records:
                 return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
 
             student_uid = records[0]["student_uid"] or ""
-            logger.info(f"Teacher {teacher_uid} submitted feedback for Ku {report_uid}")
+            logger.info(
+                f"Teacher {teacher_uid} submitted feedback {feedback_uid} "
+                f"for Ku {report_uid}"
+            )
 
             await publish_event(
                 self.event_bus,
@@ -181,6 +287,7 @@ class TeacherReviewService:
                     teacher_uid=teacher_uid,
                     student_uid=student_uid,
                     occurred_at=datetime.now(),
+                    metadata={"feedback_uid": feedback_uid},
                 ),
                 logger,
             )
@@ -189,6 +296,7 @@ class TeacherReviewService:
                 {
                     "ku_uid": records[0]["uid"],
                     "status": records[0]["status"],
+                    "feedback_uid": feedback_uid,
                     "feedback_submitted": True,
                 }
             )
@@ -206,7 +314,8 @@ class TeacherReviewService:
         """
         Request revision for a student Ku.
 
-        Sets status to REVISION_REQUESTED and stores revision notes.
+        Creates a FEEDBACK_REPORT Ku node with revision notes, linked via FEEDBACK_FOR.
+        Sets submission status to REVISION_REQUESTED.
 
         Args:
             report_uid: Ku UID needing revision
@@ -214,38 +323,79 @@ class TeacherReviewService:
             notes: Revision notes/instructions
 
         Returns:
-            Result containing updated Ku info
+            Result containing feedback Ku info
         """
         access_check = await self._verify_teacher_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check.expect_error())
 
+        feedback_uid = UIDGenerator.generate_uid("ku")
+        now = datetime.now().isoformat()
+
         query = """
-        MATCH (ku:Ku {uid: $report_uid})
-        SET ku.feedback = $notes,
-            ku.feedback_generated_at = datetime($now),
-            ku.status = $status,
-            ku.updated_at = datetime($now)
-        WITH ku
-        OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        RETURN ku.uid as uid, ku.status as status, student.uid as student_uid
+        MATCH (submission:Ku {uid: $report_uid})
+        OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
+
+        // Update submission with revision status
+        SET submission.feedback = $notes,
+            submission.feedback_generated_at = datetime($now),
+            submission.status = $revision_status,
+            submission.updated_at = datetime($now)
+
+        // Create FEEDBACK_REPORT Ku node for revision request
+        CREATE (fb:Ku {
+            uid: $feedback_uid,
+            title: $title,
+            ku_type: $ku_type,
+            user_uid: $teacher_uid,
+            status: $completed_status,
+            processor_type: $processor_type,
+            content: $notes,
+            created_by: $teacher_uid,
+            created_at: datetime($now),
+            updated_at: datetime($now)
+        })
+
+        // Teacher owns the feedback
+        WITH submission, student, fb
+        MATCH (teacher:User {uid: $teacher_uid})
+        CREATE (teacher)-[:OWNS]->(fb)
+        CREATE (fb)-[:FEEDBACK_FOR]->(submission)
+
+        // Share feedback with student (if student exists)
+        WITH submission, student, fb
+        WHERE student IS NOT NULL
+        CREATE (student)-[:SHARES_WITH {shared_at: datetime($now), role: 'student'}]->(fb)
+
+        RETURN submission.uid as uid,
+               submission.status as status,
+               student.uid as student_uid,
+               fb.uid as feedback_uid
         """
 
         try:
-            now = datetime.now().isoformat()
             records, _, _ = await self.driver.execute_query(
                 query,
                 report_uid=report_uid,
+                feedback_uid=feedback_uid,
+                teacher_uid=teacher_uid,
                 notes=notes,
+                title=f"Revision request: {report_uid[:30]}",
+                ku_type=KuType.FEEDBACK_REPORT.value,
+                revision_status=KuStatus.REVISION_REQUESTED.value,
+                completed_status=KuStatus.COMPLETED.value,
+                processor_type=ProcessorType.HUMAN.value,
                 now=now,
-                status=KuStatus.REVISION_REQUESTED.value,
             )
 
             if not records:
                 return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
 
             student_uid = records[0]["student_uid"] or ""
-            logger.info(f"Teacher {teacher_uid} requested revision for Ku {report_uid}")
+            logger.info(
+                f"Teacher {teacher_uid} requested revision {feedback_uid} "
+                f"for Ku {report_uid}"
+            )
 
             await publish_event(
                 self.event_bus,
@@ -255,6 +405,7 @@ class TeacherReviewService:
                     student_uid=student_uid,
                     occurred_at=datetime.now(),
                     revision_notes=notes,
+                    metadata={"feedback_uid": feedback_uid},
                 ),
                 logger,
             )
@@ -263,6 +414,7 @@ class TeacherReviewService:
                 {
                     "ku_uid": records[0]["uid"],
                     "status": records[0]["status"],
+                    "feedback_uid": feedback_uid,
                     "revision_requested": True,
                 }
             )

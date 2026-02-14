@@ -780,6 +780,13 @@ async def _wire_all_routes(
         create_teaching_routes(app, rt, services)
         logger.info("✅ Teaching review routes registered (ADR-040)")
 
+    # Notifications routes
+    if services.notification_service:
+        from adapters.inbound.notifications_routes import create_notifications_routes
+
+        create_notifications_routes(app, rt, services)
+        logger.info("✅ Notifications routes registered")
+
     # GraphQL API routes (REQUIRED - fail-fast)
     # One Path Forward: GraphQL uses SearchRouter (January 2026)
     from adapters.inbound.graphql_routes import create_graphql_routes_manual
