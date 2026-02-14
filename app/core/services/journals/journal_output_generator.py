@@ -120,7 +120,7 @@ class JournalOutputGenerator:
     async def _call_formatter(self, prompt: str, mode_name: str) -> Result[str]:
         """Call OpenAI to format content using mode-specific prompt."""
         try:
-            response = await self.openai_service.complete(
+            response = await self.openai_service.generate_completion(
                 prompt=prompt,
                 temperature=0.5,  # Moderate creativity for formatting
                 max_tokens=2000,  # Longer output for formatted content

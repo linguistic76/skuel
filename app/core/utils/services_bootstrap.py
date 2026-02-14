@@ -1709,7 +1709,7 @@ async def compose_services(
         logger.info(f"✅ Journal output generator created (storage: {journal_storage})")
 
         report_processor = KuProcessingService(
-            report_service=report_service,
+            ku_submission_service=report_service,
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
             transcript_processor=transcript_processor,  # For LLM formatting
             activity_extractor=activity_extractor,  # DSL entity extraction
@@ -1719,7 +1719,7 @@ async def compose_services(
         )
 
         # Create Ku search service (unified query interface)
-        reports_query_service = KuSearchService(report_backend=reports_backend, event_bus=event_bus)
+        reports_query_service = KuSearchService(ku_backend=reports_backend, event_bus=event_bus)
 
         logger.info("✅ Ku submission and processing pipeline services created (unified model)")
         logger.info("✅ Ku core service created (content management: categories, tags, bulk ops)")
@@ -1737,7 +1737,7 @@ async def compose_services(
 
         progress_generator = ProgressKuGenerator(
             driver=driver,
-            reports_backend=reports_backend,
+            ku_backend=reports_backend,
             user_service=core_services["user"],
             insight_store=insight_store,
             event_bus=event_bus,

@@ -174,7 +174,7 @@ class KuContentOperations(Protocol):
         source_file: str | None = None,
         transcription_uid: str | None = None,
     ) -> Result[Any]:
-        """Create a journal-type Ku (ASSIGNMENT with journal processing). Returns Result[Ku]."""
+        """Create a journal-type Ku (JOURNAL with journal processing). Returns Result[Ku]."""
         ...
 
     async def search(

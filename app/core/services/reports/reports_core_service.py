@@ -832,9 +832,9 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         transcription_uid: str | None = None,
     ) -> Result[Ku]:
         """
-        Create a journal-type Ku (ASSIGNMENT with journal metadata).
+        Create a journal-type Ku (JOURNAL with journal metadata).
 
-        Journals are Ku entities with ku_type=ASSIGNMENT and journal-specific
+        Journals are Ku entities with ku_type=JOURNAL and journal-specific
         fields stored in metadata. This method handles journal-specific
         creation logic including FIFO cleanup for VOICE journals.
 
@@ -891,7 +891,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         journal = Ku(
             uid=uid,
             title=title,
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.JOURNAL,
             user_uid=user_uid,
             status=KuStatus.DRAFT,
             content=content,
@@ -931,7 +931,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
-            ku_type=KuType.ASSIGNMENT.value,
+            ku_type=KuType.JOURNAL.value,
         )
 
         if result.is_error:
@@ -979,7 +979,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
-            ku_type=KuType.ASSIGNMENT.value,
+            ku_type=KuType.JOURNAL.value,
         )
 
         if result.is_error:
@@ -1176,7 +1176,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
 
         result = await self.backend.find_by(
             user_uid=user_uid,
-            ku_type=KuType.ASSIGNMENT.value,
+            ku_type=KuType.JOURNAL.value,
         )
 
         if result.is_error:
@@ -1374,7 +1374,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         Pipeline:
         1. Try AI processing via TranscriptProcessorService (if available)
         2. Fall back to raw transcript if AI fails
-        3. Create Ku with ku_type=ASSIGNMENT and journal metadata via create_journal_ku()
+        3. Create Ku with ku_type=JOURNAL and journal metadata via create_journal_ku()
         4. Triggers FIFO cleanup for VOICE journals
 
         Args:

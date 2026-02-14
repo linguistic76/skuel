@@ -130,7 +130,7 @@ class TeacherReviewService:
         """
         access_check = await self._verify_teacher_access(ku_uid, teacher_uid)
         if access_check.is_error:
-            return access_check
+            return Result.fail(access_check.expect_error())
 
         query = """
         MATCH (ku:Ku {uid: $ku_uid})
@@ -187,7 +187,7 @@ class TeacherReviewService:
         """
         access_check = await self._verify_teacher_access(ku_uid, teacher_uid)
         if access_check.is_error:
-            return access_check
+            return Result.fail(access_check.expect_error())
 
         query = """
         MATCH (ku:Ku {uid: $ku_uid})
@@ -242,7 +242,7 @@ class TeacherReviewService:
         """
         access_check = await self._verify_teacher_access(ku_uid, teacher_uid)
         if access_check.is_error:
-            return access_check
+            return Result.fail(access_check.expect_error())
 
         query = """
         MATCH (ku:Ku {uid: $ku_uid})

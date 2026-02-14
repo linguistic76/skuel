@@ -10,6 +10,7 @@ appropriate formatting and extraction strategies.
 
 import json
 from pathlib import Path
+from typing import Any
 
 from core.services.ai_service import OpenAIService
 from core.services.journals.journal_types import JournalWeights
@@ -157,7 +158,7 @@ class JournalModeClassifier:
                 )
             )
 
-    def get_threshold_from_instructions(self, instructions: dict[str, any] | None) -> float:
+    def get_threshold_from_instructions(self, instructions: dict[str, Any] | None) -> float:
         """
         Extract processing threshold from ReportProject instructions.
 

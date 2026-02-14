@@ -8,6 +8,7 @@ See: ACTIVITY_EXTRACTION_ENABLED.md for architecture overview.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from core.models.enums.ku_enums import JournalMode
 
@@ -63,7 +64,7 @@ class JournalWeights:
         """Check if exploration weight exceeds threshold for question organization."""
         return self.exploration > threshold
 
-    def to_dict(self) -> dict[str, float]:
+    def to_dict(self) -> dict[str, float | str]:
         """Convert to dictionary for JSON serialization."""
         return {
             "activity": self.activity,
@@ -116,7 +117,7 @@ class JournalProcessingResult:
     activities_extracted: int = 0  # Count if activity mode triggered
     extraction_errors: list[str] | None = None
 
-    def to_dict(self) -> dict[str, any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for metadata storage."""
         return {
             "report_uid": self.report_uid,

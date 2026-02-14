@@ -8,7 +8,10 @@ Core enums for entity type discrimination and domain classification.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Union
+from typing import TYPE_CHECKING, Union
+
+if TYPE_CHECKING:
+    from .ku_enums import KuType
 
 
 class Domain(str, Enum):

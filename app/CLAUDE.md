@@ -218,6 +218,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 - `ContentScope.SHARED` + `require_role=UserRole.ADMIN` - admin creates, all users read
 - `_user_ownership_relationship = None` - no ownership verification needed
 - KU (point), LS (edge), LP (path) - three grouping patterns
+- **Resource** (KuType.RESOURCE) — books, talks, films, music. Admin-only shared content, feeds Askesis recommendations
 - Core + search services extend `BaseService`
 - **Admin-only creation** - regular users consume curriculum, admins build it
 - **Detail pages:** `/ku/{uid}`, `/ls/{uid}`, `/lp/{uid}` routes with lateral relationships (Phase 5, placeholder data)
@@ -357,10 +358,10 @@ Does the domain have 3+ business logic methods?
 
 | Pattern | Files | Tiers | Use For | Domains |
 |---------|-------|-------|---------|---------|
-| **Unified Ku** | 1 model + 1 DTO | Pydantic→DTO→Ku | All 14 KuType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, LifePath (11 domains) |
+| **Unified Ku** | 1 model + 1 DTO | Pydantic→DTO→Ku | All 16 KuType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, Resource, LS, LP, Journal, Reports, LifePath (11 domains) |
 | **B: Two-Tier** | 2 | Pydantic→DTO | Simple CRUD, minimal logic | Finance (1 domain) |
 
-**Unified Ku Model (ADR-041):** All 14 KuType domains share `Ku` (frozen dataclass) + `KuDTO` (mutable DTO). Domain-specific Pydantic request models (`*_request.py`) remain in domain packages for API validation. `KuStatus` is THE status enum — `ActivityStatus` and `GoalStatus` are deleted.
+**Unified Ku Model (ADR-041):** All 16 KuType domains share `Ku` (frozen dataclass) + `KuDTO` (mutable DTO). Domain-specific Pydantic request models (`*_request.py`) remain in domain packages for API validation. `KuStatus` is THE status enum — `ActivityStatus` and `GoalStatus` are deleted.
 
 Key: Frozen dataclasses with `__post_init__` for dynamic defaults, `DomainModelProtocol` for generics.
 
@@ -464,11 +465,11 @@ GraphDepth.DEFAULT                        # Named constants
 **Core Principle:** "Clear domain language -> clear types -> enforceable contracts"
 
 ```python
-# KuType — 14 knowledge-unit domain types (all :Ku nodes in Neo4j)
+# KuType — 16 knowledge-unit domain types (all :Ku nodes in Neo4j)
 class KuType(str, Enum):
     TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE = ...  # Activity
-    CURRICULUM, MOC, LEARNING_STEP, LEARNING_PATH = ...  # Curriculum
-    ASSIGNMENT, AI_REPORT, FEEDBACK_REPORT = ...  # Reports
+    CURRICULUM, RESOURCE, MOC, LEARNING_STEP, LEARNING_PATH = ...  # Curriculum
+    JOURNAL, ASSIGNMENT, AI_REPORT, FEEDBACK_REPORT = ...  # Reports
     LIFE_PATH = "life_path"  # Destination
 
 # NonKuDomain — 4 non-Ku domains

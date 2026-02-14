@@ -727,7 +727,7 @@ def create_journals_ui_routes(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
-                ku_type=KuType.ASSIGNMENT,
+                ku_type=KuType.JOURNAL,
                 processor_type=ProcessorType.LLM,
                 metadata={"identifier": identifier, "project_uid": resolved_project_uid},
             )

@@ -5,7 +5,7 @@ Ku Enums - Unified Knowledge Unit Identity and Processing
 Enums for the unified Ku model where "Ku is the heartbeat of SKUEL."
 
 Organized in 13 sections:
-1. Core Identity: KuType (14 values — role and domain manifestation)
+1. Core Identity: KuType (16 values — role and domain manifestation)
 2. Processing Lifecycle: KuStatus (14 values — type-aware transitions), ProcessorType
 3. Project/Assignment: ProjectScope (teacher assignment workflow)
 4. Journal Processing: JournalType, JournalCategory, JournalMode
@@ -33,22 +33,24 @@ from enum import Enum
 
 class KuType(str, Enum):
     """
-    Type of Knowledge Unit — 14 manifestations of knowledge in SKUEL.
+    Type of Knowledge Unit — 16 manifestations of knowledge in SKUEL.
 
     "Everything is a Ku" — a task is knowledge about what needs doing,
     a principle is knowledge about what you believe, a goal is knowledge
     about where you're heading.
 
-    Four groups:
+    Five groups:
         Knowledge (shared curriculum):
             CURRICULUM      → Admin-created shared knowledge
+            RESOURCE        → Books, talks, films, music (admin-only)
             MOC             → Map of Content (KU organizing KUs)
         Curriculum Structure:
             LEARNING_STEP   → Step in a learning path
             LEARNING_PATH   → Ordered sequence of steps
         Content Processing:
-            ASSIGNMENT      → Student submission (user-owned)
-            AI_REPORT       → AI-derived from assignment
+            JOURNAL         → Raw student submission (voice/text, informal)
+            ASSIGNMENT      → System-driven KU-associated work
+            AI_REPORT       → AI-derived from assignment/journal
             FEEDBACK_REPORT → Teacher feedback on assignment
         Activity (user-owned):
             TASK            → Knowledge about what needs doing
@@ -70,6 +72,7 @@ class KuType(str, Enum):
 
     # Knowledge (shared curriculum)
     CURRICULUM = "curriculum"
+    RESOURCE = "resource"
     MOC = "moc"
 
     # Curriculum structure
@@ -77,6 +80,7 @@ class KuType(str, Enum):
     LEARNING_PATH = "learning_path"
 
     # Content processing (derivation chain)
+    JOURNAL = "journal"
     ASSIGNMENT = "assignment"
     AI_REPORT = "ai_report"
     FEEDBACK_REPORT = "feedback_report"
@@ -142,11 +146,11 @@ class KuType(str, Enum):
 
     def is_derived(self) -> bool:
         """Check if this KuType is derived from another Ku (has parent)."""
-        return self in {KuType.ASSIGNMENT, KuType.AI_REPORT, KuType.FEEDBACK_REPORT}
+        return self in {KuType.JOURNAL, KuType.ASSIGNMENT, KuType.AI_REPORT, KuType.FEEDBACK_REPORT}
 
     def is_processable(self) -> bool:
         """Check if this KuType goes through a processing pipeline."""
-        return self in {KuType.ASSIGNMENT, KuType.AI_REPORT}
+        return self in {KuType.JOURNAL, KuType.ASSIGNMENT, KuType.AI_REPORT}
 
     # -------------------------------------------------------------------------
     # Status validation
@@ -183,9 +187,11 @@ class KuType(str, Enum):
 # KuType lookup tables (module-level for performance)
 _KU_TYPE_DISPLAY_NAMES: dict[KuType, str] = {
     KuType.CURRICULUM: "Curriculum",
+    KuType.RESOURCE: "Resource",
     KuType.MOC: "Map of Content",
     KuType.LEARNING_STEP: "Learning Step",
     KuType.LEARNING_PATH: "Learning Path",
+    KuType.JOURNAL: "Journal",
     KuType.ASSIGNMENT: "Assignment",
     KuType.AI_REPORT: "AI Report",
     KuType.FEEDBACK_REPORT: "Feedback Report",
@@ -198,9 +204,11 @@ _KU_TYPE_DISPLAY_NAMES: dict[KuType, str] = {
     KuType.LIFE_PATH: "Life Path",
 }
 
-_KNOWLEDGE_TYPES = frozenset({KuType.CURRICULUM, KuType.MOC})
+_KNOWLEDGE_TYPES = frozenset({KuType.CURRICULUM, KuType.RESOURCE, KuType.MOC})
 _CURRICULUM_STRUCTURE_TYPES = frozenset({KuType.LEARNING_STEP, KuType.LEARNING_PATH})
-_CONTENT_PROCESSING_TYPES = frozenset({KuType.ASSIGNMENT, KuType.AI_REPORT, KuType.FEEDBACK_REPORT})
+_CONTENT_PROCESSING_TYPES = frozenset(
+    {KuType.JOURNAL, KuType.ASSIGNMENT, KuType.AI_REPORT, KuType.FEEDBACK_REPORT}
+)
 _ACTIVITY_TYPES = frozenset(
     {
         KuType.TASK,
@@ -214,6 +222,7 @@ _ACTIVITY_TYPES = frozenset(
 _SHARED_TYPES = frozenset(
     {
         KuType.CURRICULUM,
+        KuType.RESOURCE,
         KuType.MOC,
         KuType.LEARNING_STEP,
         KuType.LEARNING_PATH,
@@ -223,9 +232,11 @@ _SHARED_TYPES = frozenset(
 _KU_TYPE_ALIASES: dict[str, KuType] = {
     # Canonical values
     "curriculum": KuType.CURRICULUM,
+    "resource": KuType.RESOURCE,
     "moc": KuType.MOC,
     "learning_step": KuType.LEARNING_STEP,
     "learning_path": KuType.LEARNING_PATH,
+    "journal": KuType.JOURNAL,
     "assignment": KuType.ASSIGNMENT,
     "ai_report": KuType.AI_REPORT,
     "feedback_report": KuType.FEEDBACK_REPORT,
@@ -239,12 +250,15 @@ _KU_TYPE_ALIASES: dict[str, KuType] = {
     # Aliases
     "knowledge": KuType.CURRICULUM,
     "ku": KuType.CURRICULUM,
+    "book": KuType.RESOURCE,
+    "film": KuType.RESOURCE,
+    "talk": KuType.RESOURCE,
     "map_of_content": KuType.MOC,
     "ls": KuType.LEARNING_STEP,
     "step": KuType.LEARNING_STEP,
     "lp": KuType.LEARNING_PATH,
     "path": KuType.LEARNING_PATH,
-    "report": KuType.ASSIGNMENT,
+    "report": KuType.AI_REPORT,
     "submission": KuType.ASSIGNMENT,
     "feedback": KuType.FEEDBACK_REPORT,
     "lifepath": KuType.LIFE_PATH,
@@ -516,6 +530,13 @@ _VALID_STATUSES_BY_TYPE: dict[KuType, frozenset[KuStatus]] = {
             KuStatus.ARCHIVED,
         }
     ),
+    KuType.RESOURCE: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.COMPLETED,
+            KuStatus.ARCHIVED,
+        }
+    ),
     KuType.MOC: frozenset(
         {
             KuStatus.DRAFT,
@@ -536,6 +557,18 @@ _VALID_STATUSES_BY_TYPE: dict[KuType, frozenset[KuStatus]] = {
             KuStatus.DRAFT,
             KuStatus.ACTIVE,
             KuStatus.COMPLETED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.JOURNAL: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.SUBMITTED,
+            KuStatus.QUEUED,
+            KuStatus.PROCESSING,
+            KuStatus.COMPLETED,
+            KuStatus.FAILED,
+            KuStatus.REVISION_REQUESTED,
             KuStatus.ARCHIVED,
         }
     ),
@@ -633,9 +666,11 @@ _VALID_STATUSES_BY_TYPE: dict[KuType, frozenset[KuStatus]] = {
 
 _DEFAULT_STATUS_BY_TYPE: dict[KuType, KuStatus] = {
     KuType.CURRICULUM: KuStatus.COMPLETED,
+    KuType.RESOURCE: KuStatus.COMPLETED,
     KuType.MOC: KuStatus.COMPLETED,
     KuType.LEARNING_STEP: KuStatus.DRAFT,
     KuType.LEARNING_PATH: KuStatus.DRAFT,
+    KuType.JOURNAL: KuStatus.DRAFT,
     KuType.ASSIGNMENT: KuStatus.DRAFT,
     KuType.AI_REPORT: KuStatus.DRAFT,
     KuType.FEEDBACK_REPORT: KuStatus.DRAFT,
