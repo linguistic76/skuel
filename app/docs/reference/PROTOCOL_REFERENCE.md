@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-02-08
+updated: 2026-02-15
 status: current
 category: reference
 tags: [protocol, reference]
@@ -566,7 +566,7 @@ Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
 | `GroupOperations` | `group_service` | 9 (create, get, list_teacher, list_user, update, delete, add/remove member, get_members) | `groups_api.py` |
-| `TeacherReviewOperations` | `teacher_review` | 4 (get_review_queue, submit_feedback, request_revision, approve_report) | `teaching_api.py` |
+| `TeacherReviewOperations` | `teacher_review` | 5 (get_review_queue, get_feedback_history, submit_feedback, request_revision, approve_report) | `teaching_api.py` |
 
 ### Cross-Cutting Service Protocols (9)
 
