@@ -388,11 +388,11 @@ class TaskDTO:
     title: str
     due_date: date | None
     priority: Priority
-    status: ActivityStatus
+    status: KuStatus
 
     def complete(self) -> None:
         """Mutate status."""
-        self.status = ActivityStatus.COMPLETED
+        self.status = KuStatus.COMPLETED
 
 # Tier 3: Domain (frozen, business logic)
 @dataclass(frozen=True)
@@ -401,7 +401,7 @@ class Task:
     title: str
     due_date: date | None
     priority: Priority
-    status: ActivityStatus
+    status: KuStatus
 
     def is_overdue(self) -> bool:
         """Business logic."""

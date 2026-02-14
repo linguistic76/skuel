@@ -32,7 +32,7 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.ku.ku import Ku
-from core.models.enums.ku_enums import GoalStatus, GoalType, MeasurementType, PrincipleCategory
+from core.models.enums.ku_enums import KuStatus, GoalType, MeasurementType, PrincipleCategory
 from core.models.ku.ku import Ku as Habit
 from core.models.enums.ku_enums import KuStatus as HabitStatus
 from core.services.goals.goals_recommendation_service import GoalsRecommendationService
@@ -65,7 +65,9 @@ class TestGoalRecommendationsFlow:
     @pytest_asyncio.fixture
     async def principle_backend(self, neo4j_driver, clean_neo4j):
         """Create Principle backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku, default_filters={"ku_type": "principle"})
+        return UniversalNeo4jBackend[Ku](
+            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "principle"}
+        )
 
     @pytest_asyncio.fixture
     async def recommendation_service(self, event_bus, neo4j_driver):
@@ -161,7 +163,7 @@ class TestGoalRecommendationsFlow:
             progress_percentage=100.0,
             current_value=100.0,
             target_value=100.0,
-            status=GoalStatus.ACHIEVED,
+            status=KuStatus.COMPLETED,
             target_date=date(2025, 12, 31),
         )
         result = await goal_backend.create(goal)
@@ -507,7 +509,7 @@ class TestGoalRecommendationsFlow:
             progress_percentage=100.0,
             current_value=100.0,
             target_value=100.0,
-            status=GoalStatus.ACHIEVED,
+            status=KuStatus.COMPLETED,
             target_date=date(2025, 12, 31),
         )
         result = await goal_backend.create(goal)

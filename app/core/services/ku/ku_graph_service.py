@@ -1686,7 +1686,7 @@ class KuGraphService:
         Args:
             ku_uid: Knowledge unit UID
             user_uid: User UID to filter goals
-            status_filter: Optional status filter (e.g., "active", "achieved")
+            status_filter: Optional status filter (e.g., "active", "completed")
 
         Returns:
             Result containing list of goal UIDs

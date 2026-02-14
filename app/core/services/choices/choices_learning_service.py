@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import ActivityStatus, Domain, Priority
+from core.models.enums import KuStatus, Domain, Priority
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuChoiceCreateRequest
@@ -66,7 +66,7 @@ class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
         model_class=Ku,
         domain_name="choices",
         date_field="decision_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     def __init__(self, backend: "BackendOperations[Ku]") -> None:

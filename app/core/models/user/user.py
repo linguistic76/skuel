@@ -425,7 +425,7 @@ class UserStatistics:
             return stats
 
         # Count by type
-        from core.models.enums import ActivityStatus, ActivityType
+        from core.models.enums import KuStatus, ActivityType
 
         for progress in progress_records:
             if progress.entity_type == ActivityType.TASK:
@@ -434,7 +434,7 @@ class UserStatistics:
                     stats.completed_tasks += 1
             elif progress.entity_type == ActivityType.HABIT:
                 stats.total_habits += 1
-                if progress.status == ActivityStatus.IN_PROGRESS:
+                if progress.status == KuStatus.ACTIVE:
                     stats.active_habits += 1
             elif progress.entity_type == ActivityType.LEARNING:
                 stats.total_learning_sessions += 1

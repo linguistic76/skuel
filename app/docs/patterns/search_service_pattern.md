@@ -231,7 +231,7 @@ All 6 Activity domain search services implement `intelligent_search()` for **NLP
 
 ### How It Works
 
-1. **Query Parsing**: Uses `SearchQueryParser` to extract Priority, ActivityStatus, and Domain from the query
+1. **Query Parsing**: Uses `SearchQueryParser` to extract Priority, KuStatus, and Domain from the query
 2. **Domain-Specific Keywords**: Each service recognizes keywords specific to its domain
 3. **Filter Building**: Extracted keywords become filters for the backend query
 4. **Fallback**: If no filters extracted, falls back to text search
@@ -271,7 +271,7 @@ The `ParsedSearchQuery` contains:
 - `raw_query`: Original query string
 - `text_query`: Query with filter keywords removed
 - `priorities`: List of extracted Priority enums
-- `statuses`: List of extracted ActivityStatus enums
+- `statuses`: List of extracted KuStatus enums
 - `domains`: List of extracted Domain enums
 - `to_filter_summary()`: Human-readable summary of filters
 

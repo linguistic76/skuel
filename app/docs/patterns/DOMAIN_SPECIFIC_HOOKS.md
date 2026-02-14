@@ -321,7 +321,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     def _validate_update(self, current: Task, updates: dict) -> Result[None] | None:
         """Validate task updates."""
         # Business rule: Cannot modify completed tasks
-        if current.status == ActivityStatus.COMPLETED:
+        if current.status == KuStatus.COMPLETED:
             return Result.fail(
                 Errors.validation(
                     message="Cannot modify completed tasks",

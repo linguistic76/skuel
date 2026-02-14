@@ -14,7 +14,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
-from core.models.enums import ActivityStatus, Priority, RecurrencePattern
+from core.models.enums import KuStatus, Priority, RecurrencePattern
 from core.models.request_base import (
     CreateRequestBase,
     FilterRequestBase,
@@ -42,7 +42,7 @@ class TaskCreateRequest(CreateRequestBase):
 
     # Priority and status
     priority: Priority = Field(default=Priority.MEDIUM, description="Task priority")
-    status: ActivityStatus = Field(default=ActivityStatus.DRAFT, description="Initial status")
+    status: KuStatus = Field(default=KuStatus.DRAFT, description="Initial status")
 
     # Organization
     project: str | None = Field(None, description="Associated project")
@@ -103,7 +103,7 @@ class TaskUpdateRequest(UpdateRequestBase):
     scheduled_date: date | None = None  # type: ignore[assignment]
     duration_minutes: int | None = Field(None, ge=5, le=480)
     priority: Priority | None = None
-    status: ActivityStatus | None = None
+    status: KuStatus | None = None
     project: str | None = None
     assignee: str | None = None
     tags: list[str] | None = None
@@ -141,7 +141,7 @@ class TaskResponse(ResponseBase):
     actual_minutes: int | None
 
     # Status and priority
-    status: ActivityStatus
+    status: KuStatus
     priority: Priority
 
     # Organization
@@ -186,10 +186,11 @@ class TaskResponse(ResponseBase):
     learning_alignment_score: float
     impact_score: float
 
+
 class TaskFilterRequest(FilterRequestBase):
     """Request model for filtering tasks."""
 
-    status: ActivityStatus | None = None
+    status: KuStatus | None = None
     priority: Priority | None = None
     project: str | None = None
     tags: list[str] | None = None
@@ -214,7 +215,7 @@ class TaskAssignmentRequest(RequestBase):
 class TaskStatusUpdateRequest(RequestBase):
     """Request model for updating task status."""
 
-    status: ActivityStatus = Field(description="New task status")
+    status: KuStatus = Field(description="New task status")
     notes: str | None = Field(None, description="Status change notes")
     completion_date: date | None = Field(None, description="Completion date if marking complete")
     actual_minutes: int | None = Field(None, ge=0, description="Actual time spent")
@@ -223,7 +224,7 @@ class TaskStatusUpdateRequest(RequestBase):
     @classmethod
     def validate_completion_date(cls, v, info: ValidationInfo) -> Any:
         """Ensure completion date is provided when status is COMPLETED."""
-        if info.data.get("status") == ActivityStatus.COMPLETED and not v:
+        if info.data.get("status") == KuStatus.COMPLETED and not v:
             v = date.today()  # Default to today if not provided
         return v
 

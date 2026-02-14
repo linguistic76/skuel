@@ -1016,12 +1016,14 @@ async def compose_services(
         # "The plant (models) grows on the lattice (UniversalNeo4jBackend)"
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.askesis.askesis import Askesis
+
         # NOTE: Choice import REMOVED (February 2026) - Choice merged into Ku
         # Choice entities are now Ku nodes with ku_type="choice"
         # NOTE: Event import REMOVED (February 2026) - Event merged into Ku
         # Event entities are now Ku nodes with ku_type="event"
         from core.models.finance.finance_pure import ExpensePure
         from core.models.finance.invoice import InvoicePure
+
         # NOTE: Goal import REMOVED (February 2026) - Goal merged into Ku
         # Goal entities are now Ku nodes with ku_type="goal"
         from core.models.habit.completion import HabitCompletion
@@ -1038,15 +1040,24 @@ async def compose_services(
         # Labels use NeoLabel enum for type-safety and codebase self-awareness
         # Phase 2 (January 2026): Pass prometheus_metrics for database instrumentation
         tasks_backend = UniversalNeo4jBackend[Ku](
-            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics,
+            driver,
+            NeoLabel.KU,
+            Ku,
+            prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "task"},
         )
         events_backend = UniversalNeo4jBackend[Ku](
-            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics,
+            driver,
+            NeoLabel.KU,
+            Ku,
+            prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "event"},
         )
         habits_backend = UniversalNeo4jBackend[Ku](
-            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics,
+            driver,
+            NeoLabel.KU,
+            Ku,
+            prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "habit"},
         )
         habit_completions_backend = UniversalNeo4jBackend[HabitCompletion](
@@ -1084,7 +1095,10 @@ async def compose_services(
             driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics
         )
         principle_backend = UniversalNeo4jBackend[Ku](
-            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics,
+            driver,
+            NeoLabel.KU,
+            Ku,
+            prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "principle"},
         )
         reflection_backend = UniversalNeo4jBackend[PrincipleReflection](
@@ -1095,7 +1109,10 @@ async def compose_services(
         )
         # February 2026: Unified Ku model — choice_backend uses :Ku label with ku_type filter
         choice_backend = UniversalNeo4jBackend[Ku](
-            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics,
+            driver,
+            NeoLabel.KU,
+            Ku,
+            prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "choice"},
         )
         progress_backend = UniversalNeo4jBackend[UserProgress](
@@ -1702,17 +1719,11 @@ async def compose_services(
         )
 
         # Create Ku search service (unified query interface)
-        reports_query_service = KuSearchService(
-            report_backend=reports_backend, event_bus=event_bus
-        )
+        reports_query_service = KuSearchService(report_backend=reports_backend, event_bus=event_bus)
 
         logger.info("✅ Ku submission and processing pipeline services created (unified model)")
-        logger.info(
-            "✅ Ku core service created (content management: categories, tags, bulk ops)"
-        )
-        logger.info(
-            "✅ Ku search service created (unified query interface for all Ku types)"
-        )
+        logger.info("✅ Ku core service created (content management: categories, tags, bulk ops)")
+        logger.info("✅ Ku search service created (unified query interface for all Ku types)")
 
         # Create progress Ku generator and schedule service (February 2026: Unified Ku model)
         from core.models.ku.ku_schedule import KuSchedule

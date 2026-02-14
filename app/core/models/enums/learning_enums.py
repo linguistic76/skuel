@@ -9,7 +9,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .activity_enums import ActivityStatus
+    from .activity_enums import KuStatus
 
 
 class KuComplexity(str, Enum):
@@ -167,26 +167,26 @@ class MasteryStatus(str, Enum):
 class KnowledgeStatus(str, Enum):
     """
     Domain-specific status for knowledge units.
-    Maps to ActivityStatus where applicable for consistency.
+    Maps to KuStatus where applicable for consistency.
     """
 
-    DRAFT = "draft"  # Maps to ActivityStatus.DRAFT
+    DRAFT = "draft"  # Maps to KuStatus.DRAFT
     PUBLISHED = "published"  # Knowledge-specific (maps to COMPLETED)
-    ARCHIVED = "archived"  # Maps to ActivityStatus.ARCHIVED
+    ARCHIVED = "archived"  # Maps to KuStatus.ARCHIVED
     UNDER_REVIEW = "under_review"  # Knowledge-specific (maps to IN_PROGRESS)
 
-    def to_activity_status(self) -> "ActivityStatus":
+    def to_activity_status(self) -> "KuStatus":
         """Convert to base activity status when needed for cross-domain operations"""
         # Import here to avoid circular dependency
-        from .activity_enums import ActivityStatus
+        from .activity_enums import KuStatus
 
         mapping = {
-            KnowledgeStatus.DRAFT: ActivityStatus.DRAFT,
-            KnowledgeStatus.PUBLISHED: ActivityStatus.COMPLETED,
-            KnowledgeStatus.ARCHIVED: ActivityStatus.ARCHIVED,
-            KnowledgeStatus.UNDER_REVIEW: ActivityStatus.IN_PROGRESS,
+            KnowledgeStatus.DRAFT: KuStatus.DRAFT,
+            KnowledgeStatus.PUBLISHED: KuStatus.COMPLETED,
+            KnowledgeStatus.ARCHIVED: KuStatus.ARCHIVED,
+            KnowledgeStatus.UNDER_REVIEW: KuStatus.ACTIVE,
         }
-        return mapping.get(self, ActivityStatus.DRAFT)
+        return mapping.get(self, KuStatus.DRAFT)
 
 
 class ContentType(str, Enum):

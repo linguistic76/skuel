@@ -267,12 +267,12 @@ def test_compute_task_stats_empty_list():
 def test_apply_task_filters_status():
     """Filter by status should work."""
     tasks = [
-        Mock(status=ActivityStatus.COMPLETED),
-        Mock(status=ActivityStatus.IN_PROGRESS),
+        Mock(status=KuStatus.COMPLETED),
+        Mock(status=KuStatus.ACTIVE),
     ]
     filtered = apply_task_filters(tasks, status_filter="active")
     assert len(filtered) == 1
-    assert filtered[0].status == ActivityStatus.IN_PROGRESS
+    assert filtered[0].status == KuStatus.ACTIVE
 
 def test_apply_task_sort_by_priority():
     """Sort by priority should order correctly."""

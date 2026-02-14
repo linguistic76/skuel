@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
-from core.models.enums import ActivityStatus, Priority, RecurrencePattern
+from core.models.enums import KuStatus, Priority, RecurrencePattern
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.goals.goal_relationships import GoalRelationships
@@ -347,7 +347,7 @@ class GoalTaskGenerator:
 
             # Block task if prerequisites not met
             if not prereqs_met:
-                task.status = ActivityStatus.BLOCKED
+                task.status = KuStatus.BLOCKED
                 task.metadata["blocked_reason"] = "Prerequisites not met"
 
             tasks.append(task)
@@ -394,9 +394,7 @@ class GoalTaskGenerator:
 
         return tasks
 
-    async def _generate_checkin_tasks(
-        self, goal: Ku, _user_context: UserContext
-    ) -> list[TaskDTO]:
+    async def _generate_checkin_tasks(self, goal: Ku, _user_context: UserContext) -> list[TaskDTO]:
         """Generate periodic check-in tasks for goal progress."""
         tasks = []
 

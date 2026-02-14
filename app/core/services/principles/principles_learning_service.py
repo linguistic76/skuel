@@ -19,7 +19,7 @@ Version: 1.0.0
 from operator import itemgetter
 from typing import Any
 
-from core.models.enums import ActivityStatus, Domain
+from core.models.enums import KuStatus, Domain
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuPrincipleCreateRequest
@@ -39,9 +39,7 @@ logger = get_logger(__name__)
 # ========================================================================
 
 
-def _calculate_virtue_embodiment_score(
-    principle: Ku, learning_position: LpPosition
-) -> float:
+def _calculate_virtue_embodiment_score(principle: Ku, learning_position: LpPosition) -> float:
     """
     Custom scorer for principle virtue embodiment.
 
@@ -85,9 +83,7 @@ def _calculate_virtue_embodiment_score(
     return avg_progress * 0.7
 
 
-def _calculate_embodiment_data(
-    principle: Ku, learning_position: LpPosition
-) -> dict[str, Any]:
+def _calculate_embodiment_data(principle: Ku, learning_position: LpPosition) -> dict[str, Any]:
     """
     Calculate character development embodiment data.
 
@@ -148,7 +144,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Ku]):
         model_class=Ku,
         domain_name="principles",
         date_field="created_at",
-        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+        completed_statuses=(KuStatus.ARCHIVED.value,),
     )
 
     def __init__(self, backend: PrinciplesOperations) -> None:
@@ -161,9 +157,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Ku]):
         super().__init__(backend, "principles.learning")
 
         # Initialize LearningAlignmentHelper with custom scorers (Phase 6)
-        self.learning_helper = LearningAlignmentHelper[
-            Ku, KuDTO, KuPrincipleCreateRequest
-        ](
+        self.learning_helper = LearningAlignmentHelper[Ku, KuDTO, KuPrincipleCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_principles",

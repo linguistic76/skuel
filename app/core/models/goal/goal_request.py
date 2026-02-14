@@ -21,7 +21,7 @@ from core.models.validation_rules import (
     validate_timeframe_date_alignment,
 )
 
-from core.models.enums import GoalStatus
+from core.models.enums import KuStatus
 from core.models.enums.ku_enums import (
     GoalTimeframe,
     GoalType,
@@ -173,7 +173,7 @@ class GoalUpdateRequest(BaseModel):
     strategies: list[str] | None = Field(None, max_length=10)
 
     # Status and priority can change
-    status: GoalStatus | None = None
+    status: KuStatus | None = None
     priority: Priority | None = None
     tags: list[str] | None = Field(None, max_length=20)
 
@@ -255,7 +255,7 @@ class GoalFilterRequest(BaseModel):
     goal_type: GoalType | None = None
     domain: Domain | None = None
     timeframe: GoalTimeframe | None = None
-    status: GoalStatus | None = None
+    status: KuStatus | None = None
     priority: Priority | None = None
 
     # Learning filters

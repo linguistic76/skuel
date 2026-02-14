@@ -20,7 +20,7 @@ This document shows before/after examples of migrating existing HTMX forms to us
 Button(
     "✓ Toggle Complete",
     **{"hx-post": f"/tasks/{task.uid}/toggle", "hx-target": "body"},
-    variant=ButtonT.success if task.status != ActivityStatus.COMPLETED else ButtonT.ghost,
+    variant=ButtonT.success if task.status != KuStatus.COMPLETED else ButtonT.ghost,
 )
 ```
 
@@ -40,9 +40,9 @@ Button(
     **htmx_toggle(
         target="body",
         entity_type="task",
-        announce="Task marked as complete" if task.status != ActivityStatus.COMPLETED else "Task reopened"
+        announce="Task marked as complete" if task.status != KuStatus.COMPLETED else "Task reopened"
     ),
-    variant=ButtonT.success if task.status != ActivityStatus.COMPLETED else ButtonT.ghost,
+    variant=ButtonT.success if task.status != KuStatus.COMPLETED else ButtonT.ghost,
 )
 ```
 

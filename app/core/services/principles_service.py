@@ -435,9 +435,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         sources = [s.value for s in PrincipleSource]
         return Result.ok(sources)
 
-    async def get_prioritized_principles(
-        self, user_uid: str, limit: int = 10
-    ) -> Result[list[Ku]]:
+    async def get_prioritized_principles(self, user_uid: str, limit: int = 10) -> Result[list[Ku]]:
         """
         Get principles prioritized for user context. Delegates to PrinciplesSearchService.
 

@@ -34,7 +34,7 @@ from core.events.goal_events import (
     GoalCreated,
     GoalProgressUpdated,
 )
-from core.models.enums import ActivityStatus, GoalStatus
+from core.models.enums import KuStatus
 from core.models.enums.ku_enums import KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -120,7 +120,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         model_class=Ku,
         domain_name="goals",
         date_field="target_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -173,7 +173,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
 
         # Business Rule 1: Achievement state immutability
         # Achieved goals are historical records - modifying them corrupts progress tracking
-        if current.status == GoalStatus.ACHIEVED:
+        if current.status == KuStatus.COMPLETED:
             return Result.fail(
                 Errors.validation(
                     message="Cannot modify achieved goals - they are historical records",
@@ -338,7 +338,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
             target_date=goal_request.target_date,
             parent_goal_uid=goal_request.parent_goal_uid,
             priority=goal_request.priority,
-            status=GoalStatus.ACTIVE,
+            status=KuStatus.ACTIVE,
         )
 
         # Create goal via backend and convert to domain model (uses BaseService helper)
@@ -400,7 +400,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         """
         # Business Rule: Goal abandonment protection (requires async relationship query)
         # Cannot abandon goal with active tasks - forces user to handle dependencies first
-        if "status" in updates and updates["status"] == GoalStatus.CANCELLED.value:
+        if "status" in updates and updates["status"] == KuStatus.CANCELLED.value:
             # Query for active tasks linked to this goal
             from core.models.query import build_relationship_count
 
@@ -413,10 +413,10 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
                 direction="incoming",  # (task)-[:FULFILLS_GOAL]->(goal)
                 properties={
                     "status__in": [
-                        ActivityStatus.IN_PROGRESS.value,
-                        ActivityStatus.SCHEDULED.value,
-                        ActivityStatus.BLOCKED.value,
-                        ActivityStatus.PAUSED.value,
+                        KuStatus.ACTIVE.value,
+                        KuStatus.SCHEDULED.value,
+                        KuStatus.BLOCKED.value,
+                        KuStatus.PAUSED.value,
                     ]
                 },
             )
@@ -476,8 +476,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
                 old_status = get_enum_value(old_goal.status)  # Handle both enum and string
 
                 if (
-                    new_status == GoalStatus.ACHIEVED.value
-                    and old_status != GoalStatus.ACHIEVED.value
+                    new_status == KuStatus.COMPLETED.value
+                    and old_status != KuStatus.COMPLETED.value
                 ):
                     # Calculate duration if created_at exists
                     actual_duration_days = None
@@ -552,7 +552,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         Returns:
             Result containing True if goal was activated
         """
-        updates: GoalUpdatePayload = {"status": GoalStatus.ACTIVE.value}
+        updates: GoalUpdatePayload = {"status": KuStatus.ACTIVE.value}
         result = await self.update(uid, updates)
         return Result.ok(True) if result.is_ok else Result.fail(result.expect_error())
 
@@ -570,7 +570,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         Returns:
             Result containing True if goal was paused
         """
-        updates: GoalUpdatePayload = {"status": GoalStatus.PAUSED.value}
+        updates: GoalUpdatePayload = {"status": KuStatus.PAUSED.value}
 
         # Store pause metadata
         metadata_updates = {"pause_reason": reason}
@@ -601,7 +601,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
             Result containing True if goal was completed
         """
         updates: GoalUpdatePayload = {
-            "status": GoalStatus.ACHIEVED.value,
+            "status": KuStatus.COMPLETED.value,
             "progress_percentage": 100.0,
             "completion_date": (
                 date.fromisoformat(completion_date) if completion_date else date.today()
@@ -630,7 +630,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         Returns:
             Result containing True if goal was archived
         """
-        updates: GoalUpdatePayload = {"status": GoalStatus.ARCHIVED.value}
+        updates: GoalUpdatePayload = {"status": KuStatus.ARCHIVED.value}
 
         # Get current goal to update metadata
         goal_result = await self.get(uid)
@@ -781,7 +781,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         current_goal = goal_result.value
 
         # Update status to completed
-        updates = {"status": ActivityStatus.COMPLETED.value}
+        updates = {"status": KuStatus.COMPLETED.value}
         result = await super().update(uid, updates)
 
         # Publish GoalAchieved event

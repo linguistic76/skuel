@@ -136,9 +136,7 @@ class KuProcessingService:
             return Result.ok(updated_result.value)
 
         except Exception as e:
-            self.logger.error(
-                f"Unexpected error processing Ku {ku_uid}: {e}", exc_info=True
-            )
+            self.logger.error(f"Unexpected error processing Ku {ku_uid}: {e}", exc_info=True)
 
             await self.ku_submission_service.update_ku_status(
                 ku_uid, KuStatus.FAILED, error_message=str(e)
@@ -154,9 +152,7 @@ class KuProcessingService:
     # PROCESSOR ROUTING
     # ========================================================================
 
-    async def _route_to_processor(
-        self, ku: Ku, instructions: dict[str, Any] | None
-    ) -> Result[Ku]:
+    async def _route_to_processor(self, ku: Ku, instructions: dict[str, Any] | None) -> Result[Ku]:
         """Route Ku to appropriate processor based on file type."""
         await self.ku_submission_service.update_ku_status(ku.uid, KuStatus.PROCESSING)
 
@@ -182,9 +178,7 @@ class KuProcessingService:
     # AUDIO PROCESSING
     # ========================================================================
 
-    async def _process_audio(
-        self, ku: Ku, instructions: dict[str, Any] | None
-    ) -> Result[Ku]:
+    async def _process_audio(self, ku: Ku, instructions: dict[str, Any] | None) -> Result[Ku]:
         """
         Process audio file: transcribe + LLM formatting.
 
@@ -262,9 +256,7 @@ class KuProcessingService:
     # TEXT PROCESSING
     # ========================================================================
 
-    async def _process_text(
-        self, ku: Ku, instructions: dict[str, Any] | None
-    ) -> Result[Ku]:
+    async def _process_text(self, ku: Ku, instructions: dict[str, Any] | None) -> Result[Ku]:
         """
         Process text file: read content and store.
 

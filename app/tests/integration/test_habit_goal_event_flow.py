@@ -29,7 +29,7 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.habit_events import HabitCompleted
-from core.models.enums import Domain, GoalStatus
+from core.models.enums import Domain, KuStatus
 from core.models.ku.ku import Ku
 from core.models.enums.ku_enums import MeasurementType
 from core.models.ku.ku import Ku as Habit
@@ -83,7 +83,7 @@ class TestHabitGoalEventFlow:
             progress_percentage=0.0,
             current_value=0.0,
             target_value=30.0,  # Target 30-day streak
-            status=GoalStatus.ACTIVE,
+            status=KuStatus.ACTIVE,
             target_date=date(2025, 12, 31),
         )
         result = await goals_backend.create(goal)
@@ -103,7 +103,7 @@ class TestHabitGoalEventFlow:
             progress_percentage=0.0,
             current_value=0.0,
             target_value=100.0,
-            status=GoalStatus.ACTIVE,
+            status=KuStatus.ACTIVE,
             target_date=date(2025, 12, 31),
         )
         result = await goals_backend.create(goal)
@@ -123,7 +123,7 @@ class TestHabitGoalEventFlow:
             progress_percentage=0.0,
             current_value=0.0,
             target_value=100.0,
-            status=GoalStatus.ACTIVE,
+            status=KuStatus.ACTIVE,
             target_date=date(2025, 12, 31),
         )
         result = await goals_backend.create(goal)
@@ -278,7 +278,7 @@ class TestHabitGoalEventFlow:
         # Verify goal status updated to ACHIEVED
         goal_result = await goals_backend.get(habit_based_goal.uid)
         assert goal_result.is_ok
-        assert goal_result.value.status == GoalStatus.ACHIEVED
+        assert goal_result.value.status == KuStatus.COMPLETED
 
     async def test_no_update_when_habit_not_linked_to_goal(
         self,

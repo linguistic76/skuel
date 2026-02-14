@@ -25,7 +25,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.models.enums.ku_enums import KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -88,7 +88,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         model_class=Ku,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     # ========================================================================
@@ -501,7 +501,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
             Result containing count of tasks completed
         """
         # Mark all tasks as completed
-        updates: TaskUpdatePayload = {"status": ActivityStatus.COMPLETED.value}
+        updates: TaskUpdatePayload = {"status": KuStatus.COMPLETED.value}
         completed_count = 0
 
         for task_uid in task_uids:

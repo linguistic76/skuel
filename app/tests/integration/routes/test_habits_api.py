@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.utils.result_simplified import Errors, Result
 
 # Mark all tests in this module as async
@@ -33,7 +33,7 @@ class MockHabit:
         user_uid: str = "user.test",
         title: str = "Test Habit",
         description: str = "A test habit description",
-        status: ActivityStatus = ActivityStatus.IN_PROGRESS,
+        status: KuStatus = KuStatus.ACTIVE,
         frequency: str = "daily",
         current_streak: int = 5,
         best_streak: int = 10,

@@ -469,14 +469,14 @@ def validate_required_when(
 
     Example:
         class TaskStatusRequest(BaseModel):
-            status: ActivityStatus
+            status: KuStatus
             completion_date: date | None = None
 
             # Auto-set completion_date when status is COMPLETED
             _validate_completion = validate_required_when(
                 "completion_date",
                 condition_field="status",
-                condition_value=ActivityStatus.COMPLETED,
+                condition_value=KuStatus.COMPLETED,
                 default_value=date.today
             )
     """

@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from core.models.enums import ActivityStatus, Domain
+from core.models.enums import KuStatus, Domain
 from core.models.relationship_names import RelationshipName
 from core.services.protocols.base_protocols import Direction
 
@@ -118,7 +118,7 @@ class BaseSearchFilters:
     offset: int = 0
 
     # Status filters (enum for type safety)
-    status: ActivityStatus | None = None
+    status: KuStatus | None = None
     domain: Domain | None = None
 
     # Relationship filters

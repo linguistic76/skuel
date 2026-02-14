@@ -109,9 +109,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
         """
         Get event with full graph context.
 
@@ -558,9 +556,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku
             "completed": event.status == "completed",
         }
 
-    async def _analyze_knowledge_impact(
-        self, event: Ku, _context: GraphContext
-    ) -> dict[str, Any]:
+    async def _analyze_knowledge_impact(self, event: Ku, _context: GraphContext) -> dict[str, Any]:
         """
         Analyze knowledge reinforcement.
 

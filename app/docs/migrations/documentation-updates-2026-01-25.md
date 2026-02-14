@@ -14,14 +14,14 @@ Updated SKUEL documentation to reflect the ContextHealthScore enum improvement a
 | Domain | File | Enums |
 |--------|------|-------|
 | **Finance** | `finance_enums.py` | ExpenseStatus, PaymentMethod, ExpenseCategory, RecurrencePattern, BudgetPeriod |
-| **Shared** | `shared_enums.py` | Domain, EntityType, Priority, ActivityStatus |
+| **Shared** | `shared_enums.py` | Domain, EntityType, Priority, KuStatus |
 
 **After:**
 | Domain | File | Enums |
 |--------|------|-------|
 | **Finance** | `finance_enums.py` | ExpenseStatus, PaymentMethod, ExpenseCategory, RecurrencePattern, BudgetPeriod |
 | **User** | `user_enums.py` | UserRole, ContextHealthScore |
-| **Shared** | `shared_enums.py` | Domain, EntityType, Priority, ActivityStatus |
+| **Shared** | `shared_enums.py` | Domain, EntityType, Priority, KuStatus |
 
 ---
 

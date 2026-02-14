@@ -23,7 +23,10 @@ from fasthtml.common import Request
 from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.models.ku.ku_request import KuLearningStepCreateRequest, KuUpdateRequest as KuStepUpdateRequest
+from core.models.ku.ku_request import (
+    KuLearningStepCreateRequest,
+    KuUpdateRequest as KuStepUpdateRequest,
+)
 from core.services.protocols.facade_protocols import LsFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger

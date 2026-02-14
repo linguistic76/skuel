@@ -114,9 +114,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # get_by_category(), list_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
-    async def get_prioritized(
-        self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Ku]]:
+    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Ku]]:
         """
         Get choices prioritized for the user's current context.
 
@@ -418,9 +416,7 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         )
 
     @with_error_handling("get_needing_decision", error_type="database", uid_param="user_uid")
-    async def get_needing_decision(
-        self, user_uid: str, deadline_days: int = 7
-    ) -> Result[list[Ku]]:
+    async def get_needing_decision(self, user_uid: str, deadline_days: int = 7) -> Result[list[Ku]]:
         """
         Get choices that need a decision within N days.
 

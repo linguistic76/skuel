@@ -28,7 +28,7 @@ from enum import Enum
 from operator import attrgetter
 from typing import Any
 
-from core.models.enums import ActivityStatus, Domain, Priority
+from core.models.enums import KuStatus, Domain, Priority
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku import Ku as Task
 from core.services.protocols import HasMetadata, HasSummary
@@ -255,7 +255,7 @@ class KuGenerationService:
                 task
                 for task in user_tasks_result.value
                 if (
-                    task.status == ActivityStatus.COMPLETED
+                    task.status == KuStatus.COMPLETED
                     and task.completion_date
                     and datetime.combine(task.completion_date, datetime.min.time()) >= since_date
                 )

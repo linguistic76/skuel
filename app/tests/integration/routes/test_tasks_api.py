@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums import ActivityStatus, Priority
+from core.models.enums import KuStatus, Priority
 from core.utils.result_simplified import Errors, Result
 
 # Mark all tests as async (all tests in this module are async)
@@ -34,7 +34,7 @@ class MockTask:
         user_uid: str = "user.test",
         title: str = "Test Task",
         description: str = "A test task description",
-        status: ActivityStatus = ActivityStatus.IN_PROGRESS,
+        status: KuStatus = KuStatus.ACTIVE,
         priority: Priority = Priority.MEDIUM,
         due_date: date | None = None,
     ):
@@ -185,7 +185,7 @@ class TestQueryOperations:
 
     async def test_get_tasks_by_status(self, mock_tasks_service):
         """Test filtering tasks by status."""
-        result = await mock_tasks_service.get_by_status(ActivityStatus.IN_PROGRESS)
+        result = await mock_tasks_service.get_by_status(KuStatus.ACTIVE)
 
         assert result.is_ok
 
@@ -196,7 +196,7 @@ class TestCompleteTask:
     async def test_complete_task_success(self, mock_tasks_service):
         """Test completing a task."""
         mock_tasks_service.complete_task_with_cascade = AsyncMock(
-            return_value=Result.ok(MockTask(status=ActivityStatus.COMPLETED))
+            return_value=Result.ok(MockTask(status=KuStatus.COMPLETED))
         )
 
         result = await mock_tasks_service.complete_task_with_cascade(
@@ -207,7 +207,7 @@ class TestCompleteTask:
         )
 
         assert result.is_ok
-        assert result.value.status == ActivityStatus.COMPLETED
+        assert result.value.status == KuStatus.COMPLETED
 
     async def test_complete_task_with_optional_params(self, mock_tasks_service):
         """Test completing a task with optional parameters."""
@@ -221,15 +221,13 @@ class TestCompleteTask:
     async def test_uncomplete_task(self, mock_tasks_service):
         """Test marking a task as incomplete."""
         mock_tasks_service.update = AsyncMock(
-            return_value=Result.ok(MockTask(status=ActivityStatus.IN_PROGRESS))
+            return_value=Result.ok(MockTask(status=KuStatus.ACTIVE))
         )
 
-        result = await mock_tasks_service.update(
-            "task.test123", {"status": ActivityStatus.IN_PROGRESS}
-        )
+        result = await mock_tasks_service.update("task.test123", {"status": KuStatus.ACTIVE})
 
         assert result.is_ok
-        assert result.value.status == ActivityStatus.IN_PROGRESS
+        assert result.value.status == KuStatus.ACTIVE
 
 
 class TestTaskAssignment:
@@ -401,11 +399,11 @@ class TestTaskModel:
             assert hasattr(Task, "__annotations__") or field in dir(Task)
 
     async def test_activity_status_enum(self):
-        """Test ActivityStatus enum values."""
-        assert ActivityStatus.IN_PROGRESS.value == "in_progress"
-        assert ActivityStatus.COMPLETED.value == "completed"
-        assert ActivityStatus.SCHEDULED.value == "scheduled"
-        assert ActivityStatus.DRAFT.value == "draft"
+        """Test KuStatus enum values."""
+        assert KuStatus.ACTIVE.value == "in_progress"
+        assert KuStatus.COMPLETED.value == "completed"
+        assert KuStatus.SCHEDULED.value == "scheduled"
+        assert KuStatus.DRAFT.value == "draft"
 
     async def test_priority_enum(self):
         """Test Priority enum values."""

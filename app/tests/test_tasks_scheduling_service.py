@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.enums import ActivityStatus, Domain, Priority
+from core.models.enums import KuStatus, Domain, Priority
 from core.models.enums.ku_enums import KuType
 from core.models.ku import Ku, LpPosition
 from core.models.ku.ku_dto import KuDTO as TaskDTO
@@ -358,7 +358,7 @@ async def test_create_task_from_learning_step(scheduling_service, mock_backend):
         title="Practice Python fundamentals",
         source_learning_step_uid="ls:python_fundamentals",
         knowledge_mastery_check=True,
-        status=ActivityStatus.DRAFT.value,
+        status=KuStatus.DRAFT.value,
         priority=Priority.MEDIUM.value,
         created_at=datetime.now(),
     )

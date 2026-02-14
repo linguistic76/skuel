@@ -10,25 +10,25 @@ which semantic states (completed, cancelled, active, terminal).
 
 Usage:
     from core.models.mixins import StatusChecksMixin
-    from core.models.enums import ActivityStatus
+    from core.models.enums import KuStatus
 
     @dataclass(frozen=True)
     class Task(StatusChecksMixin):
-        status: ActivityStatus = ActivityStatus.DRAFT
+        status: KuStatus = KuStatus.DRAFT
 
         # Configure status mappings
-        _completed_statuses: ClassVar[tuple[ActivityStatus, ...]] = (ActivityStatus.COMPLETED,)
-        _cancelled_statuses: ClassVar[tuple[ActivityStatus, ...]] = (ActivityStatus.CANCELLED,)
-        _terminal_statuses: ClassVar[tuple[ActivityStatus, ...]] = (
-            ActivityStatus.COMPLETED,
-            ActivityStatus.CANCELLED,
+        _completed_statuses: ClassVar[tuple[KuStatus, ...]] = (KuStatus.COMPLETED,)
+        _cancelled_statuses: ClassVar[tuple[KuStatus, ...]] = (KuStatus.CANCELLED,)
+        _terminal_statuses: ClassVar[tuple[KuStatus, ...]] = (
+            KuStatus.COMPLETED,
+            KuStatus.CANCELLED,
         )
-        _active_statuses: ClassVar[tuple[ActivityStatus, ...]] = (
-            ActivityStatus.IN_PROGRESS,
-            ActivityStatus.PAUSED,
-            ActivityStatus.BLOCKED,
-            ActivityStatus.SCHEDULED,
-            ActivityStatus.DRAFT,
+        _active_statuses: ClassVar[tuple[KuStatus, ...]] = (
+            KuStatus.ACTIVE,
+            KuStatus.PAUSED,
+            KuStatus.BLOCKED,
+            KuStatus.SCHEDULED,
+            KuStatus.DRAFT,
         )
 
 Note:

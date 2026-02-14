@@ -14,7 +14,7 @@ The Adaptive Learning Path service was bypassing UserContext and re-querying use
 # BEFORE: Re-queries tasks when UserContext already has the data
 async def analyze_user_knowledge_state(self, user_uid: str):
     tasks_result = await self.tasks_service.get_user_tasks(user_uid)  # ❌ Duplicate query
-    completed_tasks = [t for t in tasks if t.status == ActivityStatus.COMPLETED]
+    completed_tasks = [t for t in tasks if t.status == KuStatus.COMPLETED]
     
     # Manually computes what MEGA-QUERY already provides:
     mastered_set = set()           # Should use: context.mastered_knowledge_uids

@@ -93,7 +93,7 @@ educational_level: EducationalLevel | None = None
 
 ```python
 # Status filter - for tasks, events, habits, goals
-status: ActivityStatus | None = None
+status: KuStatus | None = None
 # Options: draft, scheduled, in_progress, completed, cancelled, etc.
 
 # Priority filter - for tasks, events
@@ -263,7 +263,7 @@ request = SearchRequest(
 request = SearchRequest(
     domain=Domain.TASKS,
     priority=Priority.HIGH,
-    status=ActivityStatus.IN_PROGRESS
+    status=KuStatus.ACTIVE
 )
 
 # Graph-aware search (relationship filters)

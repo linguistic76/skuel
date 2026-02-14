@@ -31,7 +31,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
@@ -56,7 +56,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
 
     Universal Methods (DomainSearchOperations protocol):
     - search() - Text search on title/description (inherited from BaseService)
-    - get_by_status() - Filter by ActivityStatus
+    - get_by_status() - Filter by KuStatus
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
@@ -101,7 +101,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         model_class=Ku,
         domain_name="events",
         date_field="event_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
         search_order_by="event_date",  # Events ordered by event date, not created_at
     )
 
@@ -116,9 +116,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # get_by_category(), list_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
-    async def get_prioritized(
-        self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Ku]]:
+    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Ku]]:
         """
         Get events prioritized for the user's current context.
 
@@ -156,8 +154,8 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
             if not e.status
             or e.status.value
             not in {
-                ActivityStatus.COMPLETED.value,
-                ActivityStatus.CANCELLED.value,
+                KuStatus.COMPLETED.value,
+                KuStatus.CANCELLED.value,
             }
         ]
 
@@ -648,9 +646,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         return Result.ok(events)
 
     @with_error_handling("get_for_habit", error_type="database", uid_param="habit_uid")
-    async def get_for_habit(
-        self, habit_uid: str, user_uid: str | None = None
-    ) -> Result[list[Ku]]:
+    async def get_for_habit(self, habit_uid: str, user_uid: str | None = None) -> Result[list[Ku]]:
         """
         Get events that reinforce a specific habit.
 
@@ -806,7 +802,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
                 result = await self.get_in_range(start_date, end_date, user_uid, limit)
                 if result.is_error:
                     return Result.fail(result.expect_error())
-                events = [e for e in result.value if e.status == ActivityStatus.COMPLETED]
+                events = [e for e in result.value if e.status == KuStatus.COMPLETED]
             else:
                 result = await self.get_in_range(start_date, end_date, user_uid, limit)
                 if result.is_error:

@@ -55,7 +55,12 @@ if result.is_ok:
     # - @context(habit) Exercise @repeat(daily)
 
 # === PHASE 2: DSL Parsing (DSL -> ParsedActivities with KuType/NonKuDomain) ===
-from core.services.dsl import ActivityDSLParser, parse_activity_line, KuType, NonKuDomain
+from core.services.dsl import (
+    ActivityDSLParser,
+    parse_activity_line,
+    KuType,
+    NonKuDomain,
+)
 
 # Parse single line
 result = parse_activity_line("- @context(task) Call mom @priority(high)")

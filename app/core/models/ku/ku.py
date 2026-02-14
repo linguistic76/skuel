@@ -467,8 +467,10 @@ class Ku:
         # Default visibility: shared types are PUBLIC, others are PRIVATE
         if self.visibility is None:
             if self.ku_type in {
-                KuType.CURRICULUM, KuType.MOC,
-                KuType.LEARNING_STEP, KuType.LEARNING_PATH,
+                KuType.CURRICULUM,
+                KuType.MOC,
+                KuType.LEARNING_STEP,
+                KuType.LEARNING_PATH,
             }:
                 object.__setattr__(self, "visibility", Visibility.PUBLIC)
             else:
@@ -977,11 +979,31 @@ class Ku:
         return {
             "substance_score": round(score, 2),
             "breakdown": {
-                "tasks": {"count": self.times_applied_in_tasks, "progress": round(task_progress, 2), "max_score": 0.25},
-                "events": {"count": self.times_practiced_in_events, "progress": round(event_progress, 2), "max_score": 0.25},
-                "habits": {"count": self.times_built_into_habits, "progress": round(habit_progress, 2), "max_score": 0.30},
-                "journals": {"count": self.journal_reflections_count, "progress": round(journal_progress, 2), "max_score": 0.20},
-                "choices": {"count": self.choices_informed_count, "progress": round(choice_progress, 2), "max_score": 0.15},
+                "tasks": {
+                    "count": self.times_applied_in_tasks,
+                    "progress": round(task_progress, 2),
+                    "max_score": 0.25,
+                },
+                "events": {
+                    "count": self.times_practiced_in_events,
+                    "progress": round(event_progress, 2),
+                    "max_score": 0.25,
+                },
+                "habits": {
+                    "count": self.times_built_into_habits,
+                    "progress": round(habit_progress, 2),
+                    "max_score": 0.30,
+                },
+                "journals": {
+                    "count": self.journal_reflections_count,
+                    "progress": round(journal_progress, 2),
+                    "max_score": 0.20,
+                },
+                "choices": {
+                    "count": self.choices_informed_count,
+                    "progress": round(choice_progress, 2),
+                    "max_score": 0.15,
+                },
             },
             "gaps": gaps,
             "review_status": {

@@ -25,7 +25,7 @@ from datetime import date, timedelta
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import ActivityStatus, Domain, Priority
+from core.models.enums import KuStatus, Domain, Priority
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuTaskCreateRequest
@@ -105,7 +105,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
         model_class=Ku,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     def __init__(self, backend=None) -> None:
@@ -487,7 +487,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
             # DEFERRED: Knowledge relationship creation (see docstring)
             knowledge_mastery_check=True,
             scheduled_date=date.today() + timedelta(days=1),
-            status=ActivityStatus.DRAFT.value,
+            status=KuStatus.DRAFT.value,
             priority=Priority.MEDIUM.value,
         )
 

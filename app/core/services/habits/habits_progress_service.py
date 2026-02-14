@@ -111,9 +111,7 @@ class HabitsProgressService:
     #
     # ========================================================================
 
-    def _get_habit_from_rich_context(
-        self, habit_uid: str, user_context: UserContext
-    ) -> Ku | None:
+    def _get_habit_from_rich_context(self, habit_uid: str, user_context: UserContext) -> Ku | None:
         """
         Try to get Habit entity from UserContext rich data.
 

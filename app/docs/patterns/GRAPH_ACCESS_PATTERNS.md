@@ -141,7 +141,7 @@ goal_tasks = await backend.find_by(fulfills_goal_uid=goal_uid)
 
 # Single query with multiple filters
 learning_tasks = await backend.find_by(
-    status=ActivityStatus.IN_PROGRESS,
+    status=KuStatus.ACTIVE,
     # Note: Can't filter by "has knowledge" directly - need custom query
 )
 ```
@@ -359,7 +359,7 @@ async def analyze_learning_path(self, user_uid: str) -> Result[dict]:
     # Pattern 1: Get user's active tasks (simple query)
     tasks = await self.backend.find_by(
         user_uid=user_uid,
-        status=ActivityStatus.IN_PROGRESS
+        status=KuStatus.ACTIVE
     )
 
     analytics = {

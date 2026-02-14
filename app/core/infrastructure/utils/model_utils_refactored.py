@@ -17,7 +17,7 @@ The utilities are now split into:
 from dataclasses import replace
 from typing import Any, TypeVar
 
-from core.models.enums import ActivityStatus, Priority
+from core.models.enums import KuStatus, Priority
 
 T = TypeVar("T")
 
@@ -82,7 +82,7 @@ class ScoringHelper:
         return weights.get(priority, 1.0)
 
     @staticmethod
-    def is_complete(status: ActivityStatus) -> bool:
+    def is_complete(status: KuStatus) -> bool:
         """
         Check if status represents completion.
 
@@ -93,6 +93,6 @@ class ScoringHelper:
             True if completed
         """
         return status in [
-            ActivityStatus.COMPLETED,
-            ActivityStatus.ARCHIVED,
+            KuStatus.COMPLETED,
+            KuStatus.ARCHIVED,
         ]

@@ -15,7 +15,7 @@ from datetime import datetime
 from operator import attrgetter
 from typing import Any
 
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_dto import KuDTO as TaskDTO
 
@@ -173,7 +173,7 @@ class AdaptiveLpRecommendationsService:
         if self.ku_generation_service:
             try:
                 patterns_result = await self.ku_generation_service.analyze_task_completion_patterns(
-                    [t for t in tasks_result.value if t.status == ActivityStatus.COMPLETED]
+                    [t for t in tasks_result.value if t.status == KuStatus.COMPLETED]
                     if tasks_result.is_ok
                     else []
                 )
@@ -266,14 +266,14 @@ class AdaptiveLpRecommendationsService:
         # For now, return empty - other gap detection methods still functional
 
         # Original logic commented out until relationship fetching is implemented:
-        # incomplete_tasks = [t for t in tasks if t.status not in [ActivityStatus.COMPLETED, ActivityStatus.CANCELLED]]
+        # incomplete_tasks = [t for t in tasks if t.status not in [KuStatus.COMPLETED, KuStatus.CANCELLED]]
         # for task in incomplete_tasks:
         #     if task.prerequisite_knowledge_uids:  # Field doesn't exist anymore
         #         user_knowledge = knowledge_state.get('applied_knowledge', set())
         #         missing_prereqs = set(task.prerequisite_knowledge_uids) - user_knowledge
         #         gaps.extend(missing_prereqs)
         #
-        # completed_tasks = [t for t in tasks if t.status == ActivityStatus.COMPLETED]
+        # completed_tasks = [t for t in tasks if t.status == KuStatus.COMPLETED]
         # for task in completed_tasks:
         #     if task.actual_minutes and task.duration_minutes and task.actual_minutes > task.duration_minutes * 1.5:
         #         for ku_uid in task.applies_knowledge_uids:  # Field doesn't exist anymore

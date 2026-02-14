@@ -161,9 +161,7 @@ def test_required_field_validation():
 
     # Test 2: Missing required field for principle (needs 'statement')
     invalid_principle_data = {"name": "Test Principle"}  # Missing 'statement'
-    result = service.validate_required_fields(
-        KuType.PRINCIPLE, invalid_principle_data, mock_path
-    )
+    result = service.validate_required_fields(KuType.PRINCIPLE, invalid_principle_data, mock_path)
     assert result.is_error, "Expected error for principle missing 'statement'"
     error = result.expect_error()
     assert "statement" in error.message, f"Expected 'statement' in error: {error.message}"
@@ -300,7 +298,9 @@ def test_entity_type_detection():
     # Test 2: Type aliases are normalized
     data_with_alias = {"type": "knowledge", "title": "Test KU"}
     result = service.detect_entity_type(data_with_alias, Path("/tmp/test.yaml"))
-    assert result == KuType.CURRICULUM, f"Expected KuType.CURRICULUM (alias normalized), got {result}"
+    assert result == KuType.CURRICULUM, (
+        f"Expected KuType.CURRICULUM (alias normalized), got {result}"
+    )
 
     # Test 3: MOC flag detection
     data_with_moc_flag = {"moc": True, "title": "Map of Content"}
@@ -310,7 +310,9 @@ def test_entity_type_detection():
     # Test 4: Default to CURRICULUM for markdown without type
     data_no_type = {"title": "Some Knowledge"}
     result = service.detect_entity_type(data_no_type, Path("/tmp/test.md"))
-    assert result == KuType.CURRICULUM, f"Expected KuType.CURRICULUM (default for .md), got {result}"
+    assert result == KuType.CURRICULUM, (
+        f"Expected KuType.CURRICULUM (default for .md), got {result}"
+    )
 
     # Test 5: Case insensitivity
     data_uppercase = {"type": "HABIT", "title": "Exercise"}

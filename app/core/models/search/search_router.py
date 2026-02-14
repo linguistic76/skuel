@@ -127,7 +127,9 @@ class UnifiedSearchResult:
 
     query: str
     parsed_query: "ParsedSearchQuery | None" = None
-    results_by_domain: dict[KuType | NonKuDomain, list[SearchResultItem]] = field(default_factory=dict)
+    results_by_domain: dict[KuType | NonKuDomain, list[SearchResultItem]] = field(
+        default_factory=dict
+    )
     total_count: int = 0
 
     @property

@@ -215,7 +215,11 @@ class TestBuildReportContent:
         }
 
         content = generator._build_report_content(
-            completions, [], datetime.now() - timedelta(days=7), datetime.now(), ProgressDepth.SUMMARY
+            completions,
+            [],
+            datetime.now() - timedelta(days=7),
+            datetime.now(),
+            ProgressDepth.SUMMARY,
         )
 
         assert "5 / 10" in content

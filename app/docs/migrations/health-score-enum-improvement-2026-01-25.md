@@ -128,7 +128,7 @@ return ContextHealthScore.GOOD  # Type-safe
 
 Matches existing domain patterns:
 - `FinancialHealthTier` (finance domain)
-- `ActivityStatus` (activity domains)
+- `KuStatus` (activity domains)
 - `Priority` (all domains)
 
 ### 3. Presentation Logic in Enum ✅
@@ -193,7 +193,7 @@ All SKUEL enums provide presentation methods:
 | Enum | Methods |
 |------|---------|
 | `Priority` | `get_color()`, `get_icon()` |
-| `ActivityStatus` | `is_terminal()`, `is_active()`, `get_color()` |
+| `KuStatus` | `is_terminal()`, `is_active()`, `get_color()` |
 | `ContextHealthScore` | `get_numeric()`, `get_color()`, `get_icon()` |
 
 ---

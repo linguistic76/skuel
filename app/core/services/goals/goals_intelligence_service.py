@@ -29,7 +29,8 @@ from operator import attrgetter
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
-from core.models.enums.activity_enums import GoalStatus, ProgressLevel
+from core.models.enums import KuStatus
+from core.models.enums.activity_enums import ProgressLevel
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.graph_context import GraphContext
@@ -1399,13 +1400,13 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Ku]):
 
         # Adjust for goal status
         status_factor = 1.0
-        if goal.status == GoalStatus.ACHIEVED:
+        if goal.status == KuStatus.COMPLETED:
             status_factor = 1.0
             evidence.append("Goal achieved!")
-        elif goal.status == GoalStatus.PAUSED:
+        elif goal.status == KuStatus.PAUSED:
             status_factor = 0.7
             evidence.append("Goal is currently paused")
-        elif goal.status == GoalStatus.CANCELLED:
+        elif goal.status == KuStatus.CANCELLED:
             status_factor = 0.2
             evidence.append("Goal was cancelled")
 

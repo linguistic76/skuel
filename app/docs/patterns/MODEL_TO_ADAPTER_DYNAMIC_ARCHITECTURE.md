@@ -114,15 +114,15 @@ node_data = to_neo4j_node(task)
 
 ```python
 # In model
-task = Task(priority=Priority.HIGH, status=ActivityStatus.IN_PROGRESS)
+task = Task(priority=Priority.HIGH, status=KuStatus.ACTIVE)
 
 # to_neo4j_node() automatically:
 # priority: Priority.HIGH → 'high'  (extracts .value)
-# status: ActivityStatus.IN_PROGRESS → 'in_progress'
+# status: KuStatus.ACTIVE → 'in_progress'
 
 # from_neo4j_node() automatically:
 # 'high' → Priority.HIGH  (reconstructs enum)
-# 'in_progress' → ActivityStatus.IN_PROGRESS
+# 'in_progress' → KuStatus.ACTIVE
 
 # ✅ Edit core/models/enums/ → Add Priority.URGENT → Works immediately in adapters
 ```

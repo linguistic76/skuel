@@ -592,8 +592,8 @@ class TestUserContextBuilder:
         from datetime import time, timedelta
 
         from core.models.enums import (
-            ActivityStatus,
-            GoalStatus,
+            KuStatus,
+            KuStatus,
             Priority,
             RecurrencePattern,
         )
@@ -694,7 +694,7 @@ class TestUserContextBuilder:
                 uid1="task:builder_1",
                 uid2="task:builder_2",
                 user_uid=test_user_uid,
-                status=ActivityStatus.IN_PROGRESS.value,
+                status=KuStatus.ACTIVE.value,
                 priority=Priority.HIGH.value,
                 due_date=(date.today() + timedelta(days=5)).isoformat(),
                 today=date.today().isoformat(),
@@ -743,7 +743,7 @@ class TestUserContextBuilder:
                 """,
                 uid="goal:builder_1",
                 user_uid=test_user_uid,
-                status=GoalStatus.ACTIVE.value,
+                status=KuStatus.ACTIVE.value,
                 progress=0.6,
                 target_date=(date.today() + timedelta(days=30)).isoformat(),
             )
@@ -767,7 +767,7 @@ class TestUserContextBuilder:
                 """,
                 uid="event:builder_1",
                 user_uid=test_user_uid,
-                status=ActivityStatus.SCHEDULED.value,
+                status=KuStatus.SCHEDULED.value,
                 event_date=(date.today() + timedelta(days=2)).isoformat(),
                 start_time=time(14, 0).isoformat(),
                 end_time=time(15, 0).isoformat(),

@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
-from core.models.enums import ActivityStatus, RecurrencePattern
+from core.models.enums import KuStatus, RecurrencePattern
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
@@ -129,7 +129,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", 
         model_class=Ku,
         domain_name="events",
         date_field="event_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     # ========================================================================
@@ -449,7 +449,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", 
         Returns:
             Result with the updated event
         """
-        updates: EventUpdatePayload = {"status": ActivityStatus.IN_PROGRESS.value}
+        updates: EventUpdatePayload = {"status": KuStatus.ACTIVE.value}
         return await self.core.update(event_uid, updates)
 
     async def complete_event(self, event_uid: str) -> Result[Ku]:
@@ -462,7 +462,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", 
         Returns:
             Result with the updated event
         """
-        updates: EventUpdatePayload = {"status": ActivityStatus.COMPLETED.value}
+        updates: EventUpdatePayload = {"status": KuStatus.COMPLETED.value}
         return await self.core.update(event_uid, updates)
 
     async def cancel_event(self, event_uid: str, reason: str = "") -> Result[Ku]:
@@ -476,7 +476,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", 
         Returns:
             Result with the updated event
         """
-        updates: EventUpdatePayload = {"status": ActivityStatus.CANCELLED.value}
+        updates: EventUpdatePayload = {"status": KuStatus.CANCELLED.value}
         if reason:
             updates["notes"] = reason
         return await self.core.update(event_uid, updates)

@@ -23,7 +23,7 @@ Date: 2026-01-19
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import ActivityStatus, RecurrencePattern
+from core.models.enums import KuStatus, RecurrencePattern
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
@@ -65,7 +65,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
         model_class=Ku,
         domain_name="events",
         date_field="event_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     # Configure BaseService
@@ -124,7 +124,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
         for event in result.value:
             if exclude_uid and event.uid == exclude_uid:
                 continue
-            if event.status == ActivityStatus.CANCELLED.value:
+            if event.status == KuStatus.CANCELLED.value:
                 continue
 
             # If no times specified, any same-day event is a potential conflict
@@ -287,11 +287,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
         # Build blocked time ranges
         blocked: list[tuple[time, time]] = []
         for event in existing_events:
-            if (
-                event.start_time
-                and event.end_time
-                and event.status != ActivityStatus.CANCELLED.value
-            ):
+            if event.start_time and event.end_time and event.status != KuStatus.CANCELLED.value:
                 blocked.append((event.start_time, event.end_time))
 
         # Sort by start time
@@ -561,7 +557,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
         # Group by date
         busy_times: dict[str, list[dict[str, str]]] = {}
         for event in events:
-            if not event.event_date or event.status == ActivityStatus.CANCELLED.value:
+            if not event.event_date or event.status == KuStatus.CANCELLED.value:
                 continue
 
             date_key = event.event_date.isoformat()
@@ -606,7 +602,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        events = [e for e in (result.value or []) if e.status != ActivityStatus.CANCELLED.value]
+        events = [e for e in (result.value or []) if e.status != KuStatus.CANCELLED.value]
 
         # Calculate metrics
         events_per_day = len(events) / days_ahead if days_ahead > 0 else 0

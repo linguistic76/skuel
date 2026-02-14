@@ -220,9 +220,7 @@ class PrinciplesCoreOperations(Protocol):
         """Get all principles for a user."""
         ...
 
-    async def update_principle(
-        self, principle_uid: str, updates: dict[str, Any]
-    ) -> Result[Ku]:
+    async def update_principle(self, principle_uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """Update a principle."""
         ...
 
@@ -253,9 +251,7 @@ class ChoicesCoreOperations(Protocol):
         """Get all choices for a user."""
         ...
 
-    async def update_choice(
-        self, choice_uid: str, choice_update: KuUpdateRequest
-    ) -> Result[Ku]:
+    async def update_choice(self, choice_uid: str, choice_update: KuUpdateRequest) -> Result[Ku]:
         """Update a choice."""
         ...
 
@@ -555,9 +551,7 @@ class PrinciplesFacadeProtocol(Protocol):
         """Assess how well user is living by a principle."""
         ...
 
-    async def get_principle_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Ku, Any]]:
+    async def get_principle_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, Any]]:
         """Get principle with full graph context."""
         ...
 
@@ -581,15 +575,11 @@ class PrinciplesFacadeProtocol(Protocol):
         """Get principles related via RELATED_TO or category."""
         ...
 
-    async def get_principles_by_status(
-        self, status: str, limit: int = 100
-    ) -> Result[list[Ku]]:
+    async def get_principles_by_status(self, status: str, limit: int = 100) -> Result[list[Ku]]:
         """Filter principles by active/inactive status."""
         ...
 
-    async def get_principles_by_strength(
-        self, strength: Any, limit: int = 100
-    ) -> Result[list[Ku]]:
+    async def get_principles_by_strength(self, strength: Any, limit: int = 100) -> Result[list[Ku]]:
         """Filter principles by strength level."""
         ...
 
@@ -605,15 +595,11 @@ class PrinciplesFacadeProtocol(Protocol):
         """Get principles past review threshold."""
         ...
 
-    async def get_principles_for_goal(
-        self, goal_uid: str, limit: int = 10
-    ) -> Result[list[Ku]]:
+    async def get_principles_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list[Ku]]:
         """Get principles guiding a specific goal."""
         ...
 
-    async def get_principles_for_choice(
-        self, choice_uid: str, limit: int = 10
-    ) -> Result[list[Ku]]:
+    async def get_principles_for_choice(self, choice_uid: str, limit: int = 10) -> Result[list[Ku]]:
         """Get principles relevant to a choice/decision."""
         ...
 

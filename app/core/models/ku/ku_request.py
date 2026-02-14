@@ -157,9 +157,7 @@ class KuAssignmentCreateRequest(CreateRequestBase):
     tags: list[str] = Field(default_factory=list, description="Tags")
 
     # Derivation
-    parent_ku_uid: str | None = Field(
-        None, description="Curriculum Ku this assignment is based on"
-    )
+    parent_ku_uid: str | None = Field(None, description="Curriculum Ku this assignment is based on")
 
     # Processing
     processor_type: ProcessorType | None = Field(
@@ -189,9 +187,7 @@ class KuAiReportCreateRequest(CreateRequestBase):
     domain: Domain = Field(default=Domain.KNOWLEDGE, description="Knowledge domain")
 
     # Processing
-    processor_type: ProcessorType = Field(
-        default=ProcessorType.LLM, description="Processing type"
-    )
+    processor_type: ProcessorType = Field(default=ProcessorType.LLM, description="Processing type")
     instructions: str | None = Field(None, description="Instructions used for generation")
 
 
@@ -239,12 +235,8 @@ class KuTaskCreateRequest(CreateRequestBase):
     # Cross-domain relationships (services create graph edges)
     fulfills_goal_uid: str | None = Field(None, description="Goal this task contributes to")
     reinforces_habit_uid: str | None = Field(None, description="Habit this task reinforces")
-    applies_knowledge_uids: list[str] = Field(
-        default_factory=list, description="KU UIDs applied"
-    )
-    aligned_principle_uids: list[str] = Field(
-        default_factory=list, description="Principle UIDs"
-    )
+    applies_knowledge_uids: list[str] = Field(default_factory=list, description="KU UIDs applied")
+    aligned_principle_uids: list[str] = Field(default_factory=list, description="Principle UIDs")
     prerequisite_knowledge_uids: list[str] = Field(
         default_factory=list, description="Required KU UIDs"
     )
@@ -265,40 +257,28 @@ class KuGoalCreateRequest(CreateRequestBase):
     # Classification
     goal_type: GoalType = Field(default=GoalType.OUTCOME, description="Goal type")
     domain: Domain = Field(default=Domain.KNOWLEDGE, description="Knowledge domain")
-    timeframe: GoalTimeframe = Field(
-        default=GoalTimeframe.QUARTERLY, description="Timeframe"
-    )
+    timeframe: GoalTimeframe = Field(default=GoalTimeframe.QUARTERLY, description="Timeframe")
 
     # Measurement
     measurement_type: MeasurementType = Field(
         default=MeasurementType.PERCENTAGE, description="How to measure"
     )
     target_value: float | None = Field(None, ge=0, description="Target value")
-    unit_of_measurement: str | None = Field(
-        None, max_length=50, description="Unit label"
-    )
+    unit_of_measurement: str | None = Field(None, max_length=50, description="Unit label")
 
     # Timing
-    start_date: date | None = Field(
-        default_factory=date.today, description="Start date"
-    )
+    start_date: date | None = Field(default_factory=date.today, description="Start date")
     target_date: date | None = Field(None, description="Target completion date")
 
     # Organization
     parent_uid: str | None = Field(None, description="Parent goal UID")
-    progress_weight: float = Field(
-        default=1.0, ge=0.0, description="Weight in parent goal"
-    )
+    progress_weight: float = Field(default=1.0, ge=0.0, description="Weight in parent goal")
     priority: Priority = Field(default=Priority.MEDIUM, description="Goal priority")
     tags: list[str] = Field(default_factory=list, max_length=20, description="Tags")
 
     # Motivation
-    why_important: str | None = Field(
-        None, max_length=1000, description="Why this goal matters"
-    )
-    success_criteria: str | None = Field(
-        None, max_length=1000, description="Criteria for success"
-    )
+    why_important: str | None = Field(None, max_length=1000, description="Why this goal matters")
+    success_criteria: str | None = Field(None, max_length=1000, description="Criteria for success")
     potential_obstacles: list[str] = Field(
         default_factory=list, max_length=10, description="Known obstacles"
     )
@@ -307,14 +287,10 @@ class KuGoalCreateRequest(CreateRequestBase):
     )
 
     # Milestones
-    milestones: list[MilestoneRequest] = Field(
-        default_factory=list, description="Goal milestones"
-    )
+    milestones: list[MilestoneRequest] = Field(default_factory=list, description="Goal milestones")
 
     # Cross-domain relationships
-    required_knowledge_uids: list[str] = Field(
-        default_factory=list, description="Required KU UIDs"
-    )
+    required_knowledge_uids: list[str] = Field(default_factory=list, description="Required KU UIDs")
     supporting_habit_uids: list[str] = Field(
         default_factory=list, description="Supporting habit UIDs"
     )
@@ -327,17 +303,11 @@ class KuHabitCreateRequest(CreateRequestBase):
     """Create a HABIT Ku (knowledge about what you practice)."""
 
     title: str = Field(min_length=1, max_length=200, description="Habit title")
-    description: str | None = Field(
-        None, max_length=1000, description="Habit description"
-    )
+    description: str | None = Field(None, max_length=1000, description="Habit description")
 
     # Habit characteristics
-    polarity: HabitPolarity = Field(
-        default=HabitPolarity.BUILD, description="Build or break"
-    )
-    category: HabitCategory = Field(
-        default=HabitCategory.OTHER, description="Habit category"
-    )
+    polarity: HabitPolarity = Field(default=HabitPolarity.BUILD, description="Build or break")
+    category: HabitCategory = Field(default=HabitCategory.OTHER, description="Habit category")
     difficulty: HabitDifficulty = Field(
         default=HabitDifficulty.MODERATE, description="Difficulty level"
     )
@@ -346,38 +316,26 @@ class KuHabitCreateRequest(CreateRequestBase):
     recurrence_pattern: RecurrencePattern = Field(
         default=RecurrencePattern.DAILY, description="Frequency"
     )
-    target_days_per_week: int = Field(
-        default=7, ge=1, le=7, description="Target days per week"
-    )
+    target_days_per_week: int = Field(default=7, ge=1, le=7, description="Target days per week")
     preferred_time: str | None = Field(
         None, description="Preferred time: morning, afternoon, evening"
     )
-    duration_minutes: int = Field(
-        default=15, ge=1, le=480, description="Duration per session"
-    )
+    duration_minutes: int = Field(default=15, ge=1, le=480, description="Duration per session")
 
     # Behavior design (Atomic Habits)
     cue: str | None = Field(None, max_length=500, description="Cue/trigger")
     routine: str | None = Field(None, max_length=1000, description="The routine")
     reward: str | None = Field(None, max_length=500, description="The reward")
-    reinforces_identity: str | None = Field(
-        None, max_length=200, description="Identity reinforced"
-    )
-    is_identity_habit: bool = Field(
-        default=False, description="Is this an identity habit?"
-    )
+    reinforces_identity: str | None = Field(None, max_length=200, description="Identity reinforced")
+    is_identity_habit: bool = Field(default=False, description="Is this an identity habit?")
 
     # Organization
     priority: Priority = Field(default=Priority.MEDIUM, description="Habit priority")
     tags: list[str] = Field(default_factory=list, max_length=20, description="Tags")
 
     # Cross-domain relationships
-    linked_knowledge_uids: list[str] = Field(
-        default_factory=list, description="Linked KU UIDs"
-    )
-    linked_goal_uids: list[str] = Field(
-        default_factory=list, description="Linked goal UIDs"
-    )
+    linked_knowledge_uids: list[str] = Field(default_factory=list, description="Linked KU UIDs")
+    linked_goal_uids: list[str] = Field(default_factory=list, description="Linked goal UIDs")
     linked_principle_uids: list[str] = Field(
         default_factory=list, description="Linked principle UIDs"
     )
@@ -387,41 +345,27 @@ class KuEventCreateRequest(CreateRequestBase):
     """Create an EVENT Ku (knowledge about what you attend)."""
 
     title: str = Field(min_length=1, max_length=200, description="Event title")
-    description: str | None = Field(
-        None, max_length=2000, description="Event description"
-    )
+    description: str | None = Field(None, max_length=2000, description="Event description")
 
     # Scheduling
     event_date: date = Field(description="Event date")
     start_time: time = Field(description="Start time")
     end_time: time = Field(description="End time")
-    recurrence_pattern: RecurrencePattern | None = Field(
-        None, description="Recurrence"
-    )
-    recurrence_end_date: date | None = Field(
-        None, description="When recurrence ends"
-    )
+    recurrence_pattern: RecurrencePattern | None = Field(None, description="Recurrence")
+    recurrence_end_date: date | None = Field(None, description="When recurrence ends")
     reminder_minutes: int | None = Field(
         None, ge=0, le=10080, description="Reminder (minutes before)"
     )
 
     # Location & type
     event_type: str = Field(default="personal", description="Event type")
-    visibility: Visibility = Field(
-        default=Visibility.PRIVATE, description="Visibility"
-    )
-    location: str | None = Field(
-        None, max_length=500, description="Physical location"
-    )
+    visibility: Visibility = Field(default=Visibility.PRIVATE, description="Visibility")
+    location: str | None = Field(None, max_length=500, description="Physical location")
     is_online: bool = Field(default=False, description="Is this an online event?")
-    meeting_url: str | None = Field(
-        None, description="Meeting URL for online events"
-    )
+    meeting_url: str | None = Field(None, description="Meeting URL for online events")
 
     # Attendance
-    attendee_emails: list[str] = Field(
-        default_factory=list, description="Attendee emails"
-    )
+    attendee_emails: list[str] = Field(default_factory=list, description="Attendee emails")
     max_attendees: int | None = Field(None, ge=1, description="Maximum attendees")
 
     # Organization
@@ -435,36 +379,22 @@ class KuEventCreateRequest(CreateRequestBase):
     executes_tasks: list[str] = Field(
         default_factory=list, description="Task UIDs executed at event"
     )
-    reinforces_habit_uid: str | None = Field(
-        None, description="Habit UID reinforced"
-    )
+    reinforces_habit_uid: str | None = Field(None, description="Habit UID reinforced")
 
 
 class KuChoiceCreateRequest(CreateRequestBase):
     """Create a CHOICE Ku (knowledge about decisions you make)."""
 
     title: str = Field(min_length=1, max_length=200, description="Choice title")
-    description: str = Field(
-        min_length=1, max_length=1000, description="Choice description"
-    )
+    description: str = Field(min_length=1, max_length=1000, description="Choice description")
 
     # Decision characteristics
-    choice_type: ChoiceType = Field(
-        default=ChoiceType.MULTIPLE, description="Choice type"
-    )
+    choice_type: ChoiceType = Field(default=ChoiceType.MULTIPLE, description="Choice type")
     domain: Domain = Field(default=Domain.PERSONAL, description="Domain")
-    decision_deadline: datetime | None = Field(
-        None, description="Decision deadline"
-    )
-    decision_criteria: list[str] = Field(
-        default_factory=list, description="Criteria for deciding"
-    )
-    constraints: list[str] = Field(
-        default_factory=list, description="Constraints"
-    )
-    stakeholders: list[str] = Field(
-        default_factory=list, description="Stakeholders"
-    )
+    decision_deadline: datetime | None = Field(None, description="Decision deadline")
+    decision_criteria: list[str] = Field(default_factory=list, description="Criteria for deciding")
+    constraints: list[str] = Field(default_factory=list, description="Constraints")
+    stakeholders: list[str] = Field(default_factory=list, description="Stakeholders")
 
     # Options
     options: list[ChoiceOptionRequest] = Field(
@@ -535,31 +465,17 @@ class KuPrincipleCreateRequest(CreateRequestBase):
     """Create a PRINCIPLE Ku (knowledge about what you believe)."""
 
     title: str = Field(min_length=1, max_length=100, description="Principle title")
-    statement: str = Field(
-        min_length=1, max_length=500, description="Core statement"
-    )
-    description: str | None = Field(
-        None, max_length=1000, description="Full description"
-    )
+    statement: str = Field(min_length=1, max_length=500, description="Core statement")
+    description: str | None = Field(None, max_length=1000, description="Full description")
 
     # Classification
-    category: PrincipleCategory = Field(
-        default=PrincipleCategory.PERSONAL, description="Category"
-    )
-    source: PrincipleSource = Field(
-        default=PrincipleSource.PERSONAL, description="Source"
-    )
-    strength: PrincipleStrength = Field(
-        default=PrincipleStrength.MODERATE, description="Strength"
-    )
+    category: PrincipleCategory = Field(default=PrincipleCategory.PERSONAL, description="Category")
+    source: PrincipleSource = Field(default=PrincipleSource.PERSONAL, description="Source")
+    strength: PrincipleStrength = Field(default=PrincipleStrength.MODERATE, description="Strength")
 
     # Origin
-    tradition: str | None = Field(
-        None, max_length=100, description="Tradition/school of thought"
-    )
-    original_source: str | None = Field(
-        None, max_length=200, description="Original source text"
-    )
+    tradition: str | None = Field(None, max_length=100, description="Tradition/school of thought")
+    original_source: str | None = Field(None, max_length=200, description="Original source text")
     personal_interpretation: str | None = Field(
         None, max_length=1000, description="Personal interpretation"
     )
@@ -582,9 +498,7 @@ class KuPrincipleCreateRequest(CreateRequestBase):
     )
 
     # Organization
-    priority: Priority = Field(
-        default=Priority.MEDIUM, description="Principle priority"
-    )
+    priority: Priority = Field(default=Priority.MEDIUM, description="Principle priority")
     tags: list[str] = Field(default_factory=list, max_length=20, description="Tags")
 
 
@@ -701,21 +615,15 @@ class KuLearningStepCreateRequest(CreateRequestBase):
 
     title: str = Field(min_length=1, max_length=200, description="Step title")
     intent: str = Field(min_length=1, description="Step intent/purpose")
-    description: str | None = Field(
-        None, max_length=2000, description="Step description"
-    )
+    description: str | None = Field(None, max_length=2000, description="Step description")
 
     # Curriculum placement
     learning_path_uid: str | None = Field(None, description="Parent LP UID")
     sequence: int | None = Field(None, ge=1, description="Order in learning path")
 
     # Learning parameters
-    mastery_threshold: float = Field(
-        default=0.7, ge=0.0, le=1.0, description="Mastery threshold"
-    )
-    estimated_hours: float = Field(
-        default=1.0, gt=0, description="Estimated hours"
-    )
+    mastery_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="Mastery threshold")
+    estimated_hours: float = Field(default=1.0, gt=0, description="Estimated hours")
     difficulty: StepDifficulty = Field(
         default=StepDifficulty.MODERATE, description="Step difficulty"
     )
@@ -727,9 +635,7 @@ class KuLearningStepCreateRequest(CreateRequestBase):
     tags: list[str] = Field(default_factory=list, description="Tags")
 
     # Knowledge relationships
-    primary_knowledge_uids: list[str] = Field(
-        default_factory=list, description="Primary KU UIDs"
-    )
+    primary_knowledge_uids: list[str] = Field(default_factory=list, description="Primary KU UIDs")
     supporting_knowledge_uids: list[str] = Field(
         default_factory=list, description="Supporting KU UIDs"
     )
@@ -745,28 +651,18 @@ class KuLearningPathCreateRequest(CreateRequestBase):
     """Create a LEARNING_PATH Ku (ordered sequence of steps). Admin-only, shared."""
 
     title: str = Field(min_length=1, max_length=200, description="Learning path title")
-    description: str | None = Field(
-        None, max_length=2000, description="Path description"
-    )
+    description: str | None = Field(None, max_length=2000, description="Path description")
     lp_goal: str = Field(min_length=1, description="Learning path goal statement")
     domain: Domain = Field(description="Knowledge domain")
 
     # Path characteristics
     lp_type: LpType = Field(default=LpType.STRUCTURED, description="Path type")
-    difficulty_level: str = Field(
-        default="intermediate", description="Difficulty level"
-    )
-    estimated_hours: float | None = Field(
-        None, gt=0.0, description="Total estimated hours"
-    )
+    difficulty_level: str = Field(default="intermediate", description="Difficulty level")
+    estimated_hours: float | None = Field(None, gt=0.0, description="Total estimated hours")
 
     # Structure
-    prerequisites: list[str] = Field(
-        default_factory=list, description="Prerequisites"
-    )
-    outcomes: list[str] = Field(
-        default_factory=list, description="Expected outcomes"
-    )
+    prerequisites: list[str] = Field(default_factory=list, description="Prerequisites")
+    outcomes: list[str] = Field(default_factory=list, description="Expected outcomes")
     tags: list[str] = Field(default_factory=list, description="Tags")
 
 
@@ -779,12 +675,8 @@ class KuLifePathCreateRequest(CreateRequestBase):
     """Create a LIFE_PATH Ku (knowledge about your life direction)."""
 
     title: str = Field(min_length=1, max_length=200, description="Life path title")
-    description: str | None = Field(
-        None, max_length=2000, description="Life path description"
-    )
-    vision_statement: str = Field(
-        min_length=10, max_length=2000, description="Vision statement"
-    )
+    description: str | None = Field(None, max_length=2000, description="Life path description")
+    vision_statement: str = Field(min_length=10, max_length=2000, description="Vision statement")
     domain: Domain = Field(default=Domain.PERSONAL, description="Domain")
     tags: list[str] = Field(default_factory=list, description="Tags")
 
@@ -1068,9 +960,7 @@ class KuResponse(ResponseBase):
     @classmethod
     def from_dto(cls, dto: "KuDTO") -> "KuResponse":
         """Create response from DTO."""
-        estimated_reading_time = (
-            max(1, dto.word_count // 200) if dto.word_count > 0 else 0
-        )
+        estimated_reading_time = max(1, dto.word_count // 200) if dto.word_count > 0 else 0
 
         return cls(
             # Identity

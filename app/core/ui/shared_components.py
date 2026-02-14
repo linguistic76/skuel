@@ -282,7 +282,7 @@ def StatusBadge(label: str, color: str = "gray", icon: str | None = None, size: 
 
     Example:
         >>> StatusBadge("HEALTHY", "green", "✅")
-        >>> StatusBadge("In Progress", get_status_color("in_progress"))
+        >>> StatusBadge("Active", get_status_color("active"))
     """
     size_classes = {
         "xs": "text-xs px-2 py-0.5",

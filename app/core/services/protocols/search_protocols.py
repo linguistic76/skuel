@@ -74,7 +74,7 @@ class DomainSearchOperations(Protocol[T]):
     - search() - Text search on title/description
     - search_filtered() - Type-safe filtered search (NEW v2.1.0)
     - intelligent_search() - Natural language search with semantic filter extraction (NEW v2.1.0)
-    - get_by_status() - Filter by ActivityStatus
+    - get_by_status() - Filter by KuStatus
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
@@ -120,7 +120,7 @@ class DomainSearchOperations(Protocol[T]):
         Example:
             from dataclasses import dataclass
             from core.models.search import BaseSearchFilters
-            from core.models.enums import ActivityStatus, Domain
+            from core.models.enums import KuStatus, Domain
 
             # Define domain-specific filters locally (see MocSearchFilters pattern)
             @dataclass(frozen=True)
@@ -158,7 +158,7 @@ class DomainSearchOperations(Protocol[T]):
 
         Parses the query to extract semantic meaning using enum synonyms:
         - Priority: "urgent", "asap", "critical" → Priority.CRITICAL
-        - Status: "completed", "in progress", "active" → ActivityStatus values
+        - Status: "completed", "in progress", "active" → KuStatus values
         - Domain: "health", "tech", "business" → Domain values
 
         This is the user-friendly search method that bridges natural language
@@ -179,9 +179,9 @@ class DomainSearchOperations(Protocol[T]):
 
             if result.is_ok:
                 entities, parsed = result.value
-                # entities: Tasks matching Priority.CRITICAL/HIGH + ActivityStatus.IN_PROGRESS
+                # entities: Tasks matching Priority.CRITICAL/HIGH + KuStatus.ACTIVE
                 # parsed.priorities: (Priority.CRITICAL, Priority.HIGH)
-                # parsed.statuses: (ActivityStatus.IN_PROGRESS,)
+                # parsed.statuses: (KuStatus.ACTIVE,)
                 # parsed.text_query: "tasks"  (cleaned for text search)
 
         Implementation Notes:
@@ -198,7 +198,7 @@ class DomainSearchOperations(Protocol[T]):
 
     async def get_by_status(self, status: str, limit: int = 100) -> Result[list[T]]:
         """
-        Filter entities by ActivityStatus.
+        Filter entities by KuStatus.
 
         Args:
             status: Status string (e.g., "active", "completed", "paused")
@@ -345,9 +345,7 @@ class EventsSearchOperations(DomainSearchOperations["Ku"], Protocol):
         """Get recurring events."""
         ...
 
-    async def get_for_goal(
-        self, goal_uid: str, user_uid: str | None = None
-    ) -> Result[list["Ku"]]:
+    async def get_for_goal(self, goal_uid: str, user_uid: str | None = None) -> Result[list["Ku"]]:
         """Get events supporting a goal."""
         ...
 
@@ -557,9 +555,7 @@ class GoalsSearchOperations(DomainSearchOperations["Ku"], Protocol):
         """Get goals that need supporting habits."""
         ...
 
-    async def get_blocked_by_knowledge(
-        self, user_uid: str, limit: int = 20
-    ) -> Result[list["Ku"]]:
+    async def get_blocked_by_knowledge(self, user_uid: str, limit: int = 20) -> Result[list["Ku"]]:
         """Get goals blocked by missing knowledge."""
         ...
 
@@ -697,9 +693,7 @@ class PrinciplesSearchOperations(DomainSearchOperations["Ku"], Protocol):
         """Get principles guiding a goal."""
         ...
 
-    async def get_active_principles(
-        self, user_uid: str, limit: int = 100
-    ) -> Result[list["Ku"]]:
+    async def get_active_principles(self, user_uid: str, limit: int = 100) -> Result[list["Ku"]]:
         """Get active principles for a user."""
         ...
 

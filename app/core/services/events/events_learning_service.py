@@ -18,7 +18,7 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
-from core.models.enums import ActivityStatus, Domain
+from core.models.enums import KuStatus, Domain
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuEventCreateRequest
@@ -72,7 +72,7 @@ class EventsLearningService(BaseService["BackendOperations[Ku]", Ku]):
         model_class=Ku,
         domain_name="events",
         date_field="event_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     def __init__(

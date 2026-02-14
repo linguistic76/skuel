@@ -365,7 +365,7 @@ async def test_parent_auto_complete():
 
     # Verify parent is complete
     parent_task = await service.get_task(parent.uid)
-    assert parent_task.status == ActivityStatus.COMPLETED
+    assert parent_task.status == KuStatus.COMPLETED
 
 async def test_weighted_progress():
     """Verify weighted progress calculation."""

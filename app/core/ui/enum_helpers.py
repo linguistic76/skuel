@@ -37,7 +37,7 @@ from typing import Any
 from fasthtml.common import H4, P
 
 from core.models.enums import (
-    ActivityStatus,
+    KuStatus,
     ActivityType,
     BridgeType,
     CompletionStatus,
@@ -249,13 +249,13 @@ def get_status_color(status: str) -> str:
     Get hex color for an activity status string.
 
     Args:
-        status: Activity status string ("completed", "in_progress", "blocked", etc.),
+        status: Activity status string ("completed", "active", "blocked", etc.),
 
     Returns:
         Hex color code (e.g., "#10B981")
     """
     try:
-        status_enum = ActivityStatus(status)
+        status_enum = KuStatus(status)
         return status_enum.get_color()
     except ValueError:
         return "#6B7280"  # Default gray
@@ -636,7 +636,7 @@ def get_priority_badge_class(priority: str | Priority) -> str:
     return color_to_class.get(color, "badge-neutral")
 
 
-def get_status_badge_class(status: str | ActivityStatus) -> str:
+def get_status_badge_class(status: str | KuStatus) -> str:
     """
     Get DaisyUI badge class for an activity status.
 
@@ -648,7 +648,7 @@ def get_status_badge_class(status: str | ActivityStatus) -> str:
     """
     if isinstance(status, str):
         try:
-            status = ActivityStatus(status)
+            status = KuStatus(status)
         except ValueError:
             return "badge-neutral"
 
@@ -666,7 +666,7 @@ def get_status_badge_class(status: str | ActivityStatus) -> str:
     return color_to_class.get(color, "badge-neutral")
 
 
-def get_status_text_color(status: str | ActivityStatus) -> str:
+def get_status_text_color(status: str | KuStatus) -> str:
     """
     Get Tailwind text color class for an activity status.
 
@@ -678,7 +678,7 @@ def get_status_text_color(status: str | ActivityStatus) -> str:
     """
     if isinstance(status, str):
         try:
-            status = ActivityStatus(status)
+            status = KuStatus(status)
         except ValueError:
             return "text-gray-600"
 
@@ -727,7 +727,7 @@ def render_priority_badge(priority: str | Priority) -> Span:
     return Badge(label, cls=f"badge {badge_class}")
 
 
-def render_status_chip(status: str | ActivityStatus) -> Span:
+def render_status_chip(status: str | KuStatus) -> Span:
     """
     Render status as styled chip with color indicator.
 
@@ -738,14 +738,14 @@ def render_status_chip(status: str | ActivityStatus) -> Span:
         Span component with colored dot and label
 
     Example:
-        >>> render_status_chip("in_progress")
+        >>> render_status_chip("active")
         <Span cls="status-chip inline-flex items-center">
             <Span style="color: #06B6D4">●</Span> In Progress
         </Span>
     """
     if isinstance(status, str):
         try:
-            status = ActivityStatus(status)
+            status = KuStatus(status)
         except ValueError:
             return Span("Unknown", cls="status-chip inline-flex items-center")
 
@@ -759,7 +759,7 @@ def render_status_chip(status: str | ActivityStatus) -> Span:
     )
 
 
-def render_status_badge(status: str | ActivityStatus) -> Span:
+def render_status_badge(status: str | KuStatus) -> Span:
     """
     Render status as styled DaisyUI badge component.
 
@@ -775,7 +775,7 @@ def render_status_badge(status: str | ActivityStatus) -> Span:
     """
     if isinstance(status, str):
         try:
-            status = ActivityStatus(status)
+            status = KuStatus(status)
         except ValueError:
             return Badge("Unknown", cls="badge badge-neutral")
 
@@ -857,7 +857,7 @@ def render_completion_badge(status: str | CompletionStatus) -> Span:
 
 
 def render_entity_metadata(
-    priority: str | Priority, status: str | ActivityStatus, due_date: str | None = None
+    priority: str | Priority, status: str | KuStatus, due_date: str | None = None
 ) -> Div:
     """
     Render combined metadata display for tasks/events/habits.
@@ -871,7 +871,7 @@ def render_entity_metadata(
         Div with priority badge, status chip, and optional due date,
 
     Example:
-        >>> render_entity_metadata("high", "in_progress", "2025-10-20")
+        >>> render_entity_metadata("high", "active", "2025-10-20")
         <Div cls="flex items-center gap-2 flex-wrap">
             <Badge>High</Badge>
             <Span>● In Progress</Span>
@@ -1041,7 +1041,7 @@ def render_entity_card(
     title: str,
     description: str | None = None,
     priority: str | Priority | None = None,
-    status: str | ActivityStatus | None = None,
+    status: str | KuStatus | None = None,
     due_date: str | None = None,
     duration_minutes: int | None = None,
     tags: list[str] | None = None,
@@ -1077,7 +1077,7 @@ def render_entity_card(
         ...     uid="task-123",
         ...     title="Complete refactoring",
         ...     priority="high",
-        ...     status="in_progress",
+        ...     status="active",
         ...     due_date="2025-10-20",
         ... )
     """
@@ -1171,7 +1171,7 @@ def render_task_card(
     title: str,
     description: str | None = None,
     priority: str | Priority = "medium",
-    status: str | ActivityStatus = "todo",
+    status: str | KuStatus = "todo",
     due_date: str | None = None,
     duration_minutes: int | None = None,
     tags: list[str] | None = None,
@@ -1199,7 +1199,7 @@ def render_task_card(
         ...     uid="task-123",
         ...     title="Complete refactoring",
         ...     priority="high",
-        ...     status="in_progress",
+        ...     status="active",
         ... )
     """
     custom_metadata = []
@@ -1226,7 +1226,7 @@ def render_habit_card(
     description: str | None = None,
     recurrence: str = "daily",
     time_of_day: str | None = None,
-    status: str | ActivityStatus = "scheduled",
+    status: str | KuStatus = "scheduled",
     streak: int | None = None,
     completion_rate: float | None = None,
 ) -> Any:
@@ -1281,7 +1281,7 @@ def render_event_card(
     time_of_day: str | None = None,
     duration_minutes: int | None = None,
     calendar_type: str | None = None,
-    status: str | ActivityStatus = "scheduled",
+    status: str | KuStatus = "scheduled",
     location: str | None = None,
 ) -> Any:
     """
@@ -1336,7 +1336,7 @@ def render_goal_card(
     title: str,
     description: str | None = None,
     priority: str | Priority = "medium",
-    status: str | ActivityStatus = "in_progress",
+    status: str | KuStatus = "active",
     target_date: str | None = None,
     progress_percentage: float | None = None,
     domain: str | None = None,

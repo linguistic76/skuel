@@ -357,14 +357,15 @@ Does the domain have 3+ business logic methods?
 
 | Pattern | Files | Tiers | Use For | Domains |
 |---------|-------|-------|---------|---------|
-| **A: Three-Tier** | 4-5 | Pydantic→DTO→Domain | Complex logic, immutability | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, User, LifePath (12 domains) |
+| **Unified Ku** | 1 model + 1 DTO | Pydantic→DTO→Ku | All 14 KuType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, LifePath (11 domains) |
 | **B: Two-Tier** | 2 | Pydantic→DTO | Simple CRUD, minimal logic | Finance (1 domain) |
 
-**Rule**: Default to Pattern A unless domain is genuinely simple (admin-only bookkeeping, no business logic).
+**Unified Ku Model (ADR-041):** All 14 KuType domains share `Ku` (frozen dataclass) + `KuDTO` (mutable DTO). Domain-specific Pydantic request models (`*_request.py`) remain in domain packages for API validation. `KuStatus` is THE status enum — `ActivityStatus` and `GoalStatus` are deleted.
 
-Key: Frozen dataclasses with `__post_init__` for dynamic defaults, `DomainModelProtocol` for generics (Pattern A only).
+Key: Frozen dataclasses with `__post_init__` for dynamic defaults, `DomainModelProtocol` for generics.
 
 **See:**
+- `/docs/decisions/ADR-041-unified-ku-model.md` - Unified Ku model decision
 - `/docs/patterns/three_tier_type_system.md` - Pattern details
 - `/docs/patterns/DOMAIN_PATTERNS_CATALOG.md` - Complete examples
 - `/docs/decisions/ADR-035-tier-selection-guidelines.md` - Decision rationale
@@ -442,13 +443,17 @@ Presentation logic lives inside enum methods. Magic numbers live in `/core/const
 
 ```python
 Priority.get_color()                      # Dynamic enum methods
-ActivityStatus.is_terminal()
+KuStatus.is_terminal()                    # Terminal state check
+KuStatus.ACTIVE.get_color()               # "#06B6D4" (Cyan)
+KuStatus.from_search_text("in progress")  # [KuStatus.ACTIVE]
 ContextHealthScore.get_numeric()          # 0.0-1.0 scoring
 ContextHealthScore.get_icon()             # 🟢 for EXCELLENT
 GraphDepth.DEFAULT                        # Named constants
 ```
 
 **Consolidated Enums:** `/core/models/enums/` - one file per domain (finance_enums.py, activity_enums.py, user_enums.py, etc.)
+- `ku_enums.py`: KuType, KuStatus (THE status enum), CompletionStatus, ProcessorType, ProjectScope, all domain-specific enums
+- `activity_enums.py`: Priority, ActivityType (calendar/timeline), 5 dual-track assessment levels
 
 **Health Scoring Pattern:** Use typed enums (ContextHealthScore, FinancialHealthTier) instead of string literals for all health/quality assessments.
 
@@ -1008,7 +1013,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         model_class=Goal,
         domain_name="goals",
         date_field="target_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
         category_field="domain",  # Goals use 'domain' for categorization
     )
 ```

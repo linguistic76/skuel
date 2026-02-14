@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 # Knowledge generation service (Phase 4.1)
 # Protocol interfaces
 # Domain models
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 
@@ -183,7 +183,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
         model_class=Ku,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     # ========================================================================
@@ -450,9 +450,9 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
 
         Reverts task status to IN_PROGRESS.
         """
-        from core.models.enums import ActivityStatus
+        from core.models.enums import KuStatus
 
-        return await self.core.update_task(uid, {"status": ActivityStatus.IN_PROGRESS})
+        return await self.core.update_task(uid, {"status": KuStatus.ACTIVE})
 
     # ========================================================================
     # RELATIONSHIPS AND DEPENDENCIES - Explicit methods (custom logic)
@@ -677,7 +677,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
         """
         from operator import attrgetter
 
-        from core.models.enums import ActivityStatus
+        from core.models.enums import KuStatus
         from core.services.tasks.task_relationships import TaskRelationships
 
         tasks_result = await self.core.get_user_tasks(user_uid)
@@ -693,8 +693,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
             tasks_to_prioritize = [
                 t
                 for t in all_tasks
-                if t.status
-                in [ActivityStatus.DRAFT, ActivityStatus.IN_PROGRESS, ActivityStatus.SCHEDULED]
+                if t.status in [KuStatus.DRAFT, KuStatus.ACTIVE, KuStatus.SCHEDULED]
             ]
 
         # Get learning patterns
@@ -745,7 +744,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
         """
         from datetime import date, timedelta
 
-        from core.models.enums import ActivityStatus
+        from core.models.enums import KuStatus
 
         tasks_result = await self.core.get_user_tasks(user_uid)
         if tasks_result.is_error:
@@ -755,7 +754,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
         completed_tasks = [
             task
             for task in tasks_result.value
-            if task.status == ActivityStatus.COMPLETED
+            if task.status == KuStatus.COMPLETED
             and task.completion_date
             and task.completion_date >= cutoff_date
         ]

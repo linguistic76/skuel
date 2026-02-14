@@ -72,9 +72,7 @@ class GoalRelationships:
     serves_life_path_uids: list[str] = field(default_factory=list)
 
     @classmethod
-    async def fetch(
-        cls, goal_uid: str, service: GoalsRelationshipService
-    ) -> GoalRelationships:
+    async def fetch(cls, goal_uid: str, service: GoalsRelationshipService) -> GoalRelationships:
         """Fetch all relationship data from graph in parallel."""
         return await fetch_relationships_parallel(
             uid=goal_uid,

@@ -124,8 +124,8 @@ else:
 result = await tasks_service.search("meditation", limit=10)
 
 # Filter by status
-from core.models.enums import ActivityStatus
-result = await tasks_service.get_by_status(ActivityStatus.IN_PROGRESS)
+from core.models.enums import KuStatus
+result = await tasks_service.get_by_status(KuStatus.ACTIVE)
 
 # Filter by category
 result = await tasks_service.get_by_category("health")

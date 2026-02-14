@@ -30,7 +30,7 @@ from core.infrastructure.relationships.semantic_relationships import (
 from core.infrastructure.relationships.semantic_relationships import (
     is_blocking_relationship as is_semantic_blocking,
 )
-from core.models.enums import ActivityStatus, ActivityType, RelationshipType, SystemConstants
+from core.models.enums import KuStatus, ActivityType, RelationshipType, SystemConstants
 
 # Protocols
 from core.services.protocols import HasMetrics, HasStreaks, HasUID, MetricsLike, StreaksLike
@@ -164,7 +164,7 @@ class EntityRelationship:
             return is_semantic_blocking(self.semantic_type)
         return is_blocking_relationship(self.relationship_type)
 
-    def is_satisfied_by(self, entity_statuses: dict[str, ActivityStatus]) -> bool:
+    def is_satisfied_by(self, entity_statuses: dict[str, KuStatus]) -> bool:
         """
         Check if this relationship is satisfied given entity statuses.
 
@@ -179,18 +179,18 @@ class EntityRelationship:
 
         if self.relationship_type == RelationshipType.BLOCKS:
             # Blocking relationship is satisfied if source is completed
-            return from_status == ActivityStatus.COMPLETED
+            return from_status == KuStatus.COMPLETED
         elif self.relationship_type == RelationshipType.REQUIRES:
             # Requirement is satisfied if target is available
             to_status = entity_statuses.get(self.to_uid)
             return to_status in {
-                ActivityStatus.COMPLETED,
-                ActivityStatus.IN_PROGRESS,
-                ActivityStatus.SCHEDULED,
+                KuStatus.COMPLETED,
+                KuStatus.ACTIVE,
+                KuStatus.SCHEDULED,
             }
         elif self.relationship_type == RelationshipType.PREREQUISITE_FOR:
             # Prerequisite is satisfied if source is completed
-            return from_status == ActivityStatus.COMPLETED
+            return from_status == KuStatus.COMPLETED
 
         return True
 
@@ -347,13 +347,13 @@ class RelationshipGraph:
 
         return conflicts
 
-    def can_start(self, uid: str, entity_statuses: dict[str, ActivityStatus]) -> bool:
+    def can_start(self, uid: str, entity_statuses: dict[str, KuStatus]) -> bool:
         """Check if an entity can start given current statuses"""
         dependencies = self.get_dependencies(uid)
 
         for dep_uid in dependencies:
             status = entity_statuses.get(dep_uid)
-            if status != ActivityStatus.COMPLETED:
+            if status != KuStatus.COMPLETED:
                 return False
 
         return True
@@ -432,7 +432,7 @@ class RelationshipAware:
             return set()
         return self._relationship_graph.get_related_uids(self.uid)
 
-    def can_start(self, entity_statuses: dict[str, ActivityStatus]) -> bool:
+    def can_start(self, entity_statuses: dict[str, KuStatus]) -> bool:
         """Check if this entity can start given current statuses"""
         if not self._relationship_graph or not isinstance(self, HasUID):
             return True
@@ -715,8 +715,8 @@ class ProgressAwareRelationshipGraph(RelationshipGraph):
             # Skip if already started or completed
             progress = progress_map.get(uid)
             if progress and progress.status in {
-                ActivityStatus.IN_PROGRESS,
-                ActivityStatus.COMPLETED,
+                KuStatus.ACTIVE,
+                KuStatus.COMPLETED,
             }:
                 continue
 

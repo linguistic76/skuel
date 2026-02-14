@@ -37,8 +37,8 @@ that calls CalendarService for display data.
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from core.models.enums import ActivityStatus, Priority
-from core.models.enums.ku_enums import KuType
+from core.models.enums import Priority
+from core.models.enums.ku_enums import KuStatus, KuType
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarItem,
@@ -48,7 +48,6 @@ from core.models.event.calendar_models import (
 )
 from core.models.ku.ku import Ku as EventPure
 from core.models.ku.ku_dto import KuDTO as EventDTO
-from core.models.enums.ku_enums import KuStatus
 from core.models.ku.ku import Ku as HabitPure
 from core.models.ku.ku_dto import KuDTO as HabitDTO
 from core.models.ku.ku import Ku as TaskPure
@@ -284,7 +283,7 @@ class CalendarService:
                 description=kwargs.get("description", ""),
                 scheduled_date=start_time.date(),
                 due_date=start_time.date(),
-                status=ActivityStatus.SCHEDULED,
+                status=KuStatus.SCHEDULED,
                 priority=Priority.MEDIUM,
             )
             result = await self.tasks_service.create(task_dto)
@@ -303,7 +302,7 @@ class CalendarService:
                 event_date=start_time.date(),
                 start_time=start_time.time(),
                 end_time=end_time.time(),
-                status=ActivityStatus.SCHEDULED,
+                status=KuStatus.SCHEDULED,
             )
             result = await self.events_service.create(event_dto)
             if result.is_ok:
@@ -319,7 +318,7 @@ class CalendarService:
                 title=title,
                 description=kwargs.get("description", ""),
                 target_days_per_week=kwargs.get("frequency", 7),
-                status=KuStatus.ACTIVE,  # Use KuStatus, not ActivityStatus
+                status=KuStatus.ACTIVE,  # Use KuStatus, not KuStatus
             )
             result = await self.habits_service.create(habit_dto)
             if result.is_ok:

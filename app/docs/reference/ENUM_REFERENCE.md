@@ -17,7 +17,7 @@ Enums are the single source of truth for valid values across all domains.
 
 ## Table of Contents
 
-- [ActivityStatus](#activitystatus)
+- [KuStatus](#activitystatus)
 - [ActivityType](#activitytype)
 - [BridgeType](#bridgetype)
 - [CacheStrategy](#cachestrategy)
@@ -55,7 +55,7 @@ Enums are the single source of truth for valid values across all domains.
 
 ---
 
-### ActivityStatus
+### KuStatus
 
 Universal status for any trackable activity.
 
@@ -352,10 +352,10 @@ The string is never truncated.
 
 **Example:**
 ```python
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 
 # Using enum value
-status = ActivityStatus.DRAFT
+status = KuStatus.DRAFT
 print(status.value)  # "draft"
 
 # Using dynamic method
@@ -5082,18 +5082,18 @@ The string is never truncated.
 ### KnowledgeStatus
 
 Domain-specific status for knowledge units.
-Maps to ActivityStatus where applicable for consistency.
+Maps to KuStatus where applicable for consistency.
 
 **Valid values:**
 
 - `draft` (DRAFT): Domain-specific status for knowledge units.
-Maps to ActivityStatus where applicable for consistency.
+Maps to KuStatus where applicable for consistency.
 - `published` (PUBLISHED): Domain-specific status for knowledge units.
-Maps to ActivityStatus where applicable for consistency.
+Maps to KuStatus where applicable for consistency.
 - `archived` (ARCHIVED): Domain-specific status for knowledge units.
-Maps to ActivityStatus where applicable for consistency.
+Maps to KuStatus where applicable for consistency.
 - `under_review` (UNDER_REVIEW): Domain-specific status for knowledge units.
-Maps to ActivityStatus where applicable for consistency.
+Maps to KuStatus where applicable for consistency.
 
 **Methods:**
 
@@ -10080,7 +10080,7 @@ print(result)
 
 ### Importing Enums
 ```python
-from core.models.enums import Priority, ActivityStatus, Domain
+from core.models.enums import Priority, KuStatus, Domain
 ```
 
 ### Using Enum Values
@@ -10110,7 +10110,7 @@ color = Priority.HIGH.get_color()  # '#F59E0B'
 num = Priority.HIGH.to_numeric()   # 3
 
 # Check state
-is_done = ActivityStatus.COMPLETED.is_terminal()  # True
+is_done = KuStatus.COMPLETED.is_terminal()  # True
 ```
 
 ### Validation in Pydantic Models
@@ -10138,7 +10138,7 @@ task = Task(title='Review', priority='invalid')
 1. **Single Source of Truth**: Always import from `core/models/enums/`, never duplicate enum definitions
 2. **Use Dynamic Methods**: Leverage enum methods (`.get_color()`, `.to_numeric()`) instead of hardcoded dictionaries
 3. **Type Hints**: Always use enum types in function signatures for better IDE support
-4. **Comparison**: Use enum members directly for comparison (`status == ActivityStatus.COMPLETED`)
+4. **Comparison**: Use enum members directly for comparison (`status == KuStatus.COMPLETED`)
 5. **Serialization**: Use `.value` when serializing to JSON/YAML
 
 ## Adding New Enums

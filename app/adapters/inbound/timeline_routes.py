@@ -26,7 +26,7 @@ from components.timeline_components import (
     render_timeline_viewer_page,
 )
 from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -114,7 +114,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
             if status:
                 status_filter = [s.strip() for s in status.split(",") if s.strip()]
                 # Validate status values
-                valid_statuses = {s.value for s in ActivityStatus}
+                valid_statuses = {s.value for s in KuStatus}
                 invalid_statuses = [s for s in status_filter if s not in valid_statuses]
                 if invalid_statuses:
                     return Response(

@@ -13,7 +13,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import ActivityStatus, Domain, Priority, SELCategory
+from core.models.enums import KuStatus, Domain, Priority, SELCategory
 from core.models.ku.ku import Ku
 from core.models.ku.ku import Ku as Task
 from core.models.relationship_names import RelationshipName
@@ -68,7 +68,7 @@ class TestRelationshipMetadataOperations:
             description="Test getting metadata",
             user_uid="user.test",
             priority=Priority.MEDIUM,
-            status=ActivityStatus.DRAFT,
+            status=KuStatus.DRAFT,
         )
         create_result = await tasks_service.create(task)
         assert create_result.is_ok
@@ -141,7 +141,7 @@ class TestRelationshipMetadataOperations:
             user_uid="user.test",
             priority=Priority.HIGH,
             due_date=date.today(),
-            status=ActivityStatus.IN_PROGRESS,
+            status=KuStatus.ACTIVE,
         )
         create_result = await tasks_service.create(task)
         assert create_result.is_ok
@@ -195,7 +195,7 @@ class TestRelationshipMetadataOperations:
             description="Test multiple property updates",
             user_uid="user.test",
             priority=Priority.LOW,
-            status=ActivityStatus.DRAFT,
+            status=KuStatus.DRAFT,
         )
         create_result = await tasks_service.create(task)
         assert create_result.is_ok
@@ -261,7 +261,7 @@ class TestRelationshipMetadataOperations:
             description="Test adding new properties",
             user_uid="user.test",
             priority=Priority.MEDIUM,
-            status=ActivityStatus.IN_PROGRESS,
+            status=KuStatus.ACTIVE,
         )
         create_result = await tasks_service.create(task)
         assert create_result.is_ok
@@ -320,7 +320,7 @@ class TestRelationshipMetadataOperations:
             description="Test counter increment pattern",
             user_uid="user.test",
             priority=Priority.MEDIUM,
-            status=ActivityStatus.IN_PROGRESS,
+            status=KuStatus.ACTIVE,
         )
         create_result = await tasks_service.create(task)
         assert create_result.is_ok

@@ -145,9 +145,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
         """
         Get principle with full graph context.
 
@@ -927,9 +925,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         counts = PatternAnalyzer.extract_dict_field_counts(context_dict, ["choices", "habits"])
         return counts["choices"] + counts["habits"]
 
-    def _calculate_current_state(
-        self, principle: Ku, recent_activities: int
-    ) -> dict[str, float]:
+    def _calculate_current_state(self, principle: Ku, recent_activities: int) -> dict[str, float]:
         """Calculate current state metrics."""
         # NOTE: Principle model does not have adherence_score field
         # Using default 0.5 - consider adding adherence tracking in future
@@ -1034,9 +1030,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
     # HELPER METHODS - CONFLICT ANALYSIS
     # ========================================================================
 
-    def _determine_conflict_severity(
-        self, p1: Ku, p2: Ku
-    ) -> tuple[str, int, int, int]:
+    def _determine_conflict_severity(self, p1: Ku, p2: Ku) -> tuple[str, int, int, int]:
         """
         Determine conflict severity based on principle strengths.
 

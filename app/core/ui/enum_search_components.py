@@ -39,7 +39,7 @@ Benefits:
 from typing import Any
 
 from core.models.enums import (
-    ActivityStatus,
+    KuStatus,
     ContentType,
     Domain,
     EducationalLevel,
@@ -76,7 +76,7 @@ def generate_priority_filter_options() -> list[dict[str, Any]]:
 
 def generate_status_filter_options() -> list[dict[str, Any]]:
     """
-    Generate UI dropdown options for ActivityStatus enum.
+    Generate UI dropdown options for KuStatus enum.
 
     Returns:
         List of dicts with {value, label, icon, color, description, state_info}
@@ -93,7 +93,7 @@ def generate_status_filter_options() -> list[dict[str, Any]]:
             "is_active": s.is_active(),
             "is_pending": s.is_pending(),
         }
-        for s in ActivityStatus
+        for s in KuStatus
     ]
 
 

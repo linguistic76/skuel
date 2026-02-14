@@ -30,7 +30,7 @@ from core.events.calendar_event_events import (
     CalendarEventRescheduled,
     CalendarEventUpdated,
 )
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.models.enums.ku_enums import KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -119,7 +119,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         model_class=Ku,
         domain_name="events",
         date_field="event_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -436,8 +436,8 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
             # Priority 1: Status changed to COMPLETED (state transition only)
             if (
                 "status" in updates
-                and updates["status"] == ActivityStatus.COMPLETED.value
-                and old_status != ActivityStatus.COMPLETED
+                and updates["status"] == KuStatus.COMPLETED.value
+                and old_status != KuStatus.COMPLETED
             ):
                 domain_event = CalendarEventCompleted(
                     event_uid=event.uid,

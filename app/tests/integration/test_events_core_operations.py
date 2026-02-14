@@ -26,7 +26,7 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import ActivityStatus, Priority, Visibility
+from core.models.enums import KuStatus, Priority, Visibility
 from core.models.ku.ku import Ku
 from core.services.events.events_core_service import EventsCoreService
 
@@ -72,7 +72,7 @@ class TestEventsCoreOperations:
             start_time=time(14, 0),  # 2 PM
             end_time=time(15, 0),  # 3 PM
             event_type="WORK",
-            status=ActivityStatus.SCHEDULED,
+            status=KuStatus.SCHEDULED,
             priority=Priority.HIGH,
             location="Conference Room A",
         )
@@ -86,7 +86,7 @@ class TestEventsCoreOperations:
         assert created.uid == "event.team_meeting"
         assert created.title == "Weekly Team Meeting"
         assert created.event_type == "WORK"
-        assert created.status == ActivityStatus.SCHEDULED
+        assert created.status == KuStatus.SCHEDULED
         assert created.priority == Priority.HIGH
 
     async def test_get_event_by_uid(self, events_service, test_user_uid):
@@ -98,7 +98,7 @@ class TestEventsCoreOperations:
             title="Test Event for Retrieval",
             description="This event tests retrieval functionality",
             event_date=date.today(),
-            status=ActivityStatus.SCHEDULED,
+            status=KuStatus.SCHEDULED,
         )
         create_result = await events_service.create(event)
         assert create_result.is_ok
@@ -132,7 +132,7 @@ class TestEventsCoreOperations:
                 title=f"Test Event {i}",
                 description=f"Description for event {i}",
                 event_date=today + timedelta(days=i),
-                status=ActivityStatus.SCHEDULED,
+                status=KuStatus.SCHEDULED,
             )
             for i in range(3)
         ]
@@ -160,7 +160,7 @@ class TestEventsCoreOperations:
                 title=f"Multi Event {i}",
                 description=f"Multiple event {i}",
                 event_date=today + timedelta(days=i),
-                status=ActivityStatus.SCHEDULED,
+                status=KuStatus.SCHEDULED,
             )
             result = await events_service.create(event)
             assert result.is_ok
@@ -184,7 +184,7 @@ class TestEventsCoreOperations:
             title="Scheduled Event",
             description="Upcoming event",
             event_date=today + timedelta(days=1),
-            status=ActivityStatus.SCHEDULED,
+            status=KuStatus.SCHEDULED,
         )
         completed_event = Ku(
             uid="event.completed",
@@ -192,7 +192,7 @@ class TestEventsCoreOperations:
             title="Completed Event",
             description="Past event",
             event_date=today - timedelta(days=1),
-            status=ActivityStatus.COMPLETED,
+            status=KuStatus.COMPLETED,
         )
 
         await events_service.create(scheduled_event)
@@ -200,20 +200,20 @@ class TestEventsCoreOperations:
 
         # Act - Filter by status
         scheduled_result = await events_service.backend.find_by(
-            user_uid=test_user_uid, status=ActivityStatus.SCHEDULED.value
+            user_uid=test_user_uid, status=KuStatus.SCHEDULED.value
         )
         completed_result = await events_service.backend.find_by(
-            user_uid=test_user_uid, status=ActivityStatus.COMPLETED.value
+            user_uid=test_user_uid, status=KuStatus.COMPLETED.value
         )
 
         # Assert
         assert scheduled_result.is_ok
         assert len(scheduled_result.value) >= 1
-        assert all(e.status == ActivityStatus.SCHEDULED for e in scheduled_result.value)
+        assert all(e.status == KuStatus.SCHEDULED for e in scheduled_result.value)
 
         assert completed_result.is_ok
         assert len(completed_result.value) >= 1
-        assert all(e.status == ActivityStatus.COMPLETED for e in completed_result.value)
+        assert all(e.status == KuStatus.COMPLETED for e in completed_result.value)
 
     async def test_filter_by_event_type(self, events_service, test_user_uid):
         """Test filtering events by type."""
@@ -226,7 +226,7 @@ class TestEventsCoreOperations:
             description="Work-related meeting",
             event_date=today,
             event_type="WORK",
-            status=ActivityStatus.SCHEDULED,
+            status=KuStatus.SCHEDULED,
         )
         personal_event = Ku(
             uid="event.personal_type",
@@ -235,7 +235,7 @@ class TestEventsCoreOperations:
             description="Personal appointment",
             event_date=today,
             event_type="PERSONAL",
-            status=ActivityStatus.SCHEDULED,
+            status=KuStatus.SCHEDULED,
         )
 
         await events_service.create(work_event)
@@ -268,7 +268,7 @@ class TestEventsCoreOperations:
             title="This Week Event",
             description="Event this week",
             event_date=today + timedelta(days=3),
-            status=ActivityStatus.SCHEDULED,
+            status=KuStatus.SCHEDULED,
         )
         next_month_event = Ku(
             uid="event.next_month",
@@ -276,7 +276,7 @@ class TestEventsCoreOperations:
             title="Next Month Event",
             description="Event next month",
             event_date=today + timedelta(days=30),
-            status=ActivityStatus.SCHEDULED,
+            status=KuStatus.SCHEDULED,
         )
 
         await events_service.create(this_week_event)
@@ -305,10 +305,10 @@ class TestEventsCoreOperations:
         # Arrange & Act - Create events with each status
         today = date.today()
         statuses = [
-            ActivityStatus.SCHEDULED,
-            ActivityStatus.IN_PROGRESS,
-            ActivityStatus.COMPLETED,
-            ActivityStatus.CANCELLED,
+            KuStatus.SCHEDULED,
+            KuStatus.ACTIVE,
+            KuStatus.COMPLETED,
+            KuStatus.CANCELLED,
         ]
 
         for status in statuses:
@@ -382,7 +382,7 @@ class TestEventsCoreOperations:
             event_date=date.today(),
             start_time=time(14, 0),  # 2:00 PM
             end_time=time(15, 30),  # 3:30 PM
-            status=ActivityStatus.SCHEDULED,
+            status=KuStatus.SCHEDULED,
         )
 
         # Act
@@ -410,7 +410,7 @@ class TestEventsCoreOperations:
             start_time=time(10, 0),
             end_time=time(11, 30),
             event_type="LEARNING",
-            status=ActivityStatus.SCHEDULED,
+            status=KuStatus.SCHEDULED,
             priority=Priority.HIGH,
             location="Main Conference Room",
             is_online=True,
@@ -459,7 +459,7 @@ class TestEventsCoreOperations:
         assert created.location is None
         # Check defaults are set
         assert created.event_type == "PERSONAL"
-        assert created.status == ActivityStatus.SCHEDULED
+        assert created.status == KuStatus.SCHEDULED
         assert created.visibility == Visibility.PRIVATE
 
     async def test_online_event(self, events_service, test_user_uid):
@@ -476,7 +476,7 @@ class TestEventsCoreOperations:
             is_online=True,
             meeting_url="https://zoom.us/j/123456789",
             event_type="LEARNING",
-            status=ActivityStatus.SCHEDULED,
+            status=KuStatus.SCHEDULED,
         )
 
         # Act

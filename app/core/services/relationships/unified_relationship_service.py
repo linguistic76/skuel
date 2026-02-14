@@ -2008,7 +2008,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         status = getattr(entity, "status", None)
 
         # Check status
-        if status and str(status).lower() in ("completed", "done", "achieved"):
+        if status and str(status).lower() in ("completed", "done"):
             return True
 
         # Check context completed lists

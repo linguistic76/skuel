@@ -57,7 +57,7 @@ async def test_some_feature(tasks_backend, test_user_uid, create_test_users):
         uid="task_test_001",
         user_uid=test_user_uid,
         title="Test Task",
-        status=ActivityStatus.DRAFT,
+        status=KuStatus.DRAFT,
         priority=Priority.MEDIUM,
         created_at=datetime.now(),
         updated_at=datetime.now(),

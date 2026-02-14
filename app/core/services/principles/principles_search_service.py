@@ -172,9 +172,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         return Result.ok(principles)
 
     @with_error_handling("get_prioritized", error_type="database")
-    async def get_prioritized(
-        self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Ku]]:
+    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Ku]]:
         """
         Get principles prioritized for the user's current context.
 
@@ -516,9 +514,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
         )
 
     @with_error_handling("get_active_principles", error_type="database")
-    async def get_active_principles(
-        self, user_uid: str, limit: int = 100
-    ) -> Result[list[Ku]]:
+    async def get_active_principles(self, user_uid: str, limit: int = 100) -> Result[list[Ku]]:
         """
         Get all active principles for a user.
 

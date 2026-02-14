@@ -32,7 +32,7 @@ from operator import attrgetter, itemgetter, methodcaller
 from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.lp_position import LpPosition
@@ -78,7 +78,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         model_class=Ku,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     # ========================================================================
@@ -256,7 +256,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Convert to Task models and filter completed
         all_tasks = self._to_domain_models(entities, KuDTO, Ku)
-        tasks = [task for task in all_tasks if task.status != ActivityStatus.COMPLETED]
+        tasks = [task for task in all_tasks if task.status != KuStatus.COMPLETED]
 
         # Sort by impact score (descending)
         tasks.sort(key=methodcaller("impact_score"), reverse=True)
@@ -298,7 +298,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         task_scores = []
         for task in all_tasks:
             # Skip completed tasks
-            if task.status == ActivityStatus.COMPLETED:
+            if task.status == KuStatus.COMPLETED:
                 continue
 
             # GRAPH-NATIVE: Fetch knowledge relationships from graph

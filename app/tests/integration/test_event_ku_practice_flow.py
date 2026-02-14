@@ -30,7 +30,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.ku_events import KnowledgePracticed
 from core.models.enums import (
-    ActivityStatus,
+    KuStatus,
     Domain,
     SELCategory,
 )
@@ -109,7 +109,7 @@ class TestEventKuPracticeFlow:
             title="Morning Meditation Session",
             event_type="LEARNING",
             event_date=date.today(),
-            status=ActivityStatus.COMPLETED,
+            status=KuStatus.COMPLETED,
         )
         result = await event_backend.create(event)
         assert result.is_ok
@@ -271,7 +271,7 @@ class TestEventKuPracticeFlow:
             title="Event Without KUs",
             event_type="WORK",
             event_date=date.today(),
-            status=ActivityStatus.COMPLETED,
+            status=KuStatus.COMPLETED,
         )
         result = await event_backend.create(event)
         assert result.is_ok, "Setup failed: Could not create event"

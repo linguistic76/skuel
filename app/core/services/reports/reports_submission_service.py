@@ -207,9 +207,7 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
 
         return create_result
 
-    async def _store_file(
-        self, file_content: bytes, filename: str, ku_uid: str
-    ) -> Result[Path]:
+    async def _store_file(self, file_content: bytes, filename: str, ku_uid: str) -> Result[Path]:
         """
         Store file to disk.
 

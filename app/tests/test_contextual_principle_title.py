@@ -17,18 +17,18 @@ class TestContextualPrincipleTitle:
     def test_inherits_title_from_base(self):
         """Verify ContextualPrinciple inherits title from ContextualEntity."""
         # ContextualEntity should have title
-        assert hasattr(ContextualEntity, '__annotations__')
-        assert 'title' in ContextualEntity.__annotations__
+        assert hasattr(ContextualEntity, "__annotations__")
+        assert "title" in ContextualEntity.__annotations__
 
         # ContextualPrinciple should NOT redeclare title or name
         principle_fields = ContextualPrinciple.__annotations__
         # title should be inherited, not redeclared
-        if 'title' in principle_fields:
+        if "title" in principle_fields:
             # If it's in annotations, it's redeclared - that's OK for inheritance
             pass
 
         # name should NOT be present
-        assert 'name' not in principle_fields, "ContextualPrinciple should not have 'name' field"
+        assert "name" not in principle_fields, "ContextualPrinciple should not have 'name' field"
 
     def test_factory_accepts_title_parameter(self):
         """Verify from_entity_and_context() accepts title parameter."""
@@ -73,7 +73,7 @@ class TestContextualPrincipleTitle:
         assert principle.title == "Integrity"
 
         # Should NOT have .name attribute
-        assert not hasattr(principle, 'name') or principle.title is not None
+        assert not hasattr(principle, "name") or principle.title is not None
 
     def test_to_dict_excludes_name_includes_title(self):
         """Verify to_dict() uses title from base, not name."""
@@ -93,8 +93,8 @@ class TestContextualPrincipleTitle:
         result_dict = principle.to_dict()
 
         # Should have title from base class
-        assert 'title' in result_dict
-        assert result_dict['title'] == "Test Principle"
+        assert "title" in result_dict
+        assert result_dict["title"] == "Test Principle"
 
         # Should NOT have 'name' field
         # (Note: base to_dict might not include title, but principle shouldn't add 'name')

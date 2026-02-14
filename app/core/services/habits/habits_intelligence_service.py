@@ -142,9 +142,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Ku]):
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
         """
         Get habit with full graph context.
 

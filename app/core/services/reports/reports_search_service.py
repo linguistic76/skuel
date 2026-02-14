@@ -194,9 +194,7 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
             return result
 
         kus = result.value
-        filtered = [k for k in kus if k.metadata and k.metadata.get("category") == category][
-            :limit
-        ]
+        filtered = [k for k in kus if k.metadata and k.metadata.get("category") == category][:limit]
 
         return Result.ok(filtered)
 

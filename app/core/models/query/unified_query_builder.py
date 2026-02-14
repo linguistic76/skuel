@@ -25,7 +25,7 @@ from core.constants import GraphDepth, QueryLimit
 tasks = await (
     UnifiedQueryBuilder()
     .for_model(Task)
-    .filter(priority="high", status="in_progress")
+    .filter(priority="high", status="active")
     .limit(50)
     .execute()
 )

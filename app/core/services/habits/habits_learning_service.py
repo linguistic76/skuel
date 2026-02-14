@@ -19,7 +19,7 @@ from datetime import datetime
 from typing import Any
 
 from core.events import HabitCreated, publish_event
-from core.models.enums import ActivityStatus, Domain
+from core.models.enums import KuStatus, Domain
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -72,7 +72,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Ku]):
         model_class=Ku,
         domain_name="habits",
         date_field="created_at",
-        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+        completed_statuses=(KuStatus.ARCHIVED.value,),
     )
 
     def __init__(self, backend: HabitsOperations, event_bus=None) -> None:
@@ -128,7 +128,11 @@ class HabitsLearningService(BaseService[HabitsOperations, Ku]):
 
                 # GRAPH-NATIVE: Check if habit is learning-related
                 # Check category and source fields (learning step/path linkage)
-                if habit.habit_category.value == "learning" or habit.source_learning_step_uid is not None or habit.source_learning_path_uid is not None:
+                if (
+                    habit.habit_category.value == "learning"
+                    or habit.source_learning_step_uid is not None
+                    or habit.source_learning_path_uid is not None
+                ):
                     learning_habits.append(habit)
 
         return Result.ok(learning_habits)

@@ -22,7 +22,7 @@ from datetime import date, time
 
 import pytest
 
-from core.models.enums import ActivityStatus, Domain, GoalStatus, Priority
+from core.models.enums import KuStatus, Domain, KuStatus, Priority
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.models.ku.ku_dto import KuDTO as GoalDTO
@@ -77,7 +77,7 @@ class TestRichUserContextPattern:
             title="Master Python",
             domain=Domain.TECH,
         )
-        goal_dto.status = GoalStatus.ACTIVE  # Set status after creation
+        goal_dto.status = KuStatus.ACTIVE  # Set status after creation
         await services.goals.core.backend.create(goal_dto.to_dict())
 
         # Create task (with IN_PROGRESS status to be included in active_task_uids)
@@ -87,7 +87,7 @@ class TestRichUserContextPattern:
             priority=Priority.HIGH,
             due_date=date.today(),
         )
-        task_dto.status = ActivityStatus.IN_PROGRESS  # Set status after creation
+        task_dto.status = KuStatus.ACTIVE  # Set status after creation
         await services.tasks.core.backend.create(task_dto.to_dict())
 
         # Create task relationships
@@ -188,7 +188,7 @@ class TestRichUserContextPattern:
             title="Test Task",
             priority=Priority.MEDIUM,
         )
-        task_dto.status = ActivityStatus.IN_PROGRESS  # Set status after creation
+        task_dto.status = KuStatus.ACTIVE  # Set status after creation
         await services.tasks.core.backend.create(task_dto.to_dict())
 
         goal_dto = GoalDTO.create(
@@ -196,7 +196,7 @@ class TestRichUserContextPattern:
             title="Test Goal",
             domain=Domain.TECH,
         )
-        goal_dto.status = GoalStatus.ACTIVE  # Set status after creation
+        goal_dto.status = KuStatus.ACTIVE  # Set status after creation
         await services.goals.core.backend.create(goal_dto.to_dict())
 
         # Record mastery
@@ -289,7 +289,7 @@ class TestRichUserContextPattern:
             title="Test Goal",
             domain=Domain.TECH,
         )
-        goal_dto.status = GoalStatus.ACTIVE  # Set status after creation
+        goal_dto.status = KuStatus.ACTIVE  # Set status after creation
         await services.goals.core.backend.create(goal_dto.to_dict())
 
         task_dto = TaskDTO.create_task(
@@ -297,7 +297,7 @@ class TestRichUserContextPattern:
             title="Test Task",
             priority=Priority.MEDIUM,
         )
-        task_dto.status = ActivityStatus.IN_PROGRESS  # Set status after creation
+        task_dto.status = KuStatus.ACTIVE  # Set status after creation
         await services.tasks.core.backend.create(task_dto.to_dict())
 
         # Create cross-domain relationships

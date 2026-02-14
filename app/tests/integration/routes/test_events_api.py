@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.utils.result_simplified import Errors, Result
 
 # Mark all tests in this module as async
@@ -34,7 +34,7 @@ class MockEvent:
         user_uid: str = "user.test",
         title: str = "Test Event",
         description: str = "A test event description",
-        status: ActivityStatus = ActivityStatus.SCHEDULED,
+        status: KuStatus = KuStatus.SCHEDULED,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         location: str = "",
@@ -90,15 +90,9 @@ def mock_events_service():
     service.check_conflicts = AsyncMock(return_value=Result.ok([]))
 
     # Status operations
-    service.start_event = AsyncMock(
-        return_value=Result.ok(MockEvent(status=ActivityStatus.IN_PROGRESS))
-    )
-    service.complete_event = AsyncMock(
-        return_value=Result.ok(MockEvent(status=ActivityStatus.COMPLETED))
-    )
-    service.cancel_event = AsyncMock(
-        return_value=Result.ok(MockEvent(status=ActivityStatus.CANCELLED))
-    )
+    service.start_event = AsyncMock(return_value=Result.ok(MockEvent(status=KuStatus.ACTIVE)))
+    service.complete_event = AsyncMock(return_value=Result.ok(MockEvent(status=KuStatus.COMPLETED)))
+    service.cancel_event = AsyncMock(return_value=Result.ok(MockEvent(status=KuStatus.CANCELLED)))
     service.reschedule_event = AsyncMock(return_value=Result.ok(MockEvent()))
 
     # Recurring events
@@ -206,21 +200,21 @@ class TestStatusOperations:
         result = await mock_events_service.start_event("event.test123")
 
         assert result.is_ok
-        assert result.value.status == ActivityStatus.IN_PROGRESS
+        assert result.value.status == KuStatus.ACTIVE
 
     async def test_complete_event(self, mock_events_service):
         """Test completing an event."""
         result = await mock_events_service.complete_event("event.test123")
 
         assert result.is_ok
-        assert result.value.status == ActivityStatus.COMPLETED
+        assert result.value.status == KuStatus.COMPLETED
 
     async def test_cancel_event(self, mock_events_service):
         """Test canceling an event."""
         result = await mock_events_service.cancel_event("event.test123")
 
         assert result.is_ok
-        assert result.value.status == ActivityStatus.CANCELLED
+        assert result.value.status == KuStatus.CANCELLED
 
     async def test_reschedule_event(self, mock_events_service):
         """Test rescheduling an event."""

@@ -13,7 +13,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import ActivityStatus, Domain, Priority, SELCategory
+from core.models.enums import KuStatus, Domain, Priority, SELCategory
 from core.models.ku.ku import Ku
 from core.models.ku.ku import Ku as Task
 from core.models.relationship_names import RelationshipName
@@ -196,7 +196,7 @@ class TestCascadeDeleteTrue:
             description="Test",
             user_uid="user.test",
             priority=Priority.MEDIUM,
-            status=ActivityStatus.DRAFT,
+            status=KuStatus.DRAFT,
         )
         await tasks_service.create(task)
 

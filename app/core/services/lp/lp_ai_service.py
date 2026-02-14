@@ -78,7 +78,9 @@ class LpAIService(BaseAIService[LpOperations, Ku]):
             return Result.fail(all_paths_result.expect_error())
 
         all_paths: list[Ku] = all_paths_result.value or []
-        candidates = [(p.uid, f"{p.title} {p.description or ''}") for p in all_paths if p.uid != lp_uid]
+        candidates = [
+            (p.uid, f"{p.title} {p.description or ''}") for p in all_paths if p.uid != lp_uid
+        ]
 
         if not candidates:
             return Result.ok([])

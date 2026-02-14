@@ -45,7 +45,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         model_class=Goal,
         domain_name="goals",
         date_field="target_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
         category_field="domain",
     )
 ```

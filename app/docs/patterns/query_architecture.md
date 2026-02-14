@@ -577,7 +577,7 @@ from core.services.protocols.query_types import TaskUpdatePayload, GoalUpdatePay
 
 # Task update with type-checked fields
 updates: TaskUpdatePayload = {
-    "status": ActivityStatus.COMPLETED.value,
+    "status": KuStatus.COMPLETED.value,
     "priority": Priority.HIGH.value,
 }
 

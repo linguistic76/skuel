@@ -131,7 +131,7 @@ class ExpenseStatus(Enum):
 | **Activity** | `activity_enums.py` | GoalStatus, TaskPriority, HabitFrequency |
 | **Learning** | `learning_enums.py` | MasteryLevel, LearningState |
 | **User** | `user_enums.py` | UserRole, ContextHealthScore |
-| **Shared** | `enums/` directory | Domain, KuType, NonKuDomain, Priority, ActivityStatus |
+| **Shared** | `enums/` directory | Domain, KuType, NonKuDomain, Priority, KuStatus |
 
 ## When to Consolidate
 

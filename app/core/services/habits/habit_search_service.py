@@ -27,7 +27,7 @@ Changelog:
 from datetime import date, timedelta
 from typing import ClassVar
 
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -52,7 +52,7 @@ class HabitSearchService(BaseService[HabitsOperations, Ku]):
 
     Universal Methods (DomainSearchOperations protocol):
     - search() - Text search on title/description (inherited from BaseService)
-    - get_by_status() - Filter by ActivityStatus
+    - get_by_status() - Filter by KuStatus
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
@@ -97,26 +97,26 @@ class HabitSearchService(BaseService[HabitsOperations, Ku]):
         model_class=Ku,
         domain_name="habits",
         date_field="created_at",  # Habits don't have due_date, use created_at
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     # Status filtering constants - eliminates duplication across methods
     # INACTIVE includes PAUSED (fully inactive habits)
     _INACTIVE_STATUSES: ClassVar[frozenset[str]] = frozenset(
         {
-            ActivityStatus.ARCHIVED.value,
-            ActivityStatus.COMPLETED.value,
-            ActivityStatus.CANCELLED.value,
-            ActivityStatus.PAUSED.value,
+            KuStatus.ARCHIVED.value,
+            KuStatus.COMPLETED.value,
+            KuStatus.CANCELLED.value,
+            KuStatus.PAUSED.value,
         }
     )
 
     # TERMINAL excludes PAUSED (for get_prioritized and get_needing_attention)
     _TERMINAL_STATUSES: ClassVar[frozenset[str]] = frozenset(
         {
-            ActivityStatus.ARCHIVED.value,
-            ActivityStatus.COMPLETED.value,
-            ActivityStatus.CANCELLED.value,
+            KuStatus.ARCHIVED.value,
+            KuStatus.COMPLETED.value,
+            KuStatus.CANCELLED.value,
         }
     )
 
@@ -145,9 +145,7 @@ class HabitSearchService(BaseService[HabitsOperations, Ku]):
     # get_by_category(), list_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
-    async def get_prioritized(
-        self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Ku]]:
+    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Ku]]:
         """
         Get habits prioritized for the user's current context.
 

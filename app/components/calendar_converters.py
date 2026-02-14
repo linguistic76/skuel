@@ -208,7 +208,7 @@ def goal_to_calendar_item(goal: Any) -> CalendarItem | None:
         tags=getattr(goal, "tags", []) or [],
         category=str(getattr(goal, "domain", "")) if getattr(goal, "domain", None) else None,
         metadata={
-            "status": str(getattr(goal, "status", "")).replace("GoalStatus.", ""),
+            "status": str(getattr(goal, "status", "")).replace("KuStatus.", ""),
             "timeframe": str(getattr(goal, "timeframe", "")),
             "progress": getattr(goal, "current_value", 0),
         },
@@ -305,7 +305,9 @@ def habit_to_calendar_items(habit: Any, current_date: date) -> list[CalendarItem
             duration = getattr(habit, "duration_minutes", 15) or 15
             end_dt = start_dt + timedelta(minutes=duration)
 
-            category_str = str(habit.habit_category) if getattr(habit, "habit_category", None) else None
+            category_str = (
+                str(habit.habit_category) if getattr(habit, "habit_category", None) else None
+            )
 
             items.append(
                 CalendarItem(

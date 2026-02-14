@@ -20,9 +20,7 @@ from typing import Any
 
 from core.events import publish_event
 from core.events.habit_events import HabitCreated
-from core.models.enums.ku_enums import KuType
-from core.models.enums.activity_enums import ActivityStatus
-from core.models.enums.ku_enums import KuStatus
+from core.models.enums.ku_enums import KuStatus, KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.habit.habit_request import HabitCreateRequest
@@ -103,7 +101,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
         model_class=Ku,
         domain_name="habits",
         date_field="created_at",
-        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+        completed_statuses=(KuStatus.ARCHIVED.value,),
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -223,9 +221,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
         self.logger.info(f"Retrieved {len(habits)} habits for user {user_uid}")
         return Result.ok(habits)
 
-    async def list_habits(
-        self, limit: int = 100, **filters: Any
-    ) -> Result[tuple[list[Ku], int]]:
+    async def list_habits(self, limit: int = 100, **filters: Any) -> Result[tuple[list[Ku], int]]:
         """
         List habits with optional filters.
 

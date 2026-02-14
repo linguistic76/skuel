@@ -9,7 +9,7 @@ Validates:
 - CRUDRouteFactory generic route generation
 - @boundary_handler HTTP response conversion
 - Result[T] propagation through all layers
-- Enum conversion (Priority, ActivityStatus, etc.)
+- Enum conversion (Priority, KuStatus, etc.)
 - Pydantic validation at boundaries
 - Direct UniversalBackend usage (no adapters)
 - Multi-domain coverage (Task, Event, Habit, Goal)
@@ -22,7 +22,7 @@ import pytest
 from starlette.responses import JSONResponse
 
 from core.infrastructure.routes.crud_route_factory import CRUDRouteFactory
-from core.models.enums import ActivityStatus, Priority
+from core.models.enums import KuStatus, Priority
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
@@ -287,7 +287,7 @@ async def test_create_route_enum_conversion():
     class TaskCreateRequest(BaseModel):
         title: str
         priority: Priority
-        status: ActivityStatus
+        status: KuStatus
 
     service = MockTaskService()
 
@@ -298,7 +298,7 @@ async def test_create_route_enum_conversion():
 
         # Enums should be in schema
         assert isinstance(schema.priority, Priority)
-        assert isinstance(schema.status, ActivityStatus)
+        assert isinstance(schema.status, KuStatus)
 
         task_data = {
             "uid": "task:enum_test",

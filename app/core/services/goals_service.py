@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import GoalStatus, Priority
+from core.models.enums import KuStatus, Priority
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
@@ -111,7 +111,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
         model_class=Ku,
         domain_name="goals",
         date_field="target_date",
-        completed_statuses=(GoalStatus.ACHIEVED.value, GoalStatus.CANCELLED.value),
+        completed_statuses=(KuStatus.COMPLETED.value, KuStatus.CANCELLED.value),
         category_field="domain",  # Goals use 'domain' field for categorization
     )
 

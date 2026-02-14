@@ -290,9 +290,7 @@ class TeacherReviewService:
                         )
 
                 if mastered_count > 0:
-                    logger.info(
-                        f"Updated mastery for {mastered_count} KUs from Ku {ku_uid}"
-                    )
+                    logger.info(f"Updated mastery for {mastered_count} KUs from Ku {ku_uid}")
 
             logger.info(f"Teacher {teacher_uid} approved Ku {ku_uid}")
             return Result.ok(

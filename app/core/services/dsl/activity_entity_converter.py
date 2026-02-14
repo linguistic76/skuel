@@ -50,7 +50,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
 from core.models.enums import (
-    ActivityStatus,
+    KuStatus,
     Priority,
     RecurrencePattern,
 )
@@ -281,7 +281,7 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
         due_date=due_date,
         duration_minutes=activity.duration_minutes or 30,
         priority=priority,
-        status=ActivityStatus.DRAFT if not activity.is_checked else ActivityStatus.COMPLETED,
+        status=KuStatus.DRAFT if not activity.is_checked else KuStatus.COMPLETED,
         recurrence_pattern=recurrence,
         # Knowledge connections
         applies_knowledge_uids=activity.get_linked_knowledge(),

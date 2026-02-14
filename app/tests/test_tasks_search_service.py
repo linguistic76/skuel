@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.enums import ActivityStatus, Domain, Priority
+from core.models.enums import KuStatus, Domain, Priority
 from core.models.enums.ku_enums import KuType
 from core.models.ku import Ku, LpPosition
 from core.models.ku.ku import Ku as Task
@@ -78,7 +78,7 @@ def sample_tasks() -> list[Any]:
                 user_uid="user:demo",
                 title="Complete Python module",
                 priority=Priority.HIGH.value,
-                status=ActivityStatus.IN_PROGRESS.value,
+                status=KuStatus.ACTIVE.value,
                 fulfills_goal_uid="goal:learn_python",
                 reinforces_habit_uid=None,
                 goal_progress_contribution=0.2,
@@ -91,7 +91,7 @@ def sample_tasks() -> list[Any]:
                 user_uid="user:demo",
                 title="Daily coding practice",
                 priority=Priority.MEDIUM.value,
-                status=ActivityStatus.SCHEDULED.value,
+                status=KuStatus.SCHEDULED.value,
                 fulfills_goal_uid=None,
                 reinforces_habit_uid="habit:daily_code",
                 created_at=now,
@@ -103,7 +103,7 @@ def sample_tasks() -> list[Any]:
                 user_uid="user:demo",
                 title="Blocked task - needs prereq",
                 priority=Priority.HIGH.value,
-                status=ActivityStatus.DRAFT.value,
+                status=KuStatus.DRAFT.value,
                 created_at=now,
             )
         ),
@@ -113,7 +113,7 @@ def sample_tasks() -> list[Any]:
                 user_uid="user:demo",
                 title="Learning step task",
                 priority=Priority.LOW.value,
-                status=ActivityStatus.DRAFT.value,
+                status=KuStatus.DRAFT.value,
                 knowledge_mastery_check=True,
                 source_learning_step_uid="ls:python_fundamentals",
                 created_at=now,
@@ -331,7 +331,7 @@ async def test_get_blocked_tasks_empty(search_service, mock_backend):
             user_uid="user:demo",
             title="Simple task",
             priority=Priority.MEDIUM.value,
-            status=ActivityStatus.DRAFT.value,
+            status=KuStatus.DRAFT.value,
             created_at=datetime.now(),
         )
     )

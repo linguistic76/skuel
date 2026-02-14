@@ -26,7 +26,7 @@ Changelog:
 
 from datetime import date, timedelta
 
-from core.models.enums import GoalStatus
+from core.models.enums import KuStatus
 from core.models.enums.ku_enums import GoalTimeframe
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -50,7 +50,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Ku]):
 
     Universal Methods (DomainSearchOperations protocol):
     - search() - Text search on title/description (inherited from BaseService)
-    - get_by_status() - Filter by GoalStatus
+    - get_by_status() - Filter by KuStatus
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
@@ -94,7 +94,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Ku]):
         model_class=Ku,
         domain_name="goals",
         date_field="target_date",
-        completed_statuses=(GoalStatus.ACHIEVED.value, GoalStatus.CANCELLED.value),
+        completed_statuses=(KuStatus.COMPLETED.value, KuStatus.CANCELLED.value),
         category_field="domain",  # Goals use 'domain' field for categorization
     )
 
@@ -113,9 +113,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Ku]):
     # get_by_category(), list_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
-    async def get_prioritized(
-        self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Ku]]:
+    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Ku]]:
         """
         Get goals prioritized for the user's current context.
 
@@ -134,7 +132,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Ku]):
         """
         # Get user's active goals
         result = await self.backend.find_by(
-            user_uid=user_context.user_uid, status=GoalStatus.ACTIVE.value
+            user_uid=user_context.user_uid, status=KuStatus.ACTIVE.value
         )
         if result.is_error:
             return result
@@ -370,7 +368,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Ku]):
         """
         # Get user's active goals
         result = await self.backend.find_by(
-            user_uid=user_context.user_uid, status=GoalStatus.ACTIVE.value
+            user_uid=user_context.user_uid, status=KuStatus.ACTIVE.value
         )
         if result.is_error:
             return result
@@ -426,7 +424,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Ku]):
         """
         # Get user's active goals
         result = await self.backend.find_by(
-            user_uid=user_context.user_uid, status=GoalStatus.ACTIVE.value
+            user_uid=user_context.user_uid, status=KuStatus.ACTIVE.value
         )
         if result.is_error:
             return result
@@ -647,21 +645,21 @@ class GoalsSearchService(BaseService[GoalsOperations, Ku]):
                 filters["timeframe"] = timeframe.value
                 break
 
-        # Goal-specific: Status extraction (GoalStatus, not ActivityStatus)
-        # GoalStatus: PLANNED, ACTIVE, PAUSED, ACHIEVED, CANCELLED, FAILED, ARCHIVED
+        # Goal-specific: Status extraction
+        # KuStatus: DRAFT, ACTIVE, PAUSED, COMPLETED, CANCELLED, FAILED, ARCHIVED
         status_keywords = {
-            "achieved": GoalStatus.ACHIEVED,
-            "completed": GoalStatus.ACHIEVED,
-            "active": GoalStatus.ACTIVE,
-            "in progress": GoalStatus.ACTIVE,  # Maps to ACTIVE
-            "in_progress": GoalStatus.ACTIVE,
-            "on track": GoalStatus.ACTIVE,  # Maps to ACTIVE
-            "paused": GoalStatus.PAUSED,
-            "on hold": GoalStatus.PAUSED,
-            "abandoned": GoalStatus.CANCELLED,  # Maps to CANCELLED
-            "cancelled": GoalStatus.CANCELLED,
-            "failed": GoalStatus.FAILED,
-            "planned": GoalStatus.PLANNED,
+            "achieved": KuStatus.COMPLETED,
+            "completed": KuStatus.COMPLETED,
+            "active": KuStatus.ACTIVE,
+            "in progress": KuStatus.ACTIVE,  # Maps to ACTIVE
+            "in_progress": KuStatus.ACTIVE,
+            "on track": KuStatus.ACTIVE,  # Maps to ACTIVE
+            "paused": KuStatus.PAUSED,
+            "on hold": KuStatus.PAUSED,
+            "abandoned": KuStatus.CANCELLED,  # Maps to CANCELLED
+            "cancelled": KuStatus.CANCELLED,
+            "failed": KuStatus.FAILED,
+            "planned": KuStatus.DRAFT,
         }
         for keyword, status in status_keywords.items():
             if keyword in query_lower:

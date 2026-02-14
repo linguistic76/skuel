@@ -23,7 +23,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.events import CalendarEventCompleted, publish_event
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
@@ -63,12 +63,12 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
         model_class=Ku,
         domain_name="events",
         date_field="event_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     # Configure BaseService
     _date_field = "event_date"
-    _completed_statuses = (ActivityStatus.COMPLETED.value, ActivityStatus.CANCELLED.value)
+    _completed_statuses = (KuStatus.COMPLETED.value, KuStatus.CANCELLED.value)
 
     def __init__(self, backend: "BackendOperations[Ku]", event_bus=None) -> None:
         """
@@ -94,9 +94,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
     # CONTEXT-FIRST HELPERS
     # ========================================================================
 
-    def _get_event_from_rich_context(
-        self, event_uid: str, user_context: UserContext
-    ) -> Ku | None:
+    def _get_event_from_rich_context(self, event_uid: str, user_context: UserContext) -> Ku | None:
         """Try to get Ku from UserContext.active_events_rich."""
         if not user_context.active_events_rich:
             return None
@@ -163,7 +161,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Build updates
         updates: dict[str, Any] = {
-            "status": ActivityStatus.COMPLETED.value,
+            "status": KuStatus.COMPLETED.value,
             "completed_at": datetime.now().isoformat(),
         }
         if quality_score is not None:
@@ -231,15 +229,15 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
         events = result.value or []
 
         # Calculate metrics
-        total_scheduled = len([e for e in events if e.status != ActivityStatus.CANCELLED.value])
-        completed = len([e for e in events if e.status == ActivityStatus.COMPLETED.value])
+        total_scheduled = len([e for e in events if e.status != KuStatus.CANCELLED.value])
+        completed = len([e for e in events if e.status == KuStatus.COMPLETED.value])
         missed = len(
             [
                 e
                 for e in events
                 if e.event_date
                 and e.event_date < today
-                and e.status not in (ActivityStatus.COMPLETED.value, ActivityStatus.CANCELLED.value)
+                and e.status not in (KuStatus.COMPLETED.value, KuStatus.CANCELLED.value)
             ]
         )
 
@@ -283,7 +281,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
         result = await self.backend.find_by(
             user_uid=user_uid,
             event_date__gte=start_date.isoformat(),
-            status=ActivityStatus.COMPLETED.value,
+            status=KuStatus.COMPLETED.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -357,7 +355,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
         result = await self.backend.find_by(
             user_uid=user_uid,
             event_date__gte=start_date.isoformat(),
-            status=ActivityStatus.COMPLETED.value,
+            status=KuStatus.COMPLETED.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -427,9 +425,9 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
             if week_key not in weeks:
                 weeks[week_key] = {"scheduled": 0, "completed": 0, "cancelled": 0, "missed": 0}
 
-            if event.status == ActivityStatus.COMPLETED.value:
+            if event.status == KuStatus.COMPLETED.value:
                 weeks[week_key]["completed"] += 1
-            elif event.status == ActivityStatus.CANCELLED.value:
+            elif event.status == KuStatus.CANCELLED.value:
                 weeks[week_key]["cancelled"] += 1
             elif event.event_date < today:
                 weeks[week_key]["missed"] += 1
@@ -490,7 +488,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
                 }
 
             by_habit[habit_uid]["total"] += 1
-            if event.status == ActivityStatus.COMPLETED.value:
+            if event.status == KuStatus.COMPLETED.value:
                 by_habit[habit_uid]["completed"] += 1
                 if event.habit_completion_quality:
                     by_habit[habit_uid]["quality_sum"] += event.habit_completion_quality

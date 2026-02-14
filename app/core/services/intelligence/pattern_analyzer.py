@@ -312,7 +312,7 @@ class PatternAnalyzer:
         Example:
             def get_status_value(t): return t.status.value
             counts = PatternAnalyzer.count_by_category(tasks, get_status_value)
-            # Returns {"pending": 5, "in_progress": 3, "completed": 10}
+            # Returns {"pending": 5, "active": 3, "completed": 10}
         """
         counts: dict[str, int] = {}
         for entity in entities:

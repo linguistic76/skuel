@@ -1,8 +1,11 @@
 """
-Activity Enums - Status and Priority for Trackable Activities
-=============================================================
+Activity Enums - Priority, Calendar Types, and Assessment Levels
+================================================================
 
-Core enums for activity lifecycle management across all domains.
+Enums for priority, calendar/timeline types, and dual-track assessment.
+
+Status enums (KuStatus) live in ku_enums.py — THE unified status enum.
+CompletionStatus (habit completion tracking) also lives in ku_enums.py.
 """
 
 from enum import Enum
@@ -90,112 +93,6 @@ class Priority(str, Enum):
         ]
 
 
-class ActivityStatus(str, Enum):
-    """
-    Universal status for any trackable activity.
-
-    Not all statuses apply to all entity types, but having a unified
-    set allows for consistent state management across the system.
-    """
-
-    # Planning states
-    DRAFT = "draft"  # Not yet scheduled/confirmed
-    SCHEDULED = "scheduled"  # Scheduled but not started
-
-    # Active states
-    IN_PROGRESS = "in_progress"  # Currently being worked on
-    PAUSED = "paused"  # Temporarily paused
-    BLOCKED = "blocked"  # Blocked by dependency
-
-    # Terminal states
-    COMPLETED = "completed"  # Successfully completed
-    CANCELLED = "cancelled"  # Cancelled before completion
-    POSTPONED = "postponed"  # Moved to a future time
-    FAILED = "failed"  # Failed to complete
-
-    # Special states
-    RECURRING = "recurring"  # For recurring items
-    ARCHIVED = "archived"  # No longer active but kept for history
-
-    def is_terminal(self) -> bool:
-        """Check if this is a terminal state"""
-        return self in {
-            ActivityStatus.COMPLETED,
-            ActivityStatus.CANCELLED,
-            ActivityStatus.FAILED,
-            ActivityStatus.ARCHIVED,
-        }
-
-    def is_active(self) -> bool:
-        """Check if this represents active work"""
-        return self in {ActivityStatus.IN_PROGRESS, ActivityStatus.PAUSED, ActivityStatus.BLOCKED}
-
-    def is_pending(self) -> bool:
-        """Check if this is pending/scheduled"""
-        return self in {ActivityStatus.DRAFT, ActivityStatus.SCHEDULED, ActivityStatus.POSTPONED}
-
-    def get_color(self) -> str:
-        """Get suggested color for UI rendering"""
-        colors = {
-            ActivityStatus.COMPLETED: "#10B981",  # Green
-            ActivityStatus.CANCELLED: "#6B7280",  # Gray
-            ActivityStatus.BLOCKED: "#DC2626",  # Red
-            ActivityStatus.IN_PROGRESS: "#06B6D4",  # Cyan
-            ActivityStatus.PAUSED: "#F59E0B",  # Amber
-            ActivityStatus.DRAFT: "#9CA3AF",  # Light gray
-            ActivityStatus.SCHEDULED: "#3B82F6",  # Blue
-            ActivityStatus.POSTPONED: "#A855F7",  # Purple
-            ActivityStatus.FAILED: "#EF4444",  # Red
-            ActivityStatus.RECURRING: "#8B5CF6",  # Violet
-            ActivityStatus.ARCHIVED: "#9CA3AF",  # Gray
-        }
-        return colors.get(self, "#6B7280")  # Gray default
-
-    def get_search_synonyms(self) -> tuple[str, ...]:
-        """Return search terms that match this status"""
-        synonyms = {
-            ActivityStatus.DRAFT: ("draft", "new", "planning", "unconfirmed"),
-            ActivityStatus.SCHEDULED: ("scheduled", "planned", "upcoming", "queued"),
-            ActivityStatus.IN_PROGRESS: ("in progress", "active", "working", "current", "ongoing"),
-            ActivityStatus.PAUSED: ("paused", "on hold", "waiting", "suspended"),
-            ActivityStatus.BLOCKED: ("blocked", "stuck", "waiting on", "dependent"),
-            ActivityStatus.COMPLETED: ("completed", "done", "finished", "complete"),
-            ActivityStatus.CANCELLED: ("cancelled", "canceled", "abandoned", "dropped"),
-            ActivityStatus.POSTPONED: ("postponed", "delayed", "rescheduled", "deferred"),
-            ActivityStatus.FAILED: ("failed", "unsuccessful", "not completed"),
-            ActivityStatus.RECURRING: ("recurring", "repeating", "periodic", "routine"),
-            ActivityStatus.ARCHIVED: ("archived", "old", "historical", "past"),
-        }
-        return synonyms.get(self, ())
-
-    def get_search_description(self) -> str:
-        """Human-readable description for search UI"""
-        descriptions = {
-            ActivityStatus.DRAFT: "Not yet scheduled or confirmed",
-            ActivityStatus.SCHEDULED: "Scheduled but not started",
-            ActivityStatus.IN_PROGRESS: "Currently being worked on",
-            ActivityStatus.PAUSED: "Temporarily paused",
-            ActivityStatus.BLOCKED: "Blocked by dependency",
-            ActivityStatus.COMPLETED: "Successfully completed",
-            ActivityStatus.CANCELLED: "Cancelled before completion",
-            ActivityStatus.POSTPONED: "Moved to future time",
-            ActivityStatus.FAILED: "Failed to complete",
-            ActivityStatus.RECURRING: "Recurring activity",
-            ActivityStatus.ARCHIVED: "No longer active",
-        }
-        return descriptions.get(self, "")
-
-    @classmethod
-    def from_search_text(cls, text: str) -> list["ActivityStatus"]:
-        """Find matching statuses from search text"""
-        text_lower = text.lower()
-        return [
-            status
-            for status in cls
-            if any(synonym in text_lower for synonym in status.get_search_synonyms())
-        ]
-
-
 class ActivityType(str, Enum):
     """
     Types of activities that can appear on a calendar or be tracked.
@@ -256,47 +153,6 @@ class ActivityType(str, Enum):
             ActivityType.PLACEHOLDER: 30,
         }
         return durations.get(self, 30)
-
-
-class CompletionStatus(str, Enum):
-    """
-    Status for tracking completion of activities, especially habits.
-
-    More nuanced than just complete/incomplete to track quality.
-    """
-
-    DONE = "done"  # Fully completed
-    PARTIAL = "partial"  # Partially completed
-    SKIPPED = "skipped"  # Intentionally skipped
-    MISSED = "missed"  # Unintentionally missed
-    PAUSED = "paused"  # Paused/on hold
-
-    def counts_as_success(self) -> bool:
-        """Check if this counts toward success metrics"""
-        return self in {CompletionStatus.DONE, CompletionStatus.PARTIAL}
-
-    def get_emoji(self) -> str:
-        """Get emoji representation"""
-        emojis = {
-            CompletionStatus.DONE: "✅",
-            CompletionStatus.PARTIAL: "⚡",
-            CompletionStatus.SKIPPED: "⏭️",
-            CompletionStatus.MISSED: "❌",
-            CompletionStatus.PAUSED: "⏸️",
-        }
-        return emojis.get(self, "❓")
-
-
-class GoalStatus(str, Enum):
-    """Current state of a goal"""
-
-    PLANNED = "planned"  # Not yet started
-    ACTIVE = "active"  # Currently pursuing
-    PAUSED = "paused"  # Temporarily on hold
-    ACHIEVED = "achieved"  # Successfully completed
-    CANCELLED = "cancelled"  # No longer pursuing
-    FAILED = "failed"  # Not achieved within timeframe
-    ARCHIVED = "archived"  # Archived for historical reference
 
 
 # =============================================================================

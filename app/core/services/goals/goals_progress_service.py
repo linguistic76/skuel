@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import GoalAchieved, GoalMilestoneReached, GoalProgressUpdated, publish_event
 from core.events.task_events import TaskCompleted
-from core.models.enums import ActivityStatus, Domain, GoalStatus
+from core.models.enums import Domain, KuStatus
 from core.models.enums.ku_enums import MeasurementType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -81,7 +81,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
         model_class=Ku,
         domain_name="goals",
         date_field="target_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     # Service name for hierarchical logging
@@ -251,7 +251,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
 
         # Parse enums
         status_val = goal_dict.get("status", "active")
-        status = GoalStatus(status_val) if isinstance(status_val, str) else status_val
+        status = KuStatus(status_val) if isinstance(status_val, str) else status_val
 
         domain_val = goal_dict.get("domain")
         domain = Domain(domain_val) if domain_val and isinstance(domain_val, str) else domain_val
@@ -442,7 +442,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
 
         # Check if goal is complete
         if completed_count == len(updated_milestones):
-            updates["status"] = GoalStatus.ACHIEVED
+            updates["status"] = KuStatus.COMPLETED
             updates["completion_date"] = date.today()
 
         update_result = await self.backend.update_goal(goal_uid, updates)
@@ -544,7 +544,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
 
             # Check if goal is achieved
             if new_progress >= 100:
-                updates["status"] = GoalStatus.ACHIEVED
+                updates["status"] = KuStatus.COMPLETED
                 updates["completion_date"] = date.today()
 
             update_result = await self.backend.update_goal(goal_uid, updates)
@@ -1164,7 +1164,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
 
         # Check if goal is achieved
         if new_progress >= 100:
-            updates["status"] = GoalStatus.ACHIEVED.value
+            updates["status"] = KuStatus.COMPLETED.value
             updates["completion_date"] = date.today()
 
         update_result = await self.backend.update(goal_uid, updates)
@@ -1348,7 +1348,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
 
         # Check if goal is achieved
         if new_progress >= 100:
-            updates["status"] = GoalStatus.ACHIEVED.value
+            updates["status"] = KuStatus.COMPLETED.value
             updates["completion_date"] = date.today()
 
         update_result = await self.backend.update(goal_uid, updates)

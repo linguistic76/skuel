@@ -88,9 +88,7 @@ class ProgressKuGenerator:
         start_date = end_date - timedelta(days=days)
         progress_depth = ProgressDepth(depth) if depth else ProgressDepth.STANDARD
 
-        logger.info(
-            f"Generating progress Ku for {user_uid}: period={time_period}, depth={depth}"
-        )
+        logger.info(f"Generating progress Ku for {user_uid}: period={time_period}, depth={depth}")
 
         try:
             # 1. Query historical completions

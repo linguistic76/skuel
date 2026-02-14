@@ -62,7 +62,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from core.models.enums import (
-    ActivityStatus,
+    KuStatus,
     ContentType,
     Domain,
     EducationalLevel,
@@ -163,7 +163,7 @@ class SearchRequest(BaseModel):
     # ========================================================================
 
     # Status filter - for tasks, events, habits, goals
-    status: ActivityStatus | None = Field(
+    status: KuStatus | None = Field(
         None,
         description="Activity status: draft, scheduled, in_progress, completed, cancelled, etc.",
     )

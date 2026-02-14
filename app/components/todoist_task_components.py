@@ -35,7 +35,7 @@ from fasthtml.common import (
     Ul,
 )
 
-from core.models.enums import ActivityStatus, Priority
+from core.models.enums import KuStatus, Priority
 from core.ui.daisy_components import Button, ButtonT, Input, Select, Size, Textarea
 from core.utils.logging import get_logger
 
@@ -190,7 +190,7 @@ class TodoistTaskComponents:
             user_uid: User UID (unused, kept for compatibility)
             is_pinned: Whether this task is pinned
         """
-        is_completed = task.status == ActivityStatus.COMPLETED
+        is_completed = task.status == KuStatus.COMPLETED
 
         # Checkbox - with click.stop to prevent triggering row click
         checkbox = Input(
@@ -291,7 +291,7 @@ class TodoistTaskComponents:
         project_datalist = Datalist(*project_options, id="edit-project-suggestions")
 
         # Status options
-        current_status = getattr(task, "status", ActivityStatus.IN_PROGRESS)
+        current_status = getattr(task, "status", KuStatus.ACTIVE)
         if hasattr(current_status, "value"):
             current_status_value = current_status.value
         else:

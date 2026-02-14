@@ -177,7 +177,7 @@ The initial analysis flagged this file as having "extensive parameter processing
 1. Accepts 20+ optional query parameters as strings (HTTP boundary)
 2. Cleans empty strings to None
 3. Converts checkbox values to booleans
-4. Converts string values to enum types (Priority, ActivityStatus, etc.)
+4. Converts string values to enum types (Priority, KuStatus, etc.)
 5. Builds a validated `SearchRequest` Pydantic model
 6. Passes model to `SearchRouter.faceted_search()`
 

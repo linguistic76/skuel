@@ -231,8 +231,13 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Store steps in metadata for return value
         path_with_steps = self._build_lp_from_record(
-            {"uid": path.uid, "title": path.title, "description": path.description,
-             "domain": get_enum_value(path.domain), "ku_type": "learning_path"},
+            {
+                "uid": path.uid,
+                "title": path.title,
+                "description": path.description,
+                "domain": get_enum_value(path.domain),
+                "ku_type": "learning_path",
+            },
             steps,
         )
 
@@ -241,7 +246,11 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
     @with_error_handling("create_path", error_type="database", uid_param="user_uid")
     async def create_path(
-        self, user_uid: str, title: str, description: str, steps: list[Ku],
+        self,
+        user_uid: str,
+        title: str,
+        description: str,
+        steps: list[Ku],
         domain: Domain = Domain.LEARNING,
     ) -> Result[Ku]:
         """

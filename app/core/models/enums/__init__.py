@@ -5,26 +5,28 @@ SKUEL Enums - Centralized Enumeration Types
 This module provides unified access to all SKUEL enumerations.
 
 Module Organization:
-- activity_enums: Priority, ActivityStatus, ActivityType, CompletionStatus, GoalStatus
+- activity_enums: Priority, ActivityType, dual-track assessment levels
 - entity_enums: NonKuDomain, DomainIdentifier, Domain, AnalyticsDomain, Context
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
 - learning_enums: LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus,
                   ContentType, PracticeLevel, KnowledgeType, SELCategory
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
-- ku_enums: KuType, KuStatus, ProcessorType, ProjectScope, JournalType, etc.
+- ku_enums: KuType, KuStatus, CompletionStatus, ProcessorType, ProjectScope, JournalType, etc.
 
 Usage:
-    from core.models.enums import Priority, ActivityStatus, KuType
+    from core.models.enums import Priority, KuStatus, KuType
     from core.models.enums import KuType, KuStatus, ProcessorType, ProjectScope
 """
 
-# Activity enums - status and priority for trackable activities
+# Activity enums - priority, calendar types, and assessment levels
 from .activity_enums import (
-    ActivityStatus,
     ActivityType,
-    CompletionStatus,
-    GoalStatus,
+    ConsistencyLevel,
+    DecisionQualityLevel,
+    EngagementLevel,
     Priority,
+    ProductivityLevel,
+    ProgressLevel,
 )
 
 # Entity enums - entity type identification and domain categorization
@@ -40,6 +42,7 @@ from .entity_enums import (
 # Ku enums - unified knowledge unit identity, processing, and scheduling
 from .ku_enums import (
     AnalysisDepth,
+    CompletionStatus,
     ContextEnrichmentLevel,
     FormattingStyle,
     JournalCategory,
@@ -105,7 +108,6 @@ from .user_enums import ContextHealthScore, UserRole
 
 __all__ = [
     "DOMAIN_SEL_MAPPING",
-    "ActivityStatus",
     "ActivityType",
     "AnalyticsDomain",
     # Ku enums (LLM processing)
@@ -113,21 +115,24 @@ __all__ = [
     "BridgeType",
     "CacheStrategy",
     "CompletionStatus",
+    # Dual-track assessment levels
+    "ConsistencyLevel",
     "ContentScope",
     "ContentType",
     "Context",
     "ContextEnrichmentLevel",
     "ContextHealthScore",
     "ConversationState",
+    "DecisionQualityLevel",
     "Domain",
     "DomainIdentifier",
     "EducationalLevel",
+    "EngagementLevel",
     "EnergyLevel",
     "ErrorSeverity",
     "ExtractionMethod",
     "FacetType",
     "FormattingStyle",
-    "GoalStatus",
     "GuidanceMode",
     "HealthStatus",
     "Intent",
@@ -152,7 +157,9 @@ __all__ = [
     "Priority",
     # Ku enums (processing + scheduling)
     "ProcessorType",
+    "ProductivityLevel",
     "ProgressDepth",
+    "ProgressLevel",
     "ProjectScope",
     "RecurrencePattern",
     "RelationshipType",

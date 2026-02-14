@@ -33,7 +33,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth, QueryLimit
-from core.models.enums import ActivityStatus, CompletionStatus, Domain
+from core.models.enums import KuStatus, CompletionStatus, Domain
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.graph_context import GraphContext
 from core.models.ku.ku import Ku
@@ -452,9 +452,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
                 if context_result.is_ok:
                     context = context_result.value
                     knowledge_nodes = [
-                        node
-                        for node in context.nodes
-                        if node.labels and "Ku" in node.labels
+                        node for node in context.nodes if node.labels and "Ku" in node.labels
                     ]
 
                     if knowledge_nodes:
@@ -589,24 +587,22 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
         period_tasks = [task for task in all_tasks if task.created_at >= cutoff_date]
 
         # Calculate metrics
-        # Note: Tasks use ActivityStatus, not CompletionStatus (which is for habits)
-        completed_tasks = [t for t in period_tasks if t.status == ActivityStatus.COMPLETED]
+        # Note: Tasks use KuStatus, not CompletionStatus (which is for habits)
+        completed_tasks = [t for t in period_tasks if t.status == KuStatus.COMPLETED]
         completion_rate = len(completed_tasks) / len(period_tasks) if period_tasks else 0.0
 
         metrics = {
             "total_tasks": len(period_tasks),
             "completed_tasks": len(completed_tasks),
             "completion_rate": round(completion_rate * 100, 1),
-            "in_progress_tasks": len(
-                [t for t in period_tasks if t.status == ActivityStatus.IN_PROGRESS]
-            ),
+            "in_progress_tasks": len([t for t in period_tasks if t.status == KuStatus.ACTIVE]),
             "overdue_tasks": len(
                 [
                     t
                     for t in period_tasks
                     if t.due_date
                     and t.due_date < datetime.now().date()
-                    and t.status != ActivityStatus.COMPLETED
+                    and t.status != KuStatus.COMPLETED
                 ]
             ),
         }
@@ -683,7 +679,9 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
 
             # Task dependencies (bidirectional DEPENDS_ON)
             # Use directional markers (->DEPENDS_ON / <-DEPENDS_ON) to distinguish
-            if "Ku" in labels and ("->DEPENDS_ON" in via_rels or "DEPENDS_ON" in via_rels or "<-DEPENDS_ON" in via_rels):
+            if "Ku" in labels and (
+                "->DEPENDS_ON" in via_rels or "DEPENDS_ON" in via_rels or "<-DEPENDS_ON" in via_rels
+            ):
                 task_entity = PathAwareTask(
                     uid=entity["uid"],
                     title=entity["title"],
@@ -701,7 +699,10 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
                     dependents.append(task_entity)
 
             # Knowledge requirements (REQUIRES_KNOWLEDGE, APPLIES_KNOWLEDGE)
-            elif "Ku" in labels and (RelationshipName.REQUIRES_KNOWLEDGE.value in via_rels or RelationshipName.APPLIES_KNOWLEDGE.value in via_rels):
+            elif "Ku" in labels and (
+                RelationshipName.REQUIRES_KNOWLEDGE.value in via_rels
+                or RelationshipName.APPLIES_KNOWLEDGE.value in via_rels
+            ):
                 knowledge_entity = PathAwareKnowledge(
                     uid=entity["uid"],
                     title=entity["title"],
@@ -1143,16 +1144,14 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
             return ProductivityLevel.MODERATELY_PRODUCTIVE, 0.5, ["No tasks in assessment period"]
 
         # Calculate metrics
-        completed_tasks = [t for t in period_tasks if t.status == ActivityStatus.COMPLETED]
+        completed_tasks = [t for t in period_tasks if t.status == KuStatus.COMPLETED]
         completion_rate = len(completed_tasks) / len(period_tasks)
 
         # Calculate overdue ratio
         overdue_tasks = [
             t
             for t in period_tasks
-            if t.due_date
-            and t.due_date < datetime.now().date()
-            and t.status != ActivityStatus.COMPLETED
+            if t.due_date and t.due_date < datetime.now().date() and t.status != KuStatus.COMPLETED
         ]
         overdue_ratio = len(overdue_tasks) / len(period_tasks) if period_tasks else 0
 
@@ -1168,9 +1167,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
         high_priority_tasks = [
             t for t in period_tasks if t.priority and t.priority.to_numeric() >= 3
         ]
-        high_priority_completed = [
-            t for t in high_priority_tasks if t.status == ActivityStatus.COMPLETED
-        ]
+        high_priority_completed = [t for t in high_priority_tasks if t.status == KuStatus.COMPLETED]
         priority_rate = (
             len(high_priority_completed) / len(high_priority_tasks) if high_priority_tasks else 1.0
         )

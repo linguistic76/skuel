@@ -582,7 +582,9 @@ async def services(neo4j_container):
     raw_lp_backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
     lp_backend = TestBackendWrapper(raw_lp_backend, Ku)
 
-    raw_principles_backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku, default_filters={"ku_type": "principle"})
+    raw_principles_backend = UniversalNeo4jBackend[Ku](
+        driver, "Ku", Ku, default_filters={"ku_type": "principle"}
+    )
     principles_backend = TestBackendWrapper(raw_principles_backend, Ku)
 
     # These backends aren't used by tests, create without wrapper
@@ -975,7 +977,9 @@ async def choices_backend(neo4j_driver):
     from core.models.ku.ku import Ku
 
     return UniversalNeo4jBackend[Ku](
-        driver=neo4j_driver, label="Ku", model_class=Ku,
+        driver=neo4j_driver,
+        label="Ku",
+        model_class=Ku,
         default_filters={"ku_type": "choice"},
     )
 

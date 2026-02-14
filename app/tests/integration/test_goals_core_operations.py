@@ -26,7 +26,7 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import Domain, GoalStatus, Priority
+from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku import Ku
 from core.models.enums.ku_enums import GoalTimeframe, GoalType, MeasurementType
 from core.services.goals.goals_core_service import GoalsCoreService
@@ -77,7 +77,7 @@ class TestGoalsCoreOperations:
             current_value=0.0,
             start_date=today,
             target_date=today + timedelta(days=90),
-            status=GoalStatus.ACTIVE,
+            status=KuStatus.ACTIVE,
             priority=Priority.HIGH,
         )
 
@@ -90,7 +90,7 @@ class TestGoalsCoreOperations:
         assert created.uid == "goal.learn_python"
         assert created.title == "Learn Python Programming"
         assert created.goal_type == GoalType.LEARNING
-        assert created.status == GoalStatus.ACTIVE
+        assert created.status == KuStatus.ACTIVE
         assert created.priority == Priority.HIGH
 
     async def test_get_goal_by_uid(self, goals_service, test_user_uid):
@@ -189,7 +189,7 @@ class TestGoalsCoreOperations:
             description="Currently pursuing this goal",
             goal_type=GoalType.OUTCOME,
             domain=Domain.PERSONAL,
-            status=GoalStatus.ACTIVE,
+            status=KuStatus.ACTIVE,
         )
         achieved_goal = Goal(
             uid="goal.achieved",
@@ -198,7 +198,7 @@ class TestGoalsCoreOperations:
             description="Successfully completed",
             goal_type=GoalType.OUTCOME,
             domain=Domain.PERSONAL,
-            status=GoalStatus.ACHIEVED,
+            status=KuStatus.COMPLETED,
         )
 
         await goals_service.create(active_goal)
@@ -206,20 +206,20 @@ class TestGoalsCoreOperations:
 
         # Act - Filter by status
         active_result = await goals_service.backend.find_by(
-            user_uid=test_user_uid, status=GoalStatus.ACTIVE.value
+            user_uid=test_user_uid, status=KuStatus.ACTIVE.value
         )
         achieved_result = await goals_service.backend.find_by(
-            user_uid=test_user_uid, status=GoalStatus.ACHIEVED.value
+            user_uid=test_user_uid, status=KuStatus.COMPLETED.value
         )
 
         # Assert
         assert active_result.is_ok
         assert len(active_result.value) >= 1
-        assert all(g.status == GoalStatus.ACTIVE for g in active_result.value)
+        assert all(g.status == KuStatus.ACTIVE for g in active_result.value)
 
         assert achieved_result.is_ok
         assert len(achieved_result.value) >= 1
-        assert all(g.status == GoalStatus.ACHIEVED for g in achieved_result.value)
+        assert all(g.status == KuStatus.COMPLETED for g in achieved_result.value)
 
     async def test_filter_by_priority(self, goals_service, test_user_uid):
         """Test filtering goals by priority."""
@@ -313,11 +313,11 @@ class TestGoalsCoreOperations:
         """Test creating goals with all status types."""
         # Arrange & Act - Create goals with each status
         statuses = [
-            GoalStatus.PLANNED,
-            GoalStatus.ACTIVE,
-            GoalStatus.PAUSED,
-            GoalStatus.ACHIEVED,
-            GoalStatus.CANCELLED,
+            KuStatus.DRAFT,
+            KuStatus.ACTIVE,
+            KuStatus.PAUSED,
+            KuStatus.COMPLETED,
+            KuStatus.CANCELLED,
         ]
 
         for status in statuses:

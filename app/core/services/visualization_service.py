@@ -32,7 +32,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, ClassVar, Literal
 
-from core.models.enums import ActivityStatus, Priority
+from core.models.enums import KuStatus, Priority
 from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarItemType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -170,12 +170,12 @@ class VisualizationService:
         Priority.LOW: "#10B981",
     }
 
-    STATUS_COLORS: ClassVar[dict[ActivityStatus, str]] = {
-        ActivityStatus.COMPLETED: "#10B981",
-        ActivityStatus.IN_PROGRESS: "#3B82F6",
-        ActivityStatus.BLOCKED: "#EF4444",
-        ActivityStatus.DRAFT: "#6B7280",
-        ActivityStatus.CANCELLED: "#9CA3AF",
+    STATUS_COLORS: ClassVar[dict[KuStatus, str]] = {
+        KuStatus.COMPLETED: "#10B981",
+        KuStatus.ACTIVE: "#3B82F6",
+        KuStatus.BLOCKED: "#EF4444",
+        KuStatus.DRAFT: "#6B7280",
+        KuStatus.CANCELLED: "#9CA3AF",
     }
 
     ITEM_TYPE_GROUPS: ClassVar[dict[CalendarItemType, str]] = {
@@ -910,7 +910,7 @@ class VisualizationService:
         if status is None:
             return False
         if isinstance(status, Enum):
-            return status == ActivityStatus.COMPLETED
+            return status == KuStatus.COMPLETED
         return str(status).lower() in ("done", "completed")
 
     # =========================================================================
@@ -1018,12 +1018,12 @@ class VisualizationService:
         classes = []
 
         # Status-based class
-        status = getattr(task, "status", ActivityStatus.DRAFT)
-        if status == ActivityStatus.COMPLETED:
+        status = getattr(task, "status", KuStatus.DRAFT)
+        if status == KuStatus.COMPLETED:
             classes.append("completed")
-        elif status == ActivityStatus.IN_PROGRESS:
+        elif status == KuStatus.ACTIVE:
             classes.append("in-progress")
-        elif status == ActivityStatus.BLOCKED:
+        elif status == KuStatus.BLOCKED:
             classes.append("blocked")
 
         # Priority-based class
@@ -1034,18 +1034,18 @@ class VisualizationService:
 
     def _calculate_task_progress(self, task: Any) -> int:
         """Calculate task progress percentage."""
-        status = getattr(task, "status", ActivityStatus.DRAFT)
+        status = getattr(task, "status", KuStatus.DRAFT)
 
-        if status == ActivityStatus.COMPLETED:
+        if status == KuStatus.COMPLETED:
             return 100
-        elif status == ActivityStatus.IN_PROGRESS:
+        elif status == KuStatus.ACTIVE:
             # If task has actual_minutes and duration_minutes, calculate
             actual = getattr(task, "actual_minutes", 0) or 0
             duration = getattr(task, "duration_minutes", 30) or 30
             if actual > 0:
                 return min(95, int(actual / duration * 100))
             return 50  # Default for in-progress
-        elif status == ActivityStatus.BLOCKED:
+        elif status == KuStatus.BLOCKED:
             return 25
         else:
             return 0

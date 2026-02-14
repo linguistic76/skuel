@@ -750,7 +750,9 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         if errors:
             self.logger.warning(f"Bulk deletion completed with {len(errors)} errors")
 
-        self.logger.info(f"Bulk deletion completed: {deleted_count}/{len(uids)} Ku entities deleted")
+        self.logger.info(
+            f"Bulk deletion completed: {deleted_count}/{len(uids)} Ku entities deleted"
+        )
         return Result.ok(deleted_count)
 
     # ========================================================================
@@ -938,8 +940,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         kus = result.value or []
         # Filter by journal_type in metadata
         journals = [
-            k for k in kus
-            if k.metadata and k.metadata.get("journal_type") == journal_type.value
+            k for k in kus if k.metadata and k.metadata.get("journal_type") == journal_type.value
         ]
         journals.sort(key=_get_entry_date_key, reverse=True)
         return Result.ok(journals[:limit])
@@ -1185,7 +1186,8 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         kus = result.value or []
         # Filter to voice journals only
         journals = [
-            k for k in kus
+            k
+            for k in kus
             if k.metadata and k.metadata.get("journal_type") == JournalType.VOICE.value
         ]
 
@@ -1442,8 +1444,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
                 )
             else:
                 self.logger.error(
-                    f"Failed to create journal Ku from {event.transcription_uid}: "
-                    f"{result.error}"
+                    f"Failed to create journal Ku from {event.transcription_uid}: {result.error}"
                 )
 
         except Exception as e:

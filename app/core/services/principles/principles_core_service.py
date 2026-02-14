@@ -18,7 +18,7 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.enums.ku_enums import KuType
-from core.models.enums.activity_enums import ActivityStatus
+from core.models.enums.ku_enums import KuStatus
 from core.models.enums.ku_enums import PrincipleCategory, PrincipleStrength
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -71,7 +71,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Ku]):
         model_class=Ku,
         domain_name="principles",
         date_field="created_at",
-        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+        completed_statuses=(KuStatus.ARCHIVED.value,),
     )
 
     def __init__(self, backend: PrinciplesOperations, event_bus=None) -> None:
@@ -320,9 +320,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Ku]):
         return result  # backend.create() already returns Result[Ku]
 
     @with_error_handling("update_principle", error_type="database", uid_param="principle_uid")
-    async def update_principle(
-        self, principle_uid: str, updates: dict[str, Any]
-    ) -> Result[Ku]:
+    async def update_principle(self, principle_uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """
         Update a principle.
 

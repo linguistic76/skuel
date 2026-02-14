@@ -34,7 +34,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.models.habit.completion import HabitCompletion
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -130,7 +130,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Ku]):
         model_class=Ku,
         domain_name="habits",
         date_field="created_at",
-        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+        completed_statuses=(KuStatus.ARCHIVED.value,),
     )
 
     # ========================================================================
@@ -594,7 +594,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Ku]):
             Result with the updated habit
         """
         updates: dict[str, Any] = {
-            "status": ActivityStatus.PAUSED.value,
+            "status": KuStatus.PAUSED.value,
             "notes": request.reason,
         }
         if request.until_date:
@@ -616,7 +616,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Ku]):
             Result with the updated habit
         """
         updates = {
-            "status": ActivityStatus.IN_PROGRESS.value,
+            "status": KuStatus.ACTIVE.value,
             "paused_until": None,
         }
         return await self.core.update(request.habit_uid, updates)
@@ -632,7 +632,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Ku]):
             Result with the updated habit
         """
         updates = {
-            "status": ActivityStatus.ARCHIVED.value,
+            "status": KuStatus.ARCHIVED.value,
             "notes": request.reason,
         }
         return await self.core.update(request.habit_uid, updates)

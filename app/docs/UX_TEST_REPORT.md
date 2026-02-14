@@ -203,7 +203,7 @@ No breaking changes - fully backward compatible.
 ### Collection Errors in Test Suite
 ⚠️ **Note:** 16 collection errors exist in the test suite, unrelated to UX changes:
 
-1. `test_habits_completion_service.py` - Missing `ActivityStatus` import
+1. `test_habits_completion_service.py` - Missing `KuStatus` import
 2. `test_ku_graph_service.py` - Missing `KuOperations` import
 3. `test_ku_search_service.py` - Missing `KuOperations` import
 4. `test_ku_semantic_service.py` - Missing `KuOperations` import

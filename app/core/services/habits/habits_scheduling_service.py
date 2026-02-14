@@ -40,7 +40,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.events import HabitCreated, publish_event
-from core.models.enums import ActivityStatus, Domain, Priority, RecurrencePattern
+from core.models.enums import KuStatus, Domain, Priority, RecurrencePattern
 from core.models.enums.ku_enums import HabitCategory, HabitDifficulty
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -116,7 +116,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Ku]):
         model_class=Ku,
         domain_name="habits",
         date_field="created_at",
-        completed_statuses=(ActivityStatus.ARCHIVED.value,),
+        completed_statuses=(KuStatus.ARCHIVED.value,),
     )
 
     # Configure BaseService

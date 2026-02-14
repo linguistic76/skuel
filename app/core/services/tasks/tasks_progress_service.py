@@ -27,7 +27,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import TaskCompleted, publish_event
-from core.models.enums import ActivityStatus, Domain, Priority
+from core.models.enums import KuStatus, Domain, Priority
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
@@ -76,7 +76,7 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
         model_class=Ku,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     def __init__(self, backend=None, analytics_engine=None, event_bus=None) -> None:
@@ -228,7 +228,7 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Parse enums
         status_val = task_dict.get("status", "pending")
-        status = ActivityStatus(status_val) if isinstance(status_val, str) else status_val
+        status = KuStatus(status_val) if isinstance(status_val, str) else status_val
 
         priority_val = task_dict.get("priority", "medium")
         priority = Priority(priority_val) if isinstance(priority_val, str) else priority_val
@@ -419,7 +419,7 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Update task to completed
         updates = {
-            "status": ActivityStatus.COMPLETED.value,
+            "status": KuStatus.COMPLETED.value,
             "completion_date": date.today(),
             "actual_minutes": actual_minutes,
         }
@@ -642,7 +642,7 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
         if prereq_result.value["can_start"]:
             # Unblock the task
             update_result = await self.backend.update_task(
-                task_uid, {"status": ActivityStatus.SCHEDULED.value}
+                task_uid, {"status": KuStatus.SCHEDULED.value}
             )
             if update_result.is_error:
                 return Result.fail(update_result.expect_error())
@@ -732,7 +732,7 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
         """Trigger a dependent task."""
         # Unblock the triggered task
         try:
-            await self.backend.update_task(task_uid, {"status": ActivityStatus.SCHEDULED.value})
+            await self.backend.update_task(task_uid, {"status": KuStatus.SCHEDULED.value})
             self.logger.debug(f"Triggered task {task_uid}")
         except Exception as e:
             self.logger.warning(f"Failed to trigger task {task_uid}: {e}")

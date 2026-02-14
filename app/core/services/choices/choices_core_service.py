@@ -20,7 +20,6 @@ from core.events.choice_events import (
     ChoiceOutcomeRecorded,
     ChoiceUpdated,
 )
-from core.models.enums import ActivityStatus
 from core.models.enums.ku_enums import ChoiceType, KuStatus, KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -380,9 +379,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         self.logger.debug(f"Found {len(choices)} choices for goal {goal_uid}")
         return Result.ok(choices)
 
-    async def update_choice(
-        self, choice_uid: str, choice_update: "KuUpdateRequest"
-    ) -> Result[Ku]:
+    async def update_choice(self, choice_uid: str, choice_update: "KuUpdateRequest") -> Result[Ku]:
         """
         Update a choice.
 

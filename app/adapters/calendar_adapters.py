@@ -10,7 +10,7 @@ from datetime import date, datetime
 from typing import Any, cast
 
 from core.models.enums import (
-    ActivityStatus,
+    KuStatus,
     ActivityType,
     Priority,
     RecurrencePattern,
@@ -65,20 +65,20 @@ class EventAdapter:
         priority_str = str(self._event.priority).upper()
         return priority_map.get(priority_str, Priority.MEDIUM)
 
-    def get_status(self) -> ActivityStatus:
-        """Convert event status to ActivityStatus"""
-        # Map EventStatus literals to ActivityStatus
+    def get_status(self) -> KuStatus:
+        """Convert event status to KuStatus"""
+        # Map EventStatus literals to KuStatus
         status_map = {
-            "DRAFT": ActivityStatus.DRAFT,
-            "SCHEDULED": ActivityStatus.SCHEDULED,
-            "IN_PROGRESS": ActivityStatus.IN_PROGRESS,
-            "COMPLETED": ActivityStatus.COMPLETED,
-            "CANCELLED": ActivityStatus.CANCELLED,
-            "POSTPONED": ActivityStatus.PAUSED,
-            "NO_SHOW": ActivityStatus.CANCELLED,
+            "DRAFT": KuStatus.DRAFT,
+            "SCHEDULED": KuStatus.SCHEDULED,
+            "IN_PROGRESS": KuStatus.ACTIVE,
+            "COMPLETED": KuStatus.COMPLETED,
+            "CANCELLED": KuStatus.CANCELLED,
+            "POSTPONED": KuStatus.PAUSED,
+            "NO_SHOW": KuStatus.CANCELLED,
         }
         status_str = str(self._event.status).upper()
-        return status_map.get(status_str, ActivityStatus.DRAFT)
+        return status_map.get(status_str, KuStatus.DRAFT)
 
     def get_calendar_windows(self) -> list[TimeWindow]:
         """
@@ -124,26 +124,26 @@ class EventAdapter:
 
     def can_edit(self) -> bool:
         """Check if event can be edited"""
-        return self.get_status() not in {ActivityStatus.CANCELLED, ActivityStatus.COMPLETED}
+        return self.get_status() not in {KuStatus.CANCELLED, KuStatus.COMPLETED}
 
     def can_delete(self) -> bool:
         """Check if event can be deleted"""
-        return self.get_status() != ActivityStatus.IN_PROGRESS
+        return self.get_status() != KuStatus.ACTIVE
 
     def can_reschedule(self) -> bool:
         """Check if event can be rescheduled"""
         return self.get_status() not in {
-            ActivityStatus.COMPLETED,
-            ActivityStatus.CANCELLED,
-            ActivityStatus.IN_PROGRESS,
+            KuStatus.COMPLETED,
+            KuStatus.CANCELLED,
+            KuStatus.ACTIVE,
         }
 
     def get_completion_percentage(self) -> float:
         """Get completion percentage"""
         status = self.get_status()
-        if status == ActivityStatus.COMPLETED:
+        if status == KuStatus.COMPLETED:
             return 100.0
-        elif status == ActivityStatus.IN_PROGRESS:
+        elif status == KuStatus.ACTIVE:
             # Could calculate based on time elapsed
             return 50.0
         else:
@@ -177,7 +177,7 @@ class EventAdapter:
         return None
 
     def get_actual_duration_minutes(self) -> int | None:
-        if self.get_status() == ActivityStatus.COMPLETED:
+        if self.get_status() == KuStatus.COMPLETED:
             return self.get_estimated_duration_minutes()
         return None
 

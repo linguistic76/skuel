@@ -34,12 +34,14 @@ from core.models.enums.ku_enums import KuStatus, KuType
 from core.models.enums.metadata_enums import Visibility
 
 # Shared types: no user_uid (admin-created or system content)
-_SHARED_KU_TYPES = frozenset({
-    KuType.CURRICULUM,
-    KuType.MOC,
-    KuType.LEARNING_STEP,
-    KuType.LEARNING_PATH,
-})
+_SHARED_KU_TYPES = frozenset(
+    {
+        KuType.CURRICULUM,
+        KuType.MOC,
+        KuType.LEARNING_STEP,
+        KuType.LEARNING_PATH,
+    }
+)
 
 
 class KuDTOMixin:
@@ -72,12 +74,12 @@ class KuDTOMixin:
                     f"{ku_type.value.upper()} Ku must have user_uid=None (shared content)"
                 )
         elif not user_uid:
-            raise ValueError(
-                f"{ku_type.value.upper()} Ku requires user_uid (user-owned content)"
-            )
+            raise ValueError(f"{ku_type.value.upper()} Ku requires user_uid (user-owned content)")
 
     @classmethod
-    def _generate_ku_uid(cls, ku_type: KuType, user_uid: str | None, title: str | None = None) -> str:
+    def _generate_ku_uid(
+        cls, ku_type: KuType, user_uid: str | None, title: str | None = None
+    ) -> str:
         """
         Generate UID with correct format per KuType.
 
@@ -112,8 +114,12 @@ class KuDTOMixin:
 
         # Activity domains: {type}_{slug}_{random}
         if ku_type in {
-            KuType.TASK, KuType.GOAL, KuType.HABIT,
-            KuType.EVENT, KuType.CHOICE, KuType.PRINCIPLE,
+            KuType.TASK,
+            KuType.GOAL,
+            KuType.HABIT,
+            KuType.EVENT,
+            KuType.CHOICE,
+            KuType.PRINCIPLE,
         }:
             prefix = ku_type.value  # "task", "goal", "habit", etc.
             if title:

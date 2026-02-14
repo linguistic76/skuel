@@ -23,7 +23,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
-from core.models.enums import ActivityStatus, RecurrencePattern
+from core.models.enums import KuStatus, RecurrencePattern
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.context_first_mixin import parse_date_field

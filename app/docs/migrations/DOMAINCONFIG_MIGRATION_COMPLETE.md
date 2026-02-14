@@ -24,7 +24,7 @@ Created and executed automated migration script that converted:
 ```python
 class TasksCoreService(BaseService[TasksOperations, Task]):
     _date_field: str = "due_date"
-    _completed_statuses: ClassVar[list[str]] = [ActivityStatus.COMPLETED.value]
+    _completed_statuses: ClassVar[list[str]] = [KuStatus.COMPLETED.value]
     _dto_class = TaskDTO
     _model_class = Task
 ```
@@ -37,7 +37,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         model_class=Task,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 ```
 
@@ -149,7 +149,7 @@ TASKS_CONFIG = create_activity_domain_config(
     model_class=Task,
     domain_name="tasks",
     date_field="due_date",
-    completed_statuses=(ActivityStatus.COMPLETED.value,),
+    completed_statuses=(KuStatus.COMPLETED.value,),
 )
 
 GOALS_CONFIG = create_activity_domain_config(
@@ -157,7 +157,7 @@ GOALS_CONFIG = create_activity_domain_config(
     model_class=Goal,
     domain_name="goals",
     date_field="target_date",
-    completed_statuses=(ActivityStatus.COMPLETED.value,),
+    completed_statuses=(KuStatus.COMPLETED.value,),
 )
 ```
 
@@ -277,7 +277,7 @@ poetry run pytest tests/test_tasks_search_service.py tests/test_tasks_progress_s
 ```python
 class TasksCoreService(BaseService):
     _date_field = "due_date"
-    _completed_statuses = [ActivityStatus.COMPLETED.value]
+    _completed_statuses = [KuStatus.COMPLETED.value]
     _dto_class = TaskDTO
     _model_class = Task
     _search_fields = ["title", "description"]
@@ -305,7 +305,7 @@ class TasksCoreService(BaseService):
         model_class=Task,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 ```
 

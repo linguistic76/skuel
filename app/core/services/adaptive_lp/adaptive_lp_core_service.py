@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from operator import itemgetter
 from typing import TYPE_CHECKING
 
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.models.ku.ku_dto import KuDTO
 from core.services.adaptive_lp.adaptive_lp_models import AdaptiveLp, LearningStyle
 from core.services.adaptive_lp_types import KnowledgeState
@@ -231,7 +231,7 @@ class AdaptiveLpCoreService:
         if tasks_result.is_error or len(tasks_result.value) < self.style_detection_min_tasks:
             return Result.ok(LearningStyle.INDEPENDENT)
 
-        tasks = [t for t in tasks_result.value if t.status == ActivityStatus.COMPLETED]
+        tasks = [t for t in tasks_result.value if t.status == KuStatus.COMPLETED]
 
         # Analyze patterns to detect learning style
         style_scores = {
@@ -617,7 +617,7 @@ class AdaptiveLpCoreService:
                 tasks_result = await self.tasks_service.get_user_tasks(user_uid)
                 if tasks_result.is_ok:
                     completed_tasks = [
-                        t for t in tasks_result.value if t.status == ActivityStatus.COMPLETED
+                        t for t in tasks_result.value if t.status == KuStatus.COMPLETED
                     ]
                     if completed_tasks:
                         recent_date = datetime.now() - timedelta(weeks=4)
@@ -638,9 +638,7 @@ class AdaptiveLpCoreService:
 
         return factors
 
-    async def _derive_learning_outcomes(
-        self, goal: KuDTO, knowledge_steps: list[str]
-    ) -> list[str]:
+    async def _derive_learning_outcomes(self, goal: KuDTO, knowledge_steps: list[str]) -> list[str]:
         """Derive specific learning outcomes from goal and knowledge steps."""
         outcomes = []
 

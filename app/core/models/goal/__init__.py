@@ -8,8 +8,7 @@ endpoints.
 
 Domain model: core.models.ku.ku.Ku (with ku_type='goal')
 DTO: core.models.ku.ku_dto.KuDTO
-Enums: core.models.enums.ku_enums (GoalType, GoalTimeframe, MeasurementType)
-       core.models.enums.activity_enums (GoalStatus)
+Enums: core.models.enums.ku_enums (GoalType, GoalTimeframe, MeasurementType, KuStatus)
 """
 
 from .goal_request import (

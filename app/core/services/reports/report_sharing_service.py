@@ -347,7 +347,9 @@ class KuSharingService:
 
             record = records[0]
             owner_uid = record["owner_uid"]
-            visibility = Visibility(record["visibility"]) if record["visibility"] else Visibility.PRIVATE
+            visibility = (
+                Visibility(record["visibility"]) if record["visibility"] else Visibility.PRIVATE
+            )
             ku_type = record["ku_type"]
             has_share = record["has_share_relationship"]
 
@@ -392,9 +394,7 @@ class KuSharingService:
 
             actual_owner = records[0]["actual_owner"]
             if actual_owner != owner_uid:
-                return Result.fail(
-                    Errors.validation(f"User {owner_uid} does not own Ku {ku_uid}")
-                )
+                return Result.fail(Errors.validation(f"User {owner_uid} does not own Ku {ku_uid}"))
 
             return Result.ok(True)
 
@@ -424,9 +424,7 @@ class KuSharingService:
             status = records[0]["status"]
             if status != "completed":
                 return Result.fail(
-                    Errors.validation(
-                        f"Only completed Ku can be shared. Current status: {status}"
-                    )
+                    Errors.validation(f"Only completed Ku can be shared. Current status: {status}")
                 )
 
             return Result.ok(True)

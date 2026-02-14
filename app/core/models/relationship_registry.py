@@ -41,6 +41,7 @@ from typing import Any
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
 from core.models.enums.ku_enums import KuType
+
 # Curriculum domain imports - Phase 3 (February 2026): LS/LP unified into Ku
 # NOTE (February 2026): Habit imports removed — Habit merged into Ku
 from core.models.ku.ku import Ku

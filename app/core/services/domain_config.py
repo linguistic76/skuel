@@ -17,7 +17,7 @@ class TasksSearchService(BaseService):
     _model_class = Task
     _search_fields = ["title", "description"]
     _date_field = "due_date"
-    _completed_statuses = [ActivityStatus.COMPLETED.value]
+    _completed_statuses = [KuStatus.COMPLETED.value]
     # ... 13 more attributes scattered across the class
 ```
 
@@ -29,7 +29,7 @@ class TasksSearchService(BaseService):
         model_class=Task,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 ```
 

@@ -29,7 +29,7 @@ def mock_tasks_backend() -> Any:
     """Mock tasks backend for testing."""
     from datetime import datetime
 
-    from core.models.enums import ActivityStatus
+    from core.models.enums import KuStatus
 
     backend = Mock()
 
@@ -39,7 +39,7 @@ def mock_tasks_backend() -> Any:
         "user_uid": "user-456",  # REQUIRED field
         "title": "Test Task",
         "description": "Test description",
-        "status": ActivityStatus.DRAFT,
+        "status": KuStatus.DRAFT,
         "priority": Priority.MEDIUM,
         "duration_minutes": 30,
         "created_at": datetime.now(),

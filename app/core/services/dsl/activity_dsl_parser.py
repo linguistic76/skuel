@@ -837,9 +837,7 @@ class ActivityDSLParser:
 
         if invalid:
             # Build helpful error message with valid options from both enums
-            all_values = sorted(
-                {e.value for e in KuType} | {e.value for e in NonKuDomain}
-            )
+            all_values = sorted({e.value for e in KuType} | {e.value for e in NonKuDomain})
             valid_options = ", ".join(all_values)
             return Result.fail(
                 Errors.validation(

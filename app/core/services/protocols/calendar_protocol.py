@@ -22,7 +22,7 @@ from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
 from core.models.enums import (
-    ActivityStatus,
+    KuStatus,
     ActivityType,
     Priority,
     RecurrencePattern,
@@ -165,7 +165,7 @@ class CalendarTrackable(Protocol):
         """
         ...
 
-    def get_status(self) -> ActivityStatus:
+    def get_status(self) -> KuStatus:
         """
         Return the current status.
 

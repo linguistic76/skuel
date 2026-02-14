@@ -15,7 +15,7 @@ See: /docs/decisions/ADR-037-embedding-infrastructure-separation.md
 
 from datetime import datetime
 
-from core.models.enums import ActivityStatus, Domain, GoalStatus, Priority
+from core.models.enums import KuStatus, Domain, KuStatus, Priority
 from core.models.ku.ku_dto import KuDTO as GoalDTO
 from core.models.ku.ku_dto import KuDTO as TaskDTO
 
@@ -41,7 +41,7 @@ def test_task_dto_from_dict_filters_embedding():
     # Verify core fields are correctly parsed
     assert task_dto.uid == "task_test_abc123"
     assert task_dto.title == "Test Task"
-    assert task_dto.status == ActivityStatus.DRAFT
+    assert task_dto.status == KuStatus.DRAFT
     assert task_dto.priority == Priority.MEDIUM
 
     # Verify embedding field doesn't exist in DTO
@@ -60,7 +60,7 @@ def test_goal_dto_from_dict_filters_embedding():
         "domain": "knowledge",
         "timeframe": "quarterly",
         "measurement_type": "percentage",
-        "status": "active",  # Valid GoalStatus value
+        "status": "active",  # Valid KuStatus value
         "priority": "high",
         "embedding": [0.5, 0.6, 0.7],  # This field should be filtered out
         "created_at": datetime.now().isoformat(),
@@ -74,7 +74,7 @@ def test_goal_dto_from_dict_filters_embedding():
     assert goal_dto.uid == "goal_test_xyz789"
     assert goal_dto.title == "Test Goal"
     assert goal_dto.domain == Domain.KNOWLEDGE
-    assert goal_dto.status == GoalStatus.ACTIVE
+    assert goal_dto.status == KuStatus.ACTIVE
     assert goal_dto.priority == Priority.HIGH
 
     # Verify embedding field doesn't exist in DTO
@@ -109,7 +109,7 @@ def test_dto_from_dict_preserves_all_valid_fields():
     assert task_dto.assignee == "test-assignee"
     assert task_dto.tags == ["tag1", "tag2"]
     assert task_dto.duration_minutes == 60
-    assert task_dto.status == ActivityStatus.IN_PROGRESS
+    assert task_dto.status == KuStatus.ACTIVE
     assert task_dto.priority == Priority.HIGH
 
     # Invalid fields should not exist

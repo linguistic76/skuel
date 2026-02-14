@@ -251,7 +251,7 @@ class BaseUpdatePayload(TypedDict, total=False):
     Usage:
         updates: BaseUpdatePayload = {
             "title": "New Title",
-            "status": "in_progress",
+            "status": "active",
         }
         result = await service.update(uid, updates)
     """

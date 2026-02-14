@@ -124,17 +124,19 @@ def _reconstruct_milestones(raw: list | None) -> list[Milestone]:
         if isinstance(item, Milestone):
             result.append(item)
         elif isinstance(item, dict):
-            result.append(Milestone(
-                uid=item.get("uid", ""),
-                title=item.get("title", ""),
-                description=item.get("description"),
-                target_date=_parse_date_value(item.get("target_date")),
-                target_value=item.get("target_value"),
-                achieved_date=_parse_date_value(item.get("achieved_date")),
-                is_completed=item.get("is_completed", False),
-                required_knowledge_uids=tuple(item.get("required_knowledge_uids", ())),
-                unlocked_knowledge_uids=tuple(item.get("unlocked_knowledge_uids", ())),
-            ))
+            result.append(
+                Milestone(
+                    uid=item.get("uid", ""),
+                    title=item.get("title", ""),
+                    description=item.get("description"),
+                    target_date=_parse_date_value(item.get("target_date")),
+                    target_value=item.get("target_value"),
+                    achieved_date=_parse_date_value(item.get("achieved_date")),
+                    is_completed=item.get("is_completed", False),
+                    required_knowledge_uids=tuple(item.get("required_knowledge_uids", ())),
+                    unlocked_knowledge_uids=tuple(item.get("unlocked_knowledge_uids", ())),
+                )
+            )
     return result
 
 
@@ -147,18 +149,20 @@ def _reconstruct_choice_options(raw: list | None) -> list[ChoiceOption]:
         if isinstance(item, ChoiceOption):
             result.append(item)
         elif isinstance(item, dict):
-            result.append(ChoiceOption(
-                uid=item.get("uid", ""),
-                title=item.get("title", ""),
-                description=item.get("description", ""),
-                feasibility_score=item.get("feasibility_score", 0.5),
-                risk_level=item.get("risk_level", 0.5),
-                potential_impact=item.get("potential_impact", 0.5),
-                resource_requirement=item.get("resource_requirement", 0.5),
-                estimated_duration=item.get("estimated_duration"),
-                dependencies=tuple(item.get("dependencies", ())),
-                tags=tuple(item.get("tags", ())),
-            ))
+            result.append(
+                ChoiceOption(
+                    uid=item.get("uid", ""),
+                    title=item.get("title", ""),
+                    description=item.get("description", ""),
+                    feasibility_score=item.get("feasibility_score", 0.5),
+                    risk_level=item.get("risk_level", 0.5),
+                    potential_impact=item.get("potential_impact", 0.5),
+                    resource_requirement=item.get("resource_requirement", 0.5),
+                    estimated_duration=item.get("estimated_duration"),
+                    dependencies=tuple(item.get("dependencies", ())),
+                    tags=tuple(item.get("tags", ())),
+                )
+            )
     return result
 
 
@@ -171,11 +175,13 @@ def _reconstruct_expressions(raw: list | None) -> list[PrincipleExpression]:
         if isinstance(item, PrincipleExpression):
             result.append(item)
         elif isinstance(item, dict):
-            result.append(PrincipleExpression(
-                context=item.get("context", ""),
-                behavior=item.get("behavior", ""),
-                example=item.get("example"),
-            ))
+            result.append(
+                PrincipleExpression(
+                    context=item.get("context", ""),
+                    behavior=item.get("behavior", ""),
+                    example=item.get("example"),
+                )
+            )
     return result
 
 
@@ -198,12 +204,14 @@ def _reconstruct_alignment_history(raw: list | None) -> list[AlignmentAssessment
             if assessed_date is None:
                 assessed_date = date.today()
 
-            result.append(AlignmentAssessment(
-                assessed_date=assessed_date,
-                alignment_level=alignment_level,
-                evidence=item.get("evidence", ""),
-                reflection=item.get("reflection"),
-            ))
+            result.append(
+                AlignmentAssessment(
+                    assessed_date=assessed_date,
+                    alignment_level=alignment_level,
+                    evidence=item.get("evidence", ""),
+                    reflection=item.get("reflection"),
+                )
+            )
     return result
 
 
@@ -1026,7 +1034,9 @@ class KuDTO(KuDTOMixin):
             "vision_statement": self.vision_statement,
             "goal_type": get_enum_value(self.goal_type) if self.goal_type else None,
             "timeframe": get_enum_value(self.timeframe) if self.timeframe else None,
-            "measurement_type": get_enum_value(self.measurement_type) if self.measurement_type else None,
+            "measurement_type": get_enum_value(self.measurement_type)
+            if self.measurement_type
+            else None,
             "target_value": self.target_value,
             "current_value": self.current_value,
             "unit_of_measurement": self.unit_of_measurement,
@@ -1054,8 +1064,12 @@ class KuDTO(KuDTOMixin):
             "completion_updates_goal": self.completion_updates_goal,
             "curriculum_driven": self.curriculum_driven,
             "curriculum_practice_type": self.curriculum_practice_type,
-            "knowledge_confidence_scores": dict(self.knowledge_confidence_scores) if self.knowledge_confidence_scores else None,
-            "knowledge_inference_metadata": dict(self.knowledge_inference_metadata) if self.knowledge_inference_metadata else None,
+            "knowledge_confidence_scores": dict(self.knowledge_confidence_scores)
+            if self.knowledge_confidence_scores
+            else None,
+            "knowledge_inference_metadata": dict(self.knowledge_inference_metadata)
+            if self.knowledge_inference_metadata
+            else None,
             "learning_opportunities_count": self.learning_opportunities_count,
             "inspired_by_choice_uid": self.inspired_by_choice_uid,
             "selected_choice_option_uid": self.selected_choice_option_uid,
@@ -1072,7 +1086,9 @@ class KuDTO(KuDTOMixin):
             # =================================================================
             "polarity": get_enum_value(self.polarity) if self.polarity else None,
             "habit_category": get_enum_value(self.habit_category) if self.habit_category else None,
-            "habit_difficulty": get_enum_value(self.habit_difficulty) if self.habit_difficulty else None,
+            "habit_difficulty": get_enum_value(self.habit_difficulty)
+            if self.habit_difficulty
+            else None,
             "current_streak": self.current_streak,
             "best_streak": self.best_streak,
             "total_completions": self.total_completions,
@@ -1109,15 +1125,21 @@ class KuDTO(KuDTOMixin):
             # CONVICTION
             # =================================================================
             "statement": self.statement,
-            "principle_category": get_enum_value(self.principle_category) if self.principle_category else None,
-            "principle_source": get_enum_value(self.principle_source) if self.principle_source else None,
+            "principle_category": get_enum_value(self.principle_category)
+            if self.principle_category
+            else None,
+            "principle_source": get_enum_value(self.principle_source)
+            if self.principle_source
+            else None,
             "strength": get_enum_value(self.strength) if self.strength else None,
             "tradition": self.tradition,
             "original_source": self.original_source,
             "personal_interpretation": self.personal_interpretation,
             "expressions": [_serialize_nested_item(e) for e in self.expressions],
             "key_behaviors": list(self.key_behaviors),
-            "current_alignment": get_enum_value(self.current_alignment) if self.current_alignment else None,
+            "current_alignment": get_enum_value(self.current_alignment)
+            if self.current_alignment
+            else None,
             "alignment_history": [_serialize_nested_item(a) for a in self.alignment_history],
             "last_review_date": self.last_review_date,
             "potential_conflicts": list(self.potential_conflicts),
@@ -1134,7 +1156,9 @@ class KuDTO(KuDTOMixin):
             "designated_at": self.designated_at,
             "alignment_score": self.alignment_score,
             "word_action_gap": self.word_action_gap,
-            "alignment_level": get_enum_value(self.alignment_level) if self.alignment_level else None,
+            "alignment_level": get_enum_value(self.alignment_level)
+            if self.alignment_level
+            else None,
             "knowledge_alignment": self.knowledge_alignment,
             "activity_alignment": self.activity_alignment,
             "goal_alignment": self.goal_alignment,
@@ -1153,7 +1177,9 @@ class KuDTO(KuDTOMixin):
             "mastery_threshold": self.mastery_threshold,
             "current_mastery": self.current_mastery,
             "estimated_hours": self.estimated_hours,
-            "step_difficulty": get_enum_value(self.step_difficulty) if self.step_difficulty else None,
+            "step_difficulty": get_enum_value(self.step_difficulty)
+            if self.step_difficulty
+            else None,
             "path_type": get_enum_value(self.path_type) if self.path_type else None,
             "outcomes": list(self.outcomes),
             "checkpoint_week_intervals": list(self.checkpoint_week_intervals),

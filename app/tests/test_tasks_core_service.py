@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.enums import ActivityStatus, Priority
+from core.models.enums import KuStatus, Priority
 from core.models.ku.ku import Ku as Task
 from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.models.task.task_request import TaskCreateRequest
@@ -99,7 +99,7 @@ def sample_task_dto() -> TaskDTO:
         user_uid="user:demo",
         title="Test Task",
         priority=Priority.HIGH.value,
-        status=ActivityStatus.DRAFT.value,
+        status=KuStatus.DRAFT.value,
         due_date=date.today() + timedelta(days=7),
         duration_minutes=60,
         project="Test Project",
@@ -349,7 +349,7 @@ async def test_list_tasks_no_filters(core_service, mock_backend, sample_task_dto
 async def test_list_tasks_with_filters(core_service, mock_backend, sample_task_dto):
     """Test listing tasks with filters."""
     # Setup - backend.list() returns (items, total_count) tuple
-    filters = {"priority": Priority.HIGH.value, "status": ActivityStatus.DRAFT.value}
+    filters = {"priority": Priority.HIGH.value, "status": KuStatus.DRAFT.value}
     filtered_tasks = [sample_task_dto.to_dict()]
     mock_backend.list.return_value = Result.ok((filtered_tasks, 1))
 

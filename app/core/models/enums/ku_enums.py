@@ -201,14 +201,24 @@ _KU_TYPE_DISPLAY_NAMES: dict[KuType, str] = {
 _KNOWLEDGE_TYPES = frozenset({KuType.CURRICULUM, KuType.MOC})
 _CURRICULUM_STRUCTURE_TYPES = frozenset({KuType.LEARNING_STEP, KuType.LEARNING_PATH})
 _CONTENT_PROCESSING_TYPES = frozenset({KuType.ASSIGNMENT, KuType.AI_REPORT, KuType.FEEDBACK_REPORT})
-_ACTIVITY_TYPES = frozenset({
-    KuType.TASK, KuType.GOAL, KuType.HABIT,
-    KuType.EVENT, KuType.CHOICE, KuType.PRINCIPLE,
-})
-_SHARED_TYPES = frozenset({
-    KuType.CURRICULUM, KuType.MOC,
-    KuType.LEARNING_STEP, KuType.LEARNING_PATH,
-})
+_ACTIVITY_TYPES = frozenset(
+    {
+        KuType.TASK,
+        KuType.GOAL,
+        KuType.HABIT,
+        KuType.EVENT,
+        KuType.CHOICE,
+        KuType.PRINCIPLE,
+    }
+)
+_SHARED_TYPES = frozenset(
+    {
+        KuType.CURRICULUM,
+        KuType.MOC,
+        KuType.LEARNING_STEP,
+        KuType.LEARNING_PATH,
+    }
+)
 
 _KU_TYPE_ALIASES: dict[str, KuType] = {
     # Canonical values
@@ -288,6 +298,28 @@ class KuStatus(str, Enum):
         """Get human-readable display name for UI."""
         return _KU_STATUS_DISPLAY_NAMES[self]
 
+    def get_color(self) -> str:
+        """Get hex color for UI rendering."""
+        return _KU_STATUS_COLORS[self]
+
+    def get_search_synonyms(self) -> tuple[str, ...]:
+        """Return search terms that match this status."""
+        return _KU_STATUS_SEARCH_SYNONYMS.get(self, ())
+
+    def get_search_description(self) -> str:
+        """Human-readable description for search UI."""
+        return _KU_STATUS_SEARCH_DESCRIPTIONS.get(self, "")
+
+    @classmethod
+    def from_search_text(cls, text: str) -> list[KuStatus]:
+        """Find matching statuses from search text."""
+        text_lower = text.lower()
+        return [
+            status
+            for status in cls
+            if any(synonym in text_lower for synonym in status.get_search_synonyms())
+        ]
+
     def is_terminal(self) -> bool:
         """Check if this is a terminal (non-progressing) status."""
         return self in _TERMINAL_STATUSES
@@ -334,118 +366,269 @@ _KU_STATUS_DISPLAY_NAMES: dict[KuStatus, str] = {
     KuStatus.ARCHIVED: "Archived",
 }
 
-_TERMINAL_STATUSES = frozenset({
-    KuStatus.COMPLETED, KuStatus.FAILED,
-    KuStatus.CANCELLED, KuStatus.ARCHIVED,
-})
+_TERMINAL_STATUSES = frozenset(
+    {
+        KuStatus.COMPLETED,
+        KuStatus.FAILED,
+        KuStatus.CANCELLED,
+        KuStatus.ARCHIVED,
+    }
+)
 
-_ACTIVE_STATUSES = frozenset({
-    KuStatus.SUBMITTED, KuStatus.QUEUED, KuStatus.PROCESSING,
-    KuStatus.ACTIVE, KuStatus.SCHEDULED,
-})
+_ACTIVE_STATUSES = frozenset(
+    {
+        KuStatus.SUBMITTED,
+        KuStatus.QUEUED,
+        KuStatus.PROCESSING,
+        KuStatus.ACTIVE,
+        KuStatus.SCHEDULED,
+    }
+)
+
+_KU_STATUS_COLORS: dict[KuStatus, str] = {
+    KuStatus.DRAFT: "#9CA3AF",  # Light gray
+    KuStatus.SUBMITTED: "#8B5CF6",  # Violet
+    KuStatus.QUEUED: "#A855F7",  # Purple
+    KuStatus.PROCESSING: "#F59E0B",  # Amber
+    KuStatus.SCHEDULED: "#3B82F6",  # Blue
+    KuStatus.ACTIVE: "#06B6D4",  # Cyan
+    KuStatus.PAUSED: "#F59E0B",  # Amber
+    KuStatus.BLOCKED: "#DC2626",  # Red
+    KuStatus.COMPLETED: "#10B981",  # Green
+    KuStatus.FAILED: "#EF4444",  # Red
+    KuStatus.CANCELLED: "#6B7280",  # Gray
+    KuStatus.POSTPONED: "#A855F7",  # Purple
+    KuStatus.REVISION_REQUESTED: "#F97316",  # Orange
+    KuStatus.ARCHIVED: "#9CA3AF",  # Gray
+}
+
+_KU_STATUS_SEARCH_SYNONYMS: dict[KuStatus, tuple[str, ...]] = {
+    KuStatus.DRAFT: ("draft", "new", "planning", "unconfirmed"),
+    KuStatus.SUBMITTED: ("submitted", "sent", "turned in"),
+    KuStatus.QUEUED: ("queued", "waiting", "in queue"),
+    KuStatus.PROCESSING: ("processing", "running", "analyzing"),
+    KuStatus.SCHEDULED: ("scheduled", "planned", "upcoming", "queued"),
+    KuStatus.ACTIVE: ("active", "in progress", "working", "current", "ongoing"),
+    KuStatus.PAUSED: ("paused", "on hold", "waiting", "suspended"),
+    KuStatus.BLOCKED: ("blocked", "stuck", "waiting on", "dependent"),
+    KuStatus.COMPLETED: ("completed", "done", "finished", "complete", "achieved"),
+    KuStatus.FAILED: ("failed", "unsuccessful", "not completed"),
+    KuStatus.CANCELLED: ("cancelled", "canceled", "abandoned", "dropped"),
+    KuStatus.POSTPONED: ("postponed", "delayed", "rescheduled", "deferred"),
+    KuStatus.REVISION_REQUESTED: ("revision", "revise", "redo", "resubmit"),
+    KuStatus.ARCHIVED: ("archived", "old", "historical", "past"),
+}
+
+_KU_STATUS_SEARCH_DESCRIPTIONS: dict[KuStatus, str] = {
+    KuStatus.DRAFT: "Not yet scheduled or confirmed",
+    KuStatus.SUBMITTED: "Submitted for processing",
+    KuStatus.QUEUED: "Waiting in processing queue",
+    KuStatus.PROCESSING: "Currently being processed",
+    KuStatus.SCHEDULED: "Scheduled but not started",
+    KuStatus.ACTIVE: "Currently being worked on",
+    KuStatus.PAUSED: "Temporarily paused",
+    KuStatus.BLOCKED: "Blocked by dependency",
+    KuStatus.COMPLETED: "Successfully completed",
+    KuStatus.FAILED: "Failed to complete",
+    KuStatus.CANCELLED: "Cancelled before completion",
+    KuStatus.POSTPONED: "Moved to future time",
+    KuStatus.REVISION_REQUESTED: "Revision requested",
+    KuStatus.ARCHIVED: "No longer active",
+}
 
 # General transition map — union of all valid transitions across all KuTypes.
 # Type-specific validation is handled by can_transition_to() + valid_statuses().
 _VALID_TRANSITIONS: dict[KuStatus, set[KuStatus]] = {
     KuStatus.DRAFT: {
-        KuStatus.SUBMITTED, KuStatus.SCHEDULED, KuStatus.ACTIVE,
-        KuStatus.COMPLETED, KuStatus.CANCELLED, KuStatus.ARCHIVED,
+        KuStatus.SUBMITTED,
+        KuStatus.SCHEDULED,
+        KuStatus.ACTIVE,
+        KuStatus.COMPLETED,
+        KuStatus.CANCELLED,
+        KuStatus.ARCHIVED,
     },
     KuStatus.SUBMITTED: {
-        KuStatus.QUEUED, KuStatus.PROCESSING, KuStatus.FAILED,
+        KuStatus.QUEUED,
+        KuStatus.PROCESSING,
+        KuStatus.FAILED,
     },
     KuStatus.QUEUED: {
-        KuStatus.PROCESSING, KuStatus.FAILED,
+        KuStatus.PROCESSING,
+        KuStatus.FAILED,
     },
     KuStatus.PROCESSING: {
-        KuStatus.COMPLETED, KuStatus.FAILED,
+        KuStatus.COMPLETED,
+        KuStatus.FAILED,
     },
     KuStatus.SCHEDULED: {
-        KuStatus.ACTIVE, KuStatus.COMPLETED,
-        KuStatus.CANCELLED, KuStatus.POSTPONED,
+        KuStatus.ACTIVE,
+        KuStatus.COMPLETED,
+        KuStatus.CANCELLED,
+        KuStatus.POSTPONED,
     },
     KuStatus.ACTIVE: {
-        KuStatus.PAUSED, KuStatus.BLOCKED, KuStatus.COMPLETED,
-        KuStatus.CANCELLED, KuStatus.FAILED, KuStatus.ARCHIVED,
+        KuStatus.PAUSED,
+        KuStatus.BLOCKED,
+        KuStatus.COMPLETED,
+        KuStatus.CANCELLED,
+        KuStatus.FAILED,
+        KuStatus.ARCHIVED,
     },
     KuStatus.PAUSED: {
-        KuStatus.ACTIVE, KuStatus.CANCELLED, KuStatus.ARCHIVED,
+        KuStatus.ACTIVE,
+        KuStatus.CANCELLED,
+        KuStatus.ARCHIVED,
     },
     KuStatus.BLOCKED: {
-        KuStatus.ACTIVE, KuStatus.CANCELLED,
+        KuStatus.ACTIVE,
+        KuStatus.CANCELLED,
     },
     KuStatus.COMPLETED: {
-        KuStatus.REVISION_REQUESTED, KuStatus.ARCHIVED,
+        KuStatus.REVISION_REQUESTED,
+        KuStatus.ARCHIVED,
     },
     KuStatus.FAILED: {
-        KuStatus.DRAFT, KuStatus.CANCELLED, KuStatus.ARCHIVED,
+        KuStatus.DRAFT,
+        KuStatus.CANCELLED,
+        KuStatus.ARCHIVED,
     },
     KuStatus.CANCELLED: {
         KuStatus.ARCHIVED,
     },
     KuStatus.POSTPONED: {
-        KuStatus.DRAFT, KuStatus.SCHEDULED, KuStatus.CANCELLED,
+        KuStatus.DRAFT,
+        KuStatus.SCHEDULED,
+        KuStatus.CANCELLED,
     },
     KuStatus.REVISION_REQUESTED: {
-        KuStatus.DRAFT, KuStatus.ARCHIVED,
+        KuStatus.DRAFT,
+        KuStatus.ARCHIVED,
     },
     KuStatus.ARCHIVED: set(),
 }
 
 # Valid statuses per KuType (from plan specification)
 _VALID_STATUSES_BY_TYPE: dict[KuType, frozenset[KuStatus]] = {
-    KuType.CURRICULUM: frozenset({
-        KuStatus.DRAFT, KuStatus.COMPLETED, KuStatus.ARCHIVED,
-    }),
-    KuType.MOC: frozenset({
-        KuStatus.DRAFT, KuStatus.COMPLETED, KuStatus.ARCHIVED,
-    }),
-    KuType.LEARNING_STEP: frozenset({
-        KuStatus.DRAFT, KuStatus.ACTIVE, KuStatus.COMPLETED, KuStatus.ARCHIVED,
-    }),
-    KuType.LEARNING_PATH: frozenset({
-        KuStatus.DRAFT, KuStatus.ACTIVE, KuStatus.COMPLETED, KuStatus.ARCHIVED,
-    }),
-    KuType.ASSIGNMENT: frozenset({
-        KuStatus.DRAFT, KuStatus.SUBMITTED, KuStatus.QUEUED,
-        KuStatus.PROCESSING, KuStatus.COMPLETED, KuStatus.FAILED,
-        KuStatus.REVISION_REQUESTED, KuStatus.ARCHIVED,
-    }),
-    KuType.AI_REPORT: frozenset({
-        KuStatus.DRAFT, KuStatus.PROCESSING, KuStatus.COMPLETED,
-        KuStatus.FAILED, KuStatus.ARCHIVED,
-    }),
-    KuType.FEEDBACK_REPORT: frozenset({
-        KuStatus.DRAFT, KuStatus.COMPLETED, KuStatus.ARCHIVED,
-    }),
-    KuType.TASK: frozenset({
-        KuStatus.DRAFT, KuStatus.SCHEDULED, KuStatus.ACTIVE,
-        KuStatus.PAUSED, KuStatus.BLOCKED, KuStatus.COMPLETED,
-        KuStatus.CANCELLED, KuStatus.POSTPONED, KuStatus.FAILED,
-    }),
-    KuType.GOAL: frozenset({
-        KuStatus.DRAFT, KuStatus.ACTIVE, KuStatus.PAUSED,
-        KuStatus.COMPLETED, KuStatus.CANCELLED, KuStatus.FAILED,
-        KuStatus.ARCHIVED,
-    }),
-    KuType.HABIT: frozenset({
-        KuStatus.ACTIVE, KuStatus.PAUSED, KuStatus.COMPLETED,
-        KuStatus.CANCELLED, KuStatus.ARCHIVED,
-    }),
-    KuType.EVENT: frozenset({
-        KuStatus.SCHEDULED, KuStatus.ACTIVE, KuStatus.COMPLETED,
-        KuStatus.CANCELLED,
-    }),
-    KuType.CHOICE: frozenset({
-        KuStatus.DRAFT, KuStatus.ACTIVE, KuStatus.COMPLETED,
-        KuStatus.ARCHIVED,
-    }),
-    KuType.PRINCIPLE: frozenset({
-        KuStatus.ACTIVE, KuStatus.PAUSED, KuStatus.ARCHIVED,
-    }),
-    KuType.LIFE_PATH: frozenset({
-        KuStatus.ACTIVE, KuStatus.ARCHIVED,
-    }),
+    KuType.CURRICULUM: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.COMPLETED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.MOC: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.COMPLETED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.LEARNING_STEP: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.ACTIVE,
+            KuStatus.COMPLETED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.LEARNING_PATH: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.ACTIVE,
+            KuStatus.COMPLETED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.ASSIGNMENT: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.SUBMITTED,
+            KuStatus.QUEUED,
+            KuStatus.PROCESSING,
+            KuStatus.COMPLETED,
+            KuStatus.FAILED,
+            KuStatus.REVISION_REQUESTED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.AI_REPORT: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.PROCESSING,
+            KuStatus.COMPLETED,
+            KuStatus.FAILED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.FEEDBACK_REPORT: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.COMPLETED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.TASK: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.SCHEDULED,
+            KuStatus.ACTIVE,
+            KuStatus.PAUSED,
+            KuStatus.BLOCKED,
+            KuStatus.COMPLETED,
+            KuStatus.CANCELLED,
+            KuStatus.POSTPONED,
+            KuStatus.FAILED,
+        }
+    ),
+    KuType.GOAL: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.ACTIVE,
+            KuStatus.PAUSED,
+            KuStatus.COMPLETED,
+            KuStatus.CANCELLED,
+            KuStatus.FAILED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.HABIT: frozenset(
+        {
+            KuStatus.ACTIVE,
+            KuStatus.PAUSED,
+            KuStatus.COMPLETED,
+            KuStatus.CANCELLED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.EVENT: frozenset(
+        {
+            KuStatus.SCHEDULED,
+            KuStatus.ACTIVE,
+            KuStatus.COMPLETED,
+            KuStatus.CANCELLED,
+        }
+    ),
+    KuType.CHOICE: frozenset(
+        {
+            KuStatus.DRAFT,
+            KuStatus.ACTIVE,
+            KuStatus.COMPLETED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.PRINCIPLE: frozenset(
+        {
+            KuStatus.ACTIVE,
+            KuStatus.PAUSED,
+            KuStatus.ARCHIVED,
+        }
+    ),
+    KuType.LIFE_PATH: frozenset(
+        {
+            KuStatus.ACTIVE,
+            KuStatus.ARCHIVED,
+        }
+    ),
 }
 
 _DEFAULT_STATUS_BY_TYPE: dict[KuType, KuStatus] = {
@@ -778,6 +961,35 @@ class HabitDifficulty(str, Enum):
     MODERATE = "moderate"
     CHALLENGING = "challenging"
     HARD = "hard"
+
+
+class CompletionStatus(str, Enum):
+    """
+    Status for tracking completion of activities, especially habits.
+
+    More nuanced than just complete/incomplete to track quality.
+    """
+
+    DONE = "done"
+    PARTIAL = "partial"
+    SKIPPED = "skipped"
+    MISSED = "missed"
+    PAUSED = "paused"
+
+    def counts_as_success(self) -> bool:
+        """Check if this counts toward success metrics."""
+        return self in {CompletionStatus.DONE, CompletionStatus.PARTIAL}
+
+    def get_emoji(self) -> str:
+        """Get emoji representation."""
+        emojis = {
+            CompletionStatus.DONE: "✅",
+            CompletionStatus.PARTIAL: "⚡",
+            CompletionStatus.SKIPPED: "⏭️",
+            CompletionStatus.MISSED: "❌",
+            CompletionStatus.PAUSED: "⏸️",
+        }
+        return emojis.get(self, "❓")
 
 
 # =============================================================================

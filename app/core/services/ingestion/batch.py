@@ -507,7 +507,9 @@ async def ingest_directory(
 
     # Group entities by type for batch processing (keyed by KuType | NonKuDomain)
     entities_by_type: dict[KuType | NonKuDomain, list[dict[str, Any]]] = {}
-    file_entity_map: dict[str, tuple[KuType | NonKuDomain, str]] = {}  # file_path -> (entity_type, uid)
+    file_entity_map: dict[
+        str, tuple[KuType | NonKuDomain, str]
+    ] = {}  # file_path -> (entity_type, uid)
     errors: list[dict[str, str]] = []
 
     for i, (entity_type, entity_data, error) in enumerate(parse_results):

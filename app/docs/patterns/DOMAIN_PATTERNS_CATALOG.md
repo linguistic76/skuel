@@ -149,7 +149,7 @@ from datetime import date
 from pydantic import Field
 
 from core.models.request_base import CreateRequestBase
-from core.models.enums import ActivityStatus, Priority
+from core.models.enums import KuStatus, Priority
 
 class TaskCreateRequest(CreateRequestBase):
     """External API request for creating a task."""
@@ -164,7 +164,7 @@ class TaskCreateRequest(CreateRequestBase):
 
     # Priority and status
     priority: Priority = Field(default=Priority.MEDIUM, description="Task priority")
-    status: ActivityStatus = Field(default=ActivityStatus.DRAFT, description="Initial status")
+    status: KuStatus = Field(default=KuStatus.DRAFT, description="Initial status")
 
     # Organization
     tags: list[str] = Field(default_factory=list, description="Task tags")
@@ -196,7 +196,7 @@ class TaskCreateRequest(CreateRequestBase):
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from core.models.enums import ActivityStatus, Priority
+from core.models.enums import KuStatus, Priority
 
 @dataclass
 class TaskDTO:
@@ -223,7 +223,7 @@ class TaskDTO:
     actual_minutes: int | None = None
 
     # Status and priority
-    status: ActivityStatus = ActivityStatus.DRAFT
+    status: KuStatus = KuStatus.DRAFT
     priority: Priority = Priority.MEDIUM
 
     # Organization
@@ -257,14 +257,14 @@ class TaskDTO:
             due_date=due_date,
             duration_minutes=duration_minutes,
             tags=tags or [],
-            status=ActivityStatus.DRAFT,
+            status=KuStatus.DRAFT,
             created_at=datetime.now(),
             updated_at=datetime.now(),
         )
 
     def complete(self, actual_minutes: int | None = None) -> None:
         """Mark task as completed (mutation allowed)."""
-        self.status = ActivityStatus.COMPLETED
+        self.status = KuStatus.COMPLETED
         self.completion_date = date.today()
         if actual_minutes:
             self.actual_minutes = actual_minutes
@@ -297,7 +297,7 @@ class TaskDTO:
             description=data.get("description"),
             due_date=date.fromisoformat(data["due_date"]) if data.get("due_date") else None,
             priority=Priority(data["priority"]),  # String → enum
-            status=ActivityStatus(data["status"]),  # String → enum
+            status=KuStatus(data["status"]),  # String → enum
             duration_minutes=data.get("duration_minutes", 30),
             tags=data.get("tags", []),
             created_at=datetime.fromisoformat(data["created_at"]),
@@ -320,7 +320,7 @@ class TaskDTO:
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from core.models.enums import ActivityStatus, Priority
+from core.models.enums import KuStatus, Priority
 
 @dataclass(frozen=True)
 class Task:
@@ -342,7 +342,7 @@ class Task:
     completion_date: date | None = None
 
     # Status and priority
-    status: ActivityStatus = ActivityStatus.DRAFT
+    status: KuStatus = KuStatus.DRAFT
     priority: Priority = Priority.MEDIUM
 
     # Metadata
@@ -362,7 +362,7 @@ class Task:
 
     def is_overdue(self) -> bool:
         """Check if task is overdue."""
-        if not self.due_date or self.status in [ActivityStatus.COMPLETED, ActivityStatus.CANCELLED]:
+        if not self.due_date or self.status in [KuStatus.COMPLETED, KuStatus.CANCELLED]:
             return False
         return date.today() > self.due_date
 
@@ -420,11 +420,11 @@ class Task:
         - Completed: 100%
         """
         progress_map = {
-            ActivityStatus.DRAFT: 0.0,
-            ActivityStatus.SCHEDULED: 10.0,
-            ActivityStatus.IN_PROGRESS: 50.0,
-            ActivityStatus.COMPLETED: 100.0,
-            ActivityStatus.CANCELLED: 0.0,
+            KuStatus.DRAFT: 0.0,
+            KuStatus.SCHEDULED: 10.0,
+            KuStatus.ACTIVE: 50.0,
+            KuStatus.COMPLETED: 100.0,
+            KuStatus.CANCELLED: 0.0,
         }
         return progress_map.get(self.status, 0.0)
 

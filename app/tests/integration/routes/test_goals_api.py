@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums import ActivityStatus, Priority
+from core.models.enums import KuStatus, Priority
 from core.utils.result_simplified import Errors, Result
 
 # Mark all tests in this module as async
@@ -36,7 +36,7 @@ class MockGoal:
         user_uid: str = "user.test",
         title: str = "Test Goal",
         description: str = "A test goal description",
-        status: ActivityStatus = ActivityStatus.IN_PROGRESS,
+        status: KuStatus = KuStatus.ACTIVE,
         priority: Priority = Priority.HIGH,
         target_date: date | None = None,
         progress: float = 0.0,

@@ -227,7 +227,7 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
         model_class=Task,
         domain_name="tasks",
         date_field="due_date",  # Used by TimeQueryMixin
-        completed_statuses=(ActivityStatus.COMPLETED.value,),  # Used by TimeQueryMixin
+        completed_statuses=(KuStatus.COMPLETED.value,),  # Used by TimeQueryMixin
         search_fields=("title", "description"),  # Used by SearchOperationsMixin
         prerequisite_relationships=(...),  # Used by RelationshipOperationsMixin
         supports_user_progress=True,  # Used by UserProgressMixin

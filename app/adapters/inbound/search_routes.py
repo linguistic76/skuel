@@ -30,7 +30,7 @@ from components.search_components import (
 )
 from core.auth import require_authenticated_user
 from core.models.enums import (
-    ActivityStatus,
+    KuStatus,
     ContentType,
     EducationalLevel,
     LearningLevel,
@@ -207,7 +207,7 @@ def create_search_routes(
                 # Scope
                 entity_types=parsed_entity_types,
                 # Common filters (convert to enums)
-                status=ActivityStatus(status) if status else None,
+                status=KuStatus(status) if status else None,
                 priority=Priority(priority) if priority else None,
                 # Domain-specific filters
                 extended_facets=extended_facets if extended_facets else None,

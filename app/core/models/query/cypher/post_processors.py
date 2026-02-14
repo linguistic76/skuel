@@ -120,17 +120,17 @@ def calculate_task_status_summary(tasks: list[dict[str, Any]]) -> dict[str, Any]
     Example:
         >>> tasks = [
         ...     {"uid": "t1", "status": "completed"},
-        ...     {"uid": "t2", "status": "in_progress"},
+        ...     {"uid": "t2", "status": "active"},
         ...     {"uid": "t3", "status": "completed"},
         ... ]
         >>> calculate_task_status_summary(tasks)
-        {'total': 3, 'completed': 2, 'in_progress': 1, 'pending': 0, 'completion_percentage': 66.67}
+        {'total': 3, 'completed': 2, 'active': 1, 'pending': 0, 'completion_percentage': 66.67}
     """
     if not tasks:
         return {
             "total": 0,
             "completed": 0,
-            "in_progress": 0,
+            "active": 0,
             "pending": 0,
             "completion_percentage": 0.0,
         }
@@ -139,7 +139,7 @@ def calculate_task_status_summary(tasks: list[dict[str, Any]]) -> dict[str, Any]
     statuses = [t.get("status", "pending") for t in tasks]
 
     completed = sum(1 for s in statuses if s == "completed")
-    in_progress = sum(1 for s in statuses if s == "in_progress")
+    active = sum(1 for s in statuses if s == "active")
     pending = sum(1 for s in statuses if s in ("pending", "not_started"))
 
     percentage = round((completed / total * 100.0), 2) if total > 0 else 0.0
@@ -147,7 +147,7 @@ def calculate_task_status_summary(tasks: list[dict[str, Any]]) -> dict[str, Any]
     return {
         "total": total,
         "completed": completed,
-        "in_progress": in_progress,
+        "active": active,
         "pending": pending,
         "completion_percentage": percentage,
     }

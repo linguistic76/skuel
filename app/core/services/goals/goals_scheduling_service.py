@@ -44,7 +44,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.events import GoalCreated, publish_event
-from core.models.enums import ActivityStatus, Domain, GoalStatus, Priority
+from core.models.enums import Domain, KuStatus, Priority
 from core.models.enums.ku_enums import GoalTimeframe, GoalType
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.ku.ku import Ku
@@ -200,7 +200,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
         model_class=Ku,
         domain_name="goals",
         date_field="target_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     # Configure BaseService
@@ -281,7 +281,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
             return Result.fail(result.expect_error())
 
         goals = result.value or []
-        active_goals = [g for g in goals if g.status == GoalStatus.ACTIVE]
+        active_goals = [g for g in goals if g.status == KuStatus.ACTIVE]
 
         # Calculate current complexity load
         current_load = sum(self._calculate_goal_complexity(g) for g in active_goals)
@@ -630,8 +630,8 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
             )
 
         goals = result.value or []
-        completed_goals = [g for g in goals if g.status == GoalStatus.ACHIEVED]
-        active_goals = [g for g in goals if g.status == GoalStatus.ACTIVE]
+        completed_goals = [g for g in goals if g.status == KuStatus.COMPLETED]
+        active_goals = [g for g in goals if g.status == KuStatus.ACTIVE]
 
         factors = []
         adjustment = 1.0  # Multiplier for default duration
@@ -855,7 +855,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
             return Result.fail(result.expect_error())
 
         goals = result.value or []
-        active_goals = [g for g in goals if g.status == GoalStatus.ACTIVE]
+        active_goals = [g for g in goals if g.status == KuStatus.ACTIVE]
 
         if not active_goals:
             return Result.ok(None)
@@ -1052,7 +1052,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
             return Result.fail(result.expect_error())
 
         goals = result.value or []
-        active_goals = [g for g in goals if g.status == GoalStatus.ACTIVE]
+        active_goals = [g for g in goals if g.status == KuStatus.ACTIVE]
 
         # Calculate load by timeframe
         load_by_timeframe = {tf.value: 0.0 for tf in GoalTimeframe}

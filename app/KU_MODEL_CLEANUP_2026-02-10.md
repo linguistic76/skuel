@@ -22,7 +22,7 @@ Cleaned up 4 items of structural drift in the KU (Knowledge Unit) model layer to
 **Benefits:**
 - Type safety - MyPy catches invalid complexity values at compile time
 - IDE autocomplete for complexity values
-- Consistent with other SKUEL enums (Priority, ActivityStatus, etc.)
+- Consistent with other SKUEL enums (Priority, KuStatus, etc.)
 - Cleaner business logic comparisons: `self.complexity == KuComplexity.ADVANCED` vs `self.complexity == "advanced"`
 
 ### ✅ Fix #2: Remove prerequisites Field from KuCreateRequest

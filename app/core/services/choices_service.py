@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import ActivityStatus
+from core.models.enums import KuStatus
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
@@ -92,7 +92,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
         model_class=Ku,
         domain_name="choices",
         date_field="decision_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     # ========================================================================
@@ -225,9 +225,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
         """
         return await self.core.create_choice(choice_request, user_uid)
 
-    async def update_choice(
-        self, choice_uid: str, choice_update: KuUpdateRequest
-    ) -> Result[Ku]:
+    async def update_choice(self, choice_uid: str, choice_update: KuUpdateRequest) -> Result[Ku]:
         """Update a choice."""
         return await self.core.update_choice(choice_uid, choice_update)
 

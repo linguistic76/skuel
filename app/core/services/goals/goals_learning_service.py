@@ -19,7 +19,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import GoalCreated, publish_event
-from core.models.enums import ActivityStatus, Domain
+from core.models.enums import KuStatus, Domain
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -76,7 +76,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Ku]):
         model_class=Ku,
         domain_name="goals",
         date_field="target_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
     def __init__(
