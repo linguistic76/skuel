@@ -338,7 +338,7 @@ with hardcoded `RelationshipConfig` dicts that drifted from the registry:
 
 **Implementation:** `UnifiedRelationshipDefinition` gained two optional fields:
 - `yaml_field_path: str | None` — marks which registry entries are created during YAML ingestion (e.g., `"connections.requires"`)
-- `ingestion_entity_type: EntityType | None` — disambiguates when multiple EntityTypes share a Neo4j label (KU vs MOC both use "Ku")
+- `ingestion_ku_type: KuType | None` — disambiguates when multiple KuTypes share a Neo4j label (CURRICULUM vs MOC both use "Ku"). *(Renamed from `ingestion_entity_type: EntityType` in Phase 6, February 2026.)*
 
 **Neo4j migration:** `scripts/migrations/unify_ingestion_relationship_types.cypher` renames legacy edge types:
 1. `PREREQUISITE` → `REQUIRES_KNOWLEDGE` (with direction reversal)
