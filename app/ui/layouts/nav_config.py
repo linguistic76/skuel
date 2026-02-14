@@ -23,6 +23,7 @@ class NavItem:
         page_key: Key for active state matching (matches active_page param)
         requires_auth: Whether link requires authentication (default True)
         requires_admin: Whether link requires admin role (default False)
+        requires_teacher: Whether link requires teacher role (default False)
     """
 
     label: str
@@ -30,6 +31,7 @@ class NavItem:
     page_key: str
     requires_auth: bool = True
     requires_admin: bool = False
+    requires_teacher: bool = False
 
 
 # Main navigation items - order determines display order
@@ -38,8 +40,9 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
     NavItem("Search", "/search", "search"),
     NavItem("Askesis", "/askesis", "askesis"),
     NavItem("Events", "/events", "events"),
-    NavItem("Journals", "/journals", "journals", requires_admin=True),
+    NavItem("Journals", "/journals", "journals"),
     NavItem("Reports", "/reports", "reports"),
+    NavItem("Teaching", "/teaching", "teaching", requires_teacher=True),
     NavItem("Knowledge", "/ku", "knowledge"),
 )
 

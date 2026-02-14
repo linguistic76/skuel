@@ -184,10 +184,12 @@ def create_auth_ui_routes(
                 user_uid=session_data["user_uid"],
                 session_token=session_data["session_token"],
                 is_admin=user.can_manage_users(),
+                is_teacher=user.can_create_curriculum(),
             )
 
             logger.info(
-                f"User registered and logged in: {username} (admin={user.can_manage_users()})"
+                f"User registered and logged in: {username} "
+                f"(admin={user.can_manage_users()}, teacher={user.can_create_curriculum()})"
             )
             return RedirectResponse("/profile", status_code=303)
 
@@ -273,10 +275,12 @@ def create_auth_ui_routes(
                 user_uid=session_data["user_uid"],
                 session_token=session_data["session_token"],
                 is_admin=user.can_manage_users(),
+                is_teacher=user.can_create_curriculum(),
             )
 
             logger.info(
-                f"User logged in: {email} ({session_data['user_uid']}) (admin={user.can_manage_users()})"
+                f"User logged in: {email} ({session_data['user_uid']}) "
+                f"(admin={user.can_manage_users()}, teacher={user.can_create_curriculum()})"
             )
             return RedirectResponse("/profile", status_code=303)
 

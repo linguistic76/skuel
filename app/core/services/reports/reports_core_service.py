@@ -1083,13 +1083,15 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         from core.models.relationship_names import RelationshipName
 
         try:
-            # Check if the project is ASSIGNED scope
+            # Check if the project is ASSIGNED scope and get group info
             records, _, _ = await self.backend.driver.execute_query(
                 """
                 MATCH (project:KuProject {uid: $project_uid})
+                OPTIONAL MATCH (project)-[:FOR_GROUP]->(g:Group)
                 RETURN project.scope as scope,
                        project.user_uid as teacher_uid,
-                       project.processor_type as processor_type
+                       project.processor_type as processor_type,
+                       g.uid as group_uid
                 """,
                 project_uid=project_uid,
             )
@@ -1103,6 +1105,28 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
 
             teacher_uid = records[0]["teacher_uid"]
             processor_type = records[0]["processor_type"]
+            group_uid = records[0]["group_uid"]
+
+            # Verify student is a member of the target group (if group exists)
+            if group_uid:
+                # Find the student who owns this Ku
+                student_records, _, _ = await self.backend.driver.execute_query(
+                    """
+                    MATCH (student:User)-[:OWNS]->(ku:Ku {uid: $ku_uid})
+                    OPTIONAL MATCH (student)-[:MEMBER_OF]->(g:Group {uid: $group_uid})
+                    RETURN student.uid as student_uid, g.uid as member_of_group
+                    """,
+                    ku_uid=ku_uid,
+                    group_uid=group_uid,
+                )
+
+                if student_records and not student_records[0]["member_of_group"]:
+                    student_uid = student_records[0]["student_uid"]
+                    self.logger.warning(
+                        f"Student {student_uid} is not a member of group {group_uid} "
+                        f"for assignment project {project_uid}"
+                    )
+                    return Result.ok(False)
 
             # 1. Create FULFILLS_PROJECT relationship
             await self.backend.driver.execute_query(

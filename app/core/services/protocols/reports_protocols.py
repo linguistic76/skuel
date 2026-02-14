@@ -47,6 +47,7 @@ class KuSubmissionOperations(Protocol):
         file_type: str | None = None,
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
+        fulfills_project_uid: str | None = None,
     ) -> Result[Any]:
         """Submit a file for processing. Returns Result[Ku]."""
         ...

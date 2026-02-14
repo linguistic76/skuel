@@ -220,6 +220,7 @@ def set_current_user(
     user_uid: str,
     session_token: str | None = None,
     is_admin: bool = False,
+    is_teacher: bool = False,
 ) -> None:
     """
     Set current user in session (log in).
@@ -261,8 +262,11 @@ def set_current_user(
         session["session_token"] = session_token
 
     session["is_admin"] = is_admin
+    session["is_teacher"] = is_teacher
 
-    logger.info(f"Session updated: user_uid={user_uid}, is_admin={is_admin}")
+    logger.info(
+        f"Session updated: user_uid={user_uid}, is_admin={is_admin}, is_teacher={is_teacher}"
+    )
     logger.debug(f"Session data: {dict(session)}")
 
 
@@ -322,6 +326,22 @@ def get_is_admin(request: Request) -> bool:
     if session is None:
         return False
     return session.get("is_admin", False)
+
+
+def get_is_teacher(request: Request) -> bool:
+    """
+    Get is_teacher flag from session (set at login).
+
+    Args:
+        request: Starlette/FastHTML request object
+
+    Returns:
+        True if user is teacher or higher, False otherwise
+    """
+    session = getattr(request, "session", None)
+    if session is None:
+        return False
+    return session.get("is_teacher", False)
 
 
 def require_authenticated_user(request: Request) -> UserUID:
@@ -675,6 +695,7 @@ __all__ = [
     "get_current_user_or_default",
     "get_current_user_validated",  # Graph-native session validation
     "get_is_admin",  # Admin role check from session (January 2026)
+    "get_is_teacher",  # Teacher role check from session (February 2026)
     # Session data
     "get_session_data",
     # Configuration

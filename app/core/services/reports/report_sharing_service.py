@@ -402,14 +402,31 @@ class KuSharingService:
             logger.error(f"Error verifying ownership: {e}")
             return Result.fail(Errors.database("verify_ownership", str(e)))
 
+    # Activity ku_types that can be shared when active (not just completed)
+    _ACTIVITY_KU_TYPES = frozenset(
+        {
+            "task",
+            "goal",
+            "habit",
+            "event",
+            "choice",
+            "principle",
+        }
+    )
+
     async def _verify_shareable(
         self,
         ku_uid: str,
     ) -> Result[bool]:
-        """Verify that a Ku can be shared. Only completed Ku can be shared."""
+        """Verify that a Ku can be shared.
+
+        For report/journal types: only completed Ku can be shared.
+        For activity types (task, goal, etc.): active or completed Ku can be shared.
+        Draft Ku can never be shared.
+        """
         query = """
         MATCH (ku:Ku {uid: $ku_uid})
-        RETURN ku.status as status
+        RETURN ku.status as status, ku.ku_type as ku_type
         """
 
         try:
@@ -422,6 +439,19 @@ class KuSharingService:
                 return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
 
             status = records[0]["status"]
+            ku_type = records[0]["ku_type"]
+
+            # Activity types can be shared when active or completed
+            if ku_type in self._ACTIVITY_KU_TYPES:
+                if status in ("active", "completed"):
+                    return Result.ok(True)
+                return Result.fail(
+                    Errors.validation(
+                        f"Activity Ku can be shared when active or completed. Current status: {status}"
+                    )
+                )
+
+            # All other types: only completed
             if status != "completed":
                 return Result.fail(
                     Errors.validation(f"Only completed Ku can be shared. Current status: {status}")

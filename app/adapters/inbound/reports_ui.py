@@ -604,11 +604,34 @@ REPORTS_SIDEBAR_ITEMS = [
 # ============================================================================
 
 
-def _render_upload_form() -> Any:
-    """Render the file upload form card."""
+def _render_upload_form(assigned_projects: list[Any] | None = None) -> Any:
+    """Render the file upload form card with optional assignment selector."""
+    # Build assignment selector if projects exist
+    assignment_section: Any = ""
+    if assigned_projects:
+        project_options = [Option("None — standalone submission", value="")]
+        project_options.extend(
+            Option(getattr(p, "name", p.uid), value=p.uid) for p in assigned_projects
+        )
+        assignment_section = Div(
+            Label("Assignment (optional)", cls="label"),
+            Select(
+                *project_options,
+                name="fulfills_project_uid",
+                cls="select select-bordered w-full",
+            ),
+            P(
+                "Link this submission to a teacher assignment",
+                cls="text-xs text-base-content/60 mt-1",
+            ),
+            cls="mb-4",
+        )
+
     return Div(
         Div(
             Form(
+                # Assignment selector (only if projects exist)
+                assignment_section,
                 # Identifier input (loose KU reference)
                 Div(
                     Label("Identifier", cls="label"),
@@ -774,7 +797,9 @@ def _render_reports_grid_container() -> Any:
 # ============================================================================
 
 
-def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
+def create_reports_ui_routes(
+    _app, rt, _report_service, _processing_service, _report_projects_service=None
+):
     """
     Create all report UI routes.
 
@@ -783,6 +808,7 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
         rt: Router instance
         report_service: ReportSubmissionService
         processing_service: ReportProcessorService
+        _report_projects_service: KuProjectService for assignment dropdown (optional)
     """
 
     logger.info("Creating Reports UI routes")
@@ -802,10 +828,20 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
         return await _render_submit_page(request)
 
     async def _render_submit_page(request: Request) -> Any:
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
+
+        # Fetch assigned projects for assignment dropdown
+        assigned_projects: list[Any] = []
+        if _report_projects_service:
+            projects_result = await _report_projects_service.list_user_projects(user_uid)
+            if not projects_result.is_error and projects_result.value:
+                assigned_projects = [
+                    p for p in projects_result.value if getattr(p, "scope", None) == "assigned"
+                ]
+
         content = Div(
             PageHeader("Submit Report", subtitle="Upload a file linked to a Knowledge Unit"),
-            _render_upload_form(),
+            _render_upload_form(assigned_projects),
             _upload_form_script(),
         )
         return await SidebarPage(
@@ -890,6 +926,10 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
                 f"Report upload: {filename} ({len(file_content)} bytes, identifier={identifier})"
             )
 
+            # Extract optional assignment project
+            raw_project_uid = form.get("fulfills_project_uid")
+            fulfills_project_uid = str(raw_project_uid).strip() or None if raw_project_uid else None
+
             # Submit for human review — processor_type always HUMAN for regular users
             result = await _report_service.submit_file(
                 file_content=file_content,
@@ -898,6 +938,7 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
                 ku_type=KuType.SUBMISSION,
                 processor_type=ProcessorType.HUMAN,
                 metadata={"identifier": identifier},
+                fulfills_project_uid=fulfills_project_uid,
             )
 
             if result.is_error:

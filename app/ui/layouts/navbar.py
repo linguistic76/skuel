@@ -256,6 +256,7 @@ def create_navbar(
     is_authenticated: bool = False,
     active_page: str = "",
     is_admin: bool = False,
+    is_teacher: bool = False,
     unread_insights: int = 0,
 ) -> Nav:
     """
@@ -266,13 +267,20 @@ def create_navbar(
         is_authenticated: Whether user is logged in
         active_page: Current page slug for highlighting (e.g., "profile/hub", "calendar")
         is_admin: Whether user has admin role (shows Admin Dashboard link)
+        is_teacher: Whether user has teacher role or higher (shows Teaching link)
         unread_insights: Number of unread insights (Phase 1 integration)
 
     Returns:
         FastHTML Nav element with Alpine.js state management
     """
-    # Build navigation items list, filtering admin-only items
-    nav_items = [item for item in MAIN_NAV_ITEMS if not item.requires_admin or is_admin]
+
+    def _should_show_item(item: NavItem) -> bool:
+        if item.requires_admin and not is_admin:
+            return False
+        return not (item.requires_teacher and not (is_teacher or is_admin))
+
+    # Build navigation items list, filtering role-gated items
+    nav_items = [item for item in MAIN_NAV_ITEMS if _should_show_item(item)]
     if is_admin:
         nav_items.insert(0, ADMIN_NAV_ITEM)
 
@@ -401,7 +409,7 @@ async def create_navbar_for_request(
         FastHTML Nav element with proper authentication state
     """
 
-    from core.auth import get_current_user, get_is_admin, is_authenticated
+    from core.auth import get_current_user, get_is_admin, get_is_teacher, is_authenticated
 
     # Get unread insight count (Phase 1 integration)
     unread_insights = 0
@@ -422,6 +430,7 @@ async def create_navbar_for_request(
         is_authenticated=is_authenticated(request),
         active_page=active_page,
         is_admin=get_is_admin(request),
+        is_teacher=get_is_teacher(request),
         unread_insights=unread_insights,
     )
 

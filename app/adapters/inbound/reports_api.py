@@ -214,6 +214,12 @@ def create_reports_api_routes(
             f"applies_knowledge={len(applies_knowledge_uids)} KUs)"
         )
 
+        # Extract fulfills_project_uid for assignment submissions
+        fulfills_project_uid_val = form.get("fulfills_project_uid", "")
+        fulfills_project_uid = (
+            str(fulfills_project_uid_val).strip() if fulfills_project_uid_val else None
+        )
+
         # Submit file
         result = await report_service.submit_file(
             file_content=file_content,
@@ -222,6 +228,7 @@ def create_reports_api_routes(
             ku_type=report_type,
             processor_type=processor_type,
             applies_knowledge_uids=applies_knowledge_uids if applies_knowledge_uids else None,
+            fulfills_project_uid=fulfills_project_uid if fulfills_project_uid else None,
         )
 
         if result.is_error:

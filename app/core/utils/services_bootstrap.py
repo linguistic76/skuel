@@ -172,8 +172,16 @@ from core.services.protocols import (
     HabitsOperations,
     IngestionOperations,
     IntelligenceOperations,
+    # Ku content protocols (February 2026: unified Ku model)
+    KuContentOperations,
+    KuContentSearchOperations,
+    KuFeedbackOperations,
     # Knowledge operations
     KuOperations,
+    KuProcessingOperations,
+    KuProjectOperations,
+    KuSharingOperations,
+    KuSubmissionOperations,
     # NOTE: LearningOperations DELETED January 2026 - was dead code (type hint wrong)
     # NOTE: LearningPathsOperations DELETED January 2026 - replaced by LpOperations
     # NOTE: JournalsOperations DELETED February 2026 - Journal merged into Reports
@@ -181,14 +189,6 @@ from core.services.protocols import (
     LpOperations,
     LsOperations,
     PrinciplesOperations,
-    # Ku content protocols (February 2026: unified Ku model)
-    KuContentOperations,
-    KuContentSearchOperations,
-    KuFeedbackOperations,
-    KuProcessingOperations,
-    KuProjectOperations,
-    KuSharingOperations,
-    KuSubmissionOperations,
     SearchOperations,
     SystemServiceOperations,
     # Domain operations
@@ -1597,6 +1597,7 @@ async def compose_services(
         teacher_review_service = TeacherReviewService(
             driver=driver,
             ku_interaction_service=learning_services["ku_service"].interaction,
+            event_bus=event_bus,
         )
         logger.info("✅ TeacherReviewService created (ADR-040)")
 
@@ -2012,6 +2013,22 @@ async def compose_services(
         logger.info(
             "✅ KuCoreService subscribed to TranscriptionCompleted "
             "(automatic journal report creation from voice transcriptions)"
+        )
+
+        # Subscribe to ReportSubmitted for assignment linking (ADR-040)
+        import functools
+
+        from core.events.handlers.assignment_handler import handle_assignment_submission
+        from core.events.report_events import ReportSubmitted
+
+        assignment_handler = functools.partial(
+            handle_assignment_submission,
+            reports_core_service=reports_core_service,
+        )
+        event_bus.subscribe(ReportSubmitted, assignment_handler)
+        logger.info(
+            "✅ Assignment handler subscribed to ReportSubmitted "
+            "(automatic FULFILLS_PROJECT + SHARES_WITH creation)"
         )
 
         # Subscribe to learning events

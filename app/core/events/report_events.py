@@ -41,6 +41,7 @@ class ReportSubmitted(BaseEvent):
     file_size: int | None = None
     file_type: str | None = None
     original_filename: str | None = None
+    fulfills_project_uid: str | None = None  # KuProject UID for assignment submissions
     metadata: dict[str, Any] | None = None
 
     @property

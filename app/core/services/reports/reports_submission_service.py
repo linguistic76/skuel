@@ -104,6 +104,7 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
         parent_ku_uid: str | None = None,
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
+        fulfills_project_uid: str | None = None,
     ) -> Result[Ku]:
         """
         Submit a file for processing.
@@ -200,6 +201,7 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
             file_size=len(file_content),
             file_type=file_type,
             original_filename=original_filename,
+            fulfills_project_uid=fulfills_project_uid,
             occurred_at=datetime.now(),
             metadata=metadata,
         )
