@@ -2,27 +2,27 @@
 Activity Entity Converter
 =========================
 
-Converts ParsedActivityLine (with type-safe EntityType contexts) into SKUEL domain entities.
+Converts ParsedActivityLine (with type-safe KuType/NonKuDomain contexts) into SKUEL domain entities.
 
 This is the bridge from DSL parsing to entity creation:
 - ParsedActivityLine → TaskCreateRequest → Task
 - ParsedActivityLine → HabitCreateRequest → Habit
 - ParsedActivityLine → GoalCreateRequest → Goal
 - ParsedActivityLine → EventCreateRequest → Event
-- ... and all 15 domains
+- ... and all domains
 
-**Type Safety (v0.3.0):**
+**Type Safety (v0.4.0):**
 
-1. **EntityType contexts**: ParsedActivityLine uses `list[EntityType]` for contexts
-2. **Protocol-verified conversion**: `convert()` method uses EntityType matching
+1. **KuType/NonKuDomain contexts**: ParsedActivityLine uses `list[KuType | NonKuDomain]` for contexts
+2. **Protocol-verified conversion**: `convert()` method uses KuType/NonKuDomain matching
 3. **Typed union results**: `ConversionResult` type alias for all possible outputs
 
-The converter's `is_task()`, `is_habit()`, etc. methods use EntityType enum comparisons,
+The converter's `is_task()`, `is_habit()`, etc. methods use KuType/NonKuDomain enum comparisons,
 providing compile-time verification. Use `activity.context_values` for string serialization.
 
 **Protocol-Based Design:**
 
-The `ActivityEntityConverter.convert()` method uses EntityType-based dispatch:
+The `ActivityEntityConverter.convert()` method uses KuType/NonKuDomain-based dispatch:
 
 ```python
 result = converter.convert(activity)
@@ -36,12 +36,12 @@ match result:
 **Design Principle:**
 The converter produces request objects that can be passed to existing
 SKUEL services. This maintains separation of concerns:
-- DSL Parser: Text → Intermediate Representation (type-safe EntityType contexts)
+- DSL Parser: Text → Intermediate Representation (type-safe KuType/NonKuDomain contexts)
 - Entity Converter: IR → Create Requests (protocol-verified)
 - Services: Create Requests → Domain Models → Neo4j
 
-Version: 0.3.0 (Protocol-verified conversion with EntityType dispatch)
-Date: 2025-11-28
+Version: 0.4.0 (Protocol-verified conversion with KuType/NonKuDomain dispatch)
+Date: 2026-02-14
 """
 
 import re
@@ -51,10 +51,11 @@ from typing import Any, Protocol, runtime_checkable
 
 from core.models.enums import (
     ActivityStatus,
-    EntityType,
     Priority,
     RecurrencePattern,
 )
+from core.models.enums.entity_enums import NonKuDomain
+from core.models.enums.ku_enums import KuType
 from core.models.task.task_request import TaskCreateRequest
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine, ParsedJournal
 from core.utils.decorators import with_error_handling
@@ -115,7 +116,7 @@ class TypedConversionResult:
     enabling type-safe dispatch in consuming code.
 
     Attributes:
-        entity_type: The EntityType this conversion produced
+        entity_type: The KuType or NonKuDomain this conversion produced
         data: The converted data (CreateRequest or dict)
         source_activity: Reference to the original ParsedActivityLine
 
@@ -124,13 +125,13 @@ class TypedConversionResult:
         if result.is_ok:
             typed = result.value
             match typed.entity_type:
-                case EntityType.TASK:
+                case KuType.TASK:
                     task_request = typed.data  # Known to be TaskCreateRequest
-                case EntityType.HABIT:
+                case KuType.HABIT:
                     habit_dict = typed.data    # Known to be dict
     """
 
-    entity_type: EntityType
+    entity_type: KuType | NonKuDomain
     data: ConversionResult
     source_activity: ParsedActivityLine
 
@@ -257,7 +258,7 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
     if not activity.is_task():
         return Result.fail(
             Errors.validation(
-                message=f"Activity is not a task (missing '{EntityType.TASK.value}' in @context)",
+                message=f"Activity is not a task (missing '{KuType.TASK.value}' in @context)",
                 field="context",
                 value=",".join(activity.context_values),
             )
@@ -316,7 +317,7 @@ def activity_to_habit_dict(activity: ParsedActivityLine) -> Result[ConversionRes
     if not activity.is_habit():
         return Result.fail(
             Errors.validation(
-                message=f"Activity is not a habit (missing '{EntityType.HABIT.value}' in @context)",
+                message=f"Activity is not a habit (missing '{KuType.HABIT.value}' in @context)",
                 field="context",
                 value=",".join(activity.context_values),
             )
@@ -370,7 +371,7 @@ def activity_to_goal_dict(activity: ParsedActivityLine) -> Result[ConversionResu
     if not activity.is_goal():
         return Result.fail(
             Errors.validation(
-                message=f"Activity is not a goal (missing '{EntityType.GOAL.value}' in @context)",
+                message=f"Activity is not a goal (missing '{KuType.GOAL.value}' in @context)",
                 field="context",
                 value=",".join(activity.context_values),
             )
@@ -413,7 +414,7 @@ def activity_to_event_dict(activity: ParsedActivityLine) -> Result[ConversionRes
     if not activity.is_event():
         return Result.fail(
             Errors.validation(
-                message=f"Activity is not an event (missing '{EntityType.EVENT.value}' in @context)",
+                message=f"Activity is not an event (missing '{KuType.EVENT.value}' in @context)",
                 field="context",
                 value=",".join(activity.context_values),
             )
@@ -470,7 +471,7 @@ def activity_to_principle_dict(activity: ParsedActivityLine) -> Result[Conversio
     if not activity.is_principle():
         return Result.fail(
             Errors.validation(
-                message=f"Activity is not a principle (missing '{EntityType.PRINCIPLE.value}' in @context)",
+                message=f"Activity is not a principle (missing '{KuType.PRINCIPLE.value}' in @context)",
                 field="context",
                 value=",".join(activity.context_values),
             )
@@ -563,7 +564,7 @@ def activity_to_choice_dict(activity: ParsedActivityLine) -> Result[ConversionRe
     if not activity.is_choice():
         return Result.fail(
             Errors.validation(
-                message=f"Activity is not a choice (missing '{EntityType.CHOICE.value}' in @context)",
+                message=f"Activity is not a choice (missing '{KuType.CHOICE.value}' in @context)",
                 field="context",
                 value=",".join(activity.context_values),
             )
@@ -655,7 +656,7 @@ def activity_to_finance_dict(activity: ParsedActivityLine) -> Result[ConversionR
     if not activity.is_finance():
         return Result.fail(
             Errors.validation(
-                message=f"Activity is not a finance activity (missing '{EntityType.FINANCE.value}' in @context)",
+                message=f"Activity is not a finance activity (missing '{NonKuDomain.FINANCE.value}' in @context)",
                 field="context",
                 value=",".join(activity.context_values),
             )
@@ -877,7 +878,7 @@ def activity_to_ls_dict(activity: ParsedActivityLine) -> Result[ConversionResult
     # Learning path from @link(lp:...)
     learning_path_uid = None
     for link in activity.links:
-        if link.get("type") == EntityType.LP.value:
+        if link.get("type") == KuType.LEARNING_PATH.value:
             learning_path_uid = link["id"]
             break
 
@@ -1165,7 +1166,7 @@ def activity_to_calendar_dict(activity: ParsedActivityLine) -> Result[Conversion
         "energy_states": activity.energy_states if activity.energy_states else [],
         "linked_goals": activity.get_linked_goals(),
         "linked_tasks": [
-            link["id"] for link in activity.links if link.get("type") == EntityType.TASK.value
+            link["id"] for link in activity.links if link.get("type") == KuType.TASK.value
         ],
     }
 
@@ -1445,28 +1446,28 @@ class ActivityEntityConverter:
         return results
 
     # ========================================================================
-    # PROTOCOL-VERIFIED CONVERSION (Type-Safe EntityType Dispatch)
+    # PROTOCOL-VERIFIED CONVERSION (Type-Safe KuType/NonKuDomain Dispatch)
     # ========================================================================
 
     def convert(
         self,
         activity: ParsedActivityLine,
-        entity_type: EntityType | None = None,
+        entity_type: KuType | NonKuDomain | None = None,
     ) -> Result[ConversionResult]:
         """
-        Convert a ParsedActivityLine to a create request using EntityType dispatch.
+        Convert a ParsedActivityLine to a create request using KuType/NonKuDomain dispatch.
 
         This method provides protocol-verified, type-safe conversion using
-        EntityType-based pattern matching. It returns typed results that can
-        be further matched by the caller.
+        KuType/NonKuDomain-based pattern matching. It returns typed results that
+        can be further matched by the caller.
 
         Args:
             activity: The parsed activity line to convert
-            entity_type: Specific EntityType to convert to (defaults to primary_context)
+            entity_type: Specific KuType or NonKuDomain to convert to (defaults to primary_context)
 
         Returns:
             Result containing either:
-            - TaskCreateRequest (for EntityType.TASK)
+            - TaskCreateRequest (for KuType.TASK)
             - dict[str, Any] (for other entity types, pending typed request classes)
 
         Example:
@@ -1485,7 +1486,7 @@ class ActivityEntityConverter:
             ```
 
         Type Safety:
-            The EntityType enum ensures only valid entity types are handled.
+            The KuType/NonKuDomain enums ensure only valid entity types are handled.
             MyPy can verify exhaustiveness when all domains have typed requests.
         """
         # Determine entity type to convert to
@@ -1500,48 +1501,39 @@ class ActivityEntityConverter:
                 )
             )
 
-        # Get canonical type (normalize aliases like KNOWLEDGE → KU)
-        canonical_type = target_type.get_canonical()
-
-        # EntityType-based dispatch
-        match canonical_type:
+        # KuType/NonKuDomain-based dispatch
+        match target_type:
             # ================================================================
-            # ACTIVITY DOMAINS (7)
+            # ACTIVITY DOMAINS (6) - KuType
             # ================================================================
-            case EntityType.TASK:
+            case KuType.TASK:
                 return activity_to_task_request(activity)
 
-            case EntityType.HABIT:
+            case KuType.HABIT:
                 return activity_to_habit_dict(activity)
 
-            case EntityType.GOAL:
+            case KuType.GOAL:
                 return activity_to_goal_dict(activity)
 
-            case EntityType.EVENT:
+            case KuType.EVENT:
                 return activity_to_event_dict(activity)
 
-            case EntityType.PRINCIPLE:
+            case KuType.PRINCIPLE:
                 return activity_to_principle_dict(activity)
 
-            case EntityType.CHOICE:
+            case KuType.CHOICE:
                 return activity_to_choice_dict(activity)
 
-            case EntityType.FINANCE:
+            # ================================================================
+            # NON-KU DOMAINS - NonKuDomain
+            # ================================================================
+            case NonKuDomain.FINANCE:
                 return activity_to_finance_dict(activity)
 
-            # ================================================================
-            # CURRICULUM DOMAINS (3)
-            # ================================================================
-            case EntityType.KU:
-                return activity_to_ku_dict(activity)
+            case NonKuDomain.CALENDAR:
+                return activity_to_calendar_dict(activity)
 
-            case EntityType.LS:
-                return activity_to_ls_dict(activity)
-
-            case EntityType.LP:
-                return activity_to_lp_dict(activity)
-
-            case EntityType.LEARNING:
+            case NonKuDomain.LEARNING:
                 # LEARNING is a general learning context - a modifier, not a primary entity type
                 # When used alone, it indicates a learning-focused activity without specific KU creation
                 # Return a dict with learning metadata (can be used to enhance other entities)
@@ -1557,50 +1549,59 @@ class ActivityEntityConverter:
                 )
 
             # ================================================================
-            # META DOMAINS (3)
+            # CURRICULUM DOMAINS (3) - KuType
             # ================================================================
-            case EntityType.REPORT:
+            case KuType.CURRICULUM:
+                return activity_to_ku_dict(activity)
+
+            case KuType.LEARNING_STEP:
+                return activity_to_ls_dict(activity)
+
+            case KuType.LEARNING_PATH:
+                return activity_to_lp_dict(activity)
+
+            # ================================================================
+            # CONTENT PROCESSING - KuType
+            # ================================================================
+            case KuType.ASSIGNMENT:
                 return activity_to_report_dict(activity)
 
-            case EntityType.CALENDAR:
-                return activity_to_calendar_dict(activity)
-
             # ================================================================
-            # THE DESTINATION (+1)
+            # THE DESTINATION (+1) - KuType
             # ================================================================
-            case EntityType.LIFEPATH:
+            case KuType.LIFE_PATH:
                 return activity_to_lifepath_dict(activity)
 
             # ================================================================
-            # FALLBACK (should not reach due to EntityType exhaustiveness)
+            # FALLBACK (should not reach due to KuType/NonKuDomain exhaustiveness)
             # ================================================================
             case _:
                 return Result.fail(
                     Errors.validation(
-                        message=f"Unsupported entity type for conversion: {canonical_type}",
+                        message=f"Unsupported entity type for conversion: {target_type}",
                         field="entity_type",
-                        value=canonical_type.value,
+                        value=target_type.value,
                     )
                 )
 
     def convert_typed(
         self,
         activity: ParsedActivityLine,
-        entity_type: EntityType | None = None,
+        entity_type: KuType | NonKuDomain | None = None,
     ) -> Result[TypedConversionResult]:
         """
         Convert with full type information preserved.
 
-        Returns a TypedConversionResult that includes the EntityType,
+        Returns a TypedConversionResult that includes the KuType or NonKuDomain,
         enabling type-safe pattern matching on both the type and the data.
 
         Args:
             activity: The parsed activity line to convert
-            entity_type: Specific EntityType to convert to (defaults to primary_context)
+            entity_type: Specific KuType or NonKuDomain to convert to (defaults to primary_context)
 
         Returns:
             Result containing TypedConversionResult with:
-            - entity_type: The EntityType that was converted
+            - entity_type: The KuType or NonKuDomain that was converted
             - data: The conversion result (CreateRequest or dict)
             - source_activity: Reference to original activity
 
@@ -1612,10 +1613,10 @@ class ActivityEntityConverter:
 
                 # Pattern match on entity type
                 match typed.entity_type:
-                    case EntityType.TASK:
+                    case KuType.TASK:
                         task = typed.data  # Known context: TaskCreateRequest
                         print(f"Task: {task.title}")
-                    case EntityType.HABIT:
+                    case KuType.HABIT:
                         habit = typed.data  # Known context: dict
                         print(f"Habit: {habit['name']}")
                     case _:
@@ -1642,7 +1643,7 @@ class ActivityEntityConverter:
 
         # Wrap in TypedConversionResult
         typed_result = TypedConversionResult(
-            entity_type=target_type.get_canonical(),
+            entity_type=target_type,
             data=conversion_result.value,
             source_activity=activity,
         )

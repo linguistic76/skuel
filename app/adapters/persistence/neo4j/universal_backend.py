@@ -141,16 +141,12 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         ```python
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.enums import NeoLabel
-        from core.models.ku.ku import Ku as Task
+        from core.models.ku.ku import Ku
 
-        # Preferred: Use NeoLabel enum (type-safe, validated)
-        tasks_backend = UniversalNeo4jBackend[Task](
-            driver=neo4j_driver, label=NeoLabel.TASK, entity_class=Task
-        )
-
-        # Also works: String label (validated against NeoLabel enum)
-        tasks_backend = UniversalNeo4jBackend[Task](
-            driver=neo4j_driver, label="Task", entity_class=Task
+        # All domain entities use NeoLabel.KU (unified Ku model)
+        tasks_backend = UniversalNeo4jBackend[Ku](
+            driver=neo4j_driver, label=NeoLabel.KU, entity_class=Ku,
+            default_filters={"ku_type": "task"},
         )
 
         # CRUD operations
@@ -217,7 +213,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
         Args:
             driver: Neo4j async driver
-            label: Node label - can be NeoLabel enum or string (e.g., NeoLabel.TASK, "Task")
+            label: Node label - can be NeoLabel enum or string (e.g., NeoLabel.KU, "Ku")
             entity_class: Entity class for serialization (e.g., TaskPure, EventPure)
             graph_intelligence_service: Optional GraphIntelligenceService for Phase 1-4 queries
             validate_label: If True, validates label against NeoLabel enum (default: True)
@@ -230,13 +226,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             ValueError: If validate_label=True and label is not a valid NeoLabel
 
         Example:
-            # Preferred: Use NeoLabel enum (type-safe)
-            backend = UniversalNeo4jBackend[Task](driver, NeoLabel.TASK, Task)
-
-            # Also supported: String label (validated by default)
-            backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-
-            # Ku-type discrimination (Unified Ku Model)
+            # All domain entities use NeoLabel.KU with ku_type discrimination
             tasks_backend = UniversalNeo4jBackend[Ku](
                 driver, NeoLabel.KU, Ku, default_filters={"ku_type": "task"}
             )

@@ -47,7 +47,7 @@ Activity Domains (6)     Curriculum (3)      Content/Org (3)   Destination (1)
 | What | Where |
 |------|-------|
 | Project rules | `/home/mike/skuel/app/CLAUDE.md` |
-| Domain enums | `/core/models/enums/` (EntityType, Domain, Priority) |
+| Domain enums | `/core/models/enums/` (KuType, NonKuDomain, Domain, Priority) |
 | Relationship configs | `/core/models/relationship_registry.py` |
 | MEGA-QUERY | `/core/services/user/user_context_queries.py` |
 | Service bootstrap | `/core/utils/services_bootstrap.py` |

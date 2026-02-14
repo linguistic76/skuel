@@ -17,7 +17,7 @@ from datetime import date, datetime
 from typing import Any
 
 from core.events import publish_event
-from core.models.enums import EntityType
+from core.models.enums.ku_enums import KuType
 from core.models.enums.activity_enums import ActivityStatus
 from core.models.enums.ku_enums import PrincipleCategory, PrincipleStrength
 from core.models.ku.ku import Ku
@@ -301,7 +301,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Ku]):
 
         # Publish embedding request event for async background generation (Phase 1 - January 2026)
         # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = build_embedding_text(EntityType.PRINCIPLE, principle)
+        embedding_text = build_embedding_text(KuType.PRINCIPLE, principle)
         if embedding_text:
             from core.events import PrincipleEmbeddingRequested
 

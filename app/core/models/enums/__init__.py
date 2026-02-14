@@ -6,7 +6,7 @@ This module provides unified access to all SKUEL enumerations.
 
 Module Organization:
 - activity_enums: Priority, ActivityStatus, ActivityType, CompletionStatus, GoalStatus
-- entity_enums: EntityType, Domain, AnalyticsDomain, Context
+- entity_enums: NonKuDomain, DomainIdentifier, Domain, AnalyticsDomain, Context
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
 - learning_enums: LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus,
                   ContentType, PracticeLevel, KnowledgeType, SELCategory
@@ -14,7 +14,7 @@ Module Organization:
 - ku_enums: KuType, KuStatus, ProcessorType, ProjectScope, JournalType, etc.
 
 Usage:
-    from core.models.enums import Priority, ActivityStatus, EntityType
+    from core.models.enums import Priority, ActivityStatus, KuType
     from core.models.enums import KuType, KuStatus, ProcessorType, ProjectScope
 """
 
@@ -33,7 +33,8 @@ from .entity_enums import (
     ContentScope,
     Context,
     Domain,
-    EntityType,
+    DomainIdentifier,
+    NonKuDomain,
 )
 
 # Ku enums - unified knowledge unit identity, processing, and scheduling
@@ -119,9 +120,9 @@ __all__ = [
     "ContextHealthScore",
     "ConversationState",
     "Domain",
+    "DomainIdentifier",
     "EducationalLevel",
     "EnergyLevel",
-    "EntityType",
     "ErrorSeverity",
     "ExtractionMethod",
     "FacetType",
@@ -145,6 +146,7 @@ __all__ = [
     "MasteryStatus",
     "MessageRole",
     "NeoLabel",
+    "NonKuDomain",
     "Personality",
     "PracticeLevel",
     "Priority",

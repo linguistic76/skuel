@@ -803,13 +803,11 @@ class KuAnalyticsEngine:
 
     def _extract_domains_from_knowledge_uids(self, knowledge_uids: list[str]) -> list[str]:
         """Extract domain names from knowledge UIDs."""
-        from core.models.enums import EntityType
-
         domains = []
         for ku_uid in knowledge_uids:
             # Extract domain from ku.domain.specific format
             parts = ku_uid.split(".")
-            if len(parts) >= 2 and parts[0] == EntityType.KU.value:
+            if len(parts) >= 2 and parts[0] == "ku":
                 domains.append(parts[1])
         return domains
 

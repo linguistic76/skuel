@@ -34,7 +34,8 @@ from core.events.goal_events import (
     GoalCreated,
     GoalProgressUpdated,
 )
-from core.models.enums import ActivityStatus, EntityType, GoalStatus
+from core.models.enums import ActivityStatus, GoalStatus
+from core.models.enums.ku_enums import KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuGoalCreateRequest
@@ -359,7 +360,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
 
         # Publish embedding request event for async background generation (Phase 1 - January 2026)
         # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = build_embedding_text(EntityType.GOAL, goal)
+        embedding_text = build_embedding_text(KuType.GOAL, goal)
         if embedding_text:
             from core.events import GoalEmbeddingRequested
 

@@ -35,7 +35,8 @@ from typing import Any, Literal
 from neo4j import AsyncDriver
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
-from core.models.enums import EntityType
+from core.models.enums.entity_enums import NonKuDomain
+from core.models.enums.ku_enums import KuType
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -137,10 +138,10 @@ class UnifiedIngestionService:
                 "⚠️ Chunking service not available - KU ingestion will work without chunks"
             )
 
-        # Lazy-initialized engines per entity type (keyed by EntityType)
-        self._engines: dict[EntityType, BulkIngestionEngine[Any]] = {}
+        # Lazy-initialized engines per domain type (keyed by KuType/NonKuDomain)
+        self._engines: dict[KuType | NonKuDomain, BulkIngestionEngine[Any]] = {}
 
-    def _get_engine(self, entity_type: EntityType) -> BulkIngestionEngine[Any]:
+    def _get_engine(self, entity_type: KuType | NonKuDomain) -> BulkIngestionEngine[Any]:
         """Get or create a BulkIngestionEngine for the entity type."""
         if entity_type not in self._engines:
             config = ENTITY_CONFIGS.get(entity_type)
@@ -163,7 +164,7 @@ class UnifiedIngestionService:
         """Normalize UID to dot notation. Delegates to preparer module."""
         return normalize_uid(uid)
 
-    def generate_uid(self, entity_type: EntityType, file_path: Path) -> str:
+    def generate_uid(self, entity_type: KuType | NonKuDomain, file_path: Path) -> str:
         """Generate UID from entity type and file path. Delegates to preparer module."""
         return generate_uid(entity_type, file_path)
 
@@ -171,7 +172,7 @@ class UnifiedIngestionService:
         """Detect file format from extension. Delegates to detector module."""
         return detect_format(file_path)
 
-    def detect_entity_type(self, data: dict[str, Any], file_path: Path) -> EntityType:
+    def detect_entity_type(self, data: dict[str, Any], file_path: Path) -> KuType | NonKuDomain:
         """Detect entity type from file content. Delegates to detector module."""
         return detect_entity_type(data, file_path)
 
@@ -181,7 +182,7 @@ class UnifiedIngestionService:
 
     def validate_required_fields(
         self,
-        entity_type: EntityType,
+        entity_type: KuType | NonKuDomain,
         data: dict[str, Any],
         file_path: Path,
     ) -> Result[None]:
@@ -190,7 +191,7 @@ class UnifiedIngestionService:
 
     def validate_entity_data(
         self,
-        entity_type: EntityType,
+        entity_type: KuType | NonKuDomain,
         entity_data: dict[str, Any],
         file_path: Path,
     ) -> Result[None]:
@@ -199,7 +200,7 @@ class UnifiedIngestionService:
 
     def prepare_entity_data(
         self,
-        entity_type: EntityType,
+        entity_type: KuType | NonKuDomain,
         data: dict[str, Any],
         body: str | None,
         file_path: Path,
@@ -252,7 +253,7 @@ class UnifiedIngestionService:
             data = parse_result.value
             body = None
 
-        # Detect entity type (returns EntityType enum - type-safe!)
+        # Detect domain type (returns KuType/NonKuDomain enum - type-safe!)
         entity_type = detect_entity_type(data, file_path)
         config = ENTITY_CONFIGS.get(entity_type)
         if not config:
@@ -278,7 +279,7 @@ class UnifiedIngestionService:
 
         # For KU: pop content before Neo4j storage — content lives on :Content node, not :Ku node
         ku_content_body = ""
-        if entity_type == EntityType.KU:
+        if entity_type == KuType.CURRICULUM:
             ku_content_body = entity_data.pop("content", "")
             if ku_content_body:
                 entity_data["word_count"] = len(ku_content_body.split())
@@ -305,7 +306,7 @@ class UnifiedIngestionService:
         # Phase 1: Automatic chunking for KU entities (January 2026)
         # Generate chunks immediately after successful KU ingestion for RAG-readiness
         chunks_generated = False
-        if entity_type == EntityType.KU and self.chunking:
+        if entity_type == KuType.CURRICULUM and self.chunking:
             content_body = ku_content_body  # Already popped above
             if content_body:
                 chunk_result = await self.chunking.process_content_for_ingestion(

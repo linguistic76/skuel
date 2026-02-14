@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from core.models.enums import EntityType
+from core.models.enums.ku_enums import KuType
 from core.utils.embedding_text_builder import build_embedding_text
 
 
@@ -69,12 +69,12 @@ class TestBuildEmbeddingTextFromDict:
 
     def test_task_with_all_fields(self):
         data = {"title": "Fix bug", "description": "Fix login error"}
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert result == "Fix bug\nFix login error"
 
     def test_task_with_title_only(self):
         data = {"title": "Fix bug"}
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert result == "Fix bug"
 
     def test_goal_with_all_fields(self):
@@ -83,7 +83,7 @@ class TestBuildEmbeddingTextFromDict:
             "description": "Master basics",
             "vision_statement": "Become expert",
         }
-        result = build_embedding_text(EntityType.GOAL, data)
+        result = build_embedding_text(KuType.GOAL, data)
         assert result == "Learn Python\nMaster basics\nBecome expert"
 
     def test_habit_with_all_fields(self):
@@ -94,7 +94,7 @@ class TestBuildEmbeddingTextFromDict:
             "cue": "Wake up",
             "reward": "Energy",
         }
-        result = build_embedding_text(EntityType.HABIT, data)
+        result = build_embedding_text(KuType.HABIT, data)
         assert result == "Morning run\nExercise\nStay fit\nWake up\nEnergy"
 
     def test_event_with_all_fields(self):
@@ -103,7 +103,7 @@ class TestBuildEmbeddingTextFromDict:
             "description": "Sprint planning",
             "location": "Office",
         }
-        result = build_embedding_text(EntityType.EVENT, data)
+        result = build_embedding_text(KuType.EVENT, data)
         assert result == "Team meeting\nSprint planning\nOffice"
 
     def test_choice_with_all_fields(self):
@@ -113,7 +113,7 @@ class TestBuildEmbeddingTextFromDict:
             "decision_context": "Current vs new",
             "outcome": "Accepted",
         }
-        result = build_embedding_text(EntityType.CHOICE, data)
+        result = build_embedding_text(KuType.CHOICE, data)
         assert result == "Career move\nJob offer\nCurrent vs new\nAccepted"
 
     def test_principle_with_all_fields(self):
@@ -122,7 +122,7 @@ class TestBuildEmbeddingTextFromDict:
             "statement": "Be honest",
             "description": "Always tell truth",
         }
-        result = build_embedding_text(EntityType.PRINCIPLE, data)
+        result = build_embedding_text(KuType.PRINCIPLE, data)
         assert result == "Integrity\nBe honest\nAlways tell truth"
 
     def test_ku_with_all_fields_uses_double_newlines(self):
@@ -131,31 +131,31 @@ class TestBuildEmbeddingTextFromDict:
             "content": "Programming language",
             "summary": "High-level",
         }
-        result = build_embedding_text(EntityType.KU, data)
+        result = build_embedding_text(KuType.CURRICULUM, data)
         assert result == "Python\n\nProgramming language\n\nHigh-level"
 
     def test_empty_dict_returns_empty_string(self):
-        result = build_embedding_text(EntityType.TASK, {})
+        result = build_embedding_text(KuType.TASK, {})
         assert result == ""
 
     def test_dict_with_empty_string_fields(self):
         data = {"title": "Fix bug", "description": ""}
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert result == "Fix bug"
 
     def test_dict_with_whitespace_only_fields(self):
         data = {"title": "Fix bug", "description": "   "}
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert result == "Fix bug"
 
     def test_dict_with_none_fields(self):
         data = {"title": "Fix bug", "description": None}
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert result == "Fix bug"
 
     def test_dict_with_missing_fields(self):
         data = {"title": "Fix bug"}  # description missing
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert result == "Fix bug"
 
 
@@ -164,12 +164,12 @@ class TestBuildEmbeddingTextFromModel:
 
     def test_task_model_with_all_fields(self):
         task = MockTask(title="Fix bug", description="Fix login error")
-        result = build_embedding_text(EntityType.TASK, task)
+        result = build_embedding_text(KuType.TASK, task)
         assert result == "Fix bug\nFix login error"
 
     def test_task_model_with_title_only(self):
         task = MockTask(title="Fix bug")
-        result = build_embedding_text(EntityType.TASK, task)
+        result = build_embedding_text(KuType.TASK, task)
         assert result == "Fix bug"
 
     def test_goal_model_with_all_fields(self):
@@ -178,7 +178,7 @@ class TestBuildEmbeddingTextFromModel:
             description="Master basics",
             vision_statement="Become expert",
         )
-        result = build_embedding_text(EntityType.GOAL, goal)
+        result = build_embedding_text(KuType.GOAL, goal)
         assert result == "Learn Python\nMaster basics\nBecome expert"
 
     def test_habit_model_with_all_fields(self):
@@ -189,12 +189,12 @@ class TestBuildEmbeddingTextFromModel:
             cue="Wake up",
             reward="Energy",
         )
-        result = build_embedding_text(EntityType.HABIT, habit)
+        result = build_embedding_text(KuType.HABIT, habit)
         assert result == "Morning run\nExercise\nStay fit\nWake up\nEnergy"
 
     def test_event_model_with_all_fields(self):
         event = MockEvent(title="Team meeting", description="Sprint planning", location="Office")
-        result = build_embedding_text(EntityType.EVENT, event)
+        result = build_embedding_text(KuType.EVENT, event)
         assert result == "Team meeting\nSprint planning\nOffice"
 
     def test_choice_model_with_all_fields(self):
@@ -204,34 +204,34 @@ class TestBuildEmbeddingTextFromModel:
             decision_context="Current vs new",
             outcome="Accepted",
         )
-        result = build_embedding_text(EntityType.CHOICE, choice)
+        result = build_embedding_text(KuType.CHOICE, choice)
         assert result == "Career move\nJob offer\nCurrent vs new\nAccepted"
 
     def test_principle_model_with_all_fields(self):
         principle = MockPrinciple(
             title="Integrity", statement="Be honest", description="Always tell truth"
         )
-        result = build_embedding_text(EntityType.PRINCIPLE, principle)
+        result = build_embedding_text(KuType.PRINCIPLE, principle)
         assert result == "Integrity\nBe honest\nAlways tell truth"
 
     def test_ku_model_with_all_fields_uses_double_newlines(self):
         ku = MockKU(title="Python", content="Programming language", summary="High-level")
-        result = build_embedding_text(EntityType.KU, ku)
+        result = build_embedding_text(KuType.CURRICULUM, ku)
         assert result == "Python\n\nProgramming language\n\nHigh-level"
 
     def test_model_with_none_fields(self):
         task = MockTask(title="Fix bug", description=None)
-        result = build_embedding_text(EntityType.TASK, task)
+        result = build_embedding_text(KuType.TASK, task)
         assert result == "Fix bug"
 
     def test_model_with_empty_string_fields(self):
         task = MockTask(title="Fix bug", description="")
-        result = build_embedding_text(EntityType.TASK, task)
+        result = build_embedding_text(KuType.TASK, task)
         assert result == "Fix bug"
 
     def test_model_with_whitespace_only_fields(self):
         task = MockTask(title="Fix bug", description="   ")
-        result = build_embedding_text(EntityType.TASK, task)
+        result = build_embedding_text(KuType.TASK, task)
         assert result == "Fix bug"
 
 
@@ -247,27 +247,27 @@ class TestEdgeCases:
 
     def test_all_fields_empty_returns_empty_string(self):
         data = {"title": "", "description": ""}
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert result == ""
 
     def test_all_fields_whitespace_returns_empty_string(self):
         data = {"title": "   ", "description": "   "}
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert result == ""
 
     def test_mixed_empty_and_present_fields(self):
         data = {"title": "", "description": "Has content", "extra": ""}
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert result == "Has content"
 
     def test_fields_with_leading_trailing_whitespace_are_stripped(self):
         data = {"title": "  Fix bug  ", "description": "  Login error  "}
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert result == "Fix bug\nLogin error"
 
     def test_numeric_values_are_converted_to_string(self):
         data = {"title": 123, "description": "Test"}  # type: ignore[dict-item]
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert result == "123\nTest"
 
 
@@ -276,25 +276,25 @@ class TestSeparatorLogic:
 
     def test_ku_uses_double_newline(self):
         data = {"title": "A", "content": "B", "summary": "C"}
-        result = build_embedding_text(EntityType.KU, data)
+        result = build_embedding_text(KuType.CURRICULUM, data)
         assert "\n\n" in result
         assert result == "A\n\nB\n\nC"
 
     def test_task_uses_single_newline(self):
         data = {"title": "A", "description": "B"}
-        result = build_embedding_text(EntityType.TASK, data)
+        result = build_embedding_text(KuType.TASK, data)
         assert "\n\n" not in result
         assert result == "A\nB"
 
     def test_goal_uses_single_newline(self):
         data = {"title": "A", "description": "B", "vision_statement": "C"}
-        result = build_embedding_text(EntityType.GOAL, data)
+        result = build_embedding_text(KuType.GOAL, data)
         assert "\n\n" not in result
         assert result == "A\nB\nC"
 
     def test_habit_uses_single_newline(self):
         data = {"name": "A", "title": "B", "description": "C"}
-        result = build_embedding_text(EntityType.HABIT, data)
+        result = build_embedding_text(KuType.HABIT, data)
         assert "\n\n" not in result
         assert result == "A\nB\nC"
 

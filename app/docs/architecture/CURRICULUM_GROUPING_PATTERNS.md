@@ -253,24 +253,27 @@ KU ──────→ LS ──────→ LP
 
 Type safety **channels** the relationships so energy (user effort, system computation, semantic meaning) flows through defined paths and feeds back into the system.
 
-### The EntityType Enum
+### The KuType Enum
 
 ```python
-class EntityType(str, Enum):
-    # Curriculum Domains (3)
-    KU = "ku"
-    LS = "ls"
-    LP = "lp"
+from core.models.enums.ku_enums import KuType
 
-    # Organizational Domain (KU-based, not a separate entity type)
-    MOC = "moc"  # Represents KU with ORGANIZES relationships
+class KuType(str, Enum):
+    # Knowledge (shared curriculum)
+    CURRICULUM = "curriculum"   # Was EntityType.KU
+    MOC = "moc"                # KU with ORGANIZES relationships
+
+    # Curriculum structure
+    LEARNING_STEP = "learning_step"   # Was EntityType.LS
+    LEARNING_PATH = "learning_path"   # Was EntityType.LP
+    # ... plus 10 more (activity domains, content processing, destination)
 ```
 
-The curriculum patterns share abbreviated prefixes because they form a **unified knowledge organization system**. The abbreviation signals: "this is a grouping pattern."
+Under the unified Ku model, curriculum patterns are KuType values alongside activity domains. The grouping patterns (CURRICULUM, LEARNING_STEP, LEARNING_PATH) form the shared knowledge organization system, while MOC provides non-linear graph navigation.
 
-**Domain Classification (January 2026 - Updated):**
-- **Curriculum Domains (3):** KU, LS, LP - Linear knowledge sequencing
-- **Organizational Domain (1):** MOC - KU-based, non-linear organization via ORGANIZES relationships
+**Domain Classification (February 2026 - Unified Ku):**
+- **Knowledge (shared curriculum):** KuType.CURRICULUM, KuType.MOC
+- **Curriculum structure:** KuType.LEARNING_STEP, KuType.LEARNING_PATH
 
 ### Relationship Types
 
@@ -341,7 +344,7 @@ The `MarkdownSyncService` automatically detects and routes each file type.
 | LP Model | `/core/models/lp/lp.py` | Learning Path definition |
 | MOC Service | `/core/services/moc_service.py` | MOC facade (KU-based) |
 | MOC Navigation | `/core/services/moc/moc_navigation_service.py` | MOC operations |
-| EntityType | `/core/models/enums/` | Type-safe entity identification |
+| KuType | `/core/models/enums/ku_enums.py` | Type-safe entity identification |
 | Markdown Sync | `/core/services/markdown_sync_service.py` | Sync all patterns from markdown |
 | Unified Registry | `/core/models/relationship_registry.py` | All domain relationship configs |
 

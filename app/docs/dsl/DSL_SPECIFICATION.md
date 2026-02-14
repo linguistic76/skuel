@@ -80,8 +80,8 @@ Value ::= any characters except ")"
 **Grammar:**
 ```
 ContextTag ::= "@context(" ContextList ")"
-ContextList ::= EntityType ("," EntityType)*
-EntityType ::= Identifier
+ContextList ::= DomainIdentifier ("," DomainIdentifier)*
+DomainIdentifier ::= Identifier
 ```
 
 **Canonical Entity Types:**
@@ -103,7 +103,7 @@ metric     → data/measurement item
 @context(goal,learning)
 ```
 
-**Type Safety Note:** The `@context()` value maps to `EntityType` enum in `/core/models/enums/` for compile-time verification.
+**Type Safety Note:** The `@context()` value maps to `KuType` (for knowledge-unit-based domains) or `NonKuDomain` (for finance, group, calendar, learning) in `/core/models/enums/` for compile-time verification. The union type `DomainIdentifier = KuType | NonKuDomain` covers all domains.
 
 ---
 
@@ -403,5 +403,5 @@ Planned additions for future versions:
 
 - **Usage Guide:** `DSL_USAGE_GUIDE.md` - Examples and patterns
 - **Implementation Guide:** `DSL_IMPLEMENTATION.md` - Parser architecture
-- **EntityType Enum:** `/core/models/enums/`
+- **KuType / NonKuDomain Enums:** `/core/models/enums/` (`DomainIdentifier = KuType | NonKuDomain`)
 - **Activity DSL Parser:** `/core/services/dsl/`

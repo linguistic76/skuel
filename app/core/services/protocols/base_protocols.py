@@ -129,7 +129,7 @@ class GraphContextNode(TypedDict, total=False):
 
     Common optional fields:
         title: Entity title (most entities have this)
-        entity_type: EntityType value if available
+        entity_type: KuType value if available
 
     Escape hatch:
         raw_properties: Domain-specific data not covered above
@@ -156,7 +156,7 @@ class GraphContextNode(TypedDict, total=False):
 
     # Common optional fields (present in most entities)
     title: str
-    entity_type: str  # EntityType.value when available
+    entity_type: str  # KuType.value when available
 
     # Escape hatch for domain-specific properties
     raw_properties: dict[str, Any]

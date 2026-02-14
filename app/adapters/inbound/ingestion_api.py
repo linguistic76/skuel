@@ -395,19 +395,19 @@ def create_ingestion_api_routes(
             if not source_path.exists() or not source_path.is_dir():
                 return Result.fail(Errors.not_found("Directory", str(source_path)))
 
-            # Map domain to entity type
-            from core.models.enums import EntityType
+            # Map domain to KuType
+            from core.models.enums.ku_enums import KuType
 
             domain_to_entity = {
-                "ku": EntityType.KU,
-                "ls": EntityType.LS,
-                "lp": EntityType.LP,
-                "tasks": EntityType.TASK,
-                "goals": EntityType.GOAL,
-                "habits": EntityType.HABIT,
-                "events": EntityType.EVENT,
-                "choices": EntityType.CHOICE,
-                "principles": EntityType.PRINCIPLE,
+                "ku": KuType.CURRICULUM,
+                "ls": KuType.LEARNING_STEP,
+                "lp": KuType.LEARNING_PATH,
+                "tasks": KuType.TASK,
+                "goals": KuType.GOAL,
+                "habits": KuType.HABIT,
+                "events": KuType.EVENT,
+                "choices": KuType.CHOICE,
+                "principles": KuType.PRINCIPLE,
             }
 
             if domain_name not in domain_to_entity:

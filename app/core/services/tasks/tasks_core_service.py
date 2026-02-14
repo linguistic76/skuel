@@ -25,7 +25,8 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
-from core.models.enums import ActivityStatus, EntityType
+from core.models.enums import ActivityStatus
+from core.models.enums.ku_enums import KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuTaskCreateRequest
@@ -336,7 +337,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Publish embedding request event for async background generation (Phase 1 - January 2026)
         # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = build_embedding_text(EntityType.TASK, task)
+        embedding_text = build_embedding_text(KuType.TASK, task)
         if embedding_text:
             from core.events import TaskEmbeddingRequested
 

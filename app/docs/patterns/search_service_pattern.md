@@ -187,14 +187,14 @@ Search fields are configured centrally in `core/services/search/config.py`:
 
 ```python
 from core.services.search.config import SEARCH_FIELD_CONFIG, get_search_fields
-from core.models.enums import EntityType
+from core.models.enums.ku_enums import KuType
 
-# Get text search fields for an entity type
-fields = get_search_fields(EntityType.KU)  # ('title', 'content', 'tags')
-fields = get_search_fields(EntityType.TASK)  # ('title', 'description')
+# Get text search fields for a KuType
+fields = get_search_fields(KuType.CURRICULUM)  # ('title', 'content', 'tags')
+fields = get_search_fields(KuType.TASK)  # ('title', 'description')
 
 # Full config includes text_fields, array_fields, filter_fields, order_by
-config = SEARCH_FIELD_CONFIG[EntityType.KU]
+config = SEARCH_FIELD_CONFIG[KuType.CURRICULUM]
 # SearchFieldConfig(
 #     text_fields=('title', 'content', 'tags'),
 #     array_fields=(),
@@ -214,7 +214,7 @@ from core.models.search_request import SearchRequest
 
 request = SearchRequest(
     query_text="machine learning",
-    entity_types=[EntityType.KU, EntityType.TASK],
+    entity_types=[KuType.CURRICULUM, KuType.TASK],
     connected_to_uid="ku.python-basics",
     connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
     tags_contain=["python"],

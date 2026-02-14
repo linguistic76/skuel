@@ -24,7 +24,8 @@ from typing import Any, Literal
 import yaml
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
-from core.models.enums import EntityType
+from core.models.enums.entity_enums import NonKuDomain
+from core.models.enums.ku_enums import KuType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -164,7 +165,7 @@ def parse_file_sync(
     file_path: Path,
     default_user_uid: str = "user:system",
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
-) -> tuple[EntityType, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
+) -> tuple[KuType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
     """
     Synchronous file parsing for use in thread pool.
 
@@ -316,7 +317,7 @@ async def parse_file_for_batch(
     semaphore: asyncio.Semaphore,
     default_user_uid: str = "user:system",
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
-) -> tuple[EntityType, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
+) -> tuple[KuType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
     """
     Parse and validate a single file for batch ingestion.
 
@@ -355,7 +356,7 @@ async def parse_file_for_batch(
 
 async def ingest_directory(
     directory: Path,
-    engines: dict[EntityType, BulkIngestionEngine[Any]],  # noqa: ARG001 - Modified by get_engine
+    engines: dict[KuType | NonKuDomain, BulkIngestionEngine[Any]],  # noqa: ARG001 - Modified by get_engine
     get_engine: Any,  # Callable to get/create engine
     driver: Any = None,  # Neo4j driver for ingestion tracking
     pattern: str = "*",
@@ -376,7 +377,7 @@ async def ingest_directory(
 
     Args:
         directory: Directory to scan
-        engines: Engine cache (keyed by EntityType) - populated by get_engine as side effect
+        engines: Engine cache (keyed by KuType | NonKuDomain) - populated by get_engine as side effect
         get_engine: Function to get/create engine for entity type (modifies engines dict)
         driver: Neo4j driver (required for ingestion_mode != "full")
         pattern: Glob pattern for files (default: "*" for all supported)
@@ -504,9 +505,9 @@ async def ingest_directory(
     ]
     parse_results = await asyncio.gather(*parse_tasks)
 
-    # Group entities by type for batch processing (keyed by EntityType)
-    entities_by_type: dict[EntityType, list[dict[str, Any]]] = {}
-    file_entity_map: dict[str, tuple[EntityType, str]] = {}  # file_path -> (entity_type, uid)
+    # Group entities by type for batch processing (keyed by KuType | NonKuDomain)
+    entities_by_type: dict[KuType | NonKuDomain, list[dict[str, Any]]] = {}
+    file_entity_map: dict[str, tuple[KuType | NonKuDomain, str]] = {}  # file_path -> (entity_type, uid)
     errors: list[dict[str, str]] = []
 
     for i, (entity_type, entity_data, error) in enumerate(parse_results):

@@ -56,7 +56,7 @@ class ValidationResult:
 
     valid: bool
     file_path: str
-    entity_type: str  # EntityType.value for JSON serialization
+    entity_type: str  # KuType/NonKuDomain value for JSON serialization
     uid: str
     title: str | None = None
     format: str = "unknown"  # "markdown" or "yaml"

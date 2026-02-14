@@ -2,7 +2,7 @@
 Ingestion Configuration - Entity Configs and Constants
 =======================================================
 
-Data-driven configuration for all 14 entity types.
+Data-driven configuration for all entity types.
 Defines required fields, relationship configs, and ingestion behavior.
 
 Relationship configs are derived from the Relationship Registry
@@ -17,7 +17,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.ingestion.bulk_ingestion import RelationshipConfig
-from core.models.enums import EntityType
+from core.models.enums.entity_enums import NonKuDomain
+from core.models.enums.ku_enums import KuType
 from core.models.relationship_registry import generate_ingestion_relationship_config
 
 # ============================================================================
@@ -68,96 +69,94 @@ class EntityIngestionConfig:
 # generate_ingestion_relationship_config(). Only entries with yaml_field_path
 # set in the registry generate ingestion relationships.
 #
+# Note: generate_ingestion_relationship_config() takes KuType.
+# NonKuDomain entries (FINANCE, GROUP) have no relationship configs.
+#
 # See: core/models/relationship_registry.py (single source of truth)
 # See: /docs/decisions/ADR-026-unified-relationship-registry.md
-ENTITY_CONFIGS: dict[EntityType, EntityIngestionConfig] = {
-    EntityType.KU: EntityIngestionConfig(
+ENTITY_CONFIGS: dict[KuType | NonKuDomain, EntityIngestionConfig] = {
+    KuType.CURRICULUM: EntityIngestionConfig(
         entity_label="Ku",
         uid_prefix="ku",
         required_fields=("title", "content"),
-        relationship_config=generate_ingestion_relationship_config(EntityType.KU),
+        relationship_config=generate_ingestion_relationship_config(KuType.CURRICULUM),
     ),
-    EntityType.MOC: EntityIngestionConfig(
+    KuType.MOC: EntityIngestionConfig(
         entity_label="Ku",
         uid_prefix="ku",
         required_fields=("title",),
-        relationship_config=generate_ingestion_relationship_config(EntityType.MOC),
+        relationship_config=generate_ingestion_relationship_config(KuType.MOC),
     ),
-    EntityType.TASK: EntityIngestionConfig(
+    KuType.TASK: EntityIngestionConfig(
         entity_label="Task",
         uid_prefix="task",
         required_fields=("title",),
         requires_user_uid=True,
-        relationship_config=generate_ingestion_relationship_config(EntityType.TASK),
+        relationship_config=generate_ingestion_relationship_config(KuType.TASK),
     ),
-    EntityType.GOAL: EntityIngestionConfig(
+    KuType.GOAL: EntityIngestionConfig(
         entity_label="Goal",
         uid_prefix="goal",
         required_fields=("title",),
         requires_user_uid=True,
-        relationship_config=generate_ingestion_relationship_config(EntityType.GOAL),
+        relationship_config=generate_ingestion_relationship_config(KuType.GOAL),
     ),
-    EntityType.HABIT: EntityIngestionConfig(
+    KuType.HABIT: EntityIngestionConfig(
         entity_label="Habit",
         uid_prefix="habit",
         required_fields=("title",),
         requires_user_uid=True,
-        relationship_config=generate_ingestion_relationship_config(EntityType.HABIT),
+        relationship_config=generate_ingestion_relationship_config(KuType.HABIT),
     ),
-    EntityType.EVENT: EntityIngestionConfig(
+    KuType.EVENT: EntityIngestionConfig(
         entity_label="Event",
         uid_prefix="event",
         required_fields=("title",),
         requires_user_uid=True,
-        relationship_config=generate_ingestion_relationship_config(EntityType.EVENT),
+        relationship_config=generate_ingestion_relationship_config(KuType.EVENT),
     ),
-    EntityType.CHOICE: EntityIngestionConfig(
+    KuType.CHOICE: EntityIngestionConfig(
         entity_label="Choice",
         uid_prefix="choice",
         required_fields=("title",),
         requires_user_uid=True,
-        relationship_config=generate_ingestion_relationship_config(EntityType.CHOICE),
+        relationship_config=generate_ingestion_relationship_config(KuType.CHOICE),
     ),
-    EntityType.PRINCIPLE: EntityIngestionConfig(
+    KuType.PRINCIPLE: EntityIngestionConfig(
         entity_label="Principle",
         uid_prefix="principle",
         required_fields=("name", "statement"),
         requires_user_uid=True,
-        relationship_config=generate_ingestion_relationship_config(EntityType.PRINCIPLE),
+        relationship_config=generate_ingestion_relationship_config(KuType.PRINCIPLE),
     ),
-    EntityType.LP: EntityIngestionConfig(
+    KuType.LEARNING_PATH: EntityIngestionConfig(
         entity_label="Lp",
         uid_prefix="lp",
         required_fields=("name",),
-        relationship_config=generate_ingestion_relationship_config(EntityType.LP),
+        relationship_config=generate_ingestion_relationship_config(KuType.LEARNING_PATH),
     ),
-    EntityType.LS: EntityIngestionConfig(
+    KuType.LEARNING_STEP: EntityIngestionConfig(
         entity_label="Ls",
         uid_prefix="ls",
         required_fields=("title",),
-        relationship_config=generate_ingestion_relationship_config(EntityType.LS),
+        relationship_config=generate_ingestion_relationship_config(KuType.LEARNING_STEP),
     ),
-    EntityType.FINANCE: EntityIngestionConfig(
+    NonKuDomain.FINANCE: EntityIngestionConfig(
         entity_label="Expense",
         uid_prefix="expense",
         required_fields=("description", "amount"),
         requires_user_uid=True,
     ),
-    # NOTE: EntityType.JOURNAL maps to REPORT via get_canonical() (February 2026)
-    # Journal ingestion creates Report nodes with report_type="journal"
-    EntityType.JOURNAL: EntityIngestionConfig(
-        entity_label="Report",
-        uid_prefix="report",
-        required_fields=("content",),
-        requires_user_uid=True,
-    ),
-    EntityType.REPORT: EntityIngestionConfig(
+    # NOTE: Journal merged into Reports (February 2026).
+    # Journal ingestion creates Ku nodes with ku_type="assignment".
+    # Kept as ASSIGNMENT entry — "journal" alias in TYPE_MAPPING resolves here.
+    KuType.ASSIGNMENT: EntityIngestionConfig(
         entity_label="Report",
         uid_prefix="report",
         required_fields=("title",),
         requires_user_uid=True,
     ),
-    EntityType.LIFEPATH: EntityIngestionConfig(
+    KuType.LIFE_PATH: EntityIngestionConfig(
         entity_label="LifePath",
         uid_prefix="lifepath",
         required_fields=("user_uid",),

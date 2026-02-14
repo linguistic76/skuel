@@ -20,7 +20,7 @@ from typing import Any
 
 from core.events import publish_event
 from core.events.habit_events import HabitCreated
-from core.models.enums import EntityType
+from core.models.enums.ku_enums import KuType
 from core.models.enums.activity_enums import ActivityStatus
 from core.models.enums.ku_enums import KuStatus
 from core.models.ku.ku import Ku
@@ -346,7 +346,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
 
         # Publish embedding request event for async background generation (Phase 1 - January 2026)
         # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = build_embedding_text(EntityType.HABIT, habit)
+        embedding_text = build_embedding_text(KuType.HABIT, habit)
         if embedding_text:
             from core.events import HabitEmbeddingRequested
 

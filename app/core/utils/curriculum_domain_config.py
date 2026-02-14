@@ -403,7 +403,7 @@ def create_lp_sub_services(
     Handles cross-domain dependency: LpCoreService requires ls_service.
 
     Creation Order:
-    1. UniversalNeo4jBackend[Lp] (driver, NeoLabel.LP, Lp)
+    1. UniversalNeo4jBackend[Ku] (driver, NeoLabel.KU, Ku, default_filters={"ku_type": "learning_path"})
     2. LpSearchService (backend)
     3. UnifiedRelationshipService (backend, config, graph_intel)
     4. LpCoreService (backend, ls_service, event_bus)

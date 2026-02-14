@@ -585,7 +585,7 @@ from core.models.search.search_router import SearchRouter
 router = SearchRouter(services)
 result = await router.faceted_search(SearchRequest(
     query="",
-    domains=[EntityType.TASK, EntityType.GOAL, EntityType.KU],
+    domains=[KuType.TASK, KuType.GOAL, KuType.CURRICULUM],
     user_uid="user.123",
     limit=10
 ))

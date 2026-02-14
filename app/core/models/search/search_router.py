@@ -1,24 +1,24 @@
 """
-EntityType-Driven Search Router
+KuType-Driven Search Router
 ================================
 
-*Last updated: 2026-01-04*
+*Last updated: 2026-02-14*
 
-Type-safe search routing based on EntityType enum.
+Type-safe search routing based on KuType and NonKuDomain enums.
 
 Design Philosophy:
-- EntityType is the single source of truth for domain classification
-- Router maps EntityType → SearchService automatically
+- KuType/NonKuDomain is the single source of truth for domain classification
+- Router maps KuType/NonKuDomain → SearchService automatically
 - Eliminates manual dispatch logic scattered across codebase
 - Provides unified entry point for cross-domain search
 
 Architecture:
-    EntityType (enum) → SearchRouter → DomainSearchService
-                              ↓
-                        PriorityScore (unified scoring)
+    KuType/NonKuDomain (enum) → SearchRouter → DomainSearchService
+                                      ↓
+                                PriorityScore (unified scoring)
 
 Key Features:
-1. Type-safe routing via EntityType pattern matching
+1. Type-safe routing via KuType/NonKuDomain pattern matching
 2. Automatic service discovery from Services container
 3. Unified search results with domain tagging
 4. Cross-domain search with merged results
@@ -35,12 +35,12 @@ Usage:
     # Initialize router with services
     router = SearchRouter(services)
 
-    # Route by EntityType
-    result = await router.search(EntityType.TASK, "urgent deadline")
+    # Route by KuType
+    result = await router.search(KuType.TASK, "urgent deadline")
 
     # Search across multiple domains
     results = await router.search_domains(
-        [EntityType.TASK, EntityType.GOAL, EntityType.HABIT],
+        [KuType.TASK, KuType.GOAL, KuType.HABIT],
         "health fitness"
     )
 
@@ -50,16 +50,17 @@ Usage:
     # Advanced search with graph and tag filters
     request = SearchRequest(
         query_text="machine learning",
-        entity_types=[EntityType.KU],
+        entity_types=[KuType.CURRICULUM],
         connected_to_uid="ku.python-basics",
         connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
         tags_contain=["python"],
     )
     result = await router.advanced_search(request)
 
-Version: 2.0.0
-Date: 2026-01-04
+Version: 3.0.0
+Date: 2026-02-14
 Changes:
+- v3.0.0: EntityType migrated to KuType/NonKuDomain (One Path Forward)
 - v2.0.0: UnifiedSearchRequest merged into SearchRequest (One Path Forward)
 - v1.0.0: Initial implementation
 """
@@ -67,7 +68,8 @@ Changes:
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
-from core.models.enums import EntityType
+from core.models.enums.entity_enums import NonKuDomain
+from core.models.enums.ku_enums import KuType
 from core.services.protocols.search_protocols import (
     SupportsGraphAwareSearch,
     SupportsGraphTraversalSearch,
@@ -102,7 +104,7 @@ class SearchResultItem:
     """
 
     entity: Any  # Task, Goal, Habit, Event, Choice, Principle, etc.
-    entity_type: EntityType
+    entity_type: KuType | NonKuDomain
     uid: str
     title: str
     relevance_score: float = 0.0  # Text search relevance
@@ -125,7 +127,7 @@ class UnifiedSearchResult:
 
     query: str
     parsed_query: "ParsedSearchQuery | None" = None
-    results_by_domain: dict[EntityType, list[SearchResultItem]] = field(default_factory=dict)
+    results_by_domain: dict[KuType | NonKuDomain, list[SearchResultItem]] = field(default_factory=dict)
     total_count: int = 0
 
     @property
@@ -137,11 +139,11 @@ class UnifiedSearchResult:
         return sorted(all_results, key=get_combined_score, reverse=True)[:10]
 
     @property
-    def domains_searched(self) -> list[EntityType]:
+    def domains_searched(self) -> list[KuType | NonKuDomain]:
         """Get list of domains that returned results."""
         return [k for k, v in self.results_by_domain.items() if v]
 
-    def get_domain_results(self, entity_type: EntityType) -> list[SearchResultItem]:
+    def get_domain_results(self, entity_type: KuType | NonKuDomain) -> list[SearchResultItem]:
         """Get results for a specific domain."""
         return self.results_by_domain.get(entity_type, [])
 
@@ -173,29 +175,29 @@ class SearchableService(Protocol[T]):
 
 
 # =============================================================================
-# SEARCH ROUTER - EntityType-driven dispatch
+# SEARCH ROUTER - KuType/NonKuDomain-driven dispatch
 # =============================================================================
 
 
 class SearchRouter:
     """
-    Routes search requests to appropriate domain services based on EntityType.
+    Routes search requests to appropriate domain services based on KuType/NonKuDomain.
 
     Provides a unified entry point for searching across SKUEL's 15 domains,
     with automatic service discovery and result aggregation.
 
-    The router uses EntityType enum for type-safe dispatch, eliminating
+    The router uses KuType/NonKuDomain enums for type-safe dispatch, eliminating
     stringly-typed domain checks scattered across the codebase.
 
     Example:
         router = SearchRouter(services)
 
         # Search single domain
-        tasks = await router.search(EntityType.TASK, "urgent")
+        tasks = await router.search(KuType.TASK, "urgent")
 
         # Search multiple domains
         results = await router.search_domains(
-            [EntityType.TASK, EntityType.GOAL],
+            [KuType.TASK, KuType.GOAL],
             "health fitness"
         )
 
@@ -206,53 +208,48 @@ class SearchRouter:
         )
     """
 
-    # Mapping of EntityType to Services attribute name
+    # Mapping of KuType/NonKuDomain to Services attribute name
     # This enables automatic service discovery from Services container
     # Note: Attribute names follow consistent plural pattern for activity domains
-    _SERVICE_REGISTRY: dict[EntityType, str] = {
+    _SERVICE_REGISTRY: dict[KuType | NonKuDomain, str] = {
         # Activity Domains (6) - have dedicated search services (all plural)
-        EntityType.TASK: "tasks",
-        EntityType.GOAL: "goals",
-        EntityType.HABIT: "habits",
-        EntityType.EVENT: "events",
-        EntityType.CHOICE: "choices",
-        EntityType.PRINCIPLE: "principles",
+        KuType.TASK: "tasks",
+        KuType.GOAL: "goals",
+        KuType.HABIT: "habits",
+        KuType.EVENT: "events",
+        KuType.CHOICE: "choices",
+        KuType.PRINCIPLE: "principles",
         # Finance (singular - standalone domain group)
-        EntityType.FINANCE: "finance",
+        NonKuDomain.FINANCE: "finance",
         # Curriculum Domains (3) - ku, ls, lp form the knowledge foundation
-        # KU = Knowledge Unit (atomic knowledge content), KNOWLEDGE is alias for KU
-        EntityType.KU: "ku",
-        EntityType.KNOWLEDGE: "ku",  # Alias → same service
-        EntityType.LS: "learning_steps",
-        EntityType.LP: "learning_paths",
-        # Content/Organization Domains (3)
-        EntityType.REPORT: "reports",
-        EntityType.JOURNAL: "journals",  # Processing domain
-        EntityType.MOC: "moc",  # Non-linear knowledge navigation
-        # The Destination - LifePath (Domain #14)
+        KuType.CURRICULUM: "ku",
+        KuType.LEARNING_STEP: "learning_steps",
+        KuType.LEARNING_PATH: "learning_paths",
+        # Content/Organization Domains
+        KuType.ASSIGNMENT: "reports",
+        KuType.MOC: "moc",  # Non-linear knowledge navigation
+        # The Destination - LifePath
         # "Everything flows toward the life path"
-        EntityType.LIFEPATH: "lifepath",
-        EntityType.LIFE_PATH: "lifepath",  # Alias → same service
+        KuType.LIFE_PATH: "lifepath",
         # Cross-cutting Systems (not domains)
-        EntityType.REPORT: "reports",  # Meta-service: statistical aggregation
-        EntityType.CALENDAR: "calendar",  # Aggregation: Tasks + Events + Habits + Goals
+        NonKuDomain.CALENDAR: "calendar",  # Aggregation: Tasks + Events + Habits + Goals
     }
 
-    # EntityTypes that support DomainSearchOperations[T] protocol
-    _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset(
+    # KuTypes that support DomainSearchOperations[T] protocol
+    _SEARCHABLE_DOMAINS: frozenset[KuType] = frozenset(
         {
             # Activity Domains (6)
-            EntityType.TASK,
-            EntityType.GOAL,
-            EntityType.HABIT,
-            EntityType.EVENT,
-            EntityType.CHOICE,
-            EntityType.PRINCIPLE,
+            KuType.TASK,
+            KuType.GOAL,
+            KuType.HABIT,
+            KuType.EVENT,
+            KuType.CHOICE,
+            KuType.PRINCIPLE,
             # Curriculum Domains (4) - KU, LS, LP, MOC (January 2026)
-            EntityType.KU,
-            EntityType.LS,
-            EntityType.LP,
-            EntityType.MOC,
+            KuType.CURRICULUM,
+            KuType.LEARNING_STEP,
+            KuType.LEARNING_PATH,
+            KuType.MOC,
         }
     )
 
@@ -266,9 +263,9 @@ class SearchRouter:
         self.services = services
         self.logger = get_logger(__name__)
 
-    def get_service(self, entity_type: EntityType) -> Any | None:
+    def get_service(self, entity_type: KuType | NonKuDomain) -> Any | None:
         """
-        Get the appropriate service for an EntityType.
+        Get the appropriate service for a KuType or NonKuDomain.
 
         Args:
             entity_type: The domain to get service for
@@ -276,11 +273,10 @@ class SearchRouter:
         Returns:
             Service instance or None if not found/not initialized
         """
-        canonical = entity_type.get_canonical()
-        attr_name = self._SERVICE_REGISTRY.get(canonical)
+        attr_name = self._SERVICE_REGISTRY.get(entity_type)
 
         if not attr_name:
-            self.logger.warning(f"No service registered for EntityType: {entity_type}")
+            self.logger.warning(f"No service registered for domain: {entity_type}")
             return None
 
         service = getattr(self.services, attr_name, None)
@@ -289,29 +285,28 @@ class SearchRouter:
 
         return service
 
-    def supports_search(self, entity_type: EntityType) -> bool:
+    def supports_search(self, entity_type: KuType | NonKuDomain) -> bool:
         """
-        Check if an EntityType supports the DomainSearchOperations protocol.
+        Check if a KuType or NonKuDomain supports the DomainSearchOperations protocol.
 
         Args:
-            entity_type: EntityType to check
+            entity_type: KuType or NonKuDomain to check
 
         Returns:
             True if this domain has a search service implementing the protocol
         """
-        canonical = entity_type.get_canonical()
-        return canonical in self._SEARCHABLE_DOMAINS
+        return entity_type in self._SEARCHABLE_DOMAINS
 
     async def search(
         self,
-        entity_type: EntityType,
+        entity_type: KuType | NonKuDomain,
         query: str,
         limit: int = 50,
     ) -> Result[list[Any]]:
         """
         Search within a single domain.
 
-        Routes the search to the appropriate domain service based on EntityType.
+        Routes the search to the appropriate domain service based on KuType/NonKuDomain.
 
         Args:
             entity_type: Domain to search in
@@ -326,7 +321,7 @@ class SearchRouter:
             return Result.fail(
                 Errors.validation(
                     field="entity_type",
-                    message=f"EntityType {entity_type.value} does not support search",
+                    message=f"{entity_type.value} does not support search",
                 )
             )
 
@@ -351,7 +346,7 @@ class SearchRouter:
             self.logger.error(f"Search failed for {entity_type.value}: {e}")
             return Result.fail(Errors.database(operation="search", message=str(e)))
 
-    def _get_search_service(self, service: Any, entity_type: EntityType) -> Any | None:
+    def _get_search_service(self, service: Any, entity_type: KuType | NonKuDomain) -> Any | None:
         """
         Get the search sub-service from a domain service.
 
@@ -360,7 +355,7 @@ class SearchRouter:
 
         Args:
             service: Domain service instance
-            entity_type: EntityType for logging
+            entity_type: KuType or NonKuDomain for logging
 
         Returns:
             Search service or None
@@ -383,7 +378,7 @@ class SearchRouter:
 
     async def search_domains(
         self,
-        entity_types: list[EntityType],
+        entity_types: list[KuType | NonKuDomain],
         query: str,
         limit_per_domain: int = 20,
     ) -> UnifiedSearchResult:
@@ -400,7 +395,7 @@ class SearchRouter:
         Returns:
             UnifiedSearchResult with results grouped by domain
         """
-        results_by_domain: dict[EntityType, list[SearchResultItem]] = {}
+        results_by_domain: dict[KuType | NonKuDomain, list[SearchResultItem]] = {}
         total_count = 0
 
         for entity_type in entity_types:
@@ -569,13 +564,13 @@ class SearchRouter:
 
         from core.models.search_request import SearchResponse
 
-        # Map domain string to EntityType
+        # Map domain string to KuType
         domain_to_entity = {
-            "knowledge": EntityType.KU,
-            "ku": EntityType.KU,
-            "ls": EntityType.LS,
-            "lp": EntityType.LP,
-            "moc": EntityType.MOC,
+            "knowledge": KuType.CURRICULUM,
+            "ku": KuType.CURRICULUM,
+            "ls": KuType.LEARNING_STEP,
+            "lp": KuType.LEARNING_PATH,
+            "moc": KuType.MOC,
         }
 
         entity_type = domain_to_entity.get(domain_str.lower())
@@ -680,7 +675,7 @@ class SearchRouter:
 
             # Perform searches
             limit_per_domain = max(10, limit // len(target_domains)) if target_domains else limit
-            results_by_domain: dict[EntityType, list[SearchResultItem]] = {}
+            results_by_domain: dict[KuType | NonKuDomain, list[SearchResultItem]] = {}
             total_count = 0
 
             for entity_type in target_domains:
@@ -714,7 +709,7 @@ class SearchRouter:
     def _determine_target_domains(
         self,
         parsed: "ParsedSearchQuery",
-    ) -> list[EntityType]:
+    ) -> list[KuType | NonKuDomain]:
         """
         Determine which domains to search based on parsed query.
 
@@ -724,16 +719,16 @@ class SearchRouter:
         if parsed.domains:
             target_domains = []
             for domain in parsed.domains:
-                # Map Domain enum to EntityType
+                # Map Domain enum to KuType
                 domain_to_entity = {
-                    "tasks": EntityType.TASK,
-                    "goals": EntityType.GOAL,
-                    "habits": EntityType.HABIT,
-                    "events": EntityType.EVENT,
-                    "choices": EntityType.CHOICE,
-                    "principles": EntityType.PRINCIPLE,
-                    "health": EntityType.HABIT,  # Health often relates to habits
-                    "tech": EntityType.TASK,  # Tech often relates to tasks
+                    "tasks": KuType.TASK,
+                    "goals": KuType.GOAL,
+                    "habits": KuType.HABIT,
+                    "events": KuType.EVENT,
+                    "choices": KuType.CHOICE,
+                    "principles": KuType.PRINCIPLE,
+                    "health": KuType.HABIT,  # Health often relates to habits
+                    "tech": KuType.TASK,  # Tech often relates to tasks
                 }
                 entity = domain_to_entity.get(domain.value)
                 if entity and entity not in target_domains:
@@ -774,7 +769,7 @@ class SearchRouter:
 
             request = SearchRequest(
                 query_text="machine learning",
-                entity_types=[EntityType.KU],
+                entity_types=[KuType.CURRICULUM],
                 connected_to_uid="ku.python-basics",
                 connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
                 tags_contain=["python"],
@@ -789,7 +784,7 @@ class SearchRouter:
                 else list(self._SEARCHABLE_DOMAINS)
             )
 
-            results_by_domain: dict[EntityType, list[SearchResultItem]] = {}
+            results_by_domain: dict[KuType | NonKuDomain, list[SearchResultItem]] = {}
             total_count = 0
 
             for entity_type in target_domains:
@@ -835,7 +830,7 @@ class SearchRouter:
     async def _execute_advanced_search(
         self,
         search_service: Any,
-        entity_type: EntityType,
+        entity_type: KuType | NonKuDomain,
         request: "SearchRequest",
     ) -> list[SearchResultItem]:
         """
@@ -923,7 +918,7 @@ class SearchRouter:
     async def _fallback_search(
         self,
         search_service: Any,
-        entity_type: EntityType,
+        entity_type: KuType | NonKuDomain,
         request: "SearchRequest",
         limit_per_domain: int,
     ) -> list[SearchResultItem]:
@@ -946,7 +941,7 @@ class SearchRouter:
 
     async def _semantic_or_learning_search(
         self,
-        entity_type: EntityType,
+        entity_type: KuType | NonKuDomain,
         request: "SearchRequest",
         limit: int,
     ) -> list[SearchResultItem]:
@@ -957,7 +952,7 @@ class SearchRouter:
         Falls back gracefully if vector search is unavailable.
 
         Args:
-            entity_type: Target entity type (currently only Ku supported for learning-aware)
+            entity_type: Target KuType or NonKuDomain (currently only Ku supported for learning-aware)
             request: SearchRequest with semantic/learning-aware flags
             limit: Max results per domain
 
@@ -1158,7 +1153,7 @@ class SearchRouter:
     def _wrap_results(
         self,
         entities: list[Any],
-        entity_type: EntityType,
+        entity_type: KuType | NonKuDomain,
     ) -> list[SearchResultItem]:
         """
         Wrap domain entities in SearchResultItem containers.
@@ -1244,22 +1239,22 @@ class SearchRouter:
             # Use appropriate scoring function based on entity type
             try:
                 match item.entity_type:
-                    case EntityType.TASK:
+                    case KuType.TASK:
                         priority_score = score_task(item.entity, user_context)
                         score = priority_score.total
-                    case EntityType.GOAL:
+                    case KuType.GOAL:
                         priority_score = score_goal(item.entity, user_context)
                         score = priority_score.total
-                    case EntityType.HABIT:
+                    case KuType.HABIT:
                         priority_score = score_habit(item.entity, user_context)
                         score = priority_score.total
-                    case EntityType.EVENT:
+                    case KuType.EVENT:
                         priority_score = score_event(item.entity, user_context)
                         score = priority_score.total
-                    case EntityType.CHOICE:
+                    case KuType.CHOICE:
                         priority_score = score_choice(item.entity, user_context)
                         score = priority_score.total
-                    case EntityType.PRINCIPLE:
+                    case KuType.PRINCIPLE:
                         priority_score = score_principle(item.entity, user_context)
                         score = priority_score.total
             except Exception as e:
@@ -1283,41 +1278,41 @@ class SearchRouter:
 
 
 # =============================================================================
-# ENTITY TYPE EXTENSIONS - Add search routing to EntityType
+# DOMAIN TYPE EXTENSIONS - Add search routing to KuType/NonKuDomain
 # =============================================================================
 
 
-def get_search_service_attr(entity_type: EntityType) -> str | None:
+def get_search_service_attr(entity_type: KuType | NonKuDomain) -> str | None:
     """
-    Get the Services attribute name for a given EntityType's search service.
+    Get the Services attribute name for a given KuType/NonKuDomain's search service.
 
-    This function provides the mapping between EntityType and the
+    This function provides the mapping between KuType/NonKuDomain and the
     corresponding attribute name in the Services container.
 
     Args:
-        entity_type: EntityType to look up
+        entity_type: KuType or NonKuDomain to look up
 
     Returns:
-        Attribute name (e.g., "tasks" for EntityType.TASK) or None
+        Attribute name (e.g., "tasks" for KuType.TASK) or None
 
     Example:
-        attr = get_search_service_attr(EntityType.TASK)
+        attr = get_search_service_attr(KuType.TASK)
         service = getattr(services, attr)  # Gets TasksService
     """
-    return SearchRouter._SERVICE_REGISTRY.get(entity_type.get_canonical())
+    return SearchRouter._SERVICE_REGISTRY.get(entity_type)
 
 
-def is_searchable_domain(entity_type: EntityType) -> bool:
+def is_searchable_domain(entity_type: KuType | NonKuDomain) -> bool:
     """
-    Check if an EntityType represents a searchable domain.
+    Check if a KuType or NonKuDomain represents a searchable domain.
 
     Searchable domains implement the DomainSearchOperations[T] protocol
     and have dedicated search services.
 
     Args:
-        entity_type: EntityType to check
+        entity_type: KuType or NonKuDomain to check
 
     Returns:
         True if the domain supports search operations
     """
-    return entity_type.get_canonical() in SearchRouter._SEARCHABLE_DOMAINS
+    return entity_type in SearchRouter._SEARCHABLE_DOMAINS

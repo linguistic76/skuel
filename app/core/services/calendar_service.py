@@ -37,7 +37,8 @@ that calls CalendarService for display data.
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from core.models.enums import ActivityStatus, EntityType, Priority
+from core.models.enums import ActivityStatus, Priority
+from core.models.enums.ku_enums import KuType
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarItem,
@@ -219,9 +220,9 @@ class CalendarService:
         # Handle demo items specially - return them directly
         if item_uid.startswith("demo-"):
             demo_items = []
-            if EntityType.TASK.value in item_uid:
+            if KuType.TASK.value in item_uid:
                 demo_items = self._create_demo_tasks()
-            elif EntityType.EVENT.value in item_uid:
+            elif KuType.EVENT.value in item_uid:
                 demo_items = self._create_demo_events()
 
             # Find matching demo item
@@ -274,7 +275,7 @@ class CalendarService:
         duration = kwargs.get("duration", 60)  # Default 60 minutes
         end_time = start_time + timedelta(minutes=duration)
 
-        if item_type == EntityType.TASK.value and self.tasks_service:
+        if item_type == KuType.TASK.value and self.tasks_service:
             # Create task
             task_dto = TaskDTO(
                 uid="",  # Will be generated
@@ -292,7 +293,7 @@ class CalendarService:
             # Type boundary: Extract error from Result[Task] for Result[CalendarItem]
             return Result.fail(result.expect_error())
 
-        elif item_type == EntityType.EVENT.value and self.events_service:
+        elif item_type == KuType.EVENT.value and self.events_service:
             # Create event
             event_dto = EventDTO(
                 uid="",  # Will be generated
@@ -310,7 +311,7 @@ class CalendarService:
             # Type boundary: Extract error from Result[Ku] for Result[CalendarItem]
             return Result.fail(result.expect_error())
 
-        elif item_type == EntityType.HABIT.value and self.habits_service:
+        elif item_type == KuType.HABIT.value and self.habits_service:
             # Create habit
             habit_dto = HabitDTO(
                 uid="",  # Will be generated

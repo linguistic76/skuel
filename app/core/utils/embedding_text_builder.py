@@ -5,17 +5,17 @@ Single source of truth for extracting embeddable text from entities.
 
 Usage:
     # From dict (ingestion):
-    text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Fix login"})
+    text = build_embedding_text(KuType.TASK, {"title": "Fix bug", "description": "Fix login"})
 
     # From model (background worker):
-    text = build_embedding_text(EntityType.TASK, task_model)
+    text = build_embedding_text(KuType.TASK, task_model)
 
 See: /docs/patterns/EMBEDDING_ARCHITECTURE.md
 """
 
 from typing import Any, Protocol, overload
 
-from core.models.enums import EntityType
+from core.models.enums.ku_enums import KuType
 
 
 class HasAttributes(Protocol):
@@ -25,27 +25,27 @@ class HasAttributes(Protocol):
 
 
 # Single source of truth for embedding field mappings
-EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
-    EntityType.KU: ("title", "content", "summary"),
-    EntityType.TASK: ("title", "description"),
-    EntityType.GOAL: ("title", "description", "vision_statement"),
-    EntityType.HABIT: ("name", "title", "description", "cue", "reward"),
-    EntityType.EVENT: ("title", "description", "location"),
-    EntityType.CHOICE: ("title", "description", "decision_context", "outcome"),
-    EntityType.PRINCIPLE: ("title", "statement", "description"),
+EMBEDDING_FIELD_MAPS: dict[KuType, tuple[str, ...]] = {
+    KuType.CURRICULUM: ("title", "content", "summary"),
+    KuType.TASK: ("title", "description"),
+    KuType.GOAL: ("title", "description", "vision_statement"),
+    KuType.HABIT: ("name", "title", "description", "cue", "reward"),
+    KuType.EVENT: ("title", "description", "location"),
+    KuType.CHOICE: ("title", "description", "decision_context", "outcome"),
+    KuType.PRINCIPLE: ("title", "statement", "description"),
 }
 
 
 @overload
-def build_embedding_text(entity_type: EntityType, source: dict[str, Any]) -> str: ...
+def build_embedding_text(ku_type: KuType, source: dict[str, Any]) -> str: ...
 
 
 @overload
-def build_embedding_text(entity_type: EntityType, source: HasAttributes) -> str: ...
+def build_embedding_text(ku_type: KuType, source: HasAttributes) -> str: ...
 
 
 def build_embedding_text(
-    entity_type: EntityType,
+    ku_type: KuType,
     source: dict[str, Any] | HasAttributes,
 ) -> str:
     """
@@ -55,7 +55,7 @@ def build_embedding_text(
     Returns empty string if no embeddable content found.
 
     Args:
-        entity_type: Type of entity (determines field mapping)
+        ku_type: Type of entity (determines field mapping)
         source: Either dict (from ingestion) or domain model (from worker)
 
     Returns:
@@ -64,34 +64,34 @@ def build_embedding_text(
     Examples:
         >>> # From dict (ingestion)
         >>> data = {"title": "Learn Python", "description": "Master the basics"}
-        >>> build_embedding_text(EntityType.TASK, data)
-        'Learn Python\nMaster the basics'
+        >>> build_embedding_text(KuType.TASK, data)
+        'Learn Python\\nMaster the basics'
 
         >>> # From model (background worker)
         >>> task = Task(title="Learn Python", description="Master the basics")
-        >>> build_embedding_text(EntityType.TASK, task)
-        'Learn Python\nMaster the basics'
+        >>> build_embedding_text(KuType.TASK, task)
+        'Learn Python\\nMaster the basics'
 
-        >>> # KU uses double newlines
+        >>> # CURRICULUM uses double newlines
         >>> ku_data = {
         ...     "title": "Python",
         ...     "content": "A programming language",
         ...     "summary": "High-level",
         ... }
-        >>> build_embedding_text(EntityType.KU, ku_data)
-        'Python\n\nA programming language\n\nHigh-level'
+        >>> build_embedding_text(KuType.CURRICULUM, ku_data)
+        'Python\\n\\nA programming language\\n\\nHigh-level'
 
         >>> # Missing fields handled gracefully
         >>> data = {"title": "Task without description"}
-        >>> build_embedding_text(EntityType.TASK, data)
+        >>> build_embedding_text(KuType.TASK, data)
         'Task without description'
 
         >>> # Empty dict returns empty string
-        >>> build_embedding_text(EntityType.TASK, {})
+        >>> build_embedding_text(KuType.TASK, {})
         ''
     """
-    # Get field mapping for this entity type
-    fields = EMBEDDING_FIELD_MAPS.get(entity_type)
+    # Get field mapping for this ku type
+    fields = EMBEDDING_FIELD_MAPS.get(ku_type)
     if not fields:
         return ""
 
@@ -105,9 +105,9 @@ def build_embedding_text(
     if not parts:
         return ""
 
-    # KU uses double newlines for better semantic separation
+    # CURRICULUM uses double newlines for better semantic separation
     # (title, content blocks, summary are distinct concepts)
-    separator = "\n\n" if entity_type == EntityType.KU else "\n"
+    separator = "\n\n" if ku_type == KuType.CURRICULUM else "\n"
     return separator.join(parts)
 
 

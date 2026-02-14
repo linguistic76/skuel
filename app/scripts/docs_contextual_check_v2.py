@@ -359,7 +359,7 @@ def detect_advanced_patterns(changed_files: list[str]) -> list[DocSuggestion]:
             ),
         ],
         "shared_enums.py": [
-            ("CLAUDE.md", "Update domain count or EntityType list if enums changed"),
+            ("CLAUDE.md", "Update domain count or KuType/NonKuDomain list if enums changed"),
             (
                 "docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md",
                 "Verify domain list matches enum definitions",

@@ -9,7 +9,7 @@ relationship types than the runtime services.
 Cross-reference: core/services/ingestion/config.py, ADR-026
 """
 
-from core.models.enums import EntityType
+from core.models.enums.ku_enums import KuType
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import generate_ingestion_relationship_config
 from core.services.ingestion.config import ENTITY_CONFIGS
@@ -20,7 +20,7 @@ class TestIngestionRelationshipConfig:
 
     def test_goal_uses_guided_by_principle(self):
         """Goals use GUIDED_BY_PRINCIPLE for Goal->Principle edges (from registry)."""
-        config = ENTITY_CONFIGS[EntityType.GOAL].relationship_config
+        config = ENTITY_CONFIGS[KuType.GOAL].relationship_config
         assert config is not None
         assert (
             config["connections.aligned_with_principle"]["rel_type"]
@@ -33,7 +33,7 @@ class TestIngestionRelationshipConfig:
         Previously used ALIGNED_WITH_PRINCIPLE — this was a bug where ingested
         edges were invisible to the runtime relationship service.
         """
-        config = ENTITY_CONFIGS[EntityType.CHOICE].relationship_config
+        config = ENTITY_CONFIGS[KuType.CHOICE].relationship_config
         assert config is not None
         assert (
             config["connections.guided_by_principle"]["rel_type"]
@@ -46,7 +46,7 @@ class TestIngestionRelationshipConfig:
         Previously used PREREQUISITE — accidental divergence from the registry.
         Now unified: all services query REQUIRES_KNOWLEDGE for KU prerequisites.
         """
-        config = ENTITY_CONFIGS[EntityType.KU].relationship_config
+        config = ENTITY_CONFIGS[KuType.CURRICULUM].relationship_config
         assert config is not None
         assert (
             config["connections.requires"]["rel_type"] == RelationshipName.REQUIRES_KNOWLEDGE.value
@@ -58,7 +58,7 @@ class TestIngestionRelationshipConfig:
 
         Previously used ENABLES — accidental divergence from the registry.
         """
-        config = ENTITY_CONFIGS[EntityType.KU].relationship_config
+        config = ENTITY_CONFIGS[KuType.CURRICULUM].relationship_config
         assert config is not None
         assert config["connections.enables"]["rel_type"] == RelationshipName.ENABLES_KNOWLEDGE.value
 
@@ -86,7 +86,7 @@ class TestIngestionRelationshipConfig:
 
     def test_moc_gets_organizes_not_ku_relationships(self):
         """MOC only gets ORGANIZES, not KU's requires/enables/related."""
-        config = ENTITY_CONFIGS[EntityType.MOC].relationship_config
+        config = ENTITY_CONFIGS[KuType.MOC].relationship_config
         assert config is not None
         assert len(config) == 1
         assert "organizes" in config

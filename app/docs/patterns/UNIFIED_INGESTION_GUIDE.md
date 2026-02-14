@@ -317,7 +317,7 @@ from core.services.ingestion import validate_relationship_targets
 
 result = await validate_relationship_targets(
     entities=[{"uid": "ku.test", "connections.requires": ["ku.prereq"]}],
-    relationship_config=ENTITY_CONFIGS[EntityType.KU].relationship_config,
+    relationship_config=ENTITY_CONFIGS[KuType.CURRICULUM].relationship_config,
     driver=driver,
 )
 

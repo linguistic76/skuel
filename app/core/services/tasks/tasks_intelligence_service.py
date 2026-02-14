@@ -33,7 +33,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth, QueryLimit
-from core.models.enums import ActivityStatus, CompletionStatus, Domain, EntityType
+from core.models.enums import ActivityStatus, CompletionStatus, Domain
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.graph_context import GraphContext
 from core.models.ku.ku import Ku
@@ -454,7 +454,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
                     knowledge_nodes = [
                         node
                         for node in context.nodes
-                        if node.labels and EntityType.KU.value.title() in node.labels
+                        if node.labels and "Ku" in node.labels
                     ]
 
                     if knowledge_nodes:
@@ -683,7 +683,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
 
             # Task dependencies (bidirectional DEPENDS_ON)
             # Use directional markers (->DEPENDS_ON / <-DEPENDS_ON) to distinguish
-            if EntityType.TASK.value.title() in labels:
+            if "Ku" in labels and ("->DEPENDS_ON" in via_rels or "DEPENDS_ON" in via_rels or "<-DEPENDS_ON" in via_rels):
                 task_entity = PathAwareTask(
                     uid=entity["uid"],
                     title=entity["title"],
@@ -701,7 +701,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
                     dependents.append(task_entity)
 
             # Knowledge requirements (REQUIRES_KNOWLEDGE, APPLIES_KNOWLEDGE)
-            elif EntityType.KU.value.title() in labels or "Ku" in labels:
+            elif "Ku" in labels and (RelationshipName.REQUIRES_KNOWLEDGE.value in via_rels or RelationshipName.APPLIES_KNOWLEDGE.value in via_rels):
                 knowledge_entity = PathAwareKnowledge(
                     uid=entity["uid"],
                     title=entity["title"],
@@ -715,7 +715,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
                     applied_knowledge.append(knowledge_entity)
 
             # Goals this task contributes to/fulfills
-            elif EntityType.GOAL.value.title() in labels and (
+            elif "Ku" in labels and (
                 RelationshipName.CONTRIBUTES_TO_GOAL.value in via_rels
                 or RelationshipName.FULFILLS_GOAL.value in via_rels
             ):

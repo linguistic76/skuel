@@ -57,7 +57,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL011** | `hasattr()` usage | Use Protocol/isinstance |
 | **SKUEL012** | Lambda expressions | Use named functions |
 | **SKUEL013** | RelationshipName strings | Use `RelationshipName` enum |
-| **SKUEL014** | EntityType strings | Use `EntityType` enum |
+| **SKUEL014** | KuType/NonKuDomain strings | Use `KuType` or `NonKuDomain` enum |
 | **SKUEL015** | Print in production code | Use `logger.*()` instead |
 
 ## Rule: SKUEL003 - Deprecated .is_err
@@ -200,9 +200,9 @@ await backend.add_relationship(uid1, RelationshipName.SERVES_GOAL, uid2)
 
 **Note:** Cypher query strings still use literal relationship names (unavoidable).
 
-## Rule: SKUEL014 - EntityType Enum
+## Rule: SKUEL014 - KuType / NonKuDomain Enum
 
-**Pattern:** Use `EntityType` enum instead of magic strings for entity type identification.
+**Pattern:** Use `KuType` or `NonKuDomain` enum instead of magic strings for entity type identification.
 
 ```python
 # ❌ VIOLATION - Magic string comparison
@@ -212,17 +212,22 @@ if "task" in contexts:
     ...
 
 # ✅ CORRECT - Use enum
-from core.models.enums import EntityType
-if entity.entity_type == EntityType.TASK:
+from core.models.enums.ku_enums import KuType
+if entity.ku_type == KuType.TASK:
     ...
-if EntityType.TASK in activity.contexts:
+if KuType.TASK in activity.contexts:
+    ...
+
+# ✅ CORRECT - Non-Ku domains
+from core.models.enums import NonKuDomain
+if domain == NonKuDomain.FINANCE:
     ...
 ```
 
 **Rationale:**
 - Type safety with compile-time verification
 - Better IDE support and autocomplete
-- Consistent with DSL EntityType usage
+- Consistent with unified Ku model (`DomainIdentifier = KuType | NonKuDomain`)
 
 ## Rule: SKUEL015 - Print Statements in Production Code
 

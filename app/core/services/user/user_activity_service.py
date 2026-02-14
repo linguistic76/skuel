@@ -23,7 +23,6 @@ This service is part of the refactored UserService architecture:
 from typing import Any
 
 from core.events import publish_event
-from core.models.enums import EntityType
 from core.models.user import User
 from core.services.protocols.infrastructure_protocols import UserOperations
 from core.services.user.debounced_invalidator import DebouncedContextInvalidator
@@ -42,11 +41,11 @@ logger = get_logger(__name__)
 # Pure mapping: (activity_type, action) -> User model field
 # Makes valid combinations explicit and self-documenting
 ACTIVITY_FIELD_MAP: dict[tuple[str, str], str] = {
-    (EntityType.KNOWLEDGE.value, "viewed"): "recently_viewed_knowledge",
-    (EntityType.KNOWLEDGE.value, "bookmarked"): "bookmarked_knowledge",
-    (EntityType.TASK.value, "started"): "current_tasks",
-    (EntityType.TASK.value, "completed"): "recently_completed_tasks",
-    (EntityType.HABIT.value, "practiced"): "recently_practiced_habits",
+    ("knowledge", "viewed"): "recently_viewed_knowledge",
+    ("knowledge", "bookmarked"): "bookmarked_knowledge",
+    ("task", "started"): "current_tasks",
+    ("task", "completed"): "recently_completed_tasks",
+    ("habit", "practiced"): "recently_practiced_habits",
 }
 
 

@@ -425,18 +425,15 @@ class ScheduleIntelligenceMixin:
         - priority: Priority score (0.0-1.0)
         - overall: Weighted combination (0.0-1.0)
         """
-        # Import EntityType for comparison
-        from core.models.enums import EntityType
-
         # Schedule fit based on time slot appropriateness
         schedule_fit = 0.7  # Default
-        if entity_type == EntityType.TASK.value and time_slot in ["morning", "afternoon"]:
+        if entity_type == "task" and time_slot in ["morning", "afternoon"]:
             schedule_fit = 0.9
-        elif entity_type == EntityType.HABIT.value:
+        elif entity_type == "habit":
             schedule_fit = 0.85  # Habits are flexible
-        elif entity_type == EntityType.KNOWLEDGE.value and time_slot == "morning":
+        elif entity_type in ("knowledge", "curriculum") and time_slot == "morning":
             schedule_fit = 0.95  # Learning best in morning
-        elif entity_type == EntityType.GOAL.value:
+        elif entity_type == "goal":
             schedule_fit = 0.75  # Goals need focused time
 
         # Energy match

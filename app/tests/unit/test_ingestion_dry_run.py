@@ -158,11 +158,11 @@ async def test_dry_run_includes_relationships(
     test_file.write_text("# Test")
     mock_collect.return_value = [test_file]
 
-    from core.models.enums import EntityType
+    from core.models.enums.ku_enums import KuType
 
     # Mock entity with relationships
     mock_parse.return_value = (
-        EntityType.KU,
+        KuType.CURRICULUM,
         {
             "uid": "ku_new-content_789",
             "title": "Test KU",

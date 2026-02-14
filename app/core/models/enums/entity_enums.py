@@ -5,7 +5,10 @@ Entity Enums - Entity Type Identification and Domain Categorization
 Core enums for entity type discrimination and domain classification.
 """
 
+from __future__ import annotations
+
 from enum import Enum
+from typing import Union
 
 
 class Domain(str, Enum):
@@ -76,98 +79,35 @@ class Domain(str, Enum):
         ]
 
 
-class EntityType(str, Enum):
+class NonKuDomain(str, Enum):
     """
-    Entity types that can be created via DSL @context() tag.
+    Non-knowledge-unit domains outside the unified Ku model.
 
-    This enum provides type-safe context parsing for SKUEL's Activity DSL.
-    When users write `@context(task)` or `@context(habit,learning)`, the parser
-    converts these strings to EntityType values, enabling compile-time verification.
-
-    Maps directly to SKUEL's 13-domain + 5-system architecture:
-
-    Activity Domains (7) - What I DO:
-        TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE, FINANCE
-
-    Curriculum Domains (3) - What I LEARN:
-        KU (Knowledge Unit), LS (Learning Step), LP (Learning Path)
-
-    Content/Organization Domains (2) - How I ORGANIZE:
-        REPORT (includes journals), MOC (Map of Content)
-
-    LifePath (1) - The Destination:
-        LIFEPATH
-
-    Cross-Cutting Systems (not domains, but may appear in search):
-        CALENDAR
+    These 4 domains exist in SKUEL but are NOT represented as :Ku nodes:
+    - FINANCE: Admin-only bookkeeping (:Expense nodes)
+    - GROUP: Teacher-student class management (:Group nodes, ADR-040)
+    - CALENDAR: Aggregation meta-service (no dedicated nodes)
+    - LEARNING: DSL context modifier (not a domain entity)
     """
 
-    # Activity Domains (7) - What I DO
-    TASK = "task"
-    HABIT = "habit"
-    GOAL = "goal"
-    EVENT = "event"
-    PRINCIPLE = "principle"
-    CHOICE = "choice"
     FINANCE = "finance"
-
-    # Curriculum Domains (3) - What I LEARN
-    KU = "ku"
-    KNOWLEDGE = "knowledge"  # Alias for KU
-    LS = "ls"
-    LEARNINGSTEP = "learningstep"  # Alias for LS
-    LP = "lp"
-    LEARNINGPATH = "learningpath"  # Alias for LP
-    LEARNING = "learning"  # General learning context
-
-    # Content/Organization Domains (2) - How I ORGANIZE
-    REPORT = "report"
-    JOURNAL = "journal"  # Alias for REPORT (migration aid — journal is a ReportType)
-    MOC = "moc"  # Map of Content - non-linear knowledge navigation
-
-    # Organizational (1) - How I ORGANIZE people
-    GROUP = "group"  # Teacher-student class management (ADR-040)
-
-    # The Destination (1) - Where I'm GOING
-    LIFEPATH = "lifepath"
-    LIFE_PATH = "life_path"  # Alias for LIFEPATH
-
-    # Cross-Cutting Systems (not domains, but may appear in search)
+    GROUP = "group"
     CALENDAR = "calendar"
-
-    def is_lifepath(self) -> bool:
-        """Check if this is the LifePath destination entity type."""
-        return self in {EntityType.LIFEPATH, EntityType.LIFE_PATH}
-
-    def get_canonical(self) -> "EntityType":
-        """
-        Get the canonical (non-alias) form of this entity type.
-
-        Aliases are normalized to their canonical form:
-            KNOWLEDGE -> KU, LEARNINGSTEP -> LS, LEARNINGPATH -> LP,
-            LIFE_PATH -> LIFEPATH, JOURNAL -> REPORT
-        """
-        alias_map = {
-            EntityType.KNOWLEDGE: EntityType.KU,
-            EntityType.LEARNINGSTEP: EntityType.LS,
-            EntityType.LEARNINGPATH: EntityType.LP,
-            EntityType.LIFE_PATH: EntityType.LIFEPATH,
-            EntityType.JOURNAL: EntityType.REPORT,
-        }
-        return alias_map.get(self, self)
+    LEARNING = "learning"  # DSL context modifier
 
     @classmethod
-    def from_string(cls, value: str) -> "EntityType | None":
-        """
-        Parse a string to EntityType, handling case-insensitivity.
-
-        This is the primary entry point for DSL parsing.
-        """
-        value = value.lower().strip()
+    def from_string(cls, value: str) -> NonKuDomain | None:
+        """Parse a string to NonKuDomain, case-insensitive."""
+        normalized = value.strip().lower()
         try:
-            return cls(value)
+            return cls(normalized)
         except ValueError:
             return None
+
+
+# Union type for any domain identifier in SKUEL.
+# KuType covers all 14 Ku manifestations; NonKuDomain covers the 4 non-Ku domains.
+DomainIdentifier = Union["KuType", NonKuDomain]
 
 
 class AnalyticsDomain(str, Enum):

@@ -8,7 +8,7 @@ Provides type-safe search infrastructure for SKUEL's domains:
 1. SearchRequest - THE canonical search request model (Pydantic)
 2. Query Parser - Natural language to semantic filters
 3. Scoring Framework - Unified priority scoring with component breakdown
-4. Search Router - EntityType-driven cross-domain search routing
+4. Search Router - KuType-driven cross-domain search routing
 5. Base Filters - For domain-specific local filter classes
 
 One Path Forward (January 2026):
@@ -37,14 +37,14 @@ Usage:
     score = score_task(task, user_context)
     print(score.explain())  # Component breakdown
 
-    # EntityType-driven routing
+    # KuType-driven routing
     router = SearchRouter(services)
     result = await router.intelligent_search("urgent health tasks")
 
     # Advanced unified search (using SearchRequest, THE canonical model)
     request = SearchRequest(
         query_text="machine learning",
-        entity_types=[EntityType.KU, EntityType.TASK],
+        entity_types=[KuType.CURRICULUM, KuType.TASK],
         connected_to_uid="ku.python-basics",
         connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
         tags_contain=["python"],
@@ -55,7 +55,7 @@ See Also:
     - core/models/search_request.py - SearchRequest (THE canonical model)
     - DomainSearchOperations protocol for search interface
     - RelationshipName enum for relationship-based filtering
-    - EntityType enum for domain classification
+    - KuType/NonKuDomain enums for domain classification
 
 Version: 3.0.0
 Date: 2026-01-04
@@ -63,7 +63,7 @@ Changes:
 - v3.0.0: Merged UnifiedSearchRequest INTO SearchRequest (One Path Forward)
 - v2.0.0: Removed unused Activity Domain filter classes per One Path Forward
 - v1.3.0: Added UnifiedSearchRequest and advanced_search
-- v1.2.0: Added SearchRouter for EntityType-driven cross-domain search
+- v1.2.0: Added SearchRouter for KuType-driven cross-domain search
 - v1.1.0: Added unified scoring framework
 - v1.0.0: Initial filter types and query parsing
 """

@@ -40,7 +40,7 @@ from typing import Any
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
-from core.models.enums.entity_enums import EntityType
+from core.models.enums.ku_enums import KuType
 # Curriculum domain imports - Phase 3 (February 2026): LS/LP unified into Ku
 # NOTE (February 2026): Habit imports removed — Habit merged into Ku
 from core.models.ku.ku import Ku
@@ -247,10 +247,10 @@ class UnifiedRelationshipDefinition:
     # YAML field path for ingestion (e.g., "connections.requires").
     # When set, this relationship is created during YAML/Markdown import.
     yaml_field_path: str | None = None
-    # Scopes yaml_field_path to a specific EntityType.
-    # Needed when multiple EntityTypes share a Neo4j label (KU and MOC both use "Ku").
-    # None means: applies to the default EntityType for this label.
-    ingestion_entity_type: EntityType | None = None
+    # Scopes yaml_field_path to a specific KuType.
+    # Needed when multiple KuTypes share a Neo4j label (CURRICULUM and MOC both use "Ku").
+    # None means: applies to the default KuType for this label.
+    ingestion_ku_type: KuType | None = None
 
     def to_graph_enrichment_tuple(self) -> tuple[str, str, str, str]:
         """Generate graph enrichment pattern tuple for BaseService._graph_enrichment_patterns."""
@@ -1695,7 +1695,7 @@ KU_CONFIG = DomainRelationshipConfig(
             order_direction="ASC",
             include_edge_properties=("order",),
             yaml_field_path="organizes",
-            ingestion_entity_type=EntityType.MOC,
+            ingestion_ku_type=KuType.MOC,
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ORGANIZES,
@@ -2170,43 +2170,44 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # =============================================================================
 
 # Static mappings to avoid circular imports with ingestion config.py
-_ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
-    EntityType.KU: "Ku",
-    EntityType.MOC: "Ku",
-    EntityType.TASK: "Task",
-    EntityType.GOAL: "Goal",
-    EntityType.HABIT: "Habit",  # Virtual key — nodes are :Ku{ku_type='habit'}
-    EntityType.EVENT: "Event",
-    EntityType.CHOICE: "Ku",
-    EntityType.PRINCIPLE: "Principle",
-    EntityType.LP: "Lp",
-    EntityType.LS: "Ls",
+# All domain entities are :Ku nodes; virtual config keys kept for lookup
+_KU_TYPE_TO_LABEL: dict[KuType, str] = {
+    KuType.CURRICULUM: "Ku",
+    KuType.MOC: "Ku",
+    KuType.TASK: "Task",
+    KuType.GOAL: "Goal",
+    KuType.HABIT: "Habit",  # Virtual key — nodes are :Ku{ku_type='habit'}
+    KuType.EVENT: "Event",
+    KuType.CHOICE: "Choice",  # Virtual key — nodes are :Ku{ku_type='choice'}
+    KuType.PRINCIPLE: "Principle",
+    KuType.LEARNING_PATH: "Lp",
+    KuType.LEARNING_STEP: "Ls",
 }
 
-_LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
-    "Ku": EntityType.KU,
-    "Task": EntityType.TASK,
-    "Goal": EntityType.GOAL,
-    "Habit": EntityType.HABIT,
-    "Event": EntityType.EVENT,
-    "Choice": EntityType.CHOICE,  # Virtual key — nodes are :Ku{ku_type='choice'}
-    "Principle": EntityType.PRINCIPLE,
-    "Lp": EntityType.LP,
-    "Ls": EntityType.LS,
+_LABEL_TO_DEFAULT_KU_TYPE: dict[str, KuType] = {
+    "Ku": KuType.CURRICULUM,
+    "Task": KuType.TASK,
+    "Goal": KuType.GOAL,
+    "Habit": KuType.HABIT,
+    "Event": KuType.EVENT,
+    "Choice": KuType.CHOICE,  # Virtual key — nodes are :Ku{ku_type='choice'}
+    "Principle": KuType.PRINCIPLE,
+    "Lp": KuType.LEARNING_PATH,
+    "Ls": KuType.LEARNING_STEP,
 }
 
 
 def generate_ingestion_relationship_config(
-    entity_type: EntityType,
+    ku_type: KuType,
 ) -> dict[str, Any] | None:
     """
     Generate ingestion relationship config from the registry (single source of truth).
 
     Extracts UnifiedRelationshipDefinitions that have yaml_field_path set,
-    filtered by entity_type for disambiguation (KU vs MOC both use "Ku" label).
+    filtered by ku_type for disambiguation (CURRICULUM vs MOC both use "Ku" label).
 
     Args:
-        entity_type: The EntityType to generate config for
+        ku_type: The KuType to generate config for
 
     Returns:
         Dict mapping yaml_field_path -> RelationshipConfig, or None if no relationships.
@@ -2216,7 +2217,7 @@ def generate_ingestion_relationship_config(
     """
     from core.ingestion.bulk_ingestion import RelationshipConfig
 
-    entity_label = _ENTITY_TYPE_TO_LABEL.get(entity_type)
+    entity_label = _KU_TYPE_TO_LABEL.get(ku_type)
     if not entity_label:
         return None
 
@@ -2224,20 +2225,20 @@ def generate_ingestion_relationship_config(
     if not config:
         return None
 
-    default_type = _LABEL_TO_DEFAULT_ENTITY_TYPE.get(entity_label)
+    default_type = _LABEL_TO_DEFAULT_KU_TYPE.get(entity_label)
     result: dict[str, Any] = {}
 
     for rel in config.relationships:
         if rel.yaml_field_path is None:
             continue
 
-        # Filter by ingestion_entity_type:
-        # - If set, only include for that specific EntityType
-        # - If None, only include for the default EntityType for the label
-        if rel.ingestion_entity_type is not None:
-            if rel.ingestion_entity_type != entity_type:
+        # Filter by ingestion_ku_type:
+        # - If set, only include for that specific KuType
+        # - If None, only include for the default KuType for the label
+        if rel.ingestion_ku_type is not None:
+            if rel.ingestion_ku_type != ku_type:
                 continue
-        elif entity_type != default_type:
+        elif ku_type != default_type:
             continue
 
         result[rel.yaml_field_path] = RelationshipConfig(

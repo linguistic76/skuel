@@ -16,7 +16,8 @@ from typing import Any
 
 from neo4j import AsyncDriver
 
-from core.models.enums import EntityType
+from core.models.enums.entity_enums import NonKuDomain
+from core.models.enums.ku_enums import KuType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -35,7 +36,7 @@ def _by_count_desc(item: tuple[str, int]) -> int:
 
 
 def validate_required_fields(
-    entity_type: EntityType,
+    entity_type: KuType | NonKuDomain,
     data: dict[str, Any],
     file_path: Path,
 ) -> Result[None]:
@@ -46,7 +47,7 @@ def validate_required_fields(
     Called BEFORE prepare_entity_data.
 
     Args:
-        entity_type: EntityType enum value
+        entity_type: KuType | NonKuDomain enum value
         data: Entity data dictionary to validate
         file_path: Source file path (for error context)
 
@@ -98,7 +99,7 @@ def validate_required_fields(
 
 
 def validate_entity_data(
-    entity_type: EntityType,
+    entity_type: KuType | NonKuDomain,
     entity_data: dict[str, Any],
     file_path: Path,
 ) -> Result[None]:
@@ -108,7 +109,7 @@ def validate_entity_data(
     Called AFTER prepare_entity_data to ensure auto-generated fields are present.
 
     Args:
-        entity_type: EntityType enum value
+        entity_type: KuType | NonKuDomain enum value
         entity_data: Prepared entity data (after defaults applied)
         file_path: Source file path (for error context)
 
@@ -444,7 +445,7 @@ async def validate_relationship_targets(
     Example:
         result = await validate_relationship_targets(
             entities=[{"uid": "ku.test", "connections.requires": ["ku.prereq"]}],
-            relationship_config=ENTITY_CONFIGS[EntityType.KU].relationship_config,
+            relationship_config=ENTITY_CONFIGS[KuType.CURRICULUM].relationship_config,
             driver=driver,
         )
         if not result.value.valid:

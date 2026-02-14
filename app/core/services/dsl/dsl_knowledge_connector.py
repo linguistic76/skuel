@@ -2,7 +2,7 @@
 DSL Knowledge Graph Connector
 =============================
 
-Connects DSL-parsed activities (with type-safe EntityType contexts) to the semantic knowledge graph.
+Connects DSL-parsed activities (with type-safe KuType/NonKuDomain contexts) to the semantic knowledge graph.
 
 This is the bridge that makes journals truly semantic:
 - @ku() tags create APPLIES_KNOWLEDGE edges
@@ -15,16 +15,16 @@ building a rich semantic network that captures how knowledge flows into action.
 
 **Type Safety:**
 
-ParsedActivityLine now uses `list[EntityType]` for contexts. This module uses
-EntityType enum comparisons for determining relationship types, providing
+ParsedActivityLine now uses `list[KuType | NonKuDomain]` for contexts. This module uses
+KuType/NonKuDomain enum comparisons for determining relationship types, providing
 compile-time verification of entity type handling.
 
 Philosophy:
     "Applied knowledge, not pure theory" - SKUEL measures knowledge by how it's LIVED.
     This connector is the mechanism that tracks when knowledge moves from theory to practice.
 
-Version: 0.2.0 (Type-safe EntityType contexts)
-Date: 2025-11-28
+Version: 0.3.0 (KuType/NonKuDomain contexts)
+Date: 2026-02-14
 """
 
 from dataclasses import dataclass, field
@@ -34,7 +34,8 @@ from typing import Any, Protocol, runtime_checkable
 from core.infrastructure.relationships.semantic_relationships import (
     SemanticRelationshipType,
 )
-from core.models.enums import EntityType
+from core.models.enums.entity_enums import NonKuDomain
+from core.models.enums.ku_enums import KuType
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine, ParsedJournal
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -392,27 +393,27 @@ class DSLKnowledgeConnector:
         """
         Determine the most appropriate semantic relationship type.
 
-        Based on the activity context (using type-safe EntityType), we choose
+        Based on the activity context (using type-safe KuType/NonKuDomain), we choose
         different relationship types:
-        - task → APPLIES_KNOWLEDGE_TO (applying knowledge in action)
-        - learning → INFORMED_BY_KNOWLEDGE (learning informed by KU)
-        - habit → REINFORCES_KNOWLEDGE (habit reinforces understanding)
-        - event → PRACTICES_VIA_EVENT (practicing at an event)
+        - task -> APPLIES_KNOWLEDGE_TO (applying knowledge in action)
+        - learning -> INFORMED_BY_KNOWLEDGE (learning informed by KU)
+        - habit -> REINFORCES_KNOWLEDGE (habit reinforces understanding)
+        - event -> PRACTICES_VIA_EVENT (practicing at an event)
 
         Type Safety:
-            Uses EntityType enum comparisons instead of string matching,
+            Uses KuType/NonKuDomain enum comparisons instead of string matching,
             providing compile-time verification of entity type handling.
         """
-        # Type-safe EntityType set for O(1) lookup
-        contexts = set(activity.contexts)
+        # Type-safe KuType/NonKuDomain set for O(1) lookup
+        contexts: set[KuType | NonKuDomain] = set(activity.contexts)
 
-        if EntityType.LEARNING in contexts:
+        if NonKuDomain.LEARNING in contexts:
             return SemanticRelationshipType.INFORMED_BY_KNOWLEDGE
 
-        if EntityType.HABIT in contexts:
+        if KuType.HABIT in contexts:
             return SemanticRelationshipType.REINFORCES_KNOWLEDGE
 
-        if EntityType.EVENT in contexts:
+        if KuType.EVENT in contexts:
             return SemanticRelationshipType.PRACTICES_VIA_EVENT
 
         # Default for tasks

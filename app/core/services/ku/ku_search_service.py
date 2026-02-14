@@ -117,23 +117,16 @@ class KuSearchService(BaseService[KuOperations, Ku]):
     #   }
     # }
     _graph_enrichment_patterns: ClassVar[list[tuple[str, str, str]]] = [
-        # Curriculum relationships (where KU is taught)
-        ("taught_in_steps", RelationshipName.CONTAINS_KNOWLEDGE.value, NeoLabel.LS.value),
-        # Note: Learning Paths require 2-hop query (Lp→Ls→Ku), handled separately
-        # Prerequisite/enables relationships (KU↔KU navigation)
+        # All entities are :Ku nodes (unified Ku model) — target label is always "Ku"
+        ("taught_in_steps", RelationshipName.CONTAINS_KNOWLEDGE.value, NeoLabel.KU.value),
         ("prerequisites", RelationshipName.REQUIRES_KNOWLEDGE.value, NeoLabel.KU.value),
         ("enables", RelationshipName.ENABLES_KNOWLEDGE.value, NeoLabel.KU.value),
-        # Activity Domain applications (where KU is used)
-        ("applied_in_tasks", RelationshipName.APPLIES_KNOWLEDGE.value, NeoLabel.TASK.value),
-        ("required_by_goals", RelationshipName.REQUIRES_KNOWLEDGE.value, NeoLabel.GOAL.value),
-        ("practiced_in_events", RelationshipName.APPLIES_KNOWLEDGE.value, NeoLabel.EVENT.value),
-        ("reinforced_by_habits", RelationshipName.REINFORCES_KNOWLEDGE.value, NeoLabel.HABIT.value),
-        ("informs_choices", RelationshipName.INFORMED_BY_KNOWLEDGE.value, NeoLabel.CHOICE.value),
-        (
-            "grounds_principles",
-            RelationshipName.GROUNDED_IN_KNOWLEDGE.value,
-            NeoLabel.PRINCIPLE.value,
-        ),
+        ("applied_in_tasks", RelationshipName.APPLIES_KNOWLEDGE.value, NeoLabel.KU.value),
+        ("required_by_goals", RelationshipName.REQUIRES_KNOWLEDGE.value, NeoLabel.KU.value),
+        ("practiced_in_events", RelationshipName.APPLIES_KNOWLEDGE.value, NeoLabel.KU.value),
+        ("reinforced_by_habits", RelationshipName.REINFORCES_KNOWLEDGE.value, NeoLabel.KU.value),
+        ("informs_choices", RelationshipName.INFORMED_BY_KNOWLEDGE.value, NeoLabel.KU.value),
+        ("grounds_principles", RelationshipName.GROUNDED_IN_KNOWLEDGE.value, NeoLabel.KU.value),
     ]
 
     def __init__(

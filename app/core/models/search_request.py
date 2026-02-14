@@ -36,7 +36,7 @@ Usage Example:
     # Cross-domain search with entity types (unified search)
     request = SearchRequest(
         query_text="machine learning",
-        entity_types=[EntityType.KU, EntityType.TASK],
+        entity_types=[KuType.CURRICULUM, KuType.TASK],
         tags_contain=["python", "ml"],
         tags_match_all=False,
     )
@@ -66,11 +66,12 @@ from core.models.enums import (
     ContentType,
     Domain,
     EducationalLevel,
-    EntityType,
     LearningLevel,
     Priority,
     SELCategory,
 )
+from core.models.enums.entity_enums import NonKuDomain
+from core.models.enums.ku_enums import KuType
 
 # ============================================================================
 # FACET MODELS
@@ -299,10 +300,10 @@ class SearchRequest(BaseModel):
     )
 
     # ========================================================================
-    # CROSS-DOMAIN SEARCH (EntityType dispatch)
+    # CROSS-DOMAIN SEARCH (KuType dispatch)
     # ========================================================================
 
-    entity_types: list[EntityType] = Field(
+    entity_types: list[KuType | NonKuDomain] = Field(
         default_factory=list,
         description="Target entity types for cross-domain search (empty = use domain field)",
     )

@@ -33,11 +33,12 @@ from core.models.enums import (
     ActivityStatus,
     ContentType,
     EducationalLevel,
-    EntityType,
     LearningLevel,
     Priority,
     SELCategory,
 )
+from core.models.enums.entity_enums import NonKuDomain
+from core.models.enums.ku_enums import KuType
 from core.models.relationship_names import RelationshipName
 from core.models.search import SearchRouter
 from core.models.search_request import SearchRequest
@@ -181,10 +182,10 @@ def create_search_routes(
         enable_learning_aware_bool = _checkbox_to_bool(enable_learning_aware)
         prefer_unmastered_bool = _checkbox_to_bool(prefer_unmastered)
 
-        # Parse entity type to EntityType enum
-        parsed_entity_types: list[EntityType] = []
+        # Parse entity type to KuType/NonKuDomain enum
+        parsed_entity_types: list[KuType | NonKuDomain] = []
         if entity_type:
-            et = EntityType.from_string(entity_type)
+            et = KuType.from_string(entity_type) or NonKuDomain.from_string(entity_type)
             if et:
                 parsed_entity_types = [et]
 
@@ -318,14 +319,15 @@ def create_search_routes(
             return {"error": "Query is required", "total_count": 0, "results_by_domain": {}}
 
         # Parse entity types
-        parsed_entity_types: list[EntityType] = []
+        parsed_entity_types: list[KuType | NonKuDomain] = []
         if entity_types.strip():
-            for et in entity_types.split(","):
-                et = et.strip().upper()
-                try:
-                    parsed_entity_types.append(EntityType(et.lower()))
-                except ValueError:
-                    logger.warning(f"Unknown entity type: {et}")
+            for et_str in entity_types.split(","):
+                et_str = et_str.strip()
+                parsed = KuType.from_string(et_str) or NonKuDomain.from_string(et_str)
+                if parsed:
+                    parsed_entity_types.append(parsed)
+                else:
+                    logger.warning(f"Unknown entity type: {et_str}")
 
         # Parse relationship
         parsed_relationship = None

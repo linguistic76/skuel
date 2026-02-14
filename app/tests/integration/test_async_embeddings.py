@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.events import TaskEmbeddingRequested
-from core.models.enums import EntityType
+from core.models.enums.ku_enums import KuType
 from core.models.task.task_request import TaskCreateRequest
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 from core.utils.embedding_text_builder import build_embedding_text
@@ -221,7 +221,7 @@ class TestEmbeddingTextExtraction:
             status="pending",
         )
 
-        text = build_embedding_text(EntityType.TASK, task)
+        text = build_embedding_text(KuType.TASK, task)
 
         assert "Learn Python" in text
         assert "Study async/await patterns" in text
@@ -243,7 +243,7 @@ class TestEmbeddingTextExtraction:
             status="pending",
         )
 
-        text = build_embedding_text(EntityType.TASK, task)
+        text = build_embedding_text(KuType.TASK, task)
 
         assert text == "Buy groceries"
 
@@ -337,7 +337,7 @@ class TestGoalEmbeddingTextExtraction:
             status="active",
         )
 
-        text = build_embedding_text(EntityType.GOAL, goal)
+        text = build_embedding_text(KuType.GOAL, goal)
 
         assert "Learn Machine Learning" in text
         assert "Study ML algorithms" in text
@@ -360,7 +360,7 @@ class TestGoalEmbeddingTextExtraction:
             status="active",
         )
 
-        text = build_embedding_text(EntityType.GOAL, goal)
+        text = build_embedding_text(KuType.GOAL, goal)
 
         assert text == "Get fit"
 

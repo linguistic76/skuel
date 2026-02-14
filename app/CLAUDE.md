@@ -173,7 +173,7 @@ SKUEL is developed through analog-to-digital collaboration where domain ideas ar
 
 ```
 Analog (Human)              Digital (Code)
-"15 domains"           ->   EntityType enum
+"15 domains"           ->   KuType + NonKuDomain enums
 "Tasks have deadlines" ->   Task.due_date: date
 "Everything flows      ->   SERVES_LIFE_PATH
  toward life path"          relationship type
@@ -454,23 +454,29 @@ GraphDepth.DEFAULT                        # Named constants
 
 **See:** `/docs/patterns/ENUM_CONSOLIDATION_PATTERN.md`
 
-## Activity DSL & EntityType
+## Activity DSL & Domain Enums
 
 **Core Principle:** "Clear domain language -> clear types -> enforceable contracts"
 
 ```python
-class EntityType(str, Enum):
-    TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE, FINANCE = ...  # Activity
-    KU, LS, LP = ...  # Curriculum
-    MOC = "moc"  # Organizational (MOC IS a KU with ORGANIZES relationships)
-    LIFEPATH = "lifepath"  # Destination
+# KuType — 14 knowledge-unit domain types (all :Ku nodes in Neo4j)
+class KuType(str, Enum):
+    TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE = ...  # Activity
+    CURRICULUM, MOC, LEARNING_STEP, LEARNING_PATH = ...  # Curriculum
+    ASSIGNMENT, AI_REPORT, FEEDBACK_REPORT = ...  # Reports
+    LIFE_PATH = "life_path"  # Destination
+
+# NonKuDomain — 4 non-Ku domains
+class NonKuDomain(str, Enum):
+    FINANCE, GROUP, CALENDAR, LEARNING = ...
 
 # Type-safe context checking
-if EntityType.TASK in activity.contexts:  # MyPy verified!
+if KuType.TASK in activity.contexts:  # MyPy verified!
 
 # Key methods
-EntityType.from_string("task")  # -> EntityType.TASK or None
-EntityType.get_canonical()      # Normalizes aliases (KNOWLEDGE -> KU)
+KuType.from_string("task")       # -> KuType.TASK or None
+KuType.from_string("knowledge")  # -> KuType.CURRICULUM (alias support)
+KuType.from_string("ku")         # -> KuType.CURRICULUM (alias support)
 ```
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`, `/docs/dsl/DSL_USAGE_GUIDE.md`
@@ -1177,7 +1183,7 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 - SKUEL011: No `hasattr()` - use Protocol/isinstance/getattr
 - SKUEL012: No lambda expressions - use named functions
 - SKUEL013: Use `RelationshipName` enum
-- SKUEL014: Use `EntityType` enum
+- SKUEL014: Use `KuType`/`NonKuDomain` enum
 - SKUEL015: No `print()` in production
 
 **Avoiding Common Violations:**
@@ -1502,13 +1508,13 @@ All 10 domain `*_intelligence_service.py` files extend `BaseAnalyticsService`. A
 **Usage:**
 ```python
 from core.utils.embedding_text_builder import build_embedding_text
-from core.models.enums import EntityType
+from core.models.enums.ku_enums import KuType
 
 # From dict (ingestion path)
-text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Details"})
+text = build_embedding_text(KuType.TASK, {"title": "Fix bug", "description": "Details"})
 
 # From model (background worker path)
-text = build_embedding_text(EntityType.TASK, task_model)
+text = build_embedding_text(KuType.TASK, task_model)
 ```
 
 **Field Mappings:** See `EMBEDDING_FIELD_MAPS` in the utility for canonical field list per entity type.

@@ -20,7 +20,7 @@ from core.events.choice_events import (
     ChoiceOutcomeRecorded,
     ChoiceUpdated,
 )
-from core.models.enums import ActivityStatus, EntityType
+from core.models.enums import ActivityStatus
 from core.models.enums.ku_enums import ChoiceType, KuStatus, KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -292,7 +292,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Publish embedding request event for async background generation (Phase 1 - January 2026)
         # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = build_embedding_text(EntityType.CHOICE, choice)
+        embedding_text = build_embedding_text(KuType.CHOICE, choice)
         if embedding_text:
             from core.events import ChoiceEmbeddingRequested
 

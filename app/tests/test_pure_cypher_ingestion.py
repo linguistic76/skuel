@@ -142,7 +142,8 @@ def test_required_field_validation():
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    from core.models.enums import EntityType
+    from core.models.enums.entity_enums import NonKuDomain
+    from core.models.enums.ku_enums import KuType
     from core.services.ingestion import UnifiedIngestionService
 
     # Create mock driver
@@ -155,13 +156,13 @@ def test_required_field_validation():
 
     # Test 1: Valid KU data (has title and content is skipped for early validation)
     valid_ku_data = {"title": "Test KU", "content": "Some content"}
-    result = service.validate_required_fields(EntityType.KU, valid_ku_data, mock_path)
+    result = service.validate_required_fields(KuType.CURRICULUM, valid_ku_data, mock_path)
     assert result.is_ok, f"Expected OK for valid KU data, got: {result}"
 
     # Test 2: Missing required field for principle (needs 'statement')
     invalid_principle_data = {"name": "Test Principle"}  # Missing 'statement'
     result = service.validate_required_fields(
-        EntityType.PRINCIPLE, invalid_principle_data, mock_path
+        KuType.PRINCIPLE, invalid_principle_data, mock_path
     )
     assert result.is_error, "Expected error for principle missing 'statement'"
     error = result.expect_error()
@@ -169,31 +170,31 @@ def test_required_field_validation():
 
     # Test 3: Missing required field for finance (needs 'amount')
     invalid_finance_data = {"description": "Test expense"}  # Missing 'amount'
-    result = service.validate_required_fields(EntityType.FINANCE, invalid_finance_data, mock_path)
+    result = service.validate_required_fields(NonKuDomain.FINANCE, invalid_finance_data, mock_path)
     assert result.is_error, "Expected error for finance missing 'amount'"
     error = result.expect_error()
     assert "amount" in error.message, f"Expected 'amount' in error: {error.message}"
 
     # Test 4: Valid finance data
     valid_finance_data = {"description": "Coffee", "amount": 5.00}
-    result = service.validate_required_fields(EntityType.FINANCE, valid_finance_data, mock_path)
+    result = service.validate_required_fields(NonKuDomain.FINANCE, valid_finance_data, mock_path)
     assert result.is_ok, f"Expected OK for valid finance data, got: {result}"
 
     # Test 5: validate_entity_data - check post-preparation validation
     # Simulate prepared entity data missing content
     incomplete_ku_data = {"uid": "ku.test", "title": "Test"}  # Missing 'content'
-    result = service.validate_entity_data(EntityType.KU, incomplete_ku_data, mock_path)
+    result = service.validate_entity_data(KuType.CURRICULUM, incomplete_ku_data, mock_path)
     assert result.is_error, "Expected error for KU missing 'content' after preparation"
     error = result.expect_error()
     assert "content" in error.message, f"Expected 'content' in error: {error.message}"
 
     # Test 6: Complete KU data passes validation
     complete_ku_data = {"uid": "ku.test", "title": "Test", "content": "Body content"}
-    result = service.validate_entity_data(EntityType.KU, complete_ku_data, mock_path)
+    result = service.validate_entity_data(KuType.CURRICULUM, complete_ku_data, mock_path)
     assert result.is_ok, f"Expected OK for complete KU data, got: {result}"
 
     print("✅ Required field validation works correctly!")
-    print("   - Uses EntityType enum for type-safe validation")
+    print("   - Uses KuType/NonKuDomain enum for type-safe validation")
     print("   - Validates required fields before preparation")
     print("   - Validates entity data after preparation")
     print("   - Clear error messages with file context")
@@ -204,7 +205,8 @@ def test_user_uid_injection():
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    from core.models.enums import EntityType
+    from core.models.enums.entity_enums import NonKuDomain
+    from core.models.enums.ku_enums import KuType
     from core.services.ingestion import (
         ENTITY_CONFIGS,
         UnifiedIngestionService,
@@ -221,7 +223,7 @@ def test_user_uid_injection():
 
     # Test 1: Activity domain (task) should get user_uid injected
     task_data = {"title": "Test Task"}
-    prepared = service.prepare_entity_data(EntityType.TASK, task_data, None, mock_path)
+    prepared = service.prepare_entity_data(KuType.TASK, task_data, None, mock_path)
     assert "user_uid" in prepared, "Task should have user_uid injected"
     assert prepared["user_uid"] == custom_user_uid, (
         f"Expected {custom_user_uid}, got {prepared['user_uid']}"
@@ -229,7 +231,7 @@ def test_user_uid_injection():
 
     # Test 2: Explicit user_uid in data should NOT be overwritten
     task_with_user = {"title": "Test Task", "user_uid": "user:explicit-user"}
-    prepared = service.prepare_entity_data(EntityType.TASK, task_with_user, None, mock_path)
+    prepared = service.prepare_entity_data(KuType.TASK, task_with_user, None, mock_path)
     assert prepared["user_uid"] == "user:explicit-user", (
         "Explicit user_uid should not be overwritten"
     )
@@ -237,39 +239,39 @@ def test_user_uid_injection():
     # Test 3: Curriculum domain (ku) should NOT get user_uid (shared knowledge)
     ku_data = {"title": "Test KU", "content": "Body content"}
     prepared = service.prepare_entity_data(
-        EntityType.KU, ku_data, "Body content", Path("/tmp/test-ku.md")
+        KuType.CURRICULUM, ku_data, "Body content", Path("/tmp/test-ku.md")
     )
     assert "user_uid" not in prepared, "KU should not have user_uid (shared knowledge)"
 
     # Test 4: Finance domain should get user_uid
     finance_data = {"description": "Coffee", "amount": 5.00}
     prepared = service.prepare_entity_data(
-        EntityType.FINANCE, finance_data, None, Path("/tmp/expense.yaml")
+        NonKuDomain.FINANCE, finance_data, None, Path("/tmp/expense.yaml")
     )
     assert "user_uid" in prepared, "Finance should have user_uid injected"
     assert prepared["user_uid"] == custom_user_uid
 
-    # Test 5: All Activity domains should require user_uid (using EntityType keys)
+    # Test 5: All Activity domains should require user_uid (using KuType keys)
     activity_types = [
-        EntityType.TASK,
-        EntityType.GOAL,
-        EntityType.HABIT,
-        EntityType.EVENT,
-        EntityType.CHOICE,
-        EntityType.PRINCIPLE,
+        KuType.TASK,
+        KuType.GOAL,
+        KuType.HABIT,
+        KuType.EVENT,
+        KuType.CHOICE,
+        KuType.PRINCIPLE,
     ]
     for entity_type in activity_types:
         config = ENTITY_CONFIGS[entity_type]
         assert config.requires_user_uid, f"{entity_type.value} should require user_uid"
 
     # Test 6: Curriculum domains should NOT require user_uid
-    curriculum_types = [EntityType.KU, EntityType.MOC, EntityType.LP, EntityType.LS]
+    curriculum_types = [KuType.CURRICULUM, KuType.MOC, KuType.LEARNING_PATH, KuType.LEARNING_STEP]
     for entity_type in curriculum_types:
         config = ENTITY_CONFIGS[entity_type]
         assert not config.requires_user_uid, f"{entity_type.value} should NOT require user_uid"
 
     print("✅ User UID injection works correctly!")
-    print("   - Uses EntityType enum for type-safe config lookup")
+    print("   - Uses KuType/NonKuDomain enum for type-safe config lookup")
     print(f"   - Default user_uid: {custom_user_uid}")
     print("   - Activity domains get user_uid injected")
     print("   - Curriculum domains (shared knowledge) do not")
@@ -277,58 +279,59 @@ def test_user_uid_injection():
 
 
 def test_entity_type_detection():
-    """Test that detect_entity_type returns EntityType enum (type-safe!)."""
+    """Test that detect_entity_type returns KuType/NonKuDomain enum (type-safe!)."""
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    from core.models.enums import EntityType
+    from core.models.enums.entity_enums import NonKuDomain
+    from core.models.enums.ku_enums import KuType
     from core.services.ingestion import UnifiedIngestionService
 
     # Create mock driver
     mock_driver = MagicMock()
     service = UnifiedIngestionService(driver=mock_driver)
 
-    # Test 1: Explicit type field returns EntityType
+    # Test 1: Explicit type field returns KuType
     data_with_type = {"type": "task", "title": "Test"}
     result = service.detect_entity_type(data_with_type, Path("/tmp/test.yaml"))
-    assert result == EntityType.TASK, f"Expected EntityType.TASK, got {result}"
-    assert isinstance(result, EntityType), "Result should be EntityType enum"
+    assert result == KuType.TASK, f"Expected KuType.TASK, got {result}"
+    assert isinstance(result, (KuType, NonKuDomain)), "Result should be KuType or NonKuDomain enum"
 
     # Test 2: Type aliases are normalized
     data_with_alias = {"type": "knowledge", "title": "Test KU"}
     result = service.detect_entity_type(data_with_alias, Path("/tmp/test.yaml"))
-    assert result == EntityType.KU, f"Expected EntityType.KU (alias normalized), got {result}"
+    assert result == KuType.CURRICULUM, f"Expected KuType.CURRICULUM (alias normalized), got {result}"
 
     # Test 3: MOC flag detection
     data_with_moc_flag = {"moc": True, "title": "Map of Content"}
     result = service.detect_entity_type(data_with_moc_flag, Path("/tmp/test.md"))
-    assert result == EntityType.MOC, f"Expected EntityType.MOC, got {result}"
+    assert result == KuType.MOC, f"Expected KuType.MOC, got {result}"
 
-    # Test 4: Default to KU for markdown without type
+    # Test 4: Default to CURRICULUM for markdown without type
     data_no_type = {"title": "Some Knowledge"}
     result = service.detect_entity_type(data_no_type, Path("/tmp/test.md"))
-    assert result == EntityType.KU, f"Expected EntityType.KU (default for .md), got {result}"
+    assert result == KuType.CURRICULUM, f"Expected KuType.CURRICULUM (default for .md), got {result}"
 
     # Test 5: Case insensitivity
     data_uppercase = {"type": "HABIT", "title": "Exercise"}
     result = service.detect_entity_type(data_uppercase, Path("/tmp/test.yaml"))
-    assert result == EntityType.HABIT, f"Expected EntityType.HABIT, got {result}"
+    assert result == KuType.HABIT, f"Expected KuType.HABIT, got {result}"
 
     # Test 6: Finance alias (expense -> FINANCE)
     data_expense = {"type": "expense", "description": "Coffee", "amount": 5.00}
     result = service.detect_entity_type(data_expense, Path("/tmp/test.yaml"))
-    assert result == EntityType.FINANCE, f"Expected EntityType.FINANCE, got {result}"
+    assert result == NonKuDomain.FINANCE, f"Expected NonKuDomain.FINANCE, got {result}"
 
-    # Test 7: Can use EntityType methods (January 2026 - Unified domains, no categorization)
+    # Test 7: Verify type detection (January 2026 - Unified domains)
     result = service.detect_entity_type({"type": "task"}, Path("/tmp/test.yaml"))
-    assert result == EntityType.TASK, "TASK detection should return TASK"
+    assert result == KuType.TASK, "TASK detection should return KuType.TASK"
 
     result = service.detect_entity_type({"type": "ku"}, Path("/tmp/test.md"))
-    assert result == EntityType.KU, "KU detection should return KU"
+    assert result == KuType.CURRICULUM, "KU detection should return KuType.CURRICULUM"
 
-    print("✅ EntityType detection works correctly!")
-    print("   - Returns EntityType enum (type-safe!)")
-    print("   - Handles aliases (knowledge → KU)")
+    print("✅ Entity type detection works correctly!")
+    print("   - Returns KuType/NonKuDomain enum (type-safe!)")
+    print("   - Handles aliases (knowledge → CURRICULUM)")
     print("   - Case insensitive")
     print("   - MOC flag detection works")
     print("   - All 14 domains are unified peers (January 2026)")
@@ -363,7 +366,7 @@ This is the content of the knowledge unit.
         assert result.is_ok
         validation = result.value
         assert validation.valid, f"Expected valid, got errors: {validation.errors}"
-        assert validation.entity_type == "ku"
+        assert validation.entity_type == "curriculum"
         assert validation.uid == "ku.test-knowledge"
         assert validation.title == "Test Knowledge Unit"
         assert validation.format == "markdown"
@@ -493,7 +496,7 @@ description: Description for task {i}
         entity_type, entity_data, error = parse_file_sync(test_file)
         assert error is None, f"Should parse successfully: {error}"
         assert entity_type is not None
-        assert entity_type.value == "ku"
+        assert entity_type.value == "curriculum"
         assert entity_data is not None
         assert entity_data["title"] == "Knowledge Unit 0"
 
