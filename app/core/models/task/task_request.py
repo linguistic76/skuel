@@ -10,7 +10,7 @@ Uses:
 """
 
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
@@ -27,10 +27,6 @@ from core.models.validation_rules import (
     validate_future_date,
     validate_recurrence_end_after_start,
 )
-
-if TYPE_CHECKING:
-    from core.models.task.task_dto import TaskDTO
-    from core.models.task.task_relationships import TaskRelationships
 
 
 class TaskCreateRequest(CreateRequestBase):
@@ -189,78 +185,6 @@ class TaskResponse(ResponseBase):
     progress_percentage: float
     learning_alignment_score: float
     impact_score: float
-
-    @classmethod
-    def from_dto(cls, dto: "TaskDTO", rels: "TaskRelationships | None" = None) -> "TaskResponse":
-        """
-        Create response from DTO.
-
-        GRAPH-NATIVE: Relationship UIDs come from rels parameter, not DTO fields.
-
-        Args:
-            dto: Task DTO with scalar fields
-            rels: Optional task relationships (for relationship UIDs)
-        """
-        from .task import Task
-
-        # Create domain model to use business logic
-        task = Task.from_dto(dto)
-
-        return cls(
-            uid=dto.uid,
-            title=dto.title,
-            description=dto.description,
-            due_date=dto.due_date,
-            scheduled_date=dto.scheduled_date,
-            completion_date=dto.completion_date,
-            created_at=dto.created_at,
-            updated_at=dto.updated_at,
-            duration_minutes=dto.duration_minutes,
-            actual_minutes=dto.actual_minutes,
-            status=dto.status,
-            priority=dto.priority,
-            project=dto.project,
-            assignee=dto.assignee,
-            tags=dto.tags,
-            parent_uid=dto.parent_uid,
-            # GRAPH-NATIVE: Get relationship UIDs from rels parameter
-            subtask_uids=list(rels.subtask_uids) if rels else [],
-            recurrence_pattern=dto.recurrence_pattern,
-            recurrence_end_date=dto.recurrence_end_date,
-            recurrence_parent_uid=dto.recurrence_parent_uid,
-            # Learning Integration
-            fulfills_goal_uid=getattr(dto, "fulfills_goal_uid", None),
-            reinforces_habit_uid=getattr(dto, "reinforces_habit_uid", None),
-            # GRAPH-NATIVE: Get relationship UIDs from rels parameter
-            applies_knowledge_uids=list(rels.applies_knowledge_uids) if rels else [],
-            aligned_principle_uids=list(rels.aligned_principle_uids) if rels else [],
-            goal_progress_contribution=getattr(dto, "goal_progress_contribution", 0.0),
-            knowledge_mastery_check=getattr(dto, "knowledge_mastery_check", False),
-            habit_streak_maintainer=getattr(dto, "habit_streak_maintainer", False),
-            # GRAPH-NATIVE: Get relationship UIDs from rels parameter
-            prerequisite_knowledge_uids=list(rels.prerequisite_knowledge_uids) if rels else [],
-            prerequisite_task_uids=list(rels.prerequisite_task_uids) if rels else [],
-            enables_task_uids=list(rels.enables_task_uids) if rels else [],
-            scheduled_event_uid=getattr(dto, "scheduled_event_uid", None),
-            completion_updates_goal=getattr(dto, "completion_updates_goal", True),
-            # GRAPH-NATIVE: Get relationship UIDs from rels parameter
-            completion_triggers_tasks=list(rels.completion_triggers_tasks) if rels else [],
-            completion_unlocks_knowledge=list(rels.completion_unlocks_knowledge) if rels else [],
-            # Use domain model methods for computed fields
-            is_overdue=task.is_overdue(),
-            is_recurring=task.is_recurring(),
-            is_parent=task.is_parent(),
-            is_subtask=task.is_subtask(),
-            is_learning_task=task.is_learning_task(),
-            is_habit_task=task.is_habit_task(),
-            is_milestone_task=task.is_milestone_task(),
-            has_prerequisites=task.has_prerequisites(),
-            days_until_due=task.days_until_due(),
-            progress_percentage=task.progress_percentage(),
-            learning_alignment_score=task.learning_alignment_score(),
-            impact_score=task.impact_score(),
-        )
-
 
 class TaskFilterRequest(FilterRequestBase):
     """Request model for filtering tasks."""

@@ -315,8 +315,8 @@ class EntityExtractor:
                 if result.is_ok and result.value:
                     habit = result.value
                     # Check if habit title appears in query
-                    if self._fuzzy_match(habit.name, query_lower):
-                        matched.append({"uid": habit_uid, "name": habit.name})
+                    if self._fuzzy_match(habit.title, query_lower):
+                        matched.append({"uid": habit_uid, "name": habit.title})
             except Exception:
                 continue
 

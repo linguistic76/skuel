@@ -291,11 +291,11 @@ class TestEventModel:
 
     async def test_event_has_required_fields(self):
         """Test that Event model has required fields."""
-        from core.models.event.event import Event
+        from core.models.ku.ku import Ku
 
         required_fields = ["uid", "user_uid", "title"]
         for field in required_fields:
-            assert hasattr(Event, "__annotations__") or field in dir(Event)
+            assert hasattr(Ku, "__annotations__") or field in dir(Ku)
 
 
 class TestErrorHandling:

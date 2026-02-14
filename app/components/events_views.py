@@ -38,7 +38,7 @@ from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
 )
-from core.models.event.event import Event
+from core.models.ku.ku import Ku
 from core.ui.daisy_components import (
     Button,
     Div,
@@ -292,7 +292,7 @@ class EventsViewComponents:
         )
 
     @staticmethod
-    def _render_event_item(event: Event, user_uid: str | None = None) -> Div:
+    def _render_event_item(event: Ku, user_uid: str | None = None) -> Div:
         """Render a single event item for the list."""
         uid = event.uid
         title = event.title

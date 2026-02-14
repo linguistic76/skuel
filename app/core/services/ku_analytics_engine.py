@@ -26,8 +26,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
 from core.models.enums import ActivityStatus
-from core.models.task.task import Task
-from core.models.task.task_relationships import TaskRelationships
+from core.models.ku.ku import Ku as Task
+from core.services.tasks.task_relationships import TaskRelationships
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

@@ -23,10 +23,9 @@ from datetime import date, time
 import pytest
 
 from core.models.enums import ActivityStatus, Domain, GoalStatus, Priority
-from core.models.event.event_dto import EventDTO
-from core.models.goal.goal_dto import GoalDTO
 from core.models.ku.ku_dto import KuDTO
-from core.models.task.task_dto import TaskDTO
+from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.ku_dto import KuDTO as GoalDTO
 
 
 @pytest.mark.integration
@@ -82,7 +81,7 @@ class TestRichUserContextPattern:
         await services.goals.core.backend.create(goal_dto.to_dict())
 
         # Create task (with IN_PROGRESS status to be included in active_task_uids)
-        task_dto = TaskDTO.create(
+        task_dto = TaskDTO.create_task(
             user_uid=test_user.uid,
             title="Complete Python Tutorial",
             priority=Priority.HIGH,
@@ -104,7 +103,7 @@ class TestRichUserContextPattern:
         )
 
         # Create event
-        event_dto = EventDTO.create(
+        event_dto = KuDTO.create(
             user_uid=test_user.uid,
             title="Python Workshop",
             event_date=date.today(),
@@ -184,7 +183,7 @@ class TestRichUserContextPattern:
         )
         await services.ku.core.backend.create(ku_dto.to_dict())
 
-        task_dto = TaskDTO.create(
+        task_dto = TaskDTO.create_task(
             user_uid=test_user.uid,
             title="Test Task",
             priority=Priority.MEDIUM,
@@ -293,7 +292,7 @@ class TestRichUserContextPattern:
         goal_dto.status = GoalStatus.ACTIVE  # Set status after creation
         await services.goals.core.backend.create(goal_dto.to_dict())
 
-        task_dto = TaskDTO.create(
+        task_dto = TaskDTO.create_task(
             user_uid=test_user.uid,
             title="Test Task",
             priority=Priority.MEDIUM,

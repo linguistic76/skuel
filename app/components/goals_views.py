@@ -37,7 +37,7 @@ from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
 )
-from core.models.goal.goal import Goal
+from core.models.ku.ku import Ku
 from core.ui.daisy_components import (
     Button,
     Div,
@@ -213,7 +213,7 @@ class GoalsViewComponents:
         )
 
     @staticmethod
-    def _render_goal_item(goal: Goal, user_uid: str | None = None, is_pinned: bool = False) -> Div:
+    def _render_goal_item(goal: Ku, user_uid: str | None = None, is_pinned: bool = False) -> Div:
         """
         Render a single goal item for the list.
 
@@ -609,7 +609,7 @@ class GoalsViewComponents:
     @staticmethod
     def render_hierarchy_view(
         root_uid: str,
-        root_goal: Goal,
+        root_goal: Ku,
     ) -> Div:
         """
         Render goal hierarchy tree view.

@@ -31,8 +31,8 @@ from typing import TYPE_CHECKING, Any, cast
 from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
 from core.models.enums import ActivityStatus, RecurrencePattern
-from core.models.event.event import Event
-from core.models.event.event_dto import EventDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 
@@ -51,7 +51,6 @@ from core.services.infrastructure.graph_intelligence_service import GraphIntelli
 from core.services.mixins import FacadeDelegationMixin, merge_delegations
 from core.services.protocols import get_enum_value
 from core.services.protocols.base_protocols import EnumLike
-from core.services.protocols.domain_protocols import EventsOperations
 from core.services.protocols.query_types import EventUpdatePayload
 
 # Unified relationship service (replaces EventsRelationshipService)
@@ -65,20 +64,21 @@ if TYPE_CHECKING:
     from core.models.event.event_request import (
         AddAttendeeRequest,
         CheckConflictsRequest,
-        EventCreateRequest,
         EventStatusUpdateRequest,
         GetRecurringEventsRequest,
         RecurringInstancesRequest,
         RemoveAttendeeRequest,
     )
+    from core.models.ku.ku_request import KuEventCreateRequest, KuUpdateRequest
     from core.services.events.events_intelligence_service import EventsIntelligenceService
+    from core.services.protocols import BackendOperations
     from core.services.protocols.facade_protocols import EventsFacadeProtocol
     from core.services.protocols.infrastructure_protocols import EventBusOperations
     from core.services.protocols.search_protocols import EventsSearchOperations
     from core.services.user import UserContext
 
 
-class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event]):
+class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", Ku]):
     """
     Events service facade with specialized sub-services.
 
@@ -125,8 +125,8 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
     # ========================================================================
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
-        dto_class=EventDTO,
-        model_class=Event,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="events",
         date_field="event_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
@@ -231,7 +231,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
 
     def __init__(
         self,
-        backend: EventsOperations,
+        backend: "BackendOperations[Ku]",
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
         ai_service: EventsAIService | None = None,
@@ -289,7 +289,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
     @property
     def entity_label(self) -> str:
         """Return the graph label for Event entities."""
-        return "Event"
+        return "Ku"
 
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
@@ -351,7 +351,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
             return Result.fail(result)
         return Result.ok(result.value > 0)
 
-    async def get_events_supporting_goal(self, goal_uid: str, user_uid: str) -> Result[list[Event]]:
+    async def get_events_supporting_goal(self, goal_uid: str, user_uid: str) -> Result[list[Ku]]:
         """Get all events that support a specific goal."""
         # Get event UIDs linked to the goal
         event_uids_result = await self.relationships.get_related_uids("goals", goal_uid)
@@ -387,7 +387,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
 
     async def find_events_reinforcing_knowledge(
         self, knowledge_uid: str, user_uid: str, min_confidence: float = 0.8
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """Find events that reinforce specific knowledge."""
         return await self.relationships.find_by_semantic_filter(
             target_uid=knowledge_uid, min_confidence=min_confidence, direction="incoming"
@@ -397,7 +397,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
     # STATUS MANAGEMENT
     # ========================================================================
 
-    async def update_event_status(self, request: EventStatusUpdateRequest) -> Result[Event]:
+    async def update_event_status(self, request: EventStatusUpdateRequest) -> Result[Ku]:
         """
         Update an event's status using typed request object.
 
@@ -439,7 +439,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
 
         return await self.core.update(request.event_uid, updates)
 
-    async def start_event(self, event_uid: str) -> Result[Event]:
+    async def start_event(self, event_uid: str) -> Result[Ku]:
         """
         Mark an event as started/in progress.
 
@@ -452,7 +452,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
         updates: EventUpdatePayload = {"status": ActivityStatus.IN_PROGRESS.value}
         return await self.core.update(event_uid, updates)
 
-    async def complete_event(self, event_uid: str) -> Result[Event]:
+    async def complete_event(self, event_uid: str) -> Result[Ku]:
         """
         Mark an event as completed.
 
@@ -465,7 +465,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
         updates: EventUpdatePayload = {"status": ActivityStatus.COMPLETED.value}
         return await self.core.update(event_uid, updates)
 
-    async def cancel_event(self, event_uid: str, reason: str = "") -> Result[Event]:
+    async def cancel_event(self, event_uid: str, reason: str = "") -> Result[Ku]:
         """
         Cancel an event.
 
@@ -487,7 +487,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
     # Note: Most search methods auto-generated via _delegations.
     # Only methods that unwrap typed requests remain explicit.
 
-    async def get_recurring_events(self, request: GetRecurringEventsRequest) -> Result[list[Event]]:
+    async def get_recurring_events(self, request: GetRecurringEventsRequest) -> Result[list[Ku]]:
         """
         Get all recurring events for a user using typed request.
 
@@ -649,7 +649,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
     async def create_recurring_instances(
         self,
         request: RecurringInstancesRequest,
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Create instances of a recurring event using typed request.
 
@@ -698,16 +698,16 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
             "yearly": 365,
         }.get(pattern, 7)
 
-        created_events: list[Event] = []
+        created_events: list[Ku] = []
         base_date = event.event_date
 
         for i in range(1, request.count + 1):
             new_date = base_date + timedelta(days=interval_days * i)
 
             # Create new event instance
-            from core.models.event.event_dto import EventDTO
+            from core.models.ku.ku_dto import KuDTO
 
-            dto = EventDTO.create(
+            dto = KuDTO.create_event(
                 user_uid=event.user_uid,
                 title=event.title,
                 event_date=new_date,
@@ -722,7 +722,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
 
             create_result = await self.backend.create_event(dto.to_dict())
             if create_result.is_ok:
-                new_event = self._to_domain_model(create_result.value, EventDTO, Event)
+                new_event = self._to_domain_model(create_result.value, KuDTO, Ku)
                 created_events.append(new_event)
 
         return Result.ok(created_events)
@@ -732,8 +732,8 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
     # ========================================================================
 
     async def create_event_with_context(
-        self, event_data: EventCreateRequest, user_context: UserContext
-    ) -> Result[Event]:
+        self, event_data: KuEventCreateRequest, user_context: UserContext
+    ) -> Result[Ku]:
         """
         Create an event with full context awareness (orchestration method).
 
@@ -743,9 +743,9 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
         3. Updates context after creation
         """
         # Create DTO from request
-        from core.models.event.event_dto import EventDTO
+        from core.models.ku.ku_dto import KuDTO
 
-        dto = EventDTO.create(
+        dto = KuDTO.create_event(
             user_uid=user_context.user_uid,
             title=event_data.title,
             event_date=event_data.event_date,
@@ -775,7 +775,7 @@ class EventsService(FacadeDelegationMixin, BaseService[EventsOperations, Event])
         if create_result.is_error:
             return Result.fail(create_result)
 
-        event = self._to_domain_model(create_result.value, EventDTO, Event)
+        event = self._to_domain_model(create_result.value, KuDTO, Ku)
 
         # Publish CalendarEventCreated event (event-driven architecture)
         from datetime import datetime

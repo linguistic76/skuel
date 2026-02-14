@@ -20,10 +20,10 @@ from operator import itemgetter
 from typing import Any
 
 from core.models.enums import ActivityStatus, Domain
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_request import KuPrincipleCreateRequest
 from core.models.ku.lp_position import LpPosition
-from core.models.principle.principle import Principle
-from core.models.principle.principle_dto import PrincipleDTO
-from core.models.principle.principle_request import PrincipleCreateRequest
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
@@ -40,7 +40,7 @@ logger = get_logger(__name__)
 
 
 def _calculate_virtue_embodiment_score(
-    principle: Principle, learning_position: LpPosition
+    principle: Ku, learning_position: LpPosition
 ) -> float:
     """
     Custom scorer for principle virtue embodiment.
@@ -86,7 +86,7 @@ def _calculate_virtue_embodiment_score(
 
 
 def _calculate_embodiment_data(
-    principle: Principle, learning_position: LpPosition
+    principle: Ku, learning_position: LpPosition
 ) -> dict[str, Any]:
     """
     Calculate character development embodiment data.
@@ -109,7 +109,7 @@ def _calculate_embodiment_data(
     }
 
 
-class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
+class PrinciplesLearningService(BaseService[PrinciplesOperations, Ku]):
     """
     Learning path integration for principles.
 
@@ -144,8 +144,8 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=PrincipleDTO,
-        model_class=Principle,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(ActivityStatus.ARCHIVED.value,),
@@ -162,14 +162,14 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
 
         # Initialize LearningAlignmentHelper with custom scorers (Phase 6)
         self.learning_helper = LearningAlignmentHelper[
-            Principle, PrincipleDTO, PrincipleCreateRequest
+            Ku, KuDTO, KuPrincipleCreateRequest
         ](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_principles",
             backend_create_method="create",
-            dto_class=PrincipleDTO,
-            model_class=Principle,
+            dto_class=KuDTO,
+            model_class=Ku,
             domain=Domain.PRINCIPLES,
             entity_name="principle",
             alignment_scorer=_calculate_virtue_embodiment_score,

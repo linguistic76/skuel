@@ -15,7 +15,7 @@ from fasthtml.common import Request
 
 from core.auth import require_authenticated_user, require_ownership_query
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
-from core.models.principle.principle_request import (
+from core.models.ku.ku_request import (
     AlignmentAssessmentRequest,
     PrincipleExpressionRequest,
     PrincipleLinkRequest,

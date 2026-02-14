@@ -30,8 +30,9 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.task_events import TaskCompleted
 from core.models.enums import ActivityStatus, Domain, GoalStatus, Priority
-from core.models.goal.goal import Goal, GoalType, MeasurementType
-from core.models.task.task import Task
+from core.models.ku.ku import Ku
+from core.models.enums.ku_enums import GoalType, MeasurementType
+from core.models.ku.ku import Ku as Task
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.tasks.tasks_core_service import TasksCoreService
 
@@ -53,7 +54,7 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
-        return UniversalNeo4jBackend[Goal](neo4j_driver, "Goal", Goal)
+        return UniversalNeo4jBackend[Ku](neo4j_driver, "Goal", Ku)
 
     @pytest_asyncio.fixture
     async def tasks_service(self, tasks_backend, event_bus):
@@ -78,7 +79,7 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def task_based_goal(self, goals_backend, test_user_uid):
         """Create a task-based goal in Neo4j."""
-        goal = Goal(
+        goal = Ku(
             uid="goal.finish_python_course",
             user_uid=test_user_uid,
             title="Finish Python Course",
@@ -98,7 +99,7 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def mixed_goal(self, goals_backend, test_user_uid):
         """Create a mixed-measurement goal in Neo4j."""
-        goal = Goal(
+        goal = Ku(
             uid="goal.become_python_expert",
             user_uid=test_user_uid,
             title="Become Python Expert",
@@ -449,7 +450,7 @@ class TestTaskGoalEventFlow:
         """Test that habit-based goals are NOT updated by task completion."""
 
         # Create habit-based goal
-        goal = Goal(
+        goal = Ku(
             uid="goal.daily_practice",
             user_uid=test_user_uid,
             title="Daily Practice Goal",
@@ -658,7 +659,7 @@ class TestTaskGoalEventFlow:
         """Test that GoalAchieved event is only published once at 100%."""
 
         # Create goal with single task
-        goal = Goal(
+        goal = Ku(
             uid="goal.single_task",
             user_uid=test_user_uid,
             title="Single Task Goal",

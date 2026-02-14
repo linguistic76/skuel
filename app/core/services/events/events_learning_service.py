@@ -19,22 +19,22 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.models.enums import ActivityStatus, Domain
-from core.models.event.event import Event
-from core.models.event.event_dto import EventDTO
-from core.models.event.event_request import EventCreateRequest
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_request import KuEventCreateRequest
 from core.models.ku.lp_position import LpPosition
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
 from core.services.protocols import get_enum_value
-from core.services.protocols.domain_protocols import EventsOperations
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
     from core.services.relationships import UnifiedRelationshipService
 
 
-class EventsLearningService(BaseService[EventsOperations, Event]):
+class EventsLearningService(BaseService["BackendOperations[Ku]", Ku]):
     """
     Learning integration service for events.
 
@@ -68,8 +68,8 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=EventDTO,
-        model_class=Event,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="events",
         date_field="event_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
@@ -77,7 +77,7 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
 
     def __init__(
         self,
-        backend: EventsOperations,
+        backend: "BackendOperations[Ku]",
         relationships: "UnifiedRelationshipService | None" = None,
         event_bus=None,
     ) -> None:
@@ -98,13 +98,13 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
         self.event_bus = event_bus
 
         # Initialize LearningAlignmentHelper for Events (Phase 6)
-        self.learning_helper = LearningAlignmentHelper[Event, EventDTO, EventCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Ku, KuDTO, KuEventCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_events",
             backend_create_method="create_event",
-            dto_class=EventDTO,
-            model_class=Event,
+            dto_class=KuDTO,
+            model_class=Ku,
             domain=Domain.LEARNING,  # Events default to learning domain
             entity_name="event",
         )
@@ -115,7 +115,7 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
 
     async def _find_events_for_knowledge(
         self, knowledge_uid: str, user_uid: str
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Find events that reinforce a knowledge unit for a specific user.
 
@@ -132,7 +132,7 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
         from core.utils.neo4j_mapper import from_neo4j_node
 
         query = """
-        MATCH (e:Event)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Ku {uid: $knowledge_uid})
+        MATCH (e:Ku)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Ku {uid: $knowledge_uid})
         WHERE e.user_uid = $user_uid
         RETURN e
         """
@@ -142,7 +142,7 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        events = [from_neo4j_node(record["e"], Event) for record in result.value]
+        events = [from_neo4j_node(record["e"], Ku) for record in result.value]
         return Result.ok(events)
 
     # ========================================================================
@@ -151,14 +151,14 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Event entities."""
-        return "Event"
+        """Return the graph label for Ku entities."""
+        return "Ku"
 
     # ========================================================================
     # LEARNING-RELATED EVENT QUERIES
     # ========================================================================
 
-    async def get_learning_events(self, user_uid: str, days_ahead: int = 7) -> Result[list[Event]]:
+    async def get_learning_events(self, user_uid: str, days_ahead: int = 7) -> Result[list[Ku]]:
         """
         Get all upcoming learning-related events.
 
@@ -198,7 +198,7 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
 
     async def get_events_for_knowledge(
         self, knowledge_uid: str, user_uid: str, days_ahead: int = 30
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Get events that reinforce a specific knowledge unit.
 
@@ -240,7 +240,7 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
 
     async def get_events_for_learning_path(
         self, learning_path_uid: str, user_uid: str
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Get all events associated with a learning path.
 
@@ -273,7 +273,7 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
         duration_minutes: int = 60,
         title: str | None = None,
         learning_path_uid: str | None = None,
-    ) -> Result[Event]:
+    ) -> Result[Ku]:
         """
         Create a study session event for specific knowledge units.
 
@@ -295,8 +295,8 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
         start_datetime = datetime.combine(event_date, default_start)
         end_datetime = start_datetime + timedelta(minutes=duration_minutes)
 
-        # Build EventCreateRequest with required time fields
-        request = EventCreateRequest(
+        # Build KuEventCreateRequest with required time fields
+        request = KuEventCreateRequest(
             title=title or f"Study Session: {len(knowledge_uids)} topics",
             event_date=event_date,
             start_time=default_start,
@@ -415,7 +415,7 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
         learning_path_uid: str,
         _learning_position: LpPosition,
         study_hours_per_week: int = 5,
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Create a study schedule for a learning path.
 
@@ -450,7 +450,7 @@ class EventsLearningService(BaseService[EventsOperations, Event]):
                 end_dt = start_dt + timedelta(hours=1)
 
                 # Build request with required time fields
-                request = EventCreateRequest(
+                request = KuEventCreateRequest(
                     title=f"Learning Path Study - Week {week + 1}",
                     event_date=event_date_for_session,
                     start_time=session_start,

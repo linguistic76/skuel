@@ -21,9 +21,9 @@ from typing import TYPE_CHECKING, Any
 from core.constants import GraphDepth
 from core.models.enums import Domain
 from core.models.enums.activity_enums import EngagementLevel
-from core.models.event.event import Event
-from core.models.event.event_dto import EventDTO
-from core.models.event.event_relationships import EventRelationships
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
+from core.services.events.event_relationships import EventRelationships
 from core.models.graph_context import GraphContext
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -31,15 +31,15 @@ from core.services.intelligence import (
     GraphContextOrchestrator,
     RecommendationEngine,
 )
-from core.services.protocols.domain_protocols import EventsOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
     from core.services.protocols.domain_protocols import EventsRelationshipOperations
 
 
-class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
+class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
     """
     Graph intelligence service for events using pure Cypher graph intelligence.
 
@@ -76,7 +76,7 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
 
     def __init__(
         self,
-        backend: EventsOperations,
+        backend: "BackendOperations[Ku]",
         graph_intelligence_service=None,
         relationship_service: "EventsRelationshipOperations | None" = None,
     ) -> None:
@@ -95,11 +95,11 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
         )
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Event, EventDTO](
+            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
                 service=self,
                 backend_get_method="get",  # EventsService uses generic 'get'
-                dto_class=EventDTO,
-                model_class=Event,
+                dto_class=KuDTO,
+                model_class=Ku,
                 domain=Domain.EVENTS,
             )
 
@@ -111,7 +111,7 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
 
     async def get_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Event, GraphContext]]:
+    ) -> Result[tuple[Ku, GraphContext]]:
         """
         Get event with full graph context.
 
@@ -219,7 +219,7 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
     @with_error_handling("get_event_with_context", error_type="system", uid_param="uid")
     async def get_event_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Event, GraphContext]]:
+    ) -> Result[tuple[Ku, GraphContext]]:
         """
         Get event with full graph context using pure Cypher graph intelligence.
 
@@ -250,7 +250,7 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
 
         # Use pure Cypher graph intelligence
         context_result = await self.graph_intel.get_entity_context(
-            entity_uid=uid, entity_type="Event", depth=depth
+            entity_uid=uid, entity_type="Ku", depth=depth
         )
 
         if context_result.is_error:
@@ -507,7 +507,7 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
     # PRIVATE ANALYSIS HELPERS
     # ========================================================================
 
-    async def _analyze_goal_support(self, event: Event, _context: GraphContext) -> dict[str, Any]:
+    async def _analyze_goal_support(self, event: Ku, _context: GraphContext) -> dict[str, Any]:
         """
         Analyze how event supports goals.
 
@@ -540,7 +540,7 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
             "completed": event.status == "completed",
         }
 
-    async def _analyze_habit_impact(self, event: Event, _context: GraphContext) -> dict[str, Any]:
+    async def _analyze_habit_impact(self, event: Ku, _context: GraphContext) -> dict[str, Any]:
         """
         Analyze habit reinforcement impact.
 
@@ -559,7 +559,7 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
         }
 
     async def _analyze_knowledge_impact(
-        self, event: Event, _context: GraphContext
+        self, event: Ku, _context: GraphContext
     ) -> dict[str, Any]:
         """
         Analyze knowledge reinforcement.

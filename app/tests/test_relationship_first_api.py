@@ -14,7 +14,7 @@ import pytest
 
 from adapters.persistence.neo4j.relationship_builders import RelationshipBuilder
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.task.task import Task as TaskPure
+from core.models.ku.ku import Ku as TaskPure
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock

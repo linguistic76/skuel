@@ -20,14 +20,14 @@ from core.events.choice_events import (
     ChoiceOutcomeRecorded,
     ChoiceUpdated,
 )
-from core.models.choice.choice import Choice, ChoiceStatus, ChoiceType
-from core.models.choice.choice_dto import ChoiceDTO
-from core.models.choice.choice_request import ChoiceUpdateRequest
 from core.models.enums import ActivityStatus, EntityType
+from core.models.enums.ku_enums import ChoiceType, KuStatus, KuType
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_nested_types import ChoiceOption
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols.domain_protocols import ChoicesOperations
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
@@ -35,13 +35,15 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
-    from core.models.choice.choice_request import (
-        ChoiceCreateRequest,
-        ChoiceEvaluationRequest,
+    from core.models.ku.ku_request import (
+        KuChoiceCreateRequest,
+        KuChoiceEvaluationRequest,
+        KuUpdateRequest,
     )
+    from core.services.protocols import BackendOperations
 
 
-class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
+class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
     """
     Core CRUD operations for choices.
 
@@ -70,7 +72,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
     """
 
     def __init__(
-        self, backend: ChoicesOperations, event_bus=None, relationship_service=None
+        self, backend: "BackendOperations[Ku]", event_bus=None, relationship_service=None
     ) -> None:
         """
         Initialize choices core service.
@@ -95,8 +97,8 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Choice entities."""
-        return "Choice"
+        """Return the graph label for Choice entities (now Ku with ku_type filter)."""
+        return "Ku"
 
     # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
@@ -107,17 +109,17 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=ChoiceDTO,
-        model_class=Choice,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="choices",
-        date_field="decision_date",
-        completed_statuses=(ActivityStatus.COMPLETED.value,),
+        date_field="decision_deadline",
+        completed_statuses=(KuStatus.COMPLETED.value,),
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, choice: Choice) -> Result[None] | None:
+    def _validate_create(self, choice: Ku) -> Result[None] | None:
         """
         Validate choice creation with business rules.
 
@@ -169,7 +171,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Choice, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Ku, updates: dict[str, Any]) -> Result[None] | None:
         """
         Validate choice updates with business rules.
 
@@ -190,7 +192,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         # Business Rule 1: Decision immutability for critical fields
         # Once a choice is decided/evaluated, it's a historical decision point
         # Allow updates to notes/metadata, but not to the decision itself
-        if current.status in [ChoiceStatus.DECIDED, ChoiceStatus.EVALUATED]:
+        if current.status in [KuStatus.ACTIVE, KuStatus.COMPLETED]:
             # Critical fields that cannot be changed after decision
             critical_fields = {"options", "choice_type", "status", "selected_option"}
             changed_critical = set(updates.keys()) & critical_fields
@@ -218,8 +220,8 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         return None  # All validations passed
 
     async def create_choice(
-        self, choice_request: ChoiceCreateRequest, user_uid: str
-    ) -> Result[Choice]:
+        self, choice_request: "KuChoiceCreateRequest", user_uid: str
+    ) -> Result[Ku]:
         """
         Create a basic choice.
 
@@ -228,21 +230,21 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             user_uid: User UID (REQUIRED - fail-fast philosophy)
 
         Returns:
-            Result containing created Choice
+            Result containing created Ku (choice type)
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "choice creation")
         if validation:
             return validation
 
-        # Create DTO from request
-        dto = ChoiceDTO.create(
+        # Create DTO from request using Ku factory method
+        dto = KuDTO.create_choice(
             user_uid=user_uid,
             title=choice_request.title,
             description=choice_request.description,
             priority=choice_request.priority,
             domain=choice_request.domain,
-            deadline=choice_request.decision_deadline,
+            decision_deadline=choice_request.decision_deadline,
         )
 
         # Create choice in backend (use generic create, not domain-specific create_choice)
@@ -307,7 +309,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
 
         return Result.ok(choice)
 
-    async def get_choice(self, choice_uid: str) -> Result[Choice]:
+    async def get_choice(self, choice_uid: str) -> Result[Ku]:
         """
         Get a specific choice by UID.
 
@@ -318,11 +320,11 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             choice_uid: UID of the choice
 
         Returns:
-            Result[Choice] - success contains Choice, not found is an error
+            Result[Ku] - success contains Choice, not found is an error
         """
         return await self.get(choice_uid)
 
-    async def get_user_choices(self, user_uid: str) -> Result[list[Choice]]:
+    async def get_user_choices(self, user_uid: str) -> Result[list[Ku]]:
         """
         Get all choices for a user.
 
@@ -336,11 +338,11 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         if result.is_error:
             return result
 
-        choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
+        choices = self._to_domain_models(result.value, KuDTO, Ku)
         return Result.ok(choices)
 
     @with_error_handling("get_choices_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_choices_for_goal(self, goal_uid: str) -> Result[list[Choice]]:
+    async def get_choices_for_goal(self, goal_uid: str) -> Result[list[Ku]]:
         """
         Get all choices motivated by a specific goal.
 
@@ -379,8 +381,8 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         return Result.ok(choices)
 
     async def update_choice(
-        self, choice_uid: str, choice_update: ChoiceUpdateRequest
-    ) -> Result[Choice]:
+        self, choice_uid: str, choice_update: "KuUpdateRequest"
+    ) -> Result[Ku]:
         """
         Update a choice.
 
@@ -425,11 +427,11 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             updated_fields["deadline"] = choice_update.decision_deadline
 
         # Update in backend
-        update_result = await self.backend.update_choice(choice_uid, dto.to_dict())
+        update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
             return Result.fail(update_result)
 
-        choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
+        choice = self._to_domain_model(update_result.value, KuDTO, Ku)
 
         # Publish ChoiceUpdated event (event-driven architecture)
         if updated_fields:
@@ -463,7 +465,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
                 choice_description = choice.description or choice.title
                 user_uid = choice.user_uid
 
-        result = await self.backend.delete_choice(choice_uid)
+        result = await self.backend.delete(choice_uid, cascade=True)
         if result.is_error:
             return result
 
@@ -479,8 +481,8 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         return Result.ok(True)
 
     async def evaluate_choice_outcome(
-        self, choice_uid: str, evaluation: ChoiceEvaluationRequest
-    ) -> Result[Choice]:
+        self, choice_uid: str, evaluation: "KuChoiceEvaluationRequest"
+    ) -> Result[Ku]:
         """
         Record the outcome evaluation for a choice.
 
@@ -509,11 +511,11 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         dto.lessons_learned = evaluation.lessons_learned
 
         # Update in backend
-        update_result = await self.backend.update_choice(choice_uid, dto.to_dict())
+        update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
             return Result.fail(update_result)
 
-        choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
+        choice = self._to_domain_model(update_result.value, KuDTO, Ku)
 
         # Calculate outcome quality score
         outcome_quality = choice.get_decision_quality_score() or 0.5
@@ -536,7 +538,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         selected_option_uid: str,
         decision_rationale: str | None = None,
         confidence: float = 0.5,
-    ) -> Result[Choice]:
+    ) -> Result[Ku]:
         """
         Record a decision for a choice (selects an option).
 
@@ -551,19 +553,19 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         Returns:
             Result containing updated Choice
         """
-        # Update choice with selected option
+        # Update choice with selected option directly via backend
         updates = {
             "selected_option_uid": selected_option_uid,
             "decision_rationale": decision_rationale,
-            "decided_at": datetime.now(),
-            "status": ChoiceStatus.DECIDED.value,
+            "decided_at": datetime.now().isoformat(),
+            "status": KuStatus.ACTIVE.value,
         }
 
-        result = await self.update_choice(choice_uid, ChoiceUpdateRequest(**updates))
+        result = await self.backend.update(choice_uid, updates)
         if result.is_error:
             return result
 
-        choice = result.value
+        choice = self._to_domain_model(result.value, KuDTO, Ku)
 
         # Publish ChoiceMade event
         from core.events import ChoiceMade
@@ -587,7 +589,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> Result[list[Choice]]:
+    ) -> Result[list[Ku]]:
         """
         Find choices with filters and pagination.
 
@@ -604,13 +606,13 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         # Protocol-compliant backend call (filters and limit only)
         # Backend returns more results than needed to allow service-layer pagination
         backend_limit = limit + offset if offset > 0 else limit
-        result = await self.backend.find_choices(filters=filters, limit=backend_limit)
+        result = await self.backend.find_by(**(filters or {}), limit=backend_limit)
 
         if result.is_error:
             return result
 
         # Convert to domain models
-        choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
+        choices = self._to_domain_models(result.value, KuDTO, Ku)
 
         # Service-layer filtering: sorting
         if order_by:
@@ -641,7 +643,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         Returns:
             Result containing count
         """
-        return await self.backend.count_choices(filters=filters)
+        return await self.backend.count(**(filters or {}))
 
     # get_user_items_in_range() is now inherited from BaseService
     # Configured via class attributes: _date_field, _completed_statuses, _dto_class, _model_class
@@ -663,7 +665,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         estimated_duration: int | None = None,
         dependencies: list[str] | None = None,
         tags: list[str] | None = None,
-    ) -> Result[Choice]:
+    ) -> Result[Ku]:
         """
         Add a new option to an existing choice.
 
@@ -686,7 +688,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         Returns:
             Result containing updated Choice with new option
         """
-        from core.models.choice.choice import ChoiceOption
+        from core.models.ku.ku_nested_types import ChoiceOption
         from core.utils.uid_generator import UIDGenerator
 
         # Get existing choice
@@ -699,7 +701,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         # Business Rule: Cannot modify decided/evaluated choices
-        if existing.status in [ChoiceStatus.DECIDED, ChoiceStatus.EVALUATED]:
+        if existing.status in [KuStatus.ACTIVE, KuStatus.COMPLETED]:
             return Result.fail(
                 Errors.validation(
                     message=f"Cannot add options to {existing.status.value} choice. "
@@ -740,30 +742,15 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
 
         # Update choice with new options
         dto = existing.to_dto()
-        from core.models.choice.choice_dto import ChoiceOptionDTO
-
-        dto.options = [
-            ChoiceOptionDTO(
-                uid=opt.uid,
-                title=opt.title,
-                description=opt.description,
-                feasibility_score=opt.feasibility_score,
-                risk_level=opt.risk_level,
-                potential_impact=opt.potential_impact,
-                resource_requirement=opt.resource_requirement,
-                estimated_duration=opt.estimated_duration,
-                dependencies=list(opt.dependencies),
-                tags=list(opt.tags),
-            )
-            for opt in updated_options
-        ]
+        # KuDTO stores ChoiceOption frozen dataclasses directly
+        dto.options = list(updated_options)
 
         # Update in backend
-        update_result = await self.backend.update_choice(choice_uid, dto.to_dict())
+        update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
             return Result.fail(update_result.expect_error())
 
-        choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
+        choice = self._to_domain_model(update_result.value, KuDTO, Ku)
 
         # Publish ChoiceUpdated event
         event = ChoiceUpdated(
@@ -790,7 +777,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         estimated_duration: int | None = None,
         dependencies: list[str] | None = None,
         tags: list[str] | None = None,
-    ) -> Result[Choice]:
+    ) -> Result[Ku]:
         """
         Update an existing option in a choice.
 
@@ -814,7 +801,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         Returns:
             Result containing updated Choice
         """
-        from core.models.choice.choice import ChoiceOption
+        from core.models.ku.ku_nested_types import ChoiceOption
 
         # Get existing choice
         existing_result = await self.get_choice(choice_uid)
@@ -826,7 +813,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         # Business Rule: Cannot modify decided/evaluated choices
-        if existing.status in [ChoiceStatus.DECIDED, ChoiceStatus.EVALUATED]:
+        if existing.status in [KuStatus.ACTIVE, KuStatus.COMPLETED]:
             return Result.fail(
                 Errors.validation(
                     message=f"Cannot update options in {existing.status.value} choice. "
@@ -886,30 +873,15 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
 
         # Update choice with modified options
         dto = existing.to_dto()
-        from core.models.choice.choice_dto import ChoiceOptionDTO
-
-        dto.options = [
-            ChoiceOptionDTO(
-                uid=opt.uid,
-                title=opt.title,
-                description=opt.description,
-                feasibility_score=opt.feasibility_score,
-                risk_level=opt.risk_level,
-                potential_impact=opt.potential_impact,
-                resource_requirement=opt.resource_requirement,
-                estimated_duration=opt.estimated_duration,
-                dependencies=list(opt.dependencies),
-                tags=list(opt.tags),
-            )
-            for opt in updated_options
-        ]
+        # KuDTO stores ChoiceOption frozen dataclasses directly
+        dto.options = list(updated_options)
 
         # Update in backend
-        update_result = await self.backend.update_choice(choice_uid, dto.to_dict())
+        update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
             return Result.fail(update_result.expect_error())
 
-        choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
+        choice = self._to_domain_model(update_result.value, KuDTO, Ku)
 
         # Publish ChoiceUpdated event
         event = ChoiceUpdated(
@@ -927,7 +899,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         self,
         choice_uid: str,
         option_uid: str,
-    ) -> Result[Choice]:
+    ) -> Result[Ku]:
         """
         Remove an option from a choice.
 
@@ -954,7 +926,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
         # Business Rule: Cannot modify decided/evaluated choices
-        if existing.status in [ChoiceStatus.DECIDED, ChoiceStatus.EVALUATED]:
+        if existing.status in [KuStatus.ACTIVE, KuStatus.COMPLETED]:
             return Result.fail(
                 Errors.validation(
                     message=f"Cannot remove options from {existing.status.value} choice. "
@@ -1005,30 +977,15 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
 
         # Update choice with remaining options
         dto = existing.to_dto()
-        from core.models.choice.choice_dto import ChoiceOptionDTO
-
-        dto.options = [
-            ChoiceOptionDTO(
-                uid=opt.uid,
-                title=opt.title,
-                description=opt.description,
-                feasibility_score=opt.feasibility_score,
-                risk_level=opt.risk_level,
-                potential_impact=opt.potential_impact,
-                resource_requirement=opt.resource_requirement,
-                estimated_duration=opt.estimated_duration,
-                dependencies=list(opt.dependencies),
-                tags=list(opt.tags),
-            )
-            for opt in updated_options
-        ]
+        # KuDTO stores ChoiceOption frozen dataclasses directly
+        dto.options = list(updated_options)
 
         # Update in backend
-        update_result = await self.backend.update_choice(choice_uid, dto.to_dict())
+        update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
             return Result.fail(update_result.expect_error())
 
-        choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
+        choice = self._to_domain_model(update_result.value, KuDTO, Ku)
 
         # Publish ChoiceUpdated event
         event = ChoiceUpdated(
@@ -1047,7 +1004,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
     # ========================================================================
 
     @with_error_handling("get_subchoices", error_type="database", uid_param="parent_uid")
-    async def get_subchoices(self, parent_uid: str, depth: int = 1) -> Result[list[Choice]]:
+    async def get_subchoices(self, parent_uid: str, depth: int = 1) -> Result[list[Ku]]:
         """
         Get all subchoices of a parent choice.
 
@@ -1066,8 +1023,8 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             all_subchoices = await service.get_subchoices("choice_abc123", depth=99)
         """
         query = f"""
-        MATCH (parent:Choice {{uid: $parent_uid}})
-        MATCH (parent)-[:HAS_SUBCHOICE*1..{depth}]->(subchoice:Choice)
+        MATCH (parent:Ku {{uid: $parent_uid, ku_type: 'choice'}})
+        MATCH (parent)-[:HAS_SUBCHOICE*1..{depth}]->(subchoice:Ku {{ku_type: 'choice'}})
         RETURN subchoice
         ORDER BY subchoice.created_at
         """
@@ -1081,13 +1038,13 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         choices = []
         for record in result.records:
             choice_data = dict(record["subchoice"])
-            choice = self._to_domain_model(choice_data, ChoiceDTO, Choice)
+            choice = self._to_domain_model(choice_data, KuDTO, Ku)
             choices.append(choice)
 
         return Result.ok(choices)
 
     @with_error_handling("get_parent_choice", error_type="database", uid_param="subchoice_uid")
-    async def get_parent_choice(self, subchoice_uid: str) -> Result[Choice | None]:
+    async def get_parent_choice(self, subchoice_uid: str) -> Result[Ku | None]:
         """
         Get immediate parent of a subchoice (if any).
 
@@ -1098,8 +1055,8 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             Result containing parent Choice or None if root-level choice
         """
         query = """
-        MATCH (subchoice:Choice {uid: $subchoice_uid})
-        MATCH (parent:Choice)-[:HAS_SUBCHOICE]->(subchoice)
+        MATCH (subchoice:Ku {uid: $subchoice_uid, ku_type: 'choice'})
+        MATCH (parent:Ku {ku_type: 'choice'})-[:HAS_SUBCHOICE]->(subchoice)
         RETURN parent
         LIMIT 1
         """
@@ -1110,7 +1067,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             return Result.ok(None)
 
         parent_data = dict(result.records[0]["parent"])
-        parent = self._to_domain_model(parent_data, ChoiceDTO, Choice)
+        parent = self._to_domain_model(parent_data, KuDTO, Ku)
         return Result.ok(parent)
 
     @with_error_handling("get_choice_hierarchy", error_type="database", uid_param="choice_uid")
@@ -1141,24 +1098,24 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         """
         # Get ancestors
         ancestors_query = """
-        MATCH path = (root:Choice)-[:HAS_SUBCHOICE*]->(current:Choice {uid: $choice_uid})
+        MATCH path = (root:Ku {ku_type: 'choice'})-[:HAS_SUBCHOICE*]->(current:Ku {uid: $choice_uid, ku_type: 'choice'})
         WHERE NOT EXISTS((root)<-[:HAS_SUBCHOICE]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
         siblings_query = """
-        MATCH (current:Choice {uid: $choice_uid})
-        OPTIONAL MATCH (parent:Choice)-[:HAS_SUBCHOICE]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBCHOICE]->(sibling:Choice)
+        MATCH (current:Ku {uid: $choice_uid, ku_type: 'choice'})
+        OPTIONAL MATCH (parent:Ku {ku_type: 'choice'})-[:HAS_SUBCHOICE]->(current)
+        OPTIONAL MATCH (parent)-[:HAS_SUBCHOICE]->(sibling:Ku {ku_type: 'choice'})
         WHERE sibling.uid <> $choice_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
         children_query = """
-        MATCH (current:Choice {uid: $choice_uid})
-        OPTIONAL MATCH (current)-[:HAS_SUBCHOICE]->(child:Choice)
+        MATCH (current:Ku {uid: $choice_uid, ku_type: 'choice'})
+        OPTIONAL MATCH (current)-[:HAS_SUBCHOICE]->(child:Ku {ku_type: 'choice'})
         RETURN collect(child) as children
         """
 
@@ -1167,7 +1124,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_choice = self._to_domain_model(current_result.value, ChoiceDTO, Choice)
+        current_choice = self._to_domain_model(current_result.value, KuDTO, Ku)
 
         ancestors_result = await self.backend.driver.execute_query(
             ancestors_query, choice_uid=choice_uid
@@ -1184,7 +1141,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
             for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
                 choice_data = dict(node)
-                ancestors.append(self._to_domain_model(choice_data, ChoiceDTO, Choice))
+                ancestors.append(self._to_domain_model(choice_data, KuDTO, Ku))
 
         # Process siblings
         siblings = []
@@ -1192,7 +1149,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             for node in siblings_result.records[0]["siblings"]:
                 if node:  # Skip None values
                     choice_data = dict(node)
-                    siblings.append(self._to_domain_model(choice_data, ChoiceDTO, Choice))
+                    siblings.append(self._to_domain_model(choice_data, KuDTO, Ku))
 
         # Process children
         children = []
@@ -1200,7 +1157,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             for node in children_result.records[0]["children"]:
                 if node:  # Skip None values
                     choice_data = dict(node)
-                    children.append(self._to_domain_model(choice_data, ChoiceDTO, Choice))
+                    children.append(self._to_domain_model(choice_data, KuDTO, Ku))
 
         return Result.ok(
             {
@@ -1256,8 +1213,8 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
         prop_assignments = ", ".join([f"{k}: ${k}" for k in rel_props])
 
         query = f"""
-        MATCH (parent:Choice {{uid: $parent_uid}})
-        MATCH (subchoice:Choice {{uid: $subchoice_uid}})
+        MATCH (parent:Ku {{uid: $parent_uid, ku_type: 'choice'}})
+        MATCH (subchoice:Ku {{uid: $subchoice_uid, ku_type: 'choice'}})
 
         CREATE (parent)-[:HAS_SUBCHOICE {{
             {prop_assignments},
@@ -1299,7 +1256,7 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
             Result containing True if relationships were deleted
         """
         query = """
-        MATCH (parent:Choice {uid: $parent_uid})-[r1:HAS_SUBCHOICE]->(subchoice:Choice {uid: $subchoice_uid})
+        MATCH (parent:Ku {uid: $parent_uid, ku_type: 'choice'})-[r1:HAS_SUBCHOICE]->(subchoice:Ku {uid: $subchoice_uid, ku_type: 'choice'})
         MATCH (subchoice)-[r2:SUBCHOICE_OF]->(parent)
         DELETE r1, r2
         RETURN count(r1) + count(r2) as deleted_count
@@ -1320,8 +1277,8 @@ class ChoicesCoreService(BaseService[ChoicesOperations, Choice]):
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
         query = """
-        MATCH (child:Choice {uid: $child_uid})
-        MATCH path = (child)-[:HAS_SUBCHOICE*]->(parent:Choice {uid: $parent_uid})
+        MATCH (child:Ku {uid: $child_uid, ku_type: 'choice'})
+        MATCH path = (child)-[:HAS_SUBCHOICE*]->(parent:Ku {uid: $parent_uid, ku_type: 'choice'})
         RETURN count(path) > 0 as would_create_cycle
         """
 

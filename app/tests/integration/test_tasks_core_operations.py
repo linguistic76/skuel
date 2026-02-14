@@ -27,7 +27,7 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import ActivityStatus, Priority
-from core.models.task.task import Task
+from core.models.ku.ku import Ku as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
 
 

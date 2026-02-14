@@ -33,20 +33,20 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.models.task.task import Task
+from core.models.ku.ku import Ku
 from core.services.base_planning_service import BasePlanningService
 from core.services.infrastructure import PrerequisiteHelper
-from core.services.protocols.domain_protocols import TasksOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_priority_score, get_relevance_score
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualDependencies, ContextualTask
+    from core.services.protocols import BackendOperations
     from core.services.user.unified_user_context import UserContext
 
 
-class TasksPlanningService(BasePlanningService[TasksOperations, Task]):
+class TasksPlanningService(BasePlanningService["BackendOperations[Ku]", Ku]):
     """
     Context-aware task planning service.
 
@@ -68,13 +68,13 @@ class TasksPlanningService(BasePlanningService[TasksOperations, Task]):
     # PRIVATE HELPER METHODS (Domain-Specific)
     # ========================================================================
 
-    async def _get_tasks_by_uids(self, uids: list[str]) -> list[Task]:
+    async def _get_tasks_by_uids(self, uids: list[str]) -> list[Ku]:
         """Alias for base class method with domain-specific naming."""
         return await self._get_entities_by_uids(uids)
 
     async def _find_tasks_for_knowledge(
         self, knowledge_uid: str, user_uid: str, limit: int = 20
-    ) -> Result[list[Task]]:
+    ) -> Result[list[Ku]]:
         """
         Find tasks that apply a specific knowledge unit for a user.
 
@@ -89,11 +89,11 @@ class TasksPlanningService(BasePlanningService[TasksOperations, Task]):
         Returns:
             Result containing list of Tasks that apply the knowledge unit
         """
-        from core.models.task.task import Task
+        from core.models.ku.ku import Ku
         from core.utils.neo4j_mapper import from_neo4j_node
 
         query = """
-        MATCH (t:Task)-[:APPLIES_KNOWLEDGE|REQUIRES_KNOWLEDGE]->(ku:Ku {uid: $knowledge_uid})
+        MATCH (t:Ku)-[:APPLIES_KNOWLEDGE|REQUIRES_KNOWLEDGE]->(ku:Ku {uid: $knowledge_uid})
         WHERE t.user_uid = $user_uid
         RETURN t
         LIMIT $limit
@@ -104,7 +104,7 @@ class TasksPlanningService(BasePlanningService[TasksOperations, Task]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        tasks = [from_neo4j_node(record["t"], Task) for record in result.value]
+        tasks = [from_neo4j_node(record["t"], Ku) for record in result.value]
         return Result.ok(tasks)
 
     # ========================================================================

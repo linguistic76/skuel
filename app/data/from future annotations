@@ -85,7 +85,7 @@
   from typing import Optional, List, Dict
   from core.models.task import Task
   from core.models.goal import Goal
-  from core.models.habit import Habit
+  from core.models.ku.ku import Ku as Habit
   # ... 50 more imports for type hints
 
   # Python processes ALL these imports at module load time

@@ -27,7 +27,7 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import ActivityStatus, Priority, Visibility
-from core.models.event.event import Event
+from core.models.ku.ku import Ku
 from core.services.events.events_core_service import EventsCoreService
 
 
@@ -43,7 +43,7 @@ class TestEventsCoreOperations:
     @pytest_asyncio.fixture
     async def events_backend(self, neo4j_driver, clean_neo4j):
         """Create events backend with clean database."""
-        return UniversalNeo4jBackend[Event](neo4j_driver, "Event", Event)
+        return UniversalNeo4jBackend[Ku](neo4j_driver, "Event", Ku)
 
     @pytest_asyncio.fixture
     async def events_service(self, events_backend, event_bus):
@@ -63,7 +63,7 @@ class TestEventsCoreOperations:
         """Test creating a new event."""
         # Arrange
         today = date.today()
-        event = Event(
+        event = Ku(
             uid="event.team_meeting",
             user_uid=test_user_uid,
             title="Weekly Team Meeting",
@@ -92,7 +92,7 @@ class TestEventsCoreOperations:
     async def test_get_event_by_uid(self, events_service, test_user_uid):
         """Test retrieving an event by UID."""
         # Arrange - Create an event first
-        event = Event(
+        event = Ku(
             uid="event.get_test",
             user_uid=test_user_uid,
             title="Test Event for Retrieval",
@@ -126,7 +126,7 @@ class TestEventsCoreOperations:
         # Arrange - Create multiple events
         today = date.today()
         events = [
-            Event(
+            Ku(
                 uid=f"event.list_test_{i}",
                 user_uid=test_user_uid,
                 title=f"Test Event {i}",
@@ -154,7 +154,7 @@ class TestEventsCoreOperations:
         # Arrange & Act - Create 5 events
         today = date.today()
         for i in range(5):
-            event = Event(
+            event = Ku(
                 uid=f"event.multi_{i}",
                 user_uid=test_user_uid,
                 title=f"Multi Event {i}",
@@ -178,7 +178,7 @@ class TestEventsCoreOperations:
         """Test filtering events by status."""
         # Arrange - Create events with different statuses
         today = date.today()
-        scheduled_event = Event(
+        scheduled_event = Ku(
             uid="event.scheduled",
             user_uid=test_user_uid,
             title="Scheduled Event",
@@ -186,7 +186,7 @@ class TestEventsCoreOperations:
             event_date=today + timedelta(days=1),
             status=ActivityStatus.SCHEDULED,
         )
-        completed_event = Event(
+        completed_event = Ku(
             uid="event.completed",
             user_uid=test_user_uid,
             title="Completed Event",
@@ -219,7 +219,7 @@ class TestEventsCoreOperations:
         """Test filtering events by type."""
         # Arrange - Create events with different types
         today = date.today()
-        work_event = Event(
+        work_event = Ku(
             uid="event.work_type",
             user_uid=test_user_uid,
             title="Work Event",
@@ -228,7 +228,7 @@ class TestEventsCoreOperations:
             event_type="WORK",
             status=ActivityStatus.SCHEDULED,
         )
-        personal_event = Event(
+        personal_event = Ku(
             uid="event.personal_type",
             user_uid=test_user_uid,
             title="Personal Event",
@@ -262,7 +262,7 @@ class TestEventsCoreOperations:
         """Test filtering events by date range."""
         # Arrange - Create events on different dates
         today = date.today()
-        this_week_event = Event(
+        this_week_event = Ku(
             uid="event.this_week",
             user_uid=test_user_uid,
             title="This Week Event",
@@ -270,7 +270,7 @@ class TestEventsCoreOperations:
             event_date=today + timedelta(days=3),
             status=ActivityStatus.SCHEDULED,
         )
-        next_month_event = Event(
+        next_month_event = Ku(
             uid="event.next_month",
             user_uid=test_user_uid,
             title="Next Month Event",
@@ -312,7 +312,7 @@ class TestEventsCoreOperations:
         ]
 
         for status in statuses:
-            event = Event(
+            event = Ku(
                 uid=f"event.status_{status.value}",
                 user_uid=test_user_uid,
                 title=f"Event with {status.value} status",
@@ -336,7 +336,7 @@ class TestEventsCoreOperations:
         ]
 
         for priority in priorities:
-            event = Event(
+            event = Ku(
                 uid=f"event.priority_{priority.value}",
                 user_uid=test_user_uid,
                 title=f"{priority.value.title()} Priority Event",
@@ -359,7 +359,7 @@ class TestEventsCoreOperations:
         ]
 
         for visibility in visibility_levels:
-            event = Event(
+            event = Ku(
                 uid=f"event.visibility_{visibility.value}",
                 user_uid=test_user_uid,
                 title=f"{visibility.value.title()} Event",
@@ -374,7 +374,7 @@ class TestEventsCoreOperations:
     async def test_event_duration_calculation(self, events_service, test_user_uid):
         """Test event duration calculation."""
         # Arrange
-        event = Event(
+        event = Ku(
             uid="event.with_duration",
             user_uid=test_user_uid,
             title="Event with Duration",
@@ -401,7 +401,7 @@ class TestEventsCoreOperations:
         """Test creating an event with optional fields populated."""
         # Arrange
         today = date.today()
-        event = Event(
+        event = Ku(
             uid="event.full_details",
             user_uid=test_user_uid,
             title="Fully Detailed Event",
@@ -439,7 +439,7 @@ class TestEventsCoreOperations:
     async def test_event_without_optional_fields(self, events_service, test_user_uid):
         """Test creating an event with minimal required fields."""
         # Arrange - Only required fields
-        event = Event(
+        event = Ku(
             uid="event.minimal",
             user_uid=test_user_uid,
             title="Minimal Event",
@@ -465,7 +465,7 @@ class TestEventsCoreOperations:
     async def test_online_event(self, events_service, test_user_uid):
         """Test creating an online event with meeting URL."""
         # Arrange
-        event = Event(
+        event = Ku(
             uid="event.online_meeting",
             user_uid=test_user_uid,
             title="Online Workshop",

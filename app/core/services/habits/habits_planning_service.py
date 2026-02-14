@@ -38,8 +38,9 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import RecurrencePattern
-from core.models.habit.habit import Habit, HabitCategory
-from core.models.habit.habit_dto import HabitDTO
+from core.models.enums.ku_enums import HabitCategory
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_planning_service import BasePlanningService
 from core.services.protocols.domain_protocols import HabitsOperations
 from core.utils.decorators import with_error_handling
@@ -56,7 +57,7 @@ if TYPE_CHECKING:
 ESTABLISHED_STREAK_THRESHOLD = 7  # 7 days = habit formation baseline
 
 
-class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
+class HabitsPlanningService(BasePlanningService[HabitsOperations, Ku]):
     """
     Context-aware habit planning service.
 
@@ -83,7 +84,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
     # PRIVATE HELPER METHODS (Domain-Specific)
     # ========================================================================
 
-    async def _get_habits_by_uids(self, uids: list[str]) -> list[Habit]:
+    async def _get_habits_by_uids(self, uids: list[str]) -> list[Ku]:
         """Alias for base class method with domain-specific naming."""
         return await self._get_entities_by_uids(uids)
 
@@ -91,7 +92,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         """Alias for base class method with domain-specific naming."""
         return await self._get_related_uids(relationship_key, entity_uid)
 
-    def _get_habit_from_rich_context(self, habit_uid: str, context: UserContext) -> Habit | None:
+    def _get_habit_from_rich_context(self, habit_uid: str, context: UserContext) -> Ku | None:
         """
         Try to get Habit entity from UserContext rich data.
 
@@ -115,7 +116,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
         return None
 
-    def _dict_to_habit(self, habit_dict: dict[str, Any]) -> Habit:
+    def _dict_to_habit(self, habit_dict: dict[str, Any]) -> Ku:
         """
         Convert a habit dict (from rich context) to Habit domain model.
 
@@ -125,10 +126,10 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         Returns:
             Habit domain model instance
         """
-        dto = HabitDTO(
+        dto = KuDTO(
             uid=habit_dict.get("uid", ""),
             user_uid=habit_dict.get("user_uid", ""),
-            name=habit_dict.get("name", ""),
+            title=habit_dict.get("title", habit_dict.get("name", "")),
             description=habit_dict.get("description"),
             recurrence_pattern=habit_dict.get(
                 "recurrence_pattern", habit_dict.get("frequency", RecurrencePattern.DAILY)
@@ -148,7 +149,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
             created_at=habit_dict.get("created_at") or datetime.now(),
             updated_at=habit_dict.get("updated_at") or datetime.now(),
         )
-        return to_domain_model(dto, HabitDTO, Habit)
+        return to_domain_model(dto, KuDTO, Ku)
 
     # ========================================================================
     # CONTEXT-FIRST METHODS
@@ -203,7 +204,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_error or not habit_result.value:
                     continue
-                habit = to_domain_model(habit_result.value, HabitDTO, Habit)
+                habit = to_domain_model(habit_result.value, KuDTO, Ku)
             else:
                 # Extract graph context if available
                 for habit_data in context.active_habits_rich:
@@ -219,7 +220,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
             contextual = ContextualHabit.from_entity_and_context(
                 uid=habit_uid,
-                title=habit.name,
+                title=habit.title,
                 context=context,
                 supported_goal_uids=goal_uids,
                 applied_knowledge_uids=knowledge_uids,
@@ -284,7 +285,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_error or not habit_result.value:
                     continue
-                habit = to_domain_model(habit_result.value, HabitDTO, Habit)
+                habit = to_domain_model(habit_result.value, KuDTO, Ku)
             else:
                 for habit_data in context.active_habits_rich:
                     if habit_data.get("habit", {}).get("uid") == habit_uid:
@@ -312,7 +313,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
             contextual = ContextualHabit.from_entity_and_context(
                 uid=habit_uid,
-                title=habit.name,
+                title=habit.title,
                 context=context,
                 supported_goal_uids=goal_uids,
                 is_due_today=True,
@@ -392,7 +393,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_error or not habit_result.value:
                     continue
-                habit = to_domain_model(habit_result.value, HabitDTO, Habit)
+                habit = to_domain_model(habit_result.value, KuDTO, Ku)
             else:
                 for habit_data in context.active_habits_rich:
                     if habit_data.get("habit", {}).get("uid") == habit_uid:
@@ -406,7 +407,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
             # Check if habit reinforces learning knowledge
             is_learning_habit = (
-                habit.category == HabitCategory.LEARNING
+                habit.habit_category == HabitCategory.LEARNING
                 or habit.source_learning_step_uid is not None
                 or habit.source_learning_path_uid is not None
                 or any(ku in learning_ku for ku in knowledge_uids)
@@ -423,7 +424,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
             contextual = ContextualHabit.from_entity_and_context(
                 uid=habit_uid,
-                title=habit.name,
+                title=habit.title,
                 context=context,
                 applied_knowledge_uids=knowledge_uids,
                 current_streak=habit.current_streak,
@@ -479,7 +480,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_error or not habit_result.value:
                     continue
-                habit = to_domain_model(habit_result.value, HabitDTO, Habit)
+                habit = to_domain_model(habit_result.value, KuDTO, Ku)
             else:
                 for habit_data in context.active_habits_rich:
                     if habit_data.get("habit", {}).get("uid") == habit_uid:
@@ -506,7 +507,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
             contextual = ContextualHabit.from_entity_and_context(
                 uid=habit_uid,
-                title=habit.name,
+                title=habit.title,
                 context=context,
                 supported_goal_uids=supported_goals,
                 is_due_today=habit.should_do_today(date.today().weekday()),
@@ -563,7 +564,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 return Result.fail(habit_result.expect_error())
             if not habit_result.value:
                 return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
-            habit = to_domain_model(habit_result.value, HabitDTO, Habit)
+            habit = to_domain_model(habit_result.value, KuDTO, Ku)
 
         # Get prerequisite habit UIDs
         prereq_uids = await self._get_related_uids("prerequisite_habits", habit_uid)
@@ -581,13 +582,13 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 prereq_result = await self.backend.get_habit(prereq_uid)
                 if prereq_result.is_error or not prereq_result.value:
                     continue
-                prereq_habit = to_domain_model(prereq_result.value, HabitDTO, Habit)
+                prereq_habit = to_domain_model(prereq_result.value, KuDTO, Ku)
 
             is_established = prereq_streak >= ESTABLISHED_STREAK_THRESHOLD
 
             contextual_prereq = ContextualHabit.from_entity_and_context(
                 uid=prereq_uid,
-                title=prereq_habit.name,
+                title=prereq_habit.title,
                 context=context,
                 current_streak=prereq_streak,
                 completion_rate=prereq_habit.success_rate,
@@ -603,7 +604,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
             else:
                 blocked_deps.append(contextual_prereq)
                 blocking_reasons.append(
-                    f"Prerequisite habit '{prereq_habit.name}' needs {ESTABLISHED_STREAK_THRESHOLD - prereq_streak} more days to establish"
+                    f"Prerequisite habit '{prereq_habit.title}' needs {ESTABLISHED_STREAK_THRESHOLD - prereq_streak} more days to establish"
                 )
 
         # Check frequency readiness
@@ -640,7 +641,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
     @staticmethod
     def _calculate_readiness_score(
-        habit: Habit,
+        habit: Ku,
         as_of_date: date,
     ) -> float:
         """
@@ -659,7 +660,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
     @staticmethod
     def _calculate_urgency_score(
-        habit: Habit,
+        habit: Ku,
         is_at_risk: bool,
     ) -> float:
         """
@@ -732,7 +733,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         return min(1.0, score)
 
     @staticmethod
-    def _days_since_last_completion(habit: Habit) -> int:
+    def _days_since_last_completion(habit: Ku) -> int:
         """Calculate days since last completion."""
         if not habit.last_completed:
             return 999  # Never completed

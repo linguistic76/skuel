@@ -27,7 +27,8 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, GoalStatus, Priority
-from core.models.goal.goal import Goal, GoalTimeframe, GoalType, MeasurementType
+from core.models.ku.ku import Ku
+from core.models.enums.ku_enums import GoalTimeframe, GoalType, MeasurementType
 from core.services.goals.goals_core_service import GoalsCoreService
 
 
@@ -43,7 +44,7 @@ class TestGoalsCoreOperations:
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
-        return UniversalNeo4jBackend[Goal](neo4j_driver, "Goal", Goal)
+        return UniversalNeo4jBackend[Ku](neo4j_driver, "Goal", Ku)
 
     @pytest_asyncio.fixture
     async def goals_service(self, goals_backend, event_bus):
@@ -63,7 +64,7 @@ class TestGoalsCoreOperations:
         """Test creating a new goal."""
         # Arrange
         today = date.today()
-        goal = Goal(
+        goal = Ku(
             uid="goal.learn_python",
             user_uid=test_user_uid,
             title="Learn Python Programming",
@@ -95,7 +96,7 @@ class TestGoalsCoreOperations:
     async def test_get_goal_by_uid(self, goals_service, test_user_uid):
         """Test retrieving a goal by UID."""
         # Arrange - Create a goal first
-        goal = Goal(
+        goal = Ku(
             uid="goal.get_test",
             user_uid=test_user_uid,
             title="Test Goal for Retrieval",
@@ -157,7 +158,7 @@ class TestGoalsCoreOperations:
         """Test creating multiple goals for the same user."""
         # Arrange & Act - Create 5 goals
         for i in range(5):
-            goal = Goal(
+            goal = Ku(
                 uid=f"goal.multi_{i}",
                 user_uid=test_user_uid,
                 title=f"Multi Goal {i}",
@@ -320,7 +321,7 @@ class TestGoalsCoreOperations:
         ]
 
         for status in statuses:
-            goal = Goal(
+            goal = Ku(
                 uid=f"goal.status_{status.value}",
                 user_uid=test_user_uid,
                 title=f"Goal with {status.value} status",
@@ -345,7 +346,7 @@ class TestGoalsCoreOperations:
         ]
 
         for goal_type in goal_types:
-            goal = Goal(
+            goal = Ku(
                 uid=f"goal.type_{goal_type.value}",
                 user_uid=test_user_uid,
                 title=f"{goal_type.value.title()} Goal",
@@ -382,7 +383,7 @@ class TestGoalsCoreOperations:
     async def test_goal_with_progress_tracking(self, goals_service, test_user_uid):
         """Test creating a goal with progress tracking fields."""
         # Arrange
-        goal = Goal(
+        goal = Ku(
             uid="goal.with_progress",
             user_uid=test_user_uid,
             title="Goal with Progress Tracking",
@@ -419,7 +420,7 @@ class TestGoalsCoreOperations:
         """Test creating a goal with optional fields populated."""
         # Arrange
         today = date.today()
-        goal = Goal(
+        goal = Ku(
             uid="goal.full_details",
             user_uid=test_user_uid,
             title="Fully Detailed Goal",
@@ -455,7 +456,7 @@ class TestGoalsCoreOperations:
     async def test_goal_without_optional_fields(self, goals_service, test_user_uid):
         """Test creating a goal with minimal required fields."""
         # Arrange - Only required fields
-        goal = Goal(
+        goal = Ku(
             uid="goal.minimal",
             user_uid=test_user_uid,
             title="Minimal Goal",
@@ -486,7 +487,7 @@ class TestGoalsCoreOperations:
         ]
 
         for i, (start, target) in enumerate(date_ranges):
-            goal = Goal(
+            goal = Ku(
                 uid=f"goal.date_range_{i}",
                 user_uid=test_user_uid,
                 title=f"Goal with date range {i}",

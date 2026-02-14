@@ -15,8 +15,8 @@ import pytest_asyncio
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import ActivityStatus, Domain, Priority, SELCategory
 from core.models.ku.ku import Ku
+from core.models.ku.ku import Ku as Task
 from core.models.relationship_names import RelationshipName
-from core.models.task.task import Task
 from core.services.tasks.tasks_core_service import TasksCoreService
 
 
@@ -32,7 +32,7 @@ class TestCascadeDeleteTrue:
     @pytest_asyncio.fixture
     async def task_backend(self, neo4j_driver, clean_neo4j):
         """Create Task backend with clean database."""
-        return UniversalNeo4jBackend[Task](neo4j_driver, "Task", Task)
+        return UniversalNeo4jBackend[Ku](neo4j_driver, "Task", Ku)
 
     @pytest_asyncio.fixture
     async def tasks_service(self, task_backend):

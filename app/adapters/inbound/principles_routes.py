@@ -9,15 +9,15 @@ Analytics factory remains in principles_api.py.
 from adapters.inbound.principles_api import create_principles_api_routes
 from adapters.inbound.principles_ui import create_principles_ui_routes
 from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
-from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
+from core.models.ku.ku_request import KuPrincipleCreateRequest, KuUpdateRequest
 
 PRINCIPLES_CONFIG = create_activity_domain_route_config(
     domain_name="principles",
     primary_service_attr="principles",
     api_factory=create_principles_api_routes,
     ui_factory=create_principles_ui_routes,
-    create_schema=PrincipleCreateRequest,
-    update_schema=PrincipleUpdateRequest,
+    create_schema=KuPrincipleCreateRequest,
+    update_schema=KuUpdateRequest,
     uid_prefix="principle",
     supports_goal_filter=True,
     supports_habit_filter=True,

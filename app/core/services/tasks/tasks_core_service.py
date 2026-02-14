@@ -12,33 +12,37 @@ Handles basic task lifecycle management.
 - DTO/Model conversion
 
 **Dependencies:**
-- TasksOperations (backend protocol)
+- BackendOperations[Ku] (backend protocol)
 - KuInferenceService (optional - automatic knowledge inference)
 
 Version: 1.0.0
 Date: 2025-10-10
 """
 
+from __future__ import annotations
+
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.models.enums import ActivityStatus, EntityType
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_request import KuTaskCreateRequest
 from core.models.relationship_names import RelationshipName
-from core.models.task.task import Task
-from core.models.task.task_dto import TaskDTO
-from core.models.task.task_request import TaskCreateRequest
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols.domain_protocols import TasksOperations
 from core.services.protocols.query_types import TaskUpdatePayload
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
 
-class TasksCoreService(BaseService[TasksOperations, Task]):
+
+class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
     """
     Core CRUD operations for tasks.
 
@@ -79,8 +83,8 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=TaskDTO,
-        model_class=Task,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
@@ -93,7 +97,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Task entities."""
-        return "Task"
+        return "Ku"
 
     # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
@@ -103,7 +107,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, task: Task) -> Result[None] | None:
+    def _validate_create(self, task: Ku) -> Result[None] | None:
         """
         Validate task creation with business rules.
 
@@ -129,7 +133,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Task, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Ku, updates: dict[str, Any]) -> Result[None] | None:
         """
         Validate task updates with business rules.
 
@@ -193,7 +197,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     # ========================================================================
 
     @with_error_handling("knowledge_inference", error_type="system")
-    async def _enhance_with_knowledge_inference(self, dto: TaskDTO) -> Result[TaskDTO | None]:
+    async def _enhance_with_knowledge_inference(self, dto: KuDTO) -> Result[KuDTO | None]:
         """
         Apply automatic knowledge inference to enhance a task DTO.
 
@@ -217,7 +221,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         return Result.ok(enhanced_dto)
 
     @with_error_handling("create_task", error_type="database")
-    async def create_task(self, task_request: TaskCreateRequest, user_uid: str) -> Result[Task]:
+    async def create_task(self, task_request: KuTaskCreateRequest, user_uid: str) -> Result[Ku]:
         """
         Create a task with automatic knowledge inference.
 
@@ -234,8 +238,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             return validation
 
         # Create DTO from request with all fields
-        dto = TaskDTO(
-            uid=UIDGenerator.generate_random_uid("task"),
+        dto = KuDTO.create_task(
             user_uid=user_uid,
             title=task_request.title,
             description=task_request.description,
@@ -247,7 +250,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             project=task_request.project,
             assignee=task_request.assignee,
             tags=task_request.tags,
-            parent_uid=task_request.parent_task_uid,
+            parent_uid=task_request.parent_uid,
             recurrence_pattern=task_request.recurrence_pattern,
             recurrence_end_date=task_request.recurrence_end_date,
             fulfills_goal_uid=task_request.fulfills_goal_uid,
@@ -265,7 +268,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             dto = inference_result.value
 
         # Create task via backend and convert to domain model (uses BaseService helper)
-        result = await self._create_and_convert(dto.to_dict(), TaskDTO, Task)
+        result = await self._create_and_convert(dto.to_dict(), KuDTO, Ku)
         if result.is_error:
             return result
         task = result.value
@@ -349,9 +352,9 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             await publish_event(self.event_bus, embedding_event, self.logger)
 
         # Create parent-child relationship if parent_task_uid specified (2026-01-30)
-        if task_request.parent_task_uid:
+        if task_request.parent_uid:
             subtask_result = await self.create_subtask_relationship(
-                parent_uid=task_request.parent_task_uid,
+                parent_uid=task_request.parent_uid,
                 subtask_uid=task.uid,
                 progress_weight=task_request.progress_weight,
             )
@@ -366,7 +369,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     # READ OPERATIONS
     # ========================================================================
 
-    async def get_task(self, task_uid: str) -> Result[Task]:
+    async def get_task(self, task_uid: str) -> Result[Ku]:
         """
         Get a specific task by UID.
 
@@ -382,7 +385,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         return await self.get(task_uid)
 
     @with_error_handling("get_user_tasks", error_type="database", uid_param="user_uid")
-    async def get_user_tasks(self, user_uid: str) -> Result[list[Task]]:
+    async def get_user_tasks(self, user_uid: str) -> Result[list[Ku]]:
         """
         Get all tasks for a user, including learning relationships.
 
@@ -400,12 +403,12 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         entities, _total = result.value
 
         # Convert to enriched Task models
-        tasks = [self._to_domain_model(task_data, TaskDTO, Task) for task_data in entities]
+        tasks = [self._to_domain_model(task_data, KuDTO, Ku) for task_data in entities]
 
         self.logger.debug(f"Retrieved {len(tasks)} tasks for user {user_uid}")
         return Result.ok(tasks)
 
-    async def list_tasks(self, filters: dict | None = None, limit: int = 100) -> Result[list[Task]]:
+    async def list_tasks(self, filters: dict | None = None, limit: int = 100) -> Result[list[Ku]]:
         """
         List tasks with optional filters.
 
@@ -434,7 +437,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     # ========================================================================
 
     @with_error_handling("update_task", error_type="database", uid_param="task_uid")
-    async def update_task(self, task_uid: str, updates: dict) -> Result[Task]:
+    async def update_task(self, task_uid: str, updates: dict) -> Result[Ku]:
         """
         Update a task.
 
@@ -450,14 +453,14 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         if "priority" in updates:
             old_result = await self.backend.get(task_uid)
             if old_result.is_ok:
-                old_task = self._to_domain_model(old_result.value, TaskDTO, Task)
+                old_task = self._to_domain_model(old_result.value, KuDTO, Ku)
 
         update_result = await self.backend.update(task_uid, updates)
         if update_result.is_error:
             return Result.fail(update_result)
 
         # Convert updated result to Task
-        task = self._to_domain_model(update_result.value, TaskDTO, Task)
+        task = self._to_domain_model(update_result.value, KuDTO, Ku)
 
         # Publish TaskUpdated event
         event = TaskUpdated(
@@ -559,7 +562,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     # ========================================================================
 
     @with_error_handling("get_subtasks", error_type="database", uid_param="parent_uid")
-    async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Task]]:
+    async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Ku]]:
         """
         Get all subtasks of a parent task.
 
@@ -578,8 +581,8 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             all = await service.get_subtasks("task_abc123", depth=99)
         """
         query = f"""
-        MATCH (parent:Task {{uid: $parent_uid}})
-        MATCH (parent)-[:HAS_SUBTASK*1..{depth}]->(subtask:Task)
+        MATCH (parent:Ku {{uid: $parent_uid}})
+        MATCH (parent)-[:HAS_SUBTASK*1..{depth}]->(subtask:Ku)
         RETURN subtask
         ORDER BY subtask.created_at
         """
@@ -593,13 +596,13 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         tasks = []
         for record in result.records:
             task_data = dict(record["subtask"])
-            task = self._to_domain_model(task_data, TaskDTO, Task)
+            task = self._to_domain_model(task_data, KuDTO, Ku)
             tasks.append(task)
 
         return Result.ok(tasks)
 
     @with_error_handling("get_parent_task", error_type="database", uid_param="subtask_uid")
-    async def get_parent_task(self, subtask_uid: str) -> Result[Task | None]:
+    async def get_parent_task(self, subtask_uid: str) -> Result[Ku | None]:
         """
         Get immediate parent of a subtask (if any).
 
@@ -610,8 +613,8 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             Result containing parent Task or None if root-level task
         """
         query = """
-        MATCH (subtask:Task {uid: $subtask_uid})
-        MATCH (parent:Task)-[:HAS_SUBTASK]->(subtask)
+        MATCH (subtask:Ku {uid: $subtask_uid})
+        MATCH (parent:Ku)-[:HAS_SUBTASK]->(subtask)
         RETURN parent
         LIMIT 1
         """
@@ -622,7 +625,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             return Result.ok(None)
 
         parent_data = dict(result.records[0]["parent"])
-        parent = self._to_domain_model(parent_data, TaskDTO, Task)
+        parent = self._to_domain_model(parent_data, KuDTO, Ku)
         return Result.ok(parent)
 
     @with_error_handling("get_task_hierarchy", error_type="database", uid_param="task_uid")
@@ -653,24 +656,24 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         """
         # Get ancestors
         ancestors_query = """
-        MATCH path = (root:Task)-[:HAS_SUBTASK*]->(current:Task {uid: $task_uid})
+        MATCH path = (root:Ku)-[:HAS_SUBTASK*]->(current:Ku {uid: $task_uid})
         WHERE NOT EXISTS((root)<-[:HAS_SUBTASK]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
         siblings_query = """
-        MATCH (current:Task {uid: $task_uid})
-        OPTIONAL MATCH (parent:Task)-[:HAS_SUBTASK]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBTASK]->(sibling:Task)
+        MATCH (current:Ku {uid: $task_uid})
+        OPTIONAL MATCH (parent:Ku)-[:HAS_SUBTASK]->(current)
+        OPTIONAL MATCH (parent)-[:HAS_SUBTASK]->(sibling:Ku)
         WHERE sibling.uid <> $task_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
         children_query = """
-        MATCH (current:Task {uid: $task_uid})
-        OPTIONAL MATCH (current)-[:HAS_SUBTASK]->(child:Task)
+        MATCH (current:Ku {uid: $task_uid})
+        OPTIONAL MATCH (current)-[:HAS_SUBTASK]->(child:Ku)
         RETURN collect(child) as children
         """
 
@@ -679,7 +682,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_task = self._to_domain_model(current_result.value, TaskDTO, Task)
+        current_task = self._to_domain_model(current_result.value, KuDTO, Ku)
 
         ancestors_result = await self.backend.driver.execute_query(
             ancestors_query, task_uid=task_uid
@@ -692,7 +695,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
             for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
                 task_data = dict(node)
-                ancestors.append(self._to_domain_model(task_data, TaskDTO, Task))
+                ancestors.append(self._to_domain_model(task_data, KuDTO, Ku))
 
         # Process siblings
         siblings = []
@@ -700,7 +703,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             for node in siblings_result.records[0]["siblings"]:
                 if node:  # Skip None values
                     task_data = dict(node)
-                    siblings.append(self._to_domain_model(task_data, TaskDTO, Task))
+                    siblings.append(self._to_domain_model(task_data, KuDTO, Ku))
 
         # Process children
         children = []
@@ -708,7 +711,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             for node in children_result.records[0]["children"]:
                 if node:  # Skip None values
                     task_data = dict(node)
-                    children.append(self._to_domain_model(task_data, TaskDTO, Task))
+                    children.append(self._to_domain_model(task_data, KuDTO, Ku))
 
         return Result.ok(
             {
@@ -749,8 +752,8 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             )
 
         query = """
-        MATCH (parent:Task {uid: $parent_uid})
-        MATCH (subtask:Task {uid: $subtask_uid})
+        MATCH (parent:Ku {uid: $parent_uid})
+        MATCH (subtask:Ku {uid: $subtask_uid})
 
         CREATE (parent)-[:HAS_SUBTASK {
             progress_weight: $weight,
@@ -781,8 +784,8 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
         query = """
-        MATCH (child:Task {uid: $child_uid})
-        MATCH path = (child)-[:HAS_SUBTASK*]->(parent:Task {uid: $parent_uid})
+        MATCH (child:Ku {uid: $child_uid})
+        MATCH path = (child)-[:HAS_SUBTASK*]->(parent:Ku {uid: $parent_uid})
         RETURN count(path) > 0 as would_create_cycle
         """
 
@@ -823,11 +826,11 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         auto_completed_uids = []
 
         query = """
-        MATCH (completed:Task {uid: $task_uid})
-        MATCH (parent:Task)-[:HAS_SUBTASK]->(completed)
+        MATCH (completed:Ku {uid: $task_uid})
+        MATCH (parent:Ku)-[:HAS_SUBTASK]->(completed)
 
         // Get all subtasks of this parent
-        MATCH (parent)-[:HAS_SUBTASK]->(sibling:Task)
+        MATCH (parent)-[:HAS_SUBTASK]->(sibling:Ku)
 
         // Check if all siblings are complete
         WITH parent,
@@ -891,8 +894,8 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             # }
         """
         query = """
-        MATCH (parent:Task {uid: $parent_uid})
-        MATCH (parent)-[r:HAS_SUBTASK]->(child:Task)
+        MATCH (parent:Ku {uid: $parent_uid})
+        MATCH (parent)-[r:HAS_SUBTASK]->(child:Ku)
 
         WITH parent,
              count(child) as total_subtasks,

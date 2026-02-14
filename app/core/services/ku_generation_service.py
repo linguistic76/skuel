@@ -30,7 +30,7 @@ from typing import Any
 
 from core.models.enums import ActivityStatus, Domain, Priority
 from core.models.ku.ku_dto import KuDTO
-from core.models.task.task import Task
+from core.models.ku.ku import Ku as Task
 from core.services.protocols import HasMetadata, HasSummary
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

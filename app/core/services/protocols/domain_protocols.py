@@ -12,12 +12,12 @@ THE 14 DOMAINS AND THEIR PROTOCOLS
 ----------------------------------
 
 **Activity Domain Protocols (7):**
-    1. TasksOperations[Task]           - Work items and dependencies
+    1. TasksOperations[Ku]             - Work items and dependencies (unified Ku model)
     2. GoalsOperations[Goal]           - Objectives and milestones
     3. HabitsOperations[Habit]         - Recurring behaviors and streaks
-    4. EventsOperations[Event]         - Calendar items and scheduling
+    4. EventsOperations[Ku]            - Calendar items and scheduling (unified Ku model)
     5. ChoicesOperations[Choice]       - Decisions and outcomes
-    6. PrinciplesOperations[Principle] - Values and alignment
+    6. PrinciplesOperations[Ku]        - Values and alignment (unified Ku model)
     7. FinancesOperations[ExpensePure] - Expenses and budgets
 
 **Curriculum Domain Protocols (3):**
@@ -50,9 +50,9 @@ All protocols share these characteristics:
     - BackendOperations as base (CRUD + queries)
 
 Implementation Pattern:
-    class TasksService(TasksOperations[Task]):
-        def __init__(self, backend: BackendOperations[Task]):
-            self.backend = backend  # UniversalNeo4jBackend[Task]
+    class TasksService(TasksOperations[Ku]):
+        def __init__(self, backend: BackendOperations[Ku]):
+            self.backend = backend  # UniversalNeo4jBackend[Ku]
 
 Architectural Note (Updated 2025-10-19):
     Protocols now use Result[T] return types to match actual implementations.
@@ -83,29 +83,29 @@ if TYPE_CHECKING:
     import builtins
     from datetime import date, datetime
 
-    from core.models.choice.choice import Choice
-    from core.models.event.event import Event
+    # NOTE: Event import REMOVED (February 2026) - Event merged into Ku
+    # Event entities are now Ku nodes with ku_type="event"
+    # NOTE: Task import REMOVED (February 2026) - Task merged into Ku
+    # Task entities are now Ku nodes with ku_type="task"
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
+    from core.models.ku.ku import Ku
     from core.models.finance.invoice import InvoicePure
-    from core.models.goal.goal import Goal
-    from core.models.habit.habit import Habit
-    from core.models.principle.principle import Principle
-    from core.models.task.task import Task
+    from core.models.ku.ku import Ku as Habit
     from core.models.type_hints import EntityUID, Metadata
     from core.utils.result_simplified import Result
 
 
 @runtime_checkable
-class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Protocol):
-    """Core task management operations.
+class TasksOperations(BackendOperations["Ku"], GraphRelationshipOperations, Protocol):
+    """Core task management operations. Uses unified Ku model with KuType.TASK.
 
     **Two Entry Point Patterns (by design):**
 
-    1. **BackendOperations[Task] (Generic CRUD):**
+    1. **BackendOperations[Ku] (Generic CRUD):**
        Use when you have a domain model instance.
-       - `create(task: Task)` → `Result[Task]`
-       - `get(uid: str)` → `Result[Task | None]`
-       - `update(task: Task)` → `Result[Task]`
+       - `create(ku: Ku)` → `Result[Ku]`
+       - `get(uid: str)` → `Result[Ku | None]`
+       - `update(ku: Ku)` → `Result[Ku]`
        - `delete(uid: str)` → `Result[bool]`
 
     2. **Domain Entry Points (Request Processing):**
@@ -133,11 +133,11 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
     """
 
     async def create_task(self, data: Metadata) -> Result[EntityUID]:
-        """Create task from request data. Use create() if you have a Task model."""
+        """Create task from request data. Use create() if you have a Ku model."""
         ...
 
     async def update_task(self, task_id: EntityUID, data: Metadata) -> Result[bool]:
-        """Update task from request data. Use update() if you have a Task model."""
+        """Update task from request data. Use update() if you have a Ku model."""
         ...
 
     async def delete_task(self, task_id: EntityUID) -> Result[bool]:
@@ -152,24 +152,24 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
     # QUERY METHODS
     # ========================================================================
 
-    async def get_task(self, task_id: EntityUID) -> Result[Task]:
+    async def get_task(self, task_id: EntityUID) -> Result[Ku]:
         """Get task by ID. Not found is an error."""
         ...
 
-    async def get_user_tasks(self, user_uid: str) -> Result[list[Task]]:
-        """Get all tasks for a user. Returns Result[list[Task]]."""
+    async def get_user_tasks(self, user_uid: str) -> Result[list[Ku]]:
+        """Get all tasks for a user. Returns Result[list[Ku]]."""
         ...
 
-    async def get_tasks_batch(self, uids: list[str]) -> Result[list[Task | None]]:
-        """Batch load multiple tasks by UIDs. Returns Result[list[Task | None]]."""
+    async def get_tasks_batch(self, uids: list[str]) -> Result[list[Ku | None]]:
+        """Batch load multiple tasks by UIDs. Returns Result[list[Ku | None]]."""
         ...
 
-    async def get_user_assigned_tasks(self, user_uid: str) -> Result[list[Task]]:
-        """Get tasks assigned to a user. Returns Result[list[Task]]."""
+    async def get_user_assigned_tasks(self, user_uid: str) -> Result[list[Ku]]:
+        """Get tasks assigned to a user. Returns Result[list[Ku]]."""
         ...
 
-    async def get_tasks_requiring_knowledge(self, knowledge_uid: str) -> Result[list[Task]]:
-        """Get tasks that require a specific knowledge unit. Returns Result[list[Task]]."""
+    async def get_tasks_requiring_knowledge(self, knowledge_uid: str) -> Result[list[Ku]]:
+        """Get tasks that require a specific knowledge unit. Returns Result[list[Ku]]."""
         ...
 
     async def get_user_entities(
@@ -181,7 +181,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
         offset: int = 0,
         sort_by: str | None = None,
         sort_order: str = "desc",
-    ) -> Result[tuple[list[Task], int]]:
+    ) -> Result[tuple[list[Ku], int]]:
         """
         Get all tasks for a user via relationship traversal.
 
@@ -198,7 +198,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
             sort_order: "asc" or "desc" (default "desc")
 
         Returns:
-            Result containing (list of Tasks, total count)
+            Result containing (list of Ku tasks, total count)
 
         Type Hint Example:
             filters: ActivityFilterSpec = {"status": "active", "priority": "high"}
@@ -210,8 +210,8 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
     # DEPENDENCY METHODS
     # ========================================================================
 
-    async def get_task_dependencies(self, task_uid: str) -> Result[list[Task]]:
-        """Get dependencies for a task. Returns Result[list[Task]]."""
+    async def get_task_dependencies(self, task_uid: str) -> Result[list[Ku]]:
+        """Get dependencies for a task. Returns Result[list[Ku]]."""
         ...
 
     async def create_task_dependency(
@@ -233,7 +233,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
     ) -> Result[bool]:
         """
         Link task to required knowledge unit.
-        Creates: (Task)-[:REQUIRES_KNOWLEDGE]->(Knowledge)
+        Creates: (Ku)-[:REQUIRES_KNOWLEDGE]->(Knowledge)
         """
         ...
 
@@ -246,7 +246,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
     ) -> Result[bool]:
         """
         Link task to goal it contributes to.
-        Creates: (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)
+        Creates: (Ku)-[:CONTRIBUTES_TO_GOAL]->(Goal)
         """
         ...
 
@@ -274,7 +274,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Task]]:
+    ) -> Result[list[Ku]]:
         """
         Get user's tasks in date range - unified interface for meta-services.
 
@@ -288,7 +288,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
             include_completed: Include completed tasks (default: False)
 
         Returns:
-            Result[list[Task]] filtered by user, date range, and completion status
+            Result[list[Ku]] filtered by user, date range, and completion status
 
         Implementation:
             Filters by user_uid, due_date field, and excludes completed status
@@ -302,7 +302,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
 
 
 @runtime_checkable
-class EventsOperations(BackendOperations["Event"], GraphRelationshipOperations, Protocol):
+class EventsOperations(BackendOperations["Ku"], GraphRelationshipOperations, Protocol):
     """Core event management operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -642,7 +642,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
     ) -> Result[bool]:
         """
         Link expense to project/task it funds.
-        Creates: (Expense)-[:FUNDS_PROJECT {allocation_percentage}]->(Task)
+        Creates: (Expense)-[:FUNDS_PROJECT {allocation_percentage}]->(Ku)
 
         Args:
             expense_uid: UID of the expense
@@ -770,7 +770,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
 
 
 @runtime_checkable
-class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Protocol):
+class GoalsOperations(BackendOperations["Ku"], GraphRelationshipOperations, Protocol):
     """Core goal management operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -846,7 +846,7 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """
         Get user's goals in date range - unified interface for meta-services.
 
@@ -857,7 +857,7 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
             include_completed: Include completed/abandoned goals (default: False)
 
         Returns:
-            Result[list[Goal]] filtered by user, target_date, and completion status
+            Result[list[Ku]] filtered by user, target_date, and completion status
 
         Implementation:
             Filters by user_uid, target_date field, excludes completed/abandoned
@@ -875,7 +875,7 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
 
 
 @runtime_checkable
-class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations, Protocol):
+class ChoicesOperations(BackendOperations["Ku"], GraphRelationshipOperations, Protocol):
     """Core choice management operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -909,26 +909,26 @@ class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations
         """Mark a choice as resolved with outcome data. Returns Result[bool]."""
         ...
 
-    async def get(self, choice_id: str) -> Result[Choice | None]:
+    async def get(self, choice_id: str) -> Result[Ku | None]:
         """Get a choice by ID. Returns None if not found."""
         ...
 
-    async def get_choice(self, choice_id: str) -> Result[Choice]:
+    async def get_choice(self, choice_id: str) -> Result[Ku]:
         """Get a choice by ID. Alias for get(). Not found is an error."""
         ...
 
-    async def find_by(self, limit: int = 100, **filters: Any) -> Result[list[Choice]]:
-        """Find choices matching filters. Returns Result[list[Choice]]."""
+    async def find_by(self, limit: int = 100, **filters: Any) -> Result[list[Ku]]:
+        """Find choices matching filters. Returns Result[list[Ku]]."""
         ...
 
     async def find_choices(
         self, filters: dict[str, Any] | None = None, limit: int = 100
-    ) -> Result[list[Choice]]:
-        """Find choices with filters and limit. Returns Result[list[Choice]]."""
+    ) -> Result[list[Ku]]:
+        """Find choices with filters and limit. Returns Result[list[Ku]]."""
         ...
 
-    async def get_user_choices(self, user_id: str) -> Result[list[Choice]]:
-        """Get all choices for a user. Returns Result[list[Choice]]."""
+    async def get_user_choices(self, user_id: str) -> Result[list[Ku]]:
+        """Get all choices for a user. Returns Result[list[Ku]]."""
         ...
 
     async def count_choices(self, filters: dict[str, Any] | None = None) -> Result[int]:
@@ -973,7 +973,7 @@ class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Choice]]:
+    ) -> Result[list[Ku]]:
         """
         Get user's choices in date range - unified interface for meta-services.
 
@@ -998,8 +998,8 @@ class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations
 
 
 @runtime_checkable
-class PrinciplesOperations(BackendOperations["Principle"], GraphRelationshipOperations, Protocol):
-    """Core principle management operations.
+class PrinciplesOperations(BackendOperations["Ku"], GraphRelationshipOperations, Protocol):
+    """Core principle management operations. Uses unified Ku model with KuType.PRINCIPLE.
 
     Inherits base CRUD operations from BackendOperations:
     - create, get, update, DETACH DELETE, list
@@ -1012,20 +1012,20 @@ class PrinciplesOperations(BackendOperations["Principle"], GraphRelationshipOper
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
-    async def create(self, principle: Any) -> Result[Principle]:
-        """Create a new principle. Returns Result[Principle]."""
+    async def create(self, principle: Any) -> Result[Ku]:
+        """Create a new principle. Returns Result[Ku]."""
         ...
 
-    async def get(self, principle_uid: str) -> Result[Principle | None]:
-        """Get a principle by UID. Returns Result[Principle | None]."""
+    async def get(self, principle_uid: str) -> Result[Ku | None]:
+        """Get a principle by UID. Returns Result[Ku | None]."""
         ...
 
-    async def find_by(self, limit: int = 100, **filters: Any) -> Result[builtins.list[Principle]]:
-        """Find principles matching filters. Returns Result[list[Principle]]."""
+    async def find_by(self, limit: int = 100, **filters: Any) -> Result[builtins.list[Ku]]:
+        """Find principles matching filters. Returns Result[list[Ku]]."""
         ...
 
-    async def update(self, principle_uid: str, updates: dict[str, Any]) -> Result[Principle]:
-        """Update a principle. Returns Result[Principle]."""
+    async def update(self, principle_uid: str, updates: dict[str, Any]) -> Result[Ku]:
+        """Update a principle. Returns Result[Ku]."""
         ...
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
@@ -1045,7 +1045,7 @@ class PrinciplesOperations(BackendOperations["Principle"], GraphRelationshipOper
     ) -> Result[bool]:
         """
         Create User→Principle relationship in graph.
-        Creates: (User)-[:HOLDS_PRINCIPLE {strength, adoption_date}]->(Principle)
+        Creates: (User)-[:HOLDS_PRINCIPLE {strength, adoption_date}]->(Ku)
         """
         ...
 
@@ -1054,7 +1054,7 @@ class PrinciplesOperations(BackendOperations["Principle"], GraphRelationshipOper
     ) -> Result[bool]:
         """
         Link principle to knowledge it's based on.
-        Creates: (Principle)-[:BASED_ON_KNOWLEDGE {relevance}]->(Knowledge)
+        Creates: (Ku)-[:BASED_ON_KNOWLEDGE {relevance}]->(Knowledge)
         """
         ...
 
@@ -1108,7 +1108,7 @@ class PrinciplesOperations(BackendOperations["Principle"], GraphRelationshipOper
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """
         Get user's principles in date range - unified interface for meta-services.
 
@@ -1119,7 +1119,7 @@ class PrinciplesOperations(BackendOperations["Principle"], GraphRelationshipOper
             include_completed: Not applicable for principles (always included)
 
         Returns:
-            Result[list[Principle]] filtered by user
+            Result[list[Ku]] filtered by user
 
         Implementation:
             Filters by user_uid only (principles are timeless)

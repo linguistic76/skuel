@@ -37,16 +37,13 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from datetime import date
 
-    from core.models.choice.choice import Choice
     from core.models.enums import Domain
-    from core.models.event.event import Event
-    from core.models.goal.goal import Goal
-    from core.models.habit.habit import Habit
-    from core.models.principle.principle import Principle
+    from core.models.ku.ku import Ku
+    from core.models.ku.ku import Ku as Habit
     from core.models.search.filters import BaseSearchFilters
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest
-    from core.models.task.task import Task
+    from core.models.ku.ku import Ku as Task
     from core.services.user import UserContext
 
 # Generic type variable for domain entities
@@ -318,11 +315,12 @@ class DomainSearchOperations(Protocol[T]):
 
 
 @runtime_checkable
-class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
+class EventsSearchOperations(DomainSearchOperations["Ku"], Protocol):
     """
     Extended search protocol for Events domain.
+    Uses unified Ku model with KuType.EVENT.
 
-    Inherits all methods from DomainSearchOperations[Event]:
+    Inherits all methods from DomainSearchOperations[Ku]:
     - search(), search_filtered(), intelligent_search()
     - get_by_status(), get_by_domain(), get_prioritized()
     - get_by_relationship(), get_due_soon(), get_overdue()
@@ -337,47 +335,47 @@ class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
     # --- Event-specific methods ---
     async def get_in_range(
         self, start_date: "date", end_date: "date", user_uid: str | None = None, limit: int = 100
-    ) -> Result[list["Event"]]:
+    ) -> Result[list["Ku"]]:
         """Get events within a date range."""
         ...
 
     async def get_recurring(
         self, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list["Event"]]:
+    ) -> Result[list["Ku"]]:
         """Get recurring events."""
         ...
 
     async def get_for_goal(
         self, goal_uid: str, user_uid: str | None = None
-    ) -> Result[list["Event"]]:
+    ) -> Result[list["Ku"]]:
         """Get events supporting a goal."""
         ...
 
-    async def get_conflicting(self, event_uid: str) -> Result[list["Event"]]:
+    async def get_conflicting(self, event_uid: str) -> Result[list["Ku"]]:
         """Get events that conflict with a given event."""
         ...
 
     async def get_by_type(
         self, event_type: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list["Event"]]:
+    ) -> Result[list["Ku"]]:
         """Get events by event type."""
         ...
 
     async def get_upcoming(
         self, user_uid: str, days_ahead: int = 30, limit: int = 100
-    ) -> Result[list["Event"]]:
+    ) -> Result[list["Ku"]]:
         """Get upcoming events for a user."""
         ...
 
     async def get_history(
         self, user_uid: str, days_back: int = 90, limit: int = 100
-    ) -> Result[list["Event"]]:
+    ) -> Result[list["Ku"]]:
         """Get completed/past events for a user."""
         ...
 
     async def get_for_habit(
         self, habit_uid: str, user_uid: str | None = None
-    ) -> Result[list["Event"]]:
+    ) -> Result[list["Ku"]]:
         """Get events reinforcing a habit."""
         ...
 
@@ -387,7 +385,7 @@ class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
         start_date: "date | None" = None,
         end_date: "date | None" = None,
         limit: int = 100,
-    ) -> Result[list["Event"]]:
+    ) -> Result[list["Ku"]]:
         """Get events for calendar display."""
         ...
 
@@ -529,11 +527,11 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
 
 
 @runtime_checkable
-class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
+class GoalsSearchOperations(DomainSearchOperations["Ku"], Protocol):
     """
     Extended search protocol for Goals domain.
 
-    Inherits all methods from DomainSearchOperations[Goal]:
+    Inherits all methods from DomainSearchOperations[Ku]:
     - search(), search_filtered(), intelligent_search()
     - get_by_status(), get_by_domain(), get_prioritized()
     - get_by_relationship(), get_due_soon(), get_overdue()
@@ -547,21 +545,21 @@ class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
     # --- Goal-specific methods ---
     async def get_by_timeframe(
         self, timeframe: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list["Goal"]]:
+    ) -> Result[list["Ku"]]:
         """Get goals by timeframe (daily, weekly, monthly, yearly)."""
         ...
 
-    async def get_by_category(self, category: str, limit: int = 100) -> Result[list["Goal"]]:
+    async def get_by_category(self, category: str, limit: int = 100) -> Result[list["Ku"]]:
         """Get goals by category."""
         ...
 
-    async def get_needing_habits(self, user_uid: str, limit: int = 20) -> Result[list["Goal"]]:
+    async def get_needing_habits(self, user_uid: str, limit: int = 20) -> Result[list["Ku"]]:
         """Get goals that need supporting habits."""
         ...
 
     async def get_blocked_by_knowledge(
         self, user_uid: str, limit: int = 20
-    ) -> Result[list["Goal"]]:
+    ) -> Result[list["Ku"]]:
         """Get goals blocked by missing knowledge."""
         ...
 
@@ -573,25 +571,25 @@ class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
         """List all goal categories (admin use)."""
         ...
 
-    async def get_goals_for_task(self, task_uid: str) -> Result[list["Goal"]]:
+    async def get_goals_for_task(self, task_uid: str) -> Result[list["Ku"]]:
         """Get goals that a task fulfills."""
         ...
 
-    async def get_goals_for_habit(self, habit_uid: str) -> Result[list["Goal"]]:
+    async def get_goals_for_habit(self, habit_uid: str) -> Result[list["Ku"]]:
         """Get goals that a habit supports."""
         ...
 
-    async def get_sub_goals(self, parent_goal_uid: str) -> Result[list["Goal"]]:
+    async def get_sub_goals(self, parent_goal_uid: str) -> Result[list["Ku"]]:
         """Get sub-goals of a parent goal."""
         ...
 
-    async def get_related_goals(self, goal_uid: str, limit: int = 10) -> Result[list["Goal"]]:
+    async def get_related_goals(self, goal_uid: str, limit: int = 10) -> Result[list["Ku"]]:
         """Get goals related to a given goal."""
         ...
 
 
 @runtime_checkable
-class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
+class ChoicesSearchOperations(DomainSearchOperations["Ku"], Protocol):
     """
     Extended search protocol for Choices domain.
 
@@ -607,35 +605,35 @@ class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
     """
 
     # --- Choice-specific methods ---
-    async def get_pending(self, user_uid: str, limit: int = 100) -> Result[list["Choice"]]:
+    async def get_pending(self, user_uid: str, limit: int = 100) -> Result[list["Ku"]]:
         """Get pending choices for a user."""
         ...
 
     async def get_by_urgency(
         self, urgency: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list["Choice"]]:
+    ) -> Result[list["Ku"]]:
         """Get choices by urgency level."""
         ...
 
-    async def get_affecting_goal(self, goal_uid: str) -> Result[list["Choice"]]:
+    async def get_affecting_goal(self, goal_uid: str) -> Result[list["Ku"]]:
         """Get choices that affect a goal."""
         ...
 
     async def get_needing_decision(
         self, user_uid: str, deadline_days: int = 7
-    ) -> Result[list["Choice"]]:
+    ) -> Result[list["Ku"]]:
         """Get choices needing decision within deadline."""
         ...
 
     async def get_aligned_with_principle(
         self, principle_uid: str, limit: int = 20
-    ) -> Result[list["Choice"]]:
+    ) -> Result[list["Ku"]]:
         """Get choices aligned with a principle."""
         ...
 
     async def get_by_category(
         self, category: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list["Choice"]]:
+    ) -> Result[list["Ku"]]:
         """Get choices by category."""
         ...
 
@@ -649,17 +647,17 @@ class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
 
     async def get_decided(
         self, user_uid: str, days_back: int = 30, limit: int = 100
-    ) -> Result[list["Choice"]]:
+    ) -> Result[list["Ku"]]:
         """Get recently decided choices."""
         ...
 
 
 @runtime_checkable
-class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
+class PrinciplesSearchOperations(DomainSearchOperations["Ku"], Protocol):
     """
-    Extended search protocol for Principles domain.
+    Extended search protocol for Principles domain. Uses unified Ku model with KuType.PRINCIPLE.
 
-    Inherits all methods from DomainSearchOperations[Principle]:
+    Inherits all methods from DomainSearchOperations[Ku]:
     - search(), search_filtered(), intelligent_search()
     - get_by_status(), get_by_domain(), get_prioritized()
     - get_by_relationship(), get_due_soon(), get_overdue()
@@ -673,13 +671,13 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
     # --- Principle-specific methods ---
     async def get_by_strength(
         self, strength: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list["Principle"]]:
+    ) -> Result[list["Ku"]]:
         """Get principles by strength level."""
         ...
 
     async def get_by_category(
         self, category: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list["Principle"]]:
+    ) -> Result[list["Ku"]]:
         """Get principles by category."""
         ...
 
@@ -691,17 +689,17 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
         """Get habit UIDs inspired by a principle."""
         ...
 
-    async def get_for_choice(self, choice_uid: str, limit: int = 10) -> Result[list["Principle"]]:
+    async def get_for_choice(self, choice_uid: str, limit: int = 10) -> Result[list["Ku"]]:
         """Get principles relevant to a choice."""
         ...
 
-    async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list["Principle"]]:
+    async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list["Ku"]]:
         """Get principles guiding a goal."""
         ...
 
     async def get_active_principles(
         self, user_uid: str, limit: int = 100
-    ) -> Result[list["Principle"]]:
+    ) -> Result[list["Ku"]]:
         """Get active principles for a user."""
         ...
 
@@ -715,13 +713,13 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
 
     async def get_needing_review(
         self, user_uid: str, days_since_review: int = 30, limit: int = 20
-    ) -> Result[list["Principle"]]:
+    ) -> Result[list["Ku"]]:
         """Get principles needing review."""
         ...
 
     async def get_related_principles(
         self, principle_uid: str, limit: int = 10
-    ) -> Result[list["Principle"]]:
+    ) -> Result[list["Ku"]]:
         """Get principles related to a given principle."""
         ...
 

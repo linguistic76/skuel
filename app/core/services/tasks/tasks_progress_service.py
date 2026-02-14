@@ -21,26 +21,30 @@ Version: 1.1.0
 Date: 2025-10-14
 """
 
+from __future__ import annotations
+
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.events import TaskCompleted, publish_event
 from core.models.enums import ActivityStatus, Domain, Priority
-from core.models.task.task import Task
-from core.models.task.task_dto import TaskDTO
-from core.models.task.task_relationships import TaskRelationships
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols.domain_protocols import TasksOperations
+from core.services.tasks.task_relationships import TaskRelationships
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
 
 # Type alias for rich task data from UserContext
 RichTaskData = dict[str, Any]
 
 
-class TasksProgressService(BaseService[TasksOperations, Task]):
+class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
     """
     Progress tracking and completion for tasks.
 
@@ -68,8 +72,8 @@ class TasksProgressService(BaseService[TasksOperations, Task]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=TaskDTO,
-        model_class=Task,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
@@ -99,7 +103,7 @@ class TasksProgressService(BaseService[TasksOperations, Task]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Task entities."""
-        return "Task"
+        return "Ku"
 
     # ========================================================================
     # CONTEXT-FIRST PATTERN HELPERS (November 26, 2025)
@@ -117,7 +121,7 @@ class TasksProgressService(BaseService[TasksOperations, Task]):
     #
     # ========================================================================
 
-    def _get_task_from_rich_context(self, task_uid: str, user_context: UserContext) -> Task | None:
+    def _get_task_from_rich_context(self, task_uid: str, user_context: UserContext) -> Ku | None:
         """
         Try to get Task entity from UserContext rich data.
 
@@ -185,15 +189,15 @@ class TasksProgressService(BaseService[TasksOperations, Task]):
                     )
         return None
 
-    def _dict_to_task(self, task_dict: dict[str, Any]) -> Task:
+    def _dict_to_task(self, task_dict: dict[str, Any]) -> Ku:
         """
-        Convert a task dictionary from MEGA-QUERY to Task domain model.
+        Convert a task dictionary from MEGA-QUERY to Ku domain model.
 
         Args:
             task_dict: Dict with task properties from Neo4j
 
         Returns:
-            Task domain model
+            Ku domain model
         """
         # Parse date fields
         due_date = task_dict.get("due_date")
@@ -236,7 +240,7 @@ class TasksProgressService(BaseService[TasksOperations, Task]):
         tags_list = task_dict.get("tags", [])
         tags_tuple = tuple(tags_list) if isinstance(tags_list, list) else tags_list
 
-        return Task(
+        return Ku(
             uid=task_dict.get("uid", ""),
             user_uid=task_dict.get("user_uid", ""),
             title=task_dict.get("title", ""),
@@ -322,7 +326,7 @@ class TasksProgressService(BaseService[TasksOperations, Task]):
         user_context: UserContext,
         actual_minutes: int | None = None,
         quality_score: int | None = None,
-    ) -> Result[Task]:
+    ) -> Result[Ku]:
         """
         Complete a task and cascade updates through the system.
 
@@ -359,7 +363,7 @@ class TasksProgressService(BaseService[TasksOperations, Task]):
             task_result = await self.backend.get_task(task_uid)
             if task_result.is_error:
                 return Result.fail(task_result.expect_error())
-            task = self._to_domain_model(task_result.value, TaskDTO, Task)
+            task = self._to_domain_model(task_result.value, KuDTO, Ku)
             self.logger.debug(f"Task {task_uid} fetched from Neo4j (not in rich context)")
         else:
             self.logger.debug(f"Task {task_uid} found in rich context (no Neo4j query needed)")
@@ -455,7 +459,7 @@ class TasksProgressService(BaseService[TasksOperations, Task]):
         # Event handlers in bootstrap will call user_service.invalidate_context()
 
         # Return updated task
-        completed_task = self._to_domain_model(update_result.value, TaskDTO, Task)
+        completed_task = self._to_domain_model(update_result.value, KuDTO, Ku)
 
         self.logger.info(
             "Completed task %s with cascading effects: goal=%s, habit=%s, knowledge=%d",
@@ -618,7 +622,7 @@ class TasksProgressService(BaseService[TasksOperations, Task]):
     @with_error_handling("unblock_task_if_ready", error_type="database", uid_param="task_uid")
     async def unblock_task_if_ready(
         self, task_uid: str, user_context: UserContext
-    ) -> Result[Task | None]:
+    ) -> Result[Ku | None]:
         """
         Unblock a task if all prerequisites are met.
 
@@ -643,7 +647,7 @@ class TasksProgressService(BaseService[TasksOperations, Task]):
             if update_result.is_error:
                 return Result.fail(update_result.expect_error())
 
-            unblocked_task = self._to_domain_model(update_result.value, TaskDTO, Task)
+            unblocked_task = self._to_domain_model(update_result.value, KuDTO, Ku)
 
             self.logger.info(f"Unblocked task {task_uid}")
             return Result.ok(unblocked_task)

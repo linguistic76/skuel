@@ -22,7 +22,7 @@ from typing import Any
 from fasthtml.common import H2, H3, Form, P
 
 from components.activity_views_base import ActivityViewTabs
-from core.models.choice.choice import Choice
+from core.models.ku.ku import Ku
 from core.ui.daisy_components import (
     Button,
     Div,
@@ -193,7 +193,7 @@ class ChoicesViewComponents:
         )
 
     @staticmethod
-    def _render_choice_item(choice: Choice, user_uid: str | None = None) -> Div:
+    def _render_choice_item(choice: Ku, user_uid: str | None = None) -> Div:
         """Render a single choice item for the list."""
         uid = choice.uid
         title = choice.title

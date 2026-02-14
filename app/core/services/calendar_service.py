@@ -45,13 +45,13 @@ from core.models.event.calendar_models import (
     CalendarOccurrence,
     CalendarView,
 )
-from core.models.event.event import Event as EventPure
-from core.models.event.event_dto import EventDTO
-from core.models.habit.habit import Habit as HabitPure
-from core.models.habit.habit import HabitStatus
-from core.models.habit.habit_dto import HabitDTO
-from core.models.task.task import Task as TaskPure
-from core.models.task.task_dto import TaskDTO
+from core.models.ku.ku import Ku as EventPure
+from core.models.ku.ku_dto import KuDTO as EventDTO
+from core.models.enums.ku_enums import KuStatus
+from core.models.ku.ku import Ku as HabitPure
+from core.models.ku.ku_dto import KuDTO as HabitDTO
+from core.models.ku.ku import Ku as TaskPure
+from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.services.protocols import get_enum_value
 
 # Import protocol interfaces for dependency injection
@@ -307,7 +307,7 @@ class CalendarService:
             result = await self.events_service.create(event_dto)
             if result.is_ok:
                 return Result.ok(self._event_to_calendar_item(result.value))
-            # Type boundary: Extract error from Result[Event] for Result[CalendarItem]
+            # Type boundary: Extract error from Result[Ku] for Result[CalendarItem]
             return Result.fail(result.expect_error())
 
         elif item_type == EntityType.HABIT.value and self.habits_service:
@@ -315,10 +315,10 @@ class CalendarService:
             habit_dto = HabitDTO(
                 uid="",  # Will be generated
                 user_uid=kwargs.get("user_uid", ""),
-                name=title,
+                title=title,
                 description=kwargs.get("description", ""),
                 target_days_per_week=kwargs.get("frequency", 7),
-                status=HabitStatus.ACTIVE,  # Use HabitStatus, not ActivityStatus
+                status=KuStatus.ACTIVE,  # Use KuStatus, not ActivityStatus
             )
             result = await self.habits_service.create(habit_dto)
             if result.is_ok:
@@ -389,7 +389,7 @@ class CalendarService:
                     result = await self.events_service.update(source_uid, updated_dto)
                     if result.is_ok:
                         return Result.ok(self._event_to_calendar_item(result.value))
-                    # Type boundary: Extract error from Result[Event] for Result[CalendarItem]
+                    # Type boundary: Extract error from Result[Ku] for Result[CalendarItem]
                     return Result.fail(result.expect_error())
 
         return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
@@ -631,7 +631,7 @@ class CalendarService:
         return CalendarItem(
             uid=f"habit-{habit.uid}",
             source_uid=habit.uid,
-            title=habit.name,
+            title=habit.title,
             description=habit.description or "",
             item_type=CalendarItemType.HABIT,
             start_time=now,

@@ -20,7 +20,7 @@ from core.models.validation_rules import (
     validate_required_string,
 )
 
-from ..habit.habit import HabitCategory, HabitDifficulty, HabitPolarity, HabitStatus
+from core.models.enums.ku_enums import HabitCategory, HabitDifficulty, HabitPolarity, KuStatus
 
 
 class HabitCreateRequest(BaseModel):
@@ -152,7 +152,7 @@ class HabitUpdateRequest(BaseModel):
     reward: str | None = Field(None, max_length=500)
 
     # Status and priority can change
-    status: HabitStatus | None = None
+    status: KuStatus | None = None
     priority: Priority | None = None
     tags: list[str] | None = Field(None, max_length=20)
 
@@ -209,7 +209,7 @@ class HabitFilterRequest(BaseModel):
     """
 
     category: HabitCategory | None = None
-    status: HabitStatus | None = None
+    status: KuStatus | None = None
     priority: Priority | None = None
     difficulty: HabitDifficulty | None = None
     polarity: HabitPolarity | None = None

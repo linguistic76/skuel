@@ -37,7 +37,7 @@ from core.models.event.calendar_models import (
     CalendarData,
     CalendarView,
 )
-from core.models.habit.habit import Habit
+from core.models.ku.ku import Ku as Habit
 from core.ui.daisy_components import (
     Button,
     Div,
@@ -204,7 +204,7 @@ class HabitsViewComponents:
     def _render_habit_item(habit: Habit, user_uid: str | None = None) -> Div:
         """Render a single habit item for the list."""
         uid = habit.uid
-        name = habit.name
+        name = habit.title
         description = habit.description or ""
         status = habit.status or "active"
         current_streak = habit.current_streak or 0

@@ -583,7 +583,7 @@ def get_principle_strength_order(principle: Any) -> int:
     Returns:
         Numeric order value (0-5), lower = stronger
     """
-    from core.models.principle.principle import PrincipleStrength
+    from core.models.enums.ku_enums import PrincipleStrength
 
     strength_order = {
         PrincipleStrength.CORE: 0,

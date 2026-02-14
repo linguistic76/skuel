@@ -29,7 +29,7 @@ Purpose: Enable context-aware API functionality
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from core.models.task import Task
+from core.models.ku.ku import Ku as Task
 from core.services.protocols.domain_protocols import TasksOperations
 from core.services.protocols.query_types import ContextDashboard, ContextSummary
 from core.services.user.intelligence import (
@@ -572,10 +572,10 @@ class UserContextService:
         task_dtos = tasks_result.value
         tasks = []
         for dto in task_dtos:
-            from core.models.task.task import Task
+            from core.models.ku.ku import Ku
             from core.utils.dto_helpers import to_domain_model
 
-            task = to_domain_model(dto, type(dto), Task)
+            task = to_domain_model(dto, type(dto), Ku)
             tasks.append(task)
 
         logger.info(

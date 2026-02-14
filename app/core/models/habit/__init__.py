@@ -1,25 +1,34 @@
 """
-Habit Three-Tier Model Package
-===============================
+Habit Models - Preserved Types
+==============================
 
-Exports all habit-related models following the three-tier architecture:
-- Tier 1 (External): Request models for API validation
-- Tier 2 (Transfer): DTOs for data manipulation
-- Tier 3 (Core): Immutable domain models with business logic
+Habit domain now uses the unified Ku model (core.models.ku).
+This package preserves habit-specific types that have no Ku equivalent:
+- habit_request.py - Habit API request/response models (Pydantic)
+- habit_completion_request.py - Completion request models (Pydantic)
+- habit_intelligence.py - Habit intelligence dataclasses
+- completion.py - HabitCompletion domain model (separate entity, not a Ku)
+- completion_dto.py - HabitCompletionDTO for data transfer
 """
 
-# Import three-tier habit completion models
 from .completion import HabitCompletion
 from .completion_dto import HabitCompletionDTO
-from .habit import Habit, HabitCategory, HabitDifficulty, HabitPolarity, HabitStatus
 from .habit_completion_request import (
     HabitCompletionCreateRequest,
     HabitCompletionFilterRequest,
     HabitCompletionUpdateRequest,
 )
-from .habit_dto import HabitDTO
+
+# Intelligence models
+from .habit_intelligence import (
+    EnergyLevel,
+    FailureReason,
+    HabitCompletionContext,
+    HabitCompletionIntelligence,
+    HabitIntelligence,
+)
 from .habit_request import (
-    HabitCompletionRequest,  # Legacy request model
+    HabitCompletionRequest,
     HabitCreateRequest,
     HabitFilterRequest,
     HabitSkipRequest,
@@ -31,37 +40,22 @@ __all__ = [
     "EnergyLevel",
     "FailureReason",
     # Domain Models
-    "Habit",
-    "HabitCategory",
     "HabitCompletion",
     "HabitCompletionContext",
     # Request Models - Completion (Three-tier)
     "HabitCompletionCreateRequest",
     "HabitCompletionDTO",
     "HabitCompletionFilterRequest",
+    "HabitCompletionIntelligence",
     # Request Models - Completion (Legacy)
     "HabitCompletionRequest",
     "HabitCompletionUpdateRequest",
     # Request Models - Habit
     "HabitCreateRequest",
-    # DTOs
-    "HabitDTO",
-    "HabitDifficulty",
     "HabitFilterRequest",
     # Intelligence Models
     "HabitIntelligence",
-    # Enums
-    "HabitPolarity",
     "HabitSkipRequest",
     "HabitStatsRequest",
-    "HabitStatus",
     "HabitUpdateRequest",
 ]
-
-# Intelligence models
-from .habit_intelligence import (
-    EnergyLevel,
-    FailureReason,
-    HabitCompletionContext,
-    HabitIntelligence,
-)

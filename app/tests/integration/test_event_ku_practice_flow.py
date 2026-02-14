@@ -34,7 +34,6 @@ from core.models.enums import (
     Domain,
     SELCategory,
 )
-from core.models.event.event import Event
 from core.models.ku.ku import Ku
 from core.services.ku.ku_practice_service import KuPracticeService
 
@@ -56,7 +55,7 @@ class TestEventKuPracticeFlow:
     @pytest_asyncio.fixture
     async def event_backend(self, neo4j_driver, clean_neo4j):
         """Create Event backend with clean database."""
-        return UniversalNeo4jBackend[Event](neo4j_driver, "Event", Event)
+        return UniversalNeo4jBackend[Ku](neo4j_driver, "Event", Ku)
 
     @pytest_asyncio.fixture
     async def ku_practice_service(self, event_bus, neo4j_driver):
@@ -104,7 +103,7 @@ class TestEventKuPracticeFlow:
             kus.append(result.value)
 
         # Create meditation event
-        event = Event(
+        event = Ku(
             uid="event.morning_meditation",
             user_uid=test_user_uid,
             title="Morning Meditation Session",
@@ -266,7 +265,7 @@ class TestEventKuPracticeFlow:
     ):
         """Test that completing an event with no KUs doesn't affect practice counts."""
         # Create event with no PRACTICES relationships
-        event = Event(
+        event = Ku(
             uid="event.no_kus",
             user_uid=test_user_uid,
             title="Event Without KUs",

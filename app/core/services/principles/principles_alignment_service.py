@@ -24,18 +24,16 @@ from typing import Any
 
 from core.constants import QueryLimit
 from core.events import publish_event
-from core.models.goal.goal import Goal
-from core.models.habit.habit import Habit
-from core.models.principle.principle import (
+from core.models.ku.ku import Ku
+from core.models.ku.ku import Ku as Habit
+from core.models.enums.ku_enums import AlignmentLevel, PrincipleStrength
+from core.models.principle.principle_types import (
     AlignmentAssessment as UserAlignmentAssessment,
 )
-from core.models.principle.principle import (
-    AlignmentLevel,
-    Principle,
+from core.models.principle.principle_types import (
     PrincipleAlignment,
     PrincipleConflict,
     PrincipleDecision,
-    PrincipleStrength,
 )
 
 # Protocol interfaces - Use main Operations protocols (not QueryOperations aliases)
@@ -53,8 +51,8 @@ class MotivationalProfile:
     """A user's complete motivational profile based on principles"""
 
     user_uid: str
-    core_principles: list[Principle]
-    developing_principles: list[Principle]
+    core_principles: list[Ku]
+    developing_principles: list[Ku]
     goal_alignment_score: float
     habit_alignment_score: float
     primary_motivators: list[str]
@@ -73,7 +71,7 @@ class AlignmentAssessment:
     entity_name: str
     principle_alignments: list[PrincipleAlignment]
     overall_alignment: float
-    primary_principle: Principle | None
+    primary_principle: Ku | None
     strengths: list[str]
     gaps: list[str]
     recommendations: list[str]
@@ -274,7 +272,7 @@ class PrinciplesAlignmentService:
 
         for principle in principles:
             alignment_level = principle.assess_habit_alignment(
-                habit.category.value, habit.polarity.value
+                habit.habit_category.value, habit.polarity.value
             )
 
             # Calculate alignment score
@@ -291,7 +289,7 @@ class PrinciplesAlignmentService:
                 entity_type="habit",
                 alignment_level=alignment_level,
                 alignment_score=score,
-                influence_description=f"{principle.label} practiced through {habit.name}",
+                influence_description=f"{principle.label} practiced through {habit.title}",
                 influence_weight=priority_numeric / 10.0,
             )
             alignments.append(alignment)
@@ -319,7 +317,7 @@ class PrinciplesAlignmentService:
         assessment = AlignmentAssessment(
             entity_uid=habit_uid,
             entity_type="habit",
-            entity_name=habit.name,
+            entity_name=habit.title,
             principle_alignments=alignments,
             overall_alignment=overall,
             primary_principle=primary,
@@ -367,8 +365,8 @@ class PrinciplesAlignmentService:
         """
         from datetime import date
 
-        from core.models.principle.principle_dto import PrincipleDTO
-        from core.models.principle.principle_request import PrincipleAlignmentAssessmentResult
+        from core.models.ku.ku_dto import KuDTO
+        from core.models.ku.ku_request import PrincipleAlignmentAssessmentResult
 
         # 1. Get the principle
         principle_result = await self.backend.get(principle_uid)
@@ -377,8 +375,8 @@ class PrinciplesAlignmentService:
 
         principle_dict = principle_result.value
         if isinstance(principle_dict, dict):
-            principle_dto = PrincipleDTO.from_dict(principle_dict)
-            principle = Principle.from_dto(principle_dto)
+            principle_dto = KuDTO.from_dict(principle_dict)
+            principle = Ku.from_dto(principle_dto)
         else:
             principle = principle_dict
 
@@ -442,7 +440,7 @@ class PrinciplesAlignmentService:
         self, principle_uid: str, assessment: UserAlignmentAssessment
     ) -> None:
         """Store user's self-assessment in principle's alignment_history."""
-        from core.models.principle.principle_dto import PrincipleDTO
+        from core.models.ku.ku_dto import KuDTO
 
         # Get current principle
         principle_result = await self.backend.get(principle_uid)
@@ -452,7 +450,7 @@ class PrinciplesAlignmentService:
 
         principle_dict = principle_result.value
         if isinstance(principle_dict, dict):
-            dto = PrincipleDTO.from_dict(principle_dict)
+            dto = KuDTO.from_dict(principle_dict)
         else:
             dto = principle_dict.to_dto()
 
@@ -467,7 +465,7 @@ class PrinciplesAlignmentService:
         await self.backend.update(principle_uid, dto.to_dict())
 
     async def _calculate_system_alignment(
-        self, principle: Principle, user_uid: str
+        self, principle: Ku, user_uid: str
     ) -> dict[str, Any]:
         """
         Calculate system alignment from goals, habits, and choices.
@@ -508,11 +506,11 @@ class PrinciplesAlignmentService:
                 for habit in habits:
                     # Check if habit aligns with principle
                     alignment = principle.assess_habit_alignment(
-                        habit.category.value,  # HabitCategory always exists (default: OTHER)
+                        habit.habit_category.value,  # HabitCategory always exists (default: OTHER)
                         habit.polarity.value,  # HabitPolarity always exists (default: BUILD)
                     )
                     if alignment in [AlignmentLevel.ALIGNED, AlignmentLevel.MOSTLY_ALIGNED]:
-                        evidence.append(f"Habit '{habit.name}' practices this principle")
+                        evidence.append(f"Habit '{habit.title}' practices this principle")
                         total_score += self._calculate_alignment_score(alignment)
                         count += 1
             except Exception as e:
@@ -612,7 +610,7 @@ class PrinciplesAlignmentService:
         self,
         direction: str,
         gap: float,
-        principle: Principle,
+        principle: Ku,
         evidence: list[str],
     ) -> list[str]:
         """Generate recommendations to close the gap."""
@@ -854,7 +852,7 @@ class PrinciplesAlignmentService:
         ]
 
     def _generate_alignment_recommendations(
-        self, goal: Goal, alignments: list[PrincipleAlignment], principles: list[Principle]
+        self, goal: Ku, alignments: list[PrincipleAlignment], principles: list[Ku]
     ) -> list[str]:
         """Generate recommendations for improving goal alignment"""
         recommendations = []
@@ -875,7 +873,7 @@ class PrinciplesAlignmentService:
         return recommendations[:5]  # Top 5 recommendations
 
     def _generate_habit_recommendations(
-        self, habit: Habit, alignments: list[PrincipleAlignment], principles: list[Principle]
+        self, habit: Habit, alignments: list[PrincipleAlignment], principles: list[Ku]
     ) -> list[str]:
         """Generate recommendations for improving habit alignment"""
         recommendations = []
@@ -884,12 +882,12 @@ class PrinciplesAlignmentService:
         for alignment in alignments:
             if alignment.alignment_score < 0.75:
                 principle = next(p for p in principles if p.uid == alignment.principle_uid)
-                recommendations.append(f"Modify {habit.name} to better practice {principle.title}")
+                recommendations.append(f"Modify {habit.title} to better practice {principle.title}")
 
         return recommendations[:5]
 
     def _score_option_against_principle(
-        self, option: str, principle: Principle, _context: str
+        self, option: str, principle: Ku, _context: str
     ) -> float:
         """Score how well an option aligns with a principle"""
         # Simple keyword matching - would be more sophisticated in practice
@@ -908,7 +906,7 @@ class PrinciplesAlignmentService:
         return min(score, 1.0)
 
     def _creates_conflict(
-        self, scores: dict[str, dict[str, float]], p1: Principle, p2: Principle
+        self, scores: dict[str, dict[str, float]], p1: Ku, p2: Ku
     ) -> bool:
         """Check if option scores create conflict between principles"""
         # Check if principles disagree strongly on best option
@@ -955,10 +953,10 @@ class PrinciplesAlignmentService:
 
         for item in principles_result.value:
             if isinstance(item, dict):
-                from core.models.principle.principle_dto import PrincipleDTO
+                from core.models.ku.ku_dto import KuDTO
 
-                principle_dto = PrincipleDTO.from_dict(item)
-                principle = Principle.from_dto(principle_dto)
+                principle_dto = KuDTO.from_dict(item)
+                principle = Ku.from_dto(principle_dto)
             else:
                 principle = item
 
@@ -1016,10 +1014,10 @@ class PrinciplesAlignmentService:
             return principle_result
 
         principle_dict = principle_result.value
-        from core.models.principle.principle_dto import PrincipleDTO
+        from core.models.ku.ku_dto import KuDTO
 
-        principle_dto = PrincipleDTO.from_dict(principle_dict)
-        principle = Principle.from_dto(principle_dto)
+        principle_dto = KuDTO.from_dict(principle_dict)
+        principle = Ku.from_dto(principle_dto)
 
         # Extract expressions
         expressions = list(principle.expressions) if principle.expressions else []
@@ -1089,10 +1087,10 @@ class PrinciplesAlignmentService:
 
         for item in principles_result.value:
             if isinstance(item, dict):
-                from core.models.principle.principle_dto import PrincipleDTO
+                from core.models.ku.ku_dto import KuDTO
 
-                principle_dto = PrincipleDTO.from_dict(item)
-                principle = Principle.from_dto(principle_dto)
+                principle_dto = KuDTO.from_dict(item)
+                principle = Ku.from_dto(principle_dto)
             else:
                 principle = item
 
@@ -1137,7 +1135,7 @@ class PrinciplesAlignmentService:
             if principle.expressions:
                 for expression in principle.expressions:
                     # Handle PrincipleExpression objects and strings
-                    from core.models.principle.principle import PrincipleExpression
+                    from core.models.ku.ku_nested_types import PrincipleExpression
 
                     expr_text = (
                         expression.behavior

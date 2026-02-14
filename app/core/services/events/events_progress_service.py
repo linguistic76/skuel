@@ -20,21 +20,23 @@ Date: 2026-01-19
 """
 
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.events import CalendarEventCompleted, publish_event
 from core.models.enums import ActivityStatus
-from core.models.event.event import Event
-from core.models.event.event_dto import EventDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols.domain_protocols import EventsOperations
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
 
-class EventsProgressService(BaseService[EventsOperations, Event]):
+
+class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
     """
     Progress tracking and completion for events.
 
@@ -57,8 +59,8 @@ class EventsProgressService(BaseService[EventsOperations, Event]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=EventDTO,
-        model_class=Event,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="events",
         date_field="event_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
@@ -68,7 +70,7 @@ class EventsProgressService(BaseService[EventsOperations, Event]):
     _date_field = "event_date"
     _completed_statuses = (ActivityStatus.COMPLETED.value, ActivityStatus.CANCELLED.value)
 
-    def __init__(self, backend: EventsOperations, event_bus=None) -> None:
+    def __init__(self, backend: "BackendOperations[Ku]", event_bus=None) -> None:
         """
         Initialize progress service.
 
@@ -85,8 +87,8 @@ class EventsProgressService(BaseService[EventsOperations, Event]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Event entities."""
-        return "Event"
+        """Return the graph label for Ku entities."""
+        return "Ku"
 
     # ========================================================================
     # CONTEXT-FIRST HELPERS
@@ -94,8 +96,8 @@ class EventsProgressService(BaseService[EventsOperations, Event]):
 
     def _get_event_from_rich_context(
         self, event_uid: str, user_context: UserContext
-    ) -> Event | None:
-        """Try to get Event from UserContext.active_events_rich."""
+    ) -> Ku | None:
+        """Try to get Ku from UserContext.active_events_rich."""
         if not user_context.active_events_rich:
             return None
 
@@ -105,12 +107,12 @@ class EventsProgressService(BaseService[EventsOperations, Event]):
                 return self._dict_to_event(event_dict)
         return None
 
-    def _dict_to_event(self, event_dict: dict[str, Any]) -> Event | None:
-        """Convert raw Neo4j dict to Event domain model."""
+    def _dict_to_event(self, event_dict: dict[str, Any]) -> Ku | None:
+        """Convert raw Neo4j dict to Ku domain model."""
         if not event_dict or not event_dict.get("uid"):
             return None
-        dto = EventDTO.from_dict(event_dict)
-        return Event.from_dto(dto)
+        dto = KuDTO.from_dict(event_dict)
+        return Ku.from_dto(dto)
 
     # ========================================================================
     # EVENT COMPLETION
@@ -125,7 +127,7 @@ class EventsProgressService(BaseService[EventsOperations, Event]):
         user_context: UserContext,
         quality_score: int | None = None,
         notes: str | None = None,
-    ) -> Result[Event]:
+    ) -> Result[Ku]:
         """
         Complete an event and cascade updates through the system.
 
@@ -154,7 +156,7 @@ class EventsProgressService(BaseService[EventsOperations, Event]):
                 return Result.fail(event_result.expect_error())
             if not event_result.value:
                 return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
-            event = self._to_domain_model(event_result.value, EventDTO, Event)
+            event = self._to_domain_model(event_result.value, KuDTO, Ku)
             self.logger.debug(f"Event {event_uid} fetched from Neo4j")
         else:
             self.logger.debug(f"Event {event_uid} found in rich context")
@@ -189,7 +191,7 @@ class EventsProgressService(BaseService[EventsOperations, Event]):
             f"habit={event.reinforces_habit_uid}, quality={quality_score}"
         )
 
-        completed_event = self._to_domain_model(update_result.value, EventDTO, Event)
+        completed_event = self._to_domain_model(update_result.value, KuDTO, Ku)
         return Result.ok(completed_event)
 
     # ========================================================================

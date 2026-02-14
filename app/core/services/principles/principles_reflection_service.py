@@ -32,7 +32,7 @@ from typing import Any
 
 from core.events import publish_event
 from core.events.principle_events import PrincipleConflictRevealed, PrincipleReflectionRecorded
-from core.models.principle.principle import AlignmentLevel
+from core.models.enums.ku_enums import AlignmentLevel
 from core.models.principle.reflection import PrincipleReflection
 from core.models.principle.reflection_dto import PrincipleReflectionDTO
 from core.models.relationship_names import RelationshipName

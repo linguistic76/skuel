@@ -269,8 +269,8 @@ class AnalyticsMetricsService:
         completion_rates = []
 
         for habit in habits:
-            current_streaks[habit.name] = getattr(habit, "current_streak", 0)
-            best_streaks[habit.name] = getattr(habit, "best_streak", 0)
+            current_streaks[habit.title] = getattr(habit, "current_streak", 0)
+            best_streaks[habit.title] = getattr(habit, "best_streak", 0)
             # completion_rate may not be present on all habit types
             with contextlib.suppress(AttributeError):
                 completion_rates.append(habit.completion_rate)

@@ -39,7 +39,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.models.goal.goal import Goal
+from core.models.ku.ku import Ku
 from core.services.base_planning_service import BasePlanningService
 from core.services.protocols.domain_protocols import GoalsOperations
 from core.utils.decorators import with_error_handling
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
 
 
-class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
+class GoalsPlanningService(BasePlanningService[GoalsOperations, Ku]):
     """
     Context-first user planning methods for Goals.
 

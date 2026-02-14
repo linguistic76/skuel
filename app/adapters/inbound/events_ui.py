@@ -29,8 +29,8 @@ from components.events_views import EventsViewComponents
 from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
-from core.models.event.event import Event
-from core.models.event.event_dto import EventDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.protocols.facade_protocols import EventsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
 from core.ui.daisy_components import (
@@ -629,7 +629,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                 logger.warning(f"Could not parse end_time: {end_time_str}")
 
         # Build DTO and convert to domain model
-        event_dto = EventDTO.create(
+        event_dto = KuDTO.create_event(
             user_uid=user_uid,
             title=title,
             event_date=event_date_val or date.today(),
@@ -640,7 +640,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
             location=location,
         )
 
-        event = Event.from_dto(event_dto)
+        event = Ku.from_dto(event_dto)
         return await events_service.core.create(event)
 
     async def render_event_success_view(_user_uid: str) -> Any:

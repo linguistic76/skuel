@@ -11,14 +11,14 @@ See: /adapters/inbound/calendar_routes.py for /events redirect
 
 from adapters.inbound.events_api import create_events_api_routes
 from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
-from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
+from core.models.ku.ku_request import KuEventCreateRequest, KuUpdateRequest
 
 EVENTS_CONFIG = create_activity_domain_route_config(
     domain_name="events",
     primary_service_attr="events",
     api_factory=create_events_api_routes,
-    create_schema=EventCreateRequest,
-    update_schema=EventUpdateRequest,
+    create_schema=KuEventCreateRequest,
+    update_schema=KuUpdateRequest,
     uid_prefix="event",
     supports_goal_filter=True,
     supports_habit_filter=True,

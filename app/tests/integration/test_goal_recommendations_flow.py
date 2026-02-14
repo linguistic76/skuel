@@ -31,10 +31,10 @@ from core.models.enums import (
     Domain,
     SELCategory,
 )
-from core.models.goal.goal import Goal, GoalStatus, GoalType, MeasurementType
-from core.models.habit.habit import Habit, HabitStatus
 from core.models.ku.ku import Ku
-from core.models.principle.principle import Principle
+from core.models.enums.ku_enums import GoalStatus, GoalType, MeasurementType, PrincipleCategory
+from core.models.ku.ku import Ku as Habit
+from core.models.enums.ku_enums import KuStatus as HabitStatus
 from core.services.goals.goals_recommendation_service import GoalsRecommendationService
 
 
@@ -50,7 +50,7 @@ class TestGoalRecommendationsFlow:
     @pytest_asyncio.fixture
     async def goal_backend(self, neo4j_driver, clean_neo4j):
         """Create Goal backend with clean database."""
-        return UniversalNeo4jBackend[Goal](neo4j_driver, "Goal", Goal)
+        return UniversalNeo4jBackend[Ku](neo4j_driver, "Goal", Ku)
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
@@ -65,7 +65,7 @@ class TestGoalRecommendationsFlow:
     @pytest_asyncio.fixture
     async def principle_backend(self, neo4j_driver, clean_neo4j):
         """Create Principle backend with clean database."""
-        return UniversalNeo4jBackend[Principle](neo4j_driver, "Principle", Principle)
+        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku, default_filters={"ku_type": "principle"})
 
     @pytest_asyncio.fixture
     async def recommendation_service(self, event_bus, neo4j_driver):
@@ -122,7 +122,7 @@ class TestGoalRecommendationsFlow:
         # Create 2 related habits
         habits = []
         for i, name in enumerate(["Daily Coding Practice", "Code Review Participation"], start=1):
-            from core.models.habit.habit import HabitCategory
+            from core.models.enums.ku_enums import HabitCategory
 
             habit = Habit(
                 uid=f"habit.tech_{i}",
@@ -137,11 +137,10 @@ class TestGoalRecommendationsFlow:
             habits.append(result.value)
 
         # Create 1 guiding principle
-        from core.models.principle.principle import PrincipleCategory
-
-        principle = Principle(
+        principle = Ku(
             uid="principle.continuous_learning",
             user_uid=test_user_uid,
+            ku_type="principle",
             title="Continuous Learning",
             statement="Always be learning and growing",
             category=PrincipleCategory.PERSONAL,
@@ -151,7 +150,7 @@ class TestGoalRecommendationsFlow:
         principle = result.value
 
         # Create achieved goal
-        goal = Goal(
+        goal = Ku(
             uid="goal.build_web_app",
             user_uid=test_user_uid,
             title="Build First Web Application",
@@ -497,7 +496,7 @@ class TestGoalRecommendationsFlow:
     ):
         """Test that recommendations are generated even without knowledge/habit/principle relationships."""
         # Create goal with no relationships
-        goal = Goal(
+        goal = Ku(
             uid="goal.simple",
             user_uid=test_user_uid,
             title="Simple Goal",

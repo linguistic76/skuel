@@ -20,8 +20,8 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums import ActivityStatus, Priority
-from core.models.task.task import Task
-from core.models.task.task_dto import TaskDTO
+from core.models.ku.ku import Ku as Task
+from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.services.protocols.query_types import TaskUpdatePayload
 from core.services.tasks.tasks_core_service import TasksCoreService

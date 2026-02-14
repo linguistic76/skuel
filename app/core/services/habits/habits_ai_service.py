@@ -23,7 +23,7 @@ The app works WITHOUT this service. It's an enhancement layer.
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.habit.habit import Habit
+from core.models.ku.ku import Ku
 from core.services.base_ai_service import BaseAIService
 from core.services.protocols import HabitsOperations
 from core.utils.result_simplified import Errors, Result
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
+class HabitsAIService(BaseAIService[HabitsOperations, Ku]):
     """
     AI-powered features for Habits domain.
 
@@ -107,7 +107,7 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
         if not habit:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
-        search_text = f"{habit.name}"
+        search_text = f"{habit.title}"
         if habit.description:
             search_text += f" {habit.description}"
         if habit.routine:
@@ -158,7 +158,7 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
             streak_status = "at personal best"
 
         context = {
-            "name": habit.name,
+            "name": habit.title,
             "current_streak": habit.current_streak,
             "best_streak": habit.best_streak,
             "total_completions": habit.total_completions,
@@ -203,8 +203,8 @@ Keep it under 100 words. Be warm but not over-the-top."""
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
         context = {
-            "name": habit.name,
-            "category": habit.category.value,
+            "name": habit.title,
+            "category": habit.habit_category.value,
             "preferred_time": habit.preferred_time or "any time",
             "duration_minutes": habit.duration_minutes,
             "cue": habit.cue or "Not specified",
@@ -252,7 +252,7 @@ WHY: [brief explanation]"""
         return Result.ok(
             {
                 "habit_uid": habit_uid,
-                "habit_name": habit.name,
+                "habit_name": habit.title,
                 "stacking_suggestions": stacks,
             }
         )
@@ -282,13 +282,13 @@ WHY: [brief explanation]"""
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
         context = {
-            "name": habit.name,
+            "name": habit.title,
             "description": habit.description or "Not specified",
             "current_cue": habit.cue or "Not specified",
             "current_routine": habit.routine or "Not specified",
             "current_reward": habit.reward or "Not specified",
             "polarity": habit.polarity.value,
-            "difficulty": habit.difficulty.value,
+            "difficulty": habit.habit_difficulty.value,
         }
 
         prompt = """Optimize this habit's cue-routine-reward loop.
@@ -313,7 +313,7 @@ OVERALL_TIP: [one key insight for this habit]"""
         response = insight_result.value
         optimization: dict[str, Any] = {
             "habit_uid": habit_uid,
-            "habit_name": habit.name,
+            "habit_name": habit.title,
             "current": {
                 "cue": habit.cue,
                 "routine": habit.routine,
@@ -368,9 +368,9 @@ OVERALL_TIP: [one key insight for this habit]"""
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
         context = {
-            "name": habit.name,
+            "name": habit.title,
             "description": habit.description or "Not specified",
-            "category": habit.category.value,
+            "category": habit.habit_category.value,
             "current_identity": habit.reinforces_identity or "Not specified",
             "identity_votes": habit.identity_votes_cast,
             "polarity": habit.polarity.value,
@@ -397,7 +397,7 @@ MANTRA: [short motivational phrase]"""
         response = insight_result.value
         identity: dict[str, Any] = {
             "habit_uid": habit_uid,
-            "habit_name": habit.name,
+            "habit_name": habit.title,
             "current_identity": habit.reinforces_identity,
             "identity_votes_cast": habit.identity_votes_cast,
         }

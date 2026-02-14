@@ -23,7 +23,8 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.habit_events import AchievementEarned, HabitStreakMilestone
 from core.models.enums import RecurrencePattern
-from core.models.habit.habit import Habit, HabitCategory, HabitStatus
+from core.models.ku.ku import Ku as Habit
+from core.models.enums.ku_enums import HabitCategory, KuStatus as HabitStatus
 from core.services.habits.habit_achievement_service import HabitAchievementService
 
 

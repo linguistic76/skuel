@@ -61,9 +61,9 @@ def create_choices_api_routes(
         confidence_level = body.get("confidence_level", 0.8)
 
         # Validate request
-        from core.models.choice.choice_request import ChoiceDecisionRequest
+        from core.models.ku.ku_request import KuChoiceDecisionRequest
 
-        ChoiceDecisionRequest.model_validate(
+        KuChoiceDecisionRequest.model_validate(
             {"selected_option_uid": selected_option_uid, "decision_rationale": decision_rationale}
         )
 
@@ -83,9 +83,9 @@ def create_choices_api_routes(
     ) -> Result[Any]:
         """Create a new option for a choice (requires ownership)."""
         body = await request.json()
-        from core.models.choice.choice_request import ChoiceOptionCreateRequest
+        from core.models.ku.ku_request import KuChoiceOptionCreateRequest
 
-        option_request = ChoiceOptionCreateRequest.model_validate(body)
+        option_request = KuChoiceOptionCreateRequest.model_validate(body)
 
         # Use add_option method
         return await choice_service.add_option(
@@ -110,9 +110,9 @@ def create_choices_api_routes(
         """Update a choice option (requires ownership)."""
         body = await request.json()
 
-        from core.models.choice.choice_request import ChoiceOptionUpdateRequest
+        from core.models.ku.ku_request import KuChoiceOptionUpdateRequest
 
-        option_update = ChoiceOptionUpdateRequest.model_validate(body)
+        option_update = KuChoiceOptionUpdateRequest.model_validate(body)
 
         # Use update_option method
         return await choice_service.update_option(
@@ -137,9 +137,9 @@ def create_choices_api_routes(
     ) -> Result[Any]:
         """Evaluate the outcome of a decided choice (requires ownership)."""
         body = await request.json()
-        from core.models.choice.choice_request import ChoiceEvaluationRequest
+        from core.models.ku.ku_request import KuChoiceEvaluationRequest
 
-        evaluation_request = ChoiceEvaluationRequest.model_validate(body)
+        evaluation_request = KuChoiceEvaluationRequest.model_validate(body)
 
         # Use evaluate_choice_outcome method from core service
         result: Result[Any] = await choice_service.core.evaluate_choice_outcome(

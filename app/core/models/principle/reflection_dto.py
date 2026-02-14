@@ -13,7 +13,7 @@ from typing import Any
 
 from core.utils.uid_generator import UIDGenerator
 
-from .principle import AlignmentLevel
+from core.models.enums.ku_enums import AlignmentLevel
 
 
 @dataclass

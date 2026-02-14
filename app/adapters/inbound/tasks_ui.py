@@ -31,7 +31,7 @@ from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import ActivityStatus, Priority
 from core.models.enums.scheduling_enums import RecurrencePattern
-from core.models.task.task_request import TaskCreateRequest
+from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
 from core.services.protocols.facade_protocols import TasksFacadeProtocol
 from core.ui.daisy_components import Button, ButtonT, Card
 from core.utils.logging import get_logger

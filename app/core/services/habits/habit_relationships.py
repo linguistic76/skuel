@@ -1,16 +1,10 @@
 """
 Habit Relationships Helper (Graph-Native Pattern)
-=====================================
 
 Container for habit relationship data fetched from graph.
-Replaces direct field access in Habit model methods.
+Follows the Domain Relationships Pattern used across all activity domains.
 
-Graph-Native Migration:
-- Before: Habit methods accessed self.linked_goal_uids directly
-- After: Habit methods receive HabitRelationships parameter with relationship data
-- Service layer fetches relationships via HabitsRelationshipService
-
-Philosophy: "Relationships ARE the data structure, not serialized lists"
+See: /docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md
 """
 
 from __future__ import annotations
@@ -40,25 +34,10 @@ class HabitRelationships:
     """
     Container for all habit relationship data (fetched from Neo4j graph).
 
-    Usage Pattern (Service Layer):
-        # Fetch all relationships in parallel
-        habit = await service.get_habit(uid)
-        rels = await HabitRelationships.fetch(habit.uid, service.relationships)
-
-        # Pass to Habit methods that need relationship data
-        is_system = habit.is_part_of_system(rels)
-        goal_count = habit.supports_goal_count(rels)
-
-    Benefits:
-    - Single fetch operation for all relationships (performance)
-    - Explicit about what data each method needs (clarity)
-    - No stale data (always fresh from graph)
-    - Easy to mock for testing
-
-    Migration Notes:
-    - Replaces 2 relationship fields in Habit model
-    - Used in habit system strength calculations
-    - See: /docs/migrations/PHASE_3B_REFACTORING_PLAN.md
+    Usage:
+        rels = await HabitRelationships.fetch(habit_uid, service.relationships)
+        if rels.linked_goal_uids:
+            goal_count = len(rels.linked_goal_uids)
     """
 
     # Goal relationships (James Clear: "You fall to the level of your systems")
@@ -76,34 +55,18 @@ class HabitRelationships:
 
     @classmethod
     async def fetch(cls, habit_uid: str, service: HabitsRelationshipService) -> HabitRelationships:
-        """
-        Fetch all relationship data from graph in parallel.
-
-        Performs 2 graph queries concurrently using asyncio.gather() for optimal performance.
-        Each query maps to one relationship type in the Habit model.
-
-        Args:
-            habit_uid: UID of habit to fetch relationships for
-            service: HabitsRelationshipService instance (provides graph query methods)
-
-        Returns:
-            HabitRelationships instance with all relationship data
-
-        Example:
-            service = services.habits
-            rels = await HabitRelationships.fetch("habit_123", service.relationships)
-            print(f"Habit supports {len(rels.linked_goal_uids)} goals")
-
-        Performance:
-        - 2 parallel queries vs 2 sequential = ~50% faster
-        - Single fetch vs per-method queries = 40-50% improvement
-        """
+        """Fetch all relationship data from graph in parallel."""
         return await fetch_relationships_parallel(
             uid=habit_uid,
             service=service,
             query_specs=HABIT_QUERY_SPECS,
             dataclass_type=cls,
         )
+
+    @classmethod
+    def empty(cls) -> HabitRelationships:
+        """Create empty HabitRelationships (for testing or new habits)."""
+        return cls()
 
     def has_goal_support(self) -> bool:
         """Check if habit supports any goals."""

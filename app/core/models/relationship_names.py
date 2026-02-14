@@ -197,6 +197,7 @@ class RelationshipName(str, Enum):
     HAS_GOAL = "HAS_GOAL"
     HAS_PRINCIPLE = "HAS_PRINCIPLE"
     HAS_CHOICE = "HAS_CHOICE"
+    HAS_KU = "HAS_KU"  # Unified ownership for Ku-migrated activity domains
 
     # =========================================================================
     # USER LEARNING PROGRESS RELATIONSHIPS

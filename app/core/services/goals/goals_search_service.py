@@ -27,8 +27,9 @@ Changelog:
 from datetime import date, timedelta
 
 from core.models.enums import GoalStatus
-from core.models.goal.goal import Goal, GoalTimeframe
-from core.models.goal.goal_dto import GoalDTO
+from core.models.enums.ku_enums import GoalTimeframe
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.services.base_service import BaseService
@@ -40,7 +41,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_result_score
 
 
-class GoalsSearchService(BaseService[GoalsOperations, Goal]):
+class GoalsSearchService(BaseService[GoalsOperations, Ku]):
     """
     Goal search and discovery operations.
 
@@ -89,8 +90,8 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     # All configuration in one place, using centralized relationship registry
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_activity_domain_config(
-        dto_class=GoalDTO,
-        model_class=Goal,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(GoalStatus.ACHIEVED.value, GoalStatus.CANCELLED.value),
@@ -114,7 +115,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     @with_error_handling("get_prioritized", error_type="database")
     async def get_prioritized(
         self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """
         Get goals prioritized for the user's current context.
 
@@ -138,7 +139,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        goals = self._to_domain_models(result.value, GoalDTO, Goal)
+        goals = self._to_domain_models(result.value, KuDTO, Ku)
 
         # Score and sort by priority factors
         scored_goals = []
@@ -155,7 +156,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         self.logger.info(f"Prioritized {len(prioritized)} goals for user {user_context.user_uid}")
         return Result.ok(prioritized)
 
-    def _calculate_priority_score(self, goal: Goal, user_context: UserContext) -> float:
+    def _calculate_priority_score(self, goal: Ku, user_context: UserContext) -> float:
         """
         Calculate priority score for a goal based on user context.
 
@@ -221,7 +222,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         days_ahead: int = 7,
         user_uid: str | None = None,
         limit: int = 100,
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """
         Get goals due within specified number of days.
 
@@ -238,7 +239,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         # Build query with optional user filter
         user_clause = "AND g.user_uid = $user_uid" if user_uid else ""
         cypher_query = f"""
-        MATCH (g:Goal)
+        MATCH (g:Ku {{ku_type: 'goal'}})
         WHERE g.target_date >= date($today)
           AND g.target_date <= date($end_date)
           AND g.status IN ['active', 'in_progress', 'on_track']
@@ -264,8 +265,8 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         goals = []
         for record in result.value:
             goal_node = record["g"]
-            dto = GoalDTO.from_dict(dict(goal_node))
-            goals.append(Goal.from_dto(dto))
+            dto = KuDTO.from_dict(dict(goal_node))
+            goals.append(Ku.from_dto(dto))
 
         self.logger.debug(f"Found {len(goals)} goals due within {days_ahead} days")
         return Result.ok(goals)
@@ -275,7 +276,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         self,
         user_uid: str | None = None,
         limit: int = 100,
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """
         Get goals past their target date and not completed.
 
@@ -289,7 +290,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         # Build query with optional user filter
         user_clause = "AND g.user_uid = $user_uid" if user_uid else ""
         cypher_query = f"""
-        MATCH (g:Goal)
+        MATCH (g:Ku {{ku_type: 'goal'}})
         WHERE g.target_date < date($today)
           AND g.status NOT IN ['completed', 'achieved', 'abandoned', 'archived', 'cancelled']
           {user_clause}
@@ -310,8 +311,8 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         goals = []
         for record in result.value:
             goal_node = record["g"]
-            dto = GoalDTO.from_dict(dict(goal_node))
-            goals.append(Goal.from_dto(dto))
+            dto = KuDTO.from_dict(dict(goal_node))
+            goals.append(Ku.from_dto(dto))
 
         self.logger.debug(f"Found {len(goals)} overdue goals")
         return Result.ok(goals)
@@ -323,7 +324,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     @with_error_handling("get_by_timeframe", error_type="database")
     async def get_by_timeframe(
         self, timeframe: GoalTimeframe, limit: int = 100
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """
         Get goals filtered by timeframe.
 
@@ -341,7 +342,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        goals = self._to_domain_models(result.value, GoalDTO, Goal)
+        goals = self._to_domain_models(result.value, KuDTO, Ku)
 
         self.logger.debug(f"Found {len(goals)} {timeframe_value} goals")
         return Result.ok(goals)
@@ -351,7 +352,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     @with_error_handling("get_needing_habits", error_type="database")
     async def get_needing_habits(
         self, user_context: UserContext, limit: int = 20
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """
         Get goals that would benefit from supporting habits.
 
@@ -374,7 +375,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        all_goals = self._to_domain_models(result.value, GoalDTO, Goal)
+        all_goals = self._to_domain_models(result.value, KuDTO, Ku)
 
         # Check each goal for habit support
         goals_needing_habits = []
@@ -393,7 +394,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
                 goals_needing_habits.append(goal)
 
         # Sort by progress (lowest first - most in need)
-        def get_progress(goal: Goal) -> float:
+        def get_progress(goal: Ku) -> float:
             """Get progress percentage for sorting, defaulting to 0.0."""
             return goal.progress_percentage or 0.0
 
@@ -409,7 +410,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     @with_error_handling("get_blocked_by_knowledge", error_type="database")
     async def get_blocked_by_knowledge(
         self, user_context: UserContext, limit: int = 20
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """
         Get goals blocked by missing knowledge prerequisites.
 
@@ -430,7 +431,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        all_goals = self._to_domain_models(result.value, GoalDTO, Goal)
+        all_goals = self._to_domain_models(result.value, KuDTO, Ku)
 
         # Check each goal for knowledge prerequisites
         blocked_goals = []
@@ -461,7 +462,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
                 blocked_goals.append(goal)
 
         # Sort by number of missing prerequisites (fewest first - easiest to unblock)
-        def get_blocked_knowledge_count(goal: Goal) -> int:
+        def get_blocked_knowledge_count(goal: Ku) -> int:
             """Get count of blocked knowledge prerequisites for sorting."""
             return len(goal.metadata.get("blocked_by_knowledge", []))
 
@@ -476,7 +477,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
 
     # list_categories() - inherited from BaseService (uses _category_field = "domain")
 
-    async def get_goals_for_task(self, task_uid: str) -> Result[list[Goal]]:
+    async def get_goals_for_task(self, task_uid: str) -> Result[list[Ku]]:
         """
         Get goals that a task fulfills.
 
@@ -499,7 +500,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
             self.logger.error(f"Get goals for task failed: {e}")
             return Result.fail(Errors.database(operation="get_goals_for_task", message=str(e)))
 
-    async def get_goals_for_habit(self, habit_uid: str) -> Result[list[Goal]]:
+    async def get_goals_for_habit(self, habit_uid: str) -> Result[list[Ku]]:
         """
         Get goals that a habit supports.
 
@@ -522,7 +523,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
             self.logger.error(f"Get goals for habit failed: {e}")
             return Result.fail(Errors.database(operation="get_goals_for_habit", message=str(e)))
 
-    async def get_sub_goals(self, parent_goal_uid: str) -> Result[list[Goal]]:
+    async def get_sub_goals(self, parent_goal_uid: str) -> Result[list[Ku]]:
         """
         Get child goals (sub-goals) of a parent goal.
 
@@ -546,7 +547,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
             return Result.fail(Errors.database(operation="get_sub_goals", message=str(e)))
 
     @with_error_handling("get_related_goals", error_type="database", uid_param="goal_uid")
-    async def get_related_goals(self, goal_uid: str, limit: int = 10) -> Result[list[Goal]]:
+    async def get_related_goals(self, goal_uid: str, limit: int = 10) -> Result[list[Ku]]:
         """
         Get goals related to a given goal (shared tasks, habits, or knowledge).
 
@@ -559,7 +560,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         """
         # Query for goals sharing tasks or habits
         cypher_query = """
-        MATCH (g:Goal {uid: $uid})<-[:FULFILLS_GOAL|SUPPORTS_GOAL]-(shared)-[:FULFILLS_GOAL|SUPPORTS_GOAL]->(related:Goal)
+        MATCH (g:Ku {uid: $uid, ku_type: 'goal'})<-[:FULFILLS_GOAL|SUPPORTS_GOAL]-(shared)-[:FULFILLS_GOAL|SUPPORTS_GOAL]->(related:Ku {ku_type: 'goal'})
         WHERE related <> g
         RETURN DISTINCT related as g, count(shared) as shared_count
         ORDER BY shared_count DESC
@@ -574,8 +575,8 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         goals = []
         for record in result.value:
             goal_node = record["g"]
-            dto = GoalDTO.from_dict(dict(goal_node))
-            goal = Goal.from_dto(dto)
+            dto = KuDTO.from_dict(dict(goal_node))
+            goal = Ku.from_dto(dto)
             # Store shared count in metadata
             goal.metadata["shared_count"] = record.get("shared_count", 0)
             goals.append(goal)
@@ -597,7 +598,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
         self, query: str, user_uid: str | None = None, limit: int = 50
-    ) -> Result[tuple[list[Goal], ParsedSearchQuery]]:
+    ) -> Result[tuple[list[Ku], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.
 
@@ -683,7 +684,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
                 return Result.fail(result.expect_error())
-            goals = self._to_domain_models(result.value, GoalDTO, Goal)
+            goals = self._to_domain_models(result.value, KuDTO, Ku)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)

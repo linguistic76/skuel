@@ -23,7 +23,7 @@ from datetime import date, datetime, timedelta
 from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.choice.choice import Choice
+from core.models.ku.ku import Ku
 from core.models.enums import (
     ActivityStatus,
     ContentType,
@@ -34,12 +34,9 @@ from core.models.enums import (
     RecurrencePattern,
     SELCategory,
 )
-from core.models.event.event import Event
-from core.models.goal.goal import Goal
-from core.models.habit.habit import Habit
-from core.models.ku import Ku
-from core.models.principle.principle import Principle
-from core.models.task.task import Task
+from core.models.ku.ku import Ku as Habit
+from core.models.enums.ku_enums import KuType
+from core.models.ku.ku import Ku as Task
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -253,8 +250,9 @@ CHOICES = [
 PRINCIPLES = [
     {
         "uid": "principle.001",
-        "name": "Practice mindfulness daily",
+        "title": "Practice mindfulness daily",
         "description": "Commit to being present and aware in each moment",
+        "ku_type": KuType.PRINCIPLE.value,
         "domain": Domain.PERSONAL,
         "created_at": datetime.now(),
     },
@@ -300,11 +298,11 @@ async def seed_tasks(driver):
 
 async def seed_events(driver):
     """Seed sample events"""
-    backend = UniversalNeo4jBackend(driver, "Event", Event)
+    backend = UniversalNeo4jBackend(driver, "Event", Ku)
 
     logger.info("Seeding events...")
     for event_data in EVENTS:
-        event = Event(**event_data)
+        event = Ku(**event_data)
         result = await backend.create(event)
         if result.is_ok:
             logger.info(f"  ✓ Created: {event.title}")
@@ -323,52 +321,53 @@ async def seed_habits(driver):
         habit = Habit(**habit_data)
         result = await backend.create(habit)
         if result.is_ok:
-            logger.info(f"  ✓ Created: {habit.name}")
+            logger.info(f"  ✓ Created: {habit.title}")
         else:
-            logger.error(f"  ✗ Failed: {habit.name} - {result.error}")
+            logger.error(f"  ✗ Failed: {habit.title} - {result.error}")
 
     logger.info(f"Seeded {len(HABITS)} habits")
 
 
 async def seed_goals(driver):
     """Seed sample goals"""
-    backend = UniversalNeo4jBackend(driver, "Goal", Goal)
+    backend = UniversalNeo4jBackend(driver, "Goal", Ku)
 
     logger.info("Seeding goals...")
     for goal_data in GOALS:
-        goal = Goal(**goal_data)
+        goal = Ku(**goal_data)
         result = await backend.create(goal)
         if result.is_ok:
-            logger.info(f"  ✓ Created: {goal.name}")
+            logger.info(f"  ✓ Created: {goal.title}")
         else:
-            logger.error(f"  ✗ Failed: {goal.name} - {result.error}")
+            logger.error(f"  ✗ Failed: {goal.title} - {result.error}")
 
     logger.info(f"Seeded {len(GOALS)} goals")
 
 
 async def seed_choices(driver):
     """Seed sample choices"""
-    backend = UniversalNeo4jBackend(driver, "Choice", Choice)
+    backend = UniversalNeo4jBackend(driver, "Ku", Ku, default_filters={"ku_type": "choice"})
 
     logger.info("Seeding choices...")
     for choice_data in CHOICES:
-        choice = Choice(**choice_data)
+        choice_data["ku_type"] = "choice"
+        choice = Ku(**choice_data)
         result = await backend.create(choice)
         if result.is_ok:
-            logger.info(f"  ✓ Created: {choice.name}")
+            logger.info(f"  ✓ Created: {choice.title}")
         else:
-            logger.error(f"  ✗ Failed: {choice.name} - {result.error}")
+            logger.error(f"  ✗ Failed: {choice.title} - {result.error}")
 
     logger.info(f"Seeded {len(CHOICES)} choices")
 
 
 async def seed_principles(driver):
     """Seed sample principles"""
-    backend = UniversalNeo4jBackend(driver, "Principle", Principle)
+    backend = UniversalNeo4jBackend(driver, "Ku", Ku, default_filters={"ku_type": "principle"})
 
     logger.info("Seeding principles...")
     for principle_data in PRINCIPLES:
-        principle = Principle(**principle_data)
+        principle = Ku(**principle_data)
         result = await backend.create(principle)
         if result.is_ok:
             logger.info(f"  ✓ Created: {principle.title}")

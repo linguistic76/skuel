@@ -1,19 +1,12 @@
 """
-Task Models - Three-Tier Architecture
-======================================
+Task Models - Preserved Types
+==============================
 
-Clean three-tier model structure for Tasks:
-
-1. task_request.py - External API models (Pydantic)
-2. task_dto.py - Data transfer objects (Mutable)
-3. task.py - Domain models with business logic (Immutable)
-
-Usage:
-    from core.models.task import Task, TaskDTO, TaskCreateRequest
+Task domain now uses the unified Ku model (core.models.ku).
+This package preserves task-specific types that have no Ku equivalent:
+- task_request.py - Task API request/response models (Pydantic)
+- task_intelligence.py - Task intelligence dataclasses
 """
-
-from .task import Task
-from .task_dto import TaskDTO
 
 # Intelligence models
 from .task_intelligence import (
@@ -27,13 +20,9 @@ from .task_request import TaskCreateRequest, TaskListResponse, TaskResponse, Tas
 __all__ = [
     "EnergyLevel",
     "ProcrastinationTrigger",
-    # Domain model
-    "Task",
-    "TaskCompletionContext",
     # API models
+    "TaskCompletionContext",
     "TaskCreateRequest",
-    # Transfer object
-    "TaskDTO",
     # Intelligence models
     "TaskIntelligence",
     "TaskListResponse",

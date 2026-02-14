@@ -22,8 +22,9 @@ from core.events import publish_event
 from core.events.habit_events import HabitCreated
 from core.models.enums import EntityType
 from core.models.enums.activity_enums import ActivityStatus
-from core.models.habit.habit import Habit, HabitStatus
-from core.models.habit.habit_dto import HabitDTO
+from core.models.enums.ku_enums import KuStatus
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.habit.habit_request import HabitCreateRequest
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -35,7 +36,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class HabitsCoreService(BaseService[HabitsOperations, Habit]):
+class HabitsCoreService(BaseService[HabitsOperations, Ku]):
     """
     Core CRUD service for habits.
 
@@ -98,8 +99,8 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=HabitDTO,
-        model_class=Habit,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="habits",
         date_field="created_at",
         completed_statuses=(ActivityStatus.ARCHIVED.value,),
@@ -108,7 +109,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, habit: Habit) -> Result[None] | None:
+    def _validate_create(self, habit: Ku) -> Result[None] | None:
         """
         Validate habit creation with business rules.
 
@@ -137,7 +138,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Habit, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Ku, updates: dict[str, Any]) -> Result[None] | None:
         """
         Validate habit updates with business rules.
 
@@ -153,14 +154,14 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             None if valid, Result.fail() with validation error if invalid
         """
         from core.models.enums import RecurrencePattern
-        from core.models.habit.habit import HabitStatus
+        from core.models.enums.ku_enums import KuStatus
         from core.utils.result_simplified import Errors
 
         # Business Rule 1: Streak preservation on archive
         # Users invest effort building streaks - prevent accidental destruction
         if (
             "status" in updates
-            and updates["status"] == HabitStatus.ARCHIVED.value
+            and updates["status"] == KuStatus.ARCHIVED.value
             and current.current_streak
             and current.current_streak >= 7
         ):
@@ -201,7 +202,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
     # BASIC CRUD OPERATIONS
     # ========================================================================
 
-    async def get_habit(self, uid: str) -> Result[Habit]:
+    async def get_habit(self, uid: str) -> Result[Ku]:
         """
         Get habit by UID.
 
@@ -210,26 +211,26 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         """
         return await self.get(uid)
 
-    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
+    async def get_user_habits(self, user_uid: str) -> Result[list[Ku]]:
         """Get all habits for a user."""
         result = await self.backend.find_by(user_uid=user_uid)
         if result.is_error:
             return result
 
         # Use BaseService helper for batch DTO conversion
-        habits = self._to_domain_models(result.value, HabitDTO, Habit)
+        habits = self._to_domain_models(result.value, KuDTO, Ku)
 
         self.logger.info(f"Retrieved {len(habits)} habits for user {user_uid}")
         return Result.ok(habits)
 
     async def list_habits(
         self, limit: int = 100, **filters: Any
-    ) -> Result[tuple[list[Habit], int]]:
+    ) -> Result[tuple[list[Ku], int]]:
         """
         List habits with optional filters.
 
         Returns:
-            Result[tuple[list[Habit], int]]: Tuple of (habits, total_count) for pagination
+            Result[tuple[list[Ku], int]]: Tuple of (habits, total_count) for pagination
         """
         result = await self.backend.list(limit=limit, filters=filters)
         if result.is_error:
@@ -239,7 +240,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         habits_data, total_count = result.value
 
         # Use BaseService helper for batch DTO conversion
-        habits = self._to_domain_models(habits_data, HabitDTO, Habit)
+        habits = self._to_domain_models(habits_data, KuDTO, Ku)
         return Result.ok((habits, total_count))
 
     # get_user_items_in_range() is now inherited from BaseService
@@ -250,7 +251,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
     # EVENT-DRIVEN CRUD OPERATIONS
     # ========================================================================
 
-    async def create(self, entity: Habit) -> Result[Habit]:
+    async def create(self, entity: Ku) -> Result[Ku]:
         """
         Create a habit and publish HabitCreated event.
 
@@ -272,20 +273,20 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             event = HabitCreated(
                 habit_uid=habit.uid,
                 user_uid=habit.user_uid,
-                title=habit.name,  # Habit uses 'name' field, not 'title'
+                title=habit.title,
                 frequency=get_enum_value(habit.recurrence_pattern)
                 if habit.recurrence_pattern
                 else "daily",
-                domain=get_enum_value(habit.category)
-                if habit.category
-                else None,  # Habit uses 'category', not 'domain'
+                domain=get_enum_value(habit.habit_category)
+                if habit.habit_category
+                else None,  # Habit uses 'habit_category', not 'domain'
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
         return result
 
-    async def create_habit(self, habit_request: HabitCreateRequest, user_uid: str) -> Result[Habit]:
+    async def create_habit(self, habit_request: HabitCreateRequest, user_uid: str) -> Result[Ku]:
         """
         Create a habit from a request with user_uid.
 
@@ -302,14 +303,14 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             return validation
 
         # Create DTO from request with all fields
-        dto = HabitDTO(
+        dto = KuDTO(
             uid=UIDGenerator.generate_random_uid("habit"),
             user_uid=user_uid,
-            name=habit_request.name,
+            title=habit_request.name,
             description=habit_request.description,
             polarity=habit_request.polarity,
-            category=habit_request.category,
-            difficulty=habit_request.difficulty,
+            habit_category=habit_request.category,
+            habit_difficulty=habit_request.difficulty,
             recurrence_pattern=habit_request.recurrence_pattern,
             target_days_per_week=habit_request.target_days_per_week,
             preferred_time=habit_request.preferred_time,
@@ -319,13 +320,13 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             reward=habit_request.reward,
             is_identity_habit=habit_request.is_identity_habit,
             reinforces_identity=habit_request.reinforces_identity,
-            status=HabitStatus.ACTIVE,
+            status=KuStatus.ACTIVE,
             created_at=datetime.now(),
             updated_at=datetime.now(),
         )
 
         # Create habit via backend and convert to domain model (uses BaseService helper)
-        result = await self._create_and_convert(dto.to_dict(), HabitDTO, Habit)
+        result = await self._create_and_convert(dto.to_dict(), KuDTO, Ku)
         if result.is_error:
             return result
         habit = result.value
@@ -334,11 +335,11 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         event = HabitCreated(
             habit_uid=habit.uid,
             user_uid=habit.user_uid,
-            title=habit.name,
+            title=habit.title,
             frequency=get_enum_value(habit.recurrence_pattern)
             if habit.recurrence_pattern
             else "daily",
-            domain=get_enum_value(habit.category) if habit.category else None,
+            domain=get_enum_value(habit.habit_category) if habit.habit_category else None,
             occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
@@ -362,7 +363,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         return Result.ok(habit)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Habit]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """
         Update a habit.
 
@@ -402,7 +403,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
     # ========================================================================
 
     @with_error_handling("get_subhabits", error_type="database", uid_param="parent_uid")
-    async def get_subhabits(self, parent_uid: str, depth: int = 1) -> Result[list[Habit]]:
+    async def get_subhabits(self, parent_uid: str, depth: int = 1) -> Result[list[Ku]]:
         """
         Get all subhabits of a parent habit.
 
@@ -436,13 +437,13 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         habits = []
         for record in result.records:
             habit_data = dict(record["subhabit"])
-            habit = self._to_domain_model(habit_data, HabitDTO, Habit)
+            habit = self._to_domain_model(habit_data, KuDTO, Ku)
             habits.append(habit)
 
         return Result.ok(habits)
 
     @with_error_handling("get_parent_habit", error_type="database", uid_param="subhabit_uid")
-    async def get_parent_habit(self, subhabit_uid: str) -> Result[Habit | None]:
+    async def get_parent_habit(self, subhabit_uid: str) -> Result[Ku | None]:
         """
         Get immediate parent of a subhabit (if any).
 
@@ -465,7 +466,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             return Result.ok(None)
 
         parent_data = dict(result.records[0]["parent"])
-        parent = self._to_domain_model(parent_data, HabitDTO, Habit)
+        parent = self._to_domain_model(parent_data, KuDTO, Ku)
         return Result.ok(parent)
 
     @with_error_handling("get_habit_hierarchy", error_type="database", uid_param="habit_uid")
@@ -478,10 +479,10 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         Returns:
             Result containing hierarchy dict with keys:
-            - ancestors: list[Habit] (root to immediate parent)
+            - ancestors: list[Ku] (root to immediate parent)
             - current: Habit
-            - siblings: list[Habit] (other children of same parent)
-            - children: list[Habit] (immediate children)
+            - siblings: list[Ku] (other children of same parent)
+            - children: list[Ku] (immediate children)
             - depth: int (how deep in hierarchy, 0=root)
 
         Example:
@@ -522,7 +523,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_habit = self._to_domain_model(current_result.value, HabitDTO, Habit)
+        current_habit = self._to_domain_model(current_result.value, KuDTO, Ku)
 
         ancestors_result = await self.backend.driver.execute_query(
             ancestors_query, habit_uid=habit_uid
@@ -539,7 +540,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
             for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
                 habit_data = dict(node)
-                ancestors.append(self._to_domain_model(habit_data, HabitDTO, Habit))
+                ancestors.append(self._to_domain_model(habit_data, KuDTO, Ku))
 
         # Process siblings
         siblings = []
@@ -547,7 +548,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             for node in siblings_result.records[0]["siblings"]:
                 if node:  # Skip None values
                     habit_data = dict(node)
-                    siblings.append(self._to_domain_model(habit_data, HabitDTO, Habit))
+                    siblings.append(self._to_domain_model(habit_data, KuDTO, Ku))
 
         # Process children
         children = []
@@ -555,7 +556,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             for node in children_result.records[0]["children"]:
                 if node:  # Skip None values
                     habit_data = dict(node)
-                    children.append(self._to_domain_model(habit_data, HabitDTO, Habit))
+                    children.append(self._to_domain_model(habit_data, KuDTO, Ku))
 
         return Result.ok(
             {

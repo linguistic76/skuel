@@ -21,9 +21,9 @@ from datetime import date
 import pytest
 
 from core.models.enums import Domain, Priority
-from core.models.goal.goal_dto import GoalDTO
 from core.models.ku.ku_dto import KuDTO
-from core.models.task.task_dto import TaskDTO
+from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.ku_dto import KuDTO as GoalDTO
 
 
 @pytest.mark.integration
@@ -140,7 +140,7 @@ class TestRichContextPattern:
         await services.goals.core.backend.create(goal_dto.to_dict())
 
         # Create main task
-        task_dto = TaskDTO.create(
+        task_dto = TaskDTO.create_task(
             user_uid=test_user.uid,
             title="Deploy to Production",
             priority=Priority.HIGH,
@@ -204,7 +204,7 @@ class TestRichContextPattern:
         await services.goals.core.backend.create(goal_dto.to_dict())
 
         # Create contributing task
-        task_dto = TaskDTO.create(
+        task_dto = TaskDTO.create_task(
             user_uid=test_user.uid,
             title="Study Async Programming",
             priority=Priority.MEDIUM,

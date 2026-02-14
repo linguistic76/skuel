@@ -22,8 +22,10 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.choice.choice import Choice, ChoiceOption, ChoiceStatus, ChoiceType
 from core.models.enums import Domain, Priority
+from core.models.enums.ku_enums import ChoiceType, KuStatus
+from core.models.ku.ku import Ku
+from core.models.ku.ku_nested_types import ChoiceOption
 from core.services.choices.choices_core_service import ChoicesCoreService
 
 
@@ -39,7 +41,9 @@ class TestChoicesCoreOperations:
     @pytest_asyncio.fixture
     async def choices_backend(self, neo4j_driver, clean_neo4j):
         """Create choices backend with clean database."""
-        return UniversalNeo4jBackend[Choice](neo4j_driver, "Choice", Choice)
+        return UniversalNeo4jBackend[Ku](
+            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "choice"}
+        )
 
     @pytest_asyncio.fixture
     async def choices_service(self, choices_backend, event_bus):
@@ -78,13 +82,14 @@ class TestChoicesCoreOperations:
     async def test_create_choice(self, choices_service, test_user_uid, sample_options):
         """Test creating a new choice."""
         # Arrange
-        choice = Choice(
+        choice = Ku(
             uid="choice.tech_stack",
             title="Choose Primary Tech Stack",
             description="Select primary programming language to focus on",
             user_uid=test_user_uid,
+            ku_type="choice",
             choice_type=ChoiceType.MULTIPLE,
-            status=ChoiceStatus.PENDING,
+            status=KuStatus.DRAFT,
             priority=Priority.HIGH,
             domain=Domain.TECH,
             options=sample_options,
@@ -98,17 +103,18 @@ class TestChoicesCoreOperations:
         created_choice = result.value
         assert created_choice.uid == "choice.tech_stack"
         assert created_choice.title == "Choose Primary Tech Stack"
-        assert created_choice.status == ChoiceStatus.PENDING
+        assert created_choice.status == KuStatus.DRAFT
         assert len(created_choice.options) == 2
 
     async def test_get_choice_by_uid(self, choices_service, test_user_uid, sample_options):
         """Test retrieving a choice by UID."""
         # Arrange - Create a choice first
-        choice = Choice(
+        choice = Ku(
             uid="choice.get_test",
             title="Test Choice",
             description="Test choice for retrieval",
             user_uid=test_user_uid,
+            ku_type="choice",
             options=sample_options,
         )
         create_result = await choices_service.create(choice)
@@ -136,12 +142,13 @@ class TestChoicesCoreOperations:
         """Test listing all choices for a user."""
         # Arrange - Create multiple choices
         choices = [
-            Choice(
+            Ku(
                 uid=f"choice.list_test_{i}",
                 title=f"Choice {i}",
                 description=f"Test choice {i}",
                 user_uid=test_user_uid,
-                options=sample_options,  # All choices must have at least 2 options
+                ku_type="choice",
+                options=sample_options,
             )
             for i in range(3)
         ]
@@ -161,20 +168,22 @@ class TestChoicesCoreOperations:
     async def test_get_choices_by_status(self, choices_service, test_user_uid, sample_options):
         """Test filtering choices by status."""
         # Arrange - Create choices with different statuses
-        pending_choice = Choice(
+        pending_choice = Ku(
             uid="choice.pending",
             title="Pending Choice",
             description="Not yet decided",
             user_uid=test_user_uid,
-            status=ChoiceStatus.PENDING,
+            ku_type="choice",
+            status=KuStatus.DRAFT,
             options=sample_options,
         )
-        decided_choice = Choice(
+        decided_choice = Ku(
             uid="choice.decided",
             title="Decided Choice",
             description="Already decided",
             user_uid=test_user_uid,
-            status=ChoiceStatus.DECIDED,
+            ku_type="choice",
+            status=KuStatus.ACTIVE,
             selected_option_uid="option.python",
             options=sample_options,
         )
@@ -184,20 +193,20 @@ class TestChoicesCoreOperations:
 
         # Act - Query by status
         pending_result = await choices_service.backend.find_by(
-            user_uid=test_user_uid, status=ChoiceStatus.PENDING.value
+            user_uid=test_user_uid, status=KuStatus.DRAFT.value
         )
         decided_result = await choices_service.backend.find_by(
-            user_uid=test_user_uid, status=ChoiceStatus.DECIDED.value
+            user_uid=test_user_uid, status=KuStatus.ACTIVE.value
         )
 
         # Assert
         assert pending_result.is_ok
         assert len(pending_result.value) >= 1
-        assert all(c.status == ChoiceStatus.PENDING for c in pending_result.value)
+        assert all(c.status == KuStatus.DRAFT for c in pending_result.value)
 
         assert decided_result.is_ok
         assert len(decided_result.value) >= 1
-        assert all(c.status == ChoiceStatus.DECIDED for c in decided_result.value)
+        assert all(c.status == KuStatus.ACTIVE for c in decided_result.value)
 
     async def test_choice_option_scoring(self, sample_options):
         """Test the option scoring business logic."""
@@ -226,12 +235,13 @@ class TestChoicesCoreOperations:
         # Arrange & Act - Create 5 choices
         choices = []
         for i in range(5):
-            choice = Choice(
+            choice = Ku(
                 uid=f"choice.multi_{i}",
                 title=f"Multiple Choice {i}",
                 description=f"Choice number {i}",
                 user_uid=test_user_uid,
-                status=ChoiceStatus.PENDING if i % 2 == 0 else ChoiceStatus.DECIDED,
+                ku_type="choice",
+                status=KuStatus.DRAFT if i % 2 == 0 else KuStatus.ACTIVE,
                 options=sample_options,
             )
             result = await choices_service.create(choice)
@@ -248,13 +258,14 @@ class TestChoicesCoreOperations:
         # Arrange & Act - Create choices with different priorities
         priorities = [Priority.LOW, Priority.MEDIUM, Priority.HIGH, Priority.CRITICAL]
         for priority in priorities:
-            choice = Choice(
+            choice = Ku(
                 uid=f"choice.priority_{priority.value}",
                 title=f"{priority.value.capitalize()} Priority Choice",
                 description=f"Choice with {priority.value} priority",
                 user_uid=test_user_uid,
+                ku_type="choice",
                 priority=priority,
-                options=sample_options,  # All choices must have at least 2 options
+                options=sample_options,
             )
             result = await choices_service.create(choice)
             assert result.is_ok
@@ -265,13 +276,14 @@ class TestChoicesCoreOperations:
         # Arrange & Act - Create choices in different domains
         domains = [Domain.TECH, Domain.PERSONAL, Domain.BUSINESS, Domain.HEALTH]
         for domain in domains:
-            choice = Choice(
+            choice = Ku(
                 uid=f"choice.domain_{domain.value}",
                 title=f"{domain.value.capitalize()} Choice",
                 description=f"Choice in {domain.value} domain",
                 user_uid=test_user_uid,
+                ku_type="choice",
                 domain=domain,
-                options=sample_options,  # All choices must have at least 2 options
+                options=sample_options,
             )
             result = await choices_service.create(choice)
             assert result.is_ok
@@ -282,15 +294,16 @@ class TestChoicesCoreOperations:
     ):
         """Test creating a choice with decision criteria."""
         # Arrange
-        choice = Choice(
+        choice = Ku(
             uid="choice.with_criteria",
             title="Choice with Criteria",
             description="Choice that has decision criteria",
             user_uid=test_user_uid,
+            ku_type="choice",
             decision_criteria=("career growth", "work-life balance", "learning opportunity"),
             constraints=("must be remote", "salary > 100k"),
             stakeholders=("family", "current employer"),
-            options=sample_options,  # All choices must have at least 2 options
+            options=sample_options,
         )
 
         # Act
@@ -306,15 +319,16 @@ class TestChoicesCoreOperations:
     async def test_choice_inspiration_fields(self, choices_service, test_user_uid, sample_options):
         """Test creating a choice with inspiration/possibility fields."""
         # Arrange
-        choice = Choice(
+        choice = Ku(
             uid="choice.career_pivot",
             title="Career Pivot Decision",
             description="Considering a major career change",
             user_uid=test_user_uid,
+            ku_type="choice",
             inspiration_type="career_path",
             expands_possibilities=True,
             vision_statement="Becoming a lead software architect in 5 years",
-            options=sample_options,  # All choices must have at least 2 options
+            options=sample_options,
         )
 
         # Act

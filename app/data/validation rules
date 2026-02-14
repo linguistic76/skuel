@@ -88,7 +88,7 @@ Based on my investigation, here's the summary:
       @classmethod
       def _validate(...):
           # Import inside to avoid circular imports
-          from core.models.habit.habit import HabitDifficulty
+          from core.models.enums.ku_enums import HabitDifficulty
 
   Domain-specific validators import their enums locally to keep validation_rules.py dependency-free.
 

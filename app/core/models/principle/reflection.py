@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
-from .principle import AlignmentLevel
+from core.models.enums.ku_enums import AlignmentLevel
 
 if TYPE_CHECKING:
     from .reflection_dto import PrincipleReflectionDTO

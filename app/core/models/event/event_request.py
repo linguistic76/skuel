@@ -8,7 +8,7 @@ Uses shared validation rules from core.models.validation_rules for DRY complianc
 """
 
 from datetime import date, datetime, time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -20,9 +20,6 @@ from core.models.validation_rules import (
     validate_time_after,
     validate_url_when_online,
 )
-
-if TYPE_CHECKING:
-    from core.models.event.event_dto import EventDTO
 
 
 class EventType(str):
@@ -210,65 +207,6 @@ class EventResponse(BaseModel):
     model_config = ConfigDict(
         # Pydantic V2 serializes enums, dates, times, and datetimes automatically
     )
-
-    @classmethod
-    def from_dto(cls, dto: "EventDTO") -> "EventResponse":
-        """Create response from DTO."""
-        from .event import Event
-
-        # Create domain model for computed fields
-        event = Event.from_dto(dto)
-
-        return cls(
-            uid=dto.uid,
-            title=dto.title,
-            description=dto.description,
-            event_date=dto.event_date,
-            start_time=dto.start_time,
-            end_time=dto.end_time,
-            duration_minutes=event.duration_minutes(),
-            event_type=dto.event_type,
-            status=dto.status,
-            visibility=dto.visibility,
-            priority=dto.priority,
-            location=dto.location,
-            is_online=dto.is_online,
-            meeting_url=dto.meeting_url,
-            tags=dto.tags,
-            attendee_count=len(dto.attendee_emails),
-            max_attendees=dto.max_attendees,
-            is_full=event.is_full(),
-            recurrence_pattern=dto.recurrence_pattern,
-            recurrence_end_date=dto.recurrence_end_date,
-            is_recurring=event.is_recurring(),
-            recurrence_parent_uid=dto.recurrence_parent_uid,
-            reminder_minutes=dto.reminder_minutes,
-            reminder_sent=dto.reminder_sent,
-            created_at=dto.created_at,
-            updated_at=dto.updated_at,
-            # Learning Integration
-            reinforces_habit_uid=getattr(dto, "reinforces_habit_uid", None),
-            practices_knowledge_uids=getattr(dto, "practices_knowledge_uids", []),
-            milestone_celebration_for_goal=getattr(dto, "milestone_celebration_for_goal", None),
-            executes_tasks=getattr(dto, "executes_tasks", []),
-            habit_completion_quality=getattr(dto, "habit_completion_quality", None),
-            knowledge_retention_check=getattr(dto, "knowledge_retention_check", False),
-            recurrence_maintains_habit=getattr(dto, "recurrence_maintains_habit", True),
-            skip_breaks_habit_streak=getattr(dto, "skip_breaks_habit_streak", True),
-            # Computed fields
-            is_past=event.is_past(),
-            is_today=event.is_today(),
-            is_upcoming=event.is_upcoming(),
-            is_habit_event=event.is_habit_event(),
-            is_learning_event=event.is_learning_event(),
-            is_milestone_event=event.is_milestone_event,  # Field, not method
-            has_tasks=event.has_tasks(),
-            days_until=event.days_until(),
-            conflicts_with=getattr(dto, "conflicts_with", []),  # GRAPH-NATIVE: GRAPH-NATIVE field
-            learning_impact_score=event.learning_impact_score(),
-            completion_value=event.completion_value(),
-        )
-
 
 class EventFilterRequest(BaseModel):
     """Request model for filtering events."""

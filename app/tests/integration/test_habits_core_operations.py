@@ -26,12 +26,12 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Priority, RecurrencePattern
-from core.models.habit.habit import (
-    Habit,
+from core.models.ku.ku import Ku as Habit
+from core.models.enums.ku_enums import (
     HabitCategory,
     HabitDifficulty,
     HabitPolarity,
-    HabitStatus,
+    KuStatus as HabitStatus,
 )
 from core.services.habits.habits_core_service import HabitsCoreService
 
@@ -322,7 +322,7 @@ class TestHabitsCoreOperations:
             HabitStatus.ACTIVE,
             HabitStatus.PAUSED,
             HabitStatus.COMPLETED,
-            HabitStatus.ABANDONED,
+            HabitStatus.CANCELLED,
             HabitStatus.ARCHIVED,
         ]
 

@@ -16,9 +16,11 @@ Version: 2.0.0
 Date: 2025-11-05
 """
 
+from __future__ import annotations
+
 from datetime import date, datetime
 from operator import attrgetter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.calendar_event_events import (
@@ -29,18 +31,20 @@ from core.events.calendar_event_events import (
     CalendarEventUpdated,
 )
 from core.models.enums import ActivityStatus, EntityType
-from core.models.event.event import Event
-from core.models.event.event_dto import EventDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value
-from core.services.protocols.domain_protocols import EventsOperations
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
 
-class EventsCoreService(BaseService[EventsOperations, Event]):
+
+class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
     """
     Core CRUD service for events.
 
@@ -77,7 +81,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
 
     """
 
-    def __init__(self, backend: EventsOperations, event_bus=None) -> None:
+    def __init__(self, backend: BackendOperations[Ku], event_bus=None) -> None:
         """
         Initialize events core service.
 
@@ -99,7 +103,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Event entities."""
-        return "Event"
+        return "Ku"
 
     # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
@@ -110,8 +114,8 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=EventDTO,
-        model_class=Event,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="events",
         date_field="event_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
@@ -120,7 +124,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, event: Event) -> Result[None] | None:
+    def _validate_create(self, event: Ku) -> Result[None] | None:
         """
         Validate event creation with business rules.
 
@@ -128,7 +132,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
         1. Event duration sanity check: 5 minutes to 12 hours (720 minutes)
 
         Args:
-            event: Event domain model being created
+            event: Ku domain model being created
 
         Returns:
             None if valid, Result.fail() with validation error if invalid
@@ -159,7 +163,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Event, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Ku, updates: dict[str, Any]) -> Result[None] | None:
         """
         Validate event updates with business rules.
 
@@ -219,7 +223,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
     # BASIC CRUD OPERATIONS
     # ========================================================================
 
-    async def get_event(self, event_uid: str) -> Result[Event]:
+    async def get_event(self, event_uid: str) -> Result[Ku]:
         """
         Get a specific event by UID.
 
@@ -230,11 +234,11 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             event_uid: Event UID
 
         Returns:
-            Result[Event] - success contains Event, not found is an error
+            Result[Ku] - success contains Ku, not found is an error
         """
         return await self.get(event_uid)
 
-    async def get_user_events(self, user_uid: str) -> Result[list[Event]]:
+    async def get_user_events(self, user_uid: str) -> Result[list[Ku]]:
         """
         Get all events for a user, including learning relationships.
 
@@ -242,7 +246,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             user_uid: UID of the user
 
         Returns:
-            Result containing list of Event objects
+            Result containing list of Ku objects
         """
         # Use find_by with user_uid filter (UniversalNeo4jBackend pattern)
         result = await self.backend.find_by(user_uid=user_uid)
@@ -259,7 +263,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Find events with filters and pagination.
 
@@ -283,7 +287,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
         events_data, _ = result.value
 
         # Use BaseService helper for batch DTO conversion
-        events = self._to_domain_models(events_data, EventDTO, Event)
+        events = self._to_domain_models(events_data, KuDTO, Ku)
 
         # Sort if requested
         if order_by and events:
@@ -344,15 +348,15 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
     # EVENT-DRIVEN CRUD OPERATIONS
     # ========================================================================
 
-    async def create(self, entity: Event) -> Result[Event]:
+    async def create(self, entity: Ku) -> Result[Ku]:
         """
         Create a calendar event and publish CalendarEventCreated event.
 
         Args:
-            entity: Event to create
+            entity: Ku to create
 
         Returns:
-            Result containing created Event
+            Result containing created Ku
 
         Events Published:
             - CalendarEventCreated: When event is successfully created
@@ -394,7 +398,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
 
         return result
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Event]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """
         Update a calendar event and publish appropriate events.
 
@@ -406,7 +410,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             updates: Dictionary of field updates
 
         Returns:
-            Result containing updated Event
+            Result containing updated Ku
 
         Events Published:
             - CalendarEventCompleted: If status changed to COMPLETED
@@ -511,7 +515,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
     # ========================================================================
 
     @with_error_handling("get_subevents", error_type="database", uid_param="parent_uid")
-    async def get_subevents(self, parent_uid: str, depth: int = 1) -> Result[list[Event]]:
+    async def get_subevents(self, parent_uid: str, depth: int = 1) -> Result[list[Ku]]:
         """
         Get all subevents of a parent event.
 
@@ -530,8 +534,8 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             all_subevents = await service.get_subevents("event_abc123", depth=99)
         """
         query = f"""
-        MATCH (parent:Event {{uid: $parent_uid}})
-        MATCH (parent)-[:HAS_SUBEVENT*1..{depth}]->(subevent:Event)
+        MATCH (parent:Ku {{uid: $parent_uid}})
+        MATCH (parent)-[:HAS_SUBEVENT*1..{depth}]->(subevent:Ku)
         RETURN subevent
         ORDER BY subevent.created_at
         """
@@ -541,17 +545,17 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
         if not result.records:
             return Result.ok([])
 
-        # Convert to Event models
+        # Convert to Ku models
         events = []
         for record in result.records:
             event_data = dict(record["subevent"])
-            event = self._to_domain_model(event_data, EventDTO, Event)
+            event = self._to_domain_model(event_data, KuDTO, Ku)
             events.append(event)
 
         return Result.ok(events)
 
     @with_error_handling("get_parent_event", error_type="database", uid_param="subevent_uid")
-    async def get_parent_event(self, subevent_uid: str) -> Result[Event | None]:
+    async def get_parent_event(self, subevent_uid: str) -> Result[Ku | None]:
         """
         Get immediate parent of a subevent (if any).
 
@@ -559,11 +563,11 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             subevent_uid: Subevent UID
 
         Returns:
-            Result containing parent Event or None if root-level event
+            Result containing parent Ku or None if root-level event
         """
         query = """
-        MATCH (subevent:Event {uid: $subevent_uid})
-        MATCH (parent:Event)-[:HAS_SUBEVENT]->(subevent)
+        MATCH (subevent:Ku {uid: $subevent_uid})
+        MATCH (parent:Ku)-[:HAS_SUBEVENT]->(subevent)
         RETURN parent
         LIMIT 1
         """
@@ -574,7 +578,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             return Result.ok(None)
 
         parent_data = dict(result.records[0]["parent"])
-        parent = self._to_domain_model(parent_data, EventDTO, Event)
+        parent = self._to_domain_model(parent_data, KuDTO, Ku)
         return Result.ok(parent)
 
     @with_error_handling("get_event_hierarchy", error_type="database", uid_param="event_uid")
@@ -605,24 +609,24 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
         """
         # Get ancestors
         ancestors_query = """
-        MATCH path = (root:Event)-[:HAS_SUBEVENT*]->(current:Event {uid: $event_uid})
+        MATCH path = (root:Ku)-[:HAS_SUBEVENT*]->(current:Ku {uid: $event_uid})
         WHERE NOT EXISTS((root)<-[:HAS_SUBEVENT]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
         siblings_query = """
-        MATCH (current:Event {uid: $event_uid})
-        OPTIONAL MATCH (parent:Event)-[:HAS_SUBEVENT]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBEVENT]->(sibling:Event)
+        MATCH (current:Ku {uid: $event_uid})
+        OPTIONAL MATCH (parent:Ku)-[:HAS_SUBEVENT]->(current)
+        OPTIONAL MATCH (parent)-[:HAS_SUBEVENT]->(sibling:Ku)
         WHERE sibling.uid <> $event_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
         children_query = """
-        MATCH (current:Event {uid: $event_uid})
-        OPTIONAL MATCH (current)-[:HAS_SUBEVENT]->(child:Event)
+        MATCH (current:Ku {uid: $event_uid})
+        OPTIONAL MATCH (current)-[:HAS_SUBEVENT]->(child:Ku)
         RETURN collect(child) as children
         """
 
@@ -631,7 +635,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_event = self._to_domain_model(current_result.value, EventDTO, Event)
+        current_event = self._to_domain_model(current_result.value, KuDTO, Ku)
 
         ancestors_result = await self.backend.driver.execute_query(
             ancestors_query, event_uid=event_uid
@@ -648,7 +652,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
         if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
             for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
                 event_data = dict(node)
-                ancestors.append(self._to_domain_model(event_data, EventDTO, Event))
+                ancestors.append(self._to_domain_model(event_data, KuDTO, Ku))
 
         # Process siblings
         siblings = []
@@ -656,7 +660,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             for node in siblings_result.records[0]["siblings"]:
                 if node:  # Skip None values
                     event_data = dict(node)
-                    siblings.append(self._to_domain_model(event_data, EventDTO, Event))
+                    siblings.append(self._to_domain_model(event_data, KuDTO, Ku))
 
         # Process children
         children = []
@@ -664,7 +668,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             for node in children_result.records[0]["children"]:
                 if node:  # Skip None values
                     event_data = dict(node)
-                    children.append(self._to_domain_model(event_data, EventDTO, Event))
+                    children.append(self._to_domain_model(event_data, KuDTO, Ku))
 
         return Result.ok(
             {
@@ -719,8 +723,8 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
         prop_assignments = ", ".join([f"{k}: ${k}" for k in rel_props])
 
         query = f"""
-        MATCH (parent:Event {{uid: $parent_uid}})
-        MATCH (subevent:Event {{uid: $subevent_uid}})
+        MATCH (parent:Ku {{uid: $parent_uid}})
+        MATCH (subevent:Ku {{uid: $subevent_uid}})
 
         CREATE (parent)-[:HAS_SUBEVENT {{
             {prop_assignments},
@@ -762,7 +766,7 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
             Result containing True if relationships were deleted
         """
         query = """
-        MATCH (parent:Event {uid: $parent_uid})-[r1:HAS_SUBEVENT]->(subevent:Event {uid: $subevent_uid})
+        MATCH (parent:Ku {uid: $parent_uid})-[r1:HAS_SUBEVENT]->(subevent:Ku {uid: $subevent_uid})
         MATCH (subevent)-[r2:SUBEVENT_OF]->(parent)
         DELETE r1, r2
         RETURN count(r1) + count(r2) as deleted_count
@@ -783,8 +787,8 @@ class EventsCoreService(BaseService[EventsOperations, Event]):
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
         query = """
-        MATCH (child:Event {uid: $child_uid})
-        MATCH path = (child)-[:HAS_SUBEVENT*]->(parent:Event {uid: $parent_uid})
+        MATCH (child:Ku {uid: $child_uid})
+        MATCH path = (child)-[:HAS_SUBEVENT*]->(parent:Ku {uid: $parent_uid})
         RETURN count(path) > 0 as would_create_cycle
         """
 

@@ -504,7 +504,7 @@ def _create_core_services(
 
     Args:
         tasks_backend: UniversalNeo4jBackend[Task],
-        events_backend: UniversalNeo4jBackend[Event],
+        events_backend: UniversalNeo4jBackend[Ku] (with default_filters ku_type=event),
         finance_backend: UniversalNeo4jBackend[ExpensePure],
         invoice_backend: UniversalNeo4jBackend[InvoicePure],
         habits_backend: UniversalNeo4jBackend[Habit],
@@ -579,10 +579,10 @@ def _create_orchestration_services(
     Note: Choices and Principles are now created in _create_activity_services().
 
     Args:
-        goals_backend: UniversalNeo4jBackend[Goal]
+        goals_backend: UniversalNeo4jBackend[Ku]
         tasks_backend: UniversalNeo4jBackend[Task]
         habits_backend: UniversalNeo4jBackend[Habit]
-        events_backend: UniversalNeo4jBackend[Event]
+        events_backend: UniversalNeo4jBackend[Ku] (with default_filters ku_type=event)
     """
     from core.services.goal_task_generator import GoalTaskGenerator
     from core.services.habit_event_scheduler import HabitEventScheduler
@@ -1016,35 +1016,38 @@ async def compose_services(
         # "The plant (models) grows on the lattice (UniversalNeo4jBackend)"
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.askesis.askesis import Askesis
-        from core.models.choice.choice import Choice
-        from core.models.event.event import Event
+        # NOTE: Choice import REMOVED (February 2026) - Choice merged into Ku
+        # Choice entities are now Ku nodes with ku_type="choice"
+        # NOTE: Event import REMOVED (February 2026) - Event merged into Ku
+        # Event entities are now Ku nodes with ku_type="event"
         from core.models.finance.finance_pure import ExpensePure
         from core.models.finance.invoice import InvoicePure
-        from core.models.goal.goal import Goal
+        # NOTE: Goal import REMOVED (February 2026) - Goal merged into Ku
+        # Goal entities are now Ku nodes with ku_type="goal"
         from core.models.habit.completion import HabitCompletion
-        from core.models.habit.habit import Habit
         from core.models.ku.ku import Ku
 
         # NOTE: MapOfContent import removed (January 2026) - MOC is now KU-based
         # MOC is a KU with ORGANIZES relationships, not a separate entity
-        from core.models.principle.principle import Principle
         from core.models.principle.reflection import PrincipleReflection
         from core.models.progress import UserProgress
-        from core.models.task.task import Task
         from core.models.transcription.transcription import Transcription
 
         # Create backends directly (no wrapper) - makes lattice pattern visible
         # ACTIVITY DOMAINS - Use UniversalNeo4jBackend (requires DomainModelProtocol)
         # Labels use NeoLabel enum for type-safety and codebase self-awareness
         # Phase 2 (January 2026): Pass prometheus_metrics for database instrumentation
-        tasks_backend = UniversalNeo4jBackend[Task](
-            driver, NeoLabel.TASK, Task, prometheus_metrics=prometheus_metrics
+        tasks_backend = UniversalNeo4jBackend[Ku](
+            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics,
+            default_filters={"ku_type": "task"},
         )
-        events_backend = UniversalNeo4jBackend[Event](
-            driver, NeoLabel.EVENT, Event, prometheus_metrics=prometheus_metrics
+        events_backend = UniversalNeo4jBackend[Ku](
+            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics,
+            default_filters={"ku_type": "event"},
         )
-        habits_backend = UniversalNeo4jBackend[Habit](
-            driver, NeoLabel.HABIT, Habit, prometheus_metrics=prometheus_metrics
+        habits_backend = UniversalNeo4jBackend[Ku](
+            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics,
+            default_filters={"ku_type": "habit"},
         )
         habit_completions_backend = UniversalNeo4jBackend[HabitCompletion](
             driver,
@@ -1052,8 +1055,12 @@ async def compose_services(
             HabitCompletion,
             prometheus_metrics=prometheus_metrics,
         )
-        goals_backend = UniversalNeo4jBackend[Goal](
-            driver, NeoLabel.GOAL, Goal, prometheus_metrics=prometheus_metrics
+        goals_backend = UniversalNeo4jBackend[Ku](
+            driver,
+            NeoLabel.KU,
+            Ku,
+            default_filters={"ku_type": "goal"},
+            prometheus_metrics=prometheus_metrics,
         )
         finance_backend = UniversalNeo4jBackend[ExpensePure](
             driver, NeoLabel.EXPENSE, ExpensePure, prometheus_metrics=prometheus_metrics
@@ -1076,8 +1083,9 @@ async def compose_services(
         knowledge_backend = UniversalNeo4jBackend[Ku](
             driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics
         )
-        principle_backend = UniversalNeo4jBackend[Principle](
-            driver, NeoLabel.PRINCIPLE, Principle, prometheus_metrics=prometheus_metrics
+        principle_backend = UniversalNeo4jBackend[Ku](
+            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics,
+            default_filters={"ku_type": "principle"},
         )
         reflection_backend = UniversalNeo4jBackend[PrincipleReflection](
             driver,
@@ -1085,8 +1093,10 @@ async def compose_services(
             PrincipleReflection,
             prometheus_metrics=prometheus_metrics,
         )
-        choice_backend = UniversalNeo4jBackend[Choice](
-            driver, NeoLabel.CHOICE, Choice, prometheus_metrics=prometheus_metrics
+        # February 2026: Unified Ku model — choice_backend uses :Ku label with ku_type filter
+        choice_backend = UniversalNeo4jBackend[Ku](
+            driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics,
+            default_filters={"ku_type": "choice"},
         )
         progress_backend = UniversalNeo4jBackend[UserProgress](
             driver, NeoLabel.USER_PROGRESS, UserProgress, prometheus_metrics=prometheus_metrics

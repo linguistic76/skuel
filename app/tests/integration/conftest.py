@@ -25,11 +25,8 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
 # Lazy imports to avoid circular import issues
 # These are imported inside fixtures that need them
-# from core.models.event.event import Event
-# from core.models.goal.goal import Goal
-# from core.models.habit.habit import Habit
+# from core.models.ku.ku import Ku  # (was Event, Goal, Habit, Task)
 # from core.models.ku.ku_dto import KuDTO
-# from core.models.task.task import Task
 # from core.services.ku_service import KuService
 # from core.services.ingestion import UnifiedIngestionService
 # from core.services.user_service import UserService
@@ -498,13 +495,8 @@ async def services(neo4j_container):
     from neo4j import AsyncGraphDatabase
 
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-    from core.models.choice.choice import Choice
-    from core.models.event.event import Event
-    from core.models.goal.goal import Goal
-    from core.models.ku.ku_dto import KuDTO
     from core.models.ku.ku import Ku
-    from core.models.principle.principle import Principle
-    from core.models.task.task import Task
+    from core.models.ku.ku_dto import KuDTO
     from core.models.user.user import User
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
@@ -575,14 +567,14 @@ async def services(neo4j_container):
     raw_ku_backend = UniversalNeo4jBackend[KuDTO](driver, "Ku", KuDTO)
     ku_backend = TestBackendWrapper(raw_ku_backend, KuDTO)
 
-    raw_tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-    tasks_backend = TestBackendWrapper(raw_tasks_backend, Task)
+    raw_tasks_backend = UniversalNeo4jBackend[Ku](driver, "Task", Ku)
+    tasks_backend = TestBackendWrapper(raw_tasks_backend, Ku)
 
-    raw_goals_backend = UniversalNeo4jBackend[Goal](driver, "Goal", Goal)
-    goals_backend = TestBackendWrapper(raw_goals_backend, Goal)
+    raw_goals_backend = UniversalNeo4jBackend[Ku](driver, "Goal", Ku)
+    goals_backend = TestBackendWrapper(raw_goals_backend, Ku)
 
-    raw_events_backend = UniversalNeo4jBackend[Event](driver, "Event", Event)
-    events_backend = TestBackendWrapper(raw_events_backend, Event)
+    raw_events_backend = UniversalNeo4jBackend[Ku](driver, "Event", Ku)
+    events_backend = TestBackendWrapper(raw_events_backend, Ku)
 
     raw_ls_backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
     ls_backend = TestBackendWrapper(raw_ls_backend, Ku)
@@ -590,8 +582,8 @@ async def services(neo4j_container):
     raw_lp_backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
     lp_backend = TestBackendWrapper(raw_lp_backend, Ku)
 
-    raw_principles_backend = UniversalNeo4jBackend[Principle](driver, "Principle", Principle)
-    principles_backend = TestBackendWrapper(raw_principles_backend, Principle)
+    raw_principles_backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku, default_filters={"ku_type": "principle"})
+    principles_backend = TestBackendWrapper(raw_principles_backend, Ku)
 
     # These backends aren't used by tests, create without wrapper
     choices_backend = UniversalNeo4jBackend[Choice](driver, "Choice", Choice)
@@ -916,9 +908,9 @@ def user_uid():
 @pytest_asyncio.fixture
 async def tasks_backend(neo4j_driver):
     """Create tasks backend for testing."""
-    from core.models.task.task import Task
+    from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Task](driver=neo4j_driver, label="Task", model_class=Task)
+    return UniversalNeo4jBackend[Ku](driver=neo4j_driver, label="Task", model_class=Ku)
 
 
 @pytest_asyncio.fixture
@@ -932,9 +924,9 @@ async def tasks_service(tasks_backend, event_bus):
 @pytest_asyncio.fixture
 async def goals_backend(neo4j_driver):
     """Create goals backend for testing."""
-    from core.models.goal.goal import Goal
+    from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Goal](driver=neo4j_driver, label="Goal", model_class=Goal)
+    return UniversalNeo4jBackend[Ku](driver=neo4j_driver, label="Goal", model_class=Ku)
 
 
 @pytest_asyncio.fixture
@@ -948,7 +940,7 @@ async def goals_service(goals_backend, event_bus):
 @pytest_asyncio.fixture
 async def habits_backend(neo4j_driver):
     """Create habits backend for testing."""
-    from core.models.habit.habit import Habit
+    from core.models.ku.ku import Ku as Habit
 
     return UniversalNeo4jBackend[Habit](driver=neo4j_driver, label="Habit", model_class=Habit)
 
@@ -964,9 +956,9 @@ async def habits_service(habits_backend, event_bus):
 @pytest_asyncio.fixture
 async def events_backend(neo4j_driver):
     """Create events backend for testing."""
-    from core.models.event.event import Event
+    from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Event](driver=neo4j_driver, label="Event", model_class=Event)
+    return UniversalNeo4jBackend[Ku](driver=neo4j_driver, label="Event", model_class=Ku)
 
 
 @pytest_asyncio.fixture
@@ -979,10 +971,13 @@ async def events_service(events_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def choices_backend(neo4j_driver):
-    """Create choices backend for testing."""
-    from core.models.choice.choice import Choice
+    """Create choices backend for testing — unified Ku model with ku_type filter."""
+    from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Choice](driver=neo4j_driver, label="Choice", model_class=Choice)
+    return UniversalNeo4jBackend[Ku](
+        driver=neo4j_driver, label="Ku", model_class=Ku,
+        default_filters={"ku_type": "choice"},
+    )
 
 
 @pytest_asyncio.fixture
@@ -996,10 +991,10 @@ async def choices_service(choices_backend, event_bus):
 @pytest_asyncio.fixture
 async def principles_backend(neo4j_driver):
     """Create principles backend for testing."""
-    from core.models.principle.principle import Principle
+    from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Principle](
-        driver=neo4j_driver, label="Principle", model_class=Principle
+    return UniversalNeo4jBackend[Ku](
+        driver=neo4j_driver, label="Ku", model_class=Ku, default_filters={"ku_type": "principle"}
     )
 
 

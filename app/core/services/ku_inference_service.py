@@ -21,8 +21,8 @@ from typing import Any
 
 from core.constants import ConfidenceLevel
 from core.models.ku.ku_inference import KnowledgeConnection
-from core.models.task.task_dto import TaskDTO
-from core.models.task.task_relationships import TaskRelationships
+from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.services.tasks.task_relationships import TaskRelationships
 
 # Import the advanced inference engine
 from core.services.advanced_ku_inference_engine import AdvancedKuInferenceEngine

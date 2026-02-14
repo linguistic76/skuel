@@ -17,9 +17,10 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from core.models.enums import Priority, RecurrencePattern
-from core.models.event.event_dto import EventDTO
-from core.models.habit.habit import Habit, HabitCategory
-from core.models.habit.habit_dto import HabitDTO
+from core.models.ku.ku_dto import KuDTO as EventDTO
+from core.models.enums.ku_enums import HabitCategory
+from core.models.ku.ku import Ku as Habit
+from core.models.ku.ku_dto import KuDTO as HabitDTO
 
 # Import protocol interfaces
 from core.utils.dto_helpers import to_domain_model
@@ -273,7 +274,7 @@ class HabitEventScheduler:
 
             event = EventDTO.create(
                 user_uid=user_context.user_uid,
-                title=f"MAINTAIN STREAK: {habit.name}",
+                title=f"MAINTAIN STREAK: {habit.title}",
                 event_date=date.today(),
                 start_time=start_time,
                 end_time=end_time,
@@ -350,7 +351,7 @@ class HabitEventScheduler:
 
             event = EventDTO.create(
                 user_uid=user_context.user_uid,
-                title=f"{routine_type.title()} Routine: {habit.name}",
+                title=f"{routine_type.title()} Routine: {habit.title}",
                 event_date=event_date_val,
                 start_time=current_time,
                 end_time=end_time,
@@ -386,7 +387,7 @@ class HabitEventScheduler:
     ) -> list[EventDTO]:
         """Generate events based on habit frequency."""
         # Fetch habit relationships from graph
-        from core.models.habit.habit_relationships import HabitRelationships
+        from core.services.habits.habit_relationships import HabitRelationships
 
         rels = (
             await HabitRelationships.fetch(habit.uid, self.relationships)
@@ -412,8 +413,8 @@ class HabitEventScheduler:
 
                 event = EventDTO.create(
                     user_uid=user_context.user_uid,
-                    title=habit.name,
-                    description=habit.description or f"Practice {habit.name}",
+                    title=habit.title,
+                    description=habit.description or f"Practice {habit.title}",
                     event_date=event_date,
                     start_time=start_time,
                     end_time=end_time,
@@ -516,7 +517,7 @@ class HabitEventScheduler:
             return SchedulingStrategy.OPTIMAL_TIME
 
         # Learning habits in the morning
-        if habit.category == HabitCategory.LEARNING:
+        if habit.habit_category == HabitCategory.LEARNING:
             return SchedulingStrategy.MORNING
 
         # Check habit tags/category for hints
@@ -559,7 +560,7 @@ class HabitEventScheduler:
                     habit_result = await self.habits_backend.get_habit(habit_uid)
                     if habit_result.is_ok and habit_result.value:
                         habit = habit_result.value  # Already a Habit domain model
-                        if habit.category == HabitCategory.LEARNING:
+                        if habit.habit_category == HabitCategory.LEARNING:
                             selected.append(habit_uid)
 
         elif routine_type == "evening":

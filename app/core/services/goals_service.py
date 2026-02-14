@@ -31,11 +31,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import GoalStatus, Priority
-from core.models.goal.goal import Goal
-from core.models.goal.goal_dto import GoalDTO
-from core.models.goal.goal_relationships import GoalRelationships
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.goals.goal_relationships import GoalRelationships
 
 # Import sub-services
 from core.services.goals import (
@@ -72,7 +72,7 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
-class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
+class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
     """
     Goals service facade with specialized sub-services.
 
@@ -107,8 +107,8 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
     # ========================================================================
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
-        dto_class=GoalDTO,
-        model_class=Goal,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(GoalStatus.ACHIEVED.value, GoalStatus.CANCELLED.value),
@@ -289,7 +289,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Goal entities."""
-        return "Goal"
+        return "Ku"
 
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
@@ -369,7 +369,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
 
     async def find_goals_requiring_knowledge(
         self, knowledge_uid: str, min_confidence: float = 0.8
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """Find goals that require specific knowledge."""
         return await self.relationships.find_by_semantic_filter(
             target_uid=knowledge_uid, min_confidence=min_confidence, direction="incoming"
@@ -384,7 +384,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
 
     async def create_goal_with_context(
         self, goal_data: GoalCreateRequest, user_context: UserContext
-    ) -> Result[Goal]:
+    ) -> Result[Ku]:
         """
         Create a goal with full context awareness (orchestration method).
 
@@ -464,11 +464,9 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
+        goal = to_domain_model(goal_result.value, KuDTO, Ku)
 
         # GRAPH-NATIVE: Fetch relationships from graph
-        from core.models.goal.goal_relationships import GoalRelationships
-
         rels = await GoalRelationships.fetch(goal_uid, self.relationships)
 
         task_suggestions = []
@@ -526,7 +524,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
 
     async def get_recommended_next_goals(
         self, _user_context: UserContext, _limit: int = 3
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """
         Get recommended next goals based on user's context (orchestration method).
 
@@ -538,7 +536,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Goal]):
         return Result.ok([])
 
     async def assess_goal_feasibility(
-        self, goal: Goal, user_context: UserContext
+        self, goal: Ku, user_context: UserContext
     ) -> Result[GoalFeasibilityAssessment]:
         """
         Assess if a goal is feasible given user's context (orchestration method).

@@ -19,23 +19,21 @@ Date: 2025-10-13
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
-from typing import Any
+from datetime import date, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.models.enums import ActivityStatus, RecurrencePattern
-from core.models.event.event import Event
-from core.models.event.event_dto import EventDTO
-from core.services.context_first_mixin import (
-    parse_date_field,
-    parse_datetime_field,
-    parse_enum_field,
-)
-from core.services.protocols.domain_protocols import EventsOperations
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
+from core.services.context_first_mixin import parse_date_field
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
 
 
 @dataclass(frozen=True)
@@ -85,7 +83,7 @@ class EventsHabitIntegrationService:
 
     """
 
-    def __init__(self, backend: EventsOperations, event_bus=None) -> None:
+    def __init__(self, backend: "BackendOperations[Ku]", event_bus=None) -> None:
         """
         Initialize events habit integration service.
 
@@ -129,7 +127,7 @@ class EventsHabitIntegrationService:
 
     def _filter_events_by_habit(
         self, events_rich: list[dict[str, Any]], habit_uid: str
-    ) -> list[Event]:
+    ) -> list[Ku]:
         """
         Filter rich event data by reinforces_habit_uid.
 
@@ -138,7 +136,7 @@ class EventsHabitIntegrationService:
             habit_uid: UID of habit to filter by
 
         Returns:
-            List of Event domain models that reinforce the habit
+            List of Ku domain models that reinforce the habit
         """
         result = []
         for event_data in events_rich:
@@ -155,7 +153,7 @@ class EventsHabitIntegrationService:
         start_date: date,
         end_date: date,
         status_filter: str | None = None,
-    ) -> list[Event]:
+    ) -> list[Ku]:
         """
         Filter rich event data by date range and optional status.
 
@@ -166,7 +164,7 @@ class EventsHabitIntegrationService:
             status_filter: Optional status to filter by
 
         Returns:
-            List of Event domain models in date range
+            List of Ku domain models in date range
         """
         result = []
         for event_data in events_rich:
@@ -181,66 +179,26 @@ class EventsHabitIntegrationService:
                     result.append(event)
         return result
 
-    def _dict_to_event(self, event_dict: dict[str, Any]) -> Event | None:
+    def _dict_to_event(self, event_dict: dict[str, Any]) -> Ku | None:
         """
-        Convert raw Neo4j event dict to Event domain model.
+        Convert raw Neo4j event dict to Ku domain model.
 
         Args:
             event_dict: Dict with event properties from MEGA-QUERY
 
         Returns:
-            Event domain model or None if conversion fails
+            Ku domain model or None if conversion fails
         """
         if not event_dict or not event_dict.get("uid"):
             return None
 
-        return Event(
-            uid=event_dict.get("uid", ""),
-            user_uid=event_dict.get("user_uid", ""),
-            title=event_dict.get("title", ""),
-            description=event_dict.get("description"),
-            event_date=parse_date_field(event_dict.get("event_date")) or date.today(),
-            start_time=self._parse_time_field(event_dict.get("start_time")),
-            end_time=self._parse_time_field(event_dict.get("end_time")),
-            # NOTE: duration_minutes is a computed property in Event, not a field
-            event_type=event_dict.get("event_type", "PERSONAL"),  # String field
-            status=parse_enum_field(
-                event_dict.get("status"), ActivityStatus, ActivityStatus.SCHEDULED
-            ),
-            recurrence_pattern=parse_enum_field(
-                event_dict.get("recurrence_pattern"), RecurrencePattern
-            ),
-            recurrence_end_date=parse_date_field(event_dict.get("recurrence_end_date")),
-            reinforces_habit_uid=event_dict.get("reinforces_habit_uid"),
-            # NOTE: Event uses 'milestone_celebration_for_goal' not 'fulfills_goal_uid'
-            milestone_celebration_for_goal=event_dict.get(
-                "milestone_celebration_for_goal", event_dict.get("fulfills_goal_uid")
-            ),
-            # NOTE: Event uses 'habit_completion_quality' not 'quality_score'
-            habit_completion_quality=event_dict.get(
-                "habit_completion_quality", event_dict.get("quality_score")
-            ),
-            # NOTE: energy_level, notes, completed_at not in Event model - store in metadata
-            created_at=parse_datetime_field(event_dict.get("created_at")) or datetime.now(),
-            updated_at=parse_datetime_field(event_dict.get("updated_at")) or datetime.now(),
-            metadata=event_dict.get("metadata", {}),
-        )
-
-    def _parse_time_field(self, value: Any) -> time | None:
-        """Parse a time value from Neo4j."""
-        if value is None:
-            return None
-        if isinstance(value, time):
-            return value
-        if isinstance(value, str):
-            return time.fromisoformat(value)
-        return None
+        return Ku.from_dto(KuDTO.from_dict(event_dict))
 
     def _filter_events_by_criteria(
         self,
         user_context: UserContext,
         criteria: EventFilterCriteria,
-    ) -> list[Event] | dict[str, list[Event]] | dict[str, Event]:
+    ) -> list[Ku] | dict[str, list[Ku]] | dict[str, Ku]:
         """
         Generic event filtering from rich context.
 
@@ -255,9 +213,9 @@ class EventsHabitIntegrationService:
             criteria: Filtering criteria
 
         Returns:
-            - list[Event] when filtering without grouping
-            - dict[str, list[Event]] when group_by_habit=True
-            - dict[str, Event] when find_earliest_per_habit=True
+            - list[Ku] when filtering without grouping
+            - dict[str, list[Ku]] when group_by_habit=True
+            - dict[str, Ku] when find_earliest_per_habit=True
         """
         events_rich = self._get_events_from_rich_context(user_context)
         if not events_rich:
@@ -265,9 +223,9 @@ class EventsHabitIntegrationService:
                 return {}
             return []
 
-        result_list: list[Event] = []
-        by_habit: dict[str, list[Event]] = {}
-        earliest_by_habit: dict[str, Event] = {}
+        result_list: list[Ku] = []
+        by_habit: dict[str, list[Ku]] = {}
+        earliest_by_habit: dict[str, Ku] = {}
 
         for event_data in events_rich:
             event_dict = event_data.get("event", {})
@@ -318,7 +276,7 @@ class EventsHabitIntegrationService:
 
     async def get_events_for_habit(
         self, habit_uid: str, user_context: UserContext, days_ahead: int = 7
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Get all upcoming events that reinforce a specific habit.
 
@@ -368,7 +326,7 @@ class EventsHabitIntegrationService:
 
     async def get_habit_reinforcement_events(
         self, user_context: UserContext, days_ahead: int = 7
-    ) -> Result[dict[str, list[Event]]]:
+    ) -> Result[dict[str, list[Ku]]]:
         """
         Get all upcoming events grouped by habit they reinforce.
 
@@ -415,7 +373,7 @@ class EventsHabitIntegrationService:
         events, _ = result.value
 
         # Group by habit
-        events_by_habit_fallback: dict[str, list[Event]] = {}
+        events_by_habit_fallback: dict[str, list[Ku]] = {}
         for event in events:
             if event.reinforces_habit_uid:
                 events_by_habit_fallback.setdefault(event.reinforces_habit_uid, []).append(event)
@@ -424,7 +382,7 @@ class EventsHabitIntegrationService:
 
     async def get_at_risk_habit_events(
         self, user_context: UserContext, risk_threshold_days: int = 3
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Get events for habits that are at risk of breaking their streaks.
 
@@ -486,7 +444,7 @@ class EventsHabitIntegrationService:
         user_context: UserContext,
         quality_score: int = 4,
         completion_date: date | None = None,
-    ) -> Result[Event]:
+    ) -> Result[Ku]:
         """
         Complete an event and track habit quality if it reinforces a habit.
 
@@ -507,7 +465,7 @@ class EventsHabitIntegrationService:
         if not result.value:
             return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
 
-        event = to_domain_model(result.value, EventDTO, Event)
+        event = to_domain_model(result.value, KuDTO, Ku)
 
         # Update event
         updates = {
@@ -545,12 +503,12 @@ class EventsHabitIntegrationService:
         if updated_result.is_error:
             return Result.fail(updated_result.expect_error())
 
-        updated_event = to_domain_model(updated_result.value, EventDTO, Event)
+        updated_event = to_domain_model(updated_result.value, KuDTO, Ku)
         return Result.ok(updated_event)
 
     async def miss_habit_event(
         self, event_uid: str, user_context: UserContext, reason: str | None = None
-    ) -> Result[Event]:
+    ) -> Result[Ku]:
         """
         Mark a habit-reinforcing event as missed.
 
@@ -586,7 +544,7 @@ class EventsHabitIntegrationService:
         if updated_result.is_error:
             return Result.fail(updated_result.expect_error())
 
-        updated_event = to_domain_model(updated_result.value, EventDTO, Event)
+        updated_event = to_domain_model(updated_result.value, KuDTO, Ku)
         return Result.ok(updated_event)
 
     # ========================================================================
@@ -601,7 +559,7 @@ class EventsHabitIntegrationService:
         duration_minutes: int = 30,
         days_to_create: int = 30,
         title: str | None = None,
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Create recurring events to reinforce a habit.
 
@@ -645,7 +603,7 @@ class EventsHabitIntegrationService:
                 self.logger.error(f"Failed to create recurring event: {result.error}")
                 continue
 
-            event = to_domain_model(result.value, EventDTO, Event)
+            event = to_domain_model(result.value, KuDTO, Ku)
             events.append(event)
 
             # Publish CalendarEventCreated event (event-driven architecture)
@@ -669,7 +627,7 @@ class EventsHabitIntegrationService:
 
     async def get_next_habit_events(
         self, user_context: UserContext
-    ) -> Result[dict[str, Event | None]]:
+    ) -> Result[dict[str, Ku | None]]:
         """
         Get the next scheduled event for each active habit.
 
@@ -714,7 +672,7 @@ class EventsHabitIntegrationService:
         events, _ = result.value
 
         # Find next event for each habit
-        next_events_fallback: dict[str, Event] = {}
+        next_events_fallback: dict[str, Ku] = {}
         for event in events:
             if not event.reinforces_habit_uid:
                 continue

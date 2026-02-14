@@ -643,10 +643,10 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         Handles form parsing, option parsing, enum conversion, and service call.
         """
-        from core.models.choice.choice import ChoiceType
-        from core.models.choice.choice_request import (
-            ChoiceCreateRequest,
-            ChoiceOptionCreateRequest,
+        from core.models.enums.ku_enums import ChoiceType
+        from core.models.ku.ku_request import (
+            KuChoiceCreateRequest,
+            KuChoiceOptionCreateRequest,
         )
         from core.models.enums import Domain as DomainEnum
         from core.models.enums import Priority as PriorityEnum
@@ -678,14 +678,14 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         domain_enum = DomainEnum(domain) if domain else DomainEnum.PERSONAL
         priority_enum = PriorityEnum(priority) if priority else PriorityEnum.MEDIUM
 
-        # Convert options to ChoiceOptionCreateRequest objects
+        # Convert options to KuChoiceOptionCreateRequest objects
         option_requests = [
-            ChoiceOptionCreateRequest(title=opt["title"], description=opt["description"])
+            KuChoiceOptionCreateRequest(title=opt["title"], description=opt["description"])
             for opt in options
         ]
 
         # Build request and call service
-        choice_request = ChoiceCreateRequest(
+        choice_request = KuChoiceCreateRequest(
             title=title,
             description=description or title,
             choice_type=choice_type_enum,
@@ -996,7 +996,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
 
         form = await request.form()
 
-        from core.models.choice.choice_request import ChoiceUpdateRequest
+        from core.models.ku.ku_request import KuUpdateRequest
         from core.models.enums import Domain as DomainEnum
         from core.models.enums import Priority as PriorityEnum
 
@@ -1006,7 +1006,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         domain_str = form.get("domain", "personal")
 
         try:
-            update_request = ChoiceUpdateRequest(
+            update_request = KuUpdateRequest(
                 title=title if title else None,
                 description=description,
                 priority=PriorityEnum(priority_str),

@@ -36,8 +36,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import ActivityStatus
 from core.models.habit.completion import HabitCompletion
-from core.models.habit.habit import Habit
-from core.models.habit.habit_dto import HabitDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 
@@ -87,7 +87,7 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
-class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit]):
+class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Ku]):
     """
     Habits service facade with specialized sub-services.
 
@@ -126,8 +126,8 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
     # ========================================================================
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
-        dto_class=HabitDTO,
-        model_class=Habit,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="habits",
         date_field="created_at",
         completed_statuses=(ActivityStatus.ARCHIVED.value,),
@@ -333,7 +333,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
     @property
     def entity_label(self) -> str:
         """Return the graph label for Habit entities."""
-        return "Habit"
+        return "Ku"
 
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
@@ -583,7 +583,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
     # STATUS MANAGEMENT
     # ========================================================================
 
-    async def pause_habit(self, request: PauseHabitRequest) -> Result[Habit]:
+    async def pause_habit(self, request: PauseHabitRequest) -> Result[Ku]:
         """
         Pause a habit temporarily using typed request object.
 
@@ -605,7 +605,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
 
         return await self.core.update(request.habit_uid, updates)
 
-    async def resume_habit(self, request: ResumeHabitRequest) -> Result[Habit]:
+    async def resume_habit(self, request: ResumeHabitRequest) -> Result[Ku]:
         """
         Resume a paused habit using typed request object.
 
@@ -621,7 +621,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
         }
         return await self.core.update(request.habit_uid, updates)
 
-    async def archive_habit(self, request: ArchiveHabitRequest) -> Result[Habit]:
+    async def archive_habit(self, request: ArchiveHabitRequest) -> Result[Ku]:
         """
         Archive a completed or discontinued habit using typed request object.
 
@@ -942,7 +942,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
 
     async def find_habits_developing_knowledge(
         self, knowledge_uid: str, min_confidence: float = 0.8
-    ) -> Result[list[Habit]]:
+    ) -> Result[list[Ku]]:
         """Find habits that develop or reinforce specific knowledge/skill."""
         return await self.relationships.find_by_semantic_filter(
             target_uid=knowledge_uid,
@@ -959,7 +959,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
 
     async def create_habit_with_context(
         self, habit_data: HabitCreateRequest, user_context: UserContext
-    ) -> Result[Habit]:
+    ) -> Result[Ku]:
         """
         Create a habit with full context awareness (orchestration method).
 
@@ -1004,20 +1004,16 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
     # These methods fetch graph relationships and create enriched views.
     # Previously inline in habits_api.py routes, now properly in service layer.
 
-    async def get_enriched_learning_summary(self, habit: Habit) -> Result[dict[str, Any]]:
+    async def get_enriched_learning_summary(self, habit: Ku) -> Result[dict[str, Any]]:
         """
         Get learning summary with relationship data from graph.
 
-        Fetches relationships from graph and creates enriched view.
-
         Args:
-            habit: Habit domain model
+            habit: Ku domain model (ku_type='habit')
 
         Returns:
             Result containing enriched learning summary dict
         """
-        from core.models.habit.habit_converters import extract_learning_summary_from_habit
-
         # Fetch knowledge relationships
         knowledge_result = await self.relationships.get_related_uids("knowledge", habit.uid)
         knowledge_uids = knowledge_result.value if knowledge_result.is_ok else []
@@ -1033,52 +1029,113 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Habit])
         # Learning step relationships - not in config, return empty for now
         step_uids: list[str] = []
 
-        # Convert to enriched view with relationship data
-        enriched = extract_learning_summary_from_habit(
-            habit,
-            knowledge_uids=knowledge_uids,
-            goal_uids=goal_uids,
-            principle_uids=principle_uids,
-            step_uids=step_uids,
-        )
+        # Integration level calculation
+        integration_count = 0
+        if habit.source_learning_step_uid or habit.source_learning_path_uid:
+            integration_count += 3
+        if habit.is_identity_habit:
+            integration_count += 2
+
+        if integration_count == 0:
+            integration_level = "standalone"
+        elif integration_count <= 2:
+            integration_level = "basic"
+        elif integration_count <= 5:
+            integration_level = "moderate"
+        elif integration_count <= 9:
+            integration_level = "high"
+        else:
+            integration_level = "comprehensive"
+
+        polarity_value = habit.polarity.value if habit.polarity else "neutral"
+        category_value = habit.habit_category.value if habit.habit_category else "other"
+        difficulty_value = habit.habit_difficulty.value if habit.habit_difficulty else "moderate"
+
+        enriched = {
+            "uid": habit.uid,
+            "name": habit.title,
+            "category": category_value,
+            "polarity": polarity_value,
+            "difficulty": difficulty_value,
+            "linked_knowledge_count": len(knowledge_uids),
+            "knowledge_uids": knowledge_uids,
+            "linked_goal_count": len(goal_uids),
+            "goal_uids": goal_uids,
+            "linked_principle_count": len(principle_uids),
+            "principle_uids": principle_uids,
+            "is_curriculum_habit": habit.source_learning_step_uid is not None
+            or habit.source_learning_path_uid is not None,
+            "source_step_uid": habit.source_learning_step_uid,
+            "source_path_uid": habit.source_learning_path_uid,
+            "reinforces_step_count": len(step_uids),
+            "step_uids": step_uids,
+            "practice_type": habit.curriculum_practice_type,
+            "is_identity_habit": habit.is_identity_habit,
+            "reinforces_identity": habit.reinforces_identity,
+            "identity_votes_cast": habit.identity_votes_cast,
+            "current_streak": habit.current_streak,
+            "best_streak": habit.best_streak,
+            "total_completions": habit.total_completions,
+            "success_rate": habit.success_rate,
+            "learning_integration_level": integration_level,
+        }
 
         return Result.ok(enriched)
 
-    async def get_enriched_curriculum_metadata(self, habit: Habit) -> Result[dict[str, Any]]:
+    async def get_enriched_curriculum_metadata(self, habit: Ku) -> Result[dict[str, Any]]:
         """
         Get curriculum metadata with relationship data from graph.
 
         Args:
-            habit: Habit domain model
+            habit: Ku domain model (ku_type='habit')
 
         Returns:
             Result containing curriculum metadata dict
         """
-        from core.models.habit.habit_converters import extract_curriculum_metadata
-
         # Learning step relationships - not in config, return empty for now
         step_uids: list[str] = []
 
-        enriched = extract_curriculum_metadata(habit, step_uids=step_uids)
+        enriched = {
+            "uid": habit.uid,
+            "name": habit.title,
+            "is_curriculum_habit": habit.source_learning_step_uid is not None
+            or habit.source_learning_path_uid is not None,
+            "source_step_uid": habit.source_learning_step_uid,
+            "source_path_uid": habit.source_learning_path_uid,
+            "reinforces_step_uids": step_uids,
+            "reinforces_step_count": len(step_uids),
+            "practice_type": habit.curriculum_practice_type,
+            "supports_multiple_steps": len(step_uids) > 1,
+        }
         return Result.ok(enriched)
 
-    async def get_enriched_prerequisite_metadata(self, habit: Habit) -> Result[dict[str, Any]]:
+    async def get_enriched_prerequisite_metadata(self, habit: Ku) -> Result[dict[str, Any]]:
         """
         Get prerequisite chain metadata with relationship data from graph.
 
         Args:
-            habit: Habit domain model
+            habit: Ku domain model (ku_type='habit')
 
         Returns:
             Result containing prerequisite metadata dict
         """
-        from core.models.habit.habit_converters import extract_prerequisite_chain_metadata
-
         # Fetch prerequisite relationships
         prereqs_result = await self.relationships.get_related_uids("prerequisite_habits", habit.uid)
         prerequisite_uids = prereqs_result.value if prereqs_result.is_ok else []
 
-        enriched = extract_prerequisite_chain_metadata(habit, prerequisite_uids=prerequisite_uids)
+        difficulty_value = habit.habit_difficulty.value if habit.habit_difficulty else "moderate"
+        status_value = habit.status.value if habit.status else "active"
+
+        enriched = {
+            "uid": habit.uid,
+            "name": habit.title,
+            "has_prerequisites": len(prerequisite_uids) > 0,
+            "prerequisite_uids": prerequisite_uids,
+            "prerequisite_count": len(prerequisite_uids),
+            "is_foundational": len(prerequisite_uids) == 0,
+            "difficulty": difficulty_value,
+            "is_active": status_value == "active",
+        }
         return Result.ok(enriched)
 
 

@@ -11,7 +11,7 @@ import pytest
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.query import UnifiedQueryBuilder, query
-from core.models.task.task import Task
+from core.models.ku.ku import Ku as Task
 
 
 class TestModelQueryBuilder:

@@ -702,7 +702,7 @@ class SharedUIComponentsExamples:
     @staticmethod
     def _simple_habit_card(habit) -> Any:
         """Simple habit card renderer for examples."""
-        return Card(P(habit.name), cls="p-4")
+        return Card(P(habit.title), cls="p-4")
 
     @staticmethod
     def _simple_task_card(task) -> Any:

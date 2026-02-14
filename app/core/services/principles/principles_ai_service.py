@@ -13,7 +13,7 @@ They enhance the user experience but are not required for core functionality.
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.principle.principle import Principle
+from core.models.ku.ku import Ku
 from core.services.base_ai_service import BaseAIService
 from core.services.protocols import PrinciplesOperations
 from core.utils.result_simplified import Errors, Result
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class PrinciplesAIService(BaseAIService[PrinciplesOperations, Principle]):
+class PrinciplesAIService(BaseAIService[PrinciplesOperations, Ku]):
     """
     AI-powered features for Principles domain.
 

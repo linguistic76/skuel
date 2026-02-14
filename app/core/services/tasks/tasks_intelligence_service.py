@@ -24,6 +24,8 @@ Architecture:
 - Returns Result[T] for error handling
 """
 
+from __future__ import annotations
+
 import asyncio
 from collections.abc import Sequence
 from datetime import datetime, timedelta
@@ -34,11 +36,10 @@ from core.constants import GraphDepth, QueryLimit
 from core.models.enums import ActivityStatus, CompletionStatus, Domain, EntityType
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.graph_context import GraphContext
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
-from core.models.task.task import Task
-from core.models.task.task_dto import TaskDTO
-from core.models.task.task_relationships import TaskRelationships
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.intelligence import (
@@ -47,13 +48,14 @@ from core.services.intelligence import (
     RecommendationEngine,
     analyze_completion_trend,
 )
-from core.services.protocols import TasksOperations
+from core.services.tasks.task_relationships import TaskRelationships
 from core.services.tasks_types import KnowledgePatternAnalysis
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
 
 if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
     from core.services.protocols.domain_protocols import TasksRelationshipOperations
 
 
@@ -88,7 +90,7 @@ def _extract_completion_hour(task: Any) -> int | None:
     return task.completed_at.hour if task.completed_at else None
 
 
-class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
+class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
     """
     Tasks intelligence service using shared utilities (graph-based, no AI).
 
@@ -121,7 +123,7 @@ class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
 
     def __init__(
         self,
-        backend: TasksOperations,
+        backend: "BackendOperations[Ku]",
         graph_intelligence_service: GraphIntelligenceService | None = None,
         relationship_service: "TasksRelationshipOperations | None" = None,
         event_bus: Any | None = None,
@@ -147,11 +149,11 @@ class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Task, TaskDTO](
+            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
                 service=self,
                 backend_get_method="get_task",
-                dto_class=TaskDTO,
-                model_class=Task,
+                dto_class=KuDTO,
+                model_class=Ku,
                 domain=Domain.TASKS,
             )
 
@@ -161,7 +163,7 @@ class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Task, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
         """
         Get task with full graph context.
 
@@ -1420,7 +1422,7 @@ class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
         return Result.ok(insights)
 
     def _analyze_task_knowledge_patterns(
-        self, tasks: list[Task], rels_list: list[TaskRelationships]
+        self, tasks: list[Ku], rels_list: list[TaskRelationships]
     ) -> KnowledgePatternAnalysis:
         """
         Analyze knowledge patterns across tasks using unified Task model.

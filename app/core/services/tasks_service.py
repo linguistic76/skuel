@@ -30,6 +30,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
     from core.services.protocols.facade_protocols import TasksFacadeProtocol
     from core.services.protocols.search_protocols import TasksSearchOperations
 
@@ -37,8 +38,8 @@ if TYPE_CHECKING:
 # Protocol interfaces
 # Domain models
 from core.models.enums import ActivityStatus
-from core.models.task.task import Task
-from core.models.task.task_dto import TaskDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 
 # Base service
 from core.services.base_service import BaseService
@@ -49,7 +50,6 @@ from core.services.ku_analytics_engine import (
     KuAnalyticsEngine,
 )
 from core.services.mixins import FacadeDelegationMixin, merge_delegations
-from core.services.protocols.domain_protocols import TasksOperations
 
 # Unified relationship service (replaces TasksRelationshipService)
 from core.services.relationships import UnifiedRelationshipService
@@ -70,7 +70,7 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.graph_context import GraphContext
-    from core.models.task.task_request import TaskCreateRequest
+    from core.models.ku.ku_request import KuTaskCreateRequest
     from core.services.user import UserContext
 
 
@@ -131,7 +131,7 @@ class TaskAnalyticsDashboard(TypedDict):
     analytics_status: AnalyticsStatus
 
 
-class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
+class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", Ku]):
     """
     Tasks service facade with specialized sub-services.
 
@@ -179,8 +179,8 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
     # ========================================================================
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
-        dto_class=TaskDTO,
-        model_class=Task,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
@@ -267,7 +267,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
 
     def __init__(
         self,
-        backend: TasksOperations,
+        backend: "BackendOperations[Ku]",
         ku_inference_service=None,
         analytics_engine=None,
         ku_generation_service=None,
@@ -349,8 +349,8 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Task entities."""
-        return "Task"
+        """Return the graph label for Task entities (unified Ku model)."""
+        return "Ku"
 
     # ========================================================================
     # AUTO-GENERATED DELEGATIONS (via FacadeDelegationMixin)
@@ -377,7 +377,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
     # EXPLICIT CORE METHODS (custom logic)
     # ========================================================================
 
-    async def create_task(self, task_request: TaskCreateRequest, user_uid: str) -> Result[Task]:
+    async def create_task(self, task_request: KuTaskCreateRequest, user_uid: str) -> Result[Ku]:
         """
         Create a task with automatic knowledge inference.
 
@@ -390,7 +390,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
         """
         return await self.core.create_task(task_request, user_uid)
 
-    async def get_tasks_batch(self, uids: list[str]) -> Result[list[Task | None]]:
+    async def get_tasks_batch(self, uids: list[str]) -> Result[list[Ku | None]]:
         """
         Get multiple tasks in one batched query.
 
@@ -416,7 +416,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
         user_context: UserContext,
         actual_minutes: int | None = None,
         quality_score: int | None = None,
-    ) -> Result[Task]:
+    ) -> Result[Ku]:
         """Complete a task and cascade updates through the system."""
         # Delegate to progress service for core completion
         result = await self.progress.complete_task_with_cascade(
@@ -434,7 +434,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
         uid: str,
         actual_minutes: int | None = None,
         quality_score: int | None = None,
-    ) -> Result[Task]:
+    ) -> Result[Ku]:
         """
         Complete a task (StatusRouteFactory compatible).
 
@@ -444,7 +444,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
             uid, user_context=None, actual_minutes=actual_minutes, quality_score=quality_score
         )
 
-    async def uncomplete_task(self, uid: str) -> Result[Task]:
+    async def uncomplete_task(self, uid: str) -> Result[Ku]:
         """
         Mark task as incomplete (StatusRouteFactory compatible).
 
@@ -462,7 +462,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
 
     async def get_task_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Task, GraphContext]]:
+    ) -> Result[tuple[Ku, GraphContext]]:
         """Get task with full graph context using pure Cypher graph intelligence."""
         return await self.relationships.get_with_context(uid, depth)
 
@@ -486,7 +486,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
         task, context = result.value
         return Result.ok({"task": task, "practice_context": context})
 
-    async def get_task_dependencies(self, task_uid: str) -> Result[list[Task]]:
+    async def get_task_dependencies(self, task_uid: str) -> Result[list[Ku]]:
         """Get task dependencies (both directions)."""
         # Get prerequisite task UIDs
         prereq_result = await self.relationships.get_related_uids("prerequisite_tasks", task_uid)
@@ -554,7 +554,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
 
     async def get_user_assigned_tasks(
         self, user_uid: str, include_completed: bool = False, limit: int = 100
-    ) -> Result[list[Task]]:
+    ) -> Result[list[Ku]]:
         """Get tasks assigned to user via graph traversal."""
         # Use backend list with user_uid filter
         filters = {"user_uid": user_uid}
@@ -563,14 +563,14 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
         result = await self.backend.list(filters=filters, limit=limit)
         if result.is_error:
             return Result.fail(result)
-        # list() returns tuple[list[Task], int]
+        # list() returns tuple[list[Ku], int]
         tasks, _ = result.value
         return Result.ok(tasks)
 
     async def get_tasks_requiring_knowledge(
         self, knowledge_uid: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list[Task]]:
-        """Get tasks that require specific knowledge (returns Task objects, not dicts)."""
+    ) -> Result[list[Ku]]:
+        """Get tasks that require specific knowledge (returns Ku objects, not dicts)."""
         # Use find_by_semantic_filter to find tasks with relationship to this knowledge
         return await self.relationships.find_by_semantic_filter(
             target_uid=knowledge_uid,
@@ -607,7 +607,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
         Returns:
             Result containing knowledge impact analysis
         """
-        from core.models.task.task_relationships import TaskRelationships
+        from core.services.tasks.task_relationships import TaskRelationships
 
         # Get task from backend
         # Cast to protocol for MyPy (FacadeDelegationMixin creates methods dynamically)
@@ -678,7 +678,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
         from operator import attrgetter
 
         from core.models.enums import ActivityStatus
-        from core.models.task.task_relationships import TaskRelationships
+        from core.services.tasks.task_relationships import TaskRelationships
 
         tasks_result = await self.core.get_user_tasks(user_uid)
         if tasks_result.is_error:
@@ -780,7 +780,7 @@ class TasksService(FacadeDelegationMixin, BaseService[TasksOperations, Task]):
         """
         import asyncio
 
-        from core.models.task.task_relationships import TaskRelationships
+        from core.services.tasks.task_relationships import TaskRelationships
 
         tasks_result = await self.core.get_user_tasks(user_uid)
         if tasks_result.is_error:

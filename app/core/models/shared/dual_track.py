@@ -58,7 +58,7 @@ class DualTrackResult(Generic[L]):
         recommendations: Tuple of recommendation strings
 
     Example:
-        >>> from core.models.principle.principle import AlignmentLevel
+        >>> from core.models.enums.ku_enums import AlignmentLevel
         >>> result = DualTrackResult[AlignmentLevel](
         ...     entity_uid="principle.integrity",
         ...     entity_type="principle",

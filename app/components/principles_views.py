@@ -222,7 +222,7 @@ class PrinciplesViewComponents:
     @staticmethod
     def _render_principle_item(principle: Any, user_uid: str | None = None) -> Div:
         """Render a single principle item for the list."""
-        from core.models.principle.principle import PrincipleStrength
+        from core.models.enums.ku_enums import PrincipleStrength
 
         uid = getattr(principle, "uid", "")
         # Principle model uses 'name', not 'title'
@@ -945,7 +945,7 @@ class PrinciplesViewComponents:
     @staticmethod
     def _render_reflection_card(reflection: Any) -> Div:
         """Render a single reflection card."""
-        from core.models.principle.principle import AlignmentLevel
+        from core.models.enums.ku_enums import AlignmentLevel
 
         alignment = getattr(reflection, "alignment_level", AlignmentLevel.PARTIAL)
         evidence = getattr(reflection, "evidence", "")

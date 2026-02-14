@@ -21,11 +21,10 @@ import asyncio
 import pytest
 
 from core.models.enums import Domain, Priority
-from core.models.goal.goal_dto import GoalDTO
-from core.models.ku import KuDTO
-from core.models.principle.principle import PrincipleCategory
-from core.models.principle.principle_dto import PrincipleDTO
-from core.models.task.task_dto import TaskDTO
+from core.models.ku.ku_dto import KuDTO
+from core.models.enums.ku_enums import PrincipleCategory
+from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.ku_dto import KuDTO as GoalDTO
 from core.utils.uid_generator import UIDGenerator
 
 
@@ -61,17 +60,19 @@ class TestCurriculumRichContext:
         await services.ku.core.backend.create(prereq_ku.to_dict())
 
         # Create guiding principle
-        principle = PrincipleDTO.create(
+        principle = KuDTO(
+            uid=UIDGenerator.generate_random_uid("principle"),
             user_uid=test_user.uid,
-            name="Practice Daily",
+            ku_type="principle",
+            title="Practice Daily",
             statement="Consistent practice leads to mastery",
             description="Consistent practice leads to mastery",
-            category=PrincipleCategory.PERSONAL,
+            category=PrincipleCategory.PERSONAL.value,
         )
         await services.principles.core.backend.create(principle.to_dict())
 
         # Create practice task
-        task = TaskDTO.create(
+        task = TaskDTO.create_task(
             user_uid=test_user.uid,
             title="Complete Functions Exercise",
             priority=Priority.MEDIUM,
@@ -276,12 +277,14 @@ class TestCurriculumRichContext:
         await services.goals.core.backend.create(goal)
 
         # Create embodied principle
-        principle = PrincipleDTO.create(
+        principle = KuDTO(
+            uid=UIDGenerator.generate_random_uid("principle"),
             user_uid=test_user.uid,
-            name="Continuous Learning",
+            ku_type="principle",
+            title="Continuous Learning",
             statement="Always be learning new skills",
             description="Always be learning new skills",
-            category=PrincipleCategory.PERSONAL,
+            category=PrincipleCategory.PERSONAL.value,
         )
         await services.principles.core.backend.create(principle.to_dict())
 

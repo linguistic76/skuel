@@ -48,18 +48,16 @@ from core.services.protocols.query_types import (
 if TYPE_CHECKING:
     from datetime import date
 
-    from core.models.choice.choice import Choice
-    from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
     from core.models.enums import Domain
-    from core.models.event.event import Event
-    from core.models.goal.goal import Goal
+    from core.models.ku.ku_request import KuChoiceCreateRequest, KuUpdateRequest
+    from core.models.ku.ku import Ku
     from core.models.goal.goal_request import GoalCreateRequest
-    from core.models.habit.habit import Habit
+    from core.models.ku.ku import Ku as Habit
     from core.models.habit.habit_request import HabitCreateRequest
     from core.models.ku import Ku
-    from core.models.principle.principle import Principle, PrincipleCategory
-    from core.models.task.task import Task
-    from core.models.task.task_request import TaskCreateRequest
+    from core.models.enums.ku_enums import PrincipleCategory
+    from core.models.ku.ku import Ku as Task
+    from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
     from core.services.user import UserContext
     from core.utils.result_simplified import Result
 
@@ -105,23 +103,23 @@ class TasksCoreOperations(Protocol):
 class GoalsCoreOperations(Protocol):
     """Protocol for GoalsCoreService methods accessed via GoalsService.core"""
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Goal]:
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Ku]:
         """Verify user owns the goal, return goal if owned."""
         ...
 
-    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: str) -> Result[Goal]:
+    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: str) -> Result[Ku]:
         """Create a new goal."""
         ...
 
-    async def get_goal(self, goal_uid: str) -> Result[Goal]:
+    async def get_goal(self, goal_uid: str) -> Result[Ku]:
         """Get a goal by UID."""
         ...
 
-    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
+    async def get_user_goals(self, user_uid: str) -> Result[list[Ku]]:
         """Get all goals for a user."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Goal]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """Update a goal."""
         ...
 
@@ -165,25 +163,26 @@ class HabitsCoreOperations(Protocol):
 
 @runtime_checkable
 class EventsCoreOperations(Protocol):
-    """Protocol for EventsCoreService methods accessed via EventsService.core"""
+    """Protocol for EventsCoreService methods accessed via EventsService.core.
+    Uses unified Ku model with KuType.EVENT."""
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Event]:
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Ku]:
         """Verify user owns the event, return event if owned."""
         ...
 
-    async def create(self, entity: Event) -> Result[Event]:
+    async def create(self, entity: Ku) -> Result[Ku]:
         """Create a new event."""
         ...
 
-    async def get_event(self, event_uid: str) -> Result[Event]:
+    async def get_event(self, event_uid: str) -> Result[Ku]:
         """Get an event by UID."""
         ...
 
-    async def get_user_events(self, user_uid: str) -> Result[list[Event]]:
+    async def get_user_events(self, user_uid: str) -> Result[list[Ku]]:
         """Get all events for a user."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Event]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """Update an event."""
         ...
 
@@ -194,9 +193,10 @@ class EventsCoreOperations(Protocol):
 
 @runtime_checkable
 class PrinciplesCoreOperations(Protocol):
-    """Protocol for PrinciplesCoreService methods accessed via PrinciplesService.core"""
+    """Protocol for PrinciplesCoreService methods accessed via PrinciplesService.core.
+    Uses unified Ku model with KuType.PRINCIPLE."""
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Principle]:
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Ku]:
         """Verify user owns the principle, return principle if owned."""
         ...
 
@@ -204,25 +204,25 @@ class PrinciplesCoreOperations(Protocol):
         self,
         label: str,
         description: str,
-        category: PrincipleCategory,
+        category: "PrincipleCategory",
         why_matters: str,
         user_uid: str,
         **kwargs: Any,
-    ) -> Result[Principle]:
+    ) -> Result[Ku]:
         """Create a new principle."""
         ...
 
-    async def get_principle(self, principle_uid: str) -> Result[Principle]:
+    async def get_principle(self, principle_uid: str) -> Result[Ku]:
         """Get a principle by UID."""
         ...
 
-    async def get_user_principles(self, user_uid: str) -> Result[list[Principle]]:
+    async def get_user_principles(self, user_uid: str) -> Result[list[Ku]]:
         """Get all principles for a user."""
         ...
 
     async def update_principle(
         self, principle_uid: str, updates: dict[str, Any]
-    ) -> Result[Principle]:
+    ) -> Result[Ku]:
         """Update a principle."""
         ...
 
@@ -235,27 +235,27 @@ class PrinciplesCoreOperations(Protocol):
 class ChoicesCoreOperations(Protocol):
     """Protocol for ChoicesCoreService methods accessed via ChoicesService.core"""
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Choice]:
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Ku]:
         """Verify user owns the choice, return choice if owned."""
         ...
 
     async def create_choice(
-        self, choice_request: ChoiceCreateRequest, user_uid: str
-    ) -> Result[Choice]:
+        self, choice_request: KuChoiceCreateRequest, user_uid: str
+    ) -> Result[Ku]:
         """Create a new choice."""
         ...
 
-    async def get_choice(self, choice_uid: str) -> Result[Choice]:
+    async def get_choice(self, choice_uid: str) -> Result[Ku]:
         """Get a choice by UID."""
         ...
 
-    async def get_user_choices(self, user_uid: str) -> Result[list[Choice]]:
+    async def get_user_choices(self, user_uid: str) -> Result[list[Ku]]:
         """Get all choices for a user."""
         ...
 
     async def update_choice(
-        self, choice_uid: str, choice_update: ChoiceUpdateRequest
-    ) -> Result[Choice]:
+        self, choice_uid: str, choice_update: KuUpdateRequest
+    ) -> Result[Ku]:
         """Update a choice."""
         ...
 
@@ -265,11 +265,11 @@ class ChoicesCoreOperations(Protocol):
         selected_option_uid: str,
         decision_rationale: str | None = None,
         confidence: float = 0.5,
-    ) -> Result[Choice]:
+    ) -> Result[Ku]:
         """Make a decision on a choice."""
         ...
 
-    async def evaluate_choice_outcome(self, choice_uid: str, evaluation: Any) -> Result[Choice]:
+    async def evaluate_choice_outcome(self, choice_uid: str, evaluation: Any) -> Result[Ku]:
         """Record the outcome evaluation for a choice."""
         ...
 
@@ -336,15 +336,15 @@ class GoalsFacadeProtocol(Protocol):
     # Explicit facade methods (not delegated)
     # ========================================================================
 
-    async def create_goal(self, request: Any, user_uid: str) -> Result[Goal]:
+    async def create_goal(self, request: Any, user_uid: str) -> Result[Ku]:
         """Create a new goal."""
         ...
 
-    async def get(self, uid: str) -> Result[Goal | None]:
+    async def get(self, uid: str) -> Result[Ku | None]:
         """Get a goal by UID (direct access)."""
         ...
 
-    async def get_for_user(self, uid: str, user_uid: str) -> Result[Goal | None]:
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[Ku | None]:
         """Get a goal with ownership verification."""
         ...
 
@@ -393,35 +393,35 @@ class GoalsFacadeProtocol(Protocol):
     # Search delegations (→ GoalsSearchService)
     # ========================================================================
 
-    async def search_goals(self, query: str, limit: int = 50) -> Result[list[Goal]]:
+    async def search_goals(self, query: str, limit: int = 50) -> Result[list[Ku]]:
         """Text search on goal title/description."""
         ...
 
-    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[Goal]]:
+    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[Ku]]:
         """Filter goals by status."""
         ...
 
     async def get_goals_by_category(
         self, category: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """Filter goals by category."""
         ...
 
-    async def get_goals_due_soon(self, days_ahead: int = 7) -> Result[list[Goal]]:
+    async def get_goals_due_soon(self, days_ahead: int = 7) -> Result[list[Ku]]:
         """Get goals with target dates within specified days."""
         ...
 
-    async def get_overdue_goals(self, limit: int = 100) -> Result[list[Goal]]:
+    async def get_overdue_goals(self, limit: int = 100) -> Result[list[Ku]]:
         """Get goals past their target date."""
         ...
 
-    async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Goal]]:
+    async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Ku]]:
         """Filter goals by domain."""
         ...
 
     async def get_prioritized_goals(
         self, user_context: UserContext | None, limit: int = 10
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """Get goals prioritized for user's context."""
         ...
 
@@ -437,33 +437,33 @@ class GoalsFacadeProtocol(Protocol):
     # Core delegations (→ GoalsCoreService)
     # ========================================================================
 
-    async def get_goal(self, uid: str) -> Result[Goal | None]:
+    async def get_goal(self, uid: str) -> Result[Ku | None]:
         """Get a goal by UID."""
         ...
 
-    async def get_user_goals(self, user_uid: str, limit: int = 100) -> Result[list[Goal]]:
+    async def get_user_goals(self, user_uid: str, limit: int = 100) -> Result[list[Ku]]:
         """Get goals for a specific user."""
         ...
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """Get user goals within date range."""
         ...
 
-    async def activate_goal(self, uid: str) -> Result[Goal]:
+    async def activate_goal(self, uid: str) -> Result[Ku]:
         """Activate a goal."""
         ...
 
-    async def pause_goal(self, uid: str) -> Result[Goal]:
+    async def pause_goal(self, uid: str) -> Result[Ku]:
         """Pause a goal."""
         ...
 
-    async def complete_goal(self, uid: str) -> Result[Goal]:
+    async def complete_goal(self, uid: str) -> Result[Ku]:
         """Mark goal as completed."""
         ...
 
-    async def archive_goal(self, uid: str) -> Result[Goal]:
+    async def archive_goal(self, uid: str) -> Result[Ku]:
         """Archive a goal."""
         ...
 
@@ -471,7 +471,7 @@ class GoalsFacadeProtocol(Protocol):
     # Intelligence delegations (→ GoalsIntelligenceService)
     # ========================================================================
 
-    async def get_goal_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Goal, Any]]:
+    async def get_goal_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, Any]]:
         """Get goal with full graph context."""
         ...
 
@@ -557,7 +557,7 @@ class PrinciplesFacadeProtocol(Protocol):
 
     async def get_principle_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Principle, Any]]:
+    ) -> Result[tuple[Ku, Any]]:
         """Get principle with full graph context."""
         ...
 
@@ -577,43 +577,43 @@ class PrinciplesFacadeProtocol(Protocol):
 
     async def get_related_principles(
         self, principle_uid: str, depth: int = 2, limit: int = 10
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """Get principles related via RELATED_TO or category."""
         ...
 
     async def get_principles_by_status(
         self, status: str, limit: int = 100
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """Filter principles by active/inactive status."""
         ...
 
     async def get_principles_by_strength(
         self, strength: Any, limit: int = 100
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """Filter principles by strength level."""
         ...
 
     async def get_principles_by_category(
         self, category: Any, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """Filter principles by category."""
         ...
 
     async def get_principles_needing_review(
         self, days_threshold: int = 90, limit: int = 20
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """Get principles past review threshold."""
         ...
 
     async def get_principles_for_goal(
         self, goal_uid: str, limit: int = 10
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """Get principles guiding a specific goal."""
         ...
 
     async def get_principles_for_choice(
         self, choice_uid: str, limit: int = 10
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """Get principles relevant to a choice/decision."""
         ...
 
@@ -627,7 +627,7 @@ class PrinciplesFacadeProtocol(Protocol):
 
     async def search_principles(
         self, query: str, filters: dict[str, Any] | None = None, limit: int = 50
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """Search principles by text query."""
         ...
 
@@ -645,7 +645,7 @@ class PrinciplesFacadeProtocol(Protocol):
     # Core delegations (→ PrinciplesCoreService)
     # ========================================================================
 
-    async def get_principle(self, uid: str) -> Result[Principle | None]:
+    async def get_principle(self, uid: str) -> Result[Ku | None]:
         """Get a principle by UID."""
         ...
 
@@ -653,13 +653,13 @@ class PrinciplesFacadeProtocol(Protocol):
         """Get a principle by UID with ownership verification."""
         ...
 
-    async def get_user_principles(self, user_uid: str, limit: int = 100) -> Result[list[Principle]]:
+    async def get_user_principles(self, user_uid: str, limit: int = 100) -> Result[list[Ku]]:
         """Get principles for a specific user."""
         ...
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """Get user principles within date range."""
         ...
 
@@ -1055,7 +1055,7 @@ class EventsFacadeProtocol(Protocol):
         """Get event for user with ownership verification."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Event]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """Update an event."""
         ...
 

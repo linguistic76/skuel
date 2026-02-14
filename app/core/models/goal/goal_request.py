@@ -21,7 +21,13 @@ from core.models.validation_rules import (
     validate_timeframe_date_alignment,
 )
 
-from ..goal.goal import GoalStatus, GoalTimeframe, GoalType, HabitEssentiality, MeasurementType
+from core.models.enums import GoalStatus
+from core.models.enums.ku_enums import (
+    GoalTimeframe,
+    GoalType,
+    HabitEssentiality,
+    MeasurementType,
+)
 
 
 class GoalCreateRequest(BaseModel):

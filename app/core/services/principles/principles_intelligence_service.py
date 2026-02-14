@@ -28,8 +28,9 @@ from core.events.principle_events import (
 )
 from core.models.enums import Domain
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
-from core.models.principle.principle import AlignmentLevel, Principle
-from core.models.principle.principle_dto import PrincipleDTO
+from core.models.enums.ku_enums import AlignmentLevel
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 
 # NOTE (November 2025): Removed Has* protocol imports - Principle model is well-typed
@@ -60,7 +61,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, Principle]):
+class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, Ku]):
     """
     Pure Cypher graph intelligence for principles.
 
@@ -121,11 +122,11 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Principle, PrincipleDTO](
+            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
                 service=self,
                 backend_get_method="get",  # PrinciplesService uses generic 'get'
-                dto_class=PrincipleDTO,
-                model_class=Principle,
+                dto_class=KuDTO,
+                model_class=Ku,
                 domain=Domain.PRINCIPLES,
             )
 
@@ -146,7 +147,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
 
     async def get_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Principle, GraphContext]]:
+    ) -> Result[tuple[Ku, GraphContext]]:
         """
         Get principle with full graph context.
 
@@ -239,7 +240,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
     @requires_graph_intelligence("get_principle_with_context")
     async def get_principle_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Principle, GraphContext]]:
+    ) -> Result[tuple[Ku, GraphContext]]:
         """
         Get principle with full graph context using pure Cypher graph intelligence.
 
@@ -430,7 +431,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             Result[DualTrackResult[AlignmentLevel]] with dual-track analysis
 
         Example:
-            >>> from core.models.principle.principle import AlignmentLevel
+            >>> from core.models.enums.ku_enums import AlignmentLevel
             >>> result = await service.assess_alignment_dual_track(
             ...     principle_uid="principle.integrity",
             ...     user_uid="user_mike",
@@ -459,7 +460,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         )
 
     async def _calculate_system_alignment_for_dual_track(
-        self, principle: Principle, user_uid: str
+        self, principle: Ku, user_uid: str
     ) -> tuple[AlignmentLevel, float, list[str]]:
         """
         Calculate system alignment from goals and habits.
@@ -582,7 +583,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                 "Continue your current approach - your self-awareness is accurate."
             )
             # Check if principle has expressions (Principle model has this attribute)
-            if isinstance(entity, Principle) and entity.expressions:
+            if isinstance(entity, Ku) and entity.expressions:
                 recommendations.append(
                     "Consider documenting new expressions of this principle as they arise."
                 )
@@ -616,7 +617,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
     ) -> None:
         """Store user's self-assessment in principle's alignment_history."""
 
-        from core.models.principle.principle_dto import PrincipleDTO
+        from core.models.ku.ku_dto import KuDTO
 
         # Get current principle
         principle_result = await self.backend.get(principle_uid)
@@ -626,8 +627,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
 
         principle_data = principle_result.value
         if isinstance(principle_data, dict):
-            dto = PrincipleDTO.from_dict(principle_data)
-        elif isinstance(principle_data, Principle):
+            dto = KuDTO.from_dict(principle_data)
+        elif isinstance(principle_data, Ku):
             dto = principle_data.to_dto()
         else:
             self.logger.warning(f"Unknown principle data type: {type(principle_data)}")
@@ -927,7 +928,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         return counts["choices"] + counts["habits"]
 
     def _calculate_current_state(
-        self, principle: Principle, recent_activities: int
+        self, principle: Ku, recent_activities: int
     ) -> dict[str, float]:
         """Calculate current state metrics."""
         # NOTE: Principle model does not have adherence_score field
@@ -1034,7 +1035,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
     # ========================================================================
 
     def _determine_conflict_severity(
-        self, p1: Principle, p2: Principle
+        self, p1: Ku, p2: Ku
     ) -> tuple[str, int, int, int]:
         """
         Determine conflict severity based on principle strengths.
@@ -1052,7 +1053,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             return "low", 0, 0, 1
 
     def _create_conflict_record(
-        self, p1: Principle, p2: Principle, severity: str, overlapping_goals: set
+        self, p1: Ku, p2: Ku, severity: str, overlapping_goals: set
     ) -> dict[str, Any]:
         """Create a conflict record dict."""
         return {
@@ -1064,7 +1065,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             "description": f"{p1.name} and {p2.name} both guide the same goals",
         }
 
-    def _calculate_harmony_score(self, principles: list[Principle], conflicts: list[dict]) -> float:
+    def _calculate_harmony_score(self, principles: list[Ku], conflicts: list[dict]) -> float:
         """Calculate overall principle harmony score.
 
         Uses MetricsCalculator.calculate_harmony_score for consistent calculation.
@@ -1772,8 +1773,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
 
     def _generate_resolution_guidance(
         self,
-        principle1: Principle,
-        principle2: Principle,
+        principle1: Ku,
+        principle2: Ku,
         severity: str,
         conflict_context: str | None,
     ) -> list[dict[str, str]]:

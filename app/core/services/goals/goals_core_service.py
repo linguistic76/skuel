@@ -35,9 +35,9 @@ from core.events.goal_events import (
     GoalProgressUpdated,
 )
 from core.models.enums import ActivityStatus, EntityType, GoalStatus
-from core.models.goal.goal import Goal
-from core.models.goal.goal_dto import GoalDTO
-from core.models.goal.goal_request import GoalCreateRequest
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_request import KuGoalCreateRequest
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -51,7 +51,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class GoalsCoreService(BaseService[GoalsOperations, Goal]):
+class GoalsCoreService(BaseService[GoalsOperations, Ku]):
     """
     Core CRUD operations for goals.
 
@@ -104,7 +104,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Goal entities."""
-        return "Goal"
+        return "Ku"
 
     # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
@@ -115,8 +115,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=GoalDTO,
-        model_class=Goal,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
@@ -125,7 +125,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, goal: Goal) -> Result[None] | None:
+    def _validate_create(self, goal: Ku) -> Result[None] | None:
         """
         Validate goal creation with business rules.
 
@@ -151,7 +151,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Goal, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Ku, updates: dict[str, Any]) -> Result[None] | None:
         """
         Validate goal updates with business rules.
 
@@ -230,7 +230,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # See: /core/services/base_service.py - get_with_context()
     # ========================================================================
 
-    async def get_goal(self, goal_uid: str) -> Result[Goal]:
+    async def get_goal(self, goal_uid: str) -> Result[Ku]:
         """
         Get a specific goal by UID.
 
@@ -241,11 +241,11 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             goal_uid: Goal UID
 
         Returns:
-            Result[Goal] - success contains Goal, not found is an error
+            Result[Ku] - success contains Goal, not found is an error
         """
         return await self.get(goal_uid)
 
-    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
+    async def get_user_goals(self, user_uid: str) -> Result[list[Ku]]:
         """
         Get all goals for a user, including learning relationships.
 
@@ -260,7 +260,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             return result
 
         # Convert to enriched Goal models using helper
-        goals = self._to_domain_models(result.value, GoalDTO, Goal)
+        goals = self._to_domain_models(result.value, KuDTO, Ku)
 
         self.logger.info(f"Retrieved {len(goals)} goals for user {user_uid}")
         return Result.ok(goals)
@@ -273,7 +273,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # EVENT-DRIVEN CRUD OPERATIONS
     # ========================================================================
 
-    async def create(self, entity: Goal) -> Result[Goal]:
+    async def create(self, entity: Ku) -> Result[Ku]:
         """
         Create a goal and publish GoalCreated event.
 
@@ -287,11 +287,11 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             - GoalCreated: When goal is successfully created
         """
         # Call parent create
-        result: Result[Goal] = await super().create(entity)
+        result: Result[Ku] = await super().create(entity)
 
         # Publish GoalCreated event
         if result.is_ok:
-            goal: Goal = result.value  # Type hint to help MyPy
+            goal: Ku = result.value  # Type hint to help MyPy
             event = GoalCreated(
                 goal_uid=goal.uid,
                 user_uid=goal.user_uid,
@@ -304,7 +304,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         return result
 
-    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: str) -> Result[Goal]:
+    async def create_goal(self, goal_request: "GoalCreateRequest", user_uid: str) -> Result[Ku]:
         """
         Create a goal from a request with user_uid.
 
@@ -322,7 +322,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         # Create DTO from request with all fields
         # Set status to ACTIVE so goal appears in default list view
-        dto = GoalDTO(
+        dto = KuDTO(
             uid=UIDGenerator.generate_random_uid("goal"),
             user_uid=user_uid,
             title=goal_request.title,
@@ -341,7 +341,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         )
 
         # Create goal via backend and convert to domain model (uses BaseService helper)
-        result = await self._create_and_convert(dto.to_dict(), GoalDTO, Goal)
+        result = await self._create_and_convert(dto.to_dict(), KuDTO, Ku)
         if result.is_error:
             return result
         goal = result.value
@@ -376,7 +376,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         return Result.ok(goal)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Goal]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
         """
         Update a goal and publish appropriate events.
 
@@ -450,10 +450,10 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
                 old_progress = getattr(old_goal, "progress", 0.0) or 0.0
 
         # Call parent update
-        result: Result[Goal] = await super().update(uid, updates)
+        result: Result[Ku] = await super().update(uid, updates)
 
         if result.is_ok:
-            goal: Goal = result.value  # Type hint to help MyPy
+            goal: Ku = result.value  # Type hint to help MyPy
 
             # Publish GoalProgressUpdated event if progress changed
             if "progress" in updates and old_progress is not None:
@@ -655,7 +655,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         """
         # Query Neo4j for distinct domain values
         query = """
-        MATCH (g:Goal)
+        MATCH (g:Ku {ku_type: 'goal'})
         RETURN DISTINCT g.domain as category
         ORDER BY category
         """
@@ -667,7 +667,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         categories = [record["category"] for record in result.value if record.get("category")]
         return Result.ok(categories)
 
-    async def get_goals_by_category(self, category: str, limit: int = 100) -> Result[list[Goal]]:
+    async def get_goals_by_category(self, category: str, limit: int = 100) -> Result[list[Ku]]:
         """
         Get goals in a specific category.
 
@@ -682,10 +682,10 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        goals = self._to_domain_models(result.value, GoalDTO, Goal)
+        goals = self._to_domain_models(result.value, KuDTO, Ku)
         return Result.ok(goals)
 
-    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[Goal]]:
+    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[Ku]]:
         """
         Get goals by status.
 
@@ -700,10 +700,10 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         if result.is_error:
             return result
 
-        goals = self._to_domain_models(result.value, GoalDTO, Goal)
+        goals = self._to_domain_models(result.value, KuDTO, Ku)
         return Result.ok(goals)
 
-    async def search_goals(self, query: str, limit: int = 50) -> Result[list[Goal]]:
+    async def search_goals(self, query: str, limit: int = 50) -> Result[list[Ku]]:
         """
         Search goals by title or description.
 
@@ -716,7 +716,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         """
         # Use Neo4j text search on title and description
         cypher_query = """
-        MATCH (g:Goal)
+        MATCH (g:Ku {ku_type: 'goal'})
         WHERE toLower(g.title) CONTAINS toLower($query)
            OR toLower(g.description) CONTAINS toLower($query)
         RETURN g
@@ -732,8 +732,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         goals = []
         for record in result.value:
             goal_node = record["g"]
-            dto = GoalDTO.from_dict(dict(goal_node))
-            goals.append(Goal.from_dto(dto))
+            dto = KuDTO.from_dict(dict(goal_node))
+            goals.append(Ku.from_dto(dto))
 
         return Result.ok(goals)
 
@@ -756,7 +756,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # SPECIALIZED OPERATIONS
     # ========================================================================
 
-    async def mark_achieved(self, uid: str) -> Result[Goal]:
+    async def mark_achieved(self, uid: str) -> Result[Ku]:
         """
         Mark a goal as achieved and publish GoalAchieved event.
 
@@ -817,7 +817,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     @with_error_handling("get_subgoals", error_type="database", uid_param="parent_uid")
-    async def get_subgoals(self, parent_uid: str, depth: int = 1) -> Result[list[Goal]]:
+    async def get_subgoals(self, parent_uid: str, depth: int = 1) -> Result[list[Ku]]:
         """
         Get all subgoals of a parent goal.
 
@@ -836,8 +836,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             all_subgoals = await service.get_subgoals("goal_abc123", depth=99)
         """
         query = f"""
-        MATCH (parent:Goal {{uid: $parent_uid}})
-        MATCH (parent)-[:HAS_SUBGOAL*1..{depth}]->(subgoal:Goal)
+        MATCH (parent:Ku {{uid: $parent_uid}})
+        MATCH (parent)-[:HAS_SUBGOAL*1..{depth}]->(subgoal:Ku)
         RETURN subgoal
         ORDER BY subgoal.created_at
         """
@@ -851,13 +851,13 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         goals = []
         for record in result.records:
             goal_data = dict(record["subgoal"])
-            goal = self._to_domain_model(goal_data, GoalDTO, Goal)
+            goal = self._to_domain_model(goal_data, KuDTO, Ku)
             goals.append(goal)
 
         return Result.ok(goals)
 
     @with_error_handling("get_parent_goal", error_type="database", uid_param="subgoal_uid")
-    async def get_parent_goal(self, subgoal_uid: str) -> Result[Goal | None]:
+    async def get_parent_goal(self, subgoal_uid: str) -> Result[Ku | None]:
         """
         Get immediate parent of a subgoal (if any).
 
@@ -868,8 +868,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             Result containing parent Goal or None if root-level goal
         """
         query = """
-        MATCH (subgoal:Goal {uid: $subgoal_uid})
-        MATCH (parent:Goal)-[:HAS_SUBGOAL]->(subgoal)
+        MATCH (subgoal:Ku {uid: $subgoal_uid})
+        MATCH (parent:Ku)-[:HAS_SUBGOAL]->(subgoal)
         RETURN parent
         LIMIT 1
         """
@@ -880,7 +880,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             return Result.ok(None)
 
         parent_data = dict(result.records[0]["parent"])
-        parent = self._to_domain_model(parent_data, GoalDTO, Goal)
+        parent = self._to_domain_model(parent_data, KuDTO, Ku)
         return Result.ok(parent)
 
     @with_error_handling("get_goal_hierarchy", error_type="database", uid_param="goal_uid")
@@ -911,24 +911,24 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         """
         # Get ancestors
         ancestors_query = """
-        MATCH path = (root:Goal)-[:HAS_SUBGOAL*]->(current:Goal {uid: $goal_uid})
+        MATCH path = (root:Ku)-[:HAS_SUBGOAL*]->(current:Ku {uid: $goal_uid})
         WHERE NOT EXISTS((root)<-[:HAS_SUBGOAL]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
         siblings_query = """
-        MATCH (current:Goal {uid: $goal_uid})
-        OPTIONAL MATCH (parent:Goal)-[:HAS_SUBGOAL]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBGOAL]->(sibling:Goal)
+        MATCH (current:Ku {uid: $goal_uid})
+        OPTIONAL MATCH (parent:Ku)-[:HAS_SUBGOAL]->(current)
+        OPTIONAL MATCH (parent)-[:HAS_SUBGOAL]->(sibling:Ku)
         WHERE sibling.uid <> $goal_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
         children_query = """
-        MATCH (current:Goal {uid: $goal_uid})
-        OPTIONAL MATCH (current)-[:HAS_SUBGOAL]->(child:Goal)
+        MATCH (current:Ku {uid: $goal_uid})
+        OPTIONAL MATCH (current)-[:HAS_SUBGOAL]->(child:Ku)
         RETURN collect(child) as children
         """
 
@@ -937,7 +937,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_goal = self._to_domain_model(current_result.value, GoalDTO, Goal)
+        current_goal = self._to_domain_model(current_result.value, KuDTO, Ku)
 
         ancestors_result = await self.backend.driver.execute_query(
             ancestors_query, goal_uid=goal_uid
@@ -950,7 +950,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
             for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
                 goal_data = dict(node)
-                ancestors.append(self._to_domain_model(goal_data, GoalDTO, Goal))
+                ancestors.append(self._to_domain_model(goal_data, KuDTO, Ku))
 
         # Process siblings
         siblings = []
@@ -958,7 +958,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             for node in siblings_result.records[0]["siblings"]:
                 if node:  # Skip None values
                     goal_data = dict(node)
-                    siblings.append(self._to_domain_model(goal_data, GoalDTO, Goal))
+                    siblings.append(self._to_domain_model(goal_data, KuDTO, Ku))
 
         # Process children
         children = []
@@ -966,7 +966,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             for node in children_result.records[0]["children"]:
                 if node:  # Skip None values
                     goal_data = dict(node)
-                    children.append(self._to_domain_model(goal_data, GoalDTO, Goal))
+                    children.append(self._to_domain_model(goal_data, KuDTO, Ku))
 
         return Result.ok(
             {
@@ -1008,8 +1008,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             )
 
         query = """
-        MATCH (parent:Goal {uid: $parent_uid})
-        MATCH (subgoal:Goal {uid: $subgoal_uid})
+        MATCH (parent:Ku {uid: $parent_uid})
+        MATCH (subgoal:Ku {uid: $subgoal_uid})
 
         CREATE (parent)-[:HAS_SUBGOAL {
             progress_weight: $weight,
@@ -1050,7 +1050,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             Result containing True if relationships were deleted
         """
         query = """
-        MATCH (parent:Goal {uid: $parent_uid})-[r1:HAS_SUBGOAL]->(subgoal:Goal {uid: $subgoal_uid})
+        MATCH (parent:Ku {uid: $parent_uid})-[r1:HAS_SUBGOAL]->(subgoal:Ku {uid: $subgoal_uid})
         MATCH (subgoal)-[r2:SUBGOAL_OF]->(parent)
         DELETE r1, r2
         RETURN count(r1) + count(r2) as deleted_count
@@ -1071,8 +1071,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
         query = """
-        MATCH (child:Goal {uid: $child_uid})
-        MATCH path = (child)-[:HAS_SUBGOAL*]->(parent:Goal {uid: $parent_uid})
+        MATCH (child:Ku {uid: $child_uid})
+        MATCH path = (child)-[:HAS_SUBGOAL*]->(parent:Ku {uid: $parent_uid})
         RETURN count(path) > 0 as would_create_cycle
         """
 

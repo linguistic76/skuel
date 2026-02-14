@@ -305,7 +305,7 @@ def habit_to_calendar_items(habit: Any, current_date: date) -> list[CalendarItem
             duration = getattr(habit, "duration_minutes", 15) or 15
             end_dt = start_dt + timedelta(minutes=duration)
 
-            category_str = str(habit.category) if getattr(habit, "category", None) else None
+            category_str = str(habit.habit_category) if getattr(habit, "habit_category", None) else None
 
             items.append(
                 CalendarItem(

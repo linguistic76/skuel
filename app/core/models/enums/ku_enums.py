@@ -722,6 +722,21 @@ class MeasurementType(str, Enum):
     MIXED = "mixed"
 
 
+class HabitEssentiality(str, Enum):
+    """
+    Classification of habit importance to goal achievement.
+
+    Based on James Clear's Atomic Habits philosophy:
+    "You do not rise to the level of your goals.
+     You fall to the level of your systems."
+    """
+
+    ESSENTIAL = "essential"
+    CRITICAL = "critical"
+    SUPPORTING = "supporting"
+    OPTIONAL = "optional"
+
+
 # =============================================================================
 # 8. HABIT
 # =============================================================================

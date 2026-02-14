@@ -39,32 +39,26 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.choice.choice import Choice
-from core.models.choice.choice_dto import ChoiceDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType
-from core.models.event.event import Event
-from core.models.event.event_dto import EventDTO
-from core.models.goal.goal import Goal
-from core.models.goal.goal_dto import GoalDTO
-from core.models.habit.habit import Habit
-from core.models.habit.habit_dto import HabitDTO
-
 # Curriculum domain imports - Phase 3 (February 2026): LS/LP unified into Ku
+# NOTE (February 2026): Habit imports removed — Habit merged into Ku
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 
 # NOTE (January 2026): MOC imports removed - MOC is now KU-based.
 # MOC is a KU with ORGANIZES relationships, not a separate entity.
 # See /docs/domains/moc.md for the new architecture.
-from core.models.principle.principle import Principle
-from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.reflection import PrincipleReflection
 from core.models.principle.reflection_dto import PrincipleReflectionDTO
 from core.models.query import QueryIntent
 from core.models.relationship_names import RelationshipName
-from core.models.task.task import Task
-from core.models.task.task_dto import TaskDTO
+
+# Task and Goal domains unified into Ku (February 2026)
+Task = Ku
+TaskDTO = KuDTO
+Goal = Ku
+GoalDTO = KuDTO
 
 # =============================================================================
 # RELATIONSHIP DEFINITION DATACLASSES
@@ -514,7 +508,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
         # Task → Habit: single result for context
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_HABIT,
-            "Habit",
+            "Ku",
             "outgoing",
             "habit_context",  # Renamed for context view
             "supports_habit",
@@ -581,7 +575,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Task → Choice (choices implemented by this task)
         UnifiedRelationshipDefinition(
             RelationshipName.IMPLEMENTS_CHOICE,
-            "Choice",
+            "Ku",
             "outgoing",
             "implemented_choices",
             "implements_choices",
@@ -699,7 +693,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         # Choice that inspired this goal
         UnifiedRelationshipDefinition(
             RelationshipName.INSPIRED_BY_CHOICE,
-            "Choice",
+            "Ku",
             "outgoing",
             "inspired_by_choice",
             "inspired_by_choice",
@@ -722,7 +716,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Habit",
+            "Ku",
             "incoming",
             "contributing_habits",  # Context name: contributing_habits
             "supporting_habits",
@@ -760,7 +754,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         # Essentiality-filtered habits
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Habit",
+            "Ku",
             "incoming",
             "essential_habits",
             "essential_habits",
@@ -769,7 +763,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Habit",
+            "Ku",
             "incoming",
             "critical_habits",
             "critical_habits",
@@ -778,7 +772,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Habit",
+            "Ku",
             "incoming",
             "optional_habits",
             "optional_habits",
@@ -852,11 +846,11 @@ GOALS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 HABITS_CONFIG = DomainRelationshipConfig(
     domain=Domain.HABITS,
-    entity_label="Habit",
-    dto_class=HabitDTO,
-    model_class=Habit,
-    backend_get_method="get_habit",
-    ownership_relationship=RelationshipName.HAS_HABIT,
+    entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='habit'
+    dto_class=KuDTO,
+    model_class=Ku,
+    backend_get_method="get",
+    ownership_relationship=RelationshipName.HAS_KU,
     relationships=(
         # Outgoing: Habit → Other (with context-specific fields)
         UnifiedRelationshipDefinition(
@@ -886,21 +880,21 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Incoming: Other → Habit
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_PREREQUISITE_HABIT,
-            "Habit",
+            "Ku",
             "outgoing",
             "prerequisite_habits",
             "prerequisite_habits",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_HABIT,
-            "Habit",
+            "Ku",
             "incoming",
             "reinforcing_habits",
             "reinforcing_habits",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ENABLES_HABIT,
-            "Habit",
+            "Ku",
             "incoming",
             "enabling_habits",
             "enabling_habits",
@@ -931,7 +925,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Related habits (bidirectional)
         UnifiedRelationshipDefinition(
             RelationshipName.RELATED_TO,
-            "Habit",
+            "Ku",
             "both",
             "related_habits",
             "related_habits",
@@ -951,7 +945,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Habit informs choices
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMS_CHOICE,
-            "Choice",
+            "Ku",
             "outgoing",
             "informed_choices",
             "informed_choices",
@@ -960,7 +954,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Incoming: Choice impacts habit
         UnifiedRelationshipDefinition(
             RelationshipName.IMPACTS_HABIT,
-            "Choice",
+            "Ku",
             "incoming",
             "impacting_choices",
             "impacting_choices",
@@ -969,7 +963,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Shared-neighbor pattern: Related habits via shared knowledge or goals
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_KNOWLEDGE,  # Placeholder - uses shared_neighbor_config
-            "Habit",
+            "Ku",
             "both",
             "related_habits_shared",
             "related_habits_shared",
@@ -1010,8 +1004,8 @@ HABITS_CONFIG = DomainRelationshipConfig(
 EVENTS_CONFIG = DomainRelationshipConfig(
     domain=Domain.EVENTS,
     entity_label="Event",
-    dto_class=EventDTO,
-    model_class=Event,
+    dto_class=KuDTO,
+    model_class=Ku,
     backend_get_method="get_event",
     ownership_relationship=RelationshipName.HAS_EVENT,
     relationships=(
@@ -1033,7 +1027,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_HABIT,
-            "Habit",
+            "Ku",
             "outgoing",
             "reinforced_habits",
             "habits",
@@ -1050,7 +1044,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         # Incoming: Other → Event
         UnifiedRelationshipDefinition(
             RelationshipName.PRACTICED_AT_EVENT,
-            "Habit",
+            "Ku",
             "incoming",
             "practiced_habits",
             "practiced_habits",
@@ -1084,7 +1078,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Event triggers choice
         UnifiedRelationshipDefinition(
             RelationshipName.TRIGGERS_CHOICE,
-            "Choice",
+            "Ku",
             "outgoing",
             "triggered_choices",
             "triggered_choices",
@@ -1093,7 +1087,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         # Incoming: Choice schedules event
         UnifiedRelationshipDefinition(
             RelationshipName.SCHEDULES_EVENT,
-            "Choice",
+            "Ku",
             "incoming",
             "scheduled_by_choices",
             "scheduled_by_choices",
@@ -1150,11 +1144,11 @@ EVENTS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 CHOICES_CONFIG = DomainRelationshipConfig(
     domain=Domain.CHOICES,
-    entity_label="Choice",
-    dto_class=ChoiceDTO,
-    model_class=Choice,
-    backend_get_method="get_choice",
-    ownership_relationship=RelationshipName.HAS_CHOICE,
+    entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='choice'
+    dto_class=KuDTO,
+    model_class=Ku,
+    backend_get_method="get",
+    ownership_relationship=RelationshipName.HAS_KU,
     relationships=(
         # Outgoing: Choice → Other
         UnifiedRelationshipDefinition(
@@ -1189,7 +1183,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Incoming: Other → Choice
         UnifiedRelationshipDefinition(
             RelationshipName.INSPIRED_BY_CHOICE,
-            "Choice",
+            "Ku",
             "incoming",
             "inspired_choices",
             "inspired_choices",
@@ -1222,7 +1216,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Outgoing: Choice impacts habit
         UnifiedRelationshipDefinition(
             RelationshipName.IMPACTS_HABIT,
-            "Habit",
+            "Ku",
             "outgoing",
             "impacted_habits",
             "impacted_habits",
@@ -1231,7 +1225,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Incoming: Habit informs choice
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMS_CHOICE,
-            "Habit",
+            "Ku",
             "incoming",
             "informing_habits",
             "informing_habits",
@@ -1259,7 +1253,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Shared-neighbor pattern: Related choices via shared principles or goals
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMED_BY_PRINCIPLE,  # Placeholder - uses shared_neighbor_config
-            "Choice",
+            "Ku",
             "both",
             "related_choices",
             "related_choices",
@@ -1270,7 +1264,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
                     RelationshipName.INFORMED_BY_PRINCIPLE,
                     RelationshipName.AFFECTS_GOAL,
                 ),
-                target_label="Choice",
+                target_label="Ku",
                 result_alias="related_choices",
                 result_fields=("uid", "title", "status", "shared_count"),
                 limit=5,
@@ -1297,11 +1291,11 @@ CHOICES_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 PRINCIPLES_CONFIG = DomainRelationshipConfig(
     domain=Domain.PRINCIPLES,
-    entity_label="Principle",
-    dto_class=PrincipleDTO,
-    model_class=Principle,
-    backend_get_method="get_principle",
-    ownership_relationship=RelationshipName.HAS_PRINCIPLE,
+    entity_label="Ku",  # Phase 4: Unified into Ku with ku_type='principle'
+    dto_class=KuDTO,
+    model_class=Ku,
+    backend_get_method="get",
+    ownership_relationship=RelationshipName.HAS_KU,
     relationships=(
         # Outgoing: Principle → Other
         UnifiedRelationshipDefinition(
@@ -1321,14 +1315,14 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDES_CHOICE,
-            "Choice",
+            "Ku",
             "outgoing",
             "guided_choices",
             "guided_choices",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INSPIRES_HABIT,
-            "Habit",
+            "Ku",
             "outgoing",
             "inspired_habits",
             "inspired_habits",
@@ -1337,7 +1331,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
         # Incoming: Other → Principle
         UnifiedRelationshipDefinition(
             RelationshipName.EMBODIES_PRINCIPLE,
-            "Habit",
+            "Ku",
             "incoming",
             "embodying_habits",
             "embodying_habits",
@@ -1482,7 +1476,7 @@ USER_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_HABIT,
-            "Habit",
+            "Ku",
             "outgoing",
             "habits",
             "habits",
@@ -1496,7 +1490,7 @@ USER_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_CHOICE,
-            "Choice",
+            "Ku",
             "outgoing",
             "choices",
             "choices",
@@ -1549,7 +1543,7 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.TRIGGERED_BY,
-            "Habit",
+            "Ku",
             "outgoing",
             "trigger_habit",
             "trigger",
@@ -1563,7 +1557,7 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.TRIGGERED_BY,
-            "Choice",
+            "Ku",
             "outgoing",
             "trigger_choice",
             "trigger",
@@ -1654,7 +1648,7 @@ KU_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_KNOWLEDGE,
-            "Habit",
+            "Ku",
             "incoming",
             "reinforced_by_habits",
             "reinforced_by_habits",
@@ -1668,7 +1662,7 @@ KU_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMED_BY_KNOWLEDGE,
-            "Choice",
+            "Ku",
             "incoming",
             "informs_choices",
             "informs_choices",
@@ -1768,7 +1762,7 @@ LS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMS_CHOICE,
-            "Choice",
+            "Ku",
             "outgoing",
             "informed_choices",
             "choices",
@@ -1776,7 +1770,7 @@ LS_CONFIG = DomainRelationshipConfig(
         # Practice patterns
         UnifiedRelationshipDefinition(
             RelationshipName.BUILDS_HABIT,
-            "Habit",
+            "Ku",
             "outgoing",
             "builds_habits",
             "practice_habits",
@@ -1875,7 +1869,7 @@ LP_CONFIG = DomainRelationshipConfig(
         # Incoming: Other → Lp
         UnifiedRelationshipDefinition(
             RelationshipName.OPENS_LEARNING_PATH,
-            "Choice",
+            "Ku",
             "incoming",
             "opened_by_choices",
             "opened_by",
@@ -1939,7 +1933,7 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "Goal": GOALS_CONFIG,
     "Habit": HABITS_CONFIG,
     "Event": EVENTS_CONFIG,
-    "Choice": CHOICES_CONFIG,
+    "Choice": CHOICES_CONFIG,  # Virtual key — nodes are :Ku{ku_type='choice'}
     "Principle": PRINCIPLES_CONFIG,
     # Note: Finance/Expense is standalone (not in registry)
     # User (Identity Layer - January 2026)
@@ -2181,9 +2175,9 @@ _ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
     EntityType.MOC: "Ku",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
-    EntityType.HABIT: "Habit",
+    EntityType.HABIT: "Habit",  # Virtual key — nodes are :Ku{ku_type='habit'}
     EntityType.EVENT: "Event",
-    EntityType.CHOICE: "Choice",
+    EntityType.CHOICE: "Ku",
     EntityType.PRINCIPLE: "Principle",
     EntityType.LP: "Lp",
     EntityType.LS: "Ls",
@@ -2195,7 +2189,7 @@ _LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     "Goal": EntityType.GOAL,
     "Habit": EntityType.HABIT,
     "Event": EntityType.EVENT,
-    "Choice": EntityType.CHOICE,
+    "Choice": EntityType.CHOICE,  # Virtual key — nodes are :Ku{ku_type='choice'}
     "Principle": EntityType.PRINCIPLE,
     "Lp": EntityType.LP,
     "Ls": EntityType.LS,

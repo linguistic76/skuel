@@ -16,10 +16,10 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.enums import ActivityStatus, Priority, RecurrencePattern
-from core.models.goal.goal import Goal
-from core.models.goal.goal_dto import GoalDTO
-from core.models.goal.goal_relationships import GoalRelationships
-from core.models.task.task_dto import TaskDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
+from core.services.goals.goal_relationships import GoalRelationships
+from core.models.ku.ku_dto import KuDTO as TaskDTO
 
 # Import protocol interfaces
 from core.utils.dto_helpers import to_domain_model
@@ -115,7 +115,7 @@ class GoalTaskGenerator:
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
+        goal = to_domain_model(goal_result.value, KuDTO, Ku)
 
         # GRAPH-NATIVE: Fetch goal relationships from graph
         rels = (
@@ -231,7 +231,7 @@ class GoalTaskGenerator:
             if goal_result.is_error:
                 continue
 
-            goal = to_domain_model(goal_result.value, GoalDTO, Goal)
+            goal = to_domain_model(goal_result.value, KuDTO, Ku)
 
             # Check if goal is at risk
             if goal.days_remaining() and goal.days_remaining() < 30:
@@ -250,7 +250,7 @@ class GoalTaskGenerator:
     # ========================================================================
 
     async def _generate_milestone_tasks(
-        self, goal: Goal, _user_context: UserContext
+        self, goal: Ku, _user_context: UserContext
     ) -> list[TaskDTO]:
         """Generate tasks for goal milestones."""
         tasks: list[TaskDTO] = []
@@ -269,7 +269,7 @@ class GoalTaskGenerator:
             # Calculate due date for milestone
             due_date = date.today() + timedelta(days=int(days_per_milestone * (i + 1)))
 
-            task = TaskDTO.create(
+            task = TaskDTO.create_task(
                 user_uid=goal.user_uid,
                 title=f"Complete: {milestone.title}",
                 priority=self._calculate_priority(goal, due_date),
@@ -296,7 +296,7 @@ class GoalTaskGenerator:
         return tasks
 
     async def _generate_knowledge_tasks(
-        self, goal: Goal, rels: GoalRelationships, user_context: UserContext
+        self, goal: Ku, rels: GoalRelationships, user_context: UserContext
     ) -> list[TaskDTO]:
         """
         Generate tasks for acquiring required knowledge.
@@ -323,7 +323,7 @@ class GoalTaskGenerator:
                 )
                 prereqs_met = len(missing) == 0
 
-            task = TaskDTO.create(
+            task = TaskDTO.create_task(
                 user_uid=goal.user_uid,
                 title=f"Learn: {knowledge_uid}",
                 priority=Priority.HIGH if not prereqs_met else Priority.MEDIUM,
@@ -355,7 +355,7 @@ class GoalTaskGenerator:
         return tasks
 
     async def _generate_habit_tasks(
-        self, goal: Goal, user_context: UserContext, rels: GoalRelationships | None = None
+        self, goal: Ku, user_context: UserContext, rels: GoalRelationships | None = None
     ) -> list[TaskDTO]:
         """Generate tasks for reinforcing supporting habits."""
         tasks: list[TaskDTO] = []
@@ -372,7 +372,7 @@ class GoalTaskGenerator:
                 for day_offset in range(1, 8):
                     task_date = date.today() + timedelta(days=day_offset)
 
-                    task = TaskDTO.create(
+                    task = TaskDTO.create_task(
                         user_uid=goal.user_uid,
                         title=f"Practice habit: {habit_uid}",
                         priority=Priority.MEDIUM,
@@ -395,7 +395,7 @@ class GoalTaskGenerator:
         return tasks
 
     async def _generate_checkin_tasks(
-        self, goal: Goal, _user_context: UserContext
+        self, goal: Ku, _user_context: UserContext
     ) -> list[TaskDTO]:
         """Generate periodic check-in tasks for goal progress."""
         tasks = []
@@ -407,7 +407,7 @@ class GoalTaskGenerator:
         for i in range(1, check_in_count + 1):
             check_in_date = date.today() + timedelta(days=i * self.config.check_in_frequency_days)
 
-            task = TaskDTO.create(
+            task = TaskDTO.create_task(
                 user_uid=goal.user_uid,
                 title=f"Progress check: {goal.title}",
                 priority=Priority.LOW,
@@ -424,7 +424,7 @@ class GoalTaskGenerator:
 
         return tasks
 
-    async def _generate_urgent_tasks(self, goal: Goal, _user_context: UserContext) -> list[TaskDTO]:
+    async def _generate_urgent_tasks(self, goal: Ku, _user_context: UserContext) -> list[TaskDTO]:
         """Generate urgent tasks for at-risk goals."""
         tasks = []
 
@@ -432,7 +432,7 @@ class GoalTaskGenerator:
         if goal.milestones:
             for _i, milestone in enumerate(goal.milestones):
                 if not milestone.is_completed:
-                    task = TaskDTO.create(
+                    task = TaskDTO.create_task(
                         user_uid=goal.user_uid,
                         title=f"URGENT: {milestone.title}",
                         priority=Priority.CRITICAL,
@@ -449,7 +449,7 @@ class GoalTaskGenerator:
 
         return tasks
 
-    def _calculate_priority(self, goal: Goal, task_due_date: date) -> Priority:
+    def _calculate_priority(self, goal: Ku, task_due_date: date) -> Priority:
         """Calculate task priority based on goal urgency and due date."""
         days_until_due = (task_due_date - date.today()).days
         goal_days_remaining = goal.days_remaining() or 365
@@ -542,7 +542,7 @@ class GoalTaskGenerator:
     # TASK TEMPLATE LIBRARY
     # ========================================================================
 
-    def get_task_templates(self, goal: Goal) -> dict[str, TaskDTO]:
+    def get_task_templates(self, goal: Ku) -> dict[str, TaskDTO]:
         """
         Get library of reusable task templates.
 
@@ -550,28 +550,28 @@ class GoalTaskGenerator:
             goal: Goal to generate task templates for
         """
         return {
-            "milestone": TaskDTO.create(
+            "milestone": TaskDTO.create_task(
                 user_uid=goal.user_uid,
                 title="Complete milestone",
                 priority=Priority.HIGH,
                 duration_minutes=60,
                 tags=["milestone", "goal"],
             ),
-            "learn_knowledge": TaskDTO.create(
+            "learn_knowledge": TaskDTO.create_task(
                 user_uid=goal.user_uid,
                 title="Study knowledge area",
                 priority=Priority.MEDIUM,
                 duration_minutes=90,
                 tags=["learning", "knowledge"],
             ),
-            "practice_habit": TaskDTO.create(
+            "practice_habit": TaskDTO.create_task(
                 user_uid=goal.user_uid,
                 title="Practice habit",
                 priority=Priority.MEDIUM,
                 duration_minutes=30,
                 tags=["habit", "practice"],
             ),
-            "progress_review": TaskDTO.create(
+            "progress_review": TaskDTO.create_task(
                 user_uid=goal.user_uid,
                 title="Review progress",
                 priority=Priority.LOW,

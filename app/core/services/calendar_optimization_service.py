@@ -13,9 +13,8 @@ from operator import attrgetter
 from typing import Any
 
 from core.models.enums import Domain, Priority
-from core.models.event.event_dto import EventDTO
 from core.models.ku.ku_dto import KuDTO
-from core.models.task.task_dto import TaskDTO
+from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.services.calendar_optimization_types import (
     CognitiveBalancedStrategy,
     DeadlineDrivenStrategy,
@@ -246,7 +245,7 @@ class CalendarOptimizationService:
         user_uid: str,
         target_date: date,
         tasks: list[TaskDTO],
-        events: list[EventDTO],
+        events: list[KuDTO],
         knowledge_units: list[KnowledgeUnitDTO],
         strategy: SchedulingStrategy = SchedulingStrategy.COGNITIVE_BALANCED,
     ) -> Result[CalendarOptimization]:
@@ -549,7 +548,7 @@ class CalendarOptimizationService:
         )
 
     def _analyze_existing_commitments(
-        self, events: list[EventDTO], target_date: date
+        self, events: list[KuDTO], target_date: date
     ) -> list[tuple[datetime, datetime]]:
         """Analyze existing calendar commitments."""
         commitments = []

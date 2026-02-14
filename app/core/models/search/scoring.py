@@ -45,13 +45,11 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
-    from core.models.choice.choice import Choice
     from core.models.enums import Priority
-    from core.models.event.event import Event
-    from core.models.goal.goal import Goal
-    from core.models.habit.habit import Habit
-    from core.models.principle.principle import Principle
-    from core.models.task.task import Task
+    from core.models.ku.ku import Ku
+    from core.models.ku.ku import Ku as Habit
+    from core.models.ku.ku import Ku as Task
+    from core.models.ku.ku import Ku as Goal
     from core.services.user import UserContext
 
 
@@ -767,7 +765,7 @@ def score_habit(habit: "Habit", context: "UserContext") -> PriorityScore:
     )
 
 
-def score_event(event: "Event", context: "UserContext") -> PriorityScore:
+def score_event(event: "Ku", context: "UserContext") -> PriorityScore:
     """
     Calculate priority score for an event.
 
@@ -893,7 +891,7 @@ def score_event(event: "Event", context: "UserContext") -> PriorityScore:
     )
 
 
-def score_choice(choice: "Choice", context: "UserContext") -> PriorityScore:
+def score_choice(choice: "Ku", context: "UserContext") -> PriorityScore:
     """
     Calculate priority score for a choice/decision.
 
@@ -982,18 +980,18 @@ def score_choice(choice: "Choice", context: "UserContext") -> PriorityScore:
     )
 
 
-def score_principle(principle: "Principle", context: "UserContext") -> PriorityScore:
+def score_principle(principle: "Ku", context: "UserContext") -> PriorityScore:
     """
     Calculate priority score for a principle.
 
     Args:
-        principle: Principle to score
+        principle: Principle Ku to score
         context: User's current context
 
     Returns:
         PriorityScore with breakdown
     """
-    from core.models.principle.principle import PrincipleStrength
+    from core.models.enums.ku_enums import PrincipleStrength
 
     components: list[ComponentScore] = []
 

@@ -21,7 +21,7 @@ import pytest
 from core.models.enums import ActivityStatus, Domain, Priority
 from core.models.enums.ku_enums import KuType
 from core.models.ku import Ku, LpPosition
-from core.models.task.task_dto import TaskDTO
+from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 from core.services.user import UserContext
@@ -152,7 +152,7 @@ async def test_create_task_with_context_success(
 ):
     """Test successful context-aware task creation."""
     # Setup
-    created_dto = TaskDTO.create(
+    created_dto = TaskDTO.create_task(
         user_uid="user:123",
         title=task_request.title,
         priority=task_request.priority,
@@ -217,7 +217,7 @@ async def test_create_task_with_learning_context(
 ):
     """Test task creation with learning path context."""
     # Setup
-    created_dto = TaskDTO.create(
+    created_dto = TaskDTO.create_task(
         user_uid="user:123", title=task_request.title, priority=task_request.priority
     )
     created_dto.uid = "task:learning_123"
@@ -238,7 +238,7 @@ async def test_create_task_with_learning_context(
 async def test_create_task_without_learning_context(scheduling_service, mock_backend, task_request):
     """Test task creation without learning position."""
     # Setup
-    created_dto = TaskDTO.create(user_uid="user:123", title=task_request.title)
+    created_dto = TaskDTO.create_task(user_uid="user:123", title=task_request.title)
     created_dto.uid = "task:no_context"
     mock_backend.create_task.return_value = Result.ok(created_dto.to_dict())
 
@@ -410,7 +410,7 @@ async def test_full_learning_workflow(
     assert suggestions_result.is_ok
 
     # Step 2: Create task with context
-    created_dto = TaskDTO.create(user_uid="user:123", title=task_request.title)
+    created_dto = TaskDTO.create_task(user_uid="user:123", title=task_request.title)
     created_dto.uid = "task:workflow"
     mock_backend.create_task.return_value = Result.ok(created_dto.to_dict())
 

@@ -37,7 +37,7 @@ from components.shared_ui_components import SharedUIComponents
 from core.auth import require_authenticated_user
 from core.infrastructure.routes import QuickAddConfig, QuickAddRouteFactory
 from core.models.enums import Priority
-from core.models.habit.habit import HabitStatus
+from core.models.enums.ku_enums import KuStatus
 from core.models.habit.habit_request import HabitCreateRequest
 from core.services.protocols.facade_protocols import GoalsFacadeProtocol, HabitsFacadeProtocol
 from core.services.protocols.query_types import ActivityFilterSpec
@@ -860,7 +860,7 @@ def create_habits_ui_routes(
         Handles form parsing, request building, and service call.
         """
         from core.models.enums import RecurrencePattern
-        from core.models.habit.habit import HabitCategory
+        from core.models.enums.ku_enums import HabitCategory
         from core.models.habit.habit_request import HabitCreateRequest
 
         # Extract form data
@@ -1034,7 +1034,7 @@ def create_habits_ui_routes(
             Card(
                 H2("✅ Habit Created!", cls="text-2xl font-bold text-green-600 mb-4 text-center"),
                 P(
-                    f"Successfully created: {habit.name}",
+                    f"Successfully created: {habit.title}",
                     cls="text-lg text-gray-700 mb-2 text-center",
                 ),
                 (
@@ -1162,7 +1162,7 @@ def create_habits_ui_routes(
 
         # Render celebration modal
         return AtomicHabitsComponents.render_habit_completion_celebration(
-            habit_name=updated_habit.name,
+            habit_name=updated_habit.title,
             identity=updated_habit.reinforces_identity,
             votes_cast=updated_habit.identity_votes_cast,
             votes_required=50,
@@ -1316,7 +1316,7 @@ def create_habits_ui_routes(
 
         # Build pattern data for rendering
         pattern_data = {
-            "name": habit.name,
+            "name": habit.title,
             "total_completions": analysis["habit_quality"]["total_completions"],
             "success_patterns": success_patterns,
             "failure_patterns": failure_patterns,
@@ -1368,7 +1368,7 @@ def create_habits_ui_routes(
                 # Build habit detail for breakdown
                 habit_breakdown.append(
                     {
-                        "name": habit.name,
+                        "name": habit.title,
                         "essentiality": "supporting",
                         "consistency": habit.calculate_consistency_score(),
                         "impact": habit.predict_goal_impact(),
@@ -1533,7 +1533,7 @@ def create_habits_ui_routes(
                 # Build habit impact detail
                 habit_impacts.append(
                     {
-                        "name": habit.name,
+                        "name": habit.title,
                         "essentiality": "supporting",
                         "impact_score": impact_score,
                         "consistency": consistency,
@@ -1728,14 +1728,14 @@ def create_habits_ui_routes(
         habits_today = [
             {
                 "uid": habit.uid,
-                "name": habit.name,
+                "name": habit.title,
                 "reinforces_identity": habit.reinforces_identity,
                 "essentiality": priority_to_essentiality(habit.priority),
                 "cue": habit.cue,
                 "completed_today": habit.uid in completed_habit_uids,
             }
             for habit in all_habits
-            if habit.status == HabitStatus.ACTIVE
+            if habit.status == KuStatus.ACTIVE
         ]
 
         # Calculate stats
@@ -1777,7 +1777,7 @@ def create_habits_ui_routes(
         # Build habit detail data
         habit_data = {
             "uid": habit.uid,
-            "name": habit.name,
+            "name": habit.title,
             "reinforces_identity": habit.reinforces_identity,
             "essentiality": priority_to_essentiality(habit.priority),
             "cue": habit.cue,
@@ -2101,7 +2101,7 @@ def create_habits_ui_routes(
         content = Div(
             # Header Card
             Card(
-                H1(f"🎯 {habit.name}", cls="text-2xl font-bold mb-2"),
+                H1(f"🎯 {habit.title}", cls="text-2xl font-bold mb-2"),
                 P(habit.description or "No description provided", cls="text-base-content/70 mb-4"),
                 # Status and Frequency badges
                 Div(
@@ -2185,7 +2185,7 @@ def create_habits_ui_routes(
 
         return await BasePage(
             content=content,
-            title=habit.name,
+            title=habit.title,
             page_type=PageType.STANDARD,
             request=request,
             active_page="habits",

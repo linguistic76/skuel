@@ -1,68 +1,31 @@
 """
-Principle Three-Tier Model Package
+Principle Reflection Model Package
 ===================================
 
-Exports all principle-related models following the three-tier architecture.
-Principles are fundamental values that guide learning, goals, and habits.
+PrincipleReflection is a separate entity (Neo4j: :PrincipleReflection)
+that tracks alignment assessments over time. It is NOT merged into Ku —
+reflections are log entries, not knowledge units.
+
+The Principle domain model itself has been unified into the Ku model
+(ku_type="principle"). See: core/models/ku/ku.py
 """
 
-from .principle import (
+from .principle_types import (
     AlignmentAssessment,
-    AlignmentLevel,
-    Principle,
     PrincipleAlignment,
-    PrincipleCategory,
     PrincipleConflict,
     PrincipleDecision,
     PrincipleExpression,
-    PrincipleSource,
-    PrincipleStrength,
 )
-from .principle_dto import PrincipleDTO
-from .principle_intelligence import (
-    AlignmentMethod,
-    PrincipleApplicationIntelligence,
-    PrincipleIntelligence,
-    ValueConflictIntensity,
-    create_principle_application_intelligence,
-    create_principle_intelligence,
-)
-from .principle_request import (
-    AlignmentAssessmentRequest,
-    PrincipleCreateRequest,
-    PrincipleExpressionRequest,
-    PrincipleFilterRequest,
-    PrincipleLinkRequest,
-    PrincipleUpdateRequest,
-)
+from .reflection import PrincipleReflection
+from .reflection_dto import PrincipleReflectionDTO
 
 __all__ = [
     "AlignmentAssessment",
-    "AlignmentAssessmentRequest",
-    "AlignmentLevel",
-    "AlignmentMethod",
-    # Domain Model
-    "Principle",
     "PrincipleAlignment",
-    "PrincipleApplicationIntelligence",
-    # Enums
-    "PrincipleCategory",
     "PrincipleConflict",
-    # Request Models
-    "PrincipleCreateRequest",
-    # DTO
-    "PrincipleDTO",
     "PrincipleDecision",
     "PrincipleExpression",
-    "PrincipleExpressionRequest",
-    "PrincipleFilterRequest",
-    # Intelligence Models
-    "PrincipleIntelligence",
-    "PrincipleLinkRequest",
-    "PrincipleSource",
-    "PrincipleStrength",
-    "PrincipleUpdateRequest",
-    "ValueConflictIntensity",
-    "create_principle_application_intelligence",
-    "create_principle_intelligence",
+    "PrincipleReflection",
+    "PrincipleReflectionDTO",
 ]

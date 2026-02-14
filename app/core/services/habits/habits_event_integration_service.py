@@ -22,8 +22,8 @@ from datetime import date, timedelta
 from typing import Any
 
 from core.models.enums import RecurrencePattern as HabitFrequency
-from core.models.habit.habit import Habit
-from core.models.habit.habit_dto import HabitDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.protocols.domain_protocols import HabitsOperations
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
@@ -150,7 +150,7 @@ class HabitsEventIntegrationService:
         if habit_result.is_error:
             return Result.fail(habit_result.expect_error())
 
-        habit = to_domain_model(habit_result.value, HabitDTO, Habit)
+        habit = to_domain_model(habit_result.value, KuDTO, Ku)
 
         event_suggestions = []
         start_date = date.today()
@@ -161,8 +161,8 @@ class HabitsEventIntegrationService:
             # Check if habit should occur on this day
             if self._should_occur_on_date(habit, event_date):
                 event = {
-                    "title": habit.name,
-                    "description": f"Maintain {habit.name} habit",
+                    "title": habit.title,
+                    "description": f"Maintain {habit.title} habit",
                     "reinforces_habit_uid": habit_uid,
                     "event_date": event_date.isoformat(),
                     "duration_minutes": habit.duration_minutes,
@@ -188,7 +188,7 @@ class HabitsEventIntegrationService:
     # PRIVATE HELPER METHODS
     # ========================================================================
 
-    def _should_occur_on_date(self, habit: Habit, check_date: date) -> bool:
+    def _should_occur_on_date(self, habit: Ku, check_date: date) -> bool:
         """
         Check if habit should occur on a specific date based on recurrence pattern.
 

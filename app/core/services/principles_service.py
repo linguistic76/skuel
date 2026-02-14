@@ -4,11 +4,13 @@ Enhanced Principles Service - Facade Pattern
 
 Principles service facade that delegates to specialized sub-services.
 This service provides a unified interface while maintaining clean separation of concerns.
+Uses unified Ku model with KuType.PRINCIPLE discrimination.
 
-Version: 5.0.0
-Date: 2025-11-28
+Version: 6.0.0
+Date: 2026-02-11
 
 Changelog:
+- v6.0.0 (2026-02-11): Migrated to unified Ku model — Principle → Ku with KuType.PRINCIPLE
 - v5.0.0 (2025-11-28): Added PrinciplesSearchService implementing DomainSearchOperations[Principle]
   Removed custom backend property (code smell) - using inherited BaseService.backend
   Delegated search methods to self.search sub-service
@@ -19,7 +21,7 @@ Changelog:
 
 Sub-Services:
 - PrinciplesCoreService: CRUD operations for principles
-- PrinciplesSearchService: Search and discovery (DomainSearchOperations[Principle] protocol)
+- PrinciplesSearchService: Search and discovery (DomainSearchOperations[Ku] protocol)
 - PrinciplesAlignmentService: Alignment assessment and motivational intelligence
 - PrinciplesLearningService: Learning path integration and framing
 - UnifiedRelationshipService (PRINCIPLES_CONFIG): Cross-domain links and integrity calculation
@@ -32,8 +34,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.principle.principle import Principle, PrincipleCategory
-from core.models.principle.principle_dto import PrincipleDTO
+from core.models.enums.ku_enums import PrincipleCategory
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 
@@ -76,7 +79,7 @@ if TYPE_CHECKING:
 # principles_alignment_service to avoid type duplication issues
 
 
-class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations, Principle]):
+class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations, Ku]):
     """
     Principles service facade with specialized sub-services.
 
@@ -110,8 +113,8 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     # ========================================================================
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
-        dto_class=PrincipleDTO,
-        model_class=Principle,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
@@ -285,8 +288,8 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Principle entities."""
-        return "Principle"
+        """Return the graph label for Principle (Ku) entities."""
+        return "Ku"
 
     # ========================================================================
     # CORE CRUD OPERATIONS - Delegate to PrinciplesCoreService
@@ -302,7 +305,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         category: PrincipleCategory,
         why_matters: str,
         **kwargs: Any,
-    ) -> Result[Principle]:
+    ) -> Result[Ku]:
         """Create a new principle."""
         return await self.core.create_principle(label, description, category, why_matters, **kwargs)
 
@@ -380,7 +383,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         query: str,
         filters: dict[str, Any] | None = None,
         limit: int = 50,
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """
         Search principles by text query. Delegates to PrinciplesSearchService.
 
@@ -425,7 +428,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         Returns:
             Result with list of unique sources
         """
-        from core.models.principle.principle import PrincipleSource
+        from core.models.enums.ku_enums import PrincipleSource
         from core.utils.result_simplified import Result
 
         # Return all PrincipleSource enum values
@@ -434,7 +437,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
 
     async def get_prioritized_principles(
         self, user_uid: str, limit: int = 10
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """
         Get principles prioritized for user context. Delegates to PrinciplesSearchService.
 

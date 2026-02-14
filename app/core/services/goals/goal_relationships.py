@@ -1,16 +1,10 @@
 """
 Goal Relationships Helper (Graph-Native Pattern)
-====================================
 
 Container for goal relationship data fetched from graph.
-Replaces direct field access in Goal model methods.
+Follows the Domain Relationships Pattern used across all activity domains.
 
-Graph-Native Migration:
-- Before: Goal methods accessed self.aligned_learning_path_uids directly
-- After: Goal methods receive GoalRelationships parameter with relationship data
-- Service layer fetches relationships via GoalsRelationshipService
-
-Philosophy: "Relationships ARE the data structure, not serialized lists"
+See: /docs/patterns/DOMAIN_RELATIONSHIPS_PATTERN.md
 """
 
 from __future__ import annotations
@@ -36,7 +30,7 @@ GOAL_QUERY_SPECS: list[tuple[str, str]] = [
     ("critical_habit_uids", "critical_habits"),
     ("optional_habit_uids", "optional_habits"),
     ("guiding_principle_uids", "principles"),
-    ("milestone_uids", "milestones"),  # Phase 2: Milestones as graph nodes
+    ("milestone_uids", "milestones"),
     ("serves_life_path_uids", "life_path"),
 ]
 
@@ -46,26 +40,10 @@ class GoalRelationships:
     """
     Container for all goal relationship data (fetched from Neo4j graph).
 
-    Usage Pattern (Service Layer):
-        # Fetch all relationships in parallel
-        goal = await service.get_goal(uid)
-        rels = await GoalRelationships.fetch(goal.uid, service.relationships)
-
-        # Pass to Goal methods that need relationship data
-        context = goal.get_curriculum_context(rels)
-        score = goal.curriculum_support_score(rels)
-        is_curriculum = goal.is_curriculum_goal(rels)
-
-    Benefits:
-    - Single fetch operation for all relationships (performance)
-    - Explicit about what data each method needs (clarity)
-    - No stale data (always fresh from graph)
-    - Easy to mock for testing
-
-    Migration Notes:
-    - Replaces 5 relationship fields in Goal model
-    - Used in 30+ Goal model methods
-    - See: /docs/migrations/PHASE_3B_REFACTORING_PLAN.md
+    Usage:
+        rels = await GoalRelationships.fetch(goal_uid, service.relationships)
+        if rels.required_knowledge_uids:
+            knowledge_score = len(rels.required_knowledge_uids) * 0.2
     """
 
     # Learning path relationships
@@ -87,44 +65,28 @@ class GoalRelationships:
     # Principle relationships
     guiding_principle_uids: list[str] = field(default_factory=list)
 
-    # Milestone relationships (Phase 2: Milestones as graph nodes)
-    # Graph relationship: (goal)-[:HAS_MILESTONE]->(milestone)
+    # Milestone relationships
     milestone_uids: list[str] = field(default_factory=list)
 
     # Life path alignment
     serves_life_path_uids: list[str] = field(default_factory=list)
 
     @classmethod
-    async def fetch(cls, goal_uid: str, service: GoalsRelationshipService) -> GoalRelationships:
-        """
-        Fetch all relationship data from graph in parallel.
-
-        Performs 9 graph queries concurrently using asyncio.gather() for optimal performance.
-        Each query maps to one relationship type in the Goal model.
-
-        Args:
-            goal_uid: UID of goal to fetch relationships for
-            service: GoalsRelationshipService instance (provides graph query methods)
-
-        Returns:
-            GoalRelationships instance with all relationship data
-
-        Example:
-            service = services.goals
-            rels = await GoalRelationships.fetch("goal_123", service.relationships)
-            print(f"Goal requires {len(rels.required_knowledge_uids)} knowledge units")
-            print(f"Goal has {len(rels.essential_habit_uids)} essential habits")
-
-        Performance:
-        - 9 parallel queries vs 9 sequential = ~70% faster
-        - Single fetch vs per-method queries = 50-60% improvement
-        """
+    async def fetch(
+        cls, goal_uid: str, service: GoalsRelationshipService
+    ) -> GoalRelationships:
+        """Fetch all relationship data from graph in parallel."""
         return await fetch_relationships_parallel(
             uid=goal_uid,
             service=service,
             query_specs=GOAL_QUERY_SPECS,
             dataclass_type=cls,
         )
+
+    @classmethod
+    def empty(cls) -> GoalRelationships:
+        """Create empty GoalRelationships (for testing or new goals)."""
+        return cls()
 
     def has_curriculum_alignment(self) -> bool:
         """Check if goal has aligned learning paths."""
@@ -147,7 +109,7 @@ class GoalRelationships:
         return len(self.sub_goal_uids) > 0
 
     def has_milestones(self) -> bool:
-        """Check if goal has milestones (Phase 2: graph-native)."""
+        """Check if goal has milestones."""
         return len(self.milestone_uids) > 0
 
     def milestone_count(self) -> int:

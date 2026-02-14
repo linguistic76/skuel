@@ -25,13 +25,11 @@ from typing import Any
 
 from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.event.event import Event
 from core.models.finance.finance_pure import ExpensePure
-from core.models.goal.goal import Goal
-from core.models.habit.habit import Habit
 from core.models.ku.ku import Ku
+from core.models.ku.ku import Ku as Habit
 from core.models.query import build_prerequisite_chain
-from core.models.task.task import Task
+from core.models.ku.ku import Ku as Task
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -229,7 +227,7 @@ class CrossDomainQueries:
     @with_error_handling(
         error_type="database", operation="find_goals_for_habit", uid_param="habit_uid"
     )
-    async def find_goals_for_habit(self, habit_uid: str) -> Result[list[Goal]]:
+    async def find_goals_for_habit(self, habit_uid: str) -> Result[list[Ku]]:
         """
         Find goals that a habit contributes to.
 
@@ -349,7 +347,7 @@ class CrossDomainQueries:
     )
     async def find_events_reinforcing_knowledge(
         self, ku_uid: str, user_uid: str | None = None, upcoming_only: bool = False
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Find events that reinforce specific knowledge.
 
@@ -401,7 +399,7 @@ class CrossDomainQueries:
     @with_error_handling(
         error_type="database", operation="find_goals_supported_by_budget", uid_param="budget_uid"
     )
-    async def find_goals_supported_by_budget(self, budget_uid: str) -> Result[list[Goal]]:
+    async def find_goals_supported_by_budget(self, budget_uid: str) -> Result[list[Ku]]:
         """
         Find goals supported by a budget.
 
@@ -489,7 +487,7 @@ class CrossDomainQueries:
     @with_error_handling(
         error_type="database", operation="find_goal_for_task", uid_param="task_uid"
     )
-    async def find_goal_for_task(self, task_uid: str) -> Result[Goal | None]:
+    async def find_goal_for_task(self, task_uid: str) -> Result[Ku | None]:
         """
         Find goal that a task advances.
 
@@ -659,35 +657,35 @@ class CrossDomainQueries:
 
     def _neo4j_node_to_task(self, node) -> Task:
         """Convert Neo4j node to Task domain model."""
-        from core.models.task.task_dto import TaskDTO
+        from core.models.ku.ku_dto import KuDTO
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        dto = from_neo4j_node(dict(node), TaskDTO)
+        dto = from_neo4j_node(dict(node), KuDTO)
         return Task.from_dto(dto)
 
-    def _neo4j_node_to_event(self, node) -> Event:
+    def _neo4j_node_to_event(self, node) -> Ku:
         """Convert Neo4j node to Event domain model."""
-        from core.models.event.event_dto import EventDTO
+        from core.models.ku.ku_dto import KuDTO
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        dto = from_neo4j_node(dict(node), EventDTO)
-        return Event.from_dto(dto)
+        dto = from_neo4j_node(dict(node), KuDTO)
+        return Ku.from_dto(dto)
 
     def _neo4j_node_to_habit(self, node) -> Habit:
         """Convert Neo4j node to Habit domain model."""
-        from core.models.habit.habit_dto import HabitDTO
+        from core.models.ku.ku_dto import KuDTO as HabitDTO
         from core.utils.neo4j_mapper import from_neo4j_node
 
         dto = from_neo4j_node(dict(node), HabitDTO)
         return Habit.from_dto(dto)
 
-    def _neo4j_node_to_goal(self, node) -> Goal:
+    def _neo4j_node_to_goal(self, node) -> Ku:
         """Convert Neo4j node to Goal domain model."""
-        from core.models.goal.goal_dto import GoalDTO
+        from core.models.ku.ku_dto import KuDTO
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        dto = from_neo4j_node(dict(node), GoalDTO)
-        return Goal.from_dto(dto)
+        dto = from_neo4j_node(dict(node), KuDTO)
+        return Ku.from_dto(dto)
 
     def _neo4j_node_to_knowledge_unit(self, node) -> Ku:
         """Convert Neo4j node to Knowledge domain model."""

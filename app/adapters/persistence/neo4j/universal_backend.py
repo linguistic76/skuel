@@ -141,7 +141,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         ```python
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.enums import NeoLabel
-        from core.models.task.task import Task
+        from core.models.ku.ku import Ku as Task
 
         # Preferred: Use NeoLabel enum (type-safe, validated)
         tasks_backend = UniversalNeo4jBackend[Task](
@@ -4279,14 +4279,14 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
 def create_tasks_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
     """Create universal backend for tasks."""
-    from core.models.task.task import Task as TaskPure
+    from core.models.ku.ku import Ku as TaskPure
 
     return UniversalNeo4jBackend[TaskPure](driver, "Task", TaskPure)
 
 
 def create_events_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
     """Create universal backend for events."""
-    from core.models.event.event import Event as EventPure
+    from core.models.ku.ku import Ku as EventPure
 
     return UniversalNeo4jBackend[EventPure](driver, "Event", EventPure)
 
@@ -4300,7 +4300,7 @@ def create_finance_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
 
 def create_habits_backend(driver: AsyncDriver) -> UniversalNeo4jBackend:
     """Create universal backend for habits."""
-    from core.models.habit.habit import Habit as HabitPure
+    from core.models.ku.ku import Ku as HabitPure
 
     return UniversalNeo4jBackend[HabitPure](driver, "Habit", HabitPure)
 

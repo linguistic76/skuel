@@ -17,9 +17,6 @@ from datetime import datetime
 from typing import Any, Protocol, TypeVar, runtime_checkable
 
 # Import domain models (Tier 3 - Core)
-from core.models.choice.choice import Choice
-from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
-from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
 from core.models.finance.finance_pure import BudgetPure, ExpensePure
 from core.models.finance.finance_request import (
@@ -28,23 +25,26 @@ from core.models.finance.finance_request import (
     ExpenseCreateRequest,
     ExpenseUpdateRequest,
 )
-from core.models.goal.goal import Goal
-from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
-from core.models.habit.habit import Habit
-from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
 from core.models.ku.ku import Ku
-from core.models.ku.ku_request import KuCreateRequest, KuUpdateRequest
-from core.models.principle.principle import Principle as PrinciplePure
-from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
-from core.models.task.task import Task
+from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
+from core.models.ku.ku import Ku as Habit
+from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
+from core.models.ku.ku_nested_types import ChoiceOption
+from core.models.ku.ku_request import (
+    KuChoiceCreateRequest,
+    KuCreateRequest,
+    KuPrincipleCreateRequest,
+    KuUpdateRequest,
+)
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.services.protocols import HasUpdated, HasUpdatedAt, PydanticModel
 
 # Create aliases for Pure models (backward compatibility)
+Task = Ku  # Task domain unified into Ku (February 2026)
 TaskPure = Task
-EventPure = Event
+EventPure = Ku
 HabitPure = Habit
-GoalPure = Goal
+GoalPure = Ku  # Goal domain unified into Ku (February 2026)
 KuPure = Ku  # Knowledge Unit
 
 # Type variables for generic methods
@@ -400,12 +400,12 @@ class ConversionServiceV2:
     # NOTE: Journal conversions REMOVED (February 2026) - Journal merged into Reports
     # NOTE: Transcription conversions REMOVED (February 2026) - Three-tier models deleted
 
-    # --- Principle Conversions (three-tier migrated) ---
+    # --- Principle Conversions (unified Ku model) ---
     @classmethod
     def principle_create_to_pure(
-        cls, schema: PrincipleCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> PrinciplePure:
-        """Convert PrincipleCreateRequest to PrinciplePure using generic method."""
+        cls, schema: KuPrincipleCreateRequest, uid: str | None = None, **kwargs: Any
+    ) -> Ku:
+        """Convert KuPrincipleCreateRequest to Ku using generic method."""
         # Principle uses tuples for immutability, need to convert lists
         extra_fields = {}
         if schema.key_behaviors:
@@ -417,13 +417,13 @@ class ConversionServiceV2:
 
         # Merge kwargs (includes user_uid) with extra_fields
         extra_fields.update(kwargs)
-        return cls.create_to_pure(schema, PrinciplePure, uid, **extra_fields)
+        return cls.create_to_pure(schema, Ku, uid, **extra_fields)
 
     @classmethod
     def principle_update_to_pure(
-        cls, existing: PrinciplePure, schema: PrincipleUpdateRequest
-    ) -> PrinciplePure:
-        """Apply PrincipleUpdateRequest to existing PrinciplePure using generic method."""
+        cls, existing: Ku, schema: KuUpdateRequest
+    ) -> Ku:
+        """Apply KuUpdateRequest to existing Ku using generic method."""
         # Convert list fields to tuples for immutable model
         extra_updates = {}
         if schema.key_behaviors is not None:
@@ -438,8 +438,8 @@ class ConversionServiceV2:
     # --- Choice Conversions ---
     @classmethod
     def choice_create_to_pure(
-        cls, schema: ChoiceCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> Choice:
+        cls, schema: KuChoiceCreateRequest, uid: str | None = None, **kwargs: Any
+    ) -> Ku:
         """Convert ChoiceCreateRequest to Choice using generic method."""
         # Choice uses tuples for immutability, need to convert lists
         extra_fields = {}
@@ -451,8 +451,6 @@ class ConversionServiceV2:
             extra_fields["stakeholders"] = tuple(schema.stakeholders)
         if schema.options:
             # Convert ChoiceOptionCreateRequest list to ChoiceOption tuple
-            from core.models.choice.choice import ChoiceOption
-
             options = []
             for i, opt_req in enumerate(schema.options):
                 option_uid = f"{uid}_option_{i}" if uid else f"option_{i}"
@@ -473,10 +471,10 @@ class ConversionServiceV2:
 
         # Merge kwargs (includes user_uid) with extra_fields
         extra_fields.update(kwargs)
-        return cls.create_to_pure(schema, Choice, uid, **extra_fields)
+        return cls.create_to_pure(schema, Ku, uid, **extra_fields)
 
     @classmethod
-    def choice_update_to_pure(cls, existing: Choice, schema: ChoiceUpdateRequest) -> Choice:
+    def choice_update_to_pure(cls, existing: Ku, schema: KuUpdateRequest) -> Ku:
         """Apply ChoiceUpdateRequest to existing Choice using generic method."""
         # Convert list fields to tuples for immutable model
         extra_updates = {}
@@ -576,7 +574,7 @@ class ConversionServiceV2:
         Returns:
             Dict representation for service layer consumption
         """
-        from core.models.principle.principle import AlignmentLevel
+        from core.models.enums.ku_enums import AlignmentLevel
         from core.services.protocols.base_protocols import EnumLike
 
         # Extract fields from Pydantic model

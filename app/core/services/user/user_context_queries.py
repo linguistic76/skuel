@@ -250,7 +250,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      active_habit_uids, habit_metadata,
      habit, habit_linked_goals, habit_applied_knowledge,
-     collect(DISTINCT {uid: prereq_habit.uid, title: prereq_habit.name}) as habit_prerequisites
+     collect(DISTINCT {uid: prereq_habit.uid, title: prereq_habit.title}) as habit_prerequisites
 
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -312,7 +312,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals,
-     collect(DISTINCT {uid: event_habit.uid, title: event_habit.name})[0..10] as event_practiced_habits
+     collect(DISTINCT {uid: event_habit.uid, title: event_habit.title})[0..10] as event_practiced_habits
 
 OPTIONAL MATCH (event)-[:CONFLICTS_WITH]-(conflicting_event:Event)
 WHERE event IS NOT NULL AND conflicting_event.uid <> event.uid
@@ -402,7 +402,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
      principle, principle_grounded_knowledge, principle_guided_goals, principle_guided_choices,
-     collect(DISTINCT {uid: principle_habit.uid, title: principle_habit.name})[0..10] as principle_embodying_habits
+     collect(DISTINCT {uid: principle_habit.uid, title: principle_habit.title})[0..10] as principle_embodying_habits
 
 OPTIONAL MATCH (principle_task:Task)-[:ALIGNED_WITH_PRINCIPLE]->(principle)
 WHERE principle IS NOT NULL

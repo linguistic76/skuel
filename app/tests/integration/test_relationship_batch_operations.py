@@ -11,7 +11,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.task.task import Task
+from core.models.ku.ku import Ku as Task
 
 
 @pytest.mark.asyncio

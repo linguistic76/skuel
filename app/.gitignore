@@ -33,6 +33,9 @@ htmlcov/
 .tox/
 .hypothesis/
 
+# Claude Code
+.claude/settings.local.json
+
 # IDEs
 .vscode/
 .idea/

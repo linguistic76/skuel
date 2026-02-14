@@ -30,10 +30,10 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
 from core.models.enums.activity_enums import GoalStatus, ProgressLevel
-from core.models.goal.goal import Goal
-from core.models.goal.goal_dto import GoalDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.graph_context import GraphContext
-from core.models.habit.habit import Habit
+from core.models.ku.ku import Ku as Habit
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
@@ -91,7 +91,7 @@ class HabitImpactAnalysis:
     consistency_gap: float
 
 
-class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
+class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Ku]):
     """
     Graph intelligence service for goals using pure Cypher graph intelligence.
 
@@ -156,11 +156,11 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Goal, GoalDTO](
+            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
                 service=self,
                 backend_get_method="get_goal",
-                dto_class=GoalDTO,
-                model_class=Goal,
+                dto_class=KuDTO,
+                model_class=Ku,
                 domain=Domain.GOALS,
             )
 
@@ -170,8 +170,8 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Goal entities."""
-        return "Goal"
+        """Return the graph label for Ku entities."""
+        return "Ku"
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
@@ -179,7 +179,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Goal, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
         """
         Get goal with full graph context.
 
@@ -292,7 +292,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
     @requires_graph_intelligence("get_goal_with_context")
     async def get_goal_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Goal, GraphContext]]:
+    ) -> Result[tuple[Ku, GraphContext]]:
         """
         Get goal with full graph context using pure Cypher graph intelligence.
 
@@ -359,12 +359,12 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             return analysis_result
 
         analysis = analysis_result.value
-        goal = self._to_domain_model(analysis["entity"], GoalDTO, Goal)
+        goal = self._to_domain_model(analysis["entity"], KuDTO, Ku)
         context: GoalCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
         # GRAPH-NATIVE: Fetch relationships from graph (for additional knowledge requirements)
-        from core.models.goal.goal_relationships import GoalRelationships
+        from core.services.goals.goal_relationships import GoalRelationships
 
         rels = await GoalRelationships.fetch(uid, self.relationships)
 
@@ -501,7 +501,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             )
 
         analysis = analysis_result.value
-        goal = self._to_domain_model(analysis["entity"], GoalDTO, Goal)
+        goal = self._to_domain_model(analysis["entity"], KuDTO, Ku)
         context: GoalCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -595,7 +595,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             return analysis_result
 
         analysis = analysis_result.value
-        goal = self._to_domain_model(analysis["entity"], GoalDTO, Goal)
+        goal = self._to_domain_model(analysis["entity"], KuDTO, Ku)
         context: GoalCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -721,7 +721,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         goal = goal_result.value
 
         # Get supporting habits (from graph relationships)
-        from core.models.goal.goal_relationships import GoalRelationships
+        from core.services.goals.goal_relationships import GoalRelationships
 
         rels = await GoalRelationships.fetch(goal_uid, self.relationships)
 
@@ -816,7 +816,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
         # GRAPH-NATIVE: Fetch goal relationships from graph
-        from core.models.goal.goal_relationships import GoalRelationships
+        from core.services.goals.goal_relationships import GoalRelationships
 
         rels = await GoalRelationships.fetch(goal_uid, self.relationships)
 
@@ -852,7 +852,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
 
             analysis = HabitImpactAnalysis(
                 habit_uid=habit_uid,
-                habit_title=habit.name,  # Habit has "name" not "title"
+                habit_title=habit.title,
                 impact_score=impact_score,
                 criticality=criticality,
                 current_consistency=consistency,
@@ -901,7 +901,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         goal = goal_result.value
 
         # Fetch relationships from graph
-        from core.models.goal.goal_relationships import GoalRelationships
+        from core.services.goals.goal_relationships import GoalRelationships
 
         rels = await GoalRelationships.fetch(goal_uid, self.relationships)
 
@@ -951,7 +951,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
     # PREDICTIVE ANALYTICS HELPER METHODS
     # ========================================================================
 
-    def _calculate_progress_factor(self, goal: Goal) -> float:
+    def _calculate_progress_factor(self, goal: Ku) -> float:
         """Calculate progress factor based on current vs expected progress.
 
         Uses MetricsCalculator.sigmoid_scale for smooth scaling.
@@ -1012,7 +1012,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
 
         return result if result > 0 else 0.5
 
-    def _calculate_time_factor(self, goal: Goal) -> float:
+    def _calculate_time_factor(self, goal: Ku) -> float:
         """Calculate time pressure factor.
 
         Uses logarithmic scale: more time remaining = higher success probability.
@@ -1033,7 +1033,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         return MetricsCalculator.clamp(factor, min_val=0.1, max_val=1.0)
 
     async def _calculate_momentum_factor(
-        self, goal: Goal, habits: list[Habit], _lookback_days: int
+        self, goal: Ku, habits: list[Habit], _lookback_days: int
     ) -> float:
         """
         Calculate momentum based on recent trends.
@@ -1087,7 +1087,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         return MetricsCalculator.clamp(probability, min_val=0.05, max_val=0.95)
 
     def _predict_completion_date(
-        self, goal: Goal, success_probability: float, momentum: float
+        self, goal: Ku, success_probability: float, momentum: float
     ) -> date | None:
         """
         Predict when the goal will be completed.
@@ -1165,7 +1165,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             return "low"
 
     def _identify_risk_factors(
-        self, goal: Goal, habits: list[Habit], progress_factor: float, consistency_factor: float
+        self, goal: Ku, habits: list[Habit], progress_factor: float, consistency_factor: float
     ) -> list[str]:
         """Identify factors that might prevent goal achievement."""
         risks = []
@@ -1193,7 +1193,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         return risks
 
     def _identify_success_factors(
-        self, goal: Goal, habits: list[Habit], progress_factor: float, consistency_factor: float
+        self, goal: Ku, habits: list[Habit], progress_factor: float, consistency_factor: float
     ) -> list[str]:
         """Identify factors supporting goal achievement."""
         factors = []
@@ -1219,7 +1219,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         return factors
 
     def _generate_prediction_recommendations(
-        self, goal: Goal, habits: list[Habit], success_probability: float, _risk_factors: list[str]
+        self, goal: Ku, habits: list[Habit], success_probability: float, _risk_factors: list[str]
     ) -> list[str]:
         """Generate actionable recommendations to improve success probability.
 
@@ -1242,7 +1242,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             )
             .add_conditional(
                 success_probability < 0.5 and weakest_habit is not None,
-                f"🔧 Fix '{weakest_habit.name}' - currently at {weakest_habit.success_rate * 100:.0f}%"
+                f"🔧 Fix '{weakest_habit.title}' - currently at {weakest_habit.success_rate * 100:.0f}%"
                 if weakest_habit
                 else "",
             )
@@ -1271,7 +1271,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             .build()
         )
 
-    async def _determine_trend(self, goal: Goal, habits: list[Habit], _lookback_days: int) -> str:
+    async def _determine_trend(self, goal: Ku, habits: list[Habit], _lookback_days: int) -> str:
         """Determine if goal achievement probability is improving, stable, or declining.
 
         Uses compare_progress_to_expected for standardized trend analysis.
@@ -1358,7 +1358,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         )
 
     async def _calculate_system_progress(
-        self, goal: Goal, _user_uid: str
+        self, goal: Ku, _user_uid: str
     ) -> tuple[ProgressLevel, float, list[str]]:
         """
         Calculate system progress from goal metrics.

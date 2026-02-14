@@ -19,8 +19,9 @@ from typing import Any
 from core.events import publish_event
 from core.models.enums import EntityType
 from core.models.enums.activity_enums import ActivityStatus
-from core.models.principle.principle import Principle, PrincipleCategory, PrincipleStrength
-from core.models.principle.principle_dto import PrincipleDTO
+from core.models.enums.ku_enums import PrincipleCategory, PrincipleStrength
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols.domain_protocols import PrinciplesOperations
@@ -33,7 +34,7 @@ from core.utils.sort_functions import get_principle_priority
 logger = get_logger(__name__)
 
 
-class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
+class PrinciplesCoreService(BaseService[PrinciplesOperations, Ku]):
     """
     Core service for principle CRUD operations.
 
@@ -66,8 +67,8 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=PrincipleDTO,
-        model_class=Principle,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(ActivityStatus.ARCHIVED.value,),
@@ -105,7 +106,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, principle: Principle) -> Result[None] | None:
+    def _validate_create(self, principle: Ku) -> Result[None] | None:
         """
         Validate principle creation with business rules.
 
@@ -143,7 +144,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Principle, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Ku, updates: dict[str, Any]) -> Result[None] | None:
         """
         Validate principle updates with business rules.
 
@@ -225,7 +226,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     # CORE CRUD OPERATIONS
     # ========================================================================
 
-    async def get_principle(self, principle_uid: str) -> Result[Principle]:
+    async def get_principle(self, principle_uid: str) -> Result[Ku]:
         """
         Get a specific principle by UID.
 
@@ -236,7 +237,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             principle_uid: Principle UID
 
         Returns:
-            Result[Principle] - success contains Principle, not found is an error
+            Result[Ku] - success contains Principle, not found is an error
         """
         return await self.get(principle_uid)
 
@@ -248,7 +249,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         category: PrincipleCategory,
         why_matters: str,
         **kwargs: Any,
-    ) -> Result[Principle]:
+    ) -> Result[Ku]:
         """
         Create a new principle.
 
@@ -268,7 +269,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
         from core.utils.uid_generator import UIDGenerator
 
-        principle = Principle(
+        principle = Ku(
             uid=UIDGenerator.generate_random_uid("principle"),
             user_uid=user_uid,
             name=label,  # Map label → name
@@ -316,12 +317,12 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             await publish_event(self.event_bus, embedding_event, logger)
 
         logger.info(f"Created principle: {label}")
-        return result  # backend.create() already returns Result[Principle]
+        return result  # backend.create() already returns Result[Ku]
 
     @with_error_handling("update_principle", error_type="database", uid_param="principle_uid")
     async def update_principle(
         self, principle_uid: str, updates: dict[str, Any]
-    ) -> Result[Principle]:
+    ) -> Result[Ku]:
         """
         Update a principle.
 
@@ -381,7 +382,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     @with_error_handling("get_user_principles", error_type="database", uid_param="user_uid")
     async def get_user_principles(
         self, user_uid: str, strength_filter: PrincipleStrength | None = None
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """
         Get all principles for a user, optionally filtered by strength.
 
@@ -410,7 +411,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         return Result.ok(principles)
 
     @with_error_handling("get_principles_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_principles_for_goal(self, goal_uid: str) -> Result[list[Principle]]:
+    async def get_principles_for_goal(self, goal_uid: str) -> Result[list[Ku]]:
         """
         Get all principles that guide a specific goal.
 
@@ -454,7 +455,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         return Result.ok(principles)
 
     @with_error_handling("get_principles_for_habit", error_type="database", uid_param="habit_uid")
-    async def get_principles_for_habit(self, habit_uid: str) -> Result[list[Principle]]:
+    async def get_principles_for_habit(self, habit_uid: str) -> Result[list[Ku]]:
         """
         Get all principles that are aligned with a specific habit.
 
@@ -500,7 +501,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     @with_error_handling("get_user_items_in_range", error_type="database", uid_param="user_uid")
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Principle]]:
+    ) -> Result[list[Ku]]:
         """
         Get user's principles - standard interface for meta-services.
 
@@ -580,8 +581,8 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         for record in results.value:
             principle_data = record.get("n")
             if principle_data:
-                dto = PrincipleDTO.from_dict(principle_data)
-                principle = Principle.from_dto(dto)
+                dto = KuDTO.from_dict(principle_data)
+                principle = Ku.from_dto(dto)
                 principles.append(principle)
 
         self.logger.debug(f"Found {len(principles)} principles for user {user_uid}")
@@ -628,7 +629,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     # ========================================================================
 
     @with_error_handling("get_subprinciples", error_type="database", uid_param="parent_uid")
-    async def get_subprinciples(self, parent_uid: str, depth: int = 1) -> Result[list[Principle]]:
+    async def get_subprinciples(self, parent_uid: str, depth: int = 1) -> Result[list[Ku]]:
         """
         Get all subprinciples of a parent principle.
 
@@ -662,7 +663,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         principles = []
         for record in result.records:
             principle_data = dict(record["subprinciple"])
-            principle = self._to_domain_model(principle_data, PrincipleDTO, Principle)
+            principle = self._to_domain_model(principle_data, KuDTO, Ku)
             principles.append(principle)
 
         return Result.ok(principles)
@@ -670,7 +671,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     @with_error_handling(
         "get_parent_principle", error_type="database", uid_param="subprinciple_uid"
     )
-    async def get_parent_principle(self, subprinciple_uid: str) -> Result[Principle | None]:
+    async def get_parent_principle(self, subprinciple_uid: str) -> Result[Ku | None]:
         """
         Get immediate parent of a subprinciple (if any).
 
@@ -693,7 +694,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             return Result.ok(None)
 
         parent_data = dict(result.records[0]["parent"])
-        parent = self._to_domain_model(parent_data, PrincipleDTO, Principle)
+        parent = self._to_domain_model(parent_data, KuDTO, Ku)
         return Result.ok(parent)
 
     @with_error_handling(
@@ -752,7 +753,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_principle = self._to_domain_model(current_result.value, PrincipleDTO, Principle)
+        current_principle = self._to_domain_model(current_result.value, KuDTO, Ku)
 
         ancestors_result = await self.backend.driver.execute_query(
             ancestors_query, principle_uid=principle_uid
@@ -769,7 +770,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
             for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
                 principle_data = dict(node)
-                ancestors.append(self._to_domain_model(principle_data, PrincipleDTO, Principle))
+                ancestors.append(self._to_domain_model(principle_data, KuDTO, Ku))
 
         # Process siblings
         siblings = []
@@ -777,7 +778,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             for node in siblings_result.records[0]["siblings"]:
                 if node:  # Skip None values
                     principle_data = dict(node)
-                    siblings.append(self._to_domain_model(principle_data, PrincipleDTO, Principle))
+                    siblings.append(self._to_domain_model(principle_data, KuDTO, Ku))
 
         # Process children
         children = []
@@ -785,7 +786,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             for node in children_result.records[0]["children"]:
                 if node:  # Skip None values
                     principle_data = dict(node)
-                    children.append(self._to_domain_model(principle_data, PrincipleDTO, Principle))
+                    children.append(self._to_domain_model(principle_data, KuDTO, Ku))
 
         return Result.ok(
             {

@@ -20,9 +20,9 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import GoalCreated, publish_event
 from core.models.enums import ActivityStatus, Domain
-from core.models.goal.goal import Goal
-from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.ku.lp_position import LpPosition
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from core.services.relationships import UnifiedRelationshipService
 
 
-class GoalsLearningService(BaseService[GoalsOperations, Goal]):
+class GoalsLearningService(BaseService[GoalsOperations, Ku]):
     """
     Learning path integration service for goals.
 
@@ -72,8 +72,8 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=GoalDTO,
-        model_class=Goal,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
@@ -102,13 +102,13 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         self.relationships = relationships_service  # GRAPH-NATIVE: For fetching goal relationships
 
         # Initialize LearningAlignmentHelper for learning operations (Phase 4)
-        self.learning_helper = LearningAlignmentHelper[Goal, GoalDTO, GoalCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Ku, KuDTO, GoalCreateRequest](
             service=self,
             backend_get_method="get_goal",
             backend_get_user_method="get_user_goals",
             backend_create_method="create_goal",
-            dto_class=GoalDTO,
-            model_class=Goal,
+            dto_class=KuDTO,
+            model_class=Ku,
             domain=Domain.GOALS,
             entity_name="goal",
         )
@@ -120,7 +120,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Goal entities."""
-        return "Goal"
+        return "Ku"
 
     # ========================================================================
     # LEARNING-AWARE GOAL CREATION
@@ -128,7 +128,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
 
     async def create_goal_with_learning_integration(
         self, goal_request: GoalCreateRequest, learning_position: LpPosition | None = None
-    ) -> Result[Goal]:
+    ) -> Result[Ku]:
         """
         Create a goal integrated with user's learning path progression.
 
@@ -212,7 +212,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
 
     async def get_learning_supporting_goals(
         self, user_uid: str, learning_position: LpPosition
-    ) -> Result[list[Goal]]:
+    ) -> Result[list[Ku]]:
         """
         Get existing goals that support current learning path progression.
 
@@ -250,7 +250,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
+        goal = to_domain_model(goal_result.value, KuDTO, Ku)
 
         # Mutable accumulation variables
         supporting_paths_list: list[PathProgressData] = []
@@ -320,7 +320,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
     # CONTEXT-AWARE CHECKS
     # ========================================================================
 
-    async def get_goals_needing_habits(self, user_context: UserContext) -> Result[list[Goal]]:
+    async def get_goals_needing_habits(self, user_context: UserContext) -> Result[list[Ku]]:
         """
         Get goals that need habit reinforcement based on context.
 
@@ -337,13 +337,13 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         # Convert to Goal domain models
         goals = []
         for goal_data in goals_result.value:
-            goal = to_domain_model(goal_data, GoalDTO, Goal)
+            goal = to_domain_model(goal_data, KuDTO, Ku)
             goals.append(goal)
 
         # GRAPH-NATIVE: Check each goal's supporting habits from relationships
         needing_habits = []
         if self.relationships:
-            from core.models.goal.goal_relationships import GoalRelationships
+            from core.services.goals.goal_relationships import GoalRelationships
 
             for goal in goals:
                 rels = await GoalRelationships.fetch(goal.uid, self.relationships)
@@ -356,7 +356,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
 
         return Result.ok(needing_habits)
 
-    async def get_goals_blocked_by_knowledge(self, user_context: UserContext) -> Result[list[Goal]]:
+    async def get_goals_blocked_by_knowledge(self, user_context: UserContext) -> Result[list[Ku]]:
         """
         Get goals blocked by missing knowledge prerequisites.
 
@@ -373,13 +373,13 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         # Convert to Goal domain models
         goals = []
         for goal_data in goals_result.value:
-            goal = to_domain_model(goal_data, GoalDTO, Goal)
+            goal = to_domain_model(goal_data, KuDTO, Ku)
             goals.append(goal)
 
         # GRAPH-NATIVE: Check each goal's required knowledge from relationships
         blocked_goals = []
         if self.relationships:
-            from core.models.goal.goal_relationships import GoalRelationships
+            from core.services.goals.goal_relationships import GoalRelationships
 
             for goal in goals:
                 rels = await GoalRelationships.fetch(goal.uid, self.relationships)

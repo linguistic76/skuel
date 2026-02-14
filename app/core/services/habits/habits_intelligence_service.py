@@ -21,8 +21,8 @@ from core.events.habit_events import HabitMissed, HabitStreakBroken
 from core.models.enums import Domain
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.graph_context import GraphContext
-from core.models.habit.habit import Habit
-from core.models.habit.habit_dto import HabitDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     from core.services.protocols.domain_protocols import HabitsRelationshipOperations
 
 
-class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
+class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Ku]):
     """
     Pure Cypher graph intelligence service for habits.
 
@@ -119,11 +119,11 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
 
         # Initialize GraphContextOrchestrator for generic get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Habit, HabitDTO](
+            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
                 service=self,
                 backend_get_method="get_habit",
-                dto_class=HabitDTO,
-                model_class=Habit,
+                dto_class=KuDTO,
+                model_class=Ku,
                 domain=Domain.HABITS,
             )
 
@@ -144,7 +144,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
 
     async def get_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Habit, GraphContext]]:
+    ) -> Result[tuple[Ku, GraphContext]]:
         """
         Get habit with full graph context.
 
@@ -251,7 +251,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
     @requires_graph_intelligence("get_habit_with_context")
     async def get_habit_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Habit, GraphContext]]:
+    ) -> Result[tuple[Ku, GraphContext]]:
         """
         Get habit with full graph context using pure Cypher graph intelligence.
 
@@ -388,7 +388,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
+        habit = self._to_domain_model(analysis["entity"], KuDTO, Ku)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -496,7 +496,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
+        habit = self._to_domain_model(analysis["entity"], KuDTO, Ku)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -616,7 +616,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
+        habit = self._to_domain_model(analysis["entity"], KuDTO, Ku)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -678,7 +678,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
     # PRIVATE HELPER METHODS
     # ========================================================================
 
-    def _calculate_practice_effectiveness(self, habit: Habit, knowledge_count: int) -> float:
+    def _calculate_practice_effectiveness(self, habit: Ku, knowledge_count: int) -> float:
         """Calculate practice effectiveness score for knowledge reinforcement.
 
         Uses MetricsCalculator for consistent calculations.
@@ -840,7 +840,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
 
         # 5. Log structured insights
         self.logger.info(
-            f"Habit streak broken: {habit.name}",
+            f"Habit streak broken: {habit.title}",
             extra={
                 "habit_uid": event.habit_uid,
                 "user_uid": event.user_uid,
@@ -946,7 +946,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
 
         # 5. Log structured insights
         self.logger.info(
-            f"Habit missed: {habit.name}",
+            f"Habit missed: {habit.title}",
             extra={
                 "habit_uid": event.habit_uid,
                 "user_uid": event.user_uid,
@@ -985,7 +985,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                     user_uid=event.user_uid,
                     insight_type=InsightType.DIFFICULTY_PATTERN,
                     domain="habits",
-                    title=f"{habit.name}: Difficulty Detected",
+                    title=f"{habit.title}: Difficulty Detected",
                     description=f"You've missed this habit {consecutive_misses} times in a row.",
                     confidence=0.85,
                     impact=impact,
@@ -1098,7 +1098,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         )
 
     async def _calculate_system_consistency(
-        self, habit: Habit, _user_uid: str
+        self, habit: Ku, _user_uid: str
     ) -> tuple[ConsistencyLevel, float, list[str]]:
         """
         Calculate system consistency from habit metrics.

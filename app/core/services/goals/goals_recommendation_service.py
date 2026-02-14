@@ -155,18 +155,19 @@ class GoalsRecommendationService:
             return None
 
         query = """
-        MATCH (goal:Goal {uid: $goal_uid, user_uid: $user_uid})
+        MATCH (goal:Ku {uid: $goal_uid, user_uid: $user_uid, ku_type: 'goal'})
 
         // Get related knowledge
         OPTIONAL MATCH (goal)-[:REQUIRES_KNOWLEDGE]->(ku:Ku)
+        WHERE ku.ku_type = 'knowledge_unit'
         WITH goal, collect(DISTINCT {uid: ku.uid, title: ku.title, domain: ku.domain}) as knowledge_units
 
         // Get related habits
-        OPTIONAL MATCH (goal)-[:SUPPORTS_GOAL]->(habit:Habit)
-        WITH goal, knowledge_units, collect(DISTINCT {uid: habit.uid, title: habit.name}) as habits
+        OPTIONAL MATCH (goal)-[:SUPPORTS_GOAL]->(habit:Ku {ku_type: 'habit'})
+        WITH goal, knowledge_units, collect(DISTINCT {uid: habit.uid, title: habit.title}) as habits
 
         // Get guiding principles
-        OPTIONAL MATCH (goal)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
+        OPTIONAL MATCH (goal)-[:GUIDED_BY_PRINCIPLE]->(principle:Ku {ku_type: 'principle'})
         WITH goal, knowledge_units, habits, collect(DISTINCT {uid: principle.uid, title: principle.title}) as principles
 
         RETURN goal.uid as uid,

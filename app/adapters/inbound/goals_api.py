@@ -19,7 +19,7 @@ from core.infrastructure.routes import (
     StatusTransition,
 )
 from core.models.enums import ContentScope
-from core.models.goal.goal import Goal
+from core.models.ku.ku import Ku
 from core.services.protocols.facade_protocols import GoalsFacadeProtocol
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Result
@@ -201,7 +201,7 @@ def create_goals_api_routes(
 
     @rt("/api/goals/by-category")
     @boundary_handler()
-    async def get_goals_by_category_route(request: Request, category: str) -> Result[list[Goal]]:
+    async def get_goals_by_category_route(request: Request, category: str) -> Result[list[Ku]]:
         """Get goals in a specific category."""
         params = dict(request.query_params)
 
@@ -211,7 +211,7 @@ def create_goals_api_routes(
 
     @rt("/api/goals/by-status")
     @boundary_handler()
-    async def get_goals_by_status_route(request: Request, status: str) -> Result[list[Goal]]:
+    async def get_goals_by_status_route(request: Request, status: str) -> Result[list[Ku]]:
         """Get goals by status."""
         params = dict(request.query_params)
 
@@ -224,7 +224,7 @@ def create_goals_api_routes(
 
     @rt("/api/goals/search")
     @boundary_handler()
-    async def search_goals_route(request: Request) -> Result[list[Goal]]:
+    async def search_goals_route(request: Request) -> Result[list[Ku]]:
         """Search goals by title or description."""
         params = dict(request.query_params)
 
@@ -235,7 +235,7 @@ def create_goals_api_routes(
 
     @rt("/api/goals/due-soon")
     @boundary_handler()
-    async def get_goals_due_soon_route(request: Request) -> Result[list[Goal]]:
+    async def get_goals_due_soon_route(request: Request) -> Result[list[Ku]]:
         """Get goals due soon."""
         params = dict(request.query_params)
         days_ahead = int(params.get("days", 7))
@@ -244,7 +244,7 @@ def create_goals_api_routes(
 
     @rt("/api/goals/overdue")
     @boundary_handler()
-    async def get_overdue_goals_route(request: Request) -> Result[list[Goal]]:
+    async def get_overdue_goals_route(request: Request) -> Result[list[Ku]]:
         """Get overdue goals."""
         params = dict(request.query_params)
         limit = int(params.get("limit", 100))

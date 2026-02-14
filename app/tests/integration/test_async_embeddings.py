@@ -210,7 +210,7 @@ class TestEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title + description
         """
-        from core.models.task.task import Task
+        from core.models.ku.ku import Ku as Task
 
         task = Task(
             uid="task.test",
@@ -232,7 +232,7 @@ class TestEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title only
         """
-        from core.models.task.task import Task
+        from core.models.ku.ku import Ku as Task
 
         task = Task(
             uid="task.test",
@@ -326,9 +326,9 @@ class TestGoalEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns all three fields combined
         """
-        from core.models.goal.goal import Goal
+        from core.models.ku.ku import Ku
 
-        goal = Goal(
+        goal = Ku(
             uid="goal.test",
             user_uid="user.test",
             title="Learn Machine Learning",
@@ -349,9 +349,9 @@ class TestGoalEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title only
         """
-        from core.models.goal.goal import Goal
+        from core.models.ku.ku import Ku
 
-        goal = Goal(
+        goal = Ku(
             uid="goal.test",
             user_uid="user.test",
             title="Get fit",
@@ -437,9 +437,9 @@ class TestEventEmbeddingEvents:
         event_bus.subscribe(EventEmbeddingRequested, capture_event)
 
         # Create event
-        from core.models.event.event import Event
+        from core.models.ku.ku import Ku
 
-        event_entity = Event(
+        event_entity = Ku(
             uid="event.test",
             user_uid=user_uid,
             title="Team Meeting",
@@ -487,9 +487,9 @@ class TestChoiceEmbeddingEvents:
         event_bus.subscribe(ChoiceEmbeddingRequested, capture_event)
 
         # Create choice
-        from core.models.choice.choice_request import ChoiceCreateRequest
+        from core.models.ku.ku_request import KuChoiceCreateRequest
 
-        request = ChoiceCreateRequest(
+        request = KuChoiceCreateRequest(
             title="Career Path Decision",
             description="Choose between staying at current company or joining startup",
             decision_context="Looking for growth opportunities",
@@ -534,7 +534,7 @@ class TestPrincipleEmbeddingEvents:
         event_bus.subscribe(PrincipleEmbeddingRequested, capture_event)
 
         # Create principle
-        from core.models.principle.principle import PrincipleCategory
+        from core.models.enums.ku_enums import PrincipleCategory
 
         result = await principles_service.create_principle(
             label="Continuous Learning",

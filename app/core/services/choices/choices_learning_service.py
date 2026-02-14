@@ -12,22 +12,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.choice.choice import Choice
-from core.models.choice.choice_dto import ChoiceDTO
-from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.enums import ActivityStatus, Domain, Priority
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_request import KuChoiceCreateRequest
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper
-from core.services.protocols.domain_protocols import ChoicesOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.ku.lp_position import LpPosition
+    from core.services.protocols import BackendOperations
 
 
-class ChoicesLearningService(BaseService[ChoicesOperations, Choice]):
+class ChoicesLearningService(BaseService["BackendOperations[Ku]", Ku]):
     """
     Learning path integration and guidance for choices.
 
@@ -62,14 +62,14 @@ class ChoicesLearningService(BaseService[ChoicesOperations, Choice]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=ChoiceDTO,
-        model_class=Choice,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="choices",
         date_field="decision_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
     )
 
-    def __init__(self, backend: ChoicesOperations) -> None:
+    def __init__(self, backend: "BackendOperations[Ku]") -> None:
         """
         Initialize choices learning service.
 
@@ -80,23 +80,23 @@ class ChoicesLearningService(BaseService[ChoicesOperations, Choice]):
         self.logger = get_logger("skuel.services.choices.learning")
 
         # Initialize LearningAlignmentHelper for learning operations (Phase 4)
-        self.learning_helper = LearningAlignmentHelper[Choice, ChoiceDTO, ChoiceCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[Ku, KuDTO, KuChoiceCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="get_user_choices",
             backend_create_method="create",
-            dto_class=ChoiceDTO,
-            model_class=Choice,
+            dto_class=KuDTO,
+            model_class=Ku,
             domain=Domain.CHOICES,
             entity_name="choice",
         )
 
     async def create_choice_with_learning_guidance(
         self,
-        choice_request: ChoiceCreateRequest,
+        choice_request: KuChoiceCreateRequest,
         user_uid: str,
         learning_position: LpPosition | None = None,
-    ) -> Result[Choice]:
+    ) -> Result[Ku]:
         """
         Create a choice enhanced with learning path guidance.
 
@@ -227,7 +227,7 @@ class ChoicesLearningService(BaseService[ChoicesOperations, Choice]):
     @property
     def entity_label(self) -> str:
         """Return the graph label for Choice entities."""
-        return "Choice"
+        return "Ku"
 
     def _analyze_option_learning_impact(
         self, option: str, learning_position: LpPosition
@@ -346,11 +346,11 @@ class ChoicesLearningService(BaseService[ChoicesOperations, Choice]):
             Result containing choice outcome tracking in learning context
         """
         # Get the choice
-        choice_result = await self.backend.get_choice(choice_uid)
+        choice_result = await self.backend.get(choice_uid)
         if choice_result.is_error:
             return Result.fail(choice_result.expect_error())
 
-        choice = self._to_domain_model(choice_result.value, ChoiceDTO, Choice)
+        choice = self._to_domain_model(choice_result.value, KuDTO, Ku)
 
         # Use typed local variables for calculations
         learning_impact_score: float = 0.0

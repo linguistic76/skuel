@@ -16,8 +16,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
 from core.events.choice_events import ChoiceMade, ChoiceOutcomeRecorded
-from core.models.choice.choice import Choice
-from core.models.choice.choice_dto import ChoiceDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.enums import Domain
 from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
@@ -42,7 +42,6 @@ from core.services.intelligence import (
 from core.services.intelligence.path_aware_intelligence_helper import (
     PathAwareIntelligenceHelper,
 )
-from core.services.protocols.domain_protocols import ChoicesOperations
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_aligned_count, get_domain_choice_count
@@ -50,10 +49,11 @@ from core.utils.sort_functions import get_aligned_count, get_domain_choice_count
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.services.insight.insight_store import InsightStore
+    from core.services.protocols import BackendOperations
     from core.services.protocols.domain_protocols import ChoicesRelationshipOperations
 
 
-class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]):
+class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
     """
     Pure Cypher graph intelligence queries for choices.
 
@@ -91,7 +91,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
 
     def __init__(
         self,
-        backend: ChoicesOperations,
+        backend: "BackendOperations[Ku]",
         graph_intelligence_service=None,
         relationship_service: ChoicesRelationshipOperations | None = None,
         insight_store: InsightStore | None = None,
@@ -100,7 +100,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
         Initialize choices intelligence service.
 
         Args:
-            backend: Protocol-based backend for choice operations,
+            backend: Protocol-based backend for choice operations (Ku model)
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
             relationship_service: ChoicesRelationshipOperations protocol for specialized relationship queries
             insight_store: InsightStore for persisting event-driven insights (optional)
@@ -114,11 +114,11 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
 
         # Initialize GraphContextOrchestrator for get_with_context pattern (Phase 2)
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Choice, ChoiceDTO](
+            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
                 service=self,
                 backend_get_method="get",  # ChoicesService uses generic 'get'
-                dto_class=ChoiceDTO,
-                model_class=Choice,
+                dto_class=KuDTO,
+                model_class=Ku,
                 domain=Domain.CHOICES,
             )
 
@@ -131,8 +131,8 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Choice entities."""
-        return "Choice"
+        """Return the graph label for Choice entities (now Ku with ku_type filter)."""
+        return "Ku"
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
@@ -142,7 +142,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
 
     async def get_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Choice, GraphContext]]:
+    ) -> Result[tuple[Ku, GraphContext]]:
         """
         Get choice with full graph context.
 
@@ -239,7 +239,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
     @requires_graph_intelligence("get_choice_with_context")
     async def get_choice_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Choice, GraphContext]]:
+    ) -> Result[tuple[Ku, GraphContext]]:
         """
         Get choice with full graph context using pure Cypher graph intelligence.
 
@@ -368,7 +368,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
         if not choice_result.value:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
-        choice = choice_result.value  # backend.get() already returns Choice domain model
+        choice = choice_result.value  # backend.get() already returns Ku domain model
 
         # Get cross-domain context using relationship helper (Priority 2 refactoring)
         if self.relationships is None:
@@ -592,7 +592,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
         if not choice_result.value:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
-        choice = choice_result.value  # backend.get() already returns Choice domain model
+        choice = choice_result.value  # backend.get() already returns Ku domain model
 
         # Get cross-domain context with configurable depth
         if self.relationships is None:
@@ -860,7 +860,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
                 print(f"Simple decision: {metrics['stake_level']} complexity")
             ```
         """
-        from core.models.choice.choice_relationships import ChoiceRelationships
+        from core.services.choices.choice_relationships import ChoiceRelationships
 
         # ✅ Use fetch() for fast parallel UID fetching (~160ms vs ~250ms)
         rels = await ChoiceRelationships.fetch(choice_uid, self.relationships)
@@ -945,7 +945,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
         """
         import asyncio
 
-        from core.models.choice.choice_relationships import ChoiceRelationships
+        from core.services.choices.choice_relationships import ChoiceRelationships
 
         # ✅ Fetch all relationships in parallel (~4s for 100 choices vs ~8s sequential)
         all_rels = await asyncio.gather(
@@ -1243,7 +1243,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
             )
 
         # Group choices by domain
-        domain_choices: dict[str, list[Choice]] = defaultdict(list)
+        domain_choices: dict[str, list[Ku]] = defaultdict(list)
         for choice in choices:
             domain = getattr(choice, "domain", None)
             if domain:
@@ -1814,10 +1814,10 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
         """
         # Query for choices with principle alignment in the period
         query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_CHOICE]->(c:Choice)
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Ku {ku_type: 'choice'})
         WHERE c.created_at >= datetime() - duration({days: $period_days})
 
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Principle)
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Ku {ku_type: 'principle'})
 
         WITH c,
              collect(DISTINCT p.uid) AS principle_uids,
@@ -1958,16 +1958,16 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
         """
         # Query for choice and its principle relationships
         query = """
-        MATCH (c:Choice {uid: $choice_uid})
+        MATCH (c:Ku {uid: $choice_uid, ku_type: 'choice'})
 
         // Get aligned principles
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(aligned:Principle)
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(aligned:Ku {ku_type: 'principle'})
 
         // Get any conflicting principles
-        OPTIONAL MATCH (c)-[:CONFLICTS_WITH_PRINCIPLE]->(conflicting:Principle)
+        OPTIONAL MATCH (c)-[:CONFLICTS_WITH_PRINCIPLE]->(conflicting:Ku {ku_type: 'principle'})
 
         // Get user's core principles for comparison
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:HAS_PRINCIPLE]->(core:Principle)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(core:Ku {ku_type: 'principle'})
         WHERE core.strength IN ['CORE', 'STRONG']
 
         RETURN
@@ -2067,7 +2067,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
             - historical_correlation: float
             - recommendations: list[str]
         """
-        from core.models.choice.choice_relationships import ChoiceRelationships
+        from core.services.choices.choice_relationships import ChoiceRelationships
 
         # Get choice
         choice_result = await self.backend.get(choice_uid)
@@ -2100,9 +2100,9 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
         # Factor 3: Historical correlation (25% weight)
         # Query past decisions with similar patterns
         historical_query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_CHOICE]->(c:Choice)
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Ku {ku_type: 'choice'})
         WHERE c.satisfaction_score IS NOT NULL
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Principle)
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Ku {ku_type: 'principle'})
         WITH c, count(p) AS principle_count
         RETURN
             avg(CASE WHEN principle_count > 0 THEN c.satisfaction_score ELSE null END) AS aligned_avg,
@@ -2214,16 +2214,16 @@ class ChoicesIntelligenceService(BaseAnalyticsService[ChoicesOperations, Choice]
         """
         # Query for life path contribution via principles
         query = """
-        MATCH (c:Choice {uid: $choice_uid})
+        MATCH (c:Ku {uid: $choice_uid, ku_type: 'choice'})
 
         // Get user's life path
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Lp)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Ku {ku_type: 'learning_path'})
 
         // Direct contribution (if any)
         OPTIONAL MATCH (c)-[direct:SERVES_LIFE_PATH]->(lp)
 
         // Principle-mediated contribution
-        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Principle)
+        OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Ku {ku_type: 'principle'})
                        -[pserve:SERVES_LIFE_PATH]->(lp)
 
         RETURN

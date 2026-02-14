@@ -24,21 +24,21 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import ActivityStatus, RecurrencePattern
-from core.models.event.event import Event
-from core.models.event.event_dto import EventDTO
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.protocols.domain_protocols import EventsOperations
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_tuple_first
 
 if TYPE_CHECKING:
-    from core.models.event.event_request import EventCreateRequest
+    from core.models.ku.ku_request import KuEventCreateRequest
+    from core.services.protocols import BackendOperations
 
 
-class EventsSchedulingService(BaseService[EventsOperations, Event]):
+class EventsSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
     """
     Smart event scheduling and calendar management.
 
@@ -61,8 +61,8 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=EventDTO,
-        model_class=Event,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="events",
         date_field="event_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
@@ -71,7 +71,7 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
     # Configure BaseService
     _date_field = "event_date"
 
-    def __init__(self, backend: EventsOperations, event_bus=None) -> None:
+    def __init__(self, backend: "BackendOperations[Ku]", event_bus=None) -> None:
         """
         Initialize scheduling service.
 
@@ -84,8 +84,8 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Event entities."""
-        return "Event"
+        """Return the graph label for Ku entities."""
+        return "Ku"
 
     # ========================================================================
     # CONFLICT DETECTION
@@ -98,7 +98,7 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
         start_time: time | None,
         end_time: time | None,
         exclude_uid: str | None = None,
-    ) -> list[Event]:
+    ) -> list[Ku]:
         """
         Detect conflicting events on the same date/time.
 
@@ -147,7 +147,7 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
         start_time: time | None = None,
         end_time: time | None = None,
         exclude_uid: str | None = None,
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Check for conflicting events.
 
@@ -179,10 +179,10 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
     @with_error_handling("schedule_event_smart", error_type="database")
     async def schedule_event_smart(
         self,
-        event_data: "EventCreateRequest",
+        event_data: "KuEventCreateRequest",
         user_context: UserContext,
         avoid_conflicts: bool = True,
-    ) -> Result[Event]:
+    ) -> Result[Ku]:
         """
         Schedule an event with smart conflict avoidance.
 
@@ -218,7 +218,7 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
             )
 
         # Create DTO from request
-        dto = EventDTO.create(
+        dto = KuDTO.create_event(
             user_uid=user_context.user_uid,
             title=event_data.title,
             event_date=event_data.event_date,
@@ -241,7 +241,7 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        event = self._to_domain_model(create_result.value, EventDTO, Event)
+        event = self._to_domain_model(create_result.value, KuDTO, Ku)
 
         if conflicts:
             self.logger.warning(
@@ -467,7 +467,7 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
         preferred_time: time | None = None,
         days_to_create: int = 30,
         reinforces_habit_uid: str | None = None,
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Create optimized recurring events.
 
@@ -505,7 +505,7 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
         # Create events
         created_events = []
         for event_date in recommended_dates:
-            dto = EventDTO.create(
+            dto = KuDTO.create_event(
                 user_uid=user_uid,
                 title=title,
                 event_date=event_date,
@@ -519,7 +519,7 @@ class EventsSchedulingService(BaseService[EventsOperations, Event]):
 
             create_result = await self.backend.create_event(dto.to_dict())
             if create_result.is_ok:
-                event = self._to_domain_model(create_result.value, EventDTO, Event)
+                event = self._to_domain_model(create_result.value, KuDTO, Ku)
                 created_events.append(event)
 
         self.logger.info(f"Created {len(created_events)} recurring events")

@@ -21,9 +21,10 @@ from typing import TYPE_CHECKING, Any
 from core.events import GoalAchieved, GoalMilestoneReached, GoalProgressUpdated, publish_event
 from core.events.task_events import TaskCompleted
 from core.models.enums import ActivityStatus, Domain, GoalStatus
-from core.models.goal.goal import Goal, MeasurementType
-from core.models.goal.goal_dto import GoalDTO
-from core.models.goal.goal_relationships import GoalRelationships
+from core.models.enums.ku_enums import MeasurementType
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
+from core.services.goals.goal_relationships import GoalRelationships
 from core.models.graph_context import GraphContext
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -42,7 +43,7 @@ if TYPE_CHECKING:
     from core.services.relationships import UnifiedRelationshipService
 
 
-class GoalsProgressService(BaseService[GoalsOperations, Goal]):
+class GoalsProgressService(BaseService[GoalsOperations, Ku]):
     """
     Goal progress tracking and milestone management service.
 
@@ -76,8 +77,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     _config = create_activity_domain_config(
-        dto_class=GoalDTO,
-        model_class=Goal,
+        dto_class=KuDTO,
+        model_class=Ku,
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(ActivityStatus.COMPLETED.value,),
@@ -88,8 +89,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for Goal entities."""
-        return "Goal"
+        """Return the graph label for Ku entities."""
+        return "Ku"
 
     def __init__(
         self,
@@ -132,7 +133,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     #
     # ========================================================================
 
-    def _get_goal_from_rich_context(self, goal_uid: str, user_context: UserContext) -> Goal | None:
+    def _get_goal_from_rich_context(self, goal_uid: str, user_context: UserContext) -> Ku | None:
         """
         Try to get Goal entity from UserContext rich data.
 
@@ -144,7 +145,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             user_context: User's context (may contain rich goal data)
 
         Returns:
-            Goal if found in rich context, None otherwise
+            Ku if found in rich context, None otherwise
         """
         if not user_context.active_goals_rich:
             return None
@@ -210,7 +211,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                     )
         return None
 
-    def _dict_to_goal(self, goal_dict: dict[str, Any]) -> Goal:
+    def _dict_to_goal(self, goal_dict: dict[str, Any]) -> Ku:
         """
         Convert a goal dictionary from MEGA-QUERY to Goal domain model.
 
@@ -218,7 +219,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             goal_dict: Dict with goal properties from Neo4j
 
         Returns:
-            Goal domain model
+            Ku domain model
         """
         # Parse date fields
         target_date = goal_dict.get("target_date")
@@ -268,7 +269,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             tuple(milestones_list) if isinstance(milestones_list, list) else milestones_list
         )
 
-        return Goal(
+        return Ku(
             uid=goal_dict.get("uid", ""),
             user_uid=goal_dict.get("user_uid", ""),
             title=goal_dict.get("title", ""),
@@ -328,7 +329,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             goal_result = await self.backend.get_goal(goal_uid)
             if goal_result.is_error:
                 return Result.fail(goal_result.expect_error())
-            goal = to_domain_model(goal_result.value, GoalDTO, Goal)
+            goal = to_domain_model(goal_result.value, KuDTO, Ku)
             self.logger.debug(f"Goal {goal_uid} fetched from Neo4j (not in rich context)")
         else:
             self.logger.debug(f"Goal {goal_uid} found in rich context (no Neo4j query needed)")
@@ -392,7 +393,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
     async def complete_milestone(
         self, goal_uid: str, milestone_index: int, user_context: UserContext
-    ) -> Result[Goal]:
+    ) -> Result[Ku]:
         """
         Mark a milestone as complete and update goal progress.
 
@@ -408,7 +409,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
+        goal = to_domain_model(goal_result.value, KuDTO, Ku)
 
         if not goal.milestones or milestone_index >= len(goal.milestones):
             return Result.fail(
@@ -451,7 +452,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Context invalidation happens via GoalMilestoneReached/GoalAchieved events (event-driven architecture)
         # Event handlers in bootstrap will call user_service.invalidate_context()
 
-        updated_goal = to_domain_model(update_result.value, GoalDTO, Goal)
+        updated_goal = to_domain_model(update_result.value, KuDTO, Ku)
 
         self.logger.info(f"Completed milestone {milestone_index} for goal {goal_uid}")
 
@@ -489,7 +490,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
     async def update_goal_from_habit_progress(
         self, goal_uid: str, habit_uid: str, new_streak: int
-    ) -> Result[Goal]:
+    ) -> Result[Ku]:
         """
         Update goal progress based on habit streak changes.
 
@@ -505,12 +506,12 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
+        goal = to_domain_model(goal_result.value, KuDTO, Ku)
 
         # GRAPH-NATIVE: Fetch relationships from graph
         rels = None
         if self.relationships:
-            from core.models.goal.goal_relationships import GoalRelationships
+            from core.services.goals.goal_relationships import GoalRelationships
 
             rels = await GoalRelationships.fetch(goal_uid, self.relationships)
 
@@ -550,7 +551,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             if update_result.is_error:
                 return Result.fail(update_result.expect_error())
 
-            updated_goal = to_domain_model(update_result.value, GoalDTO, Goal)
+            updated_goal = to_domain_model(update_result.value, KuDTO, Ku)
 
             self.logger.info(
                 f"Updated goal {goal_uid} progress from habit {habit_uid} to {new_progress:.1f}%"
@@ -589,7 +590,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     # VELOCITY & FORECASTING HELPERS
     # ========================================================================
 
-    def calculate_velocity_metrics(self, context: GraphContext, goal: Goal) -> dict[str, float]:
+    def calculate_velocity_metrics(self, context: GraphContext, goal: Ku) -> dict[str, float]:
         """
         Calculate velocity metrics from graph context.
 
@@ -639,7 +640,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             "current_progress_rate": current_progress_rate,
         }
 
-    def generate_forecast(self, goal: Goal, current_progress_rate: float) -> dict[str, Any]:
+    def generate_forecast(self, goal: Ku, current_progress_rate: float) -> dict[str, Any]:
         """
         Generate completion forecast based on current progress rate.
 
@@ -679,7 +680,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         }
 
     def calculate_timeline_analysis(
-        self, goal: Goal, velocity_metrics: dict[str, float], days_ahead_or_behind: int
+        self, goal: Ku, velocity_metrics: dict[str, float], days_ahead_or_behind: int
     ) -> dict[str, Any]:
         """
         Calculate timeline analysis including required velocity and current pace.
@@ -821,7 +822,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if not goal_dto:
             return Result.fail(Errors.not_found(resource="Goal", identifier=uid))
 
-        goal = to_domain_model(goal_dto, GoalDTO, Goal)
+        goal = to_domain_model(goal_dto, KuDTO, Ku)
         old_progress = goal.progress_percentage or 0.0
 
         # Update progress
@@ -885,7 +886,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if not goal_dto:
             return Result.fail(Errors.not_found(resource="Goal", identifier=uid))
 
-        goal = to_domain_model(goal_dto, GoalDTO, Goal)
+        goal = to_domain_model(goal_dto, KuDTO, Ku)
 
         # Extract progress notes from DTO metadata
         metadata: dict[str, Any] = goal_dto.metadata or {}
@@ -939,14 +940,14 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing True if milestone was created
         """
-        from core.models.goal.goal import Milestone
+        from core.models.ku.ku_nested_types import Milestone
 
         # Get current goal
         goal_result = await self.backend.get_goal(uid)
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
+        goal = to_domain_model(goal_result.value, KuDTO, Ku)
 
         # Create new milestone with UID
         import uuid
@@ -988,7 +989,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
+        goal = to_domain_model(goal_result.value, KuDTO, Ku)
 
         # Convert milestones to dicts
         milestones = []
@@ -1046,7 +1047,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
 
             query = """
-            MATCH (goal:Goal)-[:SUPPORTS_GOAL]->(task:Task {uid: $task_uid})
+            MATCH (goal:Ku {ku_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Ku {uid: $task_uid, ku_type: 'task'})
             WHERE goal.user_uid = $user_uid
             RETURN goal.uid as goal_uid
             """
@@ -1112,10 +1113,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             return
 
         query = """
-        MATCH (goal:Goal {uid: $goal_uid})-[:SUPPORTS_GOAL]->(task:Task)
+        MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Ku {ku_type: 'task'})
         WHERE task.user_uid = $user_uid
         WITH count(task) as total_tasks
-        MATCH (goal:Goal {uid: $goal_uid})-[:SUPPORTS_GOAL]->(completed:Task)
+        MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(completed:Ku {ku_type: 'task'})
         WHERE completed.user_uid = $user_uid
           AND completed.status = 'completed'
         RETURN total_tasks, count(completed) as completed_tasks
@@ -1229,7 +1230,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
 
             query = """
-            MATCH (goal:Goal)-[:SUPPORTS_GOAL]->(habit:Habit {uid: $habit_uid})
+            MATCH (goal:Ku {ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Ku {uid: $habit_uid, ku_type: 'habit'})
             WHERE goal.user_uid = $user_uid
             RETURN goal.uid as goal_uid
             """
@@ -1298,10 +1299,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         # Query all habits linked to this goal and their average streak
         query = """
-        MATCH (goal:Goal {uid: $goal_uid})-[:SUPPORTS_GOAL]->(habit:Habit)
+        MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Ku {ku_type: 'habit'})
         WHERE habit.user_uid = $user_uid
         WITH count(habit) as total_habits
-        MATCH (goal:Goal {uid: $goal_uid})-[:SUPPORTS_GOAL]->(habit:Habit)
+        MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Ku {ku_type: 'habit'})
         WHERE habit.user_uid = $user_uid
         RETURN total_habits, avg(COALESCE(habit.current_streak, 0)) as avg_streak
         """

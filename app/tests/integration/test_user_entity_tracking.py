@@ -24,10 +24,10 @@ from datetime import datetime, timedelta
 import pytest
 
 from core.models.enums import ActivityStatus, Domain, GoalStatus, Priority, RecurrencePattern
-from core.models.event.event import Event
-from core.models.goal.goal import Goal
-from core.models.habit.habit import Habit, HabitStatus
-from core.models.task.task import Task
+from core.models.ku.ku import Ku
+from core.models.ku.ku import Ku as Habit
+from core.models.enums.ku_enums import KuStatus as HabitStatus
+from core.models.ku.ku import Ku as Task
 
 # ============================================================================
 # FIXTURES
@@ -119,7 +119,9 @@ async def test_task_relationship_auto_creation(tasks_backend, test_user_uid, cre
 @pytest.mark.asyncio
 async def test_event_relationship_auto_creation(events_backend, test_user_uid, create_test_users):
     """Test automatic user relationship creation for events."""
-    event = Event(
+    from core.models.ku.ku import Ku
+
+    event = Ku(
         uid="event_test_001",
         user_uid=test_user_uid,
         title="Test Event",
@@ -180,7 +182,7 @@ async def test_habit_relationship_auto_creation(habits_backend, test_user_uid, c
 @pytest.mark.asyncio
 async def test_goal_relationship_auto_creation(goals_backend, test_user_uid, create_test_users):
     """Test automatic user relationship creation for goals."""
-    goal = Goal(
+    goal = Ku(
         uid="goal_test_001",
         user_uid=test_user_uid,
         title="Test Goal",

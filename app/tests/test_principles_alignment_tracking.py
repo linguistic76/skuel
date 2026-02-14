@@ -15,15 +15,14 @@ from unittest.mock import AsyncMock
 import pytest
 
 from core.models.enums import Priority
-from core.models.principle.principle import (
-    AlignmentAssessment,
+from core.models.enums.ku_enums import (
     AlignmentLevel,
-    Principle,
     PrincipleCategory,
-    PrincipleExpression,
     PrincipleSource,
     PrincipleStrength,
 )
+from core.models.ku.ku import Ku
+from core.models.principle.principle_types import AlignmentAssessment, PrincipleExpression
 from core.services.principles.principles_alignment_service import PrinciplesAlignmentService
 from core.utils.result_simplified import Result
 
@@ -41,11 +40,10 @@ def alignment_service(mock_backend) -> PrinciplesAlignmentService:
 
 
 @pytest.fixture
-def sample_principle_with_alignment() -> Principle:
+def sample_principle_with_alignment() -> Ku:
     """Create sample principle with alignment history."""
-    from core.models.principle.principle import PrincipleExpression
-
-    return Principle(
+    return Ku(
+        ku_type="principle",
         uid="principle.integrity",
         user_uid="user.mike",  # REQUIRED - principle ownership
         title="Integrity",
@@ -80,9 +78,10 @@ def sample_principle_with_alignment() -> Principle:
 
 
 @pytest.fixture
-def sample_principle_no_alignment() -> Principle:
+def sample_principle_no_alignment() -> Ku:
     """Create sample principle without alignment history."""
-    return Principle(
+    return Ku(
+        ku_type="principle",
         uid="principle.growth",
         user_uid="user.mike",  # REQUIRED - principle ownership
         title="Growth",
@@ -191,7 +190,8 @@ class TestCalculateAverageAlignment:
     async def test_calculate_average_multiple_alignments(self, alignment_service, mock_backend):
         """Test average with multiple principles having different alignment levels."""
         # Create principles with different alignment levels
-        principle1 = Principle(
+        principle1 = Ku(
+            ku_type="principle",
             uid="p1",
             user_uid="user.mike",  # REQUIRED - principle ownership
             title="P1",
@@ -213,7 +213,8 @@ class TestCalculateAverageAlignment:
             updated_at=datetime.now(),
         )
 
-        principle2 = Principle(
+        principle2 = Ku(
+            ku_type="principle",
             uid="p2",
             user_uid="user.mike",  # REQUIRED - principle ownership
             title="P2",
