@@ -1080,7 +1080,7 @@ async def compose_services(
             driver, NeoLabel.INVOICE, InvoicePure, prometheus_metrics=prometheus_metrics
         )
         # NOTE: journals_backend REMOVED (February 2026) - Journal merged into Ku
-        # Journal entries are now Ku nodes with ku_type="assignment" and journal metadata
+        # Journal entries are now Ku nodes with ku_type="submission" and journal metadata
         transcription_backend = UniversalNeo4jBackend[Transcription](
             driver, NeoLabel.TRANSCRIPTION, Transcription, prometheus_metrics=prometheus_metrics
         )

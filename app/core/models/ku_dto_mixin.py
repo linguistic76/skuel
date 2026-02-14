@@ -8,14 +8,14 @@ Handles conditional user_uid validation based on KuType:
         CURRICULUM, MOC, LEARNING_STEP, LEARNING_PATH
 
     User-owned (user_uid required):
-        ASSIGNMENT, AI_REPORT, FEEDBACK_REPORT,
+        SUBMISSION, AI_REPORT, FEEDBACK_REPORT,
         TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE, LIFE_PATH
 
 UID generation per KuType:
     CURRICULUM/MOC:     ku_{slug}_{random}  (semantic UID from title)
     LEARNING_STEP:      ls_{random}
     LEARNING_PATH:      lp_{random}
-    ASSIGNMENT/AI/FB:   {userid}_ku_{type}_{random}  (user-namespaced)
+    SUBMISSION/AI/FB:   {userid}_ku_{type}_{random}  (user-namespaced)
     Activity domains:   {type}_{slug}_{random}  (semantic UID)
     LIFE_PATH:          lp_{random}  (LP with life path designation)
 
@@ -126,7 +126,7 @@ class KuDTOMixin:
                 return UIDGenerator.generate_uid(prefix, title)
             return UIDGenerator.generate_random_uid(prefix)
 
-        # Content processing (ASSIGNMENT, AI_REPORT, FEEDBACK_REPORT): user-namespaced
+        # Content processing (SUBMISSION, AI_REPORT, FEEDBACK_REPORT): user-namespaced
         user_id = user_uid.replace("user_", "") if user_uid else "unknown"
         type_suffix = ku_type.value
         return UIDGenerator.generate_random_uid(f"{user_id}_ku_{type_suffix}")

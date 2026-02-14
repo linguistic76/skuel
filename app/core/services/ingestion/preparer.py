@@ -117,7 +117,7 @@ async def prepare_entity_data_async(
         entity_data["uid"] = generate_uid(entity_type, file_path)
 
     # Handle content for markdown files (type-safe check)
-    if body is not None and entity_type in (KuType.CURRICULUM, KuType.ASSIGNMENT):
+    if body is not None and entity_type in (KuType.CURRICULUM, KuType.SUBMISSION):
         entity_data["content"] = body
 
     # Handle title fallback from filename
@@ -247,7 +247,7 @@ def prepare_entity_data_sync(
         entity_data["uid"] = generate_uid(entity_type, file_path)
 
     # Handle content for markdown files
-    if body is not None and entity_type in (KuType.CURRICULUM, KuType.ASSIGNMENT):
+    if body is not None and entity_type in (KuType.CURRICULUM, KuType.SUBMISSION):
         entity_data["content"] = body
 
     # Handle title fallback from filename

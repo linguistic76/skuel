@@ -895,7 +895,7 @@ def create_reports_ui_routes(_app, rt, _report_service, _processing_service):
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
-                ku_type=KuType.ASSIGNMENT,
+                ku_type=KuType.SUBMISSION,
                 processor_type=ProcessorType.HUMAN,
                 metadata={"identifier": identifier},
             )

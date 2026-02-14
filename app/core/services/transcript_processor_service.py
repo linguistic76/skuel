@@ -266,8 +266,8 @@ class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
         - Trending topics (last 30 days) for thematic continuity
         - Recent mood averages for emotional awareness
 
-        Updated February 2026: Queries Report nodes with ku_type="assignment"
-        (Journal→Report merge).
+        Updated February 2026: Queries Ku nodes with ku_type="submission"
+        (Journal→Report merge, assignment→submission rename).
 
         Args:
             user_uid: User identifier
@@ -280,7 +280,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
 
         // Recent journal-type reports (last 7 days)
         OPTIONAL MATCH (u)-[:OWNS]->(recent:Ku)
-        WHERE recent.ku_type = 'assignment'
+        WHERE recent.ku_type = 'submission'
           AND recent.created_at >= datetime() - duration('P7D')
         WITH u, collect({
             uid: recent.uid,
@@ -303,7 +303,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
 
         // Recent topics (from last 30 days) - journal-type reports
         OPTIONAL MATCH (u)-[:OWNS]->(j:Ku)
-        WHERE j.ku_type = 'assignment'
+        WHERE j.ku_type = 'submission'
           AND j.created_at >= datetime() - duration('P30D')
           AND j.key_topics IS NOT NULL
         WITH u, recent_journals, active_goals,
@@ -489,7 +489,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
         """
         Get recent journal entries for context awareness.
 
-        Updated February 2026: Queries Report nodes with ku_type="assignment".
+        Updated February 2026: Queries Ku nodes with ku_type="submission".
 
         Args:
             user_uid: User identifier
@@ -585,7 +585,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
         """
         Extract recurring topics from recent journals.
 
-        Updated February 2026: Queries Report nodes with ku_type="assignment".
+        Updated February 2026: Queries Ku nodes with ku_type="submission".
 
         Args:
             user_uid: User identifier
@@ -1391,7 +1391,7 @@ Return ONLY Markdown in this structure:
             event = ReportDeleted(
                 report_uid=uid,
                 user_uid=ku_user_uid,
-                ku_type="assignment",
+                ku_type="submission",
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
@@ -1452,7 +1452,7 @@ Return ONLY Markdown in this structure:
         ku = Ku(
             uid=UIDGenerator.generate_uid("ku"),
             user_uid=user_uid,
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.SUBMISSION,
             status=KuStatus.PROCESSING,
             title=insights.title,
             content=insights.formatted_content,
@@ -1491,7 +1491,7 @@ Return ONLY Markdown in this structure:
             Tuple of (matching reports, total_count)
         """
         # Get journal-type reports
-        filters: dict[str, Any] = {"ku_type": KuType.ASSIGNMENT.value}
+        filters: dict[str, Any] = {"ku_type": KuType.SUBMISSION.value}
         if user_uid:
             filters["user_uid"] = user_uid
 

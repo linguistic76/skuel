@@ -13,9 +13,9 @@ Ku nodes are the SINGLE SOURCE OF TRUTH for all knowledge.
 
 Four manifestations:
     CURRICULUM      → Admin-created shared knowledge (no owner)
-    ASSIGNMENT      → Student submission (user-owned), including journals
-    AI_REPORT       → AI-derived from assignment (user-owned)
-    FEEDBACK_REPORT → Teacher feedback on assignment (teacher-owned)
+    SUBMISSION      → Student submission (user-owned), including journals
+    AI_REPORT       → AI-derived from submission (user-owned)
+    FEEDBACK_REPORT → Teacher feedback on submission (teacher-owned)
 
 Journal-specific fields (mood, energy_level, entry_date, journal_type,
 journal_category, etc.) live in metadata — they are NOT first-class Ku fields.
@@ -287,7 +287,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         Args:
             limit: Maximum number of Ku entities to return
             user_uid: Optional user filter
-            ku_type: Optional type filter (e.g., ASSIGNMENT, AI_REPORT)
+            ku_type: Optional type filter (e.g., SUBMISSION, AI_REPORT)
 
         Returns:
             Result containing list of Ku entities
@@ -801,7 +801,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
     # ========================================================================
     # JOURNAL CRUD (merged from JournalsCoreService — February 2026)
     #
-    # Journals are ASSIGNMENT Ku with journal-specific fields in metadata:
+    # Journals are SUBMISSION Ku with journal-specific fields in metadata:
     #   metadata['journal_type'], metadata['journal_category'],
     #   metadata['entry_date'], metadata['mood'], metadata['energy_level'],
     #   metadata['key_topics'], metadata['action_items'],

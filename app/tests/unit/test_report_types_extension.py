@@ -39,19 +39,19 @@ class TestKuTypeEnum:
         assert KuType.CURRICULUM.is_processable() is False
 
     def test_assignment_is_processable(self):
-        assert KuType.ASSIGNMENT.is_processable() is True
+        assert KuType.SUBMISSION.is_processable() is True
 
     def test_curriculum_not_user_owned(self):
         assert KuType.CURRICULUM.is_user_owned() is False
 
     def test_assignment_is_user_owned(self):
-        assert KuType.ASSIGNMENT.is_user_owned() is True
+        assert KuType.SUBMISSION.is_user_owned() is True
 
     def test_feedback_report_is_user_owned(self):
         assert KuType.FEEDBACK_REPORT.is_user_owned() is True
 
     def test_is_derived(self):
-        assert KuType.ASSIGNMENT.is_derived() is True
+        assert KuType.SUBMISSION.is_derived() is True
         assert KuType.AI_REPORT.is_derived() is True
         assert KuType.FEEDBACK_REPORT.is_derived() is True
         assert KuType.CURRICULUM.is_derived() is False
@@ -69,7 +69,7 @@ class TestKuSubjectUid:
         ku = Ku(
             uid="ku_test_123",
             title="Test Ku",
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.SUBMISSION,
             user_uid="user_alice",
             status=KuStatus.COMPLETED,
         )
@@ -111,7 +111,7 @@ class TestKuSubjectUid:
         ku = Ku(
             uid="ku_test_123",
             title="My Submission",
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.SUBMISSION,
             user_uid="user_alice",
             status=KuStatus.COMPLETED,
         )
@@ -162,7 +162,7 @@ class TestKuConversions:
         ku = Ku(
             uid="ku_test_123",
             title="My Submission",
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.SUBMISSION,
             user_uid="user_alice",
             status=KuStatus.COMPLETED,
         )

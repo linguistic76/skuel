@@ -1563,7 +1563,7 @@ class ActivityEntityConverter:
             # ================================================================
             # CONTENT PROCESSING - KuType
             # ================================================================
-            case KuType.ASSIGNMENT:
+            case KuType.SUBMISSION:
                 return activity_to_report_dict(activity)
 
             # ================================================================

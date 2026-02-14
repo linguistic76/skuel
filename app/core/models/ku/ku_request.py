@@ -147,7 +147,7 @@ class KuCurriculumCreateRequest(CreateRequestBase):
 
 
 class KuAssignmentCreateRequest(CreateRequestBase):
-    """Create a student submission (ASSIGNMENT type)."""
+    """Create a student submission (SUBMISSION type)."""
 
     title: str = Field(min_length=1, max_length=200, description="Submission title")
 

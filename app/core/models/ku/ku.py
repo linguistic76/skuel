@@ -13,9 +13,9 @@ Immutable domain model for ALL knowledge in the system. 14 manifestations:
         LEARNING_STEP   → Step in a learning path
         LEARNING_PATH   → Ordered sequence of steps
     Content Processing:
-        ASSIGNMENT      → Student submission (user-owned)
-        AI_REPORT       → AI-derived from assignment
-        FEEDBACK_REPORT → Teacher feedback on assignment
+        SUBMISSION      → Student submission (user-owned)
+        AI_REPORT       → AI-derived from submission
+        FEEDBACK_REPORT → Teacher feedback on submission
     Activity (user-owned):
         TASK            → Knowledge about what needs doing
         GOAL            → Knowledge about where you're heading
@@ -115,7 +115,7 @@ class Ku:
     word_count: int = 0
 
     # =========================================================================
-    # FILE (ASSIGNMENT submissions)
+    # FILE (SUBMISSION uploads)
     # =========================================================================
     original_filename: str | None = None
     file_path: str | None = None
@@ -489,8 +489,8 @@ class Ku:
         return self.ku_type == KuType.CURRICULUM
 
     @property
-    def is_assignment(self) -> bool:
-        return self.ku_type == KuType.ASSIGNMENT
+    def is_submission(self) -> bool:
+        return self.ku_type == KuType.SUBMISSION
 
     @property
     def is_ai_report(self) -> bool:

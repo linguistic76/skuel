@@ -52,7 +52,7 @@ class Domain(str, Enum):
         synonyms = {
             Domain.KNOWLEDGE: ("knowledge", "learn", "study", "education", "info", "ku"),
             Domain.LEARNING: ("learning", "course", "path", "curriculum", "lp", "ls"),
-            Domain.TASKS: ("task", "todo", "work", "action", "assignment"),
+            Domain.TASKS: ("task", "todo", "work", "action"),
             Domain.HABITS: ("habit", "routine", "practice", "behavior", "pattern"),
             Domain.FINANCE: ("finance", "money", "budget", "expense", "income"),
             Domain.EVENTS: ("event", "calendar", "meeting", "appointment", "schedule"),

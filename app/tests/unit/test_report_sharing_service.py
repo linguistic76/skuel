@@ -254,7 +254,7 @@ async def test_get_kus_shared_with_me_success(sharing_service, mock_driver):
                     "uid": "report_123",
                     "user_uid": "user_owner",
                     "original_filename": "report.pdf",
-                    "ku_type": "assignment",
+                    "ku_type": "submission",
                     "status": "completed",
                     "file_path": "/path/to/file",
                     "file_size": 1024,
@@ -397,7 +397,7 @@ async def test_check_access_owner(sharing_service, mock_driver):
             {
                 "owner_uid": "user_owner",
                 "visibility": "private",
-                "ku_type": "assignment",
+                "ku_type": "submission",
                 "has_share_relationship": False,
             }
         ],
@@ -422,7 +422,7 @@ async def test_check_access_public(sharing_service, mock_driver):
             {
                 "owner_uid": "user_owner",
                 "visibility": "public",
-                "ku_type": "assignment",
+                "ku_type": "submission",
                 "has_share_relationship": False,
             }
         ],
@@ -447,7 +447,7 @@ async def test_check_access_shared_with_relationship(sharing_service, mock_drive
             {
                 "owner_uid": "user_owner",
                 "visibility": "shared",
-                "ku_type": "assignment",
+                "ku_type": "submission",
                 "has_share_relationship": True,
             }
         ],
@@ -472,7 +472,7 @@ async def test_check_access_shared_without_relationship(sharing_service, mock_dr
             {
                 "owner_uid": "user_owner",
                 "visibility": "shared",
-                "ku_type": "assignment",
+                "ku_type": "submission",
                 "has_share_relationship": False,
             }
         ],
@@ -497,7 +497,7 @@ async def test_check_access_private_not_owner(sharing_service, mock_driver):
             {
                 "owner_uid": "user_owner",
                 "visibility": "private",
-                "ku_type": "assignment",
+                "ku_type": "submission",
                 "has_share_relationship": False,
             }
         ],

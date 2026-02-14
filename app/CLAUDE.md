@@ -225,7 +225,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 
 **Content/Processing Domain (1)**:
 - **Reports** - All content submissions and AI/system-generated summaries. Uses unified Ku model with KuType discriminator:
-  - **File submissions** (KuType.ASSIGNMENT) — user uploads via `/reports/submit`, `ProcessorType.HUMAN`
+  - **File submissions** (KuType.SUBMISSION) — user uploads via `/reports/submit`, `ProcessorType.HUMAN`
   - **AI-processed** (KuType.JOURNAL) — admin uploads via `/journals/submit`, `ProcessorType.LLM`, uses KuProject instructions
   - **AI-generated** (KuType.AI_REPORT) — system-generated progress reports, `ProcessorType.AUTOMATIC`
   - **Teacher feedback** (KuType.FEEDBACK_REPORT) — teacher assessments with `subject_uid` for student
@@ -469,7 +469,7 @@ GraphDepth.DEFAULT                        # Named constants
 class KuType(str, Enum):
     TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE = ...  # Activity
     CURRICULUM, RESOURCE, MOC, LEARNING_STEP, LEARNING_PATH = ...  # Curriculum
-    JOURNAL, ASSIGNMENT, AI_REPORT, FEEDBACK_REPORT = ...  # Reports
+    JOURNAL, SUBMISSION, AI_REPORT, FEEDBACK_REPORT = ...  # Reports
     LIFE_PATH = "life_path"  # Destination
 
 # NonKuDomain — 4 non-Ku domains

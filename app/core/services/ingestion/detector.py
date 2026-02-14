@@ -42,9 +42,9 @@ TYPE_MAPPING: dict[str, KuType | NonKuDomain] = {
     # Finance
     "expense": NonKuDomain.FINANCE,
     "finance": NonKuDomain.FINANCE,
-    # Content/Processing (journal maps to ASSIGNMENT since Feb 2026 merge)
-    "journal": KuType.ASSIGNMENT,
-    "report": KuType.ASSIGNMENT,
+    # Content/Processing (journal maps to SUBMISSION since Feb 2026 merge)
+    "journal": KuType.SUBMISSION,
+    "report": KuType.SUBMISSION,
     # Destination
     "lifepath": KuType.LIFE_PATH,
 }

@@ -24,9 +24,9 @@ Nested Types:
 
 14 KuType manifestations:
     CURRICULUM      -> Admin-created shared knowledge
-    ASSIGNMENT      -> Student submission
-    AI_REPORT       -> AI-derived from assignment
-    FEEDBACK_REPORT -> Teacher feedback on assignment
+    SUBMISSION      -> Student submission
+    AI_REPORT       -> AI-derived from submission
+    FEEDBACK_REPORT -> Teacher feedback on submission
     TASK            -> Knowledge about what needs doing
     GOAL            -> Knowledge about where you're heading
     HABIT           -> Knowledge about what you practice

@@ -7,7 +7,7 @@ Handles file uploads and Ku record creation.
 Responsibilities:
 - Store uploaded files (local or cloud)
 - Create Ku records in Neo4j
-- Basic CRUD for user-owned Ku (ASSIGNMENT, AI_REPORT, FEEDBACK_REPORT)
+- Basic CRUD for user-owned Ku (SUBMISSION, AI_REPORT, FEEDBACK_REPORT)
 - Query by type, status, user
 
 Does NOT handle:
@@ -39,7 +39,7 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
     Service for file submission and Ku management.
 
     Handles file upload, storage, and Ku record creation for
-    user-owned Ku types (ASSIGNMENT, AI_REPORT, FEEDBACK_REPORT).
+    user-owned Ku types (SUBMISSION, AI_REPORT, FEEDBACK_REPORT).
     """
 
     # =========================================================================
@@ -97,7 +97,7 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
         file_content: bytes,
         original_filename: str,
         user_uid: str,
-        ku_type: KuType = KuType.ASSIGNMENT,
+        ku_type: KuType = KuType.SUBMISSION,
         processor_type: ProcessorType = ProcessorType.AUTOMATIC,
         file_type: str | None = None,
         title: str | None = None,
@@ -117,7 +117,7 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
             file_content: Raw file bytes
             original_filename: Original filename from upload
             user_uid: User submitting the file
-            ku_type: Type of Ku (default: ASSIGNMENT)
+            ku_type: Type of Ku (default: SUBMISSION)
             processor_type: Processor to use (default: AUTOMATIC)
             file_type: MIME type (optional, will detect from filename)
             title: Optional title (defaults to filename)

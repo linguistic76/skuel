@@ -13,9 +13,9 @@ Mutable data transfer object for ALL knowledge in the system. 14 manifestations:
         LEARNING_STEP   → Step in a learning path
         LEARNING_PATH   → Ordered sequence of steps
     Content Processing:
-        ASSIGNMENT      → Student submission (user-owned)
-        AI_REPORT       → AI-derived from assignment
-        FEEDBACK_REPORT → Teacher feedback on assignment
+        SUBMISSION      → Student submission (user-owned)
+        AI_REPORT       → AI-derived from submission
+        FEEDBACK_REPORT → Teacher feedback on submission
     Activity (user-owned):
         TASK            → Knowledge about what needs doing
         GOAL            → Knowledge about where you're heading
@@ -34,7 +34,7 @@ Uses KuDTOMixin for conditional user_uid validation:
 
 Factory methods per KuType for type-safe creation:
     KuDTO.create_curriculum(title, domain, ...)
-    KuDTO.create_assignment(user_uid, title, ...)
+    KuDTO.create_submission(user_uid, title, ...)
     KuDTO.create_ai_report(user_uid, title, parent_ku_uid, ...)
     KuDTO.create_feedback_report(user_uid, title, parent_ku_uid, ...)
 
@@ -274,7 +274,7 @@ class KuDTO(KuDTOMixin):
     word_count: int = 0
 
     # =========================================================================
-    # FILE (ASSIGNMENT submissions)
+    # FILE (SUBMISSION uploads)
     # =========================================================================
     original_filename: str | None = None
     file_path: str | None = None
@@ -622,19 +622,19 @@ class KuDTO(KuDTOMixin):
         )
 
     @classmethod
-    def create_assignment(
+    def create_submission(
         cls,
         user_uid: str,
         title: str,
         **kwargs: Any,
     ) -> KuDTO:
         """
-        Create an ASSIGNMENT Ku (student submission).
+        Create a SUBMISSION Ku (student submission).
 
         Requires user_uid. Status defaults to DRAFT, visibility to PRIVATE.
         """
         return cls._create_ku_dto(
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.SUBMISSION,
             title=title,
             user_uid=user_uid,
             **kwargs,

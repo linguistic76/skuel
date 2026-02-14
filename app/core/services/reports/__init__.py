@@ -10,7 +10,7 @@ File paths retain the 'reports' name for git history continuity.
 Architecture: Content/Processing Domain (not Activity Domain)
 - Handles file submission, processing pipelines, content management, and journals
 - Different from Activity domains (Tasks, Goals, etc.) which use facade pattern
-- Journals are ASSIGNMENT Ku with journal metadata (merged February 2026)
+- Journals are SUBMISSION Ku with journal metadata (merged February 2026)
 
 Sub-services:
 - KuSubmissionService: File upload and storage

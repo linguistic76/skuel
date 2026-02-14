@@ -5,7 +5,7 @@ Integration Test: Ku Processing Pipeline
 Tests the Ku processing pipeline for file submissions.
 
 NOTE (February 2026): Tests updated for unified Ku model.
-Reports are now Ku with ku_type=ASSIGNMENT.
+Reports are now Ku with ku_type=SUBMISSION.
 The KuProcessingService:
 - Routes files to appropriate processors based on file type
 - Audio files: transcribed via TranscriptionService
@@ -53,7 +53,7 @@ class TestOptionAJournalsProcessing:
             uid="report.test_transcript",
             title="Meeting Notes",
             user_uid="user.test",
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.SUBMISSION,
             status=KuStatus.SUBMITTED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",
@@ -239,7 +239,7 @@ class TestOptionAJournalsProcessing:
             uid="report.test_text",
             title="Notes",
             user_uid="user.test",
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.SUBMISSION,
             status=KuStatus.SUBMITTED,
             file_path="/tmp/test_notes.txt",
             file_type="text/plain",
@@ -310,7 +310,7 @@ class TestOptionAJournalsProcessing:
             uid="report.processing",
             title="Processing",
             user_uid="user.test",
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.SUBMISSION,
             status=KuStatus.PROCESSING,  # Already processing
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
@@ -343,7 +343,7 @@ class TestOptionAJournalsProcessing:
             uid="report.pdf",
             title="PDF Report",
             user_uid="user.test",
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.SUBMISSION,
             status=KuStatus.SUBMITTED,
             file_path="/tmp/test.pdf",
             file_type="application/pdf",  # Not yet supported
@@ -380,7 +380,7 @@ class TestOptionAJournalsProcessing:
             uid="report.transcript_type",
             title="Transcript",
             user_uid="user.test",
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.SUBMISSION,
             status=KuStatus.SUBMITTED,
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
@@ -392,7 +392,7 @@ class TestOptionAJournalsProcessing:
         )
 
         # Act & Assert
-        assert assignment_ku.ku_type == KuType.ASSIGNMENT
+        assert assignment_ku.ku_type == KuType.SUBMISSION
 
         # Can differentiate from other ku types
         curriculum_ku = Ku(
@@ -401,7 +401,7 @@ class TestOptionAJournalsProcessing:
             ku_type=KuType.CURRICULUM,
         )
 
-        assert curriculum_ku.ku_type != KuType.ASSIGNMENT
+        assert curriculum_ku.ku_type != KuType.SUBMISSION
         assert curriculum_ku.ku_type == KuType.CURRICULUM
 
     async def test_no_llm_processing_in_report_pipeline(
@@ -439,7 +439,7 @@ class TestOptionAJournalsProcessing:
             uid="report.test_transcript",
             title="Meeting Notes",
             user_uid="user.test",
-            ku_type=KuType.ASSIGNMENT,
+            ku_type=KuType.SUBMISSION,
             status=KuStatus.COMPLETED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",

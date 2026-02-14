@@ -49,9 +49,9 @@ class KuType(str, Enum):
             LEARNING_PATH   → Ordered sequence of steps
         Content Processing:
             JOURNAL         → Raw student submission (voice/text, informal)
-            ASSIGNMENT      → System-driven KU-associated work
-            AI_REPORT       → AI-derived from assignment/journal
-            FEEDBACK_REPORT → Teacher feedback on assignment
+            SUBMISSION      → Student-uploaded work (file submissions)
+            AI_REPORT       → AI-derived from submission/journal
+            FEEDBACK_REPORT → Teacher feedback on submission
         Activity (user-owned):
             TASK            → Knowledge about what needs doing
             GOAL            → Knowledge about where you're heading
@@ -81,7 +81,7 @@ class KuType(str, Enum):
 
     # Content processing (derivation chain)
     JOURNAL = "journal"
-    ASSIGNMENT = "assignment"
+    SUBMISSION = "submission"
     AI_REPORT = "ai_report"
     FEEDBACK_REPORT = "feedback_report"
 
@@ -146,11 +146,11 @@ class KuType(str, Enum):
 
     def is_derived(self) -> bool:
         """Check if this KuType is derived from another Ku (has parent)."""
-        return self in {KuType.JOURNAL, KuType.ASSIGNMENT, KuType.AI_REPORT, KuType.FEEDBACK_REPORT}
+        return self in {KuType.JOURNAL, KuType.SUBMISSION, KuType.AI_REPORT, KuType.FEEDBACK_REPORT}
 
     def is_processable(self) -> bool:
         """Check if this KuType goes through a processing pipeline."""
-        return self in {KuType.JOURNAL, KuType.ASSIGNMENT, KuType.AI_REPORT}
+        return self in {KuType.JOURNAL, KuType.SUBMISSION, KuType.AI_REPORT}
 
     # -------------------------------------------------------------------------
     # Status validation
@@ -178,7 +178,7 @@ class KuType(str, Enum):
             "ku" -> CURRICULUM
             "ls" -> LEARNING_STEP
             "lp" -> LEARNING_PATH
-            "report" -> ASSIGNMENT
+            "report" -> AI_REPORT
         """
         normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
         return _KU_TYPE_ALIASES.get(normalized)
@@ -192,7 +192,7 @@ _KU_TYPE_DISPLAY_NAMES: dict[KuType, str] = {
     KuType.LEARNING_STEP: "Learning Step",
     KuType.LEARNING_PATH: "Learning Path",
     KuType.JOURNAL: "Journal",
-    KuType.ASSIGNMENT: "Assignment",
+    KuType.SUBMISSION: "Submission",
     KuType.AI_REPORT: "AI Report",
     KuType.FEEDBACK_REPORT: "Feedback Report",
     KuType.TASK: "Task",
@@ -207,7 +207,7 @@ _KU_TYPE_DISPLAY_NAMES: dict[KuType, str] = {
 _KNOWLEDGE_TYPES = frozenset({KuType.CURRICULUM, KuType.RESOURCE, KuType.MOC})
 _CURRICULUM_STRUCTURE_TYPES = frozenset({KuType.LEARNING_STEP, KuType.LEARNING_PATH})
 _CONTENT_PROCESSING_TYPES = frozenset(
-    {KuType.JOURNAL, KuType.ASSIGNMENT, KuType.AI_REPORT, KuType.FEEDBACK_REPORT}
+    {KuType.JOURNAL, KuType.SUBMISSION, KuType.AI_REPORT, KuType.FEEDBACK_REPORT}
 )
 _ACTIVITY_TYPES = frozenset(
     {
@@ -237,7 +237,7 @@ _KU_TYPE_ALIASES: dict[str, KuType] = {
     "learning_step": KuType.LEARNING_STEP,
     "learning_path": KuType.LEARNING_PATH,
     "journal": KuType.JOURNAL,
-    "assignment": KuType.ASSIGNMENT,
+    "submission": KuType.SUBMISSION,
     "ai_report": KuType.AI_REPORT,
     "feedback_report": KuType.FEEDBACK_REPORT,
     "task": KuType.TASK,
@@ -259,7 +259,7 @@ _KU_TYPE_ALIASES: dict[str, KuType] = {
     "lp": KuType.LEARNING_PATH,
     "path": KuType.LEARNING_PATH,
     "report": KuType.AI_REPORT,
-    "submission": KuType.ASSIGNMENT,
+    "assignment": KuType.SUBMISSION,
     "feedback": KuType.FEEDBACK_REPORT,
     "lifepath": KuType.LIFE_PATH,
 }
@@ -572,7 +572,7 @@ _VALID_STATUSES_BY_TYPE: dict[KuType, frozenset[KuStatus]] = {
             KuStatus.ARCHIVED,
         }
     ),
-    KuType.ASSIGNMENT: frozenset(
+    KuType.SUBMISSION: frozenset(
         {
             KuStatus.DRAFT,
             KuStatus.SUBMITTED,
@@ -671,7 +671,7 @@ _DEFAULT_STATUS_BY_TYPE: dict[KuType, KuStatus] = {
     KuType.LEARNING_STEP: KuStatus.DRAFT,
     KuType.LEARNING_PATH: KuStatus.DRAFT,
     KuType.JOURNAL: KuStatus.DRAFT,
-    KuType.ASSIGNMENT: KuStatus.DRAFT,
+    KuType.SUBMISSION: KuStatus.DRAFT,
     KuType.AI_REPORT: KuStatus.DRAFT,
     KuType.FEEDBACK_REPORT: KuStatus.DRAFT,
     KuType.TASK: KuStatus.DRAFT,

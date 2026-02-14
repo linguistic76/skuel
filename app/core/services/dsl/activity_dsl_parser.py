@@ -69,7 +69,7 @@ from core.utils.result_simplified import Errors, Result
 _DSL_CONTEXT_ALIASES: dict[str, KuType | NonKuDomain] = {
     "learningstep": KuType.LEARNING_STEP,
     "learningpath": KuType.LEARNING_PATH,
-    "journal": KuType.ASSIGNMENT,
+    "journal": KuType.SUBMISSION,
     "life_path": KuType.LIFE_PATH,
 }
 
@@ -282,9 +282,9 @@ class ParsedActivityLine:
         Check if this is a Report activity (file uploads, processing).
 
         Returns:
-            True if KuType.ASSIGNMENT is in contexts
+            True if KuType.SUBMISSION is in contexts
         """
-        return KuType.ASSIGNMENT in self.contexts
+        return KuType.SUBMISSION in self.contexts
 
     def is_calendar(self) -> bool:
         """

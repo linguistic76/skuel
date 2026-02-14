@@ -12,7 +12,7 @@ Three-tier type system:
 - KuProjectDTO (Tier 2) — Mutable transfer object
 - KuProject (Tier 3) — Immutable domain model
 
-Works with any KuType, not just ASSIGNMENT. Provides the `instructions`
+Works with any KuType, not just SUBMISSION. Provides the `instructions`
 that drive AI processing of user-submitted content.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md

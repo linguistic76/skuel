@@ -23,23 +23,25 @@
 
 // --- Step 1: Convert :Report nodes to :Ku ---
 // Map report_type → ku_type:
-//   "assignment" → "assignment" (KuType.ASSIGNMENT)
-//   "journal" → "assignment" (journals are ASSIGNMENT with journal metadata)
+//   "assignment" → "submission" (KuType.SUBMISSION — renamed Feb 2026)
+//   "journal" → "submission" (journals are SUBMISSION with journal metadata)
 //   "progress" → "ai_report" (system-generated)
 //   "assessment" → "feedback_report" (teacher feedback)
-//   everything else → "assignment" (default)
+//   everything else → "submission" (default)
+// NOTE: Run rename_assignment_to_submission.cypher after this migration
+//       if any nodes were created with ku_type="assignment".
 
 MATCH (r:Report)
 SET r:Ku,
     r.ku_type = CASE r.report_type
-        WHEN 'assignment' THEN 'assignment'
-        WHEN 'journal' THEN 'assignment'
-        WHEN 'transcript' THEN 'assignment'
-        WHEN 'image_analysis' THEN 'assignment'
-        WHEN 'video_summary' THEN 'assignment'
+        WHEN 'assignment' THEN 'submission'
+        WHEN 'journal' THEN 'submission'
+        WHEN 'transcript' THEN 'submission'
+        WHEN 'image_analysis' THEN 'submission'
+        WHEN 'video_summary' THEN 'submission'
         WHEN 'progress' THEN 'ai_report'
         WHEN 'assessment' THEN 'feedback_report'
-        ELSE 'assignment'
+        ELSE 'submission'
     END
 REMOVE r:Report
 RETURN count(r) as report_nodes_converted;

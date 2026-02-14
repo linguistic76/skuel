@@ -228,7 +228,7 @@ class SearchRouter:
         KuType.LEARNING_STEP: "learning_steps",
         KuType.LEARNING_PATH: "learning_paths",
         # Content/Organization Domains
-        KuType.ASSIGNMENT: "reports",
+        KuType.SUBMISSION: "reports",
         KuType.MOC: "moc",  # Non-linear knowledge navigation
         # The Destination - LifePath
         # "Everything flows toward the life path"
