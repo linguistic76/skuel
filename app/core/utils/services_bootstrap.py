@@ -120,6 +120,7 @@ if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
+    from core.services.background.progress_report_worker import ProgressReportWorker
     from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.context_aware_ai_service import ContextAwareAIService
@@ -409,6 +410,7 @@ class Services:
 
     # Background workers (January 2026)
     embedding_worker: "EmbeddingBackgroundWorker | None" = None
+    progress_report_worker: "ProgressReportWorker | None" = None
 
     # Progress report generation (February 2026)
     progress_generator: "ProgressKuGenerator | None" = None
@@ -1743,7 +1745,17 @@ async def compose_services(
             insight_store=insight_store,
             event_bus=event_bus,
         )
-        logger.info("✅ Progress Ku generator and schedule service created")
+
+        # Create progress report background worker (February 2026)
+        # Worker checks hourly for due schedules and generates AI_REPORT Ku nodes
+        from core.services.background.progress_report_worker import ProgressReportWorker
+
+        progress_report_worker = ProgressReportWorker(
+            schedule_service=report_schedule_service,
+            progress_generator=progress_generator,
+            check_interval_seconds=3600,  # Hourly check
+        )
+        logger.info("✅ Progress Ku generator, schedule service, and background worker created")
 
         # Create analytics service
         from core.services.analytics_service import AnalyticsService
@@ -2380,6 +2392,7 @@ async def compose_services(
             vector_search_service=vector_search_service,
             # Background workers (January 2026)
             embedding_worker=embedding_worker,
+            progress_report_worker=progress_report_worker,
             # Analytics
             analytics=analytics_service,
             cross_domain_analytics=advanced["cross_domain_analytics"],  # Phase 5
