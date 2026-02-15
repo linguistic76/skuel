@@ -1,6 +1,6 @@
 """Profile Hub page layout using unified sidebar (Tailwind + Alpine).
 
-Sidebar sections: Overview, Activities (6 domains), Curriculum, Community.
+Sidebar sections: Overview, Activities (6 domains), Curriculum.
 """
 
 from dataclasses import dataclass
@@ -197,7 +197,12 @@ def _build_profile_sidebar_items(
             ],
         ])
 
-    # Curriculum section
+    # Curriculum section (includes Reports and Shared With Me)
+    reports_item = SidebarItem("Reports", "/reports", "reports", icon="📄")
+    shared_item = SidebarItem("Shared With Me", "/profile/shared", "shared", icon="📥")
+
+    extra_sections.append(_section_header("Curriculum"))
+
     if curriculum_domains:
         for d in curriculum_domains:
             _profile_domain_data[d.slug] = d
@@ -208,18 +213,11 @@ def _build_profile_sidebar_items(
         ]
 
         extra_sections.extend([
-            _section_header("Curriculum"),
-            *[
-                _profile_item_renderer(item, item.slug == active_domain)
-                for item in curriculum_items
-            ],
+            _profile_item_renderer(item, item.slug == active_domain)
+            for item in curriculum_items
         ])
 
-    # Community section
-    reports_item = SidebarItem("Reports", "/reports", "reports", icon="📄")
-    shared_item = SidebarItem("Shared With Me", "/profile/shared", "shared", icon="📥")
     extra_sections.extend([
-        _section_header("Community"),
         _profile_item_renderer(reports_item, "reports" == active_domain),
         _profile_item_renderer(shared_item, "shared" == active_domain),
     ])
