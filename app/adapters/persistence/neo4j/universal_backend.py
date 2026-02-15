@@ -651,11 +651,12 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             RETURN count(n) as deleted
             """
         else:
-            # DELETE only - fails if relationships exist (use cascade=True to remove them)
+            # DELETE only - intentionally fails if relationships exist (safety check).
+            # Use cascade=True to remove relationships too.
             query = f"""
             MATCH (n:{self.label} {{uid: $uid}})
             {where_line}
-            DELETE n
+            DELETE n  // noqa: CYP002 - intentional: non-DETACH DELETE is the safety check
             RETURN count(n) as deleted
             """
 

@@ -348,6 +348,10 @@ class CypherLinter:
             line_num = start_line + query[: match.start()].count("\n")
             line_content = self._get_line_at_position(query, match.start())
 
+            # Skip if line has noqa suppression for this rule
+            if re.search(r"noqa:\s*CYP002", line_content):
+                continue
+
             violations.append(
                 Violation(
                     rule_code="CYP002",
