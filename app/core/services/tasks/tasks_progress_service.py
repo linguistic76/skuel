@@ -26,6 +26,9 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
+
 from core.events import TaskCompleted, publish_event
 from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku import Ku
@@ -36,9 +39,6 @@ from core.services.tasks.task_relationships import TaskRelationships
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
-
-if TYPE_CHECKING:
-    from core.services.protocols.base_protocols import BackendOperations
 
 # Type alias for rich task data from UserContext
 RichTaskData = dict[str, Any]
@@ -79,20 +79,25 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
         completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
-    def __init__(self, backend=None, analytics_engine=None, event_bus=None) -> None:
+    def __init__(
+        self,
+        backend: BackendOperations[Ku],
+        analytics_engine: Any | None = None,
+        event_bus: Any | None = None,
+    ) -> None:
         """
         Initialize progress service with required dependencies.
 
         Args:
-            backend: TasksOperations backend (required),
-            analytics_engine: KuAnalyticsEngine for analytics (optional),
+            backend: TasksOperations backend (required)
+            analytics_engine: KuAnalyticsEngine for analytics (optional)
             event_bus: Event bus for publishing domain events (optional)
 
         Note:
             Context invalidation now happens via event-driven architecture.
             TaskCompleted events trigger user_service.invalidate_context() in bootstrap.
         """
-        super().__init__(backend, "tasks.progress")
+        super().__init__(backend=backend, service_name="tasks.progress")
         self.analytics_engine = analytics_engine
         self.event_bus = event_bus
 

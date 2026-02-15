@@ -24,6 +24,9 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
+
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.models.enums import KuStatus, Priority
 from core.models.enums.ku_enums import KuType
@@ -37,9 +40,6 @@ from core.services.protocols.query_types import TaskUpdatePayload
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.services.protocols.base_protocols import BackendOperations
 
 
 class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
@@ -65,16 +65,21 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
     """
 
-    def __init__(self, backend=None, ku_inference_service=None, event_bus=None) -> None:
+    def __init__(
+        self,
+        backend: BackendOperations[Ku],
+        ku_inference_service: Any | None = None,
+        event_bus: Any | None = None,
+    ) -> None:
         """
         Initialize core service with required dependencies.
 
         Args:
-            backend: TasksOperations backend (required),
-            ku_inference_service: KuInferenceService for knowledge inference (optional),
+            backend: TasksOperations backend (required)
+            ku_inference_service: KuInferenceService for knowledge inference (optional)
             event_bus: Event bus for publishing domain events (optional)
         """
-        super().__init__(backend, "tasks.core")
+        super().__init__(backend=backend, service_name="tasks.core")
         self.ku_inference_service = ku_inference_service
         self.event_bus = event_bus
 

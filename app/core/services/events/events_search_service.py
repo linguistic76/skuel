@@ -31,6 +31,9 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
+
 from core.models.enums import KuStatus
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -42,9 +45,6 @@ from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
-
-if TYPE_CHECKING:
-    from core.services.protocols.base_protocols import BackendOperations
 
 
 class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
@@ -104,6 +104,10 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         completed_statuses=(KuStatus.COMPLETED.value,),
         search_order_by="event_date",  # Events ordered by event date, not created_at
     )
+
+    def __init__(self, backend: BackendOperations[Ku]) -> None:
+        """Initialize service with required backend."""
+        super().__init__(backend=backend, service_name="events.search")
 
     # Inherited from BaseService (December 2025):
     # - search(), get_by_status(), get_by_domain(), get_by_category(),

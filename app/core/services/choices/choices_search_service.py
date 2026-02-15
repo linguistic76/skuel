@@ -30,6 +30,9 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
+
 from core.models.enums import Priority
 from core.models.enums.ku_enums import KuStatus
 from core.models.ku.ku import Ku
@@ -42,9 +45,6 @@ from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
-
-if TYPE_CHECKING:
-    from core.services.protocols.base_protocols import BackendOperations
 
 
 class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
@@ -102,6 +102,10 @@ class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):
         date_field="decision_deadline",
         completed_statuses=(KuStatus.COMPLETED.value,),
     )
+
+    def __init__(self, backend: BackendOperations[Ku]) -> None:
+        """Initialize service with required backend."""
+        super().__init__(backend=backend, service_name="choices.search")
 
     # Inherited from BaseService (December 2025):
     # - search(), get_by_status(), get_by_domain(), get_by_category(),

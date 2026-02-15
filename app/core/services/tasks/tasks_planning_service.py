@@ -31,7 +31,7 @@ Date: 2025-12-03
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.models.ku.ku import Ku
 from core.services.base_planning_service import BasePlanningService
@@ -42,7 +42,7 @@ from core.utils.sort_functions import get_priority_score, get_relevance_score
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualDependencies, ContextualTask
-    from core.services.protocols.base_protocols import BackendOperations
+    from core.services.protocols import BackendOperations
     from core.services.user.unified_user_context import UserContext
 
 
@@ -63,6 +63,20 @@ class TasksPlanningService(BasePlanningService["BackendOperations[Ku]", Ku]):
     """
 
     _domain_name = "Tasks"
+
+    def __init__(
+        self,
+        backend: BackendOperations[Ku],
+        relationship_service: Any | None = None,
+    ) -> None:
+        """
+        Initialize service with required backend.
+
+        Args:
+            backend: TasksOperations backend (required)
+            relationship_service: UnifiedRelationshipService for relationship queries (optional)
+        """
+        super().__init__(backend=backend, relationship_service=relationship_service)
 
     # ========================================================================
     # PRIVATE HELPER METHODS (Domain-Specific)

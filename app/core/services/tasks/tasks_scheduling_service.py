@@ -25,6 +25,9 @@ from datetime import date, timedelta
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
+
 from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -38,9 +41,6 @@ from core.services.infrastructure.learning_alignment_helper import LearningAlign
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.services.protocols.base_protocols import BackendOperations
 
 # ========================================================================
 # CUSTOM VALIDATOR FOR TASKS DOMAIN
@@ -108,7 +108,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
         completed_statuses=(KuStatus.COMPLETED.value,),
     )
 
-    def __init__(self, backend=None) -> None:
+    def __init__(self, backend: BackendOperations[Ku]) -> None:
         """
         Initialize scheduling service with required dependencies.
 
@@ -119,11 +119,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
             Context invalidation now happens via event-driven architecture.
             TaskCreated events trigger user_service.invalidate_context() in bootstrap.
         """
-        # Fail-fast validation
-        if not backend:
-            raise ValueError("Tasks backend is required")
-
-        super().__init__(backend, "tasks.scheduling")
+        super().__init__(backend=backend, service_name="tasks.scheduling")
 
         # Initialize LearningAlignmentHelper with prerequisite validator (Phase 6)
         self.learning_helper = LearningAlignmentHelper[Ku, KuDTO, KuTaskCreateRequest](

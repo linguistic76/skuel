@@ -32,7 +32,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations  # noqa: F401
+    from core.services.protocols import BackendOperations
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
@@ -83,6 +83,10 @@ class LsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         search_order_by="updated_at",
         content_field="description",  # LS stores content in description
     )
+
+    def __init__(self, backend: BackendOperations[Ku]) -> None:
+        """Initialize service with required backend."""
+        super().__init__(backend=backend, service_name="ls.search")
 
     # =========================================================================
     # ABSTRACT METHOD IMPLEMENTATION

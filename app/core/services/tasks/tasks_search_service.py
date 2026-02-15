@@ -31,6 +31,9 @@ from __future__ import annotations
 from operator import attrgetter, itemgetter, methodcaller
 from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
+
 from core.constants import QueryLimit
 from core.models.enums import KuStatus
 from core.models.ku.ku import Ku
@@ -43,9 +46,6 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
-
-if TYPE_CHECKING:
-    from core.services.protocols.base_protocols import BackendOperations
 
 
 class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
@@ -80,6 +80,10 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         date_field="due_date",
         completed_statuses=(KuStatus.COMPLETED.value,),
     )
+
+    def __init__(self, backend: BackendOperations[Ku]) -> None:
+        """Initialize service with required backend."""
+        super().__init__(backend=backend, service_name="tasks.search")
 
     # ========================================================================
     # RELATIONSHIP-BASED SEARCH
@@ -466,7 +470,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for task_uid in task_uids:
             task_result = await self.backend.get(task_uid)
             if task_result.is_ok and task_result.value:
-                tasks.append(task_result.value if isinstance(task_result.value, dict) else task_result.value)
+                tasks.append(task_result.value)
 
         # Filter by user_uid if provided
         if user_uid:
