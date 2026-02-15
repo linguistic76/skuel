@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums import Priority
-from core.models.task.task_request import TaskCreateRequest
+from core.models.ku.ku_request import KuTaskCreateRequest
 from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Result
 
@@ -71,7 +71,7 @@ async def test_create_task_succeeds(mock_tasks_backend):
         event_bus=None,  # Simplified - no event bus for basic test
     )
 
-    task_request = TaskCreateRequest(
+    task_request = KuTaskCreateRequest(
         title="New Task", description="Test task description", priority=Priority.HIGH
     )
 
@@ -94,7 +94,7 @@ async def test_no_event_bus_doesnt_crash(mock_tasks_backend):
         event_bus=None,  # No event bus
     )
 
-    task_request = TaskCreateRequest(title="New Task", priority=Priority.MEDIUM)
+    task_request = KuTaskCreateRequest(title="New Task", priority=Priority.MEDIUM)
 
     # Act - Should not crash
     result = await service.create_task(task_request, user_uid="user-456")
@@ -111,7 +111,7 @@ async def test_event_publishing_failure_doesnt_break_operation(mock_event_bus, m
 
     service = TasksService(backend=mock_tasks_backend, event_bus=mock_event_bus)
 
-    task_request = TaskCreateRequest(title="New Task", priority=Priority.HIGH)
+    task_request = KuTaskCreateRequest(title="New Task", priority=Priority.HIGH)
 
     # Act - Should complete successfully despite event failure
     result = await service.create_task(task_request, user_uid="user-456")

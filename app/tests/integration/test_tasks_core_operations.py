@@ -27,6 +27,7 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import KuStatus, Priority
+from core.models.enums.ku_enums import KuType
 from core.models.ku.ku import Ku as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
 
@@ -413,12 +414,13 @@ class TestTasksCoreOperations:
 
     async def test_task_without_optional_fields(self, tasks_service, test_user_uid):
         """Test creating a task with minimal required fields."""
-        # Arrange - Only required fields
+        # Arrange - Only required fields (ku_type=TASK for correct defaults)
         task = Task(
             uid="task.minimal",
             user_uid=test_user_uid,
             title="Minimal Task",
             description=None,  # Optional
+            ku_type=KuType.TASK,
         )
 
         # Act
@@ -432,8 +434,8 @@ class TestTasksCoreOperations:
         assert created.scheduled_date is None
         # Check defaults are set
         assert created.status == KuStatus.DRAFT
-        assert created.priority == Priority.MEDIUM
-        assert created.duration_minutes == 30
+        assert created.priority is None  # Ku default: no priority
+        assert created.duration_minutes is None  # Ku default: no duration
 
     async def test_task_date_ranges(self, tasks_service, test_user_uid):
         """Test creating tasks with different date ranges."""

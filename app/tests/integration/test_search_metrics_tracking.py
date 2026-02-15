@@ -50,11 +50,15 @@ def vector_search_service(mock_driver, mock_embeddings_service):
 @pytest.mark.asyncio
 async def test_find_similar_by_text_with_metrics(vector_search_service, mock_driver):
     """Test vector search with metrics tracking."""
-    # Mock driver response
-    mock_driver.execute_query.return_value = [
-        {"node": {"uid": "ku.python", "title": "Python Basics"}, "score": 0.9},
-        {"node": {"uid": "ku.django", "title": "Django Framework"}, "score": 0.8},
-    ]
+    # Mock driver response — execute_query returns (records, summary, keys) tuple
+    mock_driver.execute_query.return_value = (
+        [
+            {"node": {"uid": "ku.python", "title": "Python Basics"}, "score": 0.9},
+            {"node": {"uid": "ku.django", "title": "Django Framework"}, "score": 0.8},
+        ],
+        None,
+        None,
+    )
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
         label="Ku", text="python programming", limit=10
@@ -105,17 +109,25 @@ async def test_hybrid_search_with_metrics(vector_search_service, mock_driver):
 
         # Vector search
         if "db.index.vector.queryNodes" in query:
-            return [
-                {"node": {"uid": "ku.python", "title": "Python"}, "score": 0.9},
-                {"node": {"uid": "ku.javascript", "title": "JavaScript"}, "score": 0.8},
-            ]
+            return (
+                [
+                    {"node": {"uid": "ku.python", "title": "Python"}, "score": 0.9},
+                    {"node": {"uid": "ku.javascript", "title": "JavaScript"}, "score": 0.8},
+                ],
+                None,
+                None,
+            )
         # Full-text search
         elif "db.index.fulltext.queryNodes" in query:
-            return [
-                {"node": {"uid": "ku.python", "title": "Python"}, "score": 5.0},
-                {"node": {"uid": "ku.django", "title": "Django"}, "score": 3.0},
-            ]
-        return []
+            return (
+                [
+                    {"node": {"uid": "ku.python", "title": "Python"}, "score": 5.0},
+                    {"node": {"uid": "ku.django", "title": "Django"}, "score": 3.0},
+                ],
+                None,
+                None,
+            )
+        return ([], None, None)
 
     mock_driver.execute_query = mock_execute_query
 
@@ -149,7 +161,7 @@ async def test_hybrid_search_with_metrics_custom_weight(vector_search_service, m
 
     # Mock empty results for simplicity
     async def mock_execute_query(query, params):
-        return []
+        return ([], None, None)
 
     mock_driver.execute_query = mock_execute_query
 
@@ -165,8 +177,8 @@ async def test_hybrid_search_with_metrics_custom_weight(vector_search_service, m
 @pytest.mark.asyncio
 async def test_metrics_track_empty_results(vector_search_service, mock_driver):
     """Test metrics correctly handle zero results."""
-    # Mock empty results
-    mock_driver.execute_query.return_value = []
+    # Mock empty results — execute_query returns (records, summary, keys) tuple
+    mock_driver.execute_query.return_value = ([], None, None)
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
         label="Ku", text="nonexistent query"
@@ -186,12 +198,16 @@ async def test_metrics_track_empty_results(vector_search_service, mock_driver):
 @pytest.mark.asyncio
 async def test_metrics_similarity_statistics(vector_search_service, mock_driver):
     """Test metrics correctly calculate similarity statistics."""
-    # Mock results with known scores
-    mock_driver.execute_query.return_value = [
-        {"node": {"uid": "ku.a", "title": "A"}, "score": 1.0},
-        {"node": {"uid": "ku.b", "title": "B"}, "score": 0.8},
-        {"node": {"uid": "ku.c", "title": "C"}, "score": 0.6},
-    ]
+    # Mock results with known scores — execute_query returns (records, summary, keys) tuple
+    mock_driver.execute_query.return_value = (
+        [
+            {"node": {"uid": "ku.a", "title": "A"}, "score": 1.0},
+            {"node": {"uid": "ku.b", "title": "B"}, "score": 0.8},
+            {"node": {"uid": "ku.c", "title": "C"}, "score": 0.6},
+        ],
+        None,
+        None,
+    )
 
     result, metrics = await vector_search_service.find_similar_by_text_with_metrics(
         label="Ku", text="test"
@@ -212,10 +228,14 @@ async def test_metrics_latency_measurement(vector_search_service, mock_driver):
     """Test that metrics measure latency correctly."""
     import asyncio
 
-    # Mock with artificial delay
+    # Mock with artificial delay — execute_query returns (records, summary, keys) tuple
     async def slow_query(query, params):
         await asyncio.sleep(0.05)  # 50ms delay
-        return [{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.9}]
+        return (
+            [{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.9}],
+            None,
+            None,
+        )
 
     mock_driver.execute_query = slow_query
 

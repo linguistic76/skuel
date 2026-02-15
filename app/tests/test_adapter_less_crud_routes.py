@@ -310,7 +310,7 @@ async def test_create_route_enum_conversion():
         return await service.create(task_data)
 
     request = MockRequest(
-        body={"title": "Test enum handling", "priority": "high", "status": "in_progress"}
+        body={"title": "Test enum handling", "priority": "high", "status": "active"}
     )
 
     response = await create_route(request)
@@ -318,7 +318,7 @@ async def test_create_route_enum_conversion():
 
     assert status == 201
     assert body["priority"] == "high"
-    assert body["status"] == "in_progress"
+    assert body["status"] == "active"
 
 
 # ============================================================================
@@ -336,7 +336,7 @@ async def test_get_route_success():
         "uid": "task:123",
         "title": "Existing Task",
         "priority": "high",
-        "status": "in_progress",
+        "status": "active",
     }
     await service.create(task_data)
 
@@ -644,12 +644,12 @@ async def test_full_crud_lifecycle():
         body = await request.json()
         return await service.update(uid, body)
 
-    update_req = MockRequest(path_params={"uid": uid}, body={"status": "in_progress"})
+    update_req = MockRequest(path_params={"uid": uid}, body={"status": "active"})
 
     update_response = await update_route(update_req)
     update_body, update_status = extract_response(update_response)
     assert update_status == 200
-    assert update_body["status"] == "in_progress"
+    assert update_body["status"] == "active"
 
     # 4. DELETE
     @boundary_handler()

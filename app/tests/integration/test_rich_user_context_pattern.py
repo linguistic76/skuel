@@ -40,14 +40,14 @@ class TestRichUserContextPattern:
         complete graph neighborhoods in ONE database query.
         """
         # Create prerequisite knowledge
-        prereq_dto = KuDTO.create(
+        prereq_dto = KuDTO.create_curriculum(
             title="Python Basics",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(prereq_dto.to_dict())
 
         # Create main knowledge unit
-        ku_dto = KuDTO.create(
+        ku_dto = KuDTO.create_curriculum(
             title="Advanced Python",
             domain=Domain.TECH,
         )
@@ -72,7 +72,7 @@ class TestRichUserContextPattern:
         )
 
         # Create goal (with ACTIVE status to be included in active_goal_uids)
-        goal_dto = GoalDTO.create(
+        goal_dto = GoalDTO.create_goal(
             user_uid=test_user.uid,
             title="Master Python",
             domain=Domain.TECH,
@@ -80,7 +80,7 @@ class TestRichUserContextPattern:
         goal_dto.status = KuStatus.ACTIVE  # Set status after creation
         await services.goals.core.backend.create(goal_dto.to_dict())
 
-        # Create task (with IN_PROGRESS status to be included in active_task_uids)
+        # Create task (with in_progress status for MEGA-QUERY compatibility)
         task_dto = TaskDTO.create_task(
             user_uid=test_user.uid,
             title="Complete Python Tutorial",
@@ -89,6 +89,46 @@ class TestRichUserContextPattern:
         )
         task_dto.status = KuStatus.ACTIVE  # Set status after creation
         await services.tasks.core.backend.create(task_dto.to_dict())
+
+        # Create event
+        event_dto = KuDTO.create_event(
+            user_uid=test_user.uid,
+            title="Python Workshop",
+            event_date=date.today(),
+            start_time=time(10, 0),  # 10:00 AM
+            end_time=time(12, 0),  # 12:00 PM
+        )
+        await services.events.core.backend.create(event_dto.to_dict())
+
+        # Add secondary labels and MEGA-QUERY relationships
+        # MEGA-QUERY expects :Task, :Goal, :Event labels and HAS_TASK/HAS_GOAL/HAS_EVENT rels
+        await services.tasks.core.backend.driver.execute_query(
+            """
+            MATCH (task:Ku {uid: $task_uid, ku_type: 'task'})
+            SET task:Task, task.status = 'in_progress'
+            WITH task
+            MATCH (user:User {uid: $user_uid})
+            MERGE (user)-[:HAS_TASK]->(task)
+            WITH task
+            MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})
+            SET goal:Goal
+            WITH goal, task
+            MATCH (user:User {uid: $user_uid})
+            MERGE (user)-[:HAS_GOAL]->(goal)
+            WITH task, goal
+            MATCH (event:Ku {uid: $event_uid, ku_type: 'event'})
+            SET event:Event
+            WITH event
+            MATCH (user:User {uid: $user_uid})
+            MERGE (user)-[:HAS_EVENT]->(event)
+            """,
+            {
+                "task_uid": task_dto.uid,
+                "goal_uid": goal_dto.uid,
+                "event_uid": event_dto.uid,
+                "user_uid": test_user.uid,
+            },
+        )
 
         # Create task relationships
         await services.tasks.core.backend.driver.execute_query(
@@ -101,16 +141,6 @@ class TestRichUserContextPattern:
             """,
             {"task_uid": task_dto.uid, "ku_uid": ku_dto.uid, "goal_uid": goal_dto.uid},
         )
-
-        # Create event
-        event_dto = KuDTO.create(
-            user_uid=test_user.uid,
-            title="Python Workshop",
-            event_date=date.today(),
-            start_time=time(10, 0),  # 10:00 AM
-            end_time=time(12, 0),  # 12:00 PM
-        )
-        await services.events.core.backend.create(event_dto.to_dict())
 
         # Create event relationship
         await services.events.core.backend.driver.execute_query(
@@ -177,7 +207,7 @@ class TestRichUserContextPattern:
         """
 
         # Create test data
-        ku_dto = KuDTO.create(
+        ku_dto = KuDTO.create_curriculum(
             title="Test Knowledge",
             domain=Domain.TECH,
         )
@@ -191,13 +221,35 @@ class TestRichUserContextPattern:
         task_dto.status = KuStatus.ACTIVE  # Set status after creation
         await services.tasks.core.backend.create(task_dto.to_dict())
 
-        goal_dto = GoalDTO.create(
+        goal_dto = GoalDTO.create_goal(
             user_uid=test_user.uid,
             title="Test Goal",
             domain=Domain.TECH,
         )
         goal_dto.status = KuStatus.ACTIVE  # Set status after creation
         await services.goals.core.backend.create(goal_dto.to_dict())
+
+        # Add secondary labels and relationships for MEGA-QUERY compatibility
+        await services.tasks.core.backend.driver.execute_query(
+            """
+            MATCH (task:Ku {uid: $task_uid, ku_type: 'task'})
+            SET task:Task, task.status = 'in_progress'
+            WITH task
+            MATCH (user:User {uid: $user_uid})
+            MERGE (user)-[:HAS_TASK]->(task)
+            WITH task
+            MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})
+            SET goal:Goal
+            WITH goal
+            MATCH (user:User {uid: $user_uid})
+            MERGE (user)-[:HAS_GOAL]->(goal)
+            """,
+            {
+                "task_uid": task_dto.uid,
+                "goal_uid": goal_dto.uid,
+                "user_uid": test_user.uid,
+            },
+        )
 
         # Record mastery
         await services.users.progress.record_knowledge_mastery(
@@ -278,13 +330,13 @@ class TestRichUserContextPattern:
         Validates task→goal alignments, knowledge→task applications, etc.
         """
         # Create cross-domain test data
-        ku_dto = KuDTO.create(
+        ku_dto = KuDTO.create_curriculum(
             title="Test Knowledge",
             domain=Domain.TECH,
         )
         await services.ku.core.backend.create(ku_dto.to_dict())
 
-        goal_dto = GoalDTO.create(
+        goal_dto = GoalDTO.create_goal(
             user_uid=test_user.uid,
             title="Test Goal",
             domain=Domain.TECH,
@@ -303,9 +355,9 @@ class TestRichUserContextPattern:
         # Create cross-domain relationships
         await services.tasks.core.backend.driver.execute_query(
             """
-            MATCH (task:Task {uid: $task_uid})
+            MATCH (task:Ku {uid: $task_uid, ku_type: 'task'})
             MATCH (ku:Ku {uid: $ku_uid})
-            MATCH (goal:Goal {uid: $goal_uid})
+            MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})
             CREATE (task)-[:APPLIES_KNOWLEDGE]->(ku)
             CREATE (task)-[:FULFILLS_GOAL]->(goal)
             CREATE (goal)-[:REQUIRES_KNOWLEDGE]->(ku)

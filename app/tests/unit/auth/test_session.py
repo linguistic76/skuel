@@ -373,4 +373,4 @@ class TestDefaultDevUser:
 
     def test_default_dev_user_is_user_mike(self):
         """Test that default dev user is user.mike."""
-        assert DEFAULT_DEV_USER == "user.mike"
+        assert DEFAULT_DEV_USER == "user_mike"

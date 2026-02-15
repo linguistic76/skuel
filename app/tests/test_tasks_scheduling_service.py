@@ -22,7 +22,7 @@ from core.models.enums import Domain, KuStatus, Priority
 from core.models.enums.ku_enums import KuType
 from core.models.ku import Ku, LpPosition
 from core.models.ku.ku_dto import KuDTO as TaskDTO
-from core.models.task.task_request import TaskCreateRequest
+from core.models.ku.ku_request import KuTaskCreateRequest
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 from core.services.user import UserContext
 from core.utils.result_simplified import Result
@@ -36,6 +36,7 @@ from core.utils.result_simplified import Result
 def mock_backend() -> Any:
     """Create a mock tasks backend."""
     backend = Mock()
+    backend.create = AsyncMock()
     backend.create_task = AsyncMock()
     # Default: No relationships found (empty lists)
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
@@ -110,9 +111,9 @@ def learning_position() -> LpPosition:
 
 
 @pytest.fixture
-def task_request() -> TaskCreateRequest:
+def task_request() -> KuTaskCreateRequest:
     """Create sample task creation request."""
-    return TaskCreateRequest(
+    return KuTaskCreateRequest(
         title="Practice async programming",
         priority=Priority.MEDIUM,
         due_date=date.today() + timedelta(days=7),
@@ -137,7 +138,7 @@ def test_init_with_backend(mock_backend):
 
 def test_init_without_backend():
     """Test service initialization fails without backend."""
-    with pytest.raises(ValueError, match="Tasks backend is required"):
+    with pytest.raises(ValueError, match="tasks.scheduling backend is REQUIRED"):
         TasksSchedulingService(backend=None)
 
 
@@ -160,7 +161,7 @@ async def test_create_task_with_context_success(
     )
     created_dto.uid = "task:new_123"
 
-    mock_backend.create_task.return_value = Result.ok(created_dto.to_dict())
+    mock_backend.create.return_value = Result.ok(created_dto.to_dict())
 
     # Execute
     result = await scheduling_service.create_task_with_context(task_request, user_context)
@@ -362,7 +363,7 @@ async def test_create_task_from_learning_step(scheduling_service, mock_backend):
         priority=Priority.MEDIUM.value,
         created_at=datetime.now(),
     )
-    mock_backend.create_task.return_value = Result.ok(created_dto.to_dict())
+    mock_backend.create.return_value = Result.ok(created_dto.to_dict())
 
     # Execute
     result = await scheduling_service.create_task_from_learning_step(
@@ -412,7 +413,7 @@ async def test_full_learning_workflow(
     # Step 2: Create task with context
     created_dto = TaskDTO.create_task(user_uid="user:123", title=task_request.title)
     created_dto.uid = "task:workflow"
-    mock_backend.create_task.return_value = Result.ok(created_dto.to_dict())
+    mock_backend.create.return_value = Result.ok(created_dto.to_dict())
 
     creation_result = await scheduling_service.create_task_with_context(task_request, user_context)
     assert creation_result.is_ok

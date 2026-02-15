@@ -80,7 +80,7 @@ class TestHabitAchievementsFlow:
         return test_user_uid
 
     @pytest_asyncio.fixture
-    async def daily_habit(self, habit_backend, test_user_uid, test_user):
+    async def daily_habit(self, habit_backend, neo4j_driver, test_user_uid, test_user):
         """Create a daily habit for testing."""
         habit = Habit(
             uid="habit.daily_coding",
@@ -94,6 +94,14 @@ class TestHabitAchievementsFlow:
         )
         result = await habit_backend.create(habit)
         assert result.is_ok
+
+        # Add :Habit secondary label so production Cypher MATCH (habit:Habit ...) works
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MATCH (h:Ku {uid: $uid}) SET h:Habit",
+                uid=habit.uid,
+            )
+
         return result.value
 
     # ========================================================================
@@ -390,7 +398,7 @@ class TestHabitAchievementsFlow:
     # ========================================================================
 
     async def test_get_user_badges(
-        self, achievement_service, daily_habit, test_user_uid, habit_backend
+        self, achievement_service, daily_habit, test_user_uid, habit_backend, neo4j_driver
     ):
         """Test retrieving all badges earned by a user."""
         # Create second habit
@@ -406,6 +414,13 @@ class TestHabitAchievementsFlow:
         )
         result = await habit_backend.create(habit2)
         assert result.is_ok
+
+        # Add :Habit secondary label so production Cypher MATCH (habit:Habit ...) works
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MATCH (h:Ku {uid: $uid}) SET h:Habit",
+                uid=habit2.uid,
+            )
 
         # Award badges for both habits
         event1 = HabitStreakMilestone(

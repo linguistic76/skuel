@@ -39,8 +39,32 @@ from core.utils.result_simplified import Result
 
 @pytest.fixture(scope="module")
 def prometheus_metrics() -> PrometheusMetrics:
-    """Create Prometheus metrics registry once per module."""
-    return PrometheusMetrics()
+    """Create Prometheus metrics registry once per module.
+
+    Handles duplicate collector registration when tests run alongside
+    other modules that also create PrometheusMetrics.
+    """
+    import prometheus_client
+
+    def _unregister_skuel_collectors():
+        collectors_to_remove = [
+            c for c in list(prometheus_client.REGISTRY._names_to_collectors.values())
+            if hasattr(c, '_name') and getattr(c, '_name', '').startswith('skuel_')
+        ]
+        for collector in collectors_to_remove:
+            try:
+                prometheus_client.REGISTRY.unregister(collector)
+            except Exception:
+                pass
+
+    # Unregister existing skuel collectors to avoid duplicates
+    _unregister_skuel_collectors()
+
+    metrics = PrometheusMetrics()
+    yield metrics
+
+    # Teardown: unregister collectors to avoid polluting other test modules
+    _unregister_skuel_collectors()
 
 
 @pytest.fixture

@@ -303,7 +303,7 @@ class TestLearningPathCRUD:
             title="Python Learning Journey",
             description="Complete path to Python mastery",
             domain=Domain.TECH,
-            difficulty="intermediate",
+            difficulty_rating=0.5,  # intermediate
         )
 
         result = await lp_backend.create(lp)
@@ -342,7 +342,7 @@ class TestLearningPathCRUD:
             title="Original Path Name",
             description="Original learning goal",
             domain=Domain.TECH,
-            difficulty="beginner",
+            difficulty_rating=0.3,  # beginner
             estimated_hours=10.0,
         )
         create_result = await lp_backend.create(lp)
@@ -352,7 +352,7 @@ class TestLearningPathCRUD:
         updates = {
             "title": "Updated Path Name",
             "description": "Updated learning goal",
-            "difficulty": "advanced",
+            "difficulty_rating": 0.8,  # advanced
             "estimated_hours": 25.0,
         }
         update_result = await lp_backend.update("lp:test_update", updates)
@@ -360,7 +360,7 @@ class TestLearningPathCRUD:
         assert update_result.is_ok
         assert update_result.value.title == "Updated Path Name"
         assert update_result.value.description == "Updated learning goal"
-        assert update_result.value.difficulty == "advanced"
+        assert update_result.value.difficulty_rating == 0.8
         assert update_result.value.estimated_hours == 25.0
 
     @pytest.mark.asyncio
@@ -685,6 +685,9 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
+                // Add :Lp secondary labels for MEGA-QUERY/CONSOLIDATED_QUERY compatibility
+                SET lp1:Lp, lp2:Lp
+
                 CREATE (u)-[:ENROLLED_IN {enrolled_at: datetime()}]->(lp1)
                 CREATE (u)-[:ENROLLED_IN {enrolled_at: datetime()}]->(lp2)
             """,
@@ -844,6 +847,9 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
+
+                // Add :Lp secondary label for CONSOLIDATED_QUERY compatibility
+                SET lp:Lp
 
                 // Relationships: Curriculum
                 CREATE (u)-[:MASTERED {mastery_score: 0.8}]->(ku1)

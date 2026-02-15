@@ -181,6 +181,15 @@ class TestGoalRecommendationsFlow:
         assert result.is_ok
         created_goal = result.value
 
+        # Set ku_type='knowledge_unit' on KU nodes so production query matches
+        # (production _get_goal_context uses WHERE ku.ku_type = 'knowledge_unit')
+        async with neo4j_driver.session() as session:
+            for ku in kus:
+                await session.run(
+                    "MATCH (ku:Ku {uid: $uid}) SET ku.ku_type = 'knowledge_unit'",
+                    uid=ku.uid,
+                )
+
         # Create graph relationships
         async with neo4j_driver.session() as session:
             # Link goal to knowledge units

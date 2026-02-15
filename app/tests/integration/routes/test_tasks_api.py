@@ -400,7 +400,7 @@ class TestTaskModel:
 
     async def test_activity_status_enum(self):
         """Test KuStatus enum values."""
-        assert KuStatus.ACTIVE.value == "in_progress"
+        assert KuStatus.ACTIVE.value == "active"
         assert KuStatus.COMPLETED.value == "completed"
         assert KuStatus.SCHEDULED.value == "scheduled"
         assert KuStatus.DRAFT.value == "draft"

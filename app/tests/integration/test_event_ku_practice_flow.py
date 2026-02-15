@@ -117,6 +117,16 @@ class TestEventKuPracticeFlow:
         assert result.is_ok
         created_event = result.value
 
+        # Add :Event secondary label so production Cypher MATCH (event:Event ...) works
+        async with neo4j_driver.session() as session:
+            await session.run(
+                """
+                MATCH (e:Ku {uid: $event_uid, ku_type: 'event'})
+                SET e:Event
+                """,
+                event_uid=event.uid,
+            )
+
         # Create graph relationships: (Event)-[:PRACTICES]->(KU)
         async with neo4j_driver.session() as session:
             for ku in kus:

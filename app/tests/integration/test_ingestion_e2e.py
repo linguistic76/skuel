@@ -357,7 +357,7 @@ async def test_incremental_ingestion_skips_unchanged_files(ingestion_service, va
     stats1 = result1.value
     assert isinstance(stats1, IncrementalStats)
     assert stats1.total_files == 5
-    assert stats1.files_synced == 5  # All processed on first run
+    assert stats1.files_ingested == 5  # All processed on first run
 
     # Second ingestion — incremental mode, should skip unchanged files
     result2 = await ingestion_service.ingest_directory(
@@ -371,8 +371,8 @@ async def test_incremental_ingestion_skips_unchanged_files(ingestion_service, va
 
     # All files should be skipped (none changed since first ingestion)
     assert stats2.files_skipped == 5
-    assert stats2.files_synced == 0
-    assert stats2.sync_efficiency > 90.0  # >90% skipped
+    assert stats2.files_ingested == 0
+    assert stats2.skip_efficiency > 90.0  # >90% skipped
 
 
 @pytest.mark.asyncio

@@ -88,7 +88,7 @@ def test_dto_from_dict_preserves_all_valid_fields():
         "user_uid": "user_test",
         "title": "Comprehensive Test",
         "description": "Full field test",
-        "status": "in_progress",  # Correct enum value
+        "status": "active",  # Correct KuStatus enum value
         "priority": "high",
         "project": "test-project",
         "assignee": "test-assignee",

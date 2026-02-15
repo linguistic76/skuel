@@ -154,7 +154,7 @@ async def test_habit_relationship_auto_creation(habits_backend, test_user_uid, c
     habit = Habit(
         uid="habit_test_001",
         user_uid=test_user_uid,
-        name="Test Habit",
+        title="Test Habit",
         description="Testing habit relationship",
         recurrence_pattern=RecurrencePattern.DAILY,
         status=HabitStatus.ACTIVE,

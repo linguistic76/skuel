@@ -233,7 +233,7 @@ class TestLpRelationships:
         lp_result = await services.lp.core.create_path(
             user_uid="test_user",
             title="Test Learning Path",
-            goal="Testing relationship fetching",
+            description="Testing relationship fetching",
             steps=[],  # Empty steps for testing
             domain=Domain.LEARNING,
         )

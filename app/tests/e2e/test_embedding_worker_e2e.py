@@ -50,6 +50,7 @@ class TestEmbeddingWorkerLifecycle:
         assert worker_task.cancelled()
 
 
+@pytest.mark.skip(reason="Requires Neo4j GenAI plugin (genai.vector.encodeBatch procedure)")
 class TestEmbeddingWorkerEventProcessing:
     """Test event queue and batch processing."""
 
@@ -69,9 +70,10 @@ class TestEmbeddingWorkerEventProcessing:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                CREATE (t:Task {
+                CREATE (t:Ku {
                     uid: $uid,
                     user_uid: $user_uid,
+                    ku_type: 'task',
                     title: $title,
                     description: $description,
                     status: 'pending',
@@ -98,6 +100,7 @@ class TestEmbeddingWorkerEventProcessing:
                 embedding_text="Test async embedding generation\nEnd-to-end test for background worker",
                 user_uid=user_uid,
                 requested_at=datetime.now(),
+                occurred_at=datetime.now(),
             )
             await event_bus.publish_async(event)
 
@@ -109,7 +112,7 @@ class TestEmbeddingWorkerEventProcessing:
             async with neo4j_driver.session() as session:
                 result = await session.run(
                     """
-                    MATCH (t:Task {uid: $uid})
+                    MATCH (t:Ku {uid: $uid, ku_type: 'task'})
                     RETURN t.embedding IS NOT NULL as has_embedding,
                            size(t.embedding) as embedding_size
                     """,
@@ -129,7 +132,7 @@ class TestEmbeddingWorkerEventProcessing:
 
             # Cleanup: Delete test task
             async with neo4j_driver.session() as session:
-                await session.run("MATCH (t:Task {uid: $uid}) DETACH DELETE t", uid=task_uid)
+                await session.run("MATCH (t:Ku {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=task_uid)
 
     @pytest.mark.asyncio
     async def test_worker_processes_multiple_domains(
@@ -149,9 +152,10 @@ class TestEmbeddingWorkerEventProcessing:
             # Create task
             await session.run(
                 """
-                CREATE (t:Task {
+                CREATE (t:Ku {
                     uid: $uid,
                     user_uid: $user_uid,
+                    ku_type: 'task',
                     title: $title,
                     description: $description,
                     status: 'pending',
@@ -167,9 +171,10 @@ class TestEmbeddingWorkerEventProcessing:
             # Create goal
             await session.run(
                 """
-                CREATE (g:Goal {
+                CREATE (g:Ku {
                     uid: $uid,
                     user_uid: $user_uid,
+                    ku_type: 'goal',
                     title: $title,
                     description: $description,
                     vision_statement: $vision,
@@ -197,6 +202,7 @@ class TestEmbeddingWorkerEventProcessing:
                 embedding_text="Multi-domain task\nTest batch processing",
                 user_uid=user_uid,
                 requested_at=datetime.now(),
+                occurred_at=datetime.now(),
             )
 
             goal_event = GoalEmbeddingRequested(
@@ -205,6 +211,7 @@ class TestEmbeddingWorkerEventProcessing:
                 embedding_text="Multi-domain goal\nTest concurrent processing\nVerify batch efficiency",
                 user_uid=user_uid,
                 requested_at=datetime.now(),
+                occurred_at=datetime.now(),
             )
 
             await event_bus.publish_async(task_event)
@@ -217,7 +224,7 @@ class TestEmbeddingWorkerEventProcessing:
             async with neo4j_driver.session() as session:
                 # Check task
                 task_result = await session.run(
-                    "MATCH (t:Task {uid: $uid}) RETURN t.embedding IS NOT NULL as has_embedding",
+                    "MATCH (t:Ku {uid: $uid, ku_type: 'task'}) RETURN t.embedding IS NOT NULL as has_embedding",
                     uid=task_uid,
                 )
                 task_record = await task_result.single()
@@ -225,7 +232,7 @@ class TestEmbeddingWorkerEventProcessing:
 
                 # Check goal
                 goal_result = await session.run(
-                    "MATCH (g:Goal {uid: $uid}) RETURN g.embedding IS NOT NULL as has_embedding",
+                    "MATCH (g:Ku {uid: $uid, ku_type: 'goal'}) RETURN g.embedding IS NOT NULL as has_embedding",
                     uid=goal_uid,
                 )
                 goal_record = await goal_result.single()
@@ -238,10 +245,11 @@ class TestEmbeddingWorkerEventProcessing:
                 await worker_task
 
             async with neo4j_driver.session() as session:
-                await session.run("MATCH (t:Task {uid: $uid}) DETACH DELETE t", uid=task_uid)
-                await session.run("MATCH (g:Goal {uid: $uid}) DETACH DELETE g", uid=goal_uid)
+                await session.run("MATCH (t:Ku {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=task_uid)
+                await session.run("MATCH (g:Ku {uid: $uid, ku_type: 'goal'}) DETACH DELETE g", uid=goal_uid)
 
 
+@pytest.mark.skip(reason="Requires Neo4j GenAI plugin (genai.vector.encodeBatch procedure)")
 class TestEmbeddingWorkerBatchProcessing:
     """Test batch size and performance."""
 
@@ -262,9 +270,10 @@ class TestEmbeddingWorkerBatchProcessing:
             for uid in task_uids:
                 await session.run(
                     """
-                    CREATE (t:Task {
+                    CREATE (t:Ku {
                         uid: $uid,
                         user_uid: $user_uid,
+                        ku_type: 'task',
                         title: $title,
                         status: 'pending',
                         created_at: datetime()
@@ -289,6 +298,7 @@ class TestEmbeddingWorkerBatchProcessing:
                     embedding_text=f"Batch test {uid}",
                     user_uid=user_uid,
                     requested_at=datetime.now(),
+                    occurred_at=datetime.now(),
                 )
                 await event_bus.publish_async(event)
 
@@ -299,7 +309,7 @@ class TestEmbeddingWorkerBatchProcessing:
             async with neo4j_driver.session() as session:
                 result = await session.run(
                     """
-                    MATCH (t:Task)
+                    MATCH (t:Ku {ku_type: 'task'})
                     WHERE t.uid IN $uids
                     RETURN count(t) as total_tasks,
                            sum(CASE WHEN t.embedding IS NOT NULL THEN 1 ELSE 0 END) as with_embeddings
@@ -321,10 +331,11 @@ class TestEmbeddingWorkerBatchProcessing:
 
             async with neo4j_driver.session() as session:
                 await session.run(
-                    "MATCH (t:Task) WHERE t.uid IN $uids DETACH DELETE t", uids=task_uids
+                    "MATCH (t:Ku {ku_type: 'task'}) WHERE t.uid IN $uids DETACH DELETE t", uids=task_uids
                 )
 
 
+@pytest.mark.skip(reason="Requires Neo4j GenAI plugin (genai.vector.encodeBatch procedure)")
 class TestEmbeddingWorkerErrorRecovery:
     """Test error handling and recovery."""
 
@@ -345,9 +356,10 @@ class TestEmbeddingWorkerErrorRecovery:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                CREATE (t:Task {
+                CREATE (t:Ku {
                     uid: $uid,
                     user_uid: $user_uid,
+                    ku_type: 'task',
                     title: $title,
                     status: 'pending',
                     created_at: datetime()
@@ -370,6 +382,7 @@ class TestEmbeddingWorkerErrorRecovery:
                 embedding_text="Valid task",
                 user_uid=user_uid,
                 requested_at=datetime.now(),
+                occurred_at=datetime.now(),
             )
 
             invalid_event = TaskEmbeddingRequested(
@@ -378,6 +391,7 @@ class TestEmbeddingWorkerErrorRecovery:
                 embedding_text="Invalid task",
                 user_uid=user_uid,
                 requested_at=datetime.now(),
+                occurred_at=datetime.now(),
             )
 
             await event_bus.publish_async(valid_event)
@@ -389,7 +403,7 @@ class TestEmbeddingWorkerErrorRecovery:
             # Verify valid task got embedding (worker didn't crash)
             async with neo4j_driver.session() as session:
                 result = await session.run(
-                    "MATCH (t:Task {uid: $uid}) RETURN t.embedding IS NOT NULL as has_embedding",
+                    "MATCH (t:Ku {uid: $uid, ku_type: 'task'}) RETURN t.embedding IS NOT NULL as has_embedding",
                     uid=valid_uid,
                 )
                 record = await result.single()
@@ -403,4 +417,4 @@ class TestEmbeddingWorkerErrorRecovery:
                 await worker_task
 
             async with neo4j_driver.session() as session:
-                await session.run("MATCH (t:Task {uid: $uid}) DETACH DELETE t", uid=valid_uid)
+                await session.run("MATCH (t:Ku {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=valid_uid)

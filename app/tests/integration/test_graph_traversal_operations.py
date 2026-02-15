@@ -197,7 +197,7 @@ class TestTraverseOperations:
         node = nodes[0]
         assert "properties" in node
         assert "title" in node["properties"]
-        assert "content" in node["properties"]
+        assert "domain" in node["properties"]
 
     async def test_traverse_include_properties_false(self, ku_backend, traversal_graph):
         """Test that include_properties=False returns minimal data."""

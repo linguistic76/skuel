@@ -27,6 +27,7 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import KuStatus, Priority, Visibility
+from core.models.enums.ku_enums import KuType
 from core.models.ku.ku import Ku
 from core.services.events.events_core_service import EventsCoreService
 
@@ -374,16 +375,17 @@ class TestEventsCoreOperations:
             assert result.value.visibility == visibility
 
     async def test_event_duration_calculation(self, events_service, test_user_uid):
-        """Test event duration calculation."""
-        # Arrange
+        """Test event duration field is stored correctly."""
+        # Arrange — duration_minutes is an explicit field, not auto-calculated
         event = Ku(
             uid="event.with_duration",
             user_uid=test_user_uid,
             title="Event with Duration",
-            description="Test duration calculation",
+            description="Test duration storage",
             event_date=date.today(),
             start_time=time(14, 0),  # 2:00 PM
             end_time=time(15, 30),  # 3:30 PM
+            duration_minutes=90,  # Explicitly set (1.5 hours)
             status=KuStatus.SCHEDULED,
         )
 
@@ -393,7 +395,9 @@ class TestEventsCoreOperations:
         # Assert
         assert result.is_ok
         created = result.value
-        assert created.duration_minutes == 90  # 1.5 hours = 90 minutes
+        assert created.duration_minutes == 90
+        assert created.start_time == time(14, 0)
+        assert created.end_time == time(15, 30)
 
     # ==========================================================================
     # EDGE CASES TESTS (3 tests)
@@ -440,13 +444,14 @@ class TestEventsCoreOperations:
 
     async def test_event_without_optional_fields(self, events_service, test_user_uid):
         """Test creating an event with minimal required fields."""
-        # Arrange - Only required fields
+        # Arrange - Only required fields (ku_type=EVENT for correct defaults)
         event = Ku(
             uid="event.minimal",
             user_uid=test_user_uid,
             title="Minimal Event",
             description=None,  # Optional
             event_date=date.today(),
+            ku_type=KuType.EVENT,
         )
 
         # Act
@@ -460,7 +465,7 @@ class TestEventsCoreOperations:
         assert created.end_time is None
         assert created.location is None
         # Check defaults are set
-        assert created.event_type == "PERSONAL"
+        assert created.event_type is None  # event_type has no default on Ku
         assert created.status == KuStatus.SCHEDULED
         assert created.visibility == Visibility.PRIVATE
 

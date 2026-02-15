@@ -412,7 +412,7 @@ class TestGoalsCoreOperations:
         assert created.current_value == 25.0
         assert created.unit_of_measurement == "miles"
         assert created.progress_percentage == 25.0
-        assert created.calculate_progress() == 25.0  # Test business logic
+        assert created.calculate_progress() == 0.25  # 25/100 = 0.25 (0.0-1.0 scale)
 
     # ==========================================================================
     # EDGE CASES TESTS (3 tests)

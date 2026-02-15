@@ -33,7 +33,7 @@ from core.events.learning_events import (
     LearningPathProgressUpdated,
 )
 from core.models.enums import Domain, SELCategory
-from core.models.enums.ku_enums import LpType
+from core.models.enums.ku_enums import KuType, LpType
 from core.models.ku.ku import Ku
 from core.services.lp.lp_progress_service import LpProgressService
 
@@ -55,7 +55,9 @@ class TestKuLpEventFlow:
     @pytest_asyncio.fixture
     async def lp_backend(self, neo4j_driver, clean_neo4j):
         """Create LP backend with clean database (unified Ku model)."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku)
+        return UniversalNeo4jBackend[Ku](
+            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "learning_path"}
+        )
 
     @pytest_asyncio.fixture
     async def lp_progress_service(self, event_bus, neo4j_driver):
@@ -110,6 +112,7 @@ class TestKuLpEventFlow:
             title="Python Basics",
             description="Master Python fundamentals",
             domain=Domain.TECH,
+            ku_type=KuType.LEARNING_PATH,
             path_type=LpType.STRUCTURED,
         )
         result = await lp_backend.create(lp)
@@ -336,6 +339,7 @@ class TestKuLpEventFlow:
             title="Python Advanced",
             description="Master advanced Python",
             domain=Domain.TECH,
+            ku_type=KuType.LEARNING_PATH,
             path_type=LpType.STRUCTURED,
         )
         result = await lp_backend.create(lp2)

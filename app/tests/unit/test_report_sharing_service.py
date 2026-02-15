@@ -50,7 +50,7 @@ async def test_share_ku_success(sharing_service, mock_driver):
         # _verify_ownership query
         ([{"actual_owner": "user_owner"}], None, None),
         # _verify_shareable query
-        ([{"status": "completed"}], None, None),
+        ([{"status": "completed", "ku_type": "submission"}], None, None),
         # share_ku query
         ([{"success": True}], None, None),
     ]
@@ -97,7 +97,7 @@ async def test_share_ku_not_completed(sharing_service, mock_driver):
         # _verify_ownership query (success)
         ([{"actual_owner": "user_owner"}], None, None),
         # _verify_shareable query (failure - not completed)
-        ([{"status": "processing"}], None, None),
+        ([{"status": "processing", "ku_type": "submission"}], None, None),
     ]
 
     result = await sharing_service.share_ku(
@@ -307,7 +307,7 @@ async def test_set_visibility_to_public_success(sharing_service, mock_driver):
         # _verify_ownership query
         ([{"actual_owner": "user_owner"}], None, None),
         # _verify_shareable query (PUBLIC requires completed)
-        ([{"status": "completed"}], None, None),
+        ([{"status": "completed", "ku_type": "submission"}], None, None),
         # set_visibility query
         ([{"uid": "report_123"}], None, None),
     ]
@@ -371,7 +371,7 @@ async def test_set_visibility_shared_not_completed(sharing_service, mock_driver)
         # _verify_ownership query
         ([{"actual_owner": "user_owner"}], None, None),
         # _verify_shareable query (not completed)
-        ([{"status": "processing"}], None, None),
+        ([{"status": "processing", "ku_type": "submission"}], None, None),
     ]
 
     result = await sharing_service.set_visibility(
@@ -573,7 +573,7 @@ async def test_verify_ownership_failure(sharing_service, mock_driver):
 async def test_verify_shareable_completed(sharing_service, mock_driver):
     """Test _verify_shareable succeeds for completed reports."""
     mock_driver.execute_query.return_value = (
-        [{"status": "completed"}],
+        [{"status": "completed", "ku_type": "submission"}],
         None,
         None,
     )
@@ -590,7 +590,7 @@ async def test_verify_shareable_completed(sharing_service, mock_driver):
 async def test_verify_shareable_not_completed(sharing_service, mock_driver):
     """Test _verify_shareable fails for non-completed reports."""
     mock_driver.execute_query.return_value = (
-        [{"status": "processing"}],
+        [{"status": "processing", "ku_type": "submission"}],
         None,
         None,
     )

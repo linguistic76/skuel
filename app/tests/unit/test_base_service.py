@@ -457,7 +457,7 @@ class TestRelationshipOperations:
         """Add relationship creates edge in graph."""
         mock_backend.add_relationship.return_value = Result.ok(True)
 
-        result = await service.add_relationship("test_001", "REQUIRES", "test_002")
+        result = await service.add_relationship("test_001", "REQUIRES_KNOWLEDGE", "test_002")
 
         assert result.is_ok
         mock_backend.add_relationship.assert_called()
@@ -471,7 +471,7 @@ class TestRelationshipOperations:
             return_value=EagerResult(records=[], summary=None, keys=[])
         )
 
-        result = await service.get_relationships("test_001", "REQUIRES", direction="outgoing")
+        result = await service.get_relationships("test_001", "REQUIRES_KNOWLEDGE", direction="outgoing")
 
         # Returns Result - may use backend or Cypher
         assert hasattr(result, "is_ok")
@@ -481,7 +481,7 @@ class TestRelationshipOperations:
         """Traverse delegates to backend."""
         mock_backend.traverse.return_value = Result.ok([])
 
-        result = await service.traverse("test_001", ["REQUIRES"])
+        result = await service.traverse("test_001", ["REQUIRES_KNOWLEDGE"])
 
         assert result.is_ok
 

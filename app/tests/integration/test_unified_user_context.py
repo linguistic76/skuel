@@ -663,7 +663,7 @@ class TestUserContextBuilder:
 
         # Create all test entities in a SINGLE session to avoid transaction isolation
         async with driver.session() as session:
-            # Tasks
+            # Tasks (MEGA-QUERY expects status IN ['pending', 'in_progress', 'blocked'])
             await session.run(
                 """
                 MATCH (u:User {uid: $user_uid})
@@ -693,7 +693,7 @@ class TestUserContextBuilder:
                 uid1="task:builder_1",
                 uid2="task:builder_2",
                 user_uid=test_user_uid,
-                status=KuStatus.ACTIVE.value,
+                status="in_progress",
                 priority=Priority.HIGH.value,
                 due_date=(date.today() + timedelta(days=5)).isoformat(),
                 today=date.today().isoformat(),

@@ -27,6 +27,7 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncGraphDatabase
 
+from core.models.enums.ku_enums import StepDifficulty
 from core.models.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.lp_service import LpService
@@ -133,13 +134,13 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
         )
 
         # Create learning steps
-        # Note: Service expects knowledge_uid (singular), not primary_knowledge_uids (plural)
+        # Unified Ku model: primary_knowledge_uids is a list property
         learning_steps = [
             {
                 "uid": "ls.type_test_step_1",
                 "title": "Learn Type Testing Basics",
                 "intent": "Master basic type testing concepts",
-                "knowledge_uid": "ku.type_test_basics",  # Service expects singular knowledge_uid
+                "primary_knowledge_uids": ["ku.type_test_basics"],
                 "sequence": 1,
                 "mastery_threshold": 0.7,
                 "estimated_hours": 2.0,
@@ -148,7 +149,7 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
                 "uid": "ls.type_test_step_2",
                 "title": "Advanced Type Testing",
                 "intent": "Learn advanced type testing patterns",
-                "knowledge_uid": "ku.type_test_advanced",  # Service expects singular knowledge_uid
+                "primary_knowledge_uids": ["ku.type_test_advanced"],
                 "sequence": 2,
                 "mastery_threshold": 0.8,
                 "estimated_hours": 3.0,
@@ -157,7 +158,7 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
                 "uid": "ls.type_test_step_3",
                 "title": "Type Testing Best Practices",
                 "intent": "Apply type testing in production",
-                "knowledge_uid": "ku.type_test_advanced",  # Service expects singular knowledge_uid
+                "primary_knowledge_uids": ["ku.type_test_advanced"],
                 "sequence": 3,
                 "mastery_threshold": 0.85,
                 "estimated_hours": 4.0,
@@ -170,7 +171,7 @@ async def type_contract_test_data(neo4j_container, clean_neo4j, ensure_test_user
                 MERGE (s:Ku {uid: $uid})
                 SET s.title = $title,
                     s.intent = $intent,
-                    s.knowledge_uid = $knowledge_uid,
+                    s.primary_knowledge_uids = $primary_knowledge_uids,
                     s.sequence = $sequence,
                     s.mastery_threshold = $mastery_threshold,
                     s.estimated_hours = $estimated_hours,
@@ -485,7 +486,7 @@ async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service
         sequence=1,
         mastery_threshold=0.7,
         estimated_hours=1.0,
-        difficulty="beginner",
+        step_difficulty=StepDifficulty.EASY,
         status="active",
     )
 

@@ -22,7 +22,7 @@ import pytest
 from core.models.enums import KuStatus, Priority
 from core.models.ku.ku import Ku as Task
 from core.models.ku.ku_dto import KuDTO as TaskDTO
-from core.models.task.task_request import TaskCreateRequest
+from core.models.ku.ku_request import KuTaskCreateRequest
 from core.services.protocols.query_types import TaskUpdatePayload
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Result
@@ -109,9 +109,9 @@ def sample_task_dto() -> TaskDTO:
 
 
 @pytest.fixture
-def sample_task_request() -> TaskCreateRequest:
-    """Create a sample TaskCreateRequest."""
-    return TaskCreateRequest(
+def sample_task_request() -> KuTaskCreateRequest:
+    """Create a sample KuTaskCreateRequest."""
+    return KuTaskCreateRequest(
         title="New Test Task",
         priority=Priority.MEDIUM,
         due_date=date.today() + timedelta(days=3),

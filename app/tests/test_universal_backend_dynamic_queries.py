@@ -104,7 +104,7 @@ async def test_find_by_simple_equality():
     )
 
     # Execute
-    result = await backend.find_by(priority="high", status="in_progress")
+    result = await backend.find_by(priority="high", status="active")
 
     # Verify
     assert result.is_ok
@@ -118,7 +118,7 @@ async def test_find_by_simple_equality():
     assert "n.priority = $priority" in cypher
     assert "n.status = $status" in cypher
     assert params["priority"] == "high"
-    assert params["status"] == "in_progress"
+    assert params["status"] == "active"
 
 
 @pytest.mark.asyncio
@@ -601,7 +601,7 @@ async def test_find_by_with_enum_values():
 
     # Enums should be converted to .value
     assert params["priority"] == "high"
-    assert params["status"] == "in_progress"
+    assert params["status"] == "active"
 
 
 @pytest.mark.asyncio

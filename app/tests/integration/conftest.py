@@ -669,6 +669,21 @@ async def services(neo4j_container):
     lp_service.core.backend = lp_backend
     principles_service.core.backend = principles_backend
 
+    # PATCH: Set _dto_class and _model_class on core services
+    # The context_operations_mixin reads self._dto_class directly (class attribute),
+    # which is None on BaseService. Setting instance attributes ensures
+    # get_with_context() works correctly via the mixin.
+    for core_service in [
+        tasks_service.core,
+        goals_service.core,
+        events_service.core,
+        principles_service.core,
+        ls_service.core,
+        lp_service.core,
+    ]:
+        core_service._dto_class = KuDTO
+        core_service._model_class = Ku
+
     services_container = TestServices(
         choices=choices_service,
         principles=principles_service,
@@ -904,9 +919,9 @@ async def populated_test_data(skuel_app):
 @pytest.fixture
 def event_bus():
     """Create a simple event bus for testing."""
-    from core.events.event_bus import EventBus
+    from adapters.infrastructure.event_bus import InMemoryEventBus
 
-    return EventBus()
+    return InMemoryEventBus()
 
 
 @pytest.fixture
