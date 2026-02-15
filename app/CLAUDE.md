@@ -358,7 +358,7 @@ Does the domain have 3+ business logic methods?
 
 | Pattern | Files | Tiers | Use For | Domains |
 |---------|-------|-------|---------|---------|
-| **Unified Ku** | 1 model + 1 DTO | Pydantic→DTO→Ku | All 16 KuType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, Resource, LS, LP, Journal, Reports, LifePath (11 domains) |
+| **Unified Ku** | 1 model + 1 DTO | Pydantic→DTO→Ku | All 16 KuType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, MOC, LifePath (12 domains) |
 | **B: Two-Tier** | 2 | Pydantic→DTO | Simple CRUD, minimal logic | Finance (1 domain) |
 
 **Unified Ku Model (ADR-041):** All 16 KuType domains share `Ku` (frozen dataclass) + `KuDTO` (mutable DTO). Domain-specific Pydantic request models (`*_request.py`) remain in domain packages for API validation. `KuStatus` is THE status enum — `ActivityStatus` and `GoalStatus` are deleted.

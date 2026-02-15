@@ -1,6 +1,6 @@
 ---
 name: base-analytics-service
-description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing IntelligenceOperations protocol, using GraphContextOrchestrator, or working with the 10 domain intelligence services.
+description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing IntelligenceOperations protocol, using GraphContextOrchestrator, or working with the 9 domain intelligence services.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob
 
 > "Graph analytics without AI dependencies - the app runs at full capacity without LLM"
 
-SKUEL's intelligence layer uses `BaseAnalyticsService[B, T]` as the foundation for all 10 domain intelligence services. This skill covers creating, modifying, and extending analytics services.
+SKUEL's intelligence layer uses `BaseAnalyticsService[B, T]` as the foundation for all 9 domain intelligence services. This skill covers creating, modifying, and extending analytics services.
 
 ## Key Architecture (ADR-030)
 
@@ -19,13 +19,13 @@ SKUEL separates analytics from AI with two base classes:
 | **`BaseAnalyticsService`** | Graph analytics, pure Python | **NONE** |
 | `BaseAIService` | LLM/embeddings features | Yes (optional) |
 
-**All 10 domain `*_intelligence_service.py` files extend `BaseAnalyticsService`** - they are pure graph analytics with ZERO AI dependencies. The app functions completely without LLM.
+**All 9 domain `*_intelligence_service.py` files extend `BaseAnalyticsService`** - they are pure graph analytics with ZERO AI dependencies. The app functions completely without LLM.
 
 ## Quick Start
 
 ### What is BaseAnalyticsService?
 
-`BaseAnalyticsService[B, T]` is the base class for all 10 domain intelligence services, providing:
+`BaseAnalyticsService[B, T]` is the base class for all 9 domain intelligence services, providing:
 - Standardized initialization for common attributes
 - Fail-fast validation for required dependencies
 - Hierarchical logging with domain names
@@ -38,17 +38,16 @@ SKUEL separates analytics from AI with two base classes:
 | Domain | Service | Inherits | Key Focus |
 |--------|---------|----------|-----------|
 | **Activity (6)** |
-| Tasks | `TasksIntelligenceService` | `BaseAnalyticsService[TasksOperations, Task]` | Knowledge generation, learning |
-| Goals | `GoalsIntelligenceService` | `BaseAnalyticsService[GoalsOperations, Goal]` | Progress forecasting |
-| Habits | `HabitsIntelligenceService` | `BaseAnalyticsService[HabitsOperations, Habit]` | Streak patterns |
-| Events | `EventsIntelligenceService` | `BaseAnalyticsService[EventsOperations, Event]` | Cross-domain impact |
-| Choices | `ChoicesIntelligenceService` | `BaseAnalyticsService[ChoicesOperations, Choice]` | Decision support |
-| Principles | `PrinciplesIntelligenceService` | `BaseAnalyticsService[PrinciplesOperations, Principle]` | Alignment analysis |
-| **Curriculum (4)** |
-| KU | `KuIntelligenceService` | `BaseAnalyticsService[BackendOperations[Ku], Ku]` | Knowledge graph analytics |
-| LS | `LsIntelligenceService` | `BaseAnalyticsService[BackendOperations[Ls], Ls]` | Readiness checks |
-| LP | `LpIntelligenceService` | `BaseAnalyticsService[BackendOperations[Lp], Lp]` | Learning state analysis |
-| MOC | `MocIntelligenceService` | `BaseAnalyticsService[BackendOperations[Moc], Moc]` | Navigation recommendations |
+| Tasks | `TasksIntelligenceService` | `BaseAnalyticsService[BackendOperations[Ku], Ku]` | Knowledge generation, learning |
+| Goals | `GoalsIntelligenceService` | `BaseAnalyticsService[GoalsOperations, Ku]` | Progress forecasting |
+| Habits | `HabitsIntelligenceService` | `BaseAnalyticsService[HabitsOperations, Ku]` | Streak patterns |
+| Events | `EventsIntelligenceService` | `BaseAnalyticsService[BackendOperations[Ku], Ku]` | Cross-domain impact |
+| Choices | `ChoicesIntelligenceService` | `BaseAnalyticsService[BackendOperations[Ku], Ku]` | Decision support |
+| Principles | `PrinciplesIntelligenceService` | `BaseAnalyticsService[PrinciplesOperations, Ku]` | Alignment analysis |
+| **Curriculum (3)** |
+| KU | `KuIntelligenceService` | `BaseAnalyticsService[KuOperations, Ku]` | Knowledge graph analytics |
+| LS | `LsIntelligenceService` | `BaseAnalyticsService[BackendOperations[Ku], Ku]` | Readiness checks |
+| LP | `LpIntelligenceService` | `BaseAnalyticsService[Any, Ku]` | Learning state analysis |
 
 ---
 
@@ -57,7 +56,7 @@ SKUEL separates analytics from AI with two base classes:
 Every analytics service must define these class attributes:
 
 ```python
-class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
+class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
     # REQUIRED: Logger name (hierarchical)
     _service_name: ClassVar[str] = "tasks.analytics"
 
@@ -106,7 +105,7 @@ def __init__(
 ```python
 from core.services.base_analytics_service import BaseAnalyticsService
 
-class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
+class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Ku]):
     _service_name = "habits.analytics"
 
     def __init__(
@@ -345,7 +344,7 @@ Use the `_event_handlers` class attribute:
 ```python
 from core.events.task_events import TaskCompleted, TaskCreated
 
-class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
+class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
     _service_name = "tasks.analytics"
     _event_handlers = {
         TaskCompleted: "handle_task_completed",
@@ -414,17 +413,17 @@ Each analytics service uses `GraphContextOrchestrator` for unified context retri
 ```python
 from core.services.intelligence.orchestrator import GraphContextOrchestrator
 
-class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
+class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
     def __init__(self, backend, graph_intelligence_service=None, ...):
         super().__init__(backend, graph_intelligence_service, ...)
 
         # Initialize orchestrator if graph intelligence available
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Task, TaskDTO](
+            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
                 service=self,
                 backend_get_method="get",
-                dto_class=TaskDTO,
-                model_class=Task,
+                dto_class=KuDTO,
+                model_class=Ku,
                 domain=Domain.TASKS,
             )
 
