@@ -21,7 +21,9 @@ class TestRelationshipBatchOperations:
     @pytest_asyncio.fixture
     async def tasks_backend(self, neo4j_driver, clean_neo4j):
         """Create tasks backend with clean database."""
-        return UniversalNeo4jBackend[Task](neo4j_driver, "Task", Task)
+        return UniversalNeo4jBackend[Task](
+            neo4j_driver, "Ku", Task, default_filters={"ku_type": "task"}
+        )
 
     async def test_get_relationships_batch_empty(self, tasks_backend):
         """Test batch metadata query with empty list."""

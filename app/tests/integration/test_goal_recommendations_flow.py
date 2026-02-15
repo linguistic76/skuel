@@ -50,7 +50,9 @@ class TestGoalRecommendationsFlow:
     @pytest_asyncio.fixture
     async def goal_backend(self, neo4j_driver, clean_neo4j):
         """Create Goal backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Goal", Ku)
+        return UniversalNeo4jBackend[Ku](
+            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "goal"}
+        )
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
@@ -60,7 +62,9 @@ class TestGoalRecommendationsFlow:
     @pytest_asyncio.fixture
     async def habit_backend(self, neo4j_driver, clean_neo4j):
         """Create Habit backend with clean database."""
-        return UniversalNeo4jBackend[Habit](neo4j_driver, "Habit", Habit)
+        return UniversalNeo4jBackend[Habit](
+            neo4j_driver, "Ku", Habit, default_filters={"ku_type": "habit"}
+        )
 
     @pytest_asyncio.fixture
     async def principle_backend(self, neo4j_driver, clean_neo4j):

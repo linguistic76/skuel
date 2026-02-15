@@ -43,7 +43,9 @@ class TestEventsCoreOperations:
     @pytest_asyncio.fixture
     async def events_backend(self, neo4j_driver, clean_neo4j):
         """Create events backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Event", Ku)
+        return UniversalNeo4jBackend[Ku](
+            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "event"}
+        )
 
     @pytest_asyncio.fixture
     async def events_service(self, events_backend, event_bus):

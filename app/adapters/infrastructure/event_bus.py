@@ -140,7 +140,9 @@ class InMemoryEventBus:
         # Call synchronous handlers
         for handler in self._handlers.get(event_type, []):
             handler_start = time.perf_counter() if self._metrics_cache else None
-            handler_name = handler.__name__
+            handler_name = getattr(handler, "__name__", None) or getattr(
+                getattr(handler, "func", None), "__name__", repr(handler)
+            )
             handlers_called += 1
 
             try:
@@ -203,7 +205,9 @@ class InMemoryEventBus:
         self, handler: Callable, event: Any, event_type_str: str
     ) -> None:
         """Helper to call async handler with error handling and performance metrics."""
-        handler_name = handler.__name__
+        handler_name = getattr(handler, "__name__", None) or getattr(
+            getattr(handler, "func", None), "__name__", repr(handler)
+        )
         handler_start = time.perf_counter() if self._metrics_cache else None
 
         try:
@@ -258,9 +262,12 @@ class InMemoryEventBus:
             self._handlers[event_type].append(handler)
             handler_type = "sync"
 
+        handler_name = getattr(handler, "__name__", None) or getattr(
+            getattr(handler, "func", None), "__name__", repr(handler)
+        )
         logger.debug(
             f"{handler_type.capitalize()} handler registered for {event_type.__name__}: "
-            f"{handler.__name__}"
+            f"{handler_name}"
         )
 
     def unsubscribe(self, event_type: type, handler: Callable) -> None:

@@ -1,9 +1,16 @@
 # ============================================================================
-# SKUEL Infrastructure - Neo4j Graph Database
+# SKUEL Infrastructure - Neo4j Graph Database (standalone)
 # ============================================================================
-# Production-ready Neo4j 5.26 configuration with GenAI + APOC (meta only)
-# Consolidated from infrastructure/docker-compose.neo4j.yml (Phase 6.3 tuning)
-# Last Updated: 2026-01-02 - Modernized Neo4j 5.26 configuration syntax
+# Production-ready Neo4j configuration with GenAI + APOC (meta only).
+#
+# NOTE: The primary dev workflow now uses the unified compose in app/:
+#   cd ~/skuel/app && docker compose up        # Full stack
+#   cd ~/skuel/app && docker compose up neo4j   # Neo4j only
+#
+# This file remains functional for running Neo4j independently.
+# Both composes share the same data directory (infrastructure/neo4j/).
+#
+# Last Updated: 2026-02-15
 # ============================================================================
 
 services:

@@ -1,43 +1,14 @@
 # Production Docker Compose Configuration
 # ==========================================
-# Phase 5: Production Integration & Real-World Deployment
-# Enhanced production setup with infrastructure services
+# For DigitalOcean / production deployment of the SKUEL application.
 #
-# ⚠️ SERVICE STATUS MATRIX ⚠️
-# ===========================================================================
-# This file contains BOTH currently active AND future services.
-# See FUTURE_SERVICES.md for detailed explanation of why some are disabled.
+# For local development, use docker-compose.yml instead:
+#   docker compose up          # Full stack (Neo4j + App + Prometheus + Grafana)
+#   docker compose up neo4j    # Neo4j only, then: poetry run python main.py
 #
-# CURRENTLY RUNNING (when using this file):
-#   - skuel-app      ✅ SKUEL application
-#   - neo4j          ⚠️ SHOULD USE ~/skuel/infrastructure instead (see note below)
-#
-# FUTURE SERVICES (Pre-wired, ready to enable):
-#   - redis          🟡 Ready - In-memory cache currently sufficient
-#   - ollama         🟡 Ready - OpenAI API currently used
-#   - nginx          🟡 Ready - Direct access sufficient for now
-#   - prometheus     🟡 Ready - Manual monitoring sufficient
-#   - grafana        🟡 Ready - Manual monitoring sufficient
-#   - node-exporter  🟡 Ready - Part of monitoring stack
-#
-# IMPORTANT: Neo4j Infrastructure Separation
-# ------------------------------------------
-# Neo4j is defined here for completeness, BUT should actually run from:
-#   /home/mike/skuel/infrastructure/docker-compose.yml
-#
-# The ~/skuel/infrastructure setup provides:
-#   - Clean separation of infrastructure from application
-#   - Independent lifecycle management
-#   - Easier backup and data management
-#
-# When deploying:
-#   1. Start infrastructure: cd ~/skuel/infrastructure && docker compose up -d
-#   2. Start application: docker compose -f docker-compose.production.yml up skuel-app
-#
-# Or use ~/skuel/infrastructure for all infrastructure and this file only for skuel-app.
-# ===========================================================================
-
-version: "3.8"
+# This file contains pre-wired future services (Redis, Ollama, Nginx, etc.)
+# See FUTURE_SERVICES.md for details on enabling them.
+# ==========================================================================
 
 services:
   # ==========================================================================

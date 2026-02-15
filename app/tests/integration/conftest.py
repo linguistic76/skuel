@@ -567,13 +567,19 @@ async def services(neo4j_container):
     raw_ku_backend = UniversalNeo4jBackend[KuDTO](driver, "Ku", KuDTO)
     ku_backend = TestBackendWrapper(raw_ku_backend, KuDTO)
 
-    raw_tasks_backend = UniversalNeo4jBackend[Ku](driver, "Task", Ku)
+    raw_tasks_backend = UniversalNeo4jBackend[Ku](
+        driver, "Ku", Ku, default_filters={"ku_type": "task"}
+    )
     tasks_backend = TestBackendWrapper(raw_tasks_backend, Ku)
 
-    raw_goals_backend = UniversalNeo4jBackend[Ku](driver, "Goal", Ku)
+    raw_goals_backend = UniversalNeo4jBackend[Ku](
+        driver, "Ku", Ku, default_filters={"ku_type": "goal"}
+    )
     goals_backend = TestBackendWrapper(raw_goals_backend, Ku)
 
-    raw_events_backend = UniversalNeo4jBackend[Ku](driver, "Event", Ku)
+    raw_events_backend = UniversalNeo4jBackend[Ku](
+        driver, "Ku", Ku, default_filters={"ku_type": "event"}
+    )
     events_backend = TestBackendWrapper(raw_events_backend, Ku)
 
     raw_ls_backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
@@ -588,7 +594,9 @@ async def services(neo4j_container):
     principles_backend = TestBackendWrapper(raw_principles_backend, Ku)
 
     # These backends aren't used by tests, create without wrapper
-    choices_backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
+    choices_backend = UniversalNeo4jBackend[Ku](
+        driver, "Ku", Ku, default_filters={"ku_type": "choice"}
+    )
     users_backend = UniversalNeo4jBackend[User](driver, "User", User)
 
     # Mock GraphIntelligenceService for services that require it
@@ -909,10 +917,12 @@ def user_uid():
 
 @pytest_asyncio.fixture
 async def tasks_backend(neo4j_driver):
-    """Create tasks backend for testing."""
+    """Create tasks backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Ku](driver=neo4j_driver, label="Task", model_class=Ku)
+    return UniversalNeo4jBackend[Ku](
+        driver=neo4j_driver, label="Ku", model_class=Ku, default_filters={"ku_type": "task"}
+    )
 
 
 @pytest_asyncio.fixture
@@ -925,10 +935,12 @@ async def tasks_service(tasks_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def goals_backend(neo4j_driver):
-    """Create goals backend for testing."""
+    """Create goals backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Ku](driver=neo4j_driver, label="Goal", model_class=Ku)
+    return UniversalNeo4jBackend[Ku](
+        driver=neo4j_driver, label="Ku", model_class=Ku, default_filters={"ku_type": "goal"}
+    )
 
 
 @pytest_asyncio.fixture
@@ -941,10 +953,12 @@ async def goals_service(goals_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def habits_backend(neo4j_driver):
-    """Create habits backend for testing."""
-    from core.models.ku.ku import Ku as Habit
+    """Create habits backend for testing — unified Ku model with ku_type filter."""
+    from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Habit](driver=neo4j_driver, label="Habit", model_class=Habit)
+    return UniversalNeo4jBackend[Ku](
+        driver=neo4j_driver, label="Ku", model_class=Ku, default_filters={"ku_type": "habit"}
+    )
 
 
 @pytest_asyncio.fixture
@@ -957,10 +971,12 @@ async def habits_service(habits_backend, event_bus):
 
 @pytest_asyncio.fixture
 async def events_backend(neo4j_driver):
-    """Create events backend for testing."""
+    """Create events backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Ku](driver=neo4j_driver, label="Event", model_class=Ku)
+    return UniversalNeo4jBackend[Ku](
+        driver=neo4j_driver, label="Ku", model_class=Ku, default_filters={"ku_type": "event"}
+    )
 
 
 @pytest_asyncio.fixture

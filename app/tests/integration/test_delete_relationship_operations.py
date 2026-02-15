@@ -27,7 +27,9 @@ class TestDeleteRelationshipOperations:
     @pytest_asyncio.fixture
     async def tasks_backend(self, neo4j_driver, clean_neo4j):
         """Create tasks backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Task", Ku)
+        return UniversalNeo4jBackend[Ku](
+            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "task"}
+        )
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver):

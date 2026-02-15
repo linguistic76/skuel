@@ -55,7 +55,9 @@ class TestEventKuPracticeFlow:
     @pytest_asyncio.fixture
     async def event_backend(self, neo4j_driver, clean_neo4j):
         """Create Event backend with clean database."""
-        return UniversalNeo4jBackend[Ku](neo4j_driver, "Event", Ku)
+        return UniversalNeo4jBackend[Ku](
+            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "event"}
+        )
 
     @pytest_asyncio.fixture
     async def ku_practice_service(self, event_bus, neo4j_driver):

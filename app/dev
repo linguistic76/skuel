@@ -121,6 +121,23 @@ case "$1" in
     poetry run python scripts/docs_contextual_check.py --fast
     ;;
 
+  up)
+    echo -e "${GREEN}Starting full stack (Neo4j + App + Prometheus + Grafana)...${NC}"
+    shift
+    docker compose up "$@"
+    ;;
+
+  up-neo4j)
+    echo -e "${GREEN}Starting Neo4j only (for local dev with poetry run python main.py)...${NC}"
+    docker compose up neo4j -d
+    ;;
+
+  down)
+    echo -e "${YELLOW}Stopping all services...${NC}"
+    shift
+    docker compose down "$@"
+    ;;
+
   help|*)
     echo "SKUEL Development Commands"
     echo "=========================="
@@ -150,8 +167,13 @@ case "$1" in
     echo "  ./dev docs-check      - Check if docs need updating (based on recent changes)"
     echo "  ./dev docs-check-fast - Fast check (text search only, no LLM)"
     echo ""
+    echo "Docker:"
+    echo "  ./dev up             - Start full stack (Neo4j + App + Prometheus + Grafana)"
+    echo "  ./dev up-neo4j       - Start Neo4j only (then: poetry run python main.py)"
+    echo "  ./dev down           - Stop all Docker services"
+    echo ""
     echo "Development:"
-    echo "  ./dev serve          - Start development server"
+    echo "  ./dev serve          - Start development server (requires Neo4j running)"
     echo "  ./dev css            - Watch and rebuild CSS on changes"
     echo "  ./dev css-build      - Build CSS once"
     echo "  ./dev css-prod       - Build minified CSS for production"
