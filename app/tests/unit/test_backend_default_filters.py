@@ -9,13 +9,11 @@ Verifies that ``default_filters`` parameter correctly:
 """
 
 from dataclasses import dataclass
-from datetime import datetime
-from unittest.mock import AsyncMock, Mock, call
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-
 
 # ============================================================================
 # FIXTURES
@@ -165,7 +163,7 @@ class TestCreateWithDefaultFilters:
         session.run.return_value = mock_result
 
         entity = SampleKu(uid="ku_test_abc", title="Test")
-        result = await backend.create(entity)
+        await backend.create(entity)
 
         # Verify ku_type was in the props passed to Neo4j
         call_args = session.run.call_args

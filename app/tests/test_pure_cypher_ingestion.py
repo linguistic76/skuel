@@ -293,7 +293,7 @@ def test_entity_type_detection():
     data_with_type = {"type": "task", "title": "Test"}
     result = service.detect_entity_type(data_with_type, Path("/tmp/test.yaml"))
     assert result == KuType.TASK, f"Expected KuType.TASK, got {result}"
-    assert isinstance(result, (KuType, NonKuDomain)), "Result should be KuType or NonKuDomain enum"
+    assert isinstance(result, KuType | NonKuDomain), "Result should be KuType or NonKuDomain enum"
 
     # Test 2: Type aliases are normalized
     data_with_alias = {"type": "knowledge", "title": "Test KU"}

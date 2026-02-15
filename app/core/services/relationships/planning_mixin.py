@@ -752,7 +752,6 @@ class PlanningMixin:
         """
         from core.models.context_types import ContextualPrinciple
 
-        core_uids = set(getattr(context, "core_principle_uids", []) or [])
         rich_principles = getattr(context, "core_principles_rich", []) or []
 
         contextual_principles = []

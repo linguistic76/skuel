@@ -49,14 +49,13 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.models.enums import Domain
-    from core.models.ku.ku_request import KuChoiceCreateRequest, KuUpdateRequest
-    from core.models.ku.ku import Ku
-    from core.models.goal.goal_request import GoalCreateRequest
-    from core.models.ku.ku import Ku as Habit
-    from core.models.habit.habit_request import HabitCreateRequest
-    from core.models.ku import Ku
     from core.models.enums.ku_enums import PrincipleCategory
+    from core.models.goal.goal_request import GoalCreateRequest
+    from core.models.habit.habit_request import HabitCreateRequest
+    from core.models.ku.ku import Ku
+    from core.models.ku.ku import Ku as Habit
     from core.models.ku.ku import Ku as Task
+    from core.models.ku.ku_request import KuChoiceCreateRequest, KuUpdateRequest
     from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
     from core.services.user import UserContext
     from core.utils.result_simplified import Result
@@ -204,7 +203,7 @@ class PrinciplesCoreOperations(Protocol):
         self,
         label: str,
         description: str,
-        category: "PrincipleCategory",
+        category: PrincipleCategory,
         why_matters: str,
         user_uid: str,
         **kwargs: Any,

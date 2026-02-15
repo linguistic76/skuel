@@ -677,7 +677,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
 
     @with_error_handling("create_journal_relationships", error_type="database")
     async def _create_journal_relationships(
-        self, journal: Report, context: KuProcessingContext | None
+        self, journal: Ku, context: KuProcessingContext | None
     ) -> Result[dict[str, int]]:
         """
         Create graph relationships connecting journal to context.
@@ -745,7 +745,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
         return record["count"] if record else 0
 
     async def _create_thematic_relationships(
-        self, session, journal: Report, recent_topics: list[str]
+        self, session, journal: Ku, recent_topics: list[str]
     ) -> int:
         """Create RELATED_TO relationships for journal reports sharing topics."""
 
@@ -785,7 +785,7 @@ class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
         return record["count"] if record else 0
 
     async def _create_goal_relationships(
-        self, session, journal: Report, active_goals: list[dict[str, str]]
+        self, session, journal: Ku, active_goals: list[dict[str, str]]
     ) -> int:
         """Create SUPPORTS_GOAL relationships for mentioned goals."""
         # Extract goal mentions from journal content

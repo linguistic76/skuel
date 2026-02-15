@@ -25,7 +25,10 @@ Changelog:
 """
 
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from core.models.goal.goal_request import GoalCreateRequest
 
 from core.events import publish_event
 from core.events.goal_events import (
@@ -38,7 +41,6 @@ from core.models.enums import KuStatus
 from core.models.enums.ku_enums import KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_request import KuGoalCreateRequest
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config

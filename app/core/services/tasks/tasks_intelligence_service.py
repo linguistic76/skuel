@@ -27,13 +27,15 @@ Architecture:
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
 from datetime import datetime, timedelta
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 from core.constants import GraphDepth, QueryLimit
-from core.models.enums import KuStatus, CompletionStatus, Domain
+from core.models.enums import CompletionStatus, Domain, KuStatus
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.graph_context import GraphContext
 from core.models.ku.ku import Ku
@@ -123,9 +125,9 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
 
     def __init__(
         self,
-        backend: "BackendOperations[Ku]",
+        backend: BackendOperations[Ku],
         graph_intelligence_service: GraphIntelligenceService | None = None,
-        relationship_service: "TasksRelationshipOperations | None" = None,
+        relationship_service: TasksRelationshipOperations | None = None,
         event_bus: Any | None = None,
     ) -> None:
         """

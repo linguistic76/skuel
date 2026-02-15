@@ -805,7 +805,7 @@ class ContextualHabit(ContextualEntity):
         Factory: build a ContextualHabit from entity data + UserContext.
 
         Standard path: readiness = 1.0 (habits always ready), relevance from
-        goal alignment + streak, urgency from at-risk/streak flags.
+        goal alignment + streak, urgency from at-risk/streak flags + is_due_today.
         """
         goals = supported_goal_uids or []
         knowledge = applied_knowledge_uids or []
@@ -840,7 +840,7 @@ class ContextualHabit(ContextualEntity):
             if urgency_override is not None
             else _compute_urgency(
                 deadline=None,
-                is_at_risk=at_risk,
+                is_at_risk=at_risk or is_due_today,
                 streak_at_risk=at_risk,
             )
         )
@@ -937,7 +937,7 @@ class ContextualEvent(ContextualEntity):
         cls,
         uid: str,
         title: str,
-        context: "UserContext",
+        _context: "UserContext",
         *,
         days_until: int = 0,
         duration_minutes: int = 0,
@@ -948,6 +948,7 @@ class ContextualEvent(ContextualEntity):
         Factory: build a ContextualEvent from entity data + UserContext.
 
         Standard path: is_today check, readiness/relevance/priority from proximity.
+        _context accepted for interface uniformity; scores derived from proximity.
         """
         is_today = days_until == 0
         return cls(
@@ -1179,8 +1180,19 @@ class ContextualChoice(ContextualEntity):
         """
         Factory: build a ContextualChoice from entity data + UserContext.
 
-        Standard path: readiness = 1.0, relevance = 0.7, priority from enum.
+        Standard path: readiness = 1.0, relevance boosted by core principle
+        alignment, priority from enum.
         """
+        principles = aligned_principles or []
+        core_principles = context.core_principle_uids or []
+
+        # Relevance: higher when aligned with user's core principles
+        if principles and core_principles:
+            core_overlap = sum(1 for p in principles if p in core_principles)
+            relevance = min(1.0, 0.5 + (core_overlap / len(principles)) * 0.5)
+        else:
+            relevance = 0.7
+
         priority_scores = {"urgent": 0.9, "high": 0.7, "medium": 0.5, "low": 0.3}
         priority = priority_scores.get(priority_level.lower(), 0.5)
 
@@ -1188,10 +1200,10 @@ class ContextualChoice(ContextualEntity):
             uid=uid,
             title=title,
             readiness_score=1.0,
-            relevance_score=0.7,
+            relevance_score=relevance,
             priority_score=priority,
             informed_by_knowledge=tuple(informed_by_knowledge or []),
-            aligned_principles=tuple(aligned_principles or []),
+            aligned_principles=tuple(principles),
             is_resolved=False,
         )
 

@@ -588,7 +588,7 @@ async def services(neo4j_container):
     principles_backend = TestBackendWrapper(raw_principles_backend, Ku)
 
     # These backends aren't used by tests, create without wrapper
-    choices_backend = UniversalNeo4jBackend[Choice](driver, "Choice", Choice)
+    choices_backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
     users_backend = UniversalNeo4jBackend[User](driver, "User", User)
 
     # Mock GraphIntelligenceService for services that require it

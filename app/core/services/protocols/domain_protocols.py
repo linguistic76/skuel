@@ -88,8 +88,8 @@ if TYPE_CHECKING:
     # NOTE: Task import REMOVED (February 2026) - Task merged into Ku
     # Task entities are now Ku nodes with ku_type="task"
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
-    from core.models.ku.ku import Ku
     from core.models.finance.invoice import InvoicePure
+    from core.models.ku.ku import Ku
     from core.models.ku.ku import Ku as Habit
     from core.models.type_hints import EntityUID, Metadata
     from core.utils.result_simplified import Result
@@ -398,7 +398,7 @@ class EventsOperations(BackendOperations["Ku"], GraphRelationshipOperations, Pro
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Event]]:
+    ) -> Result[list[Ku]]:
         """
         Get user's events in date range - unified interface for meta-services.
 
@@ -409,7 +409,7 @@ class EventsOperations(BackendOperations["Ku"], GraphRelationshipOperations, Pro
             include_completed: Include completed/cancelled events (default: False)
 
         Returns:
-            Result[list[Event]] filtered by user, event_date, and completion status
+            Result[list[Ku]] filtered by user, event_date, and completion status
 
         Implementation:
             Filters by user_uid, event_date field, excludes completed/cancelled

@@ -867,7 +867,7 @@ class KuResponse(ResponseBase):
     quality_score: float = 0.0
     estimated_time_minutes: int = 15
     difficulty_rating: float = 0.5
-    semantic_links: list[str] = []
+    semantic_links: list[str] = Field(default_factory=list)
 
     # Sharing
     visibility: Visibility = Visibility.PRIVATE
@@ -948,7 +948,7 @@ class KuResponse(ResponseBase):
     assignee: str | None = None
 
     # Meta
-    tags: list[str] = []
+    tags: list[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

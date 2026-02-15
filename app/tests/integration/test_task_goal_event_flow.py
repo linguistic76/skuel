@@ -29,9 +29,9 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.task_events import TaskCompleted
-from core.models.enums import KuStatus, Domain, KuStatus, Priority
-from core.models.ku.ku import Ku
+from core.models.enums import Domain, KuStatus, Priority
 from core.models.enums.ku_enums import GoalType, MeasurementType
+from core.models.ku.ku import Ku
 from core.models.ku.ku import Ku as Task
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.tasks.tasks_core_service import TasksCoreService
@@ -340,7 +340,7 @@ class TestTaskGoalEventFlow:
         """Test that completing one task can update multiple goals."""
 
         # Create two goals
-        goal1 = Goal(
+        goal1 = Ku(
             uid="goal.learn_basics",
             user_uid=test_user_uid,
             title="Learn Python Basics",
@@ -348,7 +348,7 @@ class TestTaskGoalEventFlow:
             progress_percentage=0.0,
             status=KuStatus.ACTIVE,
         )
-        goal2 = Goal(
+        goal2 = Ku(
             uid="goal.complete_course",
             user_uid=test_user_uid,
             title="Complete Full Course",
@@ -579,7 +579,7 @@ class TestTaskGoalEventFlow:
         """Test that update error for one goal doesn't prevent updates to other goals."""
 
         # Create two goals
-        goal1 = Goal(
+        goal1 = Ku(
             uid="goal.valid",
             user_uid=test_user_uid,
             title="Valid Goal",
@@ -587,7 +587,7 @@ class TestTaskGoalEventFlow:
             progress_percentage=0.0,
             status=KuStatus.ACTIVE,
         )
-        goal2 = Goal(
+        goal2 = Ku(
             uid="goal.invalid",
             user_uid=test_user_uid,
             title="Invalid Goal",
@@ -729,7 +729,7 @@ class TestTaskGoalEventFlow:
         not goal_type, so PROJECT goals should work identically to OUTCOME goals.
         """
         # Create PROJECT-type goal with task-based measurement
-        project_goal = Goal(
+        project_goal = Ku(
             uid="goal.build_api_project",
             user_uid=test_user_uid,
             title="Build REST API Project",

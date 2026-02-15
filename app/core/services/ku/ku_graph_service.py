@@ -1214,7 +1214,7 @@ class KuGraphService:
             goals_blocked = record.get("goals_blocked", 0)
             blocking_goal_uids = record.get("blocking_goal_uids", [])
             readiness = record.get("readiness", 0.0)
-            prereq_count = record.get("prereq_count", 0)
+            prereq_uids = record.get("prereq_uids", [])
 
             # Relevance is high because this blocks goals
             relevance = min(1.0, goals_blocked / max(1, len(target_goals)))
@@ -1223,6 +1223,7 @@ class KuGraphService:
                 uid=uid,
                 title=title,
                 context=context,
+                prerequisite_uids=prereq_uids,  # Drives prerequisite_count
                 application_task_uids=blocking_goal_uids,  # Goals that need this
                 dependent_count=goals_blocked,
                 readiness_override=readiness,  # Use Cypher-computed readiness

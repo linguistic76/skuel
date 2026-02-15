@@ -20,10 +20,12 @@ All are frozen dataclasses matching the Ku model's immutability contract.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from typing import TYPE_CHECKING
 
 from core.models.enums.ku_enums import AlignmentLevel
 
+if TYPE_CHECKING:
+    from datetime import date
 
 # =============================================================================
 # GOAL: Milestone

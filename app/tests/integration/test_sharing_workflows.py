@@ -94,7 +94,7 @@ async def test_report(neo4j_driver):
     await neo4j_driver.execute_query(cleanup_query, uid=report_uid)
 
     # Cleanup test users
-    for ruid in [user_uid] + recipient_uids:
+    for ruid in [user_uid, *recipient_uids]:
         await neo4j_driver.execute_query(
             "MATCH (u:User {uid: $uid}) WHERE u.uid STARTS WITH 'test_' DELETE u",
             uid=ruid,

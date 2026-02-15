@@ -178,9 +178,6 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Ku]):
             knowledge_uids = [
                 k.get("uid") for k in graph_ctx.get("required_knowledge", []) if k.get("uid")
             ]
-            principle_uids = [
-                p.get("uid") for p in graph_ctx.get("aligned_principles", []) if p.get("uid")
-            ]
 
             # Get current progress from context
             progress = context.goal_progress.get(goal_uid, 0.0)
@@ -360,14 +357,9 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Ku]):
 
             # Get remaining requirements via relationship service
             knowledge_uids = []
-            unlocks = []
             if self.relationships:
                 knowledge_result = await self.relationships.get_related_uids("knowledge", goal_uid)
                 knowledge_uids = knowledge_result.value if knowledge_result.is_ok else []
-
-                # Generate unlocks (what completing this goal enables)
-                subgoals_result = await self.relationships.get_related_uids("subgoals", goal_uid)
-                unlocks = subgoals_result.value if subgoals_result.is_ok else []
 
             contributing_tasks = context.tasks_by_goal.get(goal_uid, [])
             contributing_habits = context.habits_by_goal.get(goal_uid, [])

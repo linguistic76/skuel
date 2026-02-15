@@ -77,7 +77,6 @@ from core.models.ku.ku_nested_types import (
 from core.models.ku_dto_mixin import KuDTOMixin
 from core.services.protocols import get_enum_value
 
-
 # =============================================================================
 # NESTED TYPE SERIALIZATION HELPERS
 # =============================================================================
@@ -91,11 +90,7 @@ def _serialize_nested_item(item: Any) -> dict[str, Any]:
     """
     d = asdict(item)
     for k, v in list(d.items()):
-        if isinstance(v, datetime):
-            d[k] = v.isoformat()
-        elif isinstance(v, date):
-            d[k] = v.isoformat()
-        elif isinstance(v, time):
+        if isinstance(v, datetime | date | time):
             d[k] = v.isoformat()
         elif isinstance(v, Enum):
             d[k] = v.value

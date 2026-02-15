@@ -27,8 +27,8 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, KuStatus, Priority
-from core.models.ku.ku import Ku
 from core.models.enums.ku_enums import GoalTimeframe, GoalType, MeasurementType
+from core.models.ku.ku import Ku
 from core.services.goals.goals_core_service import GoalsCoreService
 
 
@@ -130,7 +130,7 @@ class TestGoalsCoreOperations:
         """Test listing all goals for a user."""
         # Arrange - Create multiple goals
         goals = [
-            Goal(
+            Ku(
                 uid=f"goal.list_test_{i}",
                 user_uid=test_user_uid,
                 title=f"Test Goal {i}",
@@ -182,7 +182,7 @@ class TestGoalsCoreOperations:
     async def test_filter_by_status(self, goals_service, test_user_uid):
         """Test filtering goals by status."""
         # Arrange - Create goals with different statuses
-        active_goal = Goal(
+        active_goal = Ku(
             uid="goal.active",
             user_uid=test_user_uid,
             title="Active Goal",
@@ -191,7 +191,7 @@ class TestGoalsCoreOperations:
             domain=Domain.PERSONAL,
             status=KuStatus.ACTIVE,
         )
-        achieved_goal = Goal(
+        achieved_goal = Ku(
             uid="goal.achieved",
             user_uid=test_user_uid,
             title="Achieved Goal",
@@ -224,7 +224,7 @@ class TestGoalsCoreOperations:
     async def test_filter_by_priority(self, goals_service, test_user_uid):
         """Test filtering goals by priority."""
         # Arrange - Create goals with different priorities
-        high_goal = Goal(
+        high_goal = Ku(
             uid="goal.high_priority",
             user_uid=test_user_uid,
             title="High Priority Goal",
@@ -233,7 +233,7 @@ class TestGoalsCoreOperations:
             domain=Domain.BUSINESS,
             priority=Priority.HIGH,
         )
-        low_goal = Goal(
+        low_goal = Ku(
             uid="goal.low_priority",
             user_uid=test_user_uid,
             title="Low Priority Goal",
@@ -266,7 +266,7 @@ class TestGoalsCoreOperations:
     async def test_filter_by_timeframe(self, goals_service, test_user_uid):
         """Test filtering goals by timeframe."""
         # Arrange - Create goals with different timeframes
-        weekly_goal = Goal(
+        weekly_goal = Ku(
             uid="goal.weekly",
             user_uid=test_user_uid,
             title="Weekly Goal",
@@ -275,7 +275,7 @@ class TestGoalsCoreOperations:
             domain=Domain.HEALTH,
             timeframe=GoalTimeframe.WEEKLY,
         )
-        yearly_goal = Goal(
+        yearly_goal = Ku(
             uid="goal.yearly",
             user_uid=test_user_uid,
             title="Yearly Goal",
@@ -362,7 +362,7 @@ class TestGoalsCoreOperations:
         """Test that target date must be after start date."""
         # Arrange - Create goal with invalid dates (target before start)
         today = date.today()
-        invalid_goal = Goal(
+        invalid_goal = Ku(
             uid="goal.invalid_dates",
             user_uid=test_user_uid,
             title="Invalid Date Goal",

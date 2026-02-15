@@ -34,7 +34,10 @@ See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from math import exp, log
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from core.models.ku.ku_dto import KuDTO
 
 from core.constants import GraphDepth
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
@@ -149,7 +152,7 @@ class Ku:
     sel_category: SELCategory | None = None
     quality_score: float = 0.0
     estimated_time_minutes: int = 15
-    difficulty_rating: float = 0.5  # 0.0–1.0
+    difficulty_rating: float = 0.5  # 0.0-1.0
     semantic_links: tuple[str, ...] = ()
     priority: str | None = None  # Priority enum value (LOW/MEDIUM/HIGH/CRITICAL)
 
@@ -1028,7 +1031,6 @@ class Ku:
         Converts mutable lists to immutable tuples.
         All business fields are copied — lossless round-trip with to_dto().
         """
-        from core.models.ku.ku_dto import KuDTO  # noqa: F811
 
         return cls(
             # Identity

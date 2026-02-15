@@ -24,9 +24,9 @@ from datetime import datetime, timedelta
 import pytest
 
 from core.models.enums import Domain, KuStatus, Priority, RecurrencePattern
+from core.models.enums.ku_enums import KuStatus as HabitStatus
 from core.models.ku.ku import Ku
 from core.models.ku.ku import Ku as Habit
-from core.models.enums.ku_enums import KuStatus as HabitStatus
 from core.models.ku.ku import Ku as Task
 
 # ============================================================================
@@ -318,7 +318,7 @@ async def test_user_isolation_cross_domain(
     task_u1_result = await tasks_backend.create(task_u1)
     assert task_u1_result.is_ok, "Setup failed: Could not create user 1 task"
 
-    goal_u1 = Goal(
+    goal_u1 = Ku(
         uid="goal_iso_u1",
         user_uid=test_user_uid,
         title="User 1 Goal",
@@ -344,7 +344,7 @@ async def test_user_isolation_cross_domain(
     task_u2_result = await tasks_backend.create(task_u2)
     assert task_u2_result.is_ok, "Setup failed: Could not create user 2 task"
 
-    goal_u2 = Goal(
+    goal_u2 = Ku(
         uid="goal_iso_u2",
         user_uid=test_user_uid_2,
         title="User 2 Goal",
