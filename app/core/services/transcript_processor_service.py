@@ -33,7 +33,6 @@ from typing import Any
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
 from core.models.enums.ku_enums import JournalType, KuStatus, KuType
-from core.models.enums.learning_enums import ContentType
 from core.models.ku import Ku, KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig

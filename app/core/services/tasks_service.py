@@ -619,7 +619,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
         task = task_result.value
 
         # GRAPH-NATIVE: Fetch relationship data from graph
-        rels = await TaskRelationships.fetch(task.uid, self.relationships)
+        _rels = await TaskRelationships.fetch(task.uid, self.relationships)
 
         # Use unified Task model knowledge capabilities
         impact_analysis = {
@@ -708,7 +708,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
         )
 
         all_knowledge_uids: set[str] = set()
-        for task, rels in zip(all_tasks, rels_list, strict=False):
+        for task, _rels in zip(all_tasks, rels_list, strict=False):
             all_knowledge_uids.update(task.get_combined_knowledge_uids())
 
         # Get mastery progressions
@@ -793,7 +793,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
                 *[TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks]
             )
             all_knowledge_uids: set[str] = set()
-            for task, rels in zip(all_tasks, rels_list, strict=False):
+            for task, _rels in zip(all_tasks, rels_list, strict=False):
                 all_knowledge_uids.update(task.get_combined_knowledge_uids())
             knowledge_uids = list(all_knowledge_uids)
 

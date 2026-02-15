@@ -32,9 +32,11 @@ from core.models.ku.ku import Ku as Habit
 from core.models.ku.ku_nested_types import ChoiceOption
 from core.models.ku.ku_request import (
     KuChoiceCreateRequest,
-    KuCurriculumCreateRequest as KuCreateRequest,
     KuPrincipleCreateRequest,
     KuUpdateRequest,
+)
+from core.models.ku.ku_request import (
+    KuCurriculumCreateRequest as KuCreateRequest,
 )
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.services.protocols import HasUpdated, HasUpdatedAt, PydanticModel

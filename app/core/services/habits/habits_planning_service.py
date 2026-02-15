@@ -273,7 +273,6 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Ku]):
         from core.models.context_types import ContextualHabit
 
         today = date.today()
-        day_of_week = today.weekday()
         actionable = []
 
         for habit_uid in context.active_habit_uids:

@@ -1330,7 +1330,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
             ]
         )
 
-        for task, rels in zip(tasks_with_opportunities, rels_list, strict=False):
+        for task, _rels in zip(tasks_with_opportunities, rels_list, strict=False):
             opportunity = {
                 "task_uid": task.uid,
                 "title": task.title,
@@ -1392,7 +1392,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
         high_complexity_tasks = []
         total_learning_opportunities = 0
 
-        for task, rels in zip(all_tasks, rels_list, strict=False):
+        for task, _rels in zip(all_tasks, rels_list, strict=False):
             # Analyze using unified Task model capabilities
             if task.is_knowledge_bridge():
                 knowledge_bridge_tasks.append(task)
@@ -1444,7 +1444,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
         pattern_counts: dict[str, int] = {}
         knowledge_combinations: dict[tuple[str, ...], int] = {}
 
-        for task, rels in zip(tasks, rels_list, strict=False):
+        for task, _rels in zip(tasks, rels_list, strict=False):
             # NOTE: Pattern counting skipped - knowledge_patterns inferred from relationships
             pass
 

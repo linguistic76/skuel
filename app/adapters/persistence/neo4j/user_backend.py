@@ -949,7 +949,7 @@ class UserBackend(UserOperations):
             self.logger.error(f"Failed to get active learners: {e}")
             return Result.fail(Errors.database(operation="get_active_learners", message=str(e)))
 
-    async def get_user_context(self, user_uid: str) -> Result[Any]:
+    async def get_user_context(self, _user_uid: str) -> Result[Any]:
         """Get user context — delegated to UserService at runtime, not a backend operation."""
         return Result.fail(
             Errors.business(

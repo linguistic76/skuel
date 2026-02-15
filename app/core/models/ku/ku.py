@@ -1580,13 +1580,14 @@ class Ku:
 
     def impact_score(self) -> float:
         """Calculate task impact score based on priority and knowledge connections."""
+        from contextlib import suppress
+
         from core.models.enums.activity_enums import Priority
+
         base = 0.5
         if self.priority:
-            try:
+            with suppress(ValueError, KeyError):
                 base = Priority(self.priority).to_numeric() / 4.0
-            except (ValueError, KeyError):
-                pass
         if self.fulfills_goal_uid:
             base = min(1.0, base + 0.2)
         return base
