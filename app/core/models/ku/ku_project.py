@@ -26,7 +26,6 @@ from typing import Any
 from core.models.enums import Domain
 from core.models.enums.ku_enums import ProcessorType, ProjectScope
 
-
 # ============================================================================
 # TIER 2 - DTO (Transfer Layer)
 # ============================================================================

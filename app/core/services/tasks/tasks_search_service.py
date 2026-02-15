@@ -45,7 +45,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.services.protocols.base_protocols import BackendOperations
 
 
 class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
@@ -162,7 +162,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         # Fetch task details for each UID
         tasks = []
         for task_uid in task_uids:
-            task_result = await self.backend.get_task(task_uid)
+            task_result = await self.backend.get(task_uid)
             if task_result.is_ok and task_result.value:
                 task = self._to_domain_model(task_result.value, KuDTO, Ku)
                 tasks.append(task)
@@ -309,7 +309,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
                 applies_knowledge_result.value if applies_knowledge_result.is_ok else []
             )
 
-            task_domain = str(task.priority.value) if task.priority else "general"
+            task_domain = task.priority if task.priority else "general"
 
             relevance_score = learning_position.assess_task_relevance(
                 task_domain, task_knowledge_uids
@@ -355,7 +355,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Filter using model method
         all_tasks = self._to_domain_models(tasks_data, KuDTO, Ku)
-        curriculum_tasks = [task for task in all_tasks if task.is_from_learning_step()]
+        curriculum_tasks = [task for task in all_tasks if task.is_from_learning_step]
 
         self.logger.info(f"Found {len(curriculum_tasks)} curriculum-driven tasks")
         return Result.ok(curriculum_tasks)
@@ -381,7 +381,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Filter using model method
         all_tasks = self._to_domain_models(tasks_data, KuDTO, Ku)
-        step_tasks = [task for task in all_tasks if task.fulfills_learning_step(step_uid)]
+        step_tasks = [task for task in all_tasks if task.source_learning_step_uid == step_uid]
 
         self.logger.info(f"Found {len(step_tasks)} tasks for learning step {step_uid}")
         return Result.ok(step_tasks)
@@ -452,13 +452,21 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         Returns:
             Result containing tasks with readiness information
         """
-        result = await self.backend.get_tasks_requiring_knowledge(knowledge_uid)
+        # GRAPH-NATIVE: Query graph for tasks with REQUIRES_KNOWLEDGE relationship
+        task_uids_result = await self.backend.get_related_uids(
+            knowledge_uid, RelationshipName.REQUIRES_KNOWLEDGE, direction="incoming"
+        )
+        if task_uids_result.is_error:
+            return Result.fail(task_uids_result.expect_error())
 
-        if result.is_error:
-            return Result.fail(result.expect_error())
+        task_uids = task_uids_result.value
 
-        # Filter and limit in service layer
-        tasks = result.value
+        # Fetch task details for each UID
+        tasks: list[dict[str, Any]] = []
+        for task_uid in task_uids:
+            task_result = await self.backend.get(task_uid)
+            if task_result.is_ok and task_result.value:
+                tasks.append(task_result.value if isinstance(task_result.value, dict) else task_result.value)
 
         # Filter by user_uid if provided
         if user_uid:

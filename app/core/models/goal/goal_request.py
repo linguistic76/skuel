@@ -13,20 +13,18 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from core.models.enums import Domain, Priority
-from core.models.validation_rules import (
-    validate_date_after,
-    validate_future_date,
-    validate_required_string,
-    validate_timeframe_date_alignment,
-)
-
-from core.models.enums import KuStatus
+from core.models.enums import Domain, KuStatus, Priority
 from core.models.enums.ku_enums import (
     GoalTimeframe,
     GoalType,
     HabitEssentiality,
     MeasurementType,
+)
+from core.models.validation_rules import (
+    validate_date_after,
+    validate_future_date,
+    validate_required_string,
+    validate_timeframe_date_alignment,
 )
 
 

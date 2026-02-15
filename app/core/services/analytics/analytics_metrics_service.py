@@ -194,7 +194,7 @@ class AnalyticsMetricsService:
         # Priority distribution
         priority_dist: dict[str, int] = {}
         for task in tasks:
-            priority = str(task.priority.value)
+            priority = task.priority or "medium"
             priority_dist[priority] = priority_dist.get(priority, 0) + 1
 
         # Average completion time (for completed tasks with dates)
@@ -436,7 +436,7 @@ class AnalyticsMetricsService:
         # Events by type
         events_by_type: dict[str, int] = {}
         for event in events:
-            event_type = str(event.event_type.value)
+            event_type = event.event_type or "unknown"
             events_by_type[event_type] = events_by_type.get(event_type, 0) + 1
 
         return Result.ok(

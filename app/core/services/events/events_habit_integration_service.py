@@ -23,7 +23,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
-from core.models.enums import KuStatus, RecurrencePattern
+from core.models.enums import RecurrencePattern
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.context_first_mixin import parse_date_field
@@ -254,9 +254,10 @@ class EventsHabitIntegrationService:
 
             # Handle different output modes
             if criteria.find_earliest_per_habit and event_habit_uid:
-                if (
-                    event_habit_uid not in earliest_by_habit
-                    or event.event_date < earliest_by_habit[event_habit_uid].event_date
+                existing_date = earliest_by_habit.get(event_habit_uid)
+                if existing_date is None or (
+                    event.event_date is not None
+                    and (existing_date.event_date is None or event.event_date < existing_date.event_date)
                 ):
                     earliest_by_habit[event_habit_uid] = event
             elif criteria.group_by_habit and event_habit_uid:
@@ -458,7 +459,7 @@ class EventsHabitIntegrationService:
             Result containing updated event
         """
         # Get the event
-        result = await self.backend.get_event(event_uid)
+        result = await self.backend.get(event_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -474,7 +475,7 @@ class EventsHabitIntegrationService:
             "quality_score": quality_score,
         }
 
-        update_result = await self.backend.update_event(event_uid, updates)
+        update_result = await self.backend.update(event_uid, updates)
         if update_result.is_error:
             return Result.fail(update_result.expect_error())
 
@@ -499,7 +500,7 @@ class EventsHabitIntegrationService:
             # Cascade effects handled by CalendarEventCompleted event → habit service
 
         # Fetch and return updated event
-        updated_result = await self.backend.get_event(event_uid)
+        updated_result = await self.backend.get(event_uid)
         if updated_result.is_error:
             return Result.fail(updated_result.expect_error())
 
@@ -522,7 +523,7 @@ class EventsHabitIntegrationService:
         """
         updates = {"status": "cancelled", "notes": f"Missed: {reason}" if reason else "Missed"}
 
-        result = await self.backend.update_event(event_uid, updates)
+        result = await self.backend.update(event_uid, updates)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -540,7 +541,7 @@ class EventsHabitIntegrationService:
         self.logger.warning(f"Habit event {event_uid} marked as missed")
 
         # Fetch and return updated event
-        updated_result = await self.backend.get_event(event_uid)
+        updated_result = await self.backend.get(event_uid)
         if updated_result.is_error:
             return Result.fail(updated_result.expect_error())
 
@@ -598,7 +599,7 @@ class EventsHabitIntegrationService:
                 "recurrence_pattern": pattern.value,
             }
 
-            result = await self.backend.create_event(event_data)
+            result = await self.backend.create(event_data)
             if result.is_error:
                 self.logger.error(f"Failed to create recurring event: {result.error}")
                 continue
@@ -680,9 +681,10 @@ class EventsHabitIntegrationService:
             habit_uid = event.reinforces_habit_uid
 
             # Track earliest event for each habit
-            if (
-                habit_uid not in next_events_fallback
-                or event.event_date < next_events_fallback[habit_uid].event_date
+            existing_event = next_events_fallback.get(habit_uid)
+            if existing_event is None or (
+                event.event_date is not None
+                and (existing_event.event_date is None or event.event_date < existing_event.event_date)
             ):
                 next_events_fallback[habit_uid] = event
 

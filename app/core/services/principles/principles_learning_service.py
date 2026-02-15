@@ -19,7 +19,7 @@ Version: 1.0.0
 from operator import itemgetter
 from typing import Any
 
-from core.models.enums import KuStatus, Domain
+from core.models.enums import Domain, KuStatus
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuPrincipleCreateRequest
@@ -69,7 +69,7 @@ def _calculate_virtue_embodiment_score(principle: Ku, learning_position: LpPosit
     avg_progress = total_progress / len(learning_position.active_paths)
 
     # Get principle category
-    principle_category = principle.category.value.lower() if principle.category else ""
+    principle_category = principle.category.lower() if principle.category else ""
 
     # Discipline: consistency-weighted
     if principle_category in {"personal", "health"}:
@@ -93,7 +93,7 @@ def _calculate_embodiment_data(principle: Ku, learning_position: LpPosition) -> 
     embodiment_score = _calculate_virtue_embodiment_score(principle, learning_position)
 
     return {
-        "virtue_category": principle.category.value if principle.category else "unknown",
+        "virtue_category": principle.category if principle.category else "unknown",
         "embodiment_depth": embodiment_score,
         "character_development_stage": (
             "embodied"
@@ -324,7 +324,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Ku]):
 
                 # Current step context support
                 current_step = learning_position.current_steps.get(path.uid)
-                if current_step and current_step.estimated_hours > 5:  # Substantial learning
+                if current_step and (current_step.estimated_hours or 0) > 5:  # Substantial learning
                     path_support += 0.2
 
                 if path_support > 0.4:

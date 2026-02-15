@@ -33,9 +33,9 @@ Date: 2025-11-29
 from dataclasses import dataclass
 
 from core.models.enums import (
-    KuStatus,
     ContentType,
     Domain,
+    KuStatus,
     LearningLevel,
     Priority,
 )

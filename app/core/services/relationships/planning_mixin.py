@@ -562,7 +562,7 @@ class PlanningMixin:
             contextual = ContextualEvent.from_entity_and_context(
                 uid=uid,
                 title=event_dict.get("title", ""),
-                context=context,
+                _context=context,
                 days_until=days_until,
                 duration_minutes=event_dict.get("duration_minutes", 30),
             )

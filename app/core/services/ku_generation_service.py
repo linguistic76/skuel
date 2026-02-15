@@ -28,9 +28,9 @@ from enum import Enum
 from operator import attrgetter
 from typing import Any
 
-from core.models.enums import KuStatus, Domain, Priority
-from core.models.ku.ku_dto import KuDTO
+from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku import Ku as Task
+from core.models.ku.ku_dto import KuDTO
 from core.services.protocols import HasMetadata, HasSummary
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

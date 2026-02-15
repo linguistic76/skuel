@@ -27,8 +27,8 @@ from core.events.principle_events import (
     PrincipleStrengthChanged,
 )
 from core.models.enums import Domain
-from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.enums.ku_enums import AlignmentLevel
+from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
@@ -637,12 +637,16 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         user_evidence = assessment_data.get("user_evidence", "")
         user_reflection = assessment_data.get("user_reflection")
 
-        # Add assessment to history using DTO method
-        dto.assess_alignment(
-            level=user_level,
+        # Add assessment to history
+        from core.models.ku.ku_nested_types import AlignmentAssessment as KuAlignmentAssessment
+
+        assessment = KuAlignmentAssessment(
+            assessed_date=date.today(),
+            alignment_level=user_level,
             evidence=user_evidence,
             reflection=user_reflection,
         )
+        dto.alignment_history.append(assessment)
 
         # Update in backend
         await self.backend.update(principle_uid, dto.to_dict())
@@ -1036,8 +1040,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
 
         Returns (severity, high_count, medium_count, low_count)
         """
-        p1_strength = str(p1.strength.value)
-        p2_strength = str(p2.strength.value)
+        p1_strength = str(p1.strength.value) if p1.strength else "unknown"
+        p2_strength = str(p2.strength.value) if p2.strength else "unknown"
 
         if p1_strength == "core" and p2_strength == "core":
             return "high", 1, 0, 0
@@ -1051,12 +1055,12 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
     ) -> dict[str, Any]:
         """Create a conflict record dict."""
         return {
-            "principle1": {"uid": p1.uid, "label": p1.name},
-            "principle2": {"uid": p2.uid, "label": p2.name},
+            "principle1": {"uid": p1.uid, "label": p1.title},
+            "principle2": {"uid": p2.uid, "label": p2.title},
             "severity": severity,
             "conflict_area": "goal_alignment",
             "overlapping_goals_count": len(overlapping_goals),
-            "description": f"{p1.name} and {p2.name} both guide the same goals",
+            "description": f"{p1.title} and {p2.title} both guide the same goals",
         }
 
     def _calculate_harmony_score(self, principles: list[Ku], conflicts: list[dict]) -> float:
@@ -1647,7 +1651,8 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
 
             # 2. Determine conflict severity based on principle strengths
             severity = self._determine_conflict_severity_for_event(
-                principle1.strength.value, principle2.strength.value
+                principle1.strength.value if principle1.strength else "unknown",
+                principle2.strength.value if principle2.strength else "unknown",
             )
 
             # 3. Generate resolution guidance
@@ -1657,7 +1662,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
 
             # 4. Log high-priority conflict insight
             self.logger.warning(
-                f"Principle conflict revealed: {principle1.name} vs {principle2.name}",
+                f"Principle conflict revealed: {principle1.title} vs {principle2.title}",
                 extra={
                     "event_type": "principle.conflict.revealed",
                     "principle_uid": event.principle_uid,
@@ -1668,10 +1673,10 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                     "conflict_context": event.conflict_context,
                     "insight": {
                         "type": "principle_conflict",
-                        "title": f"Conflict: {principle1.name} vs {principle2.name}",
+                        "title": f"Conflict: {principle1.title} vs {principle2.title}",
                         "description": (
-                            f"A conflict has been revealed between '{principle1.name}' and "
-                            f"'{principle2.name}'. {event.conflict_context or 'Consider how to resolve this tension.'}"
+                            f"A conflict has been revealed between '{principle1.title}' and "
+                            f"'{principle2.title}'. {event.conflict_context or 'Consider how to resolve this tension.'}"
                         ),
                         "confidence": 0.9,
                         "impact": "critical" if severity == "high" else "high",
@@ -1698,7 +1703,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
 
             # 6. Log specific guidance
             self.logger.info(
-                f"Resolution guidance generated for {principle1.name} vs {principle2.name}",
+                f"Resolution guidance generated for {principle1.title} vs {principle2.title}",
                 extra={
                     "event_type": "principle.conflict.guidance",
                     "principle_uid": event.principle_uid,
@@ -1719,10 +1724,10 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                     user_uid=event.user_uid,
                     insight_type=InsightType.PRINCIPLE_CONFLICT,
                     domain="principles",
-                    title=f"Conflict: {principle1.name} vs {principle2.name}",
+                    title=f"Conflict: {principle1.title} vs {principle2.title}",
                     description=(
-                        f"A conflict has been revealed between '{principle1.name}' and "
-                        f"'{principle2.name}'. {event.conflict_context or 'Consider how to resolve this tension.'}"
+                        f"A conflict has been revealed between '{principle1.title}' and "
+                        f"'{principle2.title}'. {event.conflict_context or 'Consider how to resolve this tension.'}"
                     ),
                     confidence=0.9,
                     impact=impact,
@@ -1733,8 +1738,12 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                         "severity": severity,
                         "conflict_context": event.conflict_context,
                         "reflection_uid": event.reflection_uid,
-                        "principle1_strength": principle1.strength.value,
-                        "principle2_strength": principle2.strength.value,
+                        "principle1_strength": principle1.strength.value
+                        if principle1.strength
+                        else "unknown",
+                        "principle2_strength": principle2.strength.value
+                        if principle2.strength
+                        else "unknown",
                     },
                 )
                 create_result = await self.insight_store.create_insight(insight)
@@ -1825,7 +1834,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         )
         guidance.append(
             {
-                "action": f"Review how '{principle1.name}' and '{principle2.name}' have guided you before",
+                "action": f"Review how '{principle1.title}' and '{principle2.title}' have guided you before",
                 "rationale": "Past experience may offer resolution patterns.",
             }
         )

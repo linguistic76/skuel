@@ -17,9 +17,7 @@ from datetime import date, datetime
 from typing import Any
 
 from core.events import publish_event
-from core.models.enums.ku_enums import KuType
-from core.models.enums.ku_enums import KuStatus
-from core.models.enums.ku_enums import PrincipleCategory, PrincipleStrength
+from core.models.enums.ku_enums import KuStatus, KuType, PrincipleCategory, PrincipleStrength
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
@@ -190,13 +188,15 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Ku]):
         # GRAPH-NATIVE: Uses strength enum, not numeric adoption_level
         strength_order = {"EXPLORING": 1, "DEVELOPING": 2, "MODERATE": 3, "STRONG": 4, "CORE": 5}
         if "strength" in updates:
-            current_strength = strength_order.get(current.strength.value, 3)
+            current_strength = strength_order.get(
+                current.strength.value if current.strength else "MODERATE", 3
+            )
             new_strength = strength_order.get(updates["strength"], 3)
             if new_strength < current_strength:
                 return Result.fail(
                     Errors.validation(
                         message="Cannot reduce principle strength. Principles should grow with practice. "
-                        f"Current: {current.strength.value}, Proposed: {updates['strength']}. "
+                        f"Current: {current.strength.value if current.strength else 'unknown'}, Proposed: {updates['strength']}. "
                         "Archive the principle instead if no longer relevant.",
                         field="strength",
                         value=updates["strength"],
@@ -272,9 +272,9 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Ku]):
         principle = Ku(
             uid=UIDGenerator.generate_random_uid("principle"),
             user_uid=user_uid,
-            name=label,  # Map label → name
+            title=label,  # Map label → title
             statement=description,  # Map description → statement
-            category=category,
+            principle_category=category,
             why_important=why_matters,  # Map why_matters → why_important
             created_at=datetime.now(),
             **kwargs,
@@ -368,8 +368,10 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Ku]):
             strength_event = PrincipleStrengthChanged(
                 principle_uid=principle_uid,
                 user_uid=updated_principle.user_uid,
-                old_strength=old_strength.value,
-                new_strength=updated_principle.strength.value,
+                old_strength=old_strength.value if old_strength else "unknown",
+                new_strength=updated_principle.strength.value
+                if updated_principle.strength
+                else "unknown",
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, strength_event, logger)

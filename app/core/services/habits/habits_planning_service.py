@@ -293,7 +293,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Ku]):
                         break
 
             # Check if should do today
-            if not habit.should_do_today(day_of_week):
+            if not habit.should_do_today():
                 continue
 
             # Check if already completed today
@@ -510,7 +510,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Ku]):
                 title=habit.title,
                 context=context,
                 supported_goal_uids=supported_goals,
-                is_due_today=habit.should_do_today(date.today().weekday()),
+                is_due_today=habit.should_do_today(),
                 current_streak=habit.current_streak,
                 completion_rate=habit.success_rate,
                 relevance_override=goal_support_score,
@@ -609,7 +609,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Ku]):
 
         # Check frequency readiness
         today = date.today()
-        should_do = habit.should_do_today(today.weekday())
+        should_do = habit.should_do_today()
         if not should_do:
             blocking_reasons.append(f"Not scheduled for today ({today.strftime('%A')})")
 
@@ -656,7 +656,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Ku]):
         Returns:
             1.0 if should do today, 0.0 otherwise
         """
-        return 1.0 if habit.should_do_today(as_of_date.weekday()) else 0.0
+        return 1.0 if habit.should_do_today() else 0.0
 
     @staticmethod
     def _calculate_urgency_score(

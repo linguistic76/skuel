@@ -22,12 +22,12 @@ from core.events import GoalAchieved, GoalMilestoneReached, GoalProgressUpdated,
 from core.events.task_events import TaskCompleted
 from core.models.enums import Domain, KuStatus
 from core.models.enums.ku_enums import MeasurementType
+from core.models.graph_context import GraphContext
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.services.goals.goal_relationships import GoalRelationships
-from core.models.graph_context import GraphContext
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.goals.goal_relationships import GoalRelationships
 from core.services.infrastructure import ProgressCalculationHelper
 from core.services.protocols.domain_protocols import GoalsOperations
 from core.services.protocols.query_types import GoalUpdatePayload
@@ -284,7 +284,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
             current_value=goal_dict.get("current_value", 0.0),
             target_value=goal_dict.get("target_value", 100.0),
             milestones=milestones_tuple,
-            parent_goal_uid=goal_dict.get("parent_goal_uid"),
+            fulfills_goal_uid=goal_dict.get("parent_goal_uid"),
             created_at=created_at,
             updated_at=updated_at,
         )
@@ -1293,7 +1293,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
         # Only update habit-based or mixed goals
         if goal.measurement_type not in [MeasurementType.HABIT_BASED, MeasurementType.MIXED]:
             self.logger.debug(
-                f"Goal {goal_uid} is {goal.measurement_type.value}, not habit-based/mixed - skipping"
+                f"Goal {goal_uid} is {goal.measurement_type.value if goal.measurement_type else 'unknown'}, not habit-based/mixed - skipping"
             )
             return
 

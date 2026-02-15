@@ -22,8 +22,8 @@ from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
 from core.models.enums import (
-    KuStatus,
     ActivityType,
+    KuStatus,
     Priority,
     RecurrencePattern,
     Visibility,

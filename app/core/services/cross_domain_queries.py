@@ -28,8 +28,8 @@ from core.infrastructure.relationships.semantic_relationships import SemanticRel
 from core.models.finance.finance_pure import ExpensePure
 from core.models.ku.ku import Ku
 from core.models.ku.ku import Ku as Habit
-from core.models.query import build_prerequisite_chain
 from core.models.ku.ku import Ku as Task
+from core.models.query import build_prerequisite_chain
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

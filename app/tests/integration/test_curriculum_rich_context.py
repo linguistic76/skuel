@@ -21,10 +21,10 @@ import asyncio
 import pytest
 
 from core.models.enums import Domain, Priority
-from core.models.ku.ku_dto import KuDTO
 from core.models.enums.ku_enums import PrincipleCategory
-from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_dto import KuDTO as GoalDTO
+from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.utils.uid_generator import UIDGenerator
 
 

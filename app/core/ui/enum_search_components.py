@@ -39,10 +39,10 @@ Benefits:
 from typing import Any
 
 from core.models.enums import (
-    KuStatus,
     ContentType,
     Domain,
     EducationalLevel,
+    KuStatus,
     LearningLevel,
     Priority,
     SELCategory,

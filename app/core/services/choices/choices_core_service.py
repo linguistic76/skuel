@@ -71,7 +71,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
     """
 
     def __init__(
-        self, backend: "BackendOperations[Ku]", event_bus=None, relationship_service=None
+        self, backend: BackendOperations[Ku], event_bus=None, relationship_service=None
     ) -> None:
         """
         Initialize choices core service.
@@ -219,7 +219,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         return None  # All validations passed
 
     async def create_choice(
-        self, choice_request: "KuChoiceCreateRequest", user_uid: str
+        self, choice_request: KuChoiceCreateRequest, user_uid: str
     ) -> Result[Ku]:
         """
         Create a basic choice.
@@ -271,7 +271,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
             user_uid=choice.user_uid,
             choice_description=choice.description or choice.title,
             domain=choice.domain.value,
-            urgency=choice.priority.value,
+            urgency=choice.priority or "medium",
             occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
@@ -379,7 +379,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         self.logger.debug(f"Found {len(choices)} choices for goal {goal_uid}")
         return Result.ok(choices)
 
-    async def update_choice(self, choice_uid: str, choice_update: "KuUpdateRequest") -> Result[Ku]:
+    async def update_choice(self, choice_uid: str, choice_update: KuUpdateRequest) -> Result[Ku]:
         """
         Update a choice.
 
@@ -478,7 +478,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         return Result.ok(True)
 
     async def evaluate_choice_outcome(
-        self, choice_uid: str, evaluation: "KuChoiceEvaluationRequest"
+        self, choice_uid: str, evaluation: KuChoiceEvaluationRequest
     ) -> Result[Ku]:
         """
         Record the outcome evaluation for a choice.
@@ -685,7 +685,6 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         Returns:
             Result containing updated Choice with new option
         """
-        from core.models.ku.ku_nested_types import ChoiceOption
         from core.utils.uid_generator import UIDGenerator
 
         # Get existing choice
@@ -798,7 +797,6 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         Returns:
             Result containing updated Choice
         """
-        from core.models.ku.ku_nested_types import ChoiceOption
 
         # Get existing choice
         existing_result = await self.get_choice(choice_uid)

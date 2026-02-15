@@ -5,9 +5,10 @@ Verifies the fracture fix: ContextualPrinciple now uses inherited 'title'
 field from ContextualEntity instead of shadowing with 'name'.
 """
 
+
 import pytest
-from datetime import datetime
-from core.models.context_types import ContextualPrinciple, ContextualEntity
+
+from core.models.context_types import ContextualEntity, ContextualPrinciple
 from core.services.user.unified_user_context import UserContext
 
 

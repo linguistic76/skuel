@@ -35,7 +35,6 @@ from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.goals.goal_relationships import GoalRelationships
 
 # Import sub-services
 from core.services.goals import (
@@ -45,6 +44,7 @@ from core.services.goals import (
     GoalsRecommendationService,
     GoalsSchedulingService,
 )
+from core.services.goals.goal_relationships import GoalRelationships
 from core.services.goals.goals_ai_service import GoalsAIService
 from core.services.goals_types import GoalFeasibilityAssessment
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService

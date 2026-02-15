@@ -1024,7 +1024,7 @@ class KuResponse(ResponseBase):
             measurement_type=dto.measurement_type,
             # Streak
             current_streak=dto.current_streak,
-            longest_streak=dto.longest_streak,
+            longest_streak=dto.best_streak,
             total_completions=dto.total_completions,
             target_days_per_week=dto.target_days_per_week,
             # Goal-specific
@@ -1055,7 +1055,7 @@ class KuResponse(ResponseBase):
             intent=dto.intent,
             mastery_threshold=dto.mastery_threshold,
             estimated_hours=dto.estimated_hours,
-            lp_type=dto.lp_type,
+            lp_type=dto.path_type,
             # Event-specific
             event_type=dto.event_type,
             location=dto.location,

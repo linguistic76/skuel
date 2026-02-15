@@ -107,7 +107,7 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         """Entity label for Neo4j queries."""
         return "Ku"
 
-    def __init__(self, backend: "BackendOperations[Ku]", event_bus: Any = None) -> None:
+    def __init__(self, backend: BackendOperations[Ku], event_bus: Any = None) -> None:
         """
         Initialize core step service.
 
@@ -203,7 +203,7 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                 "estimated_hours": step.estimated_hours,
                 "step_difficulty": get_enum_value(step.step_difficulty),
                 "status": get_enum_value(step.status),
-                "completed": step.completed,
+                "completed": step.is_completed,
                 "completed_at": step.completed_at.isoformat() if step.completed_at else None,
                 "domain": get_enum_value(step.domain),
                 "priority": get_enum_value(step.priority),
@@ -293,7 +293,6 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                 estimated_hours=step_data.get("estimated_hours", 1.0),
                 step_difficulty=step_data.get("step_difficulty"),
                 status=step_data.get("status"),
-                completed=step_data.get("completed", False),
                 completed_at=step_data.get("completed_at"),
                 domain=step_data.get("domain", "PERSONAL"),
                 priority=step_data.get("priority", "MEDIUM"),
@@ -460,7 +459,6 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                 estimated_hours=step_data.get("estimated_hours", 1.0),
                 step_difficulty=step_data.get("step_difficulty"),
                 status=step_data.get("status"),
-                completed=step_data.get("completed", False),
                 completed_at=step_data.get("completed_at"),
                 domain=step_data.get("domain", "PERSONAL"),
                 priority=step_data.get("priority", "MEDIUM"),
@@ -620,7 +618,6 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                 estimated_hours=step_data.get("estimated_hours", 1.0),
                 step_difficulty=step_data.get("step_difficulty"),
                 status=step_data.get("status"),
-                completed=step_data.get("completed", False),
                 completed_at=step_data.get("completed_at"),
                 domain=step_data.get("domain", "PERSONAL"),
                 priority=step_data.get("priority", "MEDIUM"),
@@ -795,7 +792,6 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                         estimated_hours=step_data.get("estimated_hours", 1.0),
                         step_difficulty=step_data.get("step_difficulty"),
                         status=step_data.get("status"),
-                        completed=step_data.get("completed", False),
                         completed_at=step_data.get("completed_at"),
                         domain=step_data.get("domain", "PERSONAL"),
                         priority=step_data.get("priority", "MEDIUM"),

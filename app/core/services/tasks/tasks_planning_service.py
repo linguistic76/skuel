@@ -42,7 +42,7 @@ from core.utils.sort_functions import get_priority_score, get_relevance_score
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualDependencies, ContextualTask
-    from core.services.protocols import BackendOperations
+    from core.services.protocols.base_protocols import BackendOperations
     from core.services.user.unified_user_context import UserContext
 
 

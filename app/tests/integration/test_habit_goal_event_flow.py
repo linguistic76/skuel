@@ -30,8 +30,8 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.habit_events import HabitCompleted
 from core.models.enums import Domain, KuStatus
-from core.models.ku.ku import Ku
 from core.models.enums.ku_enums import MeasurementType
+from core.models.ku.ku import Ku
 from core.models.ku.ku import Ku as Habit
 from core.services.goals.goals_progress_service import GoalsProgressService
 

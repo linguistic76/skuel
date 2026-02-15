@@ -15,7 +15,7 @@ See: /docs/decisions/ADR-037-embedding-infrastructure-separation.md
 
 from datetime import datetime
 
-from core.models.enums import KuStatus, Domain, KuStatus, Priority
+from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku_dto import KuDTO as GoalDTO
 from core.models.ku.ku_dto import KuDTO as TaskDTO
 

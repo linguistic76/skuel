@@ -21,12 +21,12 @@ from typing import TYPE_CHECKING, Any
 from core.constants import GraphDepth
 from core.models.enums import Domain
 from core.models.enums.activity_enums import EngagementLevel
+from core.models.graph_context import GraphContext
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.services.events.event_relationships import EventRelationships
-from core.models.graph_context import GraphContext
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
+from core.services.events.event_relationships import EventRelationships
 from core.services.intelligence import (
     GraphContextOrchestrator,
     RecommendationEngine,
@@ -166,8 +166,8 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku
 
         # Calculate analytics
         total_events = len(events)
-        completed_events = [e for e in events if e.is_completed()]
-        upcoming_events = [e for e in events if not e.is_completed() and not e.is_past()]
+        completed_events = [e for e in events if e.is_completed]
+        upcoming_events = [e for e in events if not e.is_completed and not e.is_past()]
 
         # Calculate completion rate
         completion_rate = len(completed_events) / total_events if total_events > 0 else 0.0
@@ -735,7 +735,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku
         evidence.append(f"{total_events} events in period")
 
         # Calculate attendance rate
-        completed = [e for e in period_events if e.is_completed()]
+        completed = [e for e in period_events if e.is_completed]
         attendance_rate = len(completed) / total_events if total_events > 0 else 0.0
         evidence.append(f"Attendance rate: {attendance_rate:.0%}")
 

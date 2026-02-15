@@ -910,7 +910,8 @@ def create_reports_ui_routes(
         try:
             form = await request.form()
             uploaded_file = form.get("file")
-            identifier = (form.get("identifier") or "").strip()
+            raw_identifier = form.get("identifier")
+            identifier = str(raw_identifier).strip() if raw_identifier else ""
 
             if not identifier:
                 return _render_upload_status("error", "Identifier is required", is_error=True)

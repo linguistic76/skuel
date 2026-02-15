@@ -97,7 +97,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(
             {
@@ -123,7 +123,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(
             {
@@ -172,7 +172,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(
             {
@@ -198,7 +198,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(
             {
@@ -247,7 +247,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(
             {
@@ -273,7 +273,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(
             {
@@ -324,7 +324,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(
             {
@@ -350,7 +350,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(
             {
@@ -399,7 +399,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(
             {
@@ -422,7 +422,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(
             {
@@ -444,7 +444,7 @@ def create_lateral_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(
             {

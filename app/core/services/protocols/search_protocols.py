@@ -40,10 +40,10 @@ if TYPE_CHECKING:
     from core.models.enums import Domain
     from core.models.ku.ku import Ku
     from core.models.ku.ku import Ku as Habit
+    from core.models.ku.ku import Ku as Task
     from core.models.search.filters import BaseSearchFilters
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest
-    from core.models.ku.ku import Ku as Task
     from core.services.user import UserContext
 
 # Generic type variable for domain entities

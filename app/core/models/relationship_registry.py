@@ -2245,7 +2245,7 @@ def generate_ingestion_relationship_config(
         result[rel.yaml_field_path] = RelationshipConfig(
             rel_type=rel.relationship.value,
             target_label=rel.target_label,
-            direction=rel.direction,
+            direction=rel.direction,  # type: ignore[typeddict-item]  # str validated at definition
         )
 
     return result if result else None

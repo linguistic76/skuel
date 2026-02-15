@@ -37,13 +37,13 @@ from typing import Any
 from fasthtml.common import H4, P
 
 from core.models.enums import (
-    KuStatus,
     ActivityType,
     BridgeType,
     CompletionStatus,
     ContentType,
     EducationalLevel,
     HealthStatus,
+    KuStatus,
     Priority,
     RecurrencePattern,
     SELCategory,

@@ -471,7 +471,7 @@ class KuAnalyticsEngine:
 
                 # Check for progressive complexity
                 complexities = [
-                    task.calculate_knowledge_complexity(rels) for task, rels in task_rel_pairs
+                    task.calculate_knowledge_complexity() for task, rels in task_rel_pairs
                 ]
                 if len(complexities) >= 3 and self._is_progressive_sequence(complexities):
                     patterns.append(
@@ -731,7 +731,7 @@ class KuAnalyticsEngine:
             if (
                 rels.prerequisite_knowledge_uids
                 and rels.applies_knowledge_uids
-                and task.is_knowledge_bridge(rels)
+                and task.is_knowledge_bridge()
             )
         ]
 
@@ -821,7 +821,7 @@ class KuAnalyticsEngine:
     def _calculate_base_priority_score(self, task: Task) -> float:
         """Calculate base priority score from task priority."""
         priority_map = {"LOW": 0.2, "MEDIUM": 0.5, "HIGH": 0.8, "CRITICAL": 1.0}
-        return priority_map.get(task.priority.value, 0.5)
+        return priority_map.get(task.priority.upper() if task.priority else "MEDIUM", 0.5)
 
     async def _calculate_knowledge_enhancement_score(
         self, task: Task, rels: TaskRelationships, progressions: dict[str, KuMasteryProgression]
@@ -845,9 +845,9 @@ class KuAnalyticsEngine:
 
         # Boost score for high-priority tasks (priority indicates importance of knowledge gain)
         priority_boost = 0.0
-        if task.priority.value == "critical":
+        if task.priority == "critical":
             priority_boost = 0.2
-        elif task.priority.value == "high":
+        elif task.priority == "high":
             priority_boost = 0.1
 
         return min(1.0, base_score + priority_boost)
@@ -932,7 +932,7 @@ class KuAnalyticsEngine:
 
         # Boost score for high-priority cross-domain tasks (strategic importance)
         priority_boost = 0.0
-        if task.priority.value in ["high", "critical"]:
+        if task.priority in ["high", "critical"]:
             priority_boost = 0.15  # Cross-domain learning in important tasks
 
         # Boost for tasks tagged with cross-domain indicators
@@ -956,9 +956,9 @@ class KuAnalyticsEngine:
         rationale = []
 
         if base > 0.7:
-            rationale.append(f"High base priority ({task.priority.value}) increases importance")
+            rationale.append(f"High base priority ({task.priority}) increases importance")
         elif base < 0.3:
-            rationale.append(f"Low base priority ({task.priority.value}) reduces urgency")
+            rationale.append(f"Low base priority ({task.priority}) reduces urgency")
 
         if knowledge > 0.7:
             rationale.append("Strong knowledge enhancement potential detected")
@@ -999,7 +999,7 @@ class KuAnalyticsEngine:
         # Calculate current mastery level based on task complexity and success
         if completed_tasks:
             complexities = [
-                task.calculate_knowledge_complexity(rels)
+                task.calculate_knowledge_complexity()
                 for task, rels in zip(completed_tasks, completed_rels, strict=False)
             ]
             avg_complexity = statistics.mean(complexities)
@@ -1018,13 +1018,13 @@ class KuAnalyticsEngine:
 
             recent_avg = statistics.mean(
                 [
-                    t.calculate_knowledge_complexity(rels)
+                    t.calculate_knowledge_complexity()
                     for t, rels in zip(recent_half_tasks, recent_half_rels, strict=False)
                 ]
             )
             older_avg = statistics.mean(
                 [
-                    t.calculate_knowledge_complexity(rels)
+                    t.calculate_knowledge_complexity()
                     for t, rels in zip(older_half_tasks, older_half_rels, strict=False)
                 ]
             )
@@ -1081,9 +1081,7 @@ class KuAnalyticsEngine:
                 if ku_uid not in knowledge_usage:
                     knowledge_usage[ku_uid] = {"count": 0, "complexity_sum": 0.0}
                 knowledge_usage[ku_uid]["count"] += 1
-                knowledge_usage[ku_uid]["complexity_sum"] += task.calculate_knowledge_complexity(
-                    rels
-                )
+                knowledge_usage[ku_uid]["complexity_sum"] += task.calculate_knowledge_complexity()
 
         # Find most and least used knowledge areas
         if knowledge_usage:
@@ -1221,7 +1219,7 @@ class KuAnalyticsEngine:
             )
 
             complexities = [
-                t.calculate_knowledge_complexity(rels)
+                t.calculate_knowledge_complexity()
                 for t, rels in zip(completed_tasks, completed_rels, strict=False)
             ]
             completion_rate = len(completed_tasks) / len(tasks)

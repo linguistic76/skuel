@@ -10,16 +10,16 @@ from datetime import date, datetime
 from typing import Any, cast
 
 from core.models.enums import (
-    KuStatus,
     ActivityType,
+    KuStatus,
     Priority,
     RecurrencePattern,
     Visibility,
 )
+from core.models.event.event_request import EventType
 
 # Import from three-tier models
 from core.models.ku.ku import Ku as EventPure
-from core.models.event.event_request import EventType
 from core.models.ku.ku import Ku as HabitPure
 from core.models.ku.ku import Ku as TaskPure
 

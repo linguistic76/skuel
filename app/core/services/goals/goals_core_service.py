@@ -338,7 +338,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
             target_value=goal_request.target_value,
             start_date=goal_request.start_date,
             target_date=goal_request.target_date,
-            parent_goal_uid=goal_request.parent_goal_uid,
+            fulfills_goal_uid=goal_request.parent_goal_uid,
             priority=goal_request.priority,
             status=KuStatus.ACTIVE,
         )

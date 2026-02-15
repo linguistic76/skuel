@@ -62,10 +62,10 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from core.models.enums import (
-    KuStatus,
     ContentType,
     Domain,
     EducationalLevel,
+    KuStatus,
     LearningLevel,
     Priority,
     SELCategory,

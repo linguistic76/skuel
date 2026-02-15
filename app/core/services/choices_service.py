@@ -145,7 +145,7 @@ class ChoicesService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]",
 
     def __init__(
         self,
-        backend: "BackendOperations[Ku]",
+        backend: BackendOperations[Ku],
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
         ai_service: ChoicesAIService | None = None,

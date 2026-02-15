@@ -40,11 +40,11 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.events import HabitCreated, publish_event
-from core.models.enums import KuStatus, Domain, Priority, RecurrencePattern
+from core.models.enums import Domain, KuStatus, Priority, RecurrencePattern
 from core.models.enums.ku_enums import HabitCategory, HabitDifficulty
+from core.models.habit.habit_request import HabitCreateRequest
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.models.habit.habit_request import HabitCreateRequest
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper
@@ -382,7 +382,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Ku]):
             habit_uid=habit.uid,
             user_uid=habit.user_uid,
             title=habit.title,
-            frequency=habit.recurrence_pattern.value if habit.recurrence_pattern else "daily",
+            frequency=habit.recurrence_pattern if habit.recurrence_pattern else "daily",
             domain=None,
             occurred_at=datetime.now(),
         )
@@ -390,7 +390,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Ku]):
 
         self.logger.info(
             f"Created habit '{habit.title}' for user {user_context.user_uid} "
-            f"(difficulty={habit.habit_difficulty.value}, duration={habit.duration_minutes}min)"
+            f"(difficulty={habit.habit_difficulty.value if habit.habit_difficulty else 'unknown'}, duration={habit.duration_minutes}min)"
         )
 
         return Result.ok(habit)
@@ -449,7 +449,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Ku]):
                 habit_uid=habit.uid,
                 user_uid=habit.user_uid,
                 title=habit.title,
-                frequency=habit.recurrence_pattern.value if habit.recurrence_pattern else "daily",
+                frequency=habit.recurrence_pattern if habit.recurrence_pattern else "daily",
                 domain=None,
                 occurred_at=datetime.now(),
             )
@@ -499,8 +499,11 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Ku]):
         }
 
         for habit in category_habits:
-            if habit.recurrence_pattern in frequency_success:
-                frequency_success[habit.recurrence_pattern].append(habit.success_rate)
+            pattern = (
+                RecurrencePattern(habit.recurrence_pattern) if habit.recurrence_pattern else None
+            )
+            if pattern in frequency_success:
+                frequency_success[pattern].append(habit.success_rate)
 
         # Calculate average success by frequency
         avg_success = {}
@@ -643,9 +646,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Ku]):
                 "habit_uid": habit_uid,
                 "habit_name": habit.title,
                 "current_schedule": {
-                    "frequency": habit.recurrence_pattern.value
-                    if habit.recurrence_pattern
-                    else "daily",
+                    "frequency": habit.recurrence_pattern if habit.recurrence_pattern else "daily",
                     "target_days": habit.target_days_per_week,
                     "preferred_time": habit.preferred_time,
                 },
@@ -737,7 +738,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Ku]):
                 if habit.habit_category != new_habit_category:
                     score += 0.3
                     reasons.append(
-                        f"Complementary category ({habit.habit_category.value} + {new_habit_category.value})"
+                        f"Complementary category ({habit.habit_category.value if habit.habit_category else 'unknown'} + {new_habit_category.value})"
                     )
 
             # Streak strength
@@ -755,7 +756,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Ku]):
                     "anchor_habit_uid": habit.uid,
                     "anchor_habit_name": habit.title,
                     "preferred_time": habit.preferred_time,
-                    "category": habit.habit_category.value,
+                    "category": habit.habit_category.value if habit.habit_category else "unknown",
                     "current_streak": habit.current_streak,
                     "success_rate": habit.success_rate,
                     "stacking_score": round(score, 2),

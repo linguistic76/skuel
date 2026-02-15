@@ -235,7 +235,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Ku]):
             PrincipleStrength.DEVELOPING: 15,
             PrincipleStrength.EXPLORING: 10,
         }
-        score += strength_scores.get(principle.strength, 20)
+        score += strength_scores.get(principle.strength, 20) if principle.strength else 20
 
         # Needs review (0-25 points)
         if principle.needs_review():

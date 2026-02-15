@@ -47,10 +47,10 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.models.ku.ku import Ku as EventPure
-from core.models.ku.ku_dto import KuDTO as EventDTO
 from core.models.ku.ku import Ku as HabitPure
-from core.models.ku.ku_dto import KuDTO as HabitDTO
 from core.models.ku.ku import Ku as TaskPure
+from core.models.ku.ku_dto import KuDTO as EventDTO
+from core.models.ku.ku_dto import KuDTO as HabitDTO
 from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.services.protocols import get_enum_value
 
@@ -373,7 +373,17 @@ class CalendarService:
                 if get_result.is_ok and get_result.value:
                     event: EventPure = get_result.value  # Type hint for MyPy protocol inference
                     # Calculate new end time based on original duration
-                    duration = event.end_datetime() - event.start_datetime()
+                    start_dt = event.start_datetime()
+                    end_dt = event.end_datetime()
+                    if start_dt is None or end_dt is None:
+                        return Result.fail(
+                            Errors.validation(
+                                message="Event is missing start or end datetime",
+                                field="datetime",
+                                value=source_uid,
+                            )
+                        )
+                    duration = end_dt - start_dt
                     new_end = new_start + duration
                     # Update event time
                     updated_dto = EventDTO(
@@ -546,7 +556,7 @@ class CalendarService:
         if task.status:
             color = task.status.get_color()
         elif task.priority:
-            color = task.priority.get_color()
+            color = Priority(task.priority).get_color()
         else:
             color = "#3B82F6"  # Default blue
 
@@ -561,11 +571,11 @@ class CalendarService:
             all_day=task.scheduled_date is None and task.due_date is not None,
             color=color,
             icon=CalendarItemType.TASK_WORK.get_icon(),
-            priority=task.priority.value if task.priority else 1,
+            priority=Priority(task.priority).to_numeric() if task.priority else 1,
             tags=task.tags or [],
             metadata={
                 "status": task.status.value if task.status else "pending",
-                "priority": task.priority.value if task.priority else "medium",
+                "priority": task.priority if task.priority else "medium",
             },
         )
 

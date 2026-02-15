@@ -72,7 +72,7 @@ class Domain(str, Enum):
         return synonyms.get(self, (self.value,))
 
     @classmethod
-    def from_search_text(cls, text: str) -> list["Domain"]:
+    def from_search_text(cls, text: str) -> list[Domain]:
         """Find matching domains from search text"""
         text_lower = text.lower()
         return [

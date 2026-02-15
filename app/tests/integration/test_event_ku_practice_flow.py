@@ -30,8 +30,8 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.ku_events import KnowledgePracticed
 from core.models.enums import (
-    KuStatus,
     Domain,
+    KuStatus,
     SELCategory,
 )
 from core.models.ku.ku import Ku

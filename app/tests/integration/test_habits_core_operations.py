@@ -26,13 +26,15 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Priority, RecurrencePattern
-from core.models.ku.ku import Ku as Habit
 from core.models.enums.ku_enums import (
     HabitCategory,
     HabitDifficulty,
     HabitPolarity,
+)
+from core.models.enums.ku_enums import (
     KuStatus as HabitStatus,
 )
+from core.models.ku.ku import Ku as Habit
 from core.services.habits.habits_core_service import HabitsCoreService
 
 

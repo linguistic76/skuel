@@ -237,7 +237,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
         )
 
         # Create event
-        create_result = await self.backend.create_event(dto.to_dict())
+        create_result = await self.backend.create(dto.to_dict())
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
@@ -513,7 +513,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
             if reinforces_habit_uid:
                 dto.reinforces_habit_uid = reinforces_habit_uid
 
-            create_result = await self.backend.create_event(dto.to_dict())
+            create_result = await self.backend.create(dto.to_dict())
             if create_result.is_ok:
                 event = self._to_domain_model(create_result.value, KuDTO, Ku)
                 created_events.append(event)
@@ -611,7 +611,7 @@ class EventsSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
         days_with_events = len(set(e.event_date for e in events if e.event_date))
 
         # Calculate total scheduled time
-        total_minutes = sum(e.duration_minutes() for e in events)
+        total_minutes = sum(e.duration_minutes or 0 for e in events)
 
         return Result.ok(
             {

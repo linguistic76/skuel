@@ -25,7 +25,7 @@ from datetime import date, timedelta
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import KuStatus, Domain, Priority
+from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuTaskCreateRequest
@@ -40,7 +40,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.services.protocols.base_protocols import BackendOperations
 
 # ========================================================================
 # CUSTOM VALIDATOR FOR TASKS DOMAIN
@@ -210,12 +210,12 @@ class TasksSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
         # Add learning integration fields (single UID properties only)
         dto.fulfills_goal_uid = task_data.fulfills_goal_uid
         dto.reinforces_habit_uid = task_data.reinforces_habit_uid
-        dto.goal_progress_contribution = task_data.goal_progress_contribution
-        dto.knowledge_mastery_check = task_data.knowledge_mastery_check
-        dto.habit_streak_maintainer = task_data.habit_streak_maintainer
+        dto.goal_progress_contribution = getattr(task_data, "goal_progress_contribution", 0.0)
+        dto.knowledge_mastery_check = getattr(task_data, "knowledge_mastery_check", False)
+        dto.habit_streak_maintainer = getattr(task_data, "habit_streak_maintainer", False)
 
         # Create task in backend
-        create_result = await self.backend.create_task(dto.to_dict())
+        create_result = await self.backend.create(dto.to_dict())
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
@@ -392,7 +392,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
                     "learning_path": path.title,
                     "knowledge_uid": ku_uid,
                     "estimated_minutes": int(
-                        current_step.estimated_hours * 60 / 3
+                        (current_step.estimated_hours or 0) * 60 / 3
                     ),  # Break into smaller tasks
                     "priority": Priority.MEDIUM.value,
                     "learning_relevance_score": 0.9,  # High relevance for current step
@@ -492,7 +492,7 @@ class TasksSchedulingService(BaseService["BackendOperations[Ku]", Ku]):
         )
 
         # Create via backend
-        create_result = await self.backend.create_task(task_dto.to_dict())
+        create_result = await self.backend.create(task_dto.to_dict())
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 

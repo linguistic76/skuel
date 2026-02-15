@@ -16,11 +16,11 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
 from core.events.choice_events import ChoiceMade, ChoiceOutcomeRecorded
-from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
 from core.models.enums import Domain
 from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
+from core.models.ku.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -91,7 +91,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
 
     def __init__(
         self,
-        backend: "BackendOperations[Ku]",
+        backend: BackendOperations[Ku],
         graph_intelligence_service=None,
         relationship_service: ChoicesRelationshipOperations | None = None,
         insight_store: InsightStore | None = None,
@@ -1335,7 +1335,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
 
             # 5. Log structured insights for decision learning
             self.logger.info(
-                f"Choice outcome recorded: {choice.description[:50]}...",
+                f"Choice outcome recorded: {(choice.description or '')[:50]}...",
                 extra={
                     "choice_uid": event.choice_uid,
                     "user_uid": event.user_uid,
@@ -1458,7 +1458,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
 
             # 6. Log structured insights
             self.logger.info(
-                f"Choice made: {choice.description[:50]}...",
+                f"Choice made: {(choice.description or '')[:50]}...",
                 extra={
                     "choice_uid": event.choice_uid,
                     "user_uid": event.user_uid,

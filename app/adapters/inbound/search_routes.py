@@ -30,9 +30,9 @@ from components.search_components import (
 )
 from core.auth import require_authenticated_user
 from core.models.enums import (
-    KuStatus,
     ContentType,
     EducationalLevel,
+    KuStatus,
     LearningLevel,
     Priority,
     SELCategory,

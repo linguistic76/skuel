@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 from core.constants import GraphDepth, QueryLimit
-from core.models.enums import CompletionStatus, Domain, KuStatus
+from core.models.enums import CompletionStatus, Domain, KuStatus, Priority
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.graph_context import GraphContext
 from core.models.ku.ku import Ku
@@ -75,7 +75,9 @@ def _has_high_priority_focus(tasks: Sequence[Any]) -> bool:
     """Check if more than 40% of tasks are high priority."""
     if not tasks:
         return False
-    high_priority_count = len([t for t in tasks if t.priority.to_numeric() >= 3])
+    high_priority_count = len([
+        t for t in tasks if t.priority and Priority(t.priority).to_numeric() >= 3
+    ])
     return high_priority_count / len(tasks) > 0.4
 
 
@@ -223,14 +225,16 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
             "task_uid": uid,
             "task_title": task.title,
             "status": task.status.value if task.status else None,
-            "priority": task.priority.value if task.priority else None,
+            "priority": task.priority if task.priority else None,
             "knowledge_prerequisites": prerequisites.get("prerequisites", []),
             "has_prerequisites": len(prerequisites.get("prerequisites", [])) > 0,
             "insights": {
                 "is_overdue": task.is_overdue()
                 if callable(getattr(task, "is_overdue", None))
                 else False,
-                "is_high_priority": task.priority and task.priority.to_numeric() >= 3,
+                "is_high_priority": bool(
+                    task.priority and Priority(task.priority).to_numeric() >= 3
+                ),
                 "has_description": bool(task.description),
             },
             "min_confidence": min_confidence,
@@ -466,7 +470,9 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
                                 "required_knowledge": [
                                     n.properties.get("title", "Unknown") for n in knowledge_nodes
                                 ],
-                                "priority": "high" if task.priority.to_numeric() >= 3 else "medium",
+                                "priority": "high"
+                                if task.priority and Priority(task.priority).to_numeric() >= 3
+                                else "medium",
                             }
                         )
 
@@ -1167,7 +1173,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
 
         # Calculate priority handling score
         high_priority_tasks = [
-            t for t in period_tasks if t.priority and t.priority.to_numeric() >= 3
+            t for t in period_tasks if t.priority and Priority(t.priority).to_numeric() >= 3
         ]
         high_priority_completed = [t for t in high_priority_tasks if t.status == KuStatus.COMPLETED]
         priority_rate = (
@@ -1331,9 +1337,9 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
                 "opportunities_count": task.learning_opportunities_count,
                 # NOTE: knowledge_patterns inferred from relationships, not stored field
                 "knowledge_patterns": [],
-                "complexity_score": task.calculate_knowledge_complexity(rels),
-                "learning_impact": task.calculate_learning_impact(rels),
-                "is_bridge_task": task.is_knowledge_bridge(rels),
+                "complexity_score": task.calculate_knowledge_complexity(),
+                "learning_impact": task.calculate_learning_impact(),
+                "is_bridge_task": task.is_knowledge_bridge(),
                 "validates_mastery": task.validates_knowledge_mastery(),
             }
             opportunities.append(opportunity)
@@ -1388,13 +1394,13 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
 
         for task, rels in zip(all_tasks, rels_list, strict=False):
             # Analyze using unified Task model capabilities
-            if task.is_knowledge_bridge(rels):
+            if task.is_knowledge_bridge():
                 knowledge_bridge_tasks.append(task)
 
             if task.validates_knowledge_mastery():
                 mastery_validation_tasks.append(task)
 
-            if task.calculate_knowledge_complexity(rels) > 0.7:
+            if task.calculate_knowledge_complexity() > 0.7:
                 high_complexity_tasks.append(task)
 
             total_learning_opportunities += task.learning_opportunities_count
@@ -1443,7 +1449,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
             pass
 
             # Analyze knowledge combinations
-            all_knowledge = task.get_combined_knowledge_uids(rels)
+            all_knowledge = task.get_combined_knowledge_uids()
             if len(all_knowledge) > 1:
                 combo_key = tuple(sorted(all_knowledge))
                 knowledge_combinations[combo_key] = knowledge_combinations.get(combo_key, 0) + 1

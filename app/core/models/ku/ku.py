@@ -768,7 +768,7 @@ class Ku:
 
     def get_sel_context(self) -> dict[str, Any]:
         """Get SEL-specific context for adaptive curriculum delivery."""
-        base = {
+        base: dict[str, Any] = {
             "learning_level": self.learning_level.value,
             "estimated_time_minutes": self.estimated_time_minutes,
             "difficulty_rating": self.difficulty_rating,
@@ -777,19 +777,15 @@ class Ku:
             "is_challenging": self.is_challenging(),
         }
         if self.sel_category is None:
-            base.update(
-                sel_category=None,
-                sel_category_icon="",
-                sel_category_color="",
-                sel_category_description="",
-            )
+            base["sel_category"] = None
+            base["sel_category_icon"] = ""
+            base["sel_category_color"] = ""
+            base["sel_category_description"] = ""
         else:
-            base.update(
-                sel_category=self.sel_category.value,
-                sel_category_icon=self.sel_category.get_icon(),
-                sel_category_color=self.sel_category.get_color(),
-                sel_category_description=self.sel_category.get_description(),
-            )
+            base["sel_category"] = self.sel_category.value
+            base["sel_category_icon"] = self.sel_category.get_icon()
+            base["sel_category_color"] = self.sel_category.get_color()
+            base["sel_category_description"] = self.sel_category.get_description()
         return base
 
     # =========================================================================
@@ -1466,6 +1462,352 @@ class Ku:
             updated_at=self.updated_at,
             metadata=self.metadata if self.metadata is not None else {},
         )
+
+    # =========================================================================
+    # DOMAIN-SPECIFIC COMPUTED METHODS
+    # Methods migrated from old domain models (Goal, Task, Habit, etc.)
+    # =========================================================================
+
+    @property
+    def name(self) -> str:
+        """Alias for title — backward compat for code referencing old domain models."""
+        return self.title
+
+    @property
+    def category(self) -> str | None:
+        """Domain-aware category: habit_category, principle_category, or domain."""
+        if self.ku_type == KuType.HABIT and self.habit_category:
+            return self.habit_category.value
+        if self.ku_type == KuType.PRINCIPLE and self.principle_category:
+            return self.principle_category.value
+        if self.ku_type == KuType.CHOICE and self.choice_type:
+            return self.choice_type.value
+        return self.domain.value if self.domain else None
+
+    @property
+    def parent_goal_uid(self) -> str | None:
+        """Alias for fulfills_goal_uid."""
+        return self.fulfills_goal_uid
+
+    # --- Goal methods ---
+
+    def calculate_progress(self) -> float:
+        """Calculate goal progress (0.0-1.0)."""
+        if self.measurement_type == MeasurementType.PERCENTAGE:
+            return min(1.0, self.progress_percentage / 100.0)
+        if self.target_value and self.target_value > 0:
+            return min(1.0, self.current_value / self.target_value)
+        return self.progress_percentage / 100.0 if self.progress_percentage else 0.0
+
+    def get_days_remaining(self) -> int | None:
+        """Days until target_date or due_date."""
+        target = self.target_date or self.due_date
+        if not target:
+            return None
+        delta = target - date.today()
+        return delta.days
+
+    def days_remaining(self) -> int:
+        """Days until target_date/due_date (0 if none set or past)."""
+        result = self.get_days_remaining()
+        return max(0, result) if result is not None else 0
+
+    def expected_progress_percentage(self) -> float:
+        """Expected progress based on elapsed time vs total timeline."""
+        if not self.start_date or not self.target_date:
+            return 0.0
+        total = (self.target_date - self.start_date).days
+        if total <= 0:
+            return 100.0
+        elapsed = (date.today() - self.start_date).days
+        return min(100.0, max(0.0, (elapsed / total) * 100.0))
+
+    def is_on_track(self) -> bool:
+        """Check if progress >= expected progress."""
+        expected = self.expected_progress_percentage()
+        return self.progress_percentage >= expected if expected > 0 else True
+
+    def is_overdue(self) -> bool:
+        """Check if past due_date/target_date without completion."""
+        if self.is_completed:
+            return False
+        remaining = self.get_days_remaining()
+        return remaining is not None and remaining < 0
+
+    def is_achieved(self) -> bool:
+        """Check if goal is achieved (completed status)."""
+        return self.status == KuStatus.COMPLETED
+
+    def is_past(self) -> bool:
+        """Check if event date is in the past."""
+        if self.event_date:
+            return self.event_date < date.today()
+        target = self.target_date or self.due_date
+        if target:
+            return target < date.today()
+        return False
+
+    def calculate_system_strength(self, habit_success_rates: dict[str, float] | None = None) -> float:
+        """Calculate goal system strength based on supporting habits."""
+        if not habit_success_rates:
+            return 0.0
+        if not habit_success_rates:
+            return 0.0
+        avg_rate = sum(habit_success_rates.values()) / len(habit_success_rates)
+        return min(1.0, avg_rate)
+
+    def calculate_habit_velocity(self, habit_completion_counts: dict[str, int] | None = None) -> float:
+        """Calculate velocity of habit completion toward goal."""
+        if not habit_completion_counts:
+            return 0.0
+        total = sum(habit_completion_counts.values())
+        return min(1.0, total / max(1, len(habit_completion_counts) * 30))
+
+    def diagnose_system_health(self, habit_success_rates: dict[str, float] | None = None) -> dict[str, Any]:
+        """Diagnose the health of a goal's habit system."""
+        strength = self.calculate_system_strength(habit_success_rates)
+        return {
+            "system_strength": strength,
+            "health": "strong" if strength >= 0.7 else "moderate" if strength >= 0.4 else "weak",
+            "habit_count": len(habit_success_rates) if habit_success_rates else 0,
+        }
+
+    def explain_existence(self) -> str:
+        """Explain why this entity exists."""
+        return self.why_important or self.description or self.summary or f"{self.ku_type.value}: {self.title}"
+
+    # --- Task methods ---
+
+    def impact_score(self) -> float:
+        """Calculate task impact score based on priority and knowledge connections."""
+        from core.models.enums.activity_enums import Priority
+        base = 0.5
+        if self.priority:
+            try:
+                base = Priority(self.priority).to_numeric() / 4.0
+            except (ValueError, KeyError):
+                pass
+        if self.fulfills_goal_uid:
+            base = min(1.0, base + 0.2)
+        return base
+
+    def learning_alignment_score(self) -> float:
+        """Score for how well a task aligns with learning paths."""
+        score = 0.0
+        if self.source_learning_step_uid:
+            score += 0.5
+        if self.source_learning_path_uid:
+            score += 0.3
+        if self.knowledge_mastery_check:
+            score += 0.2
+        return min(1.0, score)
+
+    def get_combined_knowledge_uids(self) -> set[str]:
+        """Get all knowledge UIDs related to this entity."""
+        uids: set[str] = set()
+        if self.primary_knowledge_uids:
+            uids.update(self.primary_knowledge_uids)
+        if self.supporting_knowledge_uids:
+            uids.update(self.supporting_knowledge_uids)
+        return uids
+
+    def get_all_knowledge_uids(self) -> set[str]:
+        """Alias for get_combined_knowledge_uids."""
+        return self.get_combined_knowledge_uids()
+
+    # --- Habit methods ---
+
+    def calculate_consistency_score(self) -> float:
+        """Calculate habit consistency based on streak and success rate."""
+        if self.total_attempts == 0:
+            return 0.0
+        streak_factor = min(1.0, self.current_streak / 30.0)
+        rate_factor = self.success_rate
+        return (streak_factor * 0.4 + rate_factor * 0.6)
+
+    @property
+    def is_keystone(self) -> bool:
+        """Check if this is a keystone habit (high impact)."""
+        return self.is_identity_habit or self.calculate_consistency_score() >= 0.8
+
+    def should_do_today(self) -> bool:
+        """Check if a habit should be done today."""
+        if not self.is_active:
+            return False
+        if self.last_completed:
+            days_since = (datetime.now() - self.last_completed).days
+            if self.target_days_per_week:
+                interval = max(1, 7 // self.target_days_per_week)
+                return days_since >= interval
+        return True
+
+    def get_effort_score(self) -> float:
+        """Get habit effort score (0.0-1.0) based on difficulty."""
+        if self.habit_difficulty:
+            mapping = {
+                HabitDifficulty.TRIVIAL: 0.1,
+                HabitDifficulty.EASY: 0.3,
+                HabitDifficulty.MODERATE: 0.5,
+                HabitDifficulty.CHALLENGING: 0.7,
+                HabitDifficulty.HARD: 0.9,
+            }
+            return mapping.get(self.habit_difficulty, 0.5)
+        return 0.5
+
+    def is_identity_based(self) -> bool:
+        """Check if this is an identity-based habit."""
+        return self.is_identity_habit
+
+    def get_atomic_habits_analysis(self) -> dict[str, Any]:
+        """Get Atomic Habits analysis for this habit."""
+        return {
+            "cue": self.cue or "Not defined",
+            "routine": self.routine or "Not defined",
+            "reward": self.reward or "Not defined",
+            "identity": self.reinforces_identity or "Not defined",
+            "has_complete_loop": bool(self.cue and self.routine and self.reward),
+            "is_identity_based": self.is_identity_habit,
+        }
+
+    # --- Choice methods ---
+
+    def has_high_stakes(self) -> bool:
+        """Check if choice has high stakes."""
+        return bool(self.stakeholders) or bool(self.constraints)
+
+    def calculate_decision_complexity(self) -> float:
+        """Calculate decision complexity (0.0-1.0)."""
+        score = 0.0
+        if self.options:
+            score += min(0.3, len(self.options) * 0.1)
+        if self.decision_criteria:
+            score += min(0.3, len(self.decision_criteria) * 0.1)
+        if self.stakeholders:
+            score += min(0.2, len(self.stakeholders) * 0.1)
+        if self.constraints:
+            score += min(0.2, len(self.constraints) * 0.1)
+        return min(1.0, score)
+
+    def get_decision_quality_score(self) -> float:
+        """Get quality score for a decision."""
+        if not self.decided_at:
+            return 0.0
+        score = 0.3  # Base for having decided
+        if self.decision_rationale:
+            score += 0.3
+        if self.satisfaction_score:
+            score += 0.2 * (self.satisfaction_score / 5.0)
+        if self.actual_outcome:
+            score += 0.2
+        return min(1.0, score)
+
+    # --- Principle methods ---
+
+    def is_well_aligned(self) -> bool:
+        """Check if principle is well-aligned."""
+        return self.current_alignment in (AlignmentLevel.ALIGNED, AlignmentLevel.FLOURISHING)
+
+    def has_alignment_issues(self) -> bool:
+        """Check if principle has alignment issues."""
+        return self.current_alignment in (AlignmentLevel.DRIFTING, AlignmentLevel.MISALIGNED)
+
+    def has_concrete_behaviors(self) -> bool:
+        """Check if principle has concrete key behaviors defined."""
+        return len(self.key_behaviors) > 0
+
+    def is_actionable(self) -> bool:
+        """Check if principle is actionable (has behaviors and expressions)."""
+        return self.has_concrete_behaviors() or len(self.expressions) > 0
+
+    def assess_alignment(self) -> dict[str, Any]:
+        """Assess principle alignment status."""
+        return {
+            "level": self.current_alignment.value if self.current_alignment else "unknown",
+            "is_well_aligned": self.is_well_aligned(),
+            "has_issues": self.has_alignment_issues(),
+            "behaviors_defined": len(self.key_behaviors),
+            "expressions_count": len(self.expressions),
+        }
+
+    # --- Knowledge methods ---
+
+    def calculate_knowledge_complexity(self) -> float:
+        """Calculate knowledge complexity (0.0-1.0)."""
+        return self.difficulty_rating
+
+    def is_knowledge_bridge(self) -> bool:
+        """Check if this KU bridges multiple domains."""
+        return len(self.semantic_links) >= 3
+
+    def validates_knowledge_mastery(self) -> bool:
+        """Check if this entity validates knowledge mastery."""
+        return self.knowledge_mastery_check
+
+    def calculate_learning_impact(self) -> float:
+        """Calculate learning impact score."""
+        score = 0.0
+        if self.primary_knowledge_uids:
+            score += min(0.4, len(self.primary_knowledge_uids) * 0.1)
+        if self.supporting_knowledge_uids:
+            score += min(0.3, len(self.supporting_knowledge_uids) * 0.1)
+        score += self.difficulty_rating * 0.3
+        return min(1.0, score)
+
+    # --- Event methods ---
+
+    def start_datetime(self) -> datetime | None:
+        """Get event start as datetime."""
+        if self.event_date and self.start_time:
+            return datetime.combine(self.event_date, self.start_time)
+        return None
+
+    def end_datetime(self) -> datetime | None:
+        """Get event end as datetime."""
+        if self.event_date and self.end_time:
+            return datetime.combine(self.event_date, self.end_time)
+        if self.event_date and self.start_time and self.duration_minutes:
+            start = datetime.combine(self.event_date, self.start_time)
+            return start + timedelta(minutes=self.duration_minutes)
+        return None
+
+    def overlaps_with(self, other: "Ku") -> bool:
+        """Check if two events overlap in time."""
+        my_start = self.start_datetime()
+        my_end = self.end_datetime()
+        other_start = other.start_datetime()
+        other_end = other.end_datetime()
+        if not all([my_start, my_end, other_start, other_end]):
+            return False
+        return my_start < other_end and other_start < my_end  # type: ignore[operator]
+
+    # --- Learning Path methods ---
+
+    @property
+    def steps(self) -> tuple[()]:
+        """LP steps are graph relationships, not model attributes. Returns empty tuple."""
+        return ()
+
+    @property
+    def goal(self) -> str:
+        """LP goal — alias for description or vision_statement."""
+        return self.description or self.vision_statement or ""
+
+    # --- Cross-domain query helpers ---
+
+    @property
+    def is_from_learning_step(self) -> bool:
+        """Check if this entity originated from a learning step."""
+        return self.source_learning_step_uid is not None
+
+    @property
+    def fulfills_learning_step(self) -> bool:
+        """Check if this entity fulfills a learning step."""
+        return self.source_learning_step_uid is not None
+
+    @property
+    def key_topics(self) -> tuple[str, ...]:
+        """Key topics — alias for tags."""
+        return self.tags
 
     def __str__(self) -> str:
         return f"Ku(uid={self.uid}, type={self.ku_type.value}, title='{self.title}')"

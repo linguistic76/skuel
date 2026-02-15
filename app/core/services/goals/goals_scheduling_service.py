@@ -379,7 +379,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
         distribution = {"critical": 0, "high": 0, "medium": 0, "low": 0}
 
         for goal in goals:
-            priority_key = goal.priority.value.lower() if goal.priority else "medium"
+            priority_key = goal.priority.lower() if goal.priority else "medium"
             if priority_key in distribution:
                 distribution[priority_key] += 1
             else:
@@ -507,7 +507,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
 
         self.logger.info(
             f"Created goal '{goal.title}' for user {user_context.user_uid} "
-            f"(type={goal.goal_type.value}, timeframe={goal.timeframe.value})"
+            f"(type={goal.goal_type.value if goal.goal_type else 'unknown'}, timeframe={goal.timeframe.value if goal.timeframe else 'unknown'})"
         )
 
         return Result.ok(goal)
@@ -885,7 +885,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
                 Priority.MEDIUM: 0.15,
                 Priority.LOW: 0.1,
             }
-            score += priority_scores.get(goal.priority, 0.15)
+            score += priority_scores.get(Priority(goal.priority), 0.15) if goal.priority else 0.15
 
             # Factor 3: Progress momentum (0-0.2)
             progress = goal.progress_percentage

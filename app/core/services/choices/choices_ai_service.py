@@ -96,7 +96,7 @@ class ChoicesAIService(BaseAIService["BackendOperations[Ku]", Ku]):
         context = {
             "title": choice.title,
             "description": choice.description or "No description",
-            "priority": choice.priority.value if choice.priority else "medium",
+            "priority": choice.priority if choice.priority else "medium",
             "choice_type": choice.choice_type.value if choice.choice_type else "multiple",
         }
 
@@ -213,7 +213,7 @@ TRADEOFF: [key downside or consideration]"""
             "title": choice.title,
             "description": choice.description or "No description",
             "status": choice.status.value if choice.status else "pending",
-            "priority": choice.priority.value if choice.priority else "medium",
+            "priority": choice.priority if choice.priority else "medium",
         }
 
         prompt = """Provide a brief insight about this decision.

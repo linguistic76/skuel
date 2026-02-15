@@ -265,9 +265,9 @@ class HabitSearchService(BaseService[HabitsOperations, Ku]):
                 score += 15  # Tracked habit supporting goals
 
         # Frequency alignment (0-15 points)
-        # recurrence_pattern is typed as RecurrencePattern enum
+        # recurrence_pattern is stored as plain string
         if habit.recurrence_pattern:
-            freq_value = habit.recurrence_pattern.value
+            freq_value = habit.recurrence_pattern
             if freq_value == "daily":
                 score += 15  # Daily habits need daily attention
             elif freq_value == "weekly":
@@ -337,8 +337,8 @@ class HabitSearchService(BaseService[HabitsOperations, Ku]):
         # last_completed is typed as datetime | None, so .date() is safe here
         last_date = habit.last_completed.date()
 
-        # recurrence_pattern is typed as RecurrencePattern enum, defaults to DAILY
-        freq_value = habit.recurrence_pattern.value if habit.recurrence_pattern else "daily"
+        # recurrence_pattern is stored as plain string, defaults to "daily"
+        freq_value = habit.recurrence_pattern if habit.recurrence_pattern else "daily"
 
         if freq_value == "daily":
             # Daily habits are due if not completed today
@@ -414,8 +414,8 @@ class HabitSearchService(BaseService[HabitsOperations, Ku]):
         last_date = habit.last_completed.date()
         days_since = (today - last_date).days
 
-        # recurrence_pattern is typed as RecurrencePattern enum, defaults to DAILY
-        freq_value = habit.recurrence_pattern.value if habit.recurrence_pattern else "daily"
+        # recurrence_pattern is stored as plain string, defaults to "daily"
+        freq_value = habit.recurrence_pattern if habit.recurrence_pattern else "daily"
 
         if freq_value == "daily":
             return days_since > 1
@@ -651,8 +651,8 @@ class HabitSearchService(BaseService[HabitsOperations, Ku]):
                 last_date = None
 
             # Check frequency - daily habits are always due
-            # recurrence_pattern is typed as RecurrencePattern enum, defaults to DAILY
-            freq_value = habit.recurrence_pattern.value if habit.recurrence_pattern else "daily"
+            # recurrence_pattern is stored as plain string, defaults to "daily"
+            freq_value = habit.recurrence_pattern if habit.recurrence_pattern else "daily"
 
             if freq_value == "daily":
                 due_today.append(habit)

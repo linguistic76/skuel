@@ -25,6 +25,8 @@ from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.models.ku.ku_request import (
     KuLearningStepCreateRequest,
+)
+from core.models.ku.ku_request import (
     KuUpdateRequest as KuStepUpdateRequest,
 )
 from core.services.protocols.facade_protocols import LsFacadeProtocol

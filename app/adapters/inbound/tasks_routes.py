@@ -12,6 +12,8 @@ from adapters.inbound.tasks_ui import create_tasks_ui_routes
 from core.infrastructure.routes import create_activity_domain_route_config, register_domain_routes
 from core.models.ku.ku_request import (
     KuTaskCreateRequest as TaskCreateRequest,
+)
+from core.models.ku.ku_request import (
     KuUpdateRequest as TaskUpdateRequest,
 )
 

@@ -24,11 +24,11 @@ from datetime import date
 
 import pytest
 
-from core.models.ku.ku_request import KuChoiceCreateRequest
-from core.services.choices.choice_relationships import ChoiceRelationships
 from core.models.ku.ku_relationships import KuRelationships
+from core.models.ku.ku_request import KuChoiceCreateRequest
 from core.models.ku.lp_relationships import LpRelationships
 from core.models.principle.principle_relationships import PrincipleRelationships
+from core.services.choices.choice_relationships import ChoiceRelationships
 
 # ============================================================================
 # CHOICE RELATIONSHIPS TESTS

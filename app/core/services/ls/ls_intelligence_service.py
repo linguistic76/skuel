@@ -65,7 +65,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
 
     def __init__(
         self,
-        backend: "BackendOperations[Ku]",
+        backend: BackendOperations[Ku],
         graph_intelligence_service: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,

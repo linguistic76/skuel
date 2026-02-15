@@ -149,7 +149,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
         event = self._get_event_from_rich_context(event_uid, user_context)
 
         if event is None:
-            event_result = await self.backend.get_event(event_uid)
+            event_result = await self.backend.get(event_uid)
             if event_result.is_error:
                 return Result.fail(event_result.expect_error())
             if not event_result.value:
@@ -170,7 +170,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
             updates["notes"] = notes
 
         # Update event
-        update_result = await self.backend.update_event(event_uid, updates)
+        update_result = await self.backend.update(event_uid, updates)
         if update_result.is_error:
             return Result.fail(update_result.expect_error())
 

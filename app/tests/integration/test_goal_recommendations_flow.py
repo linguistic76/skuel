@@ -31,10 +31,10 @@ from core.models.enums import (
     Domain,
     SELCategory,
 )
-from core.models.ku.ku import Ku
-from core.models.enums.ku_enums import KuStatus, GoalType, MeasurementType, PrincipleCategory
-from core.models.ku.ku import Ku as Habit
+from core.models.enums.ku_enums import GoalType, KuStatus, MeasurementType, PrincipleCategory
 from core.models.enums.ku_enums import KuStatus as HabitStatus
+from core.models.ku.ku import Ku
+from core.models.ku.ku import Ku as Habit
 from core.services.goals.goals_recommendation_service import GoalsRecommendationService
 
 

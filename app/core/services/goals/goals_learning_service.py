@@ -19,7 +19,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import GoalCreated, publish_event
-from core.models.enums import KuStatus, Domain
+from core.models.enums import Domain, KuStatus
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO

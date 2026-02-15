@@ -23,19 +23,19 @@ from datetime import date, datetime, timedelta
 from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.ku.ku import Ku
 from core.models.enums import (
-    KuStatus,
     ContentType,
     Domain,
     EducationalLevel,
+    KuStatus,
     LearningLevel,
     Priority,
     RecurrencePattern,
     SELCategory,
 )
-from core.models.ku.ku import Ku as Habit
 from core.models.enums.ku_enums import KuType
+from core.models.ku.ku import Ku
+from core.models.ku.ku import Ku as Habit
 from core.models.ku.ku import Ku as Task
 from core.utils.logging import get_logger
 

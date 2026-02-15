@@ -189,10 +189,9 @@ def create_notifications_ui_routes(
             content = Div(_empty_state(), id="notification-list")
 
         return BasePage(
-            header,
-            content,
-            request=request,
+            Div(header, content),
             title="Notifications",
+            request=request,
         )
 
     @rt("/notifications/{notification_uid}/read", methods=["POST"])

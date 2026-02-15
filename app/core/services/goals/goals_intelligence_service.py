@@ -28,13 +28,12 @@ from datetime import date, timedelta
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import Domain
-from core.models.enums import KuStatus
+from core.models.enums import Domain, KuStatus
 from core.models.enums.activity_enums import ProgressLevel
-from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
 from core.models.graph_context import GraphContext
+from core.models.ku.ku import Ku
 from core.models.ku.ku import Ku as Habit
+from core.models.ku.ku_dto import KuDTO
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
@@ -226,7 +225,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Ku]):
 
         # Calculate analytics
         total_goals = len(goals)
-        active_goals = [g for g in goals if g.is_active()]
+        active_goals = [g for g in goals if g.is_active]
         completed_goals = [g for g in goals if g.is_achieved()]
         on_track_goals = [g for g in goals if g.is_on_track()]
 
@@ -394,7 +393,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Ku]):
             "needs_habit_support": not metrics["has_habit_system"],
             "has_learning_gaps": not metrics["has_curriculum_alignment"]
             and has_knowledge_requirements,
-            "on_track": goal.is_active() and goal.progress_percentage >= 10.0,
+            "on_track": goal.is_active and goal.progress_percentage >= 10.0,
         }
 
         return Result.ok(
@@ -403,7 +402,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Ku]):
                 "progress": {
                     "percentage": goal.progress_percentage,
                     "status": goal.status,
-                    "is_on_track": goal.is_active() and goal.progress_percentage >= 10.0,
+                    "is_on_track": goal.is_active and goal.progress_percentage >= 10.0,
                     "target_date": goal.target_date,
                     "days_remaining": days_remaining,
                 },
@@ -531,7 +530,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Ku]):
                 "forecast": {
                     "estimated_completion_date": forecast["estimated_completion_date"],
                     "confidence_level": confidence_level,
-                    "on_track": goal.is_active() and goal.progress_percentage >= 10.0,
+                    "on_track": goal.is_active and goal.progress_percentage >= 10.0,
                     "days_ahead_or_behind": days_ahead_or_behind,
                     "completion_probability": forecast["completion_probability"],
                 },
@@ -998,7 +997,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Ku]):
 
         def get_priority_weight(habit: Habit) -> float:
             if habit.priority:
-                return priority_weights.get(habit.priority.value.lower(), 1.0)
+                return priority_weights.get(habit.priority.lower(), 1.0)
             return 1.0
 
         def get_normalized_success_rate(habit: Any) -> float:
@@ -1231,7 +1230,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Ku]):
         # success_rate is 0.0-1.0, so 0.7 = 70% consistency
         inconsistent = [h for h in habits if h.success_rate < 0.7]
         days_remaining = goal.get_days_remaining()
-        has_long_habits = any(h.duration_minutes > 45 for h in habits)
+        has_long_habits = any((h.duration_minutes or 0) > 45 for h in habits)
 
         return (
             RecommendationEngine()

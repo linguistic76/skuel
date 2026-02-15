@@ -1391,7 +1391,7 @@ Return ONLY Markdown in this structure:
             event = ReportDeleted(
                 report_uid=uid,
                 user_uid=ku_user_uid,
-                ku_type="submission",
+                report_type="submission",
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
@@ -1459,7 +1459,7 @@ Return ONLY Markdown in this structure:
             metadata={
                 "summary": insights.summary,
                 "journal_type": JournalType.VOICE.value,
-                "content_type": ContentType.AUDIO_TRANSCRIPT.value,
+                "content_type": "audio_transcript",
                 "key_topics": insights.themes,
                 "entry_date": date.today().isoformat(),
                 "source_type": "transcript",

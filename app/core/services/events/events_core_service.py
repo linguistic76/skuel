@@ -142,7 +142,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         # Business Rule: Event duration sanity check
         # Catches data entry errors and suggests better patterns
-        duration = event.duration_minutes()  # duration_minutes is a METHOD, not an attribute
+        duration = event.duration_minutes
         if duration:
             if duration < 5:
                 return Result.fail(
@@ -312,34 +312,10 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         Returns:
             Result containing count
         """
-        try:
-            # Try using backend's count method if available
-            count = await self.backend.count_events(filters=filters)
-            return Result.ok(count)
-        except AttributeError:
-            # Fallback: count via list_events
-            self.logger.warning(
-                "Backend doesn't support efficient count, falling back to list_events"
-            )
-            result = await self.backend.list(filters=filters or {})
-
-            if result.is_error:
-                return Result.fail(result.expect_error())
-
-            # Unpack tuple: backend.list() returns (events, total_count)
-            _, total_count = result.value
-            return Result.ok(total_count)
-        except Exception as e:
-            self.logger.error(f"Error counting events: {e}")
-            # Fallback to list method
-            result = await self.backend.list(filters=filters or {})
-
-            if result.is_error:
-                return Result.fail(result.expect_error())
-
-            # Unpack tuple: backend.list() returns (events, total_count)
-            _, total_count = result.value
-            return Result.ok(total_count)
+        count_result = await self.backend.count(**(filters or {}))
+        if count_result.is_error:
+            return Result.fail(count_result.expect_error())
+        return Result.ok(count_result.value)
 
     # get_user_items_in_range() is now inherited from BaseService
     # Configured via class attributes: _date_field, _completed_statuses, _dto_class, _model_class

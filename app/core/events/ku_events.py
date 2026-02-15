@@ -319,7 +319,7 @@ async def create_task(self, task: Task) -> Result[Task]:
                 user_uid=task.user_uid,
                 occurred_at=datetime.now(),
                 task_title=task.title,
-                task_priority=task.priority.value
+                task_priority=task.priority or "medium"
             )
             await self.event_bus.publish_async(event)
             self.logger.debug(f"Published {event.event_type} for {knowledge_uid}")

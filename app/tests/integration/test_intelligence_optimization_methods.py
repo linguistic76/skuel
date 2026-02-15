@@ -10,8 +10,8 @@ from datetime import date
 
 import pytest
 
-from core.models.ku.ku_request import KuChoiceCreateRequest
 from core.models.enums.ku_enums import PrincipleCategory
+from core.models.ku.ku_request import KuChoiceCreateRequest
 
 
 @pytest.mark.asyncio

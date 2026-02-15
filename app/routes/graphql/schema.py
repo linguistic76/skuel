@@ -301,7 +301,7 @@ class Query:
             title=task.title,
             description=task.description or "",
             status=task.status.value,
-            priority=task.priority.value,
+            priority=task.priority or "medium",
         )
 
     @strawberry.field
@@ -354,7 +354,7 @@ class Query:
                 title=task.title,
                 description=task.description or "",
                 status=task.status.value,
-                priority=task.priority.value,
+                priority=task.priority or "medium",
             )
             for task in filtered_tasks
         ]
@@ -376,9 +376,9 @@ class Query:
 
         return LearningPath(
             uid=path.uid,
-            name=path.name,
-            goal=path.goal or "",
-            total_steps=len(path.steps),
+            name=path.title,
+            goal=path.description or "",
+            total_steps=0,  # Steps loaded lazily via LearningPath.steps resolver
             estimated_hours=path.estimated_hours or 0.0,
         )
 
@@ -522,9 +522,9 @@ class Query:
         return [
             LearningPath(
                 uid=path.uid,
-                name=path.name,
-                goal=path.goal or "",
-                total_steps=len(path.steps),
+                name=path.title,
+                goal=path.description or "",
+                total_steps=0,  # Steps loaded lazily via LearningPath.steps resolver
                 estimated_hours=path.estimated_hours or 0.0,
             )
             for path in result.value
@@ -577,7 +577,7 @@ class Query:
                 target_user_uid
             )
             if profile_result.is_ok:
-                mastered_uids = {m.knowledge_uid for m in profile_result.value.mastered}
+                mastered_uids = profile_result.value.mastered_uids
                 for step in steps:
                     # Step is completed if user mastered associated KUs
                     if (
@@ -662,8 +662,8 @@ class Query:
         return LearningPathContext(
             path=LearningPath(
                 uid=path.uid,
-                name=path.name,
-                goal=path.goal or "",
+                name=path.title,
+                goal=path.description or "",
                 total_steps=total_steps,
                 estimated_hours=path.estimated_hours or 0.0,
             ),

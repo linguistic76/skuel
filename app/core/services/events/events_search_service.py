@@ -44,7 +44,7 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.services.protocols.base_protocols import BackendOperations
 
 
 class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
@@ -481,7 +481,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
             Result containing conflicting events
         """
         # First get the target event
-        event_result = await self.backend.get_event(event_uid)
+        event_result = await self.backend.get(event_uid)
         if event_result.is_error:
             return Result.fail(event_result.expect_error())
 

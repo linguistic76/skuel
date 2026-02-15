@@ -20,12 +20,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.constants import ConfidenceLevel
-from core.models.ku.ku_inference import KnowledgeConnection
 from core.models.ku.ku_dto import KuDTO as TaskDTO
-from core.services.tasks.task_relationships import TaskRelationships
+from core.models.ku.ku_inference import KnowledgeConnection
 
 # Import the advanced inference engine
 from core.services.advanced_ku_inference_engine import AdvancedKuInferenceEngine
+from core.services.tasks.task_relationships import TaskRelationships
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -155,9 +155,10 @@ class KuInferenceService:
         opportunity_count = await self._count_learning_opportunities(task_rels)
 
         # Update the DTO with inferred data
-        task_dto.inferred_knowledge_uids = inferred_uids
+        task_dto.primary_knowledge_uids = list(set(task_dto.primary_knowledge_uids + inferred_uids))
         task_dto.knowledge_confidence_scores = confidence_scores
-        task_dto.knowledge_patterns_detected = patterns
+        task_dto.knowledge_inference_metadata = task_dto.knowledge_inference_metadata or {}
+        task_dto.knowledge_inference_metadata["patterns_detected"] = patterns
         task_dto.learning_opportunities_count = opportunity_count
         task_dto.knowledge_inference_metadata = {
             "inference_version": "1.0_basic",

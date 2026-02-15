@@ -50,7 +50,6 @@ from core.services.events.events_ai_service import EventsAIService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.mixins import FacadeDelegationMixin, merge_delegations
 from core.services.protocols import get_enum_value
-from core.services.protocols.base_protocols import EnumLike
 from core.services.protocols.query_types import EventUpdatePayload
 
 # Unified relationship service (replaces EventsRelationshipService)
@@ -69,7 +68,7 @@ if TYPE_CHECKING:
         RecurringInstancesRequest,
         RemoveAttendeeRequest,
     )
-    from core.models.ku.ku_request import KuEventCreateRequest, KuUpdateRequest
+    from core.models.ku.ku_request import KuEventCreateRequest
     from core.services.events.events_intelligence_service import EventsIntelligenceService
     from core.services.protocols import BackendOperations
     from core.services.protocols.facade_protocols import EventsFacadeProtocol
@@ -231,7 +230,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", 
 
     def __init__(
         self,
-        backend: "BackendOperations[Ku]",
+        backend: BackendOperations[Ku],
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
         ai_service: EventsAIService | None = None,
@@ -683,12 +682,8 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", 
                 )
             )
 
-        # Calculate interval based on recurrence pattern
-        pattern = (
-            event.recurrence_pattern.value
-            if isinstance(event.recurrence_pattern, EnumLike)
-            else event.recurrence_pattern
-        )
+        # Calculate interval based on recurrence pattern (stored as plain string)
+        pattern = event.recurrence_pattern
 
         interval_days = {
             "daily": 1,
@@ -720,7 +715,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", 
             )
             dto.recurrence_parent_uid = request.event_uid  # Link to template
 
-            create_result = await self.backend.create_event(dto.to_dict())
+            create_result = await self.backend.create(dto.to_dict())
             if create_result.is_ok:
                 new_event = self._to_domain_model(create_result.value, KuDTO, Ku)
                 created_events.append(new_event)
@@ -762,7 +757,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", 
         # PHASE 3B: practices_knowledge_uids is a graph relationship, not a DTO field
         # Services create graph edges after event creation via relationship services
         # NOTE: supports_goal_uid and learning_path_uid use getattr for forward compatibility
-        dto.supports_goal_uid = getattr(event_data, "supports_goal_uid", None)
+        dto.fulfills_goal_uid = getattr(event_data, "supports_goal_uid", None)
         dto.learning_path_uid = getattr(event_data, "learning_path_uid", None)
 
         # Set recurrence for habit events
@@ -771,7 +766,7 @@ class EventsService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", 
             dto.recurrence_pattern = RecurrencePattern.DAILY  # Default
 
         # Create event in backend
-        create_result = await self.backend.create_event(dto.to_dict())
+        create_result = await self.backend.create(dto.to_dict())
         if create_result.is_error:
             return Result.fail(create_result)
 

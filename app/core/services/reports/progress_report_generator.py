@@ -183,7 +183,7 @@ class ProgressKuGenerator:
         include_all = not domains
 
         # Tasks completed in period
-        if include_all or "tasks" in domains:
+        if include_all or "tasks" in (domains or []):
             try:
                 records, _, _ = await self.driver.execute_query(
                     """
@@ -227,7 +227,7 @@ class ProgressKuGenerator:
                 logger.warning(f"Failed to query task completions: {e}")
 
         # Goals progressed in period
-        if include_all or "goals" in domains:
+        if include_all or "goals" in (domains or []):
             try:
                 records, _, _ = await self.driver.execute_query(
                     """
@@ -255,7 +255,7 @@ class ProgressKuGenerator:
                 logger.warning(f"Failed to query goal progress: {e}")
 
         # Habits completed in period
-        if include_all or "habits" in domains:
+        if include_all or "habits" in (domains or []):
             try:
                 records, _, _ = await self.driver.execute_query(
                     """
@@ -283,7 +283,7 @@ class ProgressKuGenerator:
                 logger.warning(f"Failed to query habit completions: {e}")
 
         # Choices made in period
-        if include_all or "choices" in domains:
+        if include_all or "choices" in (domains or []):
             try:
                 records, _, _ = await self.driver.execute_query(
                     """

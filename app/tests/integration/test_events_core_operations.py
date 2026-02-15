@@ -391,7 +391,7 @@ class TestEventsCoreOperations:
         # Assert
         assert result.is_ok
         created = result.value
-        assert created.duration_minutes() == 90  # 1.5 hours = 90 minutes
+        assert created.duration_minutes == 90  # 1.5 hours = 90 minutes
 
     # ==========================================================================
     # EDGE CASES TESTS (3 tests)

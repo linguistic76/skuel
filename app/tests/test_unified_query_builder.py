@@ -10,8 +10,8 @@ from datetime import date
 import pytest
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.query import UnifiedQueryBuilder, query
 from core.models.ku.ku import Ku as Task
+from core.models.query import UnifiedQueryBuilder, query
 
 
 class TestModelQueryBuilder:

@@ -14,13 +14,12 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.models.enums import Priority, RecurrencePattern
+from core.models.enums.ku_enums import HabitCategory, HabitDifficulty, HabitPolarity, KuStatus
 from core.models.validation_rules import (
     validate_habit_duration_by_difficulty,
     validate_habit_target_days_by_pattern,
     validate_required_string,
 )
-
-from core.models.enums.ku_enums import HabitCategory, HabitDifficulty, HabitPolarity, KuStatus
 
 
 class HabitCreateRequest(BaseModel):

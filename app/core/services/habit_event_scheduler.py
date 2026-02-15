@@ -17,9 +17,9 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from core.models.enums import Priority, RecurrencePattern
-from core.models.ku.ku_dto import KuDTO as EventDTO
 from core.models.enums.ku_enums import HabitCategory
 from core.models.ku.ku import Ku as Habit
+from core.models.ku.ku_dto import KuDTO as EventDTO
 from core.models.ku.ku_dto import KuDTO as HabitDTO
 
 # Import protocol interfaces
@@ -159,8 +159,8 @@ class HabitEventScheduler:
 
         habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
-        # Check if habit is active (use habit's is_active() helper method)
-        if not habit.is_active():
+        # Check if habit is active (is_active is a bool field on Ku)
+        if not habit.is_active:
             return Result.ok([])
 
         # Generate events based on frequency
@@ -272,7 +272,12 @@ class HabitEventScheduler:
             duration = habit.duration_minutes or self.config.default_duration_minutes
             end_time = self._calculate_end_time(start_time, duration, date.today())
 
-            event = EventDTO.create(
+            from core.models.enums.ku_enums import KuType
+            from core.utils.uid_generator import UIDGenerator
+
+            event = EventDTO(
+                uid=UIDGenerator.generate_random_uid("event"),
+                ku_type=KuType.EVENT,
                 user_uid=user_context.user_uid,
                 title=f"MAINTAIN STREAK: {habit.title}",
                 event_date=date.today(),
@@ -285,7 +290,7 @@ class HabitEventScheduler:
             event.recurrence_maintains_habit = True
             event.skip_breaks_habit_streak = True
             event.metadata["is_urgent"] = True
-            event.priority = Priority.CRITICAL if habit.is_keystone() else Priority.HIGH
+            event.priority = Priority.CRITICAL if habit.is_keystone else Priority.HIGH
 
             maintenance_events.append(event)
 
@@ -349,7 +354,12 @@ class HabitEventScheduler:
             event_date_val = date.today() + timedelta(days=1)  # Start tomorrow
             end_time = self._calculate_end_time(current_time, duration, event_date_val)
 
-            event = EventDTO.create(
+            from core.models.enums.ku_enums import KuType
+            from core.utils.uid_generator import UIDGenerator
+
+            event = EventDTO(
+                uid=UIDGenerator.generate_random_uid("event"),
+                ku_type=KuType.EVENT,
                 user_uid=user_context.user_uid,
                 title=f"{routine_type.title()} Routine: {habit.title}",
                 event_date=event_date_val,
@@ -411,7 +421,12 @@ class HabitEventScheduler:
                 duration = habit.duration_minutes or self.config.default_duration_minutes
                 end_time = self._calculate_end_time(start_time, duration, event_date)
 
-                event = EventDTO.create(
+                from core.models.enums.ku_enums import KuType
+                from core.utils.uid_generator import UIDGenerator
+
+                event = EventDTO(
+                    uid=UIDGenerator.generate_random_uid("event"),
+                    ku_type=KuType.EVENT,
                     user_uid=user_context.user_uid,
                     title=habit.title,
                     description=habit.description or f"Practice {habit.title}",
@@ -435,13 +450,13 @@ class HabitEventScheduler:
 
                 # Add goal support if applicable
                 if rels.linked_goal_uids:
-                    # Use supports_goal_uid for the first goal (singular field exists)
-                    event.supports_goal_uid = next(iter(rels.linked_goal_uids))
+                    # Use fulfills_goal_uid for the first goal (singular field exists)
+                    event.fulfills_goal_uid = next(iter(rels.linked_goal_uids))
                     # Store all goals in metadata
                     event.metadata["supports_goals"] = list(rels.linked_goal_uids)
 
                 # Set priority based on habit importance
-                if habit.is_keystone() or habit.uid in user_context.at_risk_habits:
+                if habit.is_keystone or habit.uid in user_context.at_risk_habits:
                     event.priority = Priority.HIGH
                 else:
                     event.priority = habit.priority or Priority.MEDIUM
@@ -513,7 +528,7 @@ class HabitEventScheduler:
     def _determine_strategy(self, habit: Habit, _user_context: UserContext) -> SchedulingStrategy:
         """Determine best scheduling strategy for a habit."""
         # Keystone habits get optimal time
-        if habit.is_keystone():
+        if habit.is_keystone:
             return SchedulingStrategy.OPTIMAL_TIME
 
         # Learning habits in the morning
@@ -590,37 +605,48 @@ class HabitEventScheduler:
         placeholder_user = "template_user"
         today = date.today()
 
+        from core.models.enums.ku_enums import KuType
+        from core.utils.uid_generator import UIDGenerator
+
         return {
-            "daily_habit": EventDTO.create(
+            "daily_habit": EventDTO(
+                uid=UIDGenerator.generate_random_uid("event"),
+                ku_type=KuType.EVENT,
                 user_uid=placeholder_user,
                 title="Daily habit practice",
                 event_date=today,
                 start_time=time(9, 0),
-                end_time=time(9, 30),  # 30 minutes
+                end_time=time(9, 30),
                 tags=["habit", "daily"],
             ),
-            "morning_routine": EventDTO.create(
+            "morning_routine": EventDTO(
+                uid=UIDGenerator.generate_random_uid("event"),
+                ku_type=KuType.EVENT,
                 user_uid=placeholder_user,
                 title="Morning routine",
                 event_date=today,
                 start_time=time(6, 0),
-                end_time=time(7, 0),  # 60 minutes
+                end_time=time(7, 0),
                 tags=["routine", "morning"],
             ),
-            "learning_session": EventDTO.create(
+            "learning_session": EventDTO(
+                uid=UIDGenerator.generate_random_uid("event"),
+                ku_type=KuType.EVENT,
                 user_uid=placeholder_user,
                 title="Learning session",
                 event_date=today,
                 start_time=time(14, 0),
-                end_time=time(15, 30),  # 90 minutes
+                end_time=time(15, 30),
                 tags=["learning", "study"],
             ),
-            "streak_maintenance": EventDTO.create(
+            "streak_maintenance": EventDTO(
+                uid=UIDGenerator.generate_random_uid("event"),
+                ku_type=KuType.EVENT,
                 user_uid=placeholder_user,
                 title="Maintain streak",
                 event_date=today,
                 start_time=time(20, 0),
-                end_time=time(20, 30),  # 30 minutes default
+                end_time=time(20, 30),
                 priority=Priority.HIGH,
                 tags=["streak", "urgent"],
             ),

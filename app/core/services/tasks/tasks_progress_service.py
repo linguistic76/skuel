@@ -27,7 +27,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import TaskCompleted, publish_event
-from core.models.enums import KuStatus, Domain, Priority
+from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
@@ -38,7 +38,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.services.protocols.base_protocols import BackendOperations
 
 # Type alias for rich task data from UserContext
 RichTaskData = dict[str, Any]
@@ -360,7 +360,7 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
 
         if task is None:
             # Fallback: Query Neo4j directly
-            task_result = await self.backend.get_task(task_uid)
+            task_result = await self.backend.get(task_uid)
             if task_result.is_error:
                 return Result.fail(task_result.expect_error())
             task = self._to_domain_model(task_result.value, KuDTO, Ku)
@@ -424,7 +424,7 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
             "actual_minutes": actual_minutes,
         }
 
-        update_result = await self.backend.update_task(task_uid, updates)
+        update_result = await self.backend.update(task_uid, updates)
         if update_result.is_error:
             return Result.fail(update_result.expect_error())
 
@@ -525,7 +525,7 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
 
             # Publish TaskCompleted event
             # Get task to check if it was overdue
-            task_result = await self.backend.get_task(task_uid)
+            task_result = await self.backend.get(task_uid)
             was_overdue = False
             if task_result.is_ok and task_result.value:
                 task_data = task_result.value
@@ -572,7 +572,7 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
         Returns:
             Result containing prerequisite check status
         """
-        task_result = await self.backend.get_task(task_uid)
+        task_result = await self.backend.get(task_uid)
         if task_result.is_error:
             return Result.fail(task_result.expect_error())
 
@@ -641,7 +641,7 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
 
         if prereq_result.value["can_start"]:
             # Unblock the task
-            update_result = await self.backend.update_task(
+            update_result = await self.backend.update(
                 task_uid, {"status": KuStatus.SCHEDULED.value}
             )
             if update_result.is_error:
@@ -732,7 +732,7 @@ class TasksProgressService(BaseService["BackendOperations[Ku]", Ku]):
         """Trigger a dependent task."""
         # Unblock the triggered task
         try:
-            await self.backend.update_task(task_uid, {"status": KuStatus.SCHEDULED.value})
+            await self.backend.update(task_uid, {"status": KuStatus.SCHEDULED.value})
             self.logger.debug(f"Triggered task {task_uid}")
         except Exception as e:
             self.logger.warning(f"Failed to trigger task {task_uid}: {e}")

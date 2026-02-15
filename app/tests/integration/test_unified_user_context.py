@@ -593,7 +593,6 @@ class TestUserContextBuilder:
 
         from core.models.enums import (
             KuStatus,
-            KuStatus,
             Priority,
             RecurrencePattern,
         )

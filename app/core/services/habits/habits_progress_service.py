@@ -362,7 +362,7 @@ class HabitsProgressService:
             )  # 5% mastery boost
 
         # 3. Check keystone habit effects
-        if habit.is_keystone() and new_streak >= 7:
+        if habit.is_keystone and new_streak >= 7:
             await self._trigger_keystone_effects(habit_uid, user_context)
 
         # Context invalidation happens via HabitCompleted/HabitStreakBroken/HabitStreakMilestone events (event-driven architecture)
@@ -562,7 +562,7 @@ class HabitsProgressService:
             expected = 4
         elif habit.recurrence_pattern == HabitFrequency.CUSTOM:
             # Use target_days_per_week for custom frequency
-            expected = (habit.target_days_per_week * 30) // 7  # Scale to month
+            expected = ((habit.target_days_per_week or 0) * 30) // 7  # Scale to month
 
         if expected == 0:
             return 0.0

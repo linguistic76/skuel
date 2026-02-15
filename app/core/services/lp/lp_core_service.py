@@ -32,7 +32,7 @@ from core.constants import MasteryLevel
 from core.events import publish_event
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
-from core.models.enums.ku_enums import KuType, LpType, StepDifficulty
+from core.models.enums.ku_enums import KuType
 from core.models.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_service import BaseService
@@ -106,7 +106,7 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
         return "Ku"
 
     def __init__(
-        self, backend: "BackendOperations[Ku]", ls_service: Any = None, event_bus: Any = None
+        self, backend: BackendOperations[Ku], ls_service: Any = None, event_bus: Any = None
     ) -> None:
         """
         Initialize core path service.

@@ -96,9 +96,9 @@ def create_reports_progress_api_routes(
         user_uid = require_authenticated_user(request)
         limit = int(request.query_params.get("limit", "20"))
 
-        result = await report_service.list_reports(
+        result = await report_service.list_kus(
             user_uid=user_uid,
-            report_type="progress",
+            ku_type="ai_report",
             limit=limit,
         )
 

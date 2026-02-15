@@ -98,7 +98,7 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Ku]):
         context = {
             "name": principle.title,
             "description": principle.description or "No description",
-            "category": principle.category.value if principle.category else "personal",
+            "category": principle.category if principle.category else "personal",
         }
 
         prompt = """Help deepen understanding of this principle.
@@ -153,7 +153,7 @@ Format each as KEY: [response]"""
         context = {
             "name": principle.title,
             "description": principle.description or "No description",
-            "category": principle.category.value if principle.category else "personal",
+            "category": principle.category if principle.category else "personal",
         }
 
         prompt = f"""Suggest {num_practices} practices to embody this principle more fully.

@@ -976,11 +976,11 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                 Div(
                     Span(f"Status: {event.status.value}", cls="badge badge-info mr-2"),
                     Span(
-                        f"Type: {event.event_type.value if event.event_type else 'Not set'}",
+                        f"Type: {event.event_type if event.event_type else 'Not set'}",
                         cls="badge badge-success mr-2",
                     ),
                     Span(
-                        f"Priority: {event.priority.value if event.priority else 'Not set'}",
+                        f"Priority: {event.priority if event.priority else 'Not set'}",
                         cls="badge badge-warning",
                     ),
                     cls="flex gap-2 flex-wrap",

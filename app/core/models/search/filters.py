@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from core.models.enums import KuStatus, Domain
+from core.models.enums import Domain, KuStatus
 from core.models.relationship_names import RelationshipName
 from core.services.protocols.base_protocols import Direction
 

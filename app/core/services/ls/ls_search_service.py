@@ -22,7 +22,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from core.models.enums import Domain
-from core.models.enums.ku_enums import KuStatus, KuType, StepDifficulty
+from core.models.enums.ku_enums import KuStatus, StepDifficulty
 from core.models.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.search.query_parser import ParsedSearchQuery

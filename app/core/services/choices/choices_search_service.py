@@ -44,7 +44,7 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.services.protocols.base_protocols import BackendOperations
 
 
 class ChoicesSearchService(BaseService["BackendOperations[Ku]", Ku]):

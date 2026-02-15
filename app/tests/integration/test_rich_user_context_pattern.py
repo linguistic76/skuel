@@ -22,10 +22,10 @@ from datetime import date, time
 
 import pytest
 
-from core.models.enums import KuStatus, Domain, KuStatus, Priority
+from core.models.enums import Domain, KuStatus, Priority
 from core.models.ku.ku_dto import KuDTO
-from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.models.ku.ku_dto import KuDTO as GoalDTO
+from core.models.ku.ku_dto import KuDTO as TaskDTO
 
 
 @pytest.mark.integration

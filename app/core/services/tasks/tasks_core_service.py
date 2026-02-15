@@ -25,7 +25,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
-from core.models.enums import KuStatus
+from core.models.enums import KuStatus, Priority
 from core.models.enums.ku_enums import KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -37,10 +37,9 @@ from core.services.protocols.query_types import TaskUpdatePayload
 from core.utils.decorators import with_error_handling
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
-from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from core.services.protocols import BackendOperations
+    from core.services.protocols.base_protocols import BackendOperations
 
 
 class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
@@ -123,7 +122,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
             None if valid, Result.fail() with validation error if invalid
         """
         # Business Rule 1: High-priority tasks must have due dates
-        if task.priority.to_numeric() >= 3 and not task.due_date:  # HIGH=3, CRITICAL=4
+        if task.priority and Priority(task.priority).to_numeric() >= 3 and not task.due_date:  # HIGH=3, CRITICAL=4
             return Result.fail(
                 Errors.validation(
                     message="High-priority tasks must have a due date",
@@ -163,10 +162,9 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         # Business Rule 2: Overdue task priority protection
         # Cannot decrease priority of overdue tasks (prevents "sweeping under rug")
         if "priority" in updates and current.due_date and current.due_date < date.today():
-            from core.models.enums import Priority
-
             new_priority = Priority(updates["priority"])
-            if new_priority.to_numeric() < current.priority.to_numeric():
+            current_numeric = Priority(current.priority).to_numeric() if current.priority else 2
+            if new_priority.to_numeric() < current_numeric:
                 return Result.fail(
                     Errors.validation(
                         message="Cannot decrease priority of overdue tasks",
@@ -239,12 +237,15 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
             return validation
 
         # Create DTO from request with all fields
-        dto = KuDTO.create_task(
+        from core.utils.uid_generator import UIDGenerator
+
+        dto = KuDTO(
+            uid=UIDGenerator.generate_random_uid("task"),
+            ku_type=KuType.TASK,
             user_uid=user_uid,
             title=task_request.title,
             description=task_request.description,
             priority=task_request.priority,
-            status=task_request.status,
             due_date=task_request.due_date,
             scheduled_date=task_request.scheduled_date,
             duration_minutes=task_request.duration_minutes,
@@ -256,9 +257,9 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
             recurrence_end_date=task_request.recurrence_end_date,
             fulfills_goal_uid=task_request.fulfills_goal_uid,
             reinforces_habit_uid=task_request.reinforces_habit_uid,
-            goal_progress_contribution=task_request.goal_progress_contribution,
-            knowledge_mastery_check=task_request.knowledge_mastery_check,
-            habit_streak_maintainer=task_request.habit_streak_maintainer,
+            goal_progress_contribution=getattr(task_request, "goal_progress_contribution", 0.0),
+            knowledge_mastery_check=getattr(task_request, "knowledge_mastery_check", False),
+            habit_streak_maintainer=getattr(task_request, "habit_streak_maintainer", False),
         )
 
         # Apply automatic knowledge inference (fail-fast if configured)
@@ -314,7 +315,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
             task_uid=task.uid,
             user_uid=task.user_uid,
             title=task.title,
-            priority=task.priority.value,
+            priority=task.priority or "medium",
             # NOTE: Task domain not stored - could infer from related goal/knowledge
             domain=None,
             occurred_at=datetime.now(),
@@ -331,7 +332,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
                 user_uid=task.user_uid,
                 occurred_at=datetime.now(),
                 task_title=task.title,
-                task_priority=task.priority.value,
+                task_priority=task.priority or "medium",
             )
             await publish_event(self.event_bus, knowledge_event, self.logger)
 
@@ -479,9 +480,11 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
             priority_event = TaskPriorityChanged(
                 task_uid=task.uid,
                 user_uid=task.user_uid,
-                old_priority=old_task.priority.value,
-                new_priority=task.priority.value,
-                escalated_to_urgent=(task.priority.to_numeric() == 4),  # HIGH = 4
+                old_priority=old_task.priority or "medium",
+                new_priority=task.priority or "medium",
+                escalated_to_urgent=(
+                    Priority(task.priority).to_numeric() == 4 if task.priority else False
+                ),  # CRITICAL = 4
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, priority_event, self.logger)

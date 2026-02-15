@@ -47,9 +47,9 @@ from typing import TYPE_CHECKING, Any, Protocol
 if TYPE_CHECKING:
     from core.models.enums import Priority
     from core.models.ku.ku import Ku
+    from core.models.ku.ku import Ku as Goal
     from core.models.ku.ku import Ku as Habit
     from core.models.ku.ku import Ku as Task
-    from core.models.ku.ku import Ku as Goal
     from core.services.user import UserContext
 
 

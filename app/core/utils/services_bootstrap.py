@@ -134,6 +134,7 @@ if TYPE_CHECKING:
     from core.services.ku_intelligence_service import KuIntelligenceService
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+    from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
@@ -150,7 +151,6 @@ if TYPE_CHECKING:
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
     )
-    from core.services.notifications.notification_service import NotificationService
     from core.services.user_progress_service import UserProgressService
     from core.services.user_relationship_service import UserRelationshipService
 

@@ -267,7 +267,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
 
     def __init__(
         self,
-        backend: "BackendOperations[Ku]",
+        backend: BackendOperations[Ku],
         ku_inference_service=None,
         analytics_engine=None,
         ku_generation_service=None,
@@ -625,13 +625,13 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
         impact_analysis = {
             "task_uid": task.uid,
             "title": task.title,
-            "knowledge_complexity_score": task.calculate_knowledge_complexity(rels),
-            "learning_impact_score": task.calculate_learning_impact(rels),
-            "is_knowledge_bridge": task.is_knowledge_bridge(rels),
+            "knowledge_complexity_score": task.calculate_knowledge_complexity(),
+            "learning_impact_score": task.calculate_learning_impact(),
+            "is_knowledge_bridge": task.is_knowledge_bridge(),
             "validates_mastery": task.validates_knowledge_mastery(),
-            "enhancement_summary": task.get_knowledge_enhancement_summary(rels),
-            "all_knowledge_connections": task.get_all_knowledge_connections(rels),
-            "combined_knowledge_uids": task.get_combined_knowledge_uids(rels),
+            "enhancement_summary": task.get_knowledge_enhancement_summary(),
+            "all_knowledge_connections": task.get_all_knowledge_connections(),
+            "combined_knowledge_uids": task.get_combined_knowledge_uids(),
         }
 
         return Result.ok(impact_analysis)
@@ -709,7 +709,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
 
         all_knowledge_uids: set[str] = set()
         for task, rels in zip(all_tasks, rels_list, strict=False):
-            all_knowledge_uids.update(task.get_combined_knowledge_uids(rels))
+            all_knowledge_uids.update(task.get_combined_knowledge_uids())
 
         # Get mastery progressions
         mastery_result = await self.analytics_engine.track_knowledge_mastery_progression(
@@ -794,7 +794,7 @@ class TasksService(FacadeDelegationMixin, BaseService["BackendOperations[Ku]", K
             )
             all_knowledge_uids: set[str] = set()
             for task, rels in zip(all_tasks, rels_list, strict=False):
-                all_knowledge_uids.update(task.get_combined_knowledge_uids(rels))
+                all_knowledge_uids.update(task.get_combined_knowledge_uids())
             knowledge_uids = list(all_knowledge_uids)
 
         return await self.analytics_engine.track_knowledge_mastery_progression(

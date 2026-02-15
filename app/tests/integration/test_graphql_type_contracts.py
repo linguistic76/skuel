@@ -27,8 +27,8 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncGraphDatabase
 
-from core.models.ku.ku_dto import KuDTO
 from core.models.ku import Ku
+from core.models.ku.ku_dto import KuDTO
 from core.services.lp_service import LpService
 from core.services.ls_service import LsService
 from routes.graphql.types import LearningStep

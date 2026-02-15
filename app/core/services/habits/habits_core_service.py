@@ -21,9 +21,9 @@ from typing import Any
 from core.events import publish_event
 from core.events.habit_events import HabitCreated
 from core.models.enums.ku_enums import KuStatus, KuType
+from core.models.habit.habit_request import HabitCreateRequest
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.models.habit.habit_request import HabitCreateRequest
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value
@@ -125,7 +125,10 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
 
         # Business Rule: Frequency consistency
         # Daily habit with target > 7 days/week is logically impossible
-        if habit.recurrence_pattern == RecurrencePattern.DAILY and habit.target_days_per_week > 7:
+        if (
+            habit.recurrence_pattern == RecurrencePattern.DAILY
+            and (habit.target_days_per_week or 0) > 7
+        ):
             return Result.fail(
                 Errors.validation(
                     message="Daily habit cannot have target > 7 days per week",
@@ -181,7 +184,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
         if isinstance(new_pattern, str):
             new_pattern = RecurrencePattern(new_pattern)
 
-        if new_pattern == RecurrencePattern.DAILY and new_target > 7:
+        if new_pattern == RecurrencePattern.DAILY and (new_target or 0) > 7:
             return Result.fail(
                 Errors.validation(
                     message="Daily habit cannot have target > 7 days per week",

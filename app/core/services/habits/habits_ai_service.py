@@ -164,7 +164,7 @@ class HabitsAIService(BaseAIService[HabitsOperations, Ku]):
             "total_completions": habit.total_completions,
             "success_rate": f"{habit.success_rate * 100:.1f}%",
             "streak_status": streak_status,
-            "polarity": habit.polarity.value,
+            "polarity": habit.polarity.value if habit.polarity else "unknown",
         }
 
         prompt = """Provide a brief, motivating insight about this habit streak.
@@ -204,7 +204,7 @@ Keep it under 100 words. Be warm but not over-the-top."""
 
         context = {
             "name": habit.title,
-            "category": habit.habit_category.value,
+            "category": habit.habit_category.value if habit.habit_category else "unknown",
             "preferred_time": habit.preferred_time or "any time",
             "duration_minutes": habit.duration_minutes,
             "cue": habit.cue or "Not specified",
@@ -287,8 +287,8 @@ WHY: [brief explanation]"""
             "current_cue": habit.cue or "Not specified",
             "current_routine": habit.routine or "Not specified",
             "current_reward": habit.reward or "Not specified",
-            "polarity": habit.polarity.value,
-            "difficulty": habit.habit_difficulty.value,
+            "polarity": habit.polarity.value if habit.polarity else "unknown",
+            "difficulty": habit.habit_difficulty.value if habit.habit_difficulty else "unknown",
         }
 
         prompt = """Optimize this habit's cue-routine-reward loop.
@@ -370,10 +370,10 @@ OVERALL_TIP: [one key insight for this habit]"""
         context = {
             "name": habit.title,
             "description": habit.description or "Not specified",
-            "category": habit.habit_category.value,
+            "category": habit.habit_category.value if habit.habit_category else "unknown",
             "current_identity": habit.reinforces_identity or "Not specified",
             "identity_votes": habit.identity_votes_cast,
-            "polarity": habit.polarity.value,
+            "polarity": habit.polarity.value if habit.polarity else "unknown",
         }
 
         prompt = """Create identity-based framing for this habit.

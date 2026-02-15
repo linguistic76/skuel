@@ -18,7 +18,7 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
-from core.models.enums import KuStatus, Domain
+from core.models.enums import Domain, KuStatus
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuEventCreateRequest
@@ -547,7 +547,7 @@ class EventsLearningService(BaseService["BackendOperations[Ku]", Ku]):
         for event in events:
             if event.status == "completed":
                 completed_events += 1
-                total_time_minutes += event.duration_minutes() or 0
+                total_time_minutes += event.duration_minutes or 0
 
         stats = {
             "knowledge_uid": knowledge_uid,

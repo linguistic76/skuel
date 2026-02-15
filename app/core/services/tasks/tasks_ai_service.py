@@ -60,9 +60,9 @@ class TasksAIService(BaseAIService["BackendOperations[Ku]", Ku]):
 
     def __init__(
         self,
-        backend: "BackendOperations[Ku]",
-        llm_service: "LLMService",
-        embeddings_service: "Neo4jGenAIEmbeddingsService",
+        backend: BackendOperations[Ku],
+        llm_service: LLMService,
+        embeddings_service: Neo4jGenAIEmbeddingsService,
         event_bus: Any | None = None,
     ) -> None:
         """
@@ -212,7 +212,7 @@ Return only the subtask titles, one per line. Be specific and actionable."""
         context = {
             "title": task.title,
             "description": task.description or "No description",
-            "priority": task.priority.value if task.priority else "Not set",
+            "priority": task.priority if task.priority else "Not set",
             "status": task.status.value if task.status else "Unknown",
             "due_date": str(task.due_date) if task.due_date else "No deadline",
         }
@@ -254,7 +254,7 @@ Keep it under 100 words."""
         context = {
             "title": task.title,
             "description": task.description or "No description",
-            "current_priority": task.priority.value if task.priority else "Not set",
+            "current_priority": task.priority if task.priority else "Not set",
             "due_date": str(task.due_date) if task.due_date else "No deadline",
         }
 
@@ -285,7 +285,7 @@ REASONING: [brief explanation, 1-2 sentences]"""
         return Result.ok(
             {
                 "task_uid": task_uid,
-                "current_priority": task.priority.value if task.priority else None,
+                "current_priority": task.priority if task.priority else None,
                 "suggested_priority": suggested_priority,
                 "reasoning": reasoning,
             }

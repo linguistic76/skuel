@@ -198,7 +198,7 @@ async def create_task(self, task: Task) -> Result[Task]:
             task_uid=task.uid,
             user_uid=task.user_uid,
             title=task.title,
-            priority=task.priority.value,
+            priority=task.priority or "medium",
             domain=task.domain.value if task.domain else None,
             occurred_at=datetime.now()
         )

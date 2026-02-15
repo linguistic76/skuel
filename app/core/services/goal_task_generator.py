@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING
 from core.models.enums import KuStatus, Priority, RecurrencePattern
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.services.goals.goal_relationships import GoalRelationships
 from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.services.goals.goal_relationships import GoalRelationships
 
 # Import protocol interfaces
 from core.utils.dto_helpers import to_domain_model

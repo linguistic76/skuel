@@ -719,7 +719,7 @@ class SearchRouter:
         """
         # If domains explicitly mentioned, use those
         if parsed.domains:
-            target_domains = []
+            target_domains: list[KuType | NonKuDomain] = []
             for domain in parsed.domains:
                 # Map Domain enum to KuType
                 domain_to_entity = {
@@ -736,7 +736,7 @@ class SearchRouter:
                 if entity and entity not in target_domains:
                     target_domains.append(entity)
             if target_domains:
-                return target_domains
+                return list(target_domains)
 
         # Default: search all 6 activity domains
         return list(self._SEARCHABLE_DOMAINS)
@@ -969,6 +969,9 @@ class SearchRouter:
             return []
 
         vector_search = self.services.vector_search_service
+        if vector_search is None:
+            return []
+        assert vector_search is not None  # mypy narrowing
 
         # Must have query text for vector search
         if not request.query_text:

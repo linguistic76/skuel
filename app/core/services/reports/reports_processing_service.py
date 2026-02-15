@@ -20,7 +20,7 @@ When `extract_activities=True` in instructions, the processor will:
 
 from typing import Any
 
-from core.models.enums.ku_enums import KuStatus, KuType
+from core.models.enums.ku_enums import KuStatus
 from core.models.ku import Ku
 from core.services.reports.reports_submission_service import KuSubmissionService
 from core.utils.logging import get_logger

@@ -19,11 +19,11 @@ from datetime import datetime
 from typing import Any
 
 from core.events import HabitCreated, publish_event
-from core.models.enums import KuStatus, Domain
+from core.models.enums import Domain, KuStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
+from core.models.habit.habit_request import HabitCreateRequest
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.models.habit.habit_request import HabitCreateRequest
 from core.models.ku.lp_position import LpPosition
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -129,7 +129,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Ku]):
                 # GRAPH-NATIVE: Check if habit is learning-related
                 # Check category and source fields (learning step/path linkage)
                 if (
-                    habit.habit_category.value == "learning"
+                    (habit.habit_category and habit.habit_category.value == "learning")
                     or habit.source_learning_step_uid is not None
                     or habit.source_learning_path_uid is not None
                 ):
@@ -243,7 +243,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Ku]):
                 habit_uid=habit.uid,
                 user_uid=habit.user_uid,
                 title=habit.title,
-                frequency=habit.recurrence_pattern.value,
+                frequency=habit.recurrence_pattern or "daily",
                 domain=None,  # Habit model doesn't have domain field
                 occurred_at=datetime.now(),
             )
@@ -259,7 +259,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Ku]):
                     user_uid=habit.user_uid,
                     occurred_at=datetime.now(),
                     habit_title=habit.title,
-                    frequency=habit.recurrence_pattern.value if habit.recurrence_pattern else None,
+                    frequency=habit.recurrence_pattern,
                 )
                 await publish_event(self.event_bus, knowledge_event, self.logger)
 

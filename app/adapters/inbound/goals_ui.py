@@ -1154,7 +1154,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
                     # Status and Priority badges
                     Div(
                         Span(f"Status: {goal.status.value}", cls="badge badge-info mr-2"),
-                        Span(f"Priority: {goal.priority.value}", cls="badge badge-warning"),
+                        Span(f"Priority: {goal.priority or 'Not set'}", cls="badge badge-warning"),
                         cls="flex gap-2",
                     ),
                     cls="mb-6",

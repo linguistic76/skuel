@@ -21,9 +21,9 @@ from core.events.habit_events import HabitMissed, HabitStreakBroken
 from core.models.enums import Domain
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.graph_context import GraphContext
+from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -187,7 +187,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Ku]):
 
         # Calculate analytics
         total_habits = len(habits)
-        active_habits = [h for h in habits if h.is_active()]
+        active_habits = [h for h in habits if h.is_active]
 
         # Calculate average consistency (success_rate is 0.0-1.0)
         if total_habits > 0:
@@ -532,7 +532,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Ku]):
                 "habit": habit,
                 "knowledge_reinforcement": {
                     "knowledge_reinforcement_uids": knowledge_reinforcement_uids,
-                    "practice_frequency": habit.recurrence_pattern.value,
+                    "practice_frequency": habit.recurrence_pattern or "daily",
                     "practice_effectiveness_score": practice_effectiveness,
                     "mastery_progression": mastery_progression,
                     "knowledge_coverage": knowledge_coverage,
@@ -952,7 +952,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Ku]):
                 "days_overdue": days_overdue,
                 "severity": severity,
                 "difficulty_assessment": difficulty_assessment,
-                "frequency": habit.recurrence_pattern.value
+                "frequency": habit.recurrence_pattern
                 if habit.recurrence_pattern
                 else "unknown",
                 "event_type": "habit.missed.analyzed",

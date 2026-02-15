@@ -5,7 +5,6 @@ Run the Principle name → title migration.
 This script migrates all Principle nodes in Neo4j from using 'name' to 'title'.
 """
 
-import asyncio
 from neo4j import GraphDatabase
 
 # Neo4j connection details (update if different)

@@ -19,7 +19,6 @@ from typing import Any
 
 from core.models.enums.ku_enums import ProgressDepth, ScheduleType
 
-
 # ============================================================================
 # TIER 2 - DTO (Transfer Layer)
 # ============================================================================

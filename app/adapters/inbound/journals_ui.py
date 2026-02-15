@@ -536,7 +536,8 @@ def create_journals_ui_routes(
         try:
             form = await request.form()
             uploaded_file = form.get("file")
-            title = (form.get("title") or "").strip()
+            raw_title = form.get("title")
+            title = str(raw_title).strip() if raw_title else ""
 
             if not title:
                 return _render_upload_status("error", "Title is required", is_error=True)
@@ -760,7 +761,7 @@ def create_journals_ui_routes(
         result = journal_generator.cleanup_date_range(start_dt, end_dt)
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         stats = result.value
         logger.info(

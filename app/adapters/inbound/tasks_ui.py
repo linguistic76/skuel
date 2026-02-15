@@ -1113,7 +1113,7 @@ def create_tasks_ui_routes(
                 # Status and Priority badges
                 Div(
                     Span(f"Status: {task.status.value}", cls="badge badge-info mr-2"),
-                    Span(f"Priority: {task.priority.value}", cls="badge badge-warning mr-2"),
+                    Span(f"Priority: {task.priority or 'Not set'}", cls="badge badge-warning mr-2"),
                     Span(f"Project: {task.project or 'None'}", cls="badge badge-ghost")
                     if task.project
                     else "",

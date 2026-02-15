@@ -216,7 +216,15 @@ def get_priority_value(item: Any) -> int:
         # Handle enum priorities with to_numeric method
         if isinstance(item.priority, HasToNumeric):
             return item.priority.to_numeric()
-        # Ensure we return an int (priority could be int, str, or enum value)
+        # Handle string priorities (unified Ku model stores priority as str)
+        if isinstance(item.priority, str):
+            from core.models.enums import Priority
+
+            try:
+                return Priority(item.priority).to_numeric()
+            except ValueError:
+                return 0
+        # Ensure we return an int (priority could be int)
         if isinstance(item.priority, int):
             return item.priority
         return 0
@@ -355,8 +363,17 @@ def get_principle_priority(principle: Any) -> int:
     Returns:
         Numeric priority value (1-4), defaults to 2 (MEDIUM) if unavailable
     """
-    if isinstance(principle, HasPriority) and isinstance(principle.priority, HasToNumeric):
-        return principle.priority.to_numeric()
+    if isinstance(principle, HasPriority):
+        if isinstance(principle.priority, HasToNumeric):
+            return principle.priority.to_numeric()
+        # Handle string priorities (unified Ku model stores priority as str)
+        if isinstance(principle.priority, str):
+            from core.models.enums import Priority
+
+            try:
+                return Priority(principle.priority).to_numeric()
+            except ValueError:
+                return 2
     return 2  # Default to MEDIUM priority
 
 
