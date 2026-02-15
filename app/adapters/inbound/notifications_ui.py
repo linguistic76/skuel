@@ -68,7 +68,11 @@ def _notification_card(notif: dict[str, Any]) -> Div:
     time_display = ""
     if created_at:
         if hasattr(created_at, "isoformat"):
-            time_display = created_at.strftime("%b %d, %H:%M") if hasattr(created_at, "strftime") else str(created_at)
+            time_display = (
+                created_at.strftime("%b %d, %H:%M")
+                if hasattr(created_at, "strftime")
+                else str(created_at)
+            )
         else:
             time_display = str(created_at)[:16]
 
@@ -104,7 +108,12 @@ def _notification_card(notif: dict[str, Any]) -> Div:
                     P(notif.get("message", ""), cls="text-sm text-base-content/70 mt-1"),
                     Div(
                         Span(time_display, cls="text-xs text-base-content/50"),
-                        A("View →", href=link_href, cls="text-xs link link-primary", **{"hx-boost": "false"}),
+                        A(
+                            "View →",
+                            href=link_href,
+                            cls="text-xs link link-primary",
+                            **{"hx-boost": "false"},
+                        ),
                         mark_read_btn,
                         cls="flex items-center gap-3 mt-2",
                     ),

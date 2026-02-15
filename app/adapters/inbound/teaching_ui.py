@@ -151,7 +151,9 @@ def _render_feedback_item(fb: dict[str, Any]) -> Div:
             Div(
                 Span(type_label, cls="font-medium text-sm"),
                 Span(f" by {teacher_name}", cls="text-sm text-base-content/60"),
-                Span(f" · {time_display}", cls="text-xs text-base-content/40") if time_display else "",
+                Span(f" · {time_display}", cls="text-xs text-base-content/40")
+                if time_display
+                else "",
                 cls="mb-1",
             ),
             P(content, cls="text-sm whitespace-pre-wrap"),

@@ -163,9 +163,7 @@ class TeacherReviewService:
         """
 
         try:
-            records, _, _ = await self.driver.execute_query(
-                query, submission_uid=submission_uid
-            )
+            records, _, _ = await self.driver.execute_query(query, submission_uid=submission_uid)
 
             items = [
                 {
@@ -276,8 +274,7 @@ class TeacherReviewService:
 
             student_uid = records[0]["student_uid"] or ""
             logger.info(
-                f"Teacher {teacher_uid} submitted feedback {feedback_uid} "
-                f"for Ku {report_uid}"
+                f"Teacher {teacher_uid} submitted feedback {feedback_uid} for Ku {report_uid}"
             )
 
             await publish_event(
@@ -393,8 +390,7 @@ class TeacherReviewService:
 
             student_uid = records[0]["student_uid"] or ""
             logger.info(
-                f"Teacher {teacher_uid} requested revision {feedback_uid} "
-                f"for Ku {report_uid}"
+                f"Teacher {teacher_uid} requested revision {feedback_uid} for Ku {report_uid}"
             )
 
             await publish_event(

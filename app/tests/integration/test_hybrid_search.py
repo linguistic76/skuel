@@ -169,7 +169,11 @@ async def test_hybrid_search_rrf_scoring(vector_search_service, mock_driver):
         if "db.index.vector.queryNodes" in query:
             return ([{"node": r["node"], "score": r["score"]} for r in vector_results], None, None)
         elif "db.index.fulltext.queryNodes" in query:
-            return ([{"node": r["node"], "score": r["score"]} for r in fulltext_results], None, None)
+            return (
+                [{"node": r["node"], "score": r["score"]} for r in fulltext_results],
+                None,
+                None,
+            )
         return ([], None, None)
 
     mock_driver.execute_query = mock_execute_query

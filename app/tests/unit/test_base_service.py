@@ -471,7 +471,9 @@ class TestRelationshipOperations:
             return_value=EagerResult(records=[], summary=None, keys=[])
         )
 
-        result = await service.get_relationships("test_001", "REQUIRES_KNOWLEDGE", direction="outgoing")
+        result = await service.get_relationships(
+            "test_001", "REQUIRES_KNOWLEDGE", direction="outgoing"
+        )
 
         # Returns Result - may use backend or Cypher
         assert hasattr(result, "is_ok")

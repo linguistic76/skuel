@@ -102,7 +102,11 @@ async def _build_navbar(
             "services",
             None,
         )
-        ns = getattr(notification_service, "notification_service", None) if notification_service else None
+        ns = (
+            getattr(notification_service, "notification_service", None)
+            if notification_service
+            else None
+        )
         return await create_navbar_for_request(
             request, active_page=active_page, notification_service=ns
         )

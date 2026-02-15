@@ -1547,7 +1547,9 @@ class Ku:
             return target < date.today()
         return False
 
-    def calculate_system_strength(self, habit_success_rates: dict[str, float] | None = None) -> float:
+    def calculate_system_strength(
+        self, habit_success_rates: dict[str, float] | None = None
+    ) -> float:
         """Calculate goal system strength based on supporting habits."""
         if not habit_success_rates:
             return 0.0
@@ -1556,14 +1558,18 @@ class Ku:
         avg_rate = sum(habit_success_rates.values()) / len(habit_success_rates)
         return min(1.0, avg_rate)
 
-    def calculate_habit_velocity(self, habit_completion_counts: dict[str, int] | None = None) -> float:
+    def calculate_habit_velocity(
+        self, habit_completion_counts: dict[str, int] | None = None
+    ) -> float:
         """Calculate velocity of habit completion toward goal."""
         if not habit_completion_counts:
             return 0.0
         total = sum(habit_completion_counts.values())
         return min(1.0, total / max(1, len(habit_completion_counts) * 30))
 
-    def diagnose_system_health(self, habit_success_rates: dict[str, float] | None = None) -> dict[str, Any]:
+    def diagnose_system_health(
+        self, habit_success_rates: dict[str, float] | None = None
+    ) -> dict[str, Any]:
         """Diagnose the health of a goal's habit system."""
         strength = self.calculate_system_strength(habit_success_rates)
         return {
@@ -1574,7 +1580,12 @@ class Ku:
 
     def explain_existence(self) -> str:
         """Explain why this entity exists."""
-        return self.why_important or self.description or self.summary or f"{self.ku_type.value}: {self.title}"
+        return (
+            self.why_important
+            or self.description
+            or self.summary
+            or f"{self.ku_type.value}: {self.title}"
+        )
 
     # --- Task methods ---
 
@@ -1624,7 +1635,7 @@ class Ku:
             return 0.0
         streak_factor = min(1.0, self.current_streak / 30.0)
         rate_factor = self.success_rate
-        return (streak_factor * 0.4 + rate_factor * 0.6)
+        return streak_factor * 0.4 + rate_factor * 0.6
 
     @property
     def is_keystone(self) -> bool:

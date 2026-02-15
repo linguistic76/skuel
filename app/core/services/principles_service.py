@@ -406,9 +406,7 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         # Apply additional filters if provided
         if filters:
             if "category" in filters:
-                matching = [
-                    p for p in matching if p.category and p.category == filters["category"]
-                ]
+                matching = [p for p in matching if p.category and p.category == filters["category"]]
             if "strength" in filters:
                 matching = [
                     p for p in matching if p.strength and p.strength.value == filters["strength"]

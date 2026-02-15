@@ -482,18 +482,14 @@ async def test_multiple_search_criteria(search_service, mock_backend, sample_tas
     # Setup - find_by is used for goal and habit searches
     goal_tasks = [t for t in sample_tasks if t.fulfills_goal_uid == "goal:learn_python"]
     habit_tasks = [t for t in sample_tasks if t.reinforces_habit_uid == "habit:daily_code"]
-    mock_backend.find_by.return_value = Result.ok(
-        [t.to_dto().to_dict() for t in goal_tasks]
-    )
+    mock_backend.find_by.return_value = Result.ok([t.to_dto().to_dict() for t in goal_tasks])
 
     # Execute goal search
     goal_result = await search_service.get_tasks_for_goal("goal:learn_python")
     assert goal_result.is_ok
 
     # Setup for habit search
-    mock_backend.find_by.return_value = Result.ok(
-        [t.to_dto().to_dict() for t in habit_tasks]
-    )
+    mock_backend.find_by.return_value = Result.ok([t.to_dto().to_dict() for t in habit_tasks])
     habit_result = await search_service.get_tasks_for_habit("habit:daily_code")
     assert habit_result.is_ok
 

@@ -665,13 +665,17 @@ class AdvancedKuInferenceEngine:
                 self.logger.warning("Cross-domain discovery failed: %s", relationships_result.error)
 
             # Update TaskDTO with enhanced inference
-            task_dto.primary_knowledge_uids = list(set(task_dto.primary_knowledge_uids + inferred_uids))
+            task_dto.primary_knowledge_uids = list(
+                set(task_dto.primary_knowledge_uids + inferred_uids)
+            )
             task_dto.knowledge_confidence_scores = {
                 **(task_dto.knowledge_confidence_scores or {}),
                 **confidence_scores,
             }
             task_dto.knowledge_inference_metadata = task_dto.knowledge_inference_metadata or {}
-            task_dto.knowledge_inference_metadata["patterns_detected"] = list(set(knowledge_patterns))
+            task_dto.knowledge_inference_metadata["patterns_detected"] = list(
+                set(knowledge_patterns)
+            )
             task_dto.learning_opportunities_count = len(detected_patterns) + len(
                 cross_domain_relationships
             )

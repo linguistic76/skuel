@@ -156,9 +156,7 @@ class NotificationService:
         """
 
         try:
-            records, _, _ = await self.driver.execute_query(
-                query, user_uid=user_uid, limit=limit
-            )
+            records, _, _ = await self.driver.execute_query(query, user_uid=user_uid, limit=limit)
 
             items = [
                 {

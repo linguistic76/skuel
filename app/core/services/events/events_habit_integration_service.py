@@ -257,7 +257,10 @@ class EventsHabitIntegrationService:
                 existing_date = earliest_by_habit.get(event_habit_uid)
                 if existing_date is None or (
                     event.event_date is not None
-                    and (existing_date.event_date is None or event.event_date < existing_date.event_date)
+                    and (
+                        existing_date.event_date is None
+                        or event.event_date < existing_date.event_date
+                    )
                 ):
                     earliest_by_habit[event_habit_uid] = event
             elif criteria.group_by_habit and event_habit_uid:
@@ -684,7 +687,10 @@ class EventsHabitIntegrationService:
             existing_event = next_events_fallback.get(habit_uid)
             if existing_event is None or (
                 event.event_date is not None
-                and (existing_event.event_date is None or event.event_date < existing_event.event_date)
+                and (
+                    existing_event.event_date is None
+                    or event.event_date < existing_event.event_date
+                )
             ):
                 next_events_fallback[habit_uid] = event
 

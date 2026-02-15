@@ -127,7 +127,9 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
             None if valid, Result.fail() with validation error if invalid
         """
         # Business Rule 1: High-priority tasks must have due dates
-        if task.priority and Priority(task.priority).to_numeric() >= 3 and not task.due_date:  # HIGH=3, CRITICAL=4
+        if (
+            task.priority and Priority(task.priority).to_numeric() >= 3 and not task.due_date
+        ):  # HIGH=3, CRITICAL=4
             return Result.fail(
                 Errors.validation(
                     message="High-priority tasks must have a due date",

@@ -75,9 +75,9 @@ def _has_high_priority_focus(tasks: Sequence[Any]) -> bool:
     """Check if more than 40% of tasks are high priority."""
     if not tasks:
         return False
-    high_priority_count = len([
-        t for t in tasks if t.priority and Priority(t.priority).to_numeric() >= 3
-    ])
+    high_priority_count = len(
+        [t for t in tasks if t.priority and Priority(t.priority).to_numeric() >= 3]
+    )
     return high_priority_count / len(tasks) > 0.4
 
 

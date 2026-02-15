@@ -27,7 +27,9 @@ async def handle_report_reviewed(
         notification_service: NotificationService instance (injected via functools.partial)
     """
     if not event.student_uid:
-        logger.debug(f"No student_uid on ReportReviewed for {event.report_uid}, skipping notification")
+        logger.debug(
+            f"No student_uid on ReportReviewed for {event.report_uid}, skipping notification"
+        )
         return
 
     feedback_uid = ""

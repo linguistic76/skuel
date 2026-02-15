@@ -95,7 +95,7 @@ class TestHabitsCoreOperations:
         assert result.is_ok
         created = result.value
         assert created.uid == "habit.daily_meditation"
-        assert created.title =="Daily Meditation"
+        assert created.title == "Daily Meditation"
         assert created.polarity == HabitPolarity.BUILD
         assert created.habit_category == HabitCategory.MINDFULNESS
         assert created.habit_difficulty == HabitDifficulty.EASY
@@ -123,7 +123,7 @@ class TestHabitsCoreOperations:
         assert result.is_ok
         retrieved = result.value
         assert retrieved.uid == "habit.get_test"
-        assert retrieved.title =="Test Habit for Retrieval"
+        assert retrieved.title == "Test Habit for Retrieval"
 
     async def test_get_nonexistent_habit(self, habits_service):
         """Test getting a habit that doesn't exist."""

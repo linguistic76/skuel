@@ -216,7 +216,10 @@ class TestPrinciplesCoreOperations:
         # Assert
         assert intellectual_result.is_ok
         assert len(intellectual_result.value) >= 1
-        assert all(p.principle_category == PrincipleCategory.INTELLECTUAL for p in intellectual_result.value)
+        assert all(
+            p.principle_category == PrincipleCategory.INTELLECTUAL
+            for p in intellectual_result.value
+        )
 
         assert ethical_result.is_ok
         assert len(ethical_result.value) >= 1
@@ -297,7 +300,9 @@ class TestPrinciplesCoreOperations:
         # Assert
         assert philosophical_result.is_ok
         assert len(philosophical_result.value) >= 1
-        assert all(p.principle_source == PrincipleSource.PHILOSOPHICAL for p in philosophical_result.value)
+        assert all(
+            p.principle_source == PrincipleSource.PHILOSOPHICAL for p in philosophical_result.value
+        )
 
         assert personal_result.is_ok
         assert len(personal_result.value) >= 1

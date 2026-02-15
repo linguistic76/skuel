@@ -952,9 +952,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Ku]):
                 "days_overdue": days_overdue,
                 "severity": severity,
                 "difficulty_assessment": difficulty_assessment,
-                "frequency": habit.recurrence_pattern
-                if habit.recurrence_pattern
-                else "unknown",
+                "frequency": habit.recurrence_pattern if habit.recurrence_pattern else "unknown",
                 "event_type": "habit.missed.analyzed",
             },
         )

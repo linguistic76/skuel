@@ -132,7 +132,9 @@ class TestEmbeddingWorkerEventProcessing:
 
             # Cleanup: Delete test task
             async with neo4j_driver.session() as session:
-                await session.run("MATCH (t:Ku {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=task_uid)
+                await session.run(
+                    "MATCH (t:Ku {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=task_uid
+                )
 
     @pytest.mark.asyncio
     async def test_worker_processes_multiple_domains(
@@ -245,8 +247,12 @@ class TestEmbeddingWorkerEventProcessing:
                 await worker_task
 
             async with neo4j_driver.session() as session:
-                await session.run("MATCH (t:Ku {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=task_uid)
-                await session.run("MATCH (g:Ku {uid: $uid, ku_type: 'goal'}) DETACH DELETE g", uid=goal_uid)
+                await session.run(
+                    "MATCH (t:Ku {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=task_uid
+                )
+                await session.run(
+                    "MATCH (g:Ku {uid: $uid, ku_type: 'goal'}) DETACH DELETE g", uid=goal_uid
+                )
 
 
 @pytest.mark.skip(reason="Requires Neo4j GenAI plugin (genai.vector.encodeBatch procedure)")
@@ -331,7 +337,8 @@ class TestEmbeddingWorkerBatchProcessing:
 
             async with neo4j_driver.session() as session:
                 await session.run(
-                    "MATCH (t:Ku {ku_type: 'task'}) WHERE t.uid IN $uids DETACH DELETE t", uids=task_uids
+                    "MATCH (t:Ku {ku_type: 'task'}) WHERE t.uid IN $uids DETACH DELETE t",
+                    uids=task_uids,
                 )
 
 
@@ -417,4 +424,6 @@ class TestEmbeddingWorkerErrorRecovery:
                 await worker_task
 
             async with neo4j_driver.session() as session:
-                await session.run("MATCH (t:Ku {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=valid_uid)
+                await session.run(
+                    "MATCH (t:Ku {uid: $uid, ku_type: 'task'}) DETACH DELETE t", uid=valid_uid
+                )
