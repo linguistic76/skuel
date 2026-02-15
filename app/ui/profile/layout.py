@@ -216,9 +216,11 @@ def _build_profile_sidebar_items(
         ])
 
     # Community section
+    reports_item = SidebarItem("Reports", "/reports", "reports", icon="📄")
     shared_item = SidebarItem("Shared With Me", "/profile/shared", "shared", icon="📥")
     extra_sections.extend([
         _section_header("Community"),
+        _profile_item_renderer(reports_item, "reports" == active_domain),
         _profile_item_renderer(shared_item, "shared" == active_domain),
     ])
 
