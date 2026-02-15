@@ -53,7 +53,6 @@ ADMIN_NAV_ITEM = NavItem(
 
 # Profile dropdown items - account actions only (Activity Domains moved to profile sidebar)
 PROFILE_DROPDOWN_ITEMS: tuple[NavItem, ...] = (
-    NavItem("Profile", "/profile", "profile"),
     NavItem("Settings", "/settings", "settings"),
     NavItem("Sign out", "/logout", "logout"),
 )
