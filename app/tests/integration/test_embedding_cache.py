@@ -32,21 +32,24 @@ def embeddings_service(mock_driver):
     return service
 
 
+def _genai_result(embedding):
+    """Create a 3-tuple result matching Neo4j driver.execute_query() for GenAI calls.
+
+    Production create_embedding() unpacks: records, summary, keys = await driver.execute_query(...)
+    """
+    return ([{"embedding": embedding}], MagicMock(), ["embedding"])
+
+
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="RC22: Mocks use wrong query patterns (ai.text.embed vs genai.vector.encode) "
-    "and wrong return format (plain list vs 3-tuple). Requires full mock rewrite "
-    "to match current Neo4j driver execute_query API."
-)
 async def test_cache_hit_avoids_api_call(embeddings_service, mock_driver):
     """Test that cache hit doesn't make API call to GenAI."""
     api_calls = []
 
     async def track_calls(query, params=None):
         # Track which queries are called
-        if "ai.text.embed" in query:
+        if "genai.vector.encode" in query:
             api_calls.append("genai_api")
-            return [{"embedding": [0.5] * 1536}]
+            return _genai_result([0.5] * 1536)
         elif "embedding_version" in query:
             # Return current version (cache hit)
             return [
@@ -77,18 +80,14 @@ async def test_cache_hit_avoids_api_call(embeddings_service, mock_driver):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="RC22: Mocks use wrong query patterns (ai.text.embed vs genai.vector.encode) "
-    "and wrong return format (plain list vs 3-tuple). Requires full mock rewrite."
-)
 async def test_cache_miss_makes_api_call(embeddings_service, mock_driver):
     """Test that cache miss generates new embedding."""
     api_calls = []
 
     async def track_calls(query, params=None):
-        if "ai.text.embed" in query:
+        if "genai.vector.encode" in query:
             api_calls.append("genai_api")
-            return [{"embedding": [0.5] * 1536}]
+            return _genai_result([0.5] * 1536)
         elif "embedding_version" in query:
             # Return stale version (cache miss)
             return [
@@ -119,18 +118,14 @@ async def test_cache_miss_makes_api_call(embeddings_service, mock_driver):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="RC22: Mocks use wrong query patterns (ai.text.embed vs genai.vector.encode) "
-    "and wrong return format (plain list vs 3-tuple). Requires full mock rewrite."
-)
 async def test_cache_miss_no_embedding(embeddings_service, mock_driver):
     """Test cache miss when node has no embedding."""
     api_calls = []
 
     async def track_calls(query, params=None):
-        if "ai.text.embed" in query:
+        if "genai.vector.encode" in query:
             api_calls.append("genai_api")
-            return [{"embedding": [0.3] * 1536}]
+            return _genai_result([0.3] * 1536)
         elif "embedding_version" in query:
             # No embedding on node
             return [
@@ -156,19 +151,15 @@ async def test_cache_miss_no_embedding(embeddings_service, mock_driver):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="RC22: Mocks use wrong query patterns (ai.text.embed vs genai.vector.encode) "
-    "and wrong return format (plain list vs 3-tuple). Requires full mock rewrite."
-)
 async def test_cache_stores_metadata_on_miss(embeddings_service, mock_driver):
     """Test that cache miss stores embedding with metadata."""
     # Use side_effect to return different results for each call in sequence
     mock_driver.execute_query.side_effect = [
-        # First: check version - no embedding
+        # First: check version - no embedding (get_embedding_metadata)
         [{"embedding": None, "version": None, "model": None, "updated_at": None}],
-        # Second: generate embedding via GenAI
-        [{"embedding": [0.4] * 1536}],
-        # Third: store with metadata
+        # Second: generate embedding via GenAI (create_embedding unpacks 3-tuple)
+        _genai_result([0.4] * 1536),
+        # Third: store with metadata (store_embedding_with_metadata)
         [{"uid": "ku.test"}],
     ]
 
@@ -185,18 +176,14 @@ async def test_cache_stores_metadata_on_miss(embeddings_service, mock_driver):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="RC22: Mocks use wrong query patterns (ai.text.embed vs genai.vector.encode) "
-    "and wrong return format (plain list vs 3-tuple). Requires full mock rewrite."
-)
 async def test_multiple_calls_use_cache(embeddings_service, mock_driver):
     """Test that multiple calls to same node use cache."""
     api_calls = []
 
     async def track_calls(query, params=None):
-        if "ai.text.embed" in query:
+        if "genai.vector.encode" in query:
             api_calls.append("genai_api")
-            return [{"embedding": [0.6] * 1536}]
+            return _genai_result([0.6] * 1536)
         elif "embedding_version" in query:
             # Current version
             return [
@@ -225,10 +212,6 @@ async def test_multiple_calls_use_cache(embeddings_service, mock_driver):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="RC22: Mocks use wrong query patterns (ai.text.embed vs genai.vector.encode) "
-    "and wrong return format (plain list vs 3-tuple). Requires full mock rewrite."
-)
 async def test_different_nodes_independent_cache(embeddings_service, mock_driver):
     """Test that different nodes have independent cache entries."""
     call_count = [0]
@@ -236,8 +219,8 @@ async def test_different_nodes_independent_cache(embeddings_service, mock_driver
     async def track_calls(query, params=None):
         call_count[0] += 1
 
-        if "ai.text.embed" in query:
-            return [{"embedding": [0.7] * 1536}]
+        if "genai.vector.encode" in query:
+            return _genai_result([0.7] * 1536)
         elif "embedding_version" in query:
             # First node: cached, Second node: not cached
             if "python" in str(params.get("uid", "")):
@@ -273,16 +256,12 @@ async def test_different_nodes_independent_cache(embeddings_service, mock_driver
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="RC22: Mocks use wrong query patterns (ai.text.embed vs genai.vector.encode) "
-    "and wrong return format (plain list vs 3-tuple). Requires full mock rewrite."
-)
 async def test_cache_failure_returns_embedding_anyway(embeddings_service, mock_driver):
     """Test that if storing to cache fails, we still return the embedding."""
 
     async def track_calls(query, params=None):
-        if "ai.text.embed" in query:
-            return [{"embedding": [0.8] * 1536}]
+        if "genai.vector.encode" in query:
+            return _genai_result([0.8] * 1536)
         elif "embedding_version" in query:
             return [{"embedding": None, "version": None, "model": None, "updated_at": None}]
         elif "SET n.embedding" in query:
@@ -302,18 +281,14 @@ async def test_cache_failure_returns_embedding_anyway(embeddings_service, mock_d
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="RC22: Mocks use wrong query patterns (ai.text.embed vs genai.vector.encode) "
-    "and wrong return format (plain list vs 3-tuple). Requires full mock rewrite."
-)
 async def test_stale_version_regenerates(embeddings_service, mock_driver):
     """Test that stale versions trigger regeneration."""
     api_calls = []
 
     async def track_calls(query, params=None):
-        if "ai.text.embed" in query:
+        if "genai.vector.encode" in query:
             api_calls.append("regenerate")
-            return [{"embedding": [0.9] * 1536}]
+            return _genai_result([0.9] * 1536)
         elif "embedding_version" in query:
             # Return old version
             return [

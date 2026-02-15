@@ -917,6 +917,24 @@ async def populated_test_data(skuel_app):
 
 
 @pytest.fixture
+def embeddings_service():
+    """Create embeddings service with mock driver for integration tests.
+
+    Tests that use this fixture immediately override service methods (e.g.,
+    create_batch_embeddings) with AsyncMock, so the mock driver is sufficient.
+    """
+    from unittest.mock import MagicMock
+
+    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+
+    mock_driver = MagicMock()
+    mock_driver.execute_query = AsyncMock()
+    service = Neo4jGenAIEmbeddingsService(mock_driver)
+    service._plugin_available = True
+    return service
+
+
+@pytest.fixture
 def event_bus():
     """Create a simple event bus for testing."""
     from adapters.infrastructure.event_bus import InMemoryEventBus
@@ -935,9 +953,7 @@ async def tasks_backend(neo4j_driver):
     """Create tasks backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Ku](
-        neo4j_driver, "Ku", Ku, default_filters={"ku_type": "task"}
-    )
+    return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku, default_filters={"ku_type": "task"})
 
 
 @pytest_asyncio.fixture
@@ -953,9 +969,7 @@ async def goals_backend(neo4j_driver):
     """Create goals backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Ku](
-        neo4j_driver, "Ku", Ku, default_filters={"ku_type": "goal"}
-    )
+    return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku, default_filters={"ku_type": "goal"})
 
 
 @pytest_asyncio.fixture
@@ -971,9 +985,7 @@ async def habits_backend(neo4j_driver):
     """Create habits backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Ku](
-        neo4j_driver, "Ku", Ku, default_filters={"ku_type": "habit"}
-    )
+    return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku, default_filters={"ku_type": "habit"})
 
 
 @pytest_asyncio.fixture
@@ -989,9 +1001,7 @@ async def events_backend(neo4j_driver):
     """Create events backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Ku](
-        neo4j_driver, "Ku", Ku, default_filters={"ku_type": "event"}
-    )
+    return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku, default_filters={"ku_type": "event"})
 
 
 @pytest_asyncio.fixture
@@ -1007,9 +1017,7 @@ async def choices_backend(neo4j_driver):
     """Create choices backend for testing — unified Ku model with ku_type filter."""
     from core.models.ku.ku import Ku
 
-    return UniversalNeo4jBackend[Ku](
-        neo4j_driver, "Ku", Ku, default_filters={"ku_type": "choice"}
-    )
+    return UniversalNeo4jBackend[Ku](neo4j_driver, "Ku", Ku, default_filters={"ku_type": "choice"})
 
 
 @pytest_asyncio.fixture

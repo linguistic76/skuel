@@ -56,44 +56,23 @@ def mock_graph_auth():
     return MagicMock()
 
 
-@pytest.fixture
-def mock_auth_components():
-    """Mock AuthComponents for rendering — SKIPPED: AuthComponents removed during DomainRouteConfig migration."""
-    pytest.skip("AuthComponents removed during DomainRouteConfig migration")
-
-
-class TestRegistrationPage:
-    """Tests for GET /register."""
-
-    def test_registration_page_returns_html(self, mock_auth_components):
-        """Test that registration page renders HTML."""
-        # This test verifies the route structure
-        # Full integration would require app setup
-        assert mock_auth_components.render_registration_page() is not None
-
-    def test_registration_page_shows_error_when_provided(self, mock_auth_components):
-        """Test that registration page can display error messages."""
-        mock_auth_components.render_registration_page(error_message="Test error")
-        mock_auth_components.render_registration_page.assert_called_with(error_message="Test error")
-
-
 class TestRegistrationSubmit:
     """Tests for POST /register/submit."""
 
-    def test_registration_validation_requires_all_fields(self, mock_auth_components):
+    def test_registration_validation_requires_all_fields(self):
         """Test that registration requires all fields."""
         # Verify form validation expects username, email, display_name, password
         required_fields = ["username", "email", "display_name", "password", "confirm_password"]
         assert len(required_fields) == 5
 
-    def test_registration_password_must_match(self, mock_auth_components):
+    def test_registration_password_must_match(self):
         """Test that passwords must match."""
         # Verification that password matching is enforced
         password = "secure123"
         confirm_password = "different123"
         assert password != confirm_password
 
-    def test_registration_password_minimum_length(self, mock_auth_components):
+    def test_registration_password_minimum_length(self):
         """Test that password has minimum length requirement."""
         # Graph-native auth requires minimum 8 characters
         min_length = 8
@@ -102,7 +81,7 @@ class TestRegistrationSubmit:
         assert len(short_password) < min_length
         assert len(valid_password) >= min_length
 
-    def test_registration_requires_terms_acceptance(self, mock_auth_components):
+    def test_registration_requires_terms_acceptance(self):
         """Test that terms of service must be accepted."""
         # Terms acceptance is a required field
         accept_terms = None
@@ -135,7 +114,7 @@ class TestRegistrationSubmit:
         # Verify the method signature
         assert hasattr(mock_services.user_service, "create_user")
 
-    def test_registration_handles_auth_error(self, mock_graph_auth, mock_auth_components):
+    def test_registration_handles_auth_error(self, mock_graph_auth):
         """Test that registration handles auth errors gracefully."""
         mock_graph_auth.sign_up.return_value = Result.fail(
             Errors.validation(message="Email already registered", field="email")
@@ -152,26 +131,10 @@ class TestRegistrationSubmit:
         assert "already registered" in result.error.message
 
 
-class TestLoginPage:
-    """Tests for GET /login."""
-
-    def test_login_page_renders(self, mock_auth_components):
-        """Test that login page renders."""
-        result = mock_auth_components.render_login_page()
-        assert result is not None
-
-    def test_login_page_shows_error_when_provided(self, mock_auth_components):
-        """Test that login page can display error messages."""
-        mock_auth_components.render_login_page(error_message="Invalid credentials")
-        mock_auth_components.render_login_page.assert_called_with(
-            error_message="Invalid credentials"
-        )
-
-
 class TestLoginSubmit:
     """Tests for POST /login/submit."""
 
-    def test_login_requires_email_and_password(self, mock_auth_components):
+    def test_login_requires_email_and_password(self):
         """Test that login requires email and password."""
         # Both fields required for validation
         email = ""
@@ -239,7 +202,7 @@ class TestLoginSubmit:
         assert session["session_token"] == session_token
         assert "logged_in_at" in session
 
-    def test_login_handles_invalid_credentials(self, mock_graph_auth, mock_auth_components):
+    def test_login_handles_invalid_credentials(self, mock_graph_auth):
         """Test that login handles invalid credentials."""
         mock_graph_auth.sign_in.return_value = Result.fail(
             Errors.business("auth", "Invalid email or password")
@@ -276,28 +239,8 @@ class TestLogout:
         assert redirect_path == "/login"
 
 
-class TestForgotPassword:
-    """Tests for GET/POST /forgot-password."""
-
-    def test_forgot_password_page_renders(self, mock_auth_components):
-        """Test that forgot password page renders admin contact info."""
-        result = mock_auth_components.render_admin_password_reset_info()
-        assert result is not None
-
-    def test_forgot_password_shows_admin_contact(self, mock_auth_components):
-        """Test that forgot password shows admin contact info."""
-        # Graph-native auth uses admin-initiated password reset
-        mock_auth_components.render_admin_password_reset_info()
-        mock_auth_components.render_admin_password_reset_info.assert_called_once()
-
-
 class TestPasswordReset:
     """Tests for password reset with admin-generated token."""
-
-    def test_reset_password_page_renders(self, mock_auth_components):
-        """Test that reset password page renders."""
-        result = mock_auth_components.render_reset_password_page()
-        assert result is not None
 
     def test_reset_password_with_valid_token(self, mock_graph_auth):
         """Test password reset with valid token."""
@@ -313,7 +256,7 @@ class TestPasswordReset:
         assert result.is_ok
         assert result.value is True
 
-    def test_reset_password_with_expired_token(self, mock_graph_auth, mock_auth_components):
+    def test_reset_password_with_expired_token(self, mock_graph_auth):
         """Test password reset with expired token."""
         mock_graph_auth.reset_password_with_token.return_value = Result.fail(
             Errors.business("auth", "Reset token has expired")

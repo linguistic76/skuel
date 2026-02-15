@@ -16,6 +16,11 @@ from core.services.neo4j_genai_embeddings_service import (
 )
 
 
+def _genai_result(embedding):
+    """Create a 3-tuple result matching Neo4j driver.execute_query() for GenAI calls."""
+    return ([{"embedding": embedding}], MagicMock(), ["embedding"])
+
+
 @pytest.fixture
 def mock_driver():
     """Mock Neo4j driver for testing."""
@@ -194,11 +199,6 @@ async def test_check_version_compatibility_no_version(embeddings_service, mock_d
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="RC22: Mocks use wrong query patterns (ai.text.embed vs genai.vector.encode) "
-    "and wrong return format (plain list vs 3-tuple for create_embedding). "
-    "Requires full mock rewrite to match current Neo4j driver execute_query API."
-)
 async def test_get_or_create_embedding_returns_embedding(embeddings_service, mock_driver):
     """Test get_or_create_embedding basic functionality.
 
@@ -218,9 +218,9 @@ async def test_get_or_create_embedding_returns_embedding(embeddings_service, moc
                     "updated_at": None,
                 }
             ]
-        # Create embedding (GenAI)
-        elif "ai.text.embed" in query:
-            return [{"embedding": [0.1] * 1536}]
+        # Create embedding (GenAI) — unpacks as 3-tuple
+        elif "genai.vector.encode" in query:
+            return _genai_result([0.1] * 1536)
         # Store embedding
         elif "SET n.embedding" in query:
             return [{"uid": "ku.python"}]
@@ -239,10 +239,6 @@ async def test_get_or_create_embedding_returns_embedding(embeddings_service, moc
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="RC22: Mocks use wrong query patterns and return format for create_embedding's "
-    "3-tuple unpacking. Requires full mock rewrite."
-)
 async def test_get_or_create_embedding_cache_miss(embeddings_service, mock_driver):
     """Test cache miss - generates new embedding."""
     # Mock stale version (needs regeneration)
@@ -261,9 +257,9 @@ async def test_get_or_create_embedding_cache_miss(embeddings_service, mock_drive
                     "updated_at": "2025-01-01T12:00:00Z",
                 }
             ]
-        # Second call: create new embedding (GenAI plugin)
-        elif "ai.text.embed" in query:
-            return [{"embedding": [0.2] * 1536}]
+        # Second call: create new embedding (GenAI plugin) — unpacks as 3-tuple
+        elif "genai.vector.encode" in query:
+            return _genai_result([0.2] * 1536)
         # Third call: store with metadata
         else:
             return [{"uid": "ku.python"}]
@@ -284,10 +280,6 @@ async def test_get_or_create_embedding_cache_miss(embeddings_service, mock_drive
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="RC22: Mocks use wrong query patterns and return format for create_embedding's "
-    "3-tuple unpacking. Requires full mock rewrite."
-)
 async def test_get_or_create_embedding_no_existing(embeddings_service, mock_driver):
     """Test when node has no existing embedding."""
     call_count = [0]
@@ -298,9 +290,9 @@ async def test_get_or_create_embedding_no_existing(embeddings_service, mock_driv
         # First call: check compatibility (no embedding)
         if call_count[0] == 1:
             return [{"embedding": None, "version": None, "model": None, "updated_at": None}]
-        # Second call: create embedding
-        elif "ai.text.embed" in query:
-            return [{"embedding": [0.3] * 1536}]
+        # Second call: create embedding — unpacks as 3-tuple
+        elif "genai.vector.encode" in query:
+            return _genai_result([0.3] * 1536)
         # Third call: store with metadata
         else:
             return [{"uid": "ku.python"}]

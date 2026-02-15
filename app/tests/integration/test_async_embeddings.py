@@ -90,7 +90,6 @@ class TestTaskEmbeddingEvents:
         assert result.value.title == "Test Task"
 
 
-@pytest.mark.skip(reason="embeddings_service fixture not available in integration/ — defined in e2e/conftest.py")
 class TestEmbeddingBackgroundWorker:
     """Test background worker batch processing."""
 
@@ -103,7 +102,7 @@ class TestEmbeddingBackgroundWorker:
         """
         # Mock embeddings service
         embeddings_service.create_batch_embeddings = AsyncMock(
-            return_value=Mock(is_ok=True, value=[[0.1] * 1536 for _ in range(10)])
+            return_value=Mock(is_ok=True, is_error=False, value=[[0.1] * 1536 for _ in range(10)])
         )
 
         # Mock config for embedding version
@@ -122,6 +121,7 @@ class TestEmbeddingBackgroundWorker:
 
         # Start worker in background
         worker_task = asyncio.create_task(worker.start())
+        await asyncio.sleep(0.2)  # Let worker register event handlers
 
         # Publish 10 embedding requests
         for i in range(10):
@@ -131,6 +131,7 @@ class TestEmbeddingBackgroundWorker:
                 embedding_text=f"Test task {i}",
                 user_uid="user.test",
                 requested_at=datetime.now(),
+                occurred_at=datetime.now(),
             )
             await event_bus.publish_async(event)
 
@@ -179,6 +180,7 @@ class TestEmbeddingBackgroundWorker:
         )
 
         worker_task = asyncio.create_task(worker.start())
+        await asyncio.sleep(0.2)  # Let worker register event handlers
 
         # Publish request
         event = TaskEmbeddingRequested(
@@ -187,6 +189,7 @@ class TestEmbeddingBackgroundWorker:
             embedding_text="Test",
             user_uid="user.test",
             requested_at=datetime.now(),
+            occurred_at=datetime.now(),
         )
         await event_bus.publish_async(event)
 

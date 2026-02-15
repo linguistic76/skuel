@@ -208,10 +208,6 @@ class TestChoicesCoreOperations:
         assert len(decided_result.value) >= 1
         assert all(c.status == KuStatus.ACTIVE for c in decided_result.value)
 
-    async def test_choice_option_scoring(self, sample_options):
-        """Test the option scoring business logic."""
-        pytest.skip("ChoiceOption scoring not implemented on frozen dataclass — scoring logic lives in service layer")
-
     async def test_multiple_choices_same_user(self, choices_service, test_user_uid, sample_options):
         """Test creating multiple choices for the same user."""
         # Arrange & Act - Create 5 choices
@@ -323,6 +319,3 @@ class TestChoicesCoreOperations:
         assert created_choice.expands_possibilities is True
         assert "architect" in created_choice.vision_statement.lower()
 
-    async def test_option_feasibility_check(self, sample_options):
-        """Test the feasibility check logic for options."""
-        pytest.skip("ChoiceOption feasibility not implemented on frozen dataclass — scoring logic lives in service layer")

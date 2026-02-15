@@ -294,12 +294,6 @@ class TestKnowledgeStateAnalysis:
 class TestPathCalculations:
     """Test path calculation helper methods."""
 
-    def test_topological_sort_dependencies(self, core_service):
-        """Topological sort orders dependencies correctly."""
-        # The _topological_sort is a private method
-        # Test indirectly through integration tests
-        pytest.skip("Private method - tested via integration")
-
     def test_calculate_path_difficulty(self, core_service):
         """Path difficulty calculated from knowledge complexity."""
         # Test via the generated AdaptiveLp
