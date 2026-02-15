@@ -38,7 +38,9 @@ class NavItem:
 # Note: Profile is accessed via the avatar link in the navbar right section, not here.
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
     NavItem("Teaching", "/teaching", "teaching", requires_teacher=True),
+    NavItem("Tracking", "/profile", "profile/hub"),
     NavItem("Knowledge", "/profile/knowledge", "knowledge"),
+    NavItem("Curriculum", "/curriculum", "curriculum"),
 )
 
 # Admin-only navigation item - prepended to nav when user is admin

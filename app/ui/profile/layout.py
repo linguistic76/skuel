@@ -192,7 +192,7 @@ def _build_profile_sidebar_items(
         journals_item = SidebarItem("Journals", "/journals", "journals", icon="📓")
 
         extra_sections.extend([
-            _section_header("Activities"),
+            _section_header("Tracking"),
             *[
                 _profile_item_renderer(item, item.slug == active_domain)
                 for item in activity_items
@@ -270,7 +270,7 @@ async def create_profile_page(
         items=items,
         active=active_domain or "",
         title=display_name,
-        subtitle="Profile",
+        subtitle="",
         storage_key="profile-sidebar",
         extra_sidebar_sections=extra_sections,
         page_title=title,

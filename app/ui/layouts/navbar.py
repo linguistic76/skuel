@@ -110,22 +110,6 @@ def _search_button(active_page: str = "") -> A:
     )
 
 
-def _curriculum_button(active_page: str = "") -> A:
-    """Create green C icon button that navigates to /curriculum."""
-    is_active = active_page == "curriculum"
-    active_cls = "ring-2 ring-green-500" if is_active else ""
-    return A(
-        Span("Curriculum", cls="sr-only"),
-        Span(
-            "C",
-            cls="text-lg font-bold text-green-600",
-            aria_hidden="true",
-        ),
-        href="/curriculum",
-        cls=f"btn btn-ghost btn-circle {active_cls}",
-        **{"hx-boost": "false"},
-    )
-
 
 def _notification_button(unread_count: int = 0) -> Button:
     """Create notification bell button with optional badge.
@@ -358,7 +342,6 @@ def create_navbar(
         profile_section = Div(
             _admin_profile_section(current_user),
             _search_button(active_page),
-            _curriculum_button(active_page),
             _notification_button(unread_insights),
             cls="flex items-center gap-2",
         )
@@ -366,7 +349,6 @@ def create_navbar(
         profile_section = Div(
             _profile_dropdown(current_user, active_page),
             _search_button(active_page),
-            _curriculum_button(active_page),
             _notification_button(unread_insights),
             cls="flex items-center gap-2",
         )
