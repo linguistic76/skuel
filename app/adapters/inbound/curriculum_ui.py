@@ -85,7 +85,7 @@ def create_curriculum_ui_routes(app: Any, rt: Any, services: Any) -> None:
             _curriculum_card(
                 icon="📖",
                 name="Knowledge",
-                href="/ku",
+                href="/profile/knowledge",
                 primary_count=mastered + in_progress,
                 primary_label="studied",
                 secondary_count=mastered,
