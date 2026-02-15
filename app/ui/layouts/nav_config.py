@@ -39,7 +39,6 @@ class NavItem:
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
     NavItem("Search", "/search", "search"),
     NavItem("Askesis", "/askesis", "askesis"),
-    NavItem("Journals", "/journals", "journals"),
     NavItem("Teaching", "/teaching", "teaching", requires_teacher=True),
     NavItem("Knowledge", "/ku", "knowledge"),
 )

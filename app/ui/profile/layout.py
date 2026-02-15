@@ -189,12 +189,15 @@ def _build_profile_sidebar_items(
             for d in activity_domains
         ]
 
+        journals_item = SidebarItem("Journals", "/journals", "journals", icon="📓")
+
         extra_sections.extend([
             _section_header("Activities"),
             *[
                 _profile_item_renderer(item, item.slug == active_domain)
                 for item in activity_items
             ],
+            _profile_item_renderer(journals_item, "journals" == active_domain),
         ])
 
     # Curriculum section (includes Reports and Shared With Me)
