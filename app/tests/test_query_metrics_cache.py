@@ -15,6 +15,7 @@ Tests verify:
 """
 
 import asyncio
+import contextlib
 import time
 
 import pytest
@@ -48,14 +49,13 @@ def prometheus_metrics() -> PrometheusMetrics:
 
     def _unregister_skuel_collectors():
         collectors_to_remove = [
-            c for c in list(prometheus_client.REGISTRY._names_to_collectors.values())
-            if hasattr(c, '_name') and getattr(c, '_name', '').startswith('skuel_')
+            c
+            for c in list(prometheus_client.REGISTRY._names_to_collectors.values())
+            if hasattr(c, "_name") and getattr(c, "_name", "").startswith("skuel_")
         ]
         for collector in collectors_to_remove:
-            try:
+            with contextlib.suppress(Exception):
                 prometheus_client.REGISTRY.unregister(collector)
-            except Exception:
-                pass
 
     # Unregister existing skuel collectors to avoid duplicates
     _unregister_skuel_collectors()
