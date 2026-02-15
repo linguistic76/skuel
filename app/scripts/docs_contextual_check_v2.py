@@ -132,10 +132,14 @@ def detect_numerical_references(
     """
     Detect when code changes might make numerical references stale.
 
+    Only triggers for changes to architectural files that actually define
+    counts (service composition, enum definitions, metrics registration).
+    Bug fixes in service files do NOT trigger — only structural changes.
+
     Examples:
-    - "35 metrics" -> should be "43 metrics"
-    - "14 domains" -> might need updating
-    - "25 services migrated" -> progress tracking
+    - services_bootstrap.py changed → "72 services" might need updating
+    - shared_enums.py changed → "14 domains" might need updating
+    - prometheus_metrics.py changed → "47 metrics" might need updating
     """
     suggestions = []
 
@@ -150,17 +154,41 @@ def detect_numerical_references(
         (r"Phase\s+(\d+)", "phase number"),
     ]
 
-    # Check if code changes relate to these concepts
-    code_keywords = set()
+    # Only trigger keywords for ARCHITECTURAL files that define counts.
+    # A bug fix in intent_classifier.py doesn't change service counts.
+    architectural_triggers: dict[str, set[str]] = {
+        "services_bootstrap.py": {"services"},
+        "base_service.py": {"services"},
+        "domain_config.py": {"services", "domains"},
+        "activity_domain_config.py": {"services", "domains"},
+        "shared_enums.py": {"domains"},
+        "ku_enums.py": {"domains"},
+        "prometheus_metrics.py": {"metrics", "alerts"},
+        "metrics_event_handler.py": {"metrics"},
+    }
+
+    code_keywords: set[str] = set()
     for file_path in changed_files:
-        if file_path.endswith(".py"):
-            # Extract key concepts from code files
-            if "metrics" in file_path.lower():
-                code_keywords.add("metrics")
-            if "service" in file_path.lower():
+        filename = Path(file_path).name
+        if filename in architectural_triggers:
+            code_keywords.update(architectural_triggers[filename])
+
+    # Also check for files ADDED or DELETED under /services/ (structural changes)
+    try:
+        result = subprocess.run(
+            ["git", "diff-tree", "--no-commit-id", "--diff-filter=AD", "-r", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        added_deleted = [f for f in result.stdout.strip().split("\n") if f]
+        for file_path in added_deleted:
+            if "/services/" in file_path and file_path.endswith(".py"):
                 code_keywords.add("services")
-            if "domain" in file_path.lower():
-                code_keywords.add("domains")
+            if "migration" in file_path.lower() and file_path.endswith(".md"):
+                code_keywords.add("progress tracking")
+    except Exception:
+        pass
 
     if not code_keywords:
         return suggestions
@@ -189,9 +217,9 @@ def detect_numerical_references(
                 try:
                     content = Path(doc_file).read_text(encoding="utf-8")
 
-                    # Check each pattern
+                    # Check each pattern — only if keyword was triggered
                     for pattern, concept in numerical_patterns:
-                        if concept not in code_keywords and concept != "progress tracking":
+                        if concept not in code_keywords:
                             continue
 
                         matches = re.findall(pattern, content, re.IGNORECASE)
@@ -596,10 +624,17 @@ def main() -> int:
                 if s.confidence in ("critical", "high"):
                     print(f"  - {s.doc_path}: {s.reason}")
         elif medium_count:
-            print(f"{YELLOW}📄 {medium_count} doc(s) may need updating (medium confidence){RESET}")
-            for s in suggestions:
-                if s.confidence == "medium":
-                    print(f"  - {s.doc_path}: {s.reason}")
+            # Flood protection: suppress medium when too many (likely noise)
+            if medium_count > 5:
+                print(
+                    f"{DIM}📄 {medium_count} doc(s) flagged at medium confidence"
+                    f" (likely false positives — run with --verbose to see){RESET}"
+                )
+            else:
+                print(f"{YELLOW}📄 {medium_count} doc(s) may need updating (medium confidence){RESET}")
+                for s in suggestions:
+                    if s.confidence == "medium":
+                        print(f"  - {s.doc_path}: {s.reason}")
 
     return 1 if suggestions else 0
 
