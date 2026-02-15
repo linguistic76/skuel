@@ -355,31 +355,28 @@ def create_navbar(
         profile_section = _auth_buttons()
 
     return Nav(
-        # Main navbar container
+        # Main navbar container — flex-1 ensures it fills the navbar width
         Div(
+            # Left group: Mobile menu button + Logo + Desktop nav links
             Div(
-                # Left group: Mobile menu button + Logo + Desktop nav links
-                Div(
-                    _mobile_menu_button(),
-                    # Logo
-                    A(
-                        "SKUEL",
-                        href="/",
-                        cls="text-xl font-bold text-primary flex-shrink-0",
-                        **{"hx-boost": "false"},
-                    ),
-                    # Desktop navigation links
-                    desktop_links,
-                    cls="flex items-center gap-1",
+                _mobile_menu_button(),
+                # Logo
+                A(
+                    "SKUEL",
+                    href="/",
+                    cls="text-xl font-bold text-primary flex-shrink-0",
+                    **{"hx-boost": "false"},
                 ),
-                # Right group: Notifications + Profile
-                Div(
-                    profile_section,
-                    cls="flex items-center",
-                ),
-                cls="flex items-center justify-between h-16",
+                # Desktop navigation links
+                desktop_links,
+                cls="flex items-center gap-1",
             ),
-            cls="w-full px-4 sm:px-6 lg:px-8",
+            # Right group: Notifications + Profile (ml-auto pushes to far right)
+            Div(
+                profile_section,
+                cls="ml-auto flex items-center",
+            ),
+            cls="flex items-center h-16 flex-1 px-4 sm:px-6 lg:px-8",
         ),
         # Mobile menu (collapsible)
         mobile_links,
