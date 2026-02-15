@@ -152,6 +152,7 @@ _DOMAIN_ICONS: dict[str, str] = {
     "tasks": "✅",
     "goals": "🎯",
     "habits": "🔄",
+    "events": "📅",
     "choices": "🔀",
     "principles": "⚖️",
     "settings": "⚙️",

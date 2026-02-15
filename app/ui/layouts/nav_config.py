@@ -39,7 +39,6 @@ class NavItem:
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
     NavItem("Search", "/search", "search"),
     NavItem("Askesis", "/askesis", "askesis"),
-    NavItem("Events", "/events", "events"),
     NavItem("Journals", "/journals", "journals"),
     NavItem("Reports", "/reports", "reports"),
     NavItem("Teaching", "/teaching", "teaching", requires_teacher=True),
@@ -54,12 +53,12 @@ ADMIN_NAV_ITEM = NavItem(
     requires_admin=True,
 )
 
-# Profile dropdown items - activity domains accessible from navbar avatar
-# Events is already a top-level nav item in MAIN_NAV_ITEMS
+# Profile dropdown items - all 6 activity domains accessible from navbar avatar
 PROFILE_DROPDOWN_ITEMS: tuple[NavItem, ...] = (
     NavItem("Tasks", "/tasks", "tasks"),
     NavItem("Goals", "/goals", "goals"),
     NavItem("Habits", "/habits", "habits"),
+    NavItem("Events", "/events", "events"),
     NavItem("Choices", "/choices", "choices"),
     NavItem("Principles", "/principles", "principles"),
 )

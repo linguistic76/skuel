@@ -68,7 +68,9 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 
 **Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `STANDARD` page type with custom sidebar implementation.
 
-**Evolution (2026-02-06):** Activity Domains (Tasks, Goals, Habits, Choices, Principles) moved from profile sidebar to navbar avatar dropdown. Profile sidebar now contains: Overview, Shared With Me, Curriculum, Account. Events remains a top-level nav item.
+**Evolution (2026-02-06):** Activity Domains (Tasks, Goals, Habits, Choices, Principles) moved from profile sidebar to navbar avatar dropdown. Profile sidebar now contains: Overview, Shared With Me, Curriculum, Account.
+
+**Evolution (2026-02-16):** Events moved from main navbar to profile dropdown — all 6 Activity Domains now live in the avatar menu.
 
 **Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal DaisyUI tabs instead of drawer/overlay.
 
