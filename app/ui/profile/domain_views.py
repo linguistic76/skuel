@@ -1623,8 +1623,9 @@ def _domain_progress_grid(context: UserContext) -> Div:
     per domain. Each domain gets a primary count (big number) and a
     secondary breakdown for context.
     """
-    # (icon, name, slug, primary_count, primary_label, secondary_count, secondary_label)
-    domain_data = [
+    # (icon, name, slug, primary_count, primary_label, secondary_count, secondary_label, create_href)
+    # create_href: URL for the "+" button. None = no create button.
+    domain_data: list[tuple[str, str, str, int, str, int, str, str | None]] = [
         (
             "✅",
             "Tasks",
@@ -1633,6 +1634,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
             "active",
             len(context.completed_task_uids),
             "completed",
+            "/tasks?view=create",
         ),
         (
             "🔄",
@@ -1642,6 +1644,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
             "active",
             len(context.at_risk_habits),
             "at risk",
+            "/habits?view=create",
         ),
         (
             "🎯",
@@ -1651,6 +1654,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
             "active",
             len(context.completed_goal_uids),
             "completed",
+            "/goals?view=create",
         ),
         (
             "📅",
@@ -1660,6 +1664,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
             "upcoming",
             len(context.today_event_uids),
             "today",
+            "/events?view=create",
         ),
         (
             "⚖️",
@@ -1669,6 +1674,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
             "total",
             len(context.principle_conflicts),
             "conflicts",
+            "/principles?view=create",
         ),
         (
             "🔀",
@@ -1678,11 +1684,32 @@ def _domain_progress_grid(context: UserContext) -> Div:
             "pending",
             len(context.resolved_choice_uids),
             "resolved",
+            "/choices?view=create",
+        ),
+        (
+            "📓",
+            "Journals",
+            "journals",
+            0,
+            "entries",
+            0,
+            "",
+            "/journals/submit",
+        ),
+        (
+            "📖",
+            "Knowledge",
+            "knowledge",
+            len(context.mastered_knowledge_uids) + len(context.in_progress_knowledge_uids),
+            "studied",
+            len(context.mastered_knowledge_uids),
+            "mastered",
+            None,
         ),
     ]
 
     domain_items = []
-    for icon, name, slug, primary, primary_label, secondary, secondary_label in domain_data:
+    for icon, name, slug, primary, primary_label, secondary, secondary_label, create_href in domain_data:
         # Secondary line (only shown when count > 0)
         secondary_el = (
             Span(f"{secondary} {secondary_label}", cls="text-sm text-base-content/50")
@@ -1690,23 +1717,28 @@ def _domain_progress_grid(context: UserContext) -> Div:
             else None
         )
 
+        # Create button (only when create_href is provided)
+        create_btn: A | str = ""
+        if create_href:
+            create_btn = A(
+                "+",
+                href=create_href,
+                cls="w-7 h-7 flex items-center justify-center rounded-full "
+                "text-base-content/40 hover:text-base-content hover:bg-base-200 "
+                "transition-colors text-lg font-bold leading-none",
+                title=f"New {name.removesuffix('s')}",
+            )
+
         domain_items.append(
             Div(
-                # Domain header with add button
+                # Domain header with optional add button
                 Div(
                     Div(
                         Span(icon, cls="text-xl"),
                         Span(name, cls="text-base font-semibold text-base-content"),
                         cls="flex items-center gap-2",
                     ),
-                    A(
-                        "+",
-                        href=f"/{slug}?view=create",
-                        cls="w-7 h-7 flex items-center justify-center rounded-full "
-                        "text-base-content/40 hover:text-base-content hover:bg-base-200 "
-                        "transition-colors text-lg font-bold leading-none",
-                        title=f"New {name.removesuffix('s')}",
-                    ),
+                    create_btn,
                     cls="flex items-center justify-between mb-3",
                 ),
                 # Primary count — the hero number

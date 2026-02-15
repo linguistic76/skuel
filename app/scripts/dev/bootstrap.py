@@ -740,6 +740,12 @@ async def _wire_all_routes(
     setup_user_profile_routes(rt, services)
     logger.info("✅ User profile hub routes registered")
 
+    # Curriculum Hub (green C icon in navbar)
+    from adapters.inbound.curriculum_ui import create_curriculum_ui_routes
+
+    create_curriculum_ui_routes(app, rt, services)
+    logger.info("✅ Curriculum hub routes registered")
+
     # User pins routes (entity pinning/bookmarking)
     if services.user_relationships:
         from adapters.inbound.user_pins_api import create_user_pins_routes
