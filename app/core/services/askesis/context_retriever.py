@@ -329,11 +329,12 @@ class ContextRetriever:
             return []
 
         try:
-            # Step 1: Embed the query
-            query_embedding = await self.embeddings_service.create_embedding(query)
-            if not query_embedding:
+            # Step 1: Embed the query (returns Result[list[float]])
+            query_result = await self.embeddings_service.create_embedding(query)
+            if query_result.is_error:
                 logger.warning("Failed to create query embedding for semantic search")
                 return []
+            query_embedding = query_result.value
 
             # Step 2: Get KUs with embeddings from graph
             if not self.graph_intel:

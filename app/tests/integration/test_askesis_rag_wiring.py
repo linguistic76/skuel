@@ -99,26 +99,15 @@ async def test_askesis_answer_method_signature(skuel_app):
     print(f"   Parameters: {params}")
 
 
+@_skip_without_credentials
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires populated Neo4j database with user and knowledge data")
 async def test_askesis_rag_pipeline_end_to_end(skuel_app, populated_test_data):
-    """
-    End-to-end test of RAG pipeline.
-
-    SKIP: Requires:
-    1. Neo4j populated with user data
-    2. Knowledge units with titles
-    3. User context available
-
-    Run this manually after data is loaded.
-    """
-
+    """End-to-end test of RAG pipeline with populated data."""
     services = skuel_app.state.services
     askesis = services.askesis
 
-    # Test question
     question = "What do I need to learn before async programming?"
-    user_uid = "user.mike"
+    user_uid = populated_test_data["user_uid"]
 
     # Call RAG pipeline
     answer_result = await askesis.answer_user_question(user_uid, question)
@@ -127,14 +116,16 @@ async def test_askesis_rag_pipeline_end_to_end(skuel_app, populated_test_data):
     assert answer_result.is_ok, f"RAG pipeline failed: {answer_result.error}"
     answer_data = answer_result.value
 
-    # Verify expected fields in response
+    # Verify expected fields match query_processor.py output
     assert "answer" in answer_data, "Response missing 'answer' field"
     assert "context_used" in answer_data, "Response missing 'context_used' field"
     assert "suggested_actions" in answer_data, "Response missing 'suggested_actions' field"
-    assert "entities_extracted" in answer_data, "Response missing 'entities_extracted' field"
+    assert "confidence" in answer_data, "Response missing 'confidence' field"
+    assert "mode" in answer_data, "Response missing 'mode' field"
+    assert "has_citations" in answer_data, "Response missing 'has_citations' field"
 
-    print("✅ RAG pipeline end-to-end test passed:")
-    print(f"   Question: {question}")
-    print(f"   Answer: {answer_data['answer'][:100]}...")
-    print(f"   Entities: {answer_data['entities_extracted']}")
-    print(f"   Actions: {len(answer_data['suggested_actions'])}")
+    # Verify types
+    assert isinstance(answer_data["answer"], str), "Answer should be a string"
+    assert len(answer_data["answer"]) > 0, "Answer should not be empty"
+    assert isinstance(answer_data["suggested_actions"], list), "Suggested actions should be a list"
+    assert answer_data["mode"] == "llm_generated", "Mode should be llm_generated"

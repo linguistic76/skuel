@@ -203,10 +203,11 @@ class IntentClassifier:
                 "Intent exemplar embeddings failed to load - check embeddings service configuration"
             )
 
-        # Create query embedding
-        query_embedding = await self.embeddings_service.create_embedding(query)
-        if not query_embedding:
+        # Create query embedding (returns Result[list[float]])
+        query_result = await self.embeddings_service.create_embedding(query)
+        if query_result.is_error:
             raise ValueError("Failed to create query embedding - OpenAI API may be unavailable")
+        query_embedding = query_result.value
 
         # Compare to each intent's exemplar embeddings
         best_intent = None
@@ -283,9 +284,9 @@ class IntentClassifier:
             embeddings_for_intent = []
 
             for exemplar_query in exemplar_queries:
-                embedding = await self.embeddings_service.create_embedding(exemplar_query)
-                if embedding:
-                    embeddings_for_intent.append(embedding)
+                embedding_result = await self.embeddings_service.create_embedding(exemplar_query)
+                if embedding_result.is_ok:
+                    embeddings_for_intent.append(embedding_result.value)
 
             if embeddings_for_intent:
                 exemplar_embeddings[intent] = embeddings_for_intent
