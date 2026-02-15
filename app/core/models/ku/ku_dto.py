@@ -103,10 +103,16 @@ def _parse_date_value(val: Any) -> date | None:
     """Parse a date from string or return as-is if already a date."""
     if val is None:
         return None
-    if isinstance(val, date) and not isinstance(val, datetime):
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, date):
         return val
     if isinstance(val, str):
-        return date.fromisoformat(val)
+        try:
+            return date.fromisoformat(val)
+        except ValueError:
+            # Handle datetime ISO strings like '2025-10-01T00:00:00'
+            return datetime.fromisoformat(val).date()
     return None
 
 

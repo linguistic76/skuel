@@ -921,7 +921,7 @@ async def tasks_backend(neo4j_driver):
     from core.models.ku.ku import Ku
 
     return UniversalNeo4jBackend[Ku](
-        driver=neo4j_driver, label="Ku", model_class=Ku, default_filters={"ku_type": "task"}
+        neo4j_driver, "Ku", Ku, default_filters={"ku_type": "task"}
     )
 
 
@@ -939,7 +939,7 @@ async def goals_backend(neo4j_driver):
     from core.models.ku.ku import Ku
 
     return UniversalNeo4jBackend[Ku](
-        driver=neo4j_driver, label="Ku", model_class=Ku, default_filters={"ku_type": "goal"}
+        neo4j_driver, "Ku", Ku, default_filters={"ku_type": "goal"}
     )
 
 
@@ -957,7 +957,7 @@ async def habits_backend(neo4j_driver):
     from core.models.ku.ku import Ku
 
     return UniversalNeo4jBackend[Ku](
-        driver=neo4j_driver, label="Ku", model_class=Ku, default_filters={"ku_type": "habit"}
+        neo4j_driver, "Ku", Ku, default_filters={"ku_type": "habit"}
     )
 
 
@@ -975,7 +975,7 @@ async def events_backend(neo4j_driver):
     from core.models.ku.ku import Ku
 
     return UniversalNeo4jBackend[Ku](
-        driver=neo4j_driver, label="Ku", model_class=Ku, default_filters={"ku_type": "event"}
+        neo4j_driver, "Ku", Ku, default_filters={"ku_type": "event"}
     )
 
 
@@ -993,10 +993,7 @@ async def choices_backend(neo4j_driver):
     from core.models.ku.ku import Ku
 
     return UniversalNeo4jBackend[Ku](
-        driver=neo4j_driver,
-        label="Ku",
-        model_class=Ku,
-        default_filters={"ku_type": "choice"},
+        neo4j_driver, "Ku", Ku, default_filters={"ku_type": "choice"}
     )
 
 
@@ -1014,7 +1011,7 @@ async def principles_backend(neo4j_driver):
     from core.models.ku.ku import Ku
 
     return UniversalNeo4jBackend[Ku](
-        driver=neo4j_driver, label="Ku", model_class=Ku, default_filters={"ku_type": "principle"}
+        neo4j_driver, "Ku", Ku, default_filters={"ku_type": "principle"}
     )
 
 

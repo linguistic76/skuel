@@ -31,7 +31,13 @@ from core.models.enums import (
     Domain,
     SELCategory,
 )
-from core.models.enums.ku_enums import GoalType, KuStatus, MeasurementType, PrincipleCategory
+from core.models.enums.ku_enums import (
+    GoalType,
+    KuStatus,
+    KuType,
+    MeasurementType,
+    PrincipleCategory,
+)
 from core.models.enums.ku_enums import KuStatus as HabitStatus
 from core.models.ku.ku import Ku
 from core.models.ku.ku import Ku as Habit
@@ -135,7 +141,8 @@ class TestGoalRecommendationsFlow:
                 user_uid=test_user_uid,
                 title=name,
                 description=f"Maintain {name.lower()}",
-                category=HabitCategory.LEARNING,
+                ku_type=KuType.HABIT,
+                habit_category=HabitCategory.LEARNING,
                 status=HabitStatus.ACTIVE,
             )
             result = await habit_backend.create(habit)
@@ -146,10 +153,10 @@ class TestGoalRecommendationsFlow:
         principle = Ku(
             uid="principle.continuous_learning",
             user_uid=test_user_uid,
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             title="Continuous Learning",
             statement="Always be learning and growing",
-            category=PrincipleCategory.PERSONAL,
+            principle_category=PrincipleCategory.PERSONAL,
         )
         result = await principle_backend.create(principle)
         assert result.is_ok
@@ -180,7 +187,7 @@ class TestGoalRecommendationsFlow:
             for ku in kus:
                 await session.run(
                     """
-                    MATCH (goal:Goal {uid: $goal_uid})
+                    MATCH (goal:Ku {uid: $goal_uid})
                     MATCH (ku:Ku {uid: $ku_uid})
                     MERGE (goal)-[:REQUIRES_KNOWLEDGE]->(ku)
                     """,
@@ -192,8 +199,8 @@ class TestGoalRecommendationsFlow:
             for habit in habits:
                 await session.run(
                     """
-                    MATCH (goal:Goal {uid: $goal_uid})
-                    MATCH (habit:Habit {uid: $habit_uid})
+                    MATCH (goal:Ku {uid: $goal_uid})
+                    MATCH (habit:Ku {uid: $habit_uid})
                     MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
                     """,
                     goal_uid=goal.uid,
@@ -203,8 +210,8 @@ class TestGoalRecommendationsFlow:
             # Link goal to principle
             await session.run(
                 """
-                MATCH (goal:Goal {uid: $goal_uid})
-                MATCH (principle:Principle {uid: $principle_uid})
+                MATCH (goal:Ku {uid: $goal_uid})
+                MATCH (principle:Ku {uid: $principle_uid})
                 MERGE (goal)-[:GUIDED_BY_PRINCIPLE]->(principle)
                 """,
                 goal_uid=goal.uid,

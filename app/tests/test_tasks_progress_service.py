@@ -47,11 +47,9 @@ def mock_backend() -> Any:
         "created_at": datetime.now(),
     }
 
-    backend.get_task = AsyncMock(return_value=Result.ok(default_task_dict))
-    backend.update_task = AsyncMock()
-    backend.record_task_completion_by_user = AsyncMock()
-    backend.assign_task_to_user = AsyncMock()
-    backend.get_user_tasks = AsyncMock()
+    backend.get = AsyncMock(return_value=Result.ok(default_task_dict))
+    backend.update = AsyncMock()
+    backend.find_by = AsyncMock(return_value=Result.ok([]))
     # Default: No relationships found (empty lists)
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
     backend.create_relationship = AsyncMock(return_value=Result.ok(True))
@@ -155,14 +153,14 @@ async def test_complete_task_with_cascade_success(
 ):
     """Test successful task completion with cascade effects."""
     # Setup
-    mock_backend.get_task.return_value = Result.ok(sample_task.to_dto().to_dict())
+    mock_backend.get.return_value = Result.ok(sample_task.to_dto().to_dict())
 
     # Setup updated task (completed)
     completed_dto = sample_task.to_dto()
     completed_dto.status = KuStatus.COMPLETED.value
     completed_dto.completion_date = date.today()
     completed_dto.actual_minutes = 90
-    mock_backend.update_task.return_value = Result.ok(completed_dto.to_dict())
+    mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
     result = await progress_service.complete_task_with_cascade(
@@ -183,11 +181,11 @@ async def test_complete_task_cascade_effects(
 ):
     """Test that cascade effects are triggered on completion."""
     # Setup
-    mock_backend.get_task.return_value = Result.ok(sample_task.to_dto().to_dict())
+    mock_backend.get.return_value = Result.ok(sample_task.to_dto().to_dict())
 
     completed_dto = sample_task.to_dto()
     completed_dto.status = KuStatus.COMPLETED.value
-    mock_backend.update_task.return_value = Result.ok(completed_dto.to_dict())
+    mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
     result = await progress_service.complete_task_with_cascade("task:123", user_context)
@@ -201,7 +199,7 @@ async def test_complete_task_cascade_effects(
 async def test_complete_task_not_found(progress_service, mock_backend, user_context):
     """Test completion when task doesn't exist."""
     # Setup
-    mock_backend.get_task.return_value = Result.fail("Task not found")
+    mock_backend.get.return_value = Result.fail("Task not found")
 
     # Execute
     result = await progress_service.complete_task_with_cascade("task:999", user_context)
@@ -270,7 +268,7 @@ async def test_check_prerequisites_met(progress_service, mock_backend, sample_ta
             created_at=datetime.now(),
         )
     )
-    mock_backend.get_task.return_value = Result.ok(simple_task.to_dto().to_dict())
+    mock_backend.get.return_value = Result.ok(simple_task.to_dto().to_dict())
 
     # Execute
     result = await progress_service.check_prerequisites("task:simple", user_context)
@@ -289,7 +287,7 @@ async def test_check_prerequisites_missing_knowledge(
 ):
     """Test prerequisite check when knowledge prerequisites are missing."""
     # Setup
-    mock_backend.get_task.return_value = Result.ok(blocked_task.to_dto().to_dict())
+    mock_backend.get.return_value = Result.ok(blocked_task.to_dto().to_dict())
 
     # Mock prerequisite knowledge relationships (user doesn't have ku.python.async)
     async def mock_get_related(uid, rel_type, direction):
@@ -315,7 +313,7 @@ async def test_check_prerequisites_incomplete_tasks(
 ):
     """Test prerequisite check when task prerequisites are incomplete."""
     # Setup
-    mock_backend.get_task.return_value = Result.ok(blocked_task.to_dto().to_dict())
+    mock_backend.get.return_value = Result.ok(blocked_task.to_dto().to_dict())
 
     # Mock prerequisite task relationships (user hasn't completed task:123)
     async def mock_get_related(uid, rel_type, direction):
@@ -354,7 +352,7 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
             created_at=datetime.now(),
         )
     )
-    mock_backend.get_task.return_value = Result.ok(ready_task.to_dto().to_dict())
+    mock_backend.get.return_value = Result.ok(ready_task.to_dto().to_dict())
 
     # Mock successful prerequisite check
     with patch.object(
@@ -367,7 +365,7 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
         # Setup unblocked task
         unblocked_dto = ready_task.to_dto()
         unblocked_dto.status = KuStatus.SCHEDULED.value
-        mock_backend.update_task.return_value = Result.ok(unblocked_dto.to_dict())
+        mock_backend.update.return_value = Result.ok(unblocked_dto.to_dict())
 
         # Create mock context
         context = UserContext(
@@ -390,7 +388,7 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
 async def test_unblock_task_still_blocked(progress_service, mock_backend, blocked_task):
     """Test unblocking when task is still blocked."""
     # Setup
-    mock_backend.get_task.return_value = Result.ok(blocked_task.to_dto().to_dict())
+    mock_backend.get.return_value = Result.ok(blocked_task.to_dto().to_dict())
 
     # Mock failed prerequisite check
     with patch.object(
@@ -482,11 +480,11 @@ async def test_complete_task_updates_goal(progress_service, mock_backend, user_c
         )
     )
 
-    mock_backend.get_task.return_value = Result.ok(goal_task.to_dto().to_dict())
+    mock_backend.get.return_value = Result.ok(goal_task.to_dto().to_dict())
 
     completed_dto = goal_task.to_dto()
     completed_dto.status = KuStatus.COMPLETED.value
-    mock_backend.update_task.return_value = Result.ok(completed_dto.to_dict())
+    mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
     result = await progress_service.complete_task_with_cascade("task:goal_task", user_context)
@@ -512,11 +510,11 @@ async def test_complete_task_reinforces_habit(progress_service, mock_backend, us
         )
     )
 
-    mock_backend.get_task.return_value = Result.ok(habit_task.to_dto().to_dict())
+    mock_backend.get.return_value = Result.ok(habit_task.to_dto().to_dict())
 
     completed_dto = habit_task.to_dto()
     completed_dto.status = KuStatus.COMPLETED.value
-    mock_backend.update_task.return_value = Result.ok(completed_dto.to_dict())
+    mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
     result = await progress_service.complete_task_with_cascade(
@@ -546,11 +544,11 @@ async def test_complete_task_updates_knowledge_mastery(
         )
     )
 
-    mock_backend.get_task.return_value = Result.ok(mastery_task.to_dto().to_dict())
+    mock_backend.get.return_value = Result.ok(mastery_task.to_dto().to_dict())
 
     completed_dto = mastery_task.to_dto()
     completed_dto.status = KuStatus.COMPLETED.value
-    mock_backend.update_task.return_value = Result.ok(completed_dto.to_dict())
+    mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
     result = await progress_service.complete_task_with_cascade("task:mastery_task", user_context)
@@ -580,11 +578,11 @@ async def test_complete_and_unblock_workflow(progress_service, mock_backend, use
         )
     )
 
-    mock_backend.get_task.return_value = Result.ok(task.to_dto().to_dict())
+    mock_backend.get.return_value = Result.ok(task.to_dto().to_dict())
 
     completed_dto = task.to_dto()
     completed_dto.status = KuStatus.COMPLETED.value
-    mock_backend.update_task.return_value = Result.ok(completed_dto.to_dict())
+    mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Complete the task
     complete_result = await progress_service.complete_task_with_cascade(

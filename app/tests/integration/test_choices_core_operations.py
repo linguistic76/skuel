@@ -23,7 +23,7 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import Domain, Priority
-from core.models.enums.ku_enums import ChoiceType, KuStatus
+from core.models.enums.ku_enums import ChoiceType, KuStatus, KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_nested_types import ChoiceOption
 from core.services.choices.choices_core_service import ChoicesCoreService
@@ -87,7 +87,7 @@ class TestChoicesCoreOperations:
             title="Choose Primary Tech Stack",
             description="Select primary programming language to focus on",
             user_uid=test_user_uid,
-            ku_type="choice",
+            ku_type=KuType.CHOICE,
             choice_type=ChoiceType.MULTIPLE,
             status=KuStatus.DRAFT,
             priority=Priority.HIGH,
@@ -114,7 +114,7 @@ class TestChoicesCoreOperations:
             title="Test Choice",
             description="Test choice for retrieval",
             user_uid=test_user_uid,
-            ku_type="choice",
+            ku_type=KuType.CHOICE,
             options=sample_options,
         )
         create_result = await choices_service.create(choice)
@@ -147,7 +147,7 @@ class TestChoicesCoreOperations:
                 title=f"Choice {i}",
                 description=f"Test choice {i}",
                 user_uid=test_user_uid,
-                ku_type="choice",
+                ku_type=KuType.CHOICE,
                 options=sample_options,
             )
             for i in range(3)
@@ -173,7 +173,7 @@ class TestChoicesCoreOperations:
             title="Pending Choice",
             description="Not yet decided",
             user_uid=test_user_uid,
-            ku_type="choice",
+            ku_type=KuType.CHOICE,
             status=KuStatus.DRAFT,
             options=sample_options,
         )
@@ -182,7 +182,7 @@ class TestChoicesCoreOperations:
             title="Decided Choice",
             description="Already decided",
             user_uid=test_user_uid,
-            ku_type="choice",
+            ku_type=KuType.CHOICE,
             status=KuStatus.ACTIVE,
             selected_option_uid="option.python",
             options=sample_options,
@@ -240,7 +240,7 @@ class TestChoicesCoreOperations:
                 title=f"Multiple Choice {i}",
                 description=f"Choice number {i}",
                 user_uid=test_user_uid,
-                ku_type="choice",
+                ku_type=KuType.CHOICE,
                 status=KuStatus.DRAFT if i % 2 == 0 else KuStatus.ACTIVE,
                 options=sample_options,
             )
@@ -263,7 +263,7 @@ class TestChoicesCoreOperations:
                 title=f"{priority.value.capitalize()} Priority Choice",
                 description=f"Choice with {priority.value} priority",
                 user_uid=test_user_uid,
-                ku_type="choice",
+                ku_type=KuType.CHOICE,
                 priority=priority,
                 options=sample_options,
             )
@@ -281,7 +281,7 @@ class TestChoicesCoreOperations:
                 title=f"{domain.value.capitalize()} Choice",
                 description=f"Choice in {domain.value} domain",
                 user_uid=test_user_uid,
-                ku_type="choice",
+                ku_type=KuType.CHOICE,
                 domain=domain,
                 options=sample_options,
             )
@@ -299,7 +299,7 @@ class TestChoicesCoreOperations:
             title="Choice with Criteria",
             description="Choice that has decision criteria",
             user_uid=test_user_uid,
-            ku_type="choice",
+            ku_type=KuType.CHOICE,
             decision_criteria=("career growth", "work-life balance", "learning opportunity"),
             constraints=("must be remote", "salary > 100k"),
             stakeholders=("family", "current employer"),
@@ -324,7 +324,7 @@ class TestChoicesCoreOperations:
             title="Career Pivot Decision",
             description="Considering a major career change",
             user_uid=test_user_uid,
-            ku_type="choice",
+            ku_type=KuType.CHOICE,
             inspiration_type="career_path",
             expands_possibilities=True,
             vision_statement="Becoming a lead software architect in 5 years",

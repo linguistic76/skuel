@@ -143,7 +143,7 @@ class TestTaskGoalEventFlow:
         async with neo4j_driver.session() as session:
             # First verify that goal exists
             goal_check = await session.run(
-                "MATCH (g:Goal {uid: $uid}) RETURN g.uid as uid", uid=task_based_goal.uid
+                "MATCH (g:Ku {uid: $uid}) RETURN g.uid as uid", uid=task_based_goal.uid
             )
             goal_exists = await goal_check.data()
             print(f"Goal check: {len(goal_exists)} goals found with UID {task_based_goal.uid}")
@@ -151,7 +151,7 @@ class TestTaskGoalEventFlow:
             for task in tasks:
                 # Verify task exists
                 task_check = await session.run(
-                    "MATCH (t:Task {uid: $uid}) RETURN t.uid as uid", uid=task.uid
+                    "MATCH (t:Ku {uid: $uid}) RETURN t.uid as uid", uid=task.uid
                 )
                 task_exists = await task_check.data()
                 print(f"Task check: {len(task_exists)} tasks found with UID {task.uid}")
@@ -159,8 +159,8 @@ class TestTaskGoalEventFlow:
                 # Create relationship using MERGE (idempotent)
                 result = await session.run(
                     """
-                    MATCH (goal:Goal {uid: $goal_uid})
-                    MATCH (task:Task {uid: $task_uid})
+                    MATCH (goal:Ku {uid: $goal_uid})
+                    MATCH (task:Ku {uid: $task_uid})
                     MERGE (goal)-[:SUPPORTS_GOAL]->(task)
                     RETURN goal.uid as goal_uid, task.uid as task_uid
                     """,
@@ -247,7 +247,7 @@ class TestTaskGoalEventFlow:
         # Complete first task (1/3 = 33.33%)
         async with neo4j_driver.session() as session:
             await session.run(
-                "MATCH (t:Task {uid: $uid}) SET t.status = 'completed'",
+                "MATCH (t:Ku {uid: $uid}) SET t.status = 'completed'",
                 uid=linked_tasks[0].uid,
             )
 
@@ -270,7 +270,7 @@ class TestTaskGoalEventFlow:
         # Complete second task (2/3 = 66.67%)
         async with neo4j_driver.session() as session:
             await session.run(
-                "MATCH (t:Task {uid: $uid}) SET t.status = 'completed'",
+                "MATCH (t:Ku {uid: $uid}) SET t.status = 'completed'",
                 uid=linked_tasks[1].uid,
             )
 
@@ -305,7 +305,7 @@ class TestTaskGoalEventFlow:
         async with neo4j_driver.session() as session:
             for task in linked_tasks:
                 await session.run(
-                    "MATCH (t:Task {uid: $uid}) SET t.status = 'completed'", uid=task.uid
+                    "MATCH (t:Ku {uid: $uid}) SET t.status = 'completed'", uid=task.uid
                 )
 
         # Publish TaskCompleted event for the last task
@@ -380,9 +380,9 @@ class TestTaskGoalEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (goal1:Goal {uid: $goal1_uid})
-                MATCH (goal2:Goal {uid: $goal2_uid})
-                MATCH (task:Task {uid: $task_uid})
+                MATCH (goal1:Ku {uid: $goal1_uid})
+                MATCH (goal2:Ku {uid: $goal2_uid})
+                MATCH (task:Ku {uid: $task_uid})
                 CREATE (goal1)-[:SUPPORTS_GOAL]->(task)
                 CREATE (goal2)-[:SUPPORTS_GOAL]->(task)
                 """,
@@ -392,7 +392,7 @@ class TestTaskGoalEventFlow:
             )
 
             # Mark task as completed
-            await session.run("MATCH (t:Task {uid: $uid}) SET t.status = 'completed'", uid=task.uid)
+            await session.run("MATCH (t:Ku {uid: $uid}) SET t.status = 'completed'", uid=task.uid)
 
         # Subscribe and publish event
         event_bus.subscribe(TaskCompleted, goals_progress_service.handle_task_completed)
@@ -480,8 +480,8 @@ class TestTaskGoalEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (goal:Goal {uid: $goal_uid})
-                MATCH (task:Task {uid: $task_uid})
+                MATCH (goal:Ku {uid: $goal_uid})
+                MATCH (task:Ku {uid: $task_uid})
                 CREATE (goal)-[:SUPPORTS_GOAL]->(task)
                 """,
                 goal_uid=goal.uid,
@@ -489,7 +489,7 @@ class TestTaskGoalEventFlow:
             )
 
             # Mark task as completed
-            await session.run("MATCH (t:Task {uid: $uid}) SET t.status = 'completed'", uid=task.uid)
+            await session.run("MATCH (t:Ku {uid: $uid}) SET t.status = 'completed'", uid=task.uid)
 
         # Subscribe and publish event
         event_bus.subscribe(TaskCompleted, goals_progress_service.handle_task_completed)
@@ -535,8 +535,8 @@ class TestTaskGoalEventFlow:
             for task in tasks:
                 await session.run(
                     """
-                    MATCH (goal:Goal {uid: $goal_uid})
-                    MATCH (task:Task {uid: $task_uid})
+                    MATCH (goal:Ku {uid: $goal_uid})
+                    MATCH (task:Ku {uid: $task_uid})
                     CREATE (goal)-[:SUPPORTS_GOAL]->(task)
                     """,
                     goal_uid=mixed_goal.uid,
@@ -545,7 +545,7 @@ class TestTaskGoalEventFlow:
 
             # Complete first task (1/2 = 50% task contribution)
             await session.run(
-                "MATCH (t:Task {uid: $uid}) SET t.status = 'completed'", uid=tasks[0].uid
+                "MATCH (t:Ku {uid: $uid}) SET t.status = 'completed'", uid=tasks[0].uid
             )
 
         # Subscribe and publish event
@@ -619,9 +619,9 @@ class TestTaskGoalEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (goal1:Goal {uid: $goal1_uid})
-                MATCH (goal2:Goal {uid: $goal2_uid})
-                MATCH (task:Task {uid: $task_uid})
+                MATCH (goal1:Ku {uid: $goal1_uid})
+                MATCH (goal2:Ku {uid: $goal2_uid})
+                MATCH (task:Ku {uid: $task_uid})
                 CREATE (goal1)-[:SUPPORTS_GOAL]->(task)
                 CREATE (goal2)-[:SUPPORTS_GOAL]->(task)
                 """,
@@ -631,10 +631,10 @@ class TestTaskGoalEventFlow:
             )
 
             # Mark task as completed
-            await session.run("MATCH (t:Task {uid: $uid}) SET t.status = 'completed'", uid=task.uid)
+            await session.run("MATCH (t:Ku {uid: $uid}) SET t.status = 'completed'", uid=task.uid)
 
             # Delete goal2 to cause error during update
-            await session.run("MATCH (g:Goal {uid: $uid}) DETACH DELETE g", uid=goal2.uid)
+            await session.run("MATCH (g:Ku {uid: $uid}) DETACH DELETE g", uid=goal2.uid)
 
         # Subscribe and publish event
         event_bus.subscribe(TaskCompleted, goals_progress_service.handle_task_completed)
@@ -688,14 +688,14 @@ class TestTaskGoalEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (goal:Goal {uid: $goal_uid})
-                MATCH (task:Task {uid: $task_uid})
+                MATCH (goal:Ku {uid: $goal_uid})
+                MATCH (task:Ku {uid: $task_uid})
                 CREATE (goal)-[:SUPPORTS_GOAL]->(task)
                 """,
                 goal_uid=goal.uid,
                 task_uid=task.uid,
             )
-            await session.run("MATCH (t:Task {uid: $uid}) SET t.status = 'completed'", uid=task.uid)
+            await session.run("MATCH (t:Ku {uid: $uid}) SET t.status = 'completed'", uid=task.uid)
 
         # Subscribe and publish event
         event_bus.subscribe(TaskCompleted, goals_progress_service.handle_task_completed)
@@ -770,8 +770,8 @@ class TestTaskGoalEventFlow:
             for task in tasks:
                 await session.run(
                     """
-                    MATCH (goal:Goal {uid: $goal_uid})
-                    MATCH (task:Task {uid: $task_uid})
+                    MATCH (goal:Ku {uid: $goal_uid})
+                    MATCH (task:Ku {uid: $task_uid})
                     CREATE (goal)-[:SUPPORTS_GOAL]->(task)
                     """,
                     goal_uid=project_goal.uid,
@@ -781,7 +781,7 @@ class TestTaskGoalEventFlow:
             # Verify relationships were created
             verify = await session.run(
                 """
-                MATCH (goal:Goal {uid: $goal_uid})-[:SUPPORTS_GOAL]->(task:Task)
+                MATCH (goal:Ku {uid: $goal_uid})-[:SUPPORTS_GOAL]->(task:Ku)
                 RETURN count(task) as task_count
                 """,
                 goal_uid=project_goal.uid,
@@ -793,7 +793,7 @@ class TestTaskGoalEventFlow:
 
             # Complete first task
             await session.run(
-                "MATCH (t:Task {uid: $uid}) SET t.status = 'completed'",
+                "MATCH (t:Ku {uid: $uid}) SET t.status = 'completed'",
                 uid=tasks[0].uid,
             )
 
@@ -819,7 +819,7 @@ class TestTaskGoalEventFlow:
         async with neo4j_driver.session() as session:
             for task in tasks[1:]:
                 await session.run(
-                    "MATCH (t:Task {uid: $uid}) SET t.status = 'completed'",
+                    "MATCH (t:Ku {uid: $uid}) SET t.status = 'completed'",
                     uid=task.uid,
                 )
 

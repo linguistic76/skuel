@@ -30,6 +30,7 @@ from core.models.enums.ku_enums import (
     HabitCategory,
     HabitDifficulty,
     HabitPolarity,
+    KuType,
 )
 from core.models.enums.ku_enums import (
     KuStatus as HabitStatus,
@@ -74,11 +75,12 @@ class TestHabitsCoreOperations:
         habit = Habit(
             uid="habit.daily_meditation",
             user_uid=test_user_uid,
-            name="Daily Meditation",
+            title="Daily Meditation",
+            ku_type=KuType.HABIT,
             description="Practice mindfulness meditation every morning",
             polarity=HabitPolarity.BUILD,
-            category=HabitCategory.MINDFULNESS,
-            difficulty=HabitDifficulty.EASY,
+            habit_category=HabitCategory.MINDFULNESS,
+            habit_difficulty=HabitDifficulty.EASY,
             recurrence_pattern=RecurrencePattern.DAILY,
             target_days_per_week=7,
             duration_minutes=10,
@@ -93,10 +95,10 @@ class TestHabitsCoreOperations:
         assert result.is_ok
         created = result.value
         assert created.uid == "habit.daily_meditation"
-        assert created.name == "Daily Meditation"
+        assert created.title =="Daily Meditation"
         assert created.polarity == HabitPolarity.BUILD
-        assert created.category == HabitCategory.MINDFULNESS
-        assert created.difficulty == HabitDifficulty.EASY
+        assert created.habit_category == HabitCategory.MINDFULNESS
+        assert created.habit_difficulty == HabitDifficulty.EASY
         assert created.status == HabitStatus.ACTIVE
 
     async def test_get_habit_by_uid(self, habits_service, test_user_uid):
@@ -105,10 +107,10 @@ class TestHabitsCoreOperations:
         habit = Habit(
             uid="habit.get_test",
             user_uid=test_user_uid,
-            name="Test Habit for Retrieval",
+            title="Test Habit for Retrieval",
             description="This habit tests retrieval functionality",
             polarity=HabitPolarity.BUILD,
-            category=HabitCategory.LEARNING,
+            habit_category=HabitCategory.LEARNING,
             recurrence_pattern=RecurrencePattern.DAILY,
         )
         create_result = await habits_service.create(habit)
@@ -121,7 +123,7 @@ class TestHabitsCoreOperations:
         assert result.is_ok
         retrieved = result.value
         assert retrieved.uid == "habit.get_test"
-        assert retrieved.name == "Test Habit for Retrieval"
+        assert retrieved.title =="Test Habit for Retrieval"
 
     async def test_get_nonexistent_habit(self, habits_service):
         """Test getting a habit that doesn't exist."""
@@ -139,10 +141,10 @@ class TestHabitsCoreOperations:
             Habit(
                 uid=f"habit.list_test_{i}",
                 user_uid=test_user_uid,
-                name=f"Test Habit {i}",
+                title=f"Test Habit {i}",
                 description=f"Description for habit {i}",
                 polarity=HabitPolarity.BUILD,
-                category=HabitCategory.PRODUCTIVITY,
+                habit_category=HabitCategory.PRODUCTIVITY,
                 recurrence_pattern=RecurrencePattern.DAILY,
             )
             for i in range(3)
@@ -167,10 +169,10 @@ class TestHabitsCoreOperations:
             habit = Habit(
                 uid=f"habit.multi_{i}",
                 user_uid=test_user_uid,
-                name=f"Multi Habit {i}",
+                title=f"Multi Habit {i}",
                 description=f"Multiple habit {i}",
                 polarity=HabitPolarity.BUILD,
-                category=HabitCategory.HEALTH,
+                habit_category=HabitCategory.HEALTH,
                 recurrence_pattern=RecurrencePattern.DAILY,
             )
             result = await habits_service.create(habit)
@@ -191,20 +193,20 @@ class TestHabitsCoreOperations:
         active_habit = Habit(
             uid="habit.active",
             user_uid=test_user_uid,
-            name="Active Habit",
+            title="Active Habit",
             description="Currently pursuing this habit",
             polarity=HabitPolarity.BUILD,
-            category=HabitCategory.FITNESS,
+            habit_category=HabitCategory.FITNESS,
             status=HabitStatus.ACTIVE,
             recurrence_pattern=RecurrencePattern.DAILY,
         )
         completed_habit = Habit(
             uid="habit.completed",
             user_uid=test_user_uid,
-            name="Completed Habit",
+            title="Completed Habit",
             description="Successfully completed",
             polarity=HabitPolarity.BUILD,
-            category=HabitCategory.FITNESS,
+            habit_category=HabitCategory.FITNESS,
             status=HabitStatus.COMPLETED,
             recurrence_pattern=RecurrencePattern.DAILY,
         )
@@ -235,19 +237,19 @@ class TestHabitsCoreOperations:
         health_habit = Habit(
             uid="habit.health_category",
             user_uid=test_user_uid,
-            name="Health Category Habit",
+            title="Health Category Habit",
             description="Health-related habit",
             polarity=HabitPolarity.BUILD,
-            category=HabitCategory.HEALTH,
+            habit_category=HabitCategory.HEALTH,
             recurrence_pattern=RecurrencePattern.DAILY,
         )
         learning_habit = Habit(
             uid="habit.learning_category",
             user_uid=test_user_uid,
-            name="Learning Category Habit",
+            title="Learning Category Habit",
             description="Learning-related habit",
             polarity=HabitPolarity.BUILD,
-            category=HabitCategory.LEARNING,
+            habit_category=HabitCategory.LEARNING,
             recurrence_pattern=RecurrencePattern.DAILY,
         )
 
@@ -256,20 +258,20 @@ class TestHabitsCoreOperations:
 
         # Act - Filter by category
         health_result = await habits_service.backend.find_by(
-            user_uid=test_user_uid, category=HabitCategory.HEALTH.value
+            user_uid=test_user_uid, habit_category=HabitCategory.HEALTH.value
         )
         learning_result = await habits_service.backend.find_by(
-            user_uid=test_user_uid, category=HabitCategory.LEARNING.value
+            user_uid=test_user_uid, habit_category=HabitCategory.LEARNING.value
         )
 
         # Assert
         assert health_result.is_ok
         assert len(health_result.value) >= 1
-        assert all(h.category == HabitCategory.HEALTH for h in health_result.value)
+        assert all(h.habit_category == HabitCategory.HEALTH for h in health_result.value)
 
         assert learning_result.is_ok
         assert len(learning_result.value) >= 1
-        assert all(h.category == HabitCategory.LEARNING for h in learning_result.value)
+        assert all(h.habit_category == HabitCategory.LEARNING for h in learning_result.value)
 
     async def test_filter_by_difficulty(self, habits_service, test_user_uid):
         """Test filtering habits by difficulty."""
@@ -277,21 +279,21 @@ class TestHabitsCoreOperations:
         easy_habit = Habit(
             uid="habit.easy",
             user_uid=test_user_uid,
-            name="Easy Habit",
+            title="Easy Habit",
             description="Simple habit",
             polarity=HabitPolarity.BUILD,
-            category=HabitCategory.OTHER,
-            difficulty=HabitDifficulty.EASY,
+            habit_category=HabitCategory.OTHER,
+            habit_difficulty=HabitDifficulty.EASY,
             recurrence_pattern=RecurrencePattern.DAILY,
         )
         hard_habit = Habit(
             uid="habit.hard",
             user_uid=test_user_uid,
-            name="Hard Habit",
+            title="Hard Habit",
             description="Challenging habit",
             polarity=HabitPolarity.BUILD,
-            category=HabitCategory.OTHER,
-            difficulty=HabitDifficulty.HARD,
+            habit_category=HabitCategory.OTHER,
+            habit_difficulty=HabitDifficulty.HARD,
             recurrence_pattern=RecurrencePattern.DAILY,
         )
 
@@ -300,20 +302,20 @@ class TestHabitsCoreOperations:
 
         # Act - Filter by difficulty
         easy_result = await habits_service.backend.find_by(
-            user_uid=test_user_uid, difficulty=HabitDifficulty.EASY.value
+            user_uid=test_user_uid, habit_difficulty=HabitDifficulty.EASY.value
         )
         hard_result = await habits_service.backend.find_by(
-            user_uid=test_user_uid, difficulty=HabitDifficulty.HARD.value
+            user_uid=test_user_uid, habit_difficulty=HabitDifficulty.HARD.value
         )
 
         # Assert
         assert easy_result.is_ok
         assert len(easy_result.value) >= 1
-        assert all(h.difficulty == HabitDifficulty.EASY for h in easy_result.value)
+        assert all(h.habit_difficulty == HabitDifficulty.EASY for h in easy_result.value)
 
         assert hard_result.is_ok
         assert len(hard_result.value) >= 1
-        assert all(h.difficulty == HabitDifficulty.HARD for h in hard_result.value)
+        assert all(h.habit_difficulty == HabitDifficulty.HARD for h in hard_result.value)
 
     # ==========================================================================
     # BUSINESS LOGIC TESTS (4 tests)
@@ -334,10 +336,10 @@ class TestHabitsCoreOperations:
             habit = Habit(
                 uid=f"habit.status_{status.value}",
                 user_uid=test_user_uid,
-                name=f"Habit with {status.value} status",
+                title=f"Habit with {status.value} status",
                 description=f"Testing {status.value} status",
                 polarity=HabitPolarity.BUILD,
-                category=HabitCategory.OTHER,
+                habit_category=HabitCategory.OTHER,
                 status=status,
                 recurrence_pattern=RecurrencePattern.DAILY,
             )
@@ -358,10 +360,10 @@ class TestHabitsCoreOperations:
             habit = Habit(
                 uid=f"habit.polarity_{polarity.value}",
                 user_uid=test_user_uid,
-                name=f"{polarity.value.title()} Habit",
+                title=f"{polarity.value.title()} Habit",
                 description=f"Testing {polarity.value} polarity",
                 polarity=polarity,
-                category=HabitCategory.OTHER,
+                habit_category=HabitCategory.OTHER,
                 recurrence_pattern=RecurrencePattern.DAILY,
             )
             result = await habits_service.create(habit)
@@ -374,10 +376,10 @@ class TestHabitsCoreOperations:
         invalid_habit = Habit(
             uid="habit.invalid_frequency",
             user_uid=test_user_uid,
-            name="Invalid Frequency Habit",
+            title="Invalid Frequency Habit",
             description="Daily habit with target > 7 days",
             polarity=HabitPolarity.BUILD,
-            category=HabitCategory.OTHER,
+            habit_category=HabitCategory.OTHER,
             recurrence_pattern=RecurrencePattern.DAILY,
             target_days_per_week=8,  # Invalid: > 7 for daily habit
         )
@@ -395,11 +397,11 @@ class TestHabitsCoreOperations:
         habit = Habit(
             uid="habit.with_cue_routine_reward",
             user_uid=test_user_uid,
-            name="Habit with Behavioral Science",
+            title="Habit with Behavioral Science",
             description="Full habit loop pattern",
             polarity=HabitPolarity.BUILD,
-            category=HabitCategory.PRODUCTIVITY,
-            difficulty=HabitDifficulty.MODERATE,
+            habit_category=HabitCategory.PRODUCTIVITY,
+            habit_difficulty=HabitDifficulty.MODERATE,
             recurrence_pattern=RecurrencePattern.DAILY,
             cue="When I pour my morning coffee",
             routine="Review my goals for 5 minutes",
@@ -430,11 +432,11 @@ class TestHabitsCoreOperations:
         habit = Habit(
             uid="habit.full_details",
             user_uid=test_user_uid,
-            name="Fully Detailed Habit",
+            title="Fully Detailed Habit",
             description="Complete habit with all optional fields",
             polarity=HabitPolarity.BUILD,
-            category=HabitCategory.FITNESS,
-            difficulty=HabitDifficulty.CHALLENGING,
+            habit_category=HabitCategory.FITNESS,
+            habit_difficulty=HabitDifficulty.CHALLENGING,
             recurrence_pattern=RecurrencePattern.DAILY,
             target_days_per_week=5,
             preferred_time="morning",
@@ -464,7 +466,7 @@ class TestHabitsCoreOperations:
         habit = Habit(
             uid="habit.minimal",
             user_uid=test_user_uid,
-            name="Minimal Habit",
+            title="Minimal Habit",
             description=None,  # Optional
         )
 
@@ -478,10 +480,10 @@ class TestHabitsCoreOperations:
         assert created.cue is None
         assert created.routine is None
         assert created.reward is None
-        # Check defaults are set
-        assert created.polarity == HabitPolarity.BUILD
-        assert created.category == HabitCategory.OTHER
-        assert created.difficulty == HabitDifficulty.MODERATE
+        # Check defaults are set (unified Ku model uses None for optional domain fields)
+        assert created.polarity is None
+        assert created.habit_category is None
+        assert created.habit_difficulty is None
 
     async def test_habit_recurrence_patterns(self, habits_service, test_user_uid):
         """Test creating habits with different recurrence patterns."""
@@ -497,10 +499,10 @@ class TestHabitsCoreOperations:
             habit = Habit(
                 uid=f"habit.recurrence_{i}",
                 user_uid=test_user_uid,
-                name=f"Habit with {pattern.value} recurrence",
+                title=f"Habit with {pattern.value} recurrence",
                 description=f"Pattern: {pattern.value}",
                 polarity=HabitPolarity.BUILD,
-                category=HabitCategory.OTHER,
+                habit_category=HabitCategory.OTHER,
                 recurrence_pattern=pattern,
                 target_days_per_week=target_days,
             )

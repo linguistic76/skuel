@@ -17,6 +17,7 @@ import pytest
 from core.models.enums import Priority
 from core.models.enums.ku_enums import (
     AlignmentLevel,
+    KuType,
     PrincipleCategory,
     PrincipleSource,
     PrincipleStrength,
@@ -43,15 +44,15 @@ def alignment_service(mock_backend) -> PrinciplesAlignmentService:
 def sample_principle_with_alignment() -> Ku:
     """Create sample principle with alignment history."""
     return Ku(
-        ku_type="principle",
+        ku_type=KuType.PRINCIPLE,
         uid="principle.integrity",
         user_uid="user.mike",  # REQUIRED - principle ownership
         title="Integrity",
         statement="Act with honesty and consistency",
         description="Always do what I say I will do",
-        category=PrincipleCategory.ETHICAL,
+        principle_category=PrincipleCategory.ETHICAL,
         strength=PrincipleStrength.CORE,
-        source=PrincipleSource.PHILOSOPHICAL,
+        principle_source=PrincipleSource.PHILOSOPHICAL,
         priority=Priority.HIGH,
         alignment_history=(
             AlignmentAssessment(
@@ -81,15 +82,15 @@ def sample_principle_with_alignment() -> Ku:
 def sample_principle_no_alignment() -> Ku:
     """Create sample principle without alignment history."""
     return Ku(
-        ku_type="principle",
+        ku_type=KuType.PRINCIPLE,
         uid="principle.growth",
         user_uid="user.mike",  # REQUIRED - principle ownership
         title="Growth",
         statement="Continuously learn and improve",
         description="Never stop growing",
-        category=PrincipleCategory.PERSONAL,
+        principle_category=PrincipleCategory.PERSONAL,
         strength=PrincipleStrength.DEVELOPING,
-        source=PrincipleSource.PERSONAL,
+        principle_source=PrincipleSource.PERSONAL,
         priority=Priority.MEDIUM,
         alignment_history=(),
         current_alignment=AlignmentLevel.UNKNOWN,  # Use UNKNOWN instead of None
@@ -191,15 +192,15 @@ class TestCalculateAverageAlignment:
         """Test average with multiple principles having different alignment levels."""
         # Create principles with different alignment levels
         principle1 = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="p1",
             user_uid="user.mike",  # REQUIRED - principle ownership
             title="P1",
             statement="Test",
             description="Test",
-            category=PrincipleCategory.ETHICAL,
+            principle_category=PrincipleCategory.ETHICAL,
             strength=PrincipleStrength.CORE,
-            source=PrincipleSource.PERSONAL,
+            principle_source=PrincipleSource.PERSONAL,
             priority=Priority.HIGH,
             alignment_history=(
                 AlignmentAssessment(
@@ -214,15 +215,15 @@ class TestCalculateAverageAlignment:
         )
 
         principle2 = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="p2",
             user_uid="user.mike",  # REQUIRED - principle ownership
             title="P2",
             statement="Test",
             description="Test",
-            category=PrincipleCategory.ETHICAL,
+            principle_category=PrincipleCategory.ETHICAL,
             strength=PrincipleStrength.CORE,
-            source=PrincipleSource.PERSONAL,
+            principle_source=PrincipleSource.PERSONAL,
             priority=Priority.MEDIUM,
             alignment_history=(
                 AlignmentAssessment(

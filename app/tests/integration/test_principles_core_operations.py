@@ -26,6 +26,7 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.ku_enums import (
     AlignmentLevel,
+    KuType,
     PrincipleCategory,
     PrincipleSource,
     PrincipleStrength,
@@ -66,14 +67,14 @@ class TestPrinciplesCoreOperations:
         """Test creating a new principle."""
         # Arrange
         principle = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.continuous_learning",
             user_uid=test_user_uid,
             title="Continuous Learning",
             statement="I commit to learning something new every day",
             description="Lifelong learning is essential for personal growth and adaptability",
-            category=PrincipleCategory.INTELLECTUAL,
-            source=PrincipleSource.PERSONAL,
+            principle_category=PrincipleCategory.INTELLECTUAL,
+            principle_source=PrincipleSource.PERSONAL,
             strength=PrincipleStrength.CORE,
         )
 
@@ -85,20 +86,20 @@ class TestPrinciplesCoreOperations:
         created = result.value
         assert created.uid == "principle.continuous_learning"
         assert created.title == "Continuous Learning"
-        assert created.category == PrincipleCategory.INTELLECTUAL
+        assert created.principle_category == PrincipleCategory.INTELLECTUAL
         assert created.strength == PrincipleStrength.CORE
-        assert created.source == PrincipleSource.PERSONAL
+        assert created.principle_source == PrincipleSource.PERSONAL
 
     async def test_get_principle_by_uid(self, principles_service, test_user_uid):
         """Test retrieving a principle by UID."""
         # Arrange - Create a principle first
         principle = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.get_test",
             user_uid=test_user_uid,
             title="Test Principle",
             statement="This is a test principle statement for retrieval",
-            category=PrincipleCategory.PERSONAL,
+            principle_category=PrincipleCategory.PERSONAL,
         )
         create_result = await principles_service.create(principle)
         assert create_result.is_ok
@@ -126,12 +127,12 @@ class TestPrinciplesCoreOperations:
         # Arrange - Create multiple principles
         principles = [
             Ku(
-                ku_type="principle",
+                ku_type=KuType.PRINCIPLE,
                 uid=f"principle.list_test_{i}",
                 user_uid=test_user_uid,
                 title=f"Principle {i}",
                 statement=f"This is test principle number {i} for comprehensive testing",
-                category=PrincipleCategory.PERSONAL,
+                principle_category=PrincipleCategory.PERSONAL,
             )
             for i in range(3)
         ]
@@ -153,12 +154,12 @@ class TestPrinciplesCoreOperations:
         # Arrange & Act - Create 5 principles
         for i in range(5):
             principle = Ku(
-                ku_type="principle",
+                ku_type=KuType.PRINCIPLE,
                 uid=f"principle.multi_{i}",
                 user_uid=test_user_uid,
                 title=f"Multiple Principle {i}",
                 statement=f"This is principle number {i} for testing multiple entries",
-                category=PrincipleCategory.PERSONAL,
+                principle_category=PrincipleCategory.PERSONAL,
             )
             result = await principles_service.create(principle)
             assert result.is_ok
@@ -176,28 +177,28 @@ class TestPrinciplesCoreOperations:
         """Test filtering principles by category."""
         # Arrange - Create principles in different categories
         intellectual = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.intellectual",
             user_uid=test_user_uid,
             title="Critical Thinking",
             statement="I question assumptions and seek evidence before forming conclusions",
-            category=PrincipleCategory.INTELLECTUAL,
+            principle_category=PrincipleCategory.INTELLECTUAL,
         )
         ethical = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.ethical",
             user_uid=test_user_uid,
             title="Honesty",
             statement="I always speak the truth and act with integrity in all situations",
-            category=PrincipleCategory.ETHICAL,
+            principle_category=PrincipleCategory.ETHICAL,
         )
         personal = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.personal",
             user_uid=test_user_uid,
             title="Growth Mindset",
             statement="I embrace challenges as opportunities for personal development",
-            category=PrincipleCategory.PERSONAL,
+            principle_category=PrincipleCategory.PERSONAL,
         )
 
         await principles_service.create(intellectual)
@@ -206,26 +207,26 @@ class TestPrinciplesCoreOperations:
 
         # Act - Filter by category
         intellectual_result = await principles_service.backend.find_by(
-            user_uid=test_user_uid, category=PrincipleCategory.INTELLECTUAL.value
+            user_uid=test_user_uid, principle_category=PrincipleCategory.INTELLECTUAL.value
         )
         ethical_result = await principles_service.backend.find_by(
-            user_uid=test_user_uid, category=PrincipleCategory.ETHICAL.value
+            user_uid=test_user_uid, principle_category=PrincipleCategory.ETHICAL.value
         )
 
         # Assert
         assert intellectual_result.is_ok
         assert len(intellectual_result.value) >= 1
-        assert all(p.category == PrincipleCategory.INTELLECTUAL for p in intellectual_result.value)
+        assert all(p.principle_category == PrincipleCategory.INTELLECTUAL for p in intellectual_result.value)
 
         assert ethical_result.is_ok
         assert len(ethical_result.value) >= 1
-        assert all(p.category == PrincipleCategory.ETHICAL for p in ethical_result.value)
+        assert all(p.principle_category == PrincipleCategory.ETHICAL for p in ethical_result.value)
 
     async def test_filter_by_strength(self, principles_service, test_user_uid):
         """Test filtering principles by strength level."""
         # Arrange - Create principles with different strengths
         core_principle = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.core",
             user_uid=test_user_uid,
             title="Core Value",
@@ -233,7 +234,7 @@ class TestPrinciplesCoreOperations:
             strength=PrincipleStrength.CORE,
         )
         developing_principle = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.developing",
             user_uid=test_user_uid,
             title="New Habit",
@@ -265,21 +266,21 @@ class TestPrinciplesCoreOperations:
         """Test filtering principles by source."""
         # Arrange - Create principles from different sources
         philosophical = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.philosophical",
             user_uid=test_user_uid,
             title="Stoic Principle",
             statement="I focus on what I can control and accept what I cannot change",
-            source=PrincipleSource.PHILOSOPHICAL,
+            principle_source=PrincipleSource.PHILOSOPHICAL,
             tradition="Stoicism",
         )
         personal = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.personal_exp",
             user_uid=test_user_uid,
             title="Learned from Experience",
             statement="I have learned through personal experience the value of persistence",
-            source=PrincipleSource.PERSONAL,
+            principle_source=PrincipleSource.PERSONAL,
         )
 
         await principles_service.create(philosophical)
@@ -287,20 +288,20 @@ class TestPrinciplesCoreOperations:
 
         # Act - Filter by source
         philosophical_result = await principles_service.backend.find_by(
-            user_uid=test_user_uid, source=PrincipleSource.PHILOSOPHICAL.value
+            user_uid=test_user_uid, principle_source=PrincipleSource.PHILOSOPHICAL.value
         )
         personal_result = await principles_service.backend.find_by(
-            user_uid=test_user_uid, source=PrincipleSource.PERSONAL.value
+            user_uid=test_user_uid, principle_source=PrincipleSource.PERSONAL.value
         )
 
         # Assert
         assert philosophical_result.is_ok
         assert len(philosophical_result.value) >= 1
-        assert all(p.source == PrincipleSource.PHILOSOPHICAL for p in philosophical_result.value)
+        assert all(p.principle_source == PrincipleSource.PHILOSOPHICAL for p in philosophical_result.value)
 
         assert personal_result.is_ok
         assert len(personal_result.value) >= 1
-        assert all(p.source == PrincipleSource.PERSONAL for p in personal_result.value)
+        assert all(p.principle_source == PrincipleSource.PERSONAL for p in personal_result.value)
 
     # ==========================================================================
     # VALIDATION TESTS (2 tests)
@@ -310,12 +311,12 @@ class TestPrinciplesCoreOperations:
         """Test that short statements are rejected."""
         # Arrange - Statement < 10 characters
         principle = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.invalid_short",
             user_uid=test_user_uid,
             title="Invalid",
             statement="Too short",  # Only 9 characters
-            category=PrincipleCategory.PERSONAL,
+            principle_category=PrincipleCategory.PERSONAL,
         )
 
         # Act
@@ -329,13 +330,13 @@ class TestPrinciplesCoreOperations:
         """Test that short descriptions are rejected."""
         # Arrange - Description < 20 characters
         principle = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.invalid_desc",
             user_uid=test_user_uid,
             title="Invalid Description",
             statement="This is a valid statement with more than ten characters",
             description="Too short desc",  # Only 15 characters
-            category=PrincipleCategory.PERSONAL,
+            principle_category=PrincipleCategory.PERSONAL,
         )
 
         # Act
@@ -362,7 +363,7 @@ class TestPrinciplesCoreOperations:
 
         for strength in strengths:
             principle = Ku(
-                ku_type="principle",
+                ku_type=KuType.PRINCIPLE,
                 uid=f"principle.strength_{strength.value}",
                 user_uid=test_user_uid,
                 title=f"{strength.value.capitalize()} Principle",
@@ -389,29 +390,29 @@ class TestPrinciplesCoreOperations:
 
         for category in categories:
             principle = Ku(
-                ku_type="principle",
+                ku_type=KuType.PRINCIPLE,
                 uid=f"principle.cat_{category.value}",
                 user_uid=test_user_uid,
                 title=f"{category.value.capitalize()} Principle",
                 statement=f"This is a principle in the {category.value} category for comprehensive testing",
-                category=category,
+                principle_category=category,
             )
             result = await principles_service.create(principle)
             assert result.is_ok
-            assert result.value.category == category
+            assert result.value.principle_category == category
 
     async def test_principle_with_optional_fields(self, principles_service, test_user_uid):
         """Test creating a principle with optional philosophical context."""
         # Arrange
         principle = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.stoic_with_context",
             user_uid=test_user_uid,
             title="Amor Fati",
             statement="I love my fate and embrace everything that happens to me",
             description="The Stoic practice of accepting and loving one's destiny, including all challenges",
-            category=PrincipleCategory.SPIRITUAL,
-            source=PrincipleSource.PHILOSOPHICAL,
+            principle_category=PrincipleCategory.SPIRITUAL,
+            principle_source=PrincipleSource.PHILOSOPHICAL,
             strength=PrincipleStrength.STRONG,
             tradition="Stoicism",
             original_source="Marcus Aurelius, Meditations",
@@ -438,13 +439,13 @@ class TestPrinciplesCoreOperations:
         """Test creating a principle without a description (optional field)."""
         # Arrange
         principle = Ku(
-            ku_type="principle",
+            ku_type=KuType.PRINCIPLE,
             uid="principle.no_description",
             user_uid=test_user_uid,
             title="No Description",
             statement="This principle has no description field specified",
             description=None,  # Explicitly None
-            category=PrincipleCategory.PERSONAL,
+            principle_category=PrincipleCategory.PERSONAL,
         )
 
         # Act
@@ -468,7 +469,7 @@ class TestPrinciplesCoreOperations:
 
         for alignment in alignments:
             principle = Ku(
-                ku_type="principle",
+                ku_type=KuType.PRINCIPLE,
                 uid=f"principle.alignment_{alignment.value}",
                 user_uid=test_user_uid,
                 title=f"{alignment.value.replace('_', ' ').title()} Principle",

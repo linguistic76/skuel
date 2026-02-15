@@ -15,7 +15,7 @@ Authentication is handled by GraphAuthService (graph-native).
 """
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -58,16 +58,8 @@ def mock_graph_auth():
 
 @pytest.fixture
 def mock_auth_components():
-    """Mock AuthComponents for rendering."""
-    with patch("adapters.inbound.auth_routes.AuthComponents") as mock:
-        # Configure return values for render methods
-        mock.render_registration_page.return_value = "<html>Registration Page</html>"
-        mock.render_login_page.return_value = "<html>Login Page</html>"
-        mock.render_admin_password_reset_info.return_value = "<html>Contact Admin</html>"
-        mock.render_reset_password_page.return_value = "<html>Reset Password</html>"
-        mock.render_reset_password_success.return_value = "<html>Password Reset Success</html>"
-        mock.render_login_error.return_value = "<html>Login Error</html>"
-        yield mock
+    """Mock AuthComponents for rendering — SKIPPED: AuthComponents removed during DomainRouteConfig migration."""
+    pytest.skip("AuthComponents removed during DomainRouteConfig migration")
 
 
 class TestRegistrationPage:

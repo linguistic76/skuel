@@ -651,11 +651,11 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             RETURN count(n) as deleted
             """
         else:
-            # DELETE only - use DETACH to handle any relationships
+            # DELETE only - fails if relationships exist (use cascade=True to remove them)
             query = f"""
             MATCH (n:{self.label} {{uid: $uid}})
             {where_line}
-            DETACH DELETE n
+            DELETE n
             RETURN count(n) as deleted
             """
 

@@ -30,7 +30,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.habit_events import HabitCompleted
 from core.models.enums import Domain, KuStatus
-from core.models.enums.ku_enums import MeasurementType
+from core.models.enums.ku_enums import KuType, MeasurementType
 from core.models.ku.ku import Ku
 from core.models.ku.ku import Ku as Habit
 from core.services.goals.goals_progress_service import GoalsProgressService
@@ -140,7 +140,8 @@ class TestHabitGoalEventFlow:
         habit = Habit(
             uid="habit.daily_meditation",
             user_uid=test_user_uid,
-            name="Daily Meditation",
+            ku_type=KuType.HABIT,
+            title="Daily Meditation",
             description="10 minutes of mindfulness meditation",
             current_streak=0,
             best_streak=0,
@@ -153,8 +154,8 @@ class TestHabitGoalEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (goal:Goal {uid: $goal_uid})
-                MATCH (habit:Habit {uid: $habit_uid})
+                MATCH (goal:Ku {uid: $goal_uid})
+                MATCH (habit:Ku {uid: $habit_uid})
                 MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
                 RETURN goal.uid as goal_uid, habit.uid as habit_uid
                 """,
@@ -299,7 +300,8 @@ class TestHabitGoalEventFlow:
         unlinked_habit = Habit(
             uid="habit.unlinked_exercise",
             user_uid=test_user_uid,
-            name="Daily Exercise",
+            ku_type=KuType.HABIT,
+            title="Daily Exercise",
             description="30 minutes of exercise",
             current_streak=7,
             best_streak=7,
@@ -345,7 +347,8 @@ class TestHabitGoalEventFlow:
         habit = Habit(
             uid="habit.code_daily",
             user_uid=test_user_uid,
-            name="Code Daily",
+            ku_type=KuType.HABIT,
+            title="Code Daily",
             description="1 hour of coding",
             current_streak=7,
             best_streak=7,
@@ -357,8 +360,8 @@ class TestHabitGoalEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (goal:Goal {uid: $goal_uid})
-                MATCH (habit:Habit {uid: $habit_uid})
+                MATCH (goal:Ku {uid: $goal_uid})
+                MATCH (habit:Ku {uid: $habit_uid})
                 MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
                 """,
                 goal_uid=task_based_goal.uid,
@@ -404,7 +407,8 @@ class TestHabitGoalEventFlow:
         habit = Habit(
             uid="habit.healthy_eating",
             user_uid=test_user_uid,
-            name="Healthy Eating",
+            ku_type=KuType.HABIT,
+            title="Healthy Eating",
             description="Track meals",
             current_streak=50,  # 50% of target (100 days)
             best_streak=50,
@@ -416,8 +420,8 @@ class TestHabitGoalEventFlow:
         async with neo4j_driver.session() as session:
             await session.run(
                 """
-                MATCH (goal:Goal {uid: $goal_uid})
-                MATCH (habit:Habit {uid: $habit_uid})
+                MATCH (goal:Ku {uid: $goal_uid})
+                MATCH (habit:Ku {uid: $habit_uid})
                 MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
                 """,
                 goal_uid=mixed_goal.uid,

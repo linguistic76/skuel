@@ -23,7 +23,7 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.habit_events import AchievementEarned, HabitStreakMilestone
 from core.models.enums import RecurrencePattern
-from core.models.enums.ku_enums import HabitCategory
+from core.models.enums.ku_enums import HabitCategory, KuType
 from core.models.enums.ku_enums import KuStatus as HabitStatus
 from core.models.ku.ku import Ku as Habit
 from core.services.habits.habit_achievement_service import HabitAchievementService
@@ -85,9 +85,10 @@ class TestHabitAchievementsFlow:
         habit = Habit(
             uid="habit.daily_coding",
             user_uid=test_user_uid,
-            name="Daily Coding Practice",
+            ku_type=KuType.HABIT,
+            title="Daily Coding Practice",
             description="Code for at least 30 minutes every day",
-            category=HabitCategory.LEARNING,
+            habit_category=HabitCategory.LEARNING,
             status=HabitStatus.ACTIVE,
             recurrence_pattern=RecurrencePattern.DAILY,
         )
@@ -339,7 +340,7 @@ class TestHabitAchievementsFlow:
 
         # Verify Habit→UNLOCKED_ACHIEVEMENT→Achievement relationship
         query2 = """
-        MATCH (habit:Habit {uid: $habit_uid})-[:UNLOCKED_ACHIEVEMENT]->(badge:Achievement {badge_id: $badge_id})
+        MATCH (habit:Ku {uid: $habit_uid})-[:UNLOCKED_ACHIEVEMENT]->(badge:Achievement {badge_id: $badge_id})
         RETURN badge.name as badge_name
         """
         async with neo4j_driver.session() as session:
@@ -396,9 +397,10 @@ class TestHabitAchievementsFlow:
         habit2 = Habit(
             uid="habit.daily_reading",
             user_uid=test_user_uid,
-            name="Daily Reading",
+            ku_type=KuType.HABIT,
+            title="Daily Reading",
             description="Read for 20 minutes daily",
-            category=HabitCategory.LEARNING,
+            habit_category=HabitCategory.LEARNING,
             status=HabitStatus.ACTIVE,
             recurrence_pattern=RecurrencePattern.DAILY,
         )

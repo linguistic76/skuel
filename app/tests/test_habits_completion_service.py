@@ -19,6 +19,7 @@ import pytest
 
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.ku_enums import KuStatus as HabitStatus
+from core.models.enums.ku_enums import KuType
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
 from core.models.ku.ku import Ku as Habit
@@ -62,7 +63,8 @@ def sample_habit() -> Habit:
     return Habit(
         uid="habit.test.1",
         user_uid="user.mike",  # REQUIRED - habit ownership
-        name="Morning Exercise",
+        title="Morning Exercise",
+        ku_type=KuType.HABIT,
         description="30 minutes of exercise",
         recurrence_pattern=RecurrencePattern.DAILY,
         target_days_per_week=7,
@@ -361,7 +363,7 @@ class TestAnalytics:
         habit1_dto = HabitDTO(
             uid="habit.1",
             user_uid="user.mike",  # REQUIRED - habit ownership
-            name="Habit 1",
+            title="Habit 1",
             current_streak=10,
             best_streak=15,
             total_completions=50,
