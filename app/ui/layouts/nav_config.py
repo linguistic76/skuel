@@ -37,7 +37,6 @@ class NavItem:
 # Main navigation items - order determines display order
 # Note: Profile is accessed via the avatar link in the navbar right section, not here.
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
-    NavItem("Search", "/search", "search"),
     NavItem("Askesis", "/askesis", "askesis"),
     NavItem("Teaching", "/teaching", "teaching", requires_teacher=True),
     NavItem("Knowledge", "/ku", "knowledge"),

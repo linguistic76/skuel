@@ -86,6 +86,30 @@ def _close_icon() -> NotStr:
     )
 
 
+def _search_icon() -> NotStr:
+    """Create the search magnifying glass SVG icon (decorative - link has sr-only label)."""
+    return NotStr(
+        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" '
+        'stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">'
+        '<path stroke-linecap="round" stroke-linejoin="round" '
+        'd="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>'
+        "</svg>"
+    )
+
+
+def _search_button(active_page: str = "") -> A:
+    """Create search icon button that navigates to /search."""
+    is_active = active_page == "search"
+    active_cls = "text-base-content" if is_active else "text-base-content/70 hover:text-base-content"
+    return A(
+        Span("Search", cls="sr-only"),
+        _search_icon(),
+        href="/search",
+        cls=f"btn btn-ghost btn-circle {active_cls}",
+        **{"hx-boost": "false"},
+    )
+
+
 def _notification_button(unread_count: int = 0) -> Button:
     """Create notification bell button with optional badge.
 
@@ -316,12 +340,14 @@ def create_navbar(
     if is_authenticated and current_user and is_admin:
         profile_section = Div(
             _admin_profile_section(current_user),
+            _search_button(active_page),
             _notification_button(unread_insights),
             cls="flex items-center gap-2",
         )
     elif is_authenticated and current_user:
         profile_section = Div(
             _profile_dropdown(current_user, active_page),
+            _search_button(active_page),
             _notification_button(unread_insights),
             cls="flex items-center gap-2",
         )
