@@ -1623,11 +1623,12 @@ def _domain_progress_grid(context: UserContext) -> Div:
     per domain. Each domain gets a primary count (big number) and a
     secondary breakdown for context.
     """
-    # (icon, name, primary_count, primary_label, secondary_count, secondary_label)
+    # (icon, name, slug, primary_count, primary_label, secondary_count, secondary_label)
     domain_data = [
         (
             "✅",
             "Tasks",
+            "tasks",
             len(context.active_task_uids),
             "active",
             len(context.completed_task_uids),
@@ -1636,6 +1637,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
         (
             "🔄",
             "Habits",
+            "habits",
             len(context.active_habit_uids),
             "active",
             len(context.at_risk_habits),
@@ -1644,6 +1646,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
         (
             "🎯",
             "Goals",
+            "goals",
             len(context.active_goal_uids),
             "active",
             len(context.completed_goal_uids),
@@ -1652,6 +1655,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
         (
             "📅",
             "Events",
+            "events",
             len(context.upcoming_event_uids),
             "upcoming",
             len(context.today_event_uids),
@@ -1660,6 +1664,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
         (
             "⚖️",
             "Principles",
+            "principles",
             len(context.core_principle_uids),
             "total",
             len(context.principle_conflicts),
@@ -1668,6 +1673,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
         (
             "🔀",
             "Choices",
+            "choices",
             len(context.pending_choice_uids),
             "pending",
             len(context.resolved_choice_uids),
@@ -1676,7 +1682,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
     ]
 
     domain_items = []
-    for icon, name, primary, primary_label, secondary, secondary_label in domain_data:
+    for icon, name, slug, primary, primary_label, secondary, secondary_label in domain_data:
         # Secondary line (only shown when count > 0)
         secondary_el = (
             Span(f"{secondary} {secondary_label}", cls="text-sm text-base-content/50")
@@ -1686,11 +1692,22 @@ def _domain_progress_grid(context: UserContext) -> Div:
 
         domain_items.append(
             Div(
-                # Domain header
+                # Domain header with add button
                 Div(
-                    Span(icon, cls="text-xl"),
-                    Span(name, cls="text-base font-semibold text-base-content"),
-                    cls="flex items-center gap-2 mb-3",
+                    Div(
+                        Span(icon, cls="text-xl"),
+                        Span(name, cls="text-base font-semibold text-base-content"),
+                        cls="flex items-center gap-2",
+                    ),
+                    A(
+                        "+",
+                        href=f"/{slug}/view/create",
+                        cls="w-7 h-7 flex items-center justify-center rounded-full "
+                        "text-base-content/40 hover:text-base-content hover:bg-base-200 "
+                        "transition-colors text-lg font-bold leading-none",
+                        title=f"New {name.removesuffix('s')}",
+                    ),
+                    cls="flex items-center justify-between mb-3",
                 ),
                 # Primary count — the hero number
                 Div(
