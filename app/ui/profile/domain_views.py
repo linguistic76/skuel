@@ -246,37 +246,37 @@ def EmptyState_for_domain(domain: str, message: str) -> Div:
         "tasks": {
             "icon": "✅",
             "action_text": "Create your first task →",
-            "action_href": "/tasks/create",
+            "action_href": "/tasks?view=create",
             "description": "Tasks help you track what needs to be done",
         },
         "habits": {
             "icon": "🔄",
             "action_text": "Create your first habit →",
-            "action_href": "/habits/create",
+            "action_href": "/habits?view=create",
             "description": "Habits build consistency over time",
         },
         "goals": {
             "icon": "🎯",
             "action_text": "Create your first goal →",
-            "action_href": "/goals/create",
+            "action_href": "/goals?view=create",
             "description": "Goals give you direction and purpose",
         },
         "events": {
             "icon": "📅",
             "action_text": "Create your first event →",
-            "action_href": "/events/create",
+            "action_href": "/events?view=create",
             "description": "Events help you plan your time",
         },
         "choices": {
             "icon": "🤔",
             "action_text": "Record your first choice →",
-            "action_href": "/choices/create",
+            "action_href": "/choices?view=create",
             "description": "Choices track your decision-making patterns",
         },
         "principles": {
             "icon": "⚖️",
             "action_text": "Define your first principle →",
-            "action_href": "/principles/create",
+            "action_href": "/principles?view=create",
             "description": "Principles guide your decisions",
         },
     }
@@ -1701,7 +1701,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
                     ),
                     A(
                         "+",
-                        href=f"/{slug}/view/create",
+                        href=f"/{slug}?view=create",
                         cls="w-7 h-7 flex items-center justify-center rounded-full "
                         "text-base-content/40 hover:text-base-content hover:bg-base-200 "
                         "transition-colors text-lg font-bold leading-none",

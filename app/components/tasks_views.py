@@ -20,6 +20,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from fasthtml.common import (
+    A,
     H2,
     Datalist,
     Div,
@@ -208,6 +209,11 @@ class TasksViewComponents:
 
         # Submit buttons
         submit_section = Div(
+            A(
+                "Cancel",
+                href="/tasks",
+                cls="btn btn-ghost btn-lg",
+            ),
             Button(
                 "Create Task",
                 type="submit",
@@ -221,9 +227,8 @@ class TasksViewComponents:
                 value="true",
                 variant=ButtonT.outline,
                 size=Size.lg,
-                cls="ml-2",
             ),
-            cls="flex justify-end pt-6 border-t border-base-200",
+            cls="flex justify-end gap-2 pt-6 border-t border-base-200",
         )
 
         return Div(

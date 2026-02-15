@@ -95,7 +95,7 @@ class EventUIComponents:
 
         # Define quick actions
         quick_actions = [
-            {"label": "New Event", "href": "/events/create", "class": "btn-primary"},
+            {"label": "New Event", "href": "/events?view=create", "class": "btn-primary"},
             {"label": "View Calendar", "href": "/events", "class": "btn-secondary"},
             {"label": "Upcoming", "href": "/events?view=upcoming", "class": "btn-outline"},
         ]

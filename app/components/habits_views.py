@@ -19,7 +19,7 @@ Usage:
 from datetime import date, timedelta
 from typing import Any
 
-from fasthtml.common import H2, H3, Form, P
+from fasthtml.common import A, H2, H3, Form, P
 
 from components.activity_views_base import (
     ActivityCalendarNav,
@@ -453,6 +453,11 @@ class HabitsViewComponents:
 
         # Submit buttons
         submit_section = Div(
+            A(
+                "Cancel",
+                href="/habits",
+                cls="btn btn-ghost btn-lg",
+            ),
             Button(
                 "Create Habit",
                 type="submit",
@@ -463,9 +468,9 @@ class HabitsViewComponents:
                 type="submit",
                 name="add_another",
                 value="true",
-                cls="btn btn-outline btn-lg ml-2",
+                cls="btn btn-outline btn-lg",
             ),
-            cls="flex justify-end pt-6 border-t border-base-200",
+            cls="flex justify-end gap-2 pt-6 border-t border-base-200",
         )
 
         return Div(

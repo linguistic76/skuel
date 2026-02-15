@@ -19,7 +19,7 @@ Usage:
 
 from typing import Any
 
-from fasthtml.common import H2, H3, Form, P
+from fasthtml.common import A, H2, H3, Form, P
 
 from components.activity_views_base import ActivityViewTabs
 from core.models.ku.ku import Ku
@@ -457,6 +457,11 @@ class ChoicesViewComponents:
                 ),
                 **{"x-show": "!isValid()"},
             ),
+            A(
+                "Cancel",
+                href="/choices",
+                cls="btn btn-ghost btn-lg",
+            ),
             Button(
                 "Create Decision",
                 type="submit",
@@ -468,10 +473,10 @@ class ChoicesViewComponents:
                 type="submit",
                 name="add_another",
                 value="true",
-                cls="btn btn-outline btn-lg ml-2",
+                cls="btn btn-outline btn-lg",
                 **{"x-bind:disabled": "!isValid()"},
             ),
-            cls="flex justify-end items-center gap-4 pt-6 border-t border-base-200",
+            cls="flex justify-end items-center gap-2 pt-6 border-t border-base-200",
         )
 
         return Div(

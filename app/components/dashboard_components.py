@@ -78,7 +78,7 @@ class DashboardComponents:
                 <p class="text-sm text-base-content/70">Find and explore your knowledge base</p>
             </div>
         </a>
-        <a href="/tasks/create" class="block no-underline">
+        <a href="/tasks?view=create" class="block no-underline">
             <div class="p-6 bg-base-100 border border-base-200 rounded-lg hover:border-primary hover:shadow-md transition-all">
                 <h3 class="text-lg font-semibold text-base-content mb-2">✅ Add Task</h3>
                 <p class="text-sm text-base-content/70">Create a new task to track</p>
