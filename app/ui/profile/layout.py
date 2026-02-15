@@ -1,7 +1,6 @@
 """Profile Hub page layout using unified sidebar (Tailwind + Alpine).
 
-Sidebar sections: Overview, Shared With Me, Curriculum.
-Activity Domains, Settings, and Sign out are in the navbar avatar dropdown (ui/layouts/navbar.py).
+Sidebar sections: Overview, Shared With Me, Activities (6 domains), Curriculum.
 """
 
 from dataclasses import dataclass
@@ -153,11 +152,23 @@ def _profile_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
     )
 
 
+def _section_header(label: str) -> Li:
+    """Render a sidebar section heading (e.g. ACTIVITIES, CURRICULUM)."""
+    return Li(
+        Span(
+            label,
+            cls="text-xs font-semibold uppercase tracking-wider opacity-60",
+        ),
+        cls="px-3 pt-2",
+    )
+
+
 def _build_profile_sidebar_items(
     active_domain: str,
+    activity_domains: list[ProfileDomainItem] | None = None,
     curriculum_domains: list[ProfileDomainItem] | None = None,
 ) -> tuple[list[SidebarItem], list[Any] | None]:
-    """Build sidebar items and curriculum extra sections.
+    """Build sidebar items and extra sections (Activities + Curriculum).
 
     Returns:
         Tuple of (items, extra_sidebar_sections)
@@ -167,39 +178,45 @@ def _build_profile_sidebar_items(
         SidebarItem("Shared With Me", "/profile/shared", "shared", icon="📥"),
     ]
 
-    # Curriculum section as extra sidebar content
-    extra_sections = None
+    extra_sections: list[Any] = []
+
+    # Activities section
+    if activity_domains:
+        for d in activity_domains:
+            _profile_domain_data[d.slug] = d
+
+        activity_items = [
+            SidebarItem(label=d.name, href=d.href, slug=d.slug, icon=d.icon)
+            for d in activity_domains
+        ]
+
+        extra_sections.extend([
+            _section_header("Activities"),
+            *[
+                _profile_item_renderer(item, item.slug == active_domain)
+                for item in activity_items
+            ],
+        ])
+
+    # Curriculum section
     if curriculum_domains:
-        # Store domain data for renderer
         for d in curriculum_domains:
             _profile_domain_data[d.slug] = d
 
         curriculum_items = [
-            SidebarItem(
-                label=d.name,
-                href=d.href,
-                slug=d.slug,
-                icon=d.icon,
-            )
+            SidebarItem(label=d.name, href=d.href, slug=d.slug, icon=d.icon)
             for d in curriculum_domains
         ]
 
-        # Add curriculum items to main list with a section header
-        extra_sections = [
-            Li(
-                Span(
-                    "Curriculum",
-                    cls="text-xs font-semibold uppercase tracking-wider opacity-60",
-                ),
-                cls="px-3 pt-2",
-            ),
+        extra_sections.extend([
+            _section_header("Curriculum"),
             *[
                 _profile_item_renderer(item, item.slug == active_domain)
                 for item in curriculum_items
             ],
-        ]
+        ])
 
-    return items, extra_sections
+    return items, extra_sections or None
 
 
 async def create_profile_page(
@@ -235,6 +252,7 @@ async def create_profile_page(
 
     items, extra_sections = _build_profile_sidebar_items(
         active_domain=active_domain,
+        activity_domains=domains,
         curriculum_domains=curriculum_domains,
     )
 

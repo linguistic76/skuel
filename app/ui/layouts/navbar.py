@@ -26,7 +26,6 @@ from starlette.requests import Request
 from ui.layouts.nav_config import (
     ADMIN_NAV_ITEM,
     MAIN_NAV_ITEMS,
-    PROFILE_ACCOUNT_ITEMS,
     PROFILE_DROPDOWN_ITEMS,
     NavItem,
 )
@@ -149,12 +148,7 @@ def _avatar_hue(name: str) -> int:
 
 
 _DOMAIN_ICONS: dict[str, str] = {
-    "tasks": "✅",
-    "goals": "🎯",
-    "habits": "🔄",
-    "events": "📅",
-    "choices": "🔀",
-    "principles": "⚖️",
+    "profile": "👤",
     "settings": "⚙️",
     "logout": "🚪",
 }
@@ -178,10 +172,10 @@ def _dropdown_link(item: NavItem, active_page: str) -> Li:
 
 
 def _profile_dropdown(current_user: str, active_page: str) -> Div:
-    """Profile avatar with activity domains dropdown menu.
+    """Profile avatar with dropdown menu (Profile, Settings, Sign out).
 
     Desktop: DaisyUI dropdown appears on click via CSS :focus-within.
-    Mobile: Hidden — activity domains appear in hamburger menu instead.
+    Mobile: Hidden — items appear in hamburger menu instead.
     """
     initial = current_user[0].upper() if current_user else "U"
     hue = _avatar_hue(current_user)
@@ -193,8 +187,7 @@ def _profile_dropdown(current_user: str, active_page: str) -> Div:
         aria_hidden="true",
     )
 
-    domain_items = [_dropdown_link(item, active_page) for item in PROFILE_DROPDOWN_ITEMS]
-    account_items = [_dropdown_link(item, active_page) for item in PROFILE_ACCOUNT_ITEMS]
+    menu_items = [_dropdown_link(item, active_page) for item in PROFILE_DROPDOWN_ITEMS]
 
     return Div(
         Div(
@@ -205,13 +198,11 @@ def _profile_dropdown(current_user: str, active_page: str) -> Div:
             aria_label="Profile menu",
         ),
         Ul(
-            *domain_items,
-            Li(cls="divider my-1"),
-            *account_items,
+            *menu_items,
             tabindex="0",
             cls="dropdown-content menu bg-base-100 rounded-box z-[1] w-48 p-2 shadow-lg border border-base-200",
         ),
-        cls="dropdown dropdown-end hidden sm:block",
+        cls="dropdown hidden sm:block",
     )
 
 
@@ -303,35 +294,17 @@ def create_navbar(
         **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
     )
 
-    # Mobile activity domain links (shown in hamburger menu for authenticated users)
-    # Admin users skip activity domains — they focus on administration
+    # Mobile account links (shown in hamburger menu for authenticated users)
+    # Activity Domains are in the profile sidebar, not the navbar mobile menu
     mobile_domain_links: Div | str = ""
-    if is_authenticated and not is_admin:
+    if is_authenticated:
         mobile_domain_links = Div(
             Div(
                 Span(
-                    "Activity Domains",
+                    "Account",
                     cls="text-xs font-semibold uppercase tracking-wider opacity-60 px-3 pt-3 pb-1 block",
                 ),
                 *[_nav_link(item, active_page, mobile=True) for item in PROFILE_DROPDOWN_ITEMS],
-                Span(
-                    "Account",
-                    cls="text-xs font-semibold uppercase tracking-wider opacity-60 px-3 pt-3 pb-1 block",
-                ),
-                *[_nav_link(item, active_page, mobile=True) for item in PROFILE_ACCOUNT_ITEMS],
-                cls="space-y-1 px-2 pb-3 border-t border-base-200 mt-2 pt-2",
-            ),
-            cls="sm:hidden",
-            **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
-        )
-    elif is_authenticated and is_admin:
-        mobile_domain_links = Div(
-            Div(
-                Span(
-                    "Account",
-                    cls="text-xs font-semibold uppercase tracking-wider opacity-60 px-3 pt-3 pb-1 block",
-                ),
-                *[_nav_link(item, active_page, mobile=True) for item in PROFILE_ACCOUNT_ITEMS],
                 cls="space-y-1 px-2 pb-3 border-t border-base-200 mt-2 pt-2",
             ),
             cls="sm:hidden",
@@ -342,23 +315,23 @@ def create_navbar(
     # Admin users get simplified profile — no activity domain dropdown
     if is_authenticated and current_user and is_admin:
         profile_section = Div(
-            _notification_button(unread_insights),
             _admin_profile_section(current_user),
+            _notification_button(unread_insights),
             cls="flex items-center gap-2",
         )
     elif is_authenticated and current_user:
         profile_section = Div(
-            _notification_button(unread_insights),
             _profile_dropdown(current_user, active_page),
+            _notification_button(unread_insights),
             cls="flex items-center gap-2",
         )
     else:
         profile_section = _auth_buttons()
 
     return Nav(
-        # Main navbar container — 3-column layout: Logo | Centered Nav | Profile
+        # Main navbar container — 3-column layout: Logo+Profile | Centered Nav | Balance
         Div(
-            # Left column: Mobile menu button + Logo
+            # Left column: Mobile menu button + Logo + Profile + Notifications
             Div(
                 _mobile_menu_button(),
                 A(
@@ -367,15 +340,13 @@ def create_navbar(
                     cls="text-xl font-bold text-primary flex-shrink-0",
                     **{"hx-boost": "false"},
                 ),
-                cls="flex items-center gap-1 flex-1",
+                profile_section,
+                cls="flex items-center gap-2 flex-1",
             ),
             # Center column: Desktop navigation links (centered via equal flex-1 siblings)
             desktop_links,
-            # Right column: Notifications + Profile
-            Div(
-                profile_section,
-                cls="flex-1 flex items-center justify-end",
-            ),
+            # Right column: Empty for centering balance
+            Div(cls="flex-1 hidden sm:block"),
             cls="flex items-center h-16 flex-1 px-4 sm:px-6 lg:px-8",
         ),
         # Mobile menu (collapsible)

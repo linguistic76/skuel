@@ -53,18 +53,9 @@ ADMIN_NAV_ITEM = NavItem(
     requires_admin=True,
 )
 
-# Profile dropdown items - all 6 activity domains accessible from navbar avatar
+# Profile dropdown items - account actions only (Activity Domains moved to profile sidebar)
 PROFILE_DROPDOWN_ITEMS: tuple[NavItem, ...] = (
-    NavItem("Tasks", "/tasks", "tasks"),
-    NavItem("Goals", "/goals", "goals"),
-    NavItem("Habits", "/habits", "habits"),
-    NavItem("Events", "/events", "events"),
-    NavItem("Choices", "/choices", "choices"),
-    NavItem("Principles", "/principles", "principles"),
-)
-
-# Account items shown below a divider in the profile dropdown
-PROFILE_ACCOUNT_ITEMS: tuple[NavItem, ...] = (
+    NavItem("Profile", "/profile", "profile"),
     NavItem("Settings", "/settings", "settings"),
     NavItem("Sign out", "/logout", "logout"),
 )
@@ -74,5 +65,4 @@ __all__ = [
     "MAIN_NAV_ITEMS",
     "ADMIN_NAV_ITEM",
     "PROFILE_DROPDOWN_ITEMS",
-    "PROFILE_ACCOUNT_ITEMS",
 ]
