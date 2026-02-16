@@ -312,7 +312,7 @@ class Services:
 
 | File | Protocols | Purpose |
 |------|-----------|---------|
-| `reports_protocols.py` | 9 | KuSubmission, KuContent, KuContentSearch, KuSharing, KuProcessing, KuProject, KuFeedback, ProgressKuGenerator, KuSchedule |
+| `reports_protocols.py` | 9 | KuSubmission, KuContent, KuContentSearch, KuSharing, KuProcessing, Assignment, KuFeedback, ProgressKuGenerator, KuSchedule |
 | `group_protocols.py` | 2 | GroupOperations (9 methods), TeacherReviewOperations (5 methods) |
 | `service_protocols.py` | 9 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler |
 

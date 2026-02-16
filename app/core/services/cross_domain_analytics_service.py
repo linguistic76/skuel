@@ -314,7 +314,7 @@ class CrossDomainAnalyticsService:
     # EVENT HANDLERS - Journal/Report Mood Analysis
     # NOTE: handle_journal_created removed (February 2026) - Journal merged into Reports
     # JournalCreated event no longer fired. Mood analysis can be re-added
-    # by subscribing to ReportSubmitted and filtering report_type="journal".
+    # by subscribing to SubmissionCreated and filtering ku_type="journal".
     # ========================================================================
 
     # ========================================================================

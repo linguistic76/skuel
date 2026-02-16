@@ -157,6 +157,7 @@ if TYPE_CHECKING:
 from core.services.protocols import (
     AskesisCoreOperations,
     AskesisOperations,
+    AssignmentOperations,
     AsyncCloseable,
     CalendarServiceOperations,
     ChoicesOperations,
@@ -181,7 +182,6 @@ from core.services.protocols import (
     # Knowledge operations
     KuOperations,
     KuProcessingOperations,
-    KuProjectOperations,
     KuSharingOperations,
     KuSubmissionOperations,
     # NOTE: LearningOperations DELETED January 2026 - was dead code (type hint wrong)
@@ -254,8 +254,8 @@ class Services:
     report_feedback: KuFeedbackOperations | None = (
         None  # KuFeedbackService - LLM feedback on Ku content
     )
-    report_projects: KuProjectOperations | None = (
-        None  # KuProjectService - Reusable LLM project templates
+    assignments: AssignmentOperations | None = (
+        None  # AssignmentService - Reusable LLM instruction templates
     )
 
     # Journal processing services (multi-modal journal pipeline)
@@ -1564,24 +1564,24 @@ async def compose_services(
         )
         logger.info("✅ Transcript processor service created")
 
-        # Create Ku feedback and project services (February 2026: Unified Ku model)
-        from core.models.ku.ku_project import KuProject
-        from core.services.reports import KuFeedbackService, KuProjectService
+        # Create Ku feedback and assignment services (February 2026: Unified Ku model)
+        from core.models.ku.assignment import Assignment
+        from core.services.reports import AssignmentService, KuFeedbackService
 
         report_feedback_service = KuFeedbackService(
             openai_service=ai_service,
             anthropic_service=None,  # Only OpenAI configured for now
         )
 
-        report_projects_backend = UniversalNeo4jBackend[KuProject](
+        assignments_backend = UniversalNeo4jBackend[Assignment](
             driver=driver,
-            label=NeoLabel.KU_PROJECT,
-            entity_class=KuProject,
+            label=NeoLabel.ASSIGNMENT,
+            entity_class=Assignment,
             prometheus_metrics=prometheus_metrics,
         )
 
-        report_project_service = KuProjectService(backend=report_projects_backend)
-        logger.info("✅ Ku feedback and project services created")
+        assignment_service = AssignmentService(backend=assignments_backend)
+        logger.info("✅ Ku feedback and assignment services created")
 
         # Create group service (ADR-040: Teacher Assignment Workflow)
         from core.models.group.group import Group
@@ -1623,7 +1623,7 @@ async def compose_services(
 
             if Path(default_instructions_path).exists():
                 # load_project_from_file handles both create and update
-                result = await report_project_service.load_project_from_file(
+                result = await assignment_service.load_project_from_file(
                     file_path=default_instructions_path,
                     user_uid="user_system",  # System-owned default project (UID follows user_{username} pattern)
                     project_uid=default_project_uid,
@@ -1848,8 +1848,8 @@ async def compose_services(
             HabitMissed,
             HabitStreakBroken,
             HabitStreakMilestone,
-            # NOTE: JournalCreated/Updated/Deleted REMOVED (February 2026) - Journal merged into Reports
-            # Journal operations now fire ReportSubmitted/ReportDeleted events
+            # NOTE: JournalCreated/Updated/Deleted REMOVED (February 2026) - Journal merged into Submissions
+            # Journal operations now fire SubmissionCreated/SubmissionDeleted events
             KnowledgeCreated,
             KnowledgeMastered,
             LearningPathCompleted,
@@ -2037,19 +2037,19 @@ async def compose_services(
             "(automatic journal report creation from voice transcriptions)"
         )
 
-        # Subscribe to ReportSubmitted for assignment linking (ADR-040)
+        # Subscribe to SubmissionCreated for assignment linking (ADR-040)
         import functools
 
         from core.events.handlers.assignment_handler import handle_assignment_submission
-        from core.events.report_events import ReportSubmitted
+        from core.events.submission_events import SubmissionCreated
 
         assignment_handler = functools.partial(
             handle_assignment_submission,
             reports_core_service=reports_core_service,
         )
-        event_bus.subscribe(ReportSubmitted, assignment_handler)
+        event_bus.subscribe(SubmissionCreated, assignment_handler)
         logger.info(
-            "✅ Assignment handler subscribed to ReportSubmitted "
+            "✅ Assignment handler subscribed to SubmissionCreated "
             "(automatic FULFILLS_PROJECT + SHARES_WITH creation)"
         )
 
@@ -2058,7 +2058,7 @@ async def compose_services(
             handle_report_reviewed,
             handle_revision_requested,
         )
-        from core.events.report_events import ReportReviewed, ReportRevisionRequested
+        from core.events.submission_events import SubmissionReviewed, SubmissionRevisionRequested
 
         feedback_reviewed_handler = functools.partial(
             handle_report_reviewed,
@@ -2068,11 +2068,11 @@ async def compose_services(
             handle_revision_requested,
             notification_service=notification_service,
         )
-        event_bus.subscribe(ReportReviewed, feedback_reviewed_handler)
-        event_bus.subscribe(ReportRevisionRequested, revision_requested_handler)
+        event_bus.subscribe(SubmissionReviewed, feedback_reviewed_handler)
+        event_bus.subscribe(SubmissionRevisionRequested, revision_requested_handler)
         logger.info(
-            "✅ Feedback notification handlers subscribed to ReportReviewed + "
-            "ReportRevisionRequested (student notifications)"
+            "✅ Feedback notification handlers subscribed to SubmissionReviewed + "
+            "SubmissionRevisionRequested (student notifications)"
         )
 
         # Subscribe to learning events
@@ -2193,7 +2193,7 @@ async def compose_services(
         )
         # NOTE: JournalCreated subscription REMOVED (February 2026)
         # Journal merged into Reports — cross_domain_analytics needs update in Phase 5
-        # to subscribe to ReportSubmitted and filter for report_type="journal"
+        # to subscribe to SubmissionCreated and filter for ku_type="journal"
         logger.info(
             "✅ CrossDomainAnalyticsService subscribed to 8 event types "
             "(Tasks, Habits, Events, Expenses, Goals, Knowledge, Paths)"
@@ -2367,7 +2367,7 @@ async def compose_services(
             # Content
             transcript_processor=transcript_processor,
             report_feedback=report_feedback_service,  # LLM feedback on reports/journals
-            report_projects=report_project_service,  # Reusable LLM project templates
+            assignments=assignment_service,  # Reusable LLM instruction templates
             journal_classifier=journal_classifier,  # Multi-modal weight inference
             journal_generator=journal_generator,  # je_output formatting and disk storage
             # Group & Teaching (ADR-040: Teacher assignment workflow)

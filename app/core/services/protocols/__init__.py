@@ -259,11 +259,11 @@ from .query_types import (
 
 # Ku content protocols — submission, processing, sharing, feedback, scheduling
 from .reports_protocols import (
+    AssignmentOperations,
     KuContentOperations,
     KuContentSearchOperations,
     KuFeedbackOperations,
     KuProcessingOperations,
-    KuProjectOperations,
     KuScheduleOperations,
     KuSharingOperations,
     KuSubmissionOperations,
@@ -482,7 +482,7 @@ __all__ = [
     "KuContentSearchOperations",
     "KuFeedbackOperations",
     "KuProcessingOperations",
-    "KuProjectOperations",
+    "AssignmentOperations",
     "KuScheduleOperations",
     "KuSharingOperations",
     "KuSubmissionOperations",

@@ -492,7 +492,7 @@ def parse_report_project_params(request: Request) -> ReportProjectParams:
 # ============================================================================
 
 
-def create_report_projects_ui_routes(
+def create_assignments_ui_routes(
     app,
     rt,
     report_projects_service,
@@ -625,4 +625,4 @@ def create_report_projects_ui_routes(
     return []
 
 
-__all__ = ["ReportProjectUIComponents", "create_report_projects_ui_routes"]
+__all__ = ["ReportProjectUIComponents", "create_assignments_ui_routes"]

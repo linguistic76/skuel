@@ -18,17 +18,17 @@ SKUEL's content processing domain implements a learning loop where **students cr
 ### Naming Rationale
 
 **SUBMISSION** (not "assignment") because:
-- "Assignment" in plain English is what a **teacher gives** — that's `KuProject` with `scope=ASSIGNED`
+- "Assignment" in plain English is what a **teacher gives** — that's `Assignment` with `scope=ASSIGNED`
 - "Submission" is what a **student uploads** — file content going through a processing pipeline
 - Matches existing service names: `KuSubmissionService`, `KuSubmissionOperations`
 - Matches existing route language: `/reports/submit`
 
-## The Assignment (KuProject)
+## The Assignment
 
-A `KuProject` is the teacher's directive — instructions for what students should produce.
+An `Assignment` is the teacher's directive — instructions for what students should produce.
 
 ```
-KuProject (scope=ASSIGNED)
+Assignment (scope=ASSIGNED)
     |
     +-- instructions: str        # What to do
     +-- due_date: date           # When it's due
@@ -43,7 +43,7 @@ KuProject (scope=ASSIGNED)
 ## The Pipeline
 
 ```
-1. Teacher creates KuProject (scope=ASSIGNED, targets Group)
+1. Teacher creates Assignment (scope=ASSIGNED, targets Group)
        |
        v
 2. Student submits file → KuSubmissionService.submit_file()
@@ -70,7 +70,7 @@ KuProject (scope=ASSIGNED)
 
 ```cypher
 // The assignment directive
-(teacher:User)-[:OWNS]->(project:KuProject {scope: "assigned"})
+(teacher:User)-[:OWNS]->(project:Assignment {scope: "assigned"})
 (project)-[:FOR_GROUP]->(group:Group)
 (student:User)-[:MEMBER_OF]->(group)
 

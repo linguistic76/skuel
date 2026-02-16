@@ -454,7 +454,7 @@ def create_journals_ui_routes(
         rt: Router instance
         report_service: ReportSubmissionService
         processing_service: ReportsProcessingService
-        report_projects_service: ReportProjectService
+        report_projects_service: AssignmentService
         user_service: UserService for admin role checks
         journal_generator: JournalOutputGenerator for cleanup operations
     """

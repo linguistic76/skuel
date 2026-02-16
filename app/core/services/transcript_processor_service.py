@@ -837,10 +837,10 @@ class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
         if not instructions_uid:
             instructions_uid = "instructions:default-report-formatting"
 
-        # Load from Neo4j (instructions stored as ReportProject nodes)
+        # Load from Neo4j (instructions stored as Assignment nodes)
         try:
             query = """
-            MATCH (i:KuProject {uid: $uid})
+            MATCH (i:Assignment {uid: $uid})
             RETURN i.instructions as instructions, i.name as name
             """
 
@@ -917,7 +917,7 @@ Preserve the author's voice and authenticity while improving readability.
             uid = f"instructions:{name.lower().replace(' ', '-')}"
 
         query = """
-        CREATE (i:KuProject {
+        CREATE (i:Assignment {
             uid: $uid,
             name: $name,
             instructions: $instructions,
@@ -935,9 +935,9 @@ Preserve the author's voice and authenticity while improving readability.
 
     @with_error_handling("list_instruction_sets", error_type="database")
     async def list_instruction_sets(self) -> Result[list[dict[str, Any]]]:
-        """List all available report projects."""
+        """List all available assignments."""
         query = """
-        MATCH (i:KuProject)
+        MATCH (i:Assignment)
         RETURN i.uid as uid, i.name as name, i.char_count as char_count
         ORDER BY i.name
         """
@@ -1351,13 +1351,13 @@ Return ONLY Markdown in this structure:
         result = await super().create(ku)
 
         if result.is_ok:
-            from core.events.report_events import ReportSubmitted
+            from core.events.submission_events import SubmissionCreated
 
             ku_created = result.value
-            event = ReportSubmitted(
-                report_uid=ku_created.uid,
+            event = SubmissionCreated(
+                submission_uid=ku_created.uid,
                 user_uid=ku_created.user_uid,
-                report_type=ku_created.ku_type.value,
+                ku_type=ku_created.ku_type.value,
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
@@ -1385,12 +1385,12 @@ Return ONLY Markdown in this structure:
         result = await super().delete(uid, cascade=cascade)
 
         if result.is_ok:
-            from core.events.report_events import ReportDeleted
+            from core.events.submission_events import SubmissionDeleted
 
-            event = ReportDeleted(
-                report_uid=uid,
+            event = SubmissionDeleted(
+                submission_uid=uid,
                 user_uid=ku_user_uid,
-                report_type="submission",
+                ku_type="submission",
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)

@@ -1,11 +1,13 @@
 """
-KuProject Request Models (Tier 1 - External)
-==============================================
+Assignment Request Models (Tier 1 - External)
+===============================================
 
 "Ku is the heartbeat of SKUEL."
 
-Pydantic models for KuProject API validation and serialization.
+Pydantic models for Assignment API validation and serialization.
 Handles input validation at the API boundary.
+
+Pipeline role: ASSIGN stage (Assign → Submit → Analyze → Review)
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
@@ -15,8 +17,8 @@ from datetime import date
 from pydantic import BaseModel, Field, model_validator
 
 
-class KuProjectCreateRequest(BaseModel):
-    """Request to create a new KuProject (instruction template)."""
+class AssignmentCreateRequest(BaseModel):
+    """Request to create a new Assignment (instruction template)."""
 
     user_uid: str = Field(..., description="User UID who owns this project")
 
@@ -64,7 +66,7 @@ class KuProjectCreateRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_assignment_fields(self) -> "KuProjectCreateRequest":
+    def validate_assignment_fields(self) -> "AssignmentCreateRequest":
         """If scope=assigned, group_uid is required."""
         if self.scope == "assigned" and not self.group_uid:
             msg = "group_uid is required when scope is 'assigned'"
@@ -72,8 +74,8 @@ class KuProjectCreateRequest(BaseModel):
         return self
 
 
-class KuProjectUpdateRequest(BaseModel):
-    """Request to update an existing KuProject."""
+class AssignmentUpdateRequest(BaseModel):
+    """Request to update an existing Assignment."""
 
     name: str | None = Field(
         default=None, min_length=1, max_length=200, description="New display name"
@@ -93,11 +95,11 @@ class KuProjectUpdateRequest(BaseModel):
 
 
 class KuFeedbackGenerateRequest(BaseModel):
-    """Request to generate feedback for a Ku entry using a KuProject."""
+    """Request to generate feedback for a Ku entry using a Assignment."""
 
     entry_uid: str = Field(..., description="UID of the Ku entry to analyze")
 
-    project_uid: str = Field(..., description="UID of the KuProject with instructions")
+    project_uid: str = Field(..., description="UID of the Assignment with instructions")
 
     temperature: float | None = Field(
         default=0.7, ge=0.0, le=1.0, description="Sampling temperature for LLM (0-1)"

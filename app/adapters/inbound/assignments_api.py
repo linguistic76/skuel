@@ -1,5 +1,5 @@
 """
-Report Projects API - Factory Pattern Routes
+Assignments API - Factory Pattern Routes
 =============================================
 
 Provides:
@@ -16,10 +16,10 @@ from core.auth import require_teacher
 from core.infrastructure.routes import CRUDRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.models.ku.ku_project_request import (
-    KuFeedbackGenerateRequest,
-    KuProjectCreateRequest,
-    KuProjectUpdateRequest,
+from core.models.ku import KuFeedbackGenerateRequest
+from core.models.ku.assignment_request import (
+    AssignmentCreateRequest,
+    AssignmentUpdateRequest,
 )
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
@@ -28,23 +28,23 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger(__name__)
 
 
-def create_report_projects_api_routes(
+def create_assignments_api_routes(
     app: Any,
     rt: Any,
-    report_projects_service: Any,
+    assignments_service: Any,
     transcript_service: Any,
     report_feedback_service: Any,
     user_service: Any = None,
 ) -> list[Any]:
     """
-    Create report projects API routes using factory pattern.
+    Create assignments API routes using factory pattern.
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        report_projects_service: ReportProjectService instance
+        assignments_service: AssignmentService instance
         transcript_service: TranscriptProcessor for entry lookup
-        report_feedback_service: ReportFeedbackService for AI feedback
+        report_feedback_service: KuFeedbackService for AI feedback
         user_service: UserService for role checks
     """
 
@@ -58,34 +58,34 @@ def create_report_projects_api_routes(
     # ========================================================================
 
     crud_factory = CRUDRouteFactory(
-        service=report_projects_service,
-        domain_name="report-projects",
-        create_schema=KuProjectCreateRequest,
-        update_schema=KuProjectUpdateRequest,
-        uid_prefix="rp",
+        service=assignments_service,
+        domain_name="assignments",
+        create_schema=AssignmentCreateRequest,
+        update_schema=AssignmentUpdateRequest,
+        uid_prefix="assignment",
         scope=ContentScope.USER_OWNED,
         require_role=UserRole.TEACHER,
         user_service_getter=get_user_service_instance,
     )
 
     # Register all standard CRUD routes:
-    # - POST /api/report-projects/create        (create)
-    # - GET  /api/report-projects/get?uid=...   (get)
-    # - POST /api/report-projects/update?uid=.. (update)
-    # - POST /api/report-projects/delete?uid=.. (delete)
-    # - GET  /api/report-projects/list          (list with pagination)
+    # - POST /api/assignments/create        (create)
+    # - GET  /api/assignments/get?uid=...   (get)
+    # - POST /api/assignments/update?uid=.. (update)
+    # - POST /api/assignments/delete?uid=.. (delete)
+    # - GET  /api/assignments/list          (list with pagination)
     crud_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
     # ========================================================================
 
-    @rt("/api/report-projects/feedback", methods=["POST"])
+    @rt("/api/assignments/feedback", methods=["POST"])
     @require_teacher(get_user_service_instance)
     @boundary_handler()
     async def feedback(request: Request, current_user: Any = None) -> Result[Any]:
         """
-        Generate AI feedback for an entry using a project.
+        Generate AI feedback for an entry using an assignment.
 
         This is domain-specific and kept as a manual route because it:
         1. Involves complex coordination between services
@@ -94,7 +94,7 @@ def create_report_projects_api_routes(
 
         Body (JSON):
         - entry_uid: Entry UID (required)
-        - project_uid: Project UID (required)
+        - project_uid: Assignment UID (required)
         - temperature: Sampling temperature 0-1 (optional, default 0.7)
         - max_tokens: Max tokens to generate (optional, default 4000)
         - save_feedback: Whether to save to entry (optional, default true)
@@ -102,13 +102,13 @@ def create_report_projects_api_routes(
         Returns:
         - 200: Feedback generated
         - 400: Invalid input
-        - 404: Entry or project not found
+        - 404: Entry or assignment not found
         - 503: Service not available
         """
         if not report_feedback_service:
             return Result.fail(
                 Errors.system(
-                    "Report feedback service not available", service="ReportFeedbackService"
+                    "Feedback service not available", service="KuFeedbackService"
                 )
             )
 
@@ -129,9 +129,9 @@ def create_report_projects_api_routes(
         if entry_result.is_error:
             return Result.fail(Errors.not_found("Entry", feedback_request.entry_uid))
 
-        project_result = await report_projects_service.get_project(feedback_request.project_uid)
+        project_result = await assignments_service.get_project(feedback_request.project_uid)
         if project_result.is_error:
-            return Result.fail(Errors.not_found("Report project", feedback_request.project_uid))
+            return Result.fail(Errors.not_found("Assignment", feedback_request.project_uid))
 
         entry = entry_result.value
         project = project_result.value
@@ -150,7 +150,7 @@ def create_report_projects_api_routes(
 
         feedback_text = feedback_result.value
 
-        # Optionally save feedback to the report
+        # Optionally save feedback to the submission
         if feedback_request.save_feedback:
             update_result = await transcript_service.update(
                 feedback_request.entry_uid,
@@ -174,5 +174,5 @@ def create_report_projects_api_routes(
             }
         )
 
-    logger.info("Report projects API routes registered (Factory pattern)")
+    logger.info("Assignments API routes registered (Factory pattern)")
     return []

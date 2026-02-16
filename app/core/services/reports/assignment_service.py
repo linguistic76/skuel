@@ -1,10 +1,10 @@
 """
-Ku Project Service
+Assignment Service
 ====================
 
-CRUD operations for Ku Projects.
+CRUD operations for Assignments (instruction templates).
 
-A Ku Project is like Claude/ChatGPT Projects - simple, transparent:
+An Assignment is like Claude/ChatGPT Projects - simple, transparent:
 - User creates project with visible instructions
 - User can edit instructions anytime
 - User controls which LLM model to use
@@ -19,7 +19,7 @@ from typing import Any
 
 from core.models.enums import Domain
 from core.models.enums.ku_enums import ProcessorType, ProjectScope
-from core.models.ku import KuProject, KuProjectDTO, create_ku_project
+from core.models.ku import Assignment, AssignmentDTO, create_assignment
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -32,18 +32,18 @@ from core.utils.uid_generator import UIDGenerator
 logger = get_logger(__name__)
 
 
-class KuProjectService(BaseService):
+class AssignmentService(BaseService):
     """
-    Simple CRUD service for Ku projects.
+    Simple CRUD service for Assignments (instruction templates).
 
     No complex logic - just create, read, update, delete operations.
-    Projects are stored in Neo4j via UniversalNeo4jBackend.
+    Assignments are stored in Neo4j via UniversalNeo4jBackend.
     """
 
     _config = DomainConfig(
-        dto_class=KuProjectDTO,
-        model_class=KuProject,
-        entity_label="KuProject",
+        dto_class=AssignmentDTO,
+        model_class=Assignment,
+        entity_label="Assignment",
         search_fields=("name", "instructions"),
         search_order_by="created_at",
         user_ownership_relationship="OWNS",
@@ -54,17 +54,17 @@ class KuProjectService(BaseService):
         Initialize with backend.
 
         Args:
-            backend: UniversalNeo4jBackend[KuProject] instance - REQUIRED
+            backend: UniversalNeo4jBackend[Assignment] instance - REQUIRED
         """
-        super().__init__(backend, "ku_projects")
+        super().__init__(backend, "assignments")
         self.backend = backend
         self.logger = logger
-        logger.info("KuProjectService initialized")
+        logger.info("AssignmentService initialized")
 
     @property
     def entity_label(self) -> str:
-        """Return the graph label for KuProject entities."""
-        return "KuProject"
+        """Return the graph label for Assignment entities."""
+        return "Assignment"
 
     # ========================================================================
     # CREATE
@@ -83,9 +83,9 @@ class KuProjectService(BaseService):
         due_date: date | None = None,
         processor_type: ProcessorType = ProcessorType.LLM,
         group_uid: str | None = None,
-    ) -> Result[KuProject]:
+    ) -> Result[Assignment]:
         """
-        Create a new Ku project.
+        Create a new Assignment.
 
         For ASSIGNED scope (teacher assignments):
         - group_uid is required
@@ -104,7 +104,7 @@ class KuProjectService(BaseService):
             group_uid: Target group UID for ASSIGNED scope
 
         Returns:
-            Result[KuProject] - The created project
+            Result[Assignment] - The created assignment
         """
         if scope == ProjectScope.ASSIGNED and not group_uid:
             return Result.fail(
@@ -113,7 +113,7 @@ class KuProjectService(BaseService):
 
         uid = UIDGenerator.generate_uid("kp")
 
-        project = create_ku_project(
+        project = create_assignment(
             uid=uid,
             user_uid=user_uid,
             name=name,
@@ -138,7 +138,7 @@ class KuProjectService(BaseService):
             try:
                 await self.backend.driver.execute_query(
                     f"""
-                    MATCH (project:KuProject {{uid: $project_uid}})
+                    MATCH (project:Assignment {{uid: $project_uid}})
                     MATCH (group:Group {{uid: $group_uid}})
                     MERGE (project)-[:{RelationshipName.FOR_GROUP}]->(group)
                     RETURN true as success
@@ -150,7 +150,7 @@ class KuProjectService(BaseService):
             except Exception as e:
                 self.logger.warning(f"Failed to create FOR_GROUP relationship: {e}")
 
-        self.logger.info(f"Ku project created: {uid} - {name} (scope={scope.value})")
+        self.logger.info(f"Assignment created: {uid} - {name} (scope={scope.value})")
         return Result.ok(project)
 
     # ========================================================================
@@ -158,8 +158,8 @@ class KuProjectService(BaseService):
     # ========================================================================
 
     @with_error_handling("get_project", error_type="database")
-    async def get_project(self, uid: str) -> Result[KuProject | None]:
-        """Get a specific Ku project by UID."""
+    async def get_project(self, uid: str) -> Result[Assignment | None]:
+        """Get a specific Assignment by UID."""
         result = await self.backend.get(uid)
         if result.is_error:
             return result
@@ -168,8 +168,8 @@ class KuProjectService(BaseService):
     @with_error_handling("list_user_projects", error_type="database")
     async def list_user_projects(
         self, user_uid: str, active_only: bool = True
-    ) -> Result[list[KuProject]]:
-        """List all projects for a user."""
+    ) -> Result[list[Assignment]]:
+        """List all assignments for a user."""
         if active_only:
             result = await self.backend.find_by(user_uid=user_uid, is_active=True)
         else:
@@ -179,7 +179,7 @@ class KuProjectService(BaseService):
             return result
 
         projects = result.value or []
-        self.logger.info(f"Found {len(projects)} projects for user {user_uid}")
+        self.logger.info(f"Found {len(projects)} assignments for user {user_uid}")
         return Result.ok(projects)
 
     # ========================================================================
@@ -197,15 +197,15 @@ class KuProjectService(BaseService):
         domain: Domain | None = None,
         is_active: bool | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[KuProject]:
+    ) -> Result[Assignment]:
         """
-        Update a Ku project. Only provided fields will be updated.
+        Update an Assignment. Only provided fields will be updated.
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
             return get_result
         if not get_result.value:
-            return Result.fail(Errors.not_found(resource="KuProject", identifier=uid))
+            return Result.fail(Errors.not_found(resource="Assignment", identifier=uid))
 
         updates: dict[str, Any] = {}
         if name is not None:
@@ -227,10 +227,10 @@ class KuProjectService(BaseService):
 
         result = await self.backend.update(uid, updates)
         if result.is_error:
-            self.logger.error(f"Failed to update project {uid}: {result.error}")
+            self.logger.error(f"Failed to update assignment {uid}: {result.error}")
             return result
 
-        self.logger.info(f"Ku project updated: {uid}")
+        self.logger.info(f"Assignment updated: {uid}")
         return result
 
     # ========================================================================
@@ -238,7 +238,7 @@ class KuProjectService(BaseService):
     # ========================================================================
 
     @with_error_handling("list_group_assignments", error_type="database")
-    async def list_group_assignments(self, group_uid: str) -> Result[list[KuProject]]:
+    async def list_group_assignments(self, group_uid: str) -> Result[list[Assignment]]:
         """
         Get all ASSIGNED projects for a group.
 
@@ -257,9 +257,9 @@ class KuProjectService(BaseService):
         return Result.ok(projects)
 
     @with_error_handling("get_student_assignments", error_type="database")
-    async def get_student_assignments(self, user_uid: str) -> Result[list[KuProject]]:
+    async def get_student_assignments(self, user_uid: str) -> Result[list[Assignment]]:
         """
-        Get all assignments for a student (via MEMBER_OF -> Group <- FOR_GROUP -> KuProject).
+        Get all assignments for a student (via MEMBER_OF -> Group <- FOR_GROUP -> Assignment).
 
         Args:
             user_uid: Student UID
@@ -270,7 +270,7 @@ class KuProjectService(BaseService):
         records, _, _ = await self.backend.driver.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (project:KuProject)-[:{RelationshipName.FOR_GROUP}]->(group)
+            MATCH (project:Assignment)-[:{RelationshipName.FOR_GROUP}]->(group)
             WHERE project.is_active = true AND project.scope = 'assigned'
             RETURN project
             ORDER BY project.due_date ASC, project.created_at DESC
@@ -282,10 +282,10 @@ class KuProjectService(BaseService):
         for record in records:
             props = dict(record["project"])
             try:
-                project = KuProject(**props)
+                project = Assignment(**props)
                 projects.append(project)
             except Exception as e:
-                self.logger.warning(f"Failed to deserialize assignment project: {e}")
+                self.logger.warning(f"Failed to deserialize assignment: {e}")
 
         self.logger.info(f"Found {len(projects)} assignments for student {user_uid}")
         return Result.ok(projects)
@@ -296,9 +296,9 @@ class KuProjectService(BaseService):
 
     async def load_project_from_file(
         self, file_path: str, user_uid: str, project_uid: str | None = None, model: str = "gpt-4o"
-    ) -> Result[KuProject]:
+    ) -> Result[Assignment]:
         """
-        Load or update a Ku project from a markdown instructions file.
+        Load or update an Assignment from a markdown instructions file.
         """
         try:
             from pathlib import Path
@@ -322,10 +322,10 @@ class KuProjectService(BaseService):
                     result = await self.update_project(
                         uid=project_uid, instructions=instructions, model=model
                     )
-                    self.logger.info(f"Project updated from file: {project_uid} - {file_path}")
+                    self.logger.info(f"Assignment updated from file: {project_uid} - {file_path}")
                     return result
                 else:
-                    project = create_ku_project(
+                    project = create_assignment(
                         uid=project_uid,
                         user_uid=user_uid,
                         name=name,
@@ -338,7 +338,7 @@ class KuProjectService(BaseService):
                     await self.update_project(
                         uid=project_uid, metadata={"source_file": str(file_path)}
                     )
-                    self.logger.info(f"Project created from file: {project_uid} - {file_path}")
+                    self.logger.info(f"Assignment created from file: {project_uid} - {file_path}")
                     return Result.ok(project)
             else:
                 project_result = await self.create_project(
@@ -352,15 +352,15 @@ class KuProjectService(BaseService):
                         uid=project_result.value.uid, metadata={"source_file": str(file_path)}
                     )
                     self.logger.info(
-                        f"Project created from file: {project_result.value.uid} - {file_path}"
+                        f"Assignment created from file: {project_result.value.uid} - {file_path}"
                     )
                 return project_result
 
         except Exception as e:
-            self.logger.error(f"Error loading project from file {file_path}: {e}")
+            self.logger.error(f"Error loading assignment from file {file_path}: {e}")
             return Result.fail(
                 Errors.system(
-                    f"Failed to load project from file: {e!s}", operation="load_project_from_file"
+                    f"Failed to load assignment from file: {e!s}", operation="load_project_from_file"
                 )
             )
 
@@ -370,13 +370,13 @@ class KuProjectService(BaseService):
 
     @with_error_handling("delete_project", error_type="database")
     async def delete_project(self, uid: str) -> Result[bool]:
-        """Delete a Ku project."""
+        """Delete an Assignment."""
         result = await self.backend.delete(uid)
         if result.is_error:
             return result
-        self.logger.info(f"Ku project deleted: {uid}")
+        self.logger.info(f"Assignment deleted: {uid}")
         return Result.ok(True)
 
-    async def deactivate_project(self, uid: str) -> Result[KuProject]:
-        """Soft-delete by marking project as inactive."""
+    async def deactivate_project(self, uid: str) -> Result[Assignment]:
+        """Soft-delete by marking assignment as inactive."""
         return await self.update_project(uid, is_active=False)

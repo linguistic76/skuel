@@ -38,7 +38,7 @@ REPORTS_CONFIG = DomainRouteConfig(
     },
     ui_related_services={
         "_processing_service": "processing_pipeline",
-        "_report_projects_service": "report_projects",
+        "_report_projects_service": "assignments",
     },
 )
 

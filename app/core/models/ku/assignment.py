@@ -1,16 +1,18 @@
 """
-KuProject Models (Tier 2 + Tier 3)
+Assignment Models (Tier 2 + Tier 3)
 ====================================
 
 "Ku is the heartbeat of SKUEL."
 
-A KuProject is an instruction template for LLM processing of Ku content.
+An Assignment is an instruction template for LLM processing of Ku content.
 Like Claude/ChatGPT Projects — simple instruction set, optional context,
 user-controlled model selection, transparent feedback generation.
 
+Pipeline role: ASSIGN stage (Assign → Submit → Analyze → Review)
+
 Three-tier type system:
-- KuProjectDTO (Tier 2) — Mutable transfer object
-- KuProject (Tier 3) — Immutable domain model
+- AssignmentDTO (Tier 2) — Mutable transfer object
+- Assignment (Tier 3) — Immutable domain model
 
 Works with any KuType, not just SUBMISSION. Provides the `instructions`
 that drive AI processing of user-submitted content.
@@ -32,7 +34,7 @@ from core.models.enums.ku_enums import ProcessorType, ProjectScope
 
 
 @dataclass
-class KuProjectDTO:
+class AssignmentDTO:
     """
     Mutable data transfer object for Ku projects.
 
@@ -87,11 +89,11 @@ class KuProjectDTO:
 
 
 @dataclass(frozen=True)
-class KuProject:
+class Assignment:
     """
     Immutable domain model for Ku projects (instruction templates).
 
-    A KuProject defines:
+    A Assignment defines:
     1. **Instructions** — Plain text prompt for LLM feedback
     2. **Context** — Optional reference materials (like project knowledge)
     3. **Model** — Which LLM to use (user-selectable)
@@ -188,9 +190,9 @@ class KuProject:
 # ============================================================================
 
 
-def ku_project_dto_to_domain(dto: KuProjectDTO) -> KuProject:
-    """Convert KuProjectDTO (Tier 2) to KuProject (Tier 3)."""
-    return KuProject(
+def assignment_dto_to_domain(dto: AssignmentDTO) -> Assignment:
+    """Convert AssignmentDTO (Tier 2) to Assignment (Tier 3)."""
+    return Assignment(
         uid=dto.uid,
         user_uid=dto.user_uid,
         name=dto.name,
@@ -211,9 +213,9 @@ def ku_project_dto_to_domain(dto: KuProjectDTO) -> KuProject:
     )
 
 
-def ku_project_domain_to_dto(project: KuProject) -> KuProjectDTO:
-    """Convert KuProject (Tier 3) to KuProjectDTO (Tier 2)."""
-    return KuProjectDTO(
+def assignment_domain_to_dto(project: Assignment) -> AssignmentDTO:
+    """Convert Assignment (Tier 3) to AssignmentDTO (Tier 2)."""
+    return AssignmentDTO(
         uid=project.uid,
         user_uid=project.user_uid,
         name=project.name,
@@ -239,7 +241,7 @@ def ku_project_domain_to_dto(project: KuProject) -> KuProjectDTO:
 # ============================================================================
 
 
-def create_ku_project(
+def create_assignment(
     uid: str,
     user_uid: str,
     name: str,
@@ -251,9 +253,9 @@ def create_ku_project(
     due_date: date | None = None,
     processor_type: ProcessorType = ProcessorType.LLM,
     group_uid: str | None = None,
-) -> KuProject:
+) -> Assignment:
     """
-    Factory function to create a new KuProject.
+    Factory function to create a new Assignment.
 
     Args:
         uid: Unique identifier
@@ -269,9 +271,9 @@ def create_ku_project(
         group_uid: Target group UID for ASSIGNED scope
 
     Returns:
-        Immutable KuProject instance
+        Immutable Assignment instance
     """
-    return KuProject(
+    return Assignment(
         uid=uid,
         user_uid=user_uid,
         name=name,

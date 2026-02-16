@@ -2,7 +2,7 @@
 Ku Feedback Service
 ====================
 
-Generates transparent AI feedback for Ku entries using KuProjects.
+Generates transparent AI feedback for Ku entries using Assignments.
 
 Following SKUEL principles:
 - Transparent: User sees exact prompt sent to LLM
@@ -10,7 +10,7 @@ Following SKUEL principles:
 - Simple: Instructions + content -> LLM -> feedback
 """
 
-from core.models.ku import Ku, KuProject
+from core.models.ku import Assignment, Ku
 from core.services.ai_service import AnthropicService, OpenAIService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -23,7 +23,7 @@ class KuFeedbackService:
     Generates AI feedback for Ku entries using project instructions.
 
     Supports both OpenAI and Anthropic models.
-    User selects which model to use via KuProject.model field.
+    User selects which model to use via Assignment.model field.
     """
 
     def __init__(
@@ -54,7 +54,7 @@ class KuFeedbackService:
     async def generate_feedback(
         self,
         entry: Ku,
-        project: KuProject,
+        project: Assignment,
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[str]:
@@ -63,7 +63,7 @@ class KuFeedbackService:
 
         Args:
             entry: Ku to analyze (uses content or processed_content)
-            project: KuProject with instructions and model selection
+            project: Assignment with instructions and model selection
             temperature: Sampling temperature (0-1, default 0.7)
             max_tokens: Maximum tokens to generate (default 4000)
 

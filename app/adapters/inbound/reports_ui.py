@@ -808,7 +808,7 @@ def create_reports_ui_routes(
         rt: Router instance
         report_service: ReportSubmissionService
         processing_service: ReportProcessorService
-        _report_projects_service: KuProjectService for assignment dropdown (optional)
+        _report_projects_service: AssignmentService for assignment dropdown (optional)
     """
 
     logger.info("Creating Submissions UI routes")

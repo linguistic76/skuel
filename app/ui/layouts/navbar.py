@@ -100,7 +100,9 @@ def _search_icon() -> NotStr:
 def _search_button(active_page: str = "") -> A:
     """Create search icon button that navigates to /search."""
     is_active = active_page == "search"
-    active_cls = "text-base-content" if is_active else "text-base-content/70 hover:text-base-content"
+    active_cls = (
+        "text-base-content" if is_active else "text-base-content/70 hover:text-base-content"
+    )
     return A(
         Span("Search", cls="sr-only"),
         _search_icon(),
@@ -108,7 +110,6 @@ def _search_button(active_page: str = "") -> A:
         cls=f"btn btn-ghost btn-circle {active_cls}",
         **{"hx-boost": "false"},
     )
-
 
 
 def _notification_button(unread_count: int = 0) -> Button:

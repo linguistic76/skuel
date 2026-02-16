@@ -14,9 +14,9 @@ Content & RAG Support:
 5. ku_chunks.py - Semantic chunking for RAG retrieval
 6. ku_metadata.py - Analytics and search optimization
 
-KuProject & KuSchedule:
-7. ku_project.py - Instruction templates for LLM processing
-8. ku_project_request.py - Project API validation models
+Assignment & KuSchedule:
+7. assignment.py - Instruction templates for LLM processing (Assign stage)
+8. assignment_request.py - Assignment API validation models
 9. ku_schedule.py - Recurring progress Ku generation
 
 Nested Types:
@@ -41,7 +41,7 @@ Nested Types:
 Usage:
     from core.models.ku import Ku, KuDTO, KuResponse
     from core.models.ku import KuCurriculumCreateRequest, KuTaskCreateRequest
-    from core.models.ku import KuProject, KuProjectDTO, KuSchedule
+    from core.models.ku import Assignment, AssignmentDTO, KuSchedule
     from core.models.ku import Milestone, ChoiceOption, PrincipleExpression
 """
 
@@ -57,17 +57,17 @@ from .ku_nested_types import (
     Milestone,
     PrincipleExpression,
 )
-from .ku_project import (
-    KuProject,
-    KuProjectDTO,
-    create_ku_project,
-    ku_project_domain_to_dto,
-    ku_project_dto_to_domain,
+from .assignment import (
+    Assignment,
+    AssignmentDTO,
+    assignment_domain_to_dto,
+    assignment_dto_to_domain,
+    create_assignment,
 )
-from .ku_project_request import (
+from .assignment_request import (
+    AssignmentCreateRequest,
+    AssignmentUpdateRequest,
     KuFeedbackGenerateRequest,
-    KuProjectCreateRequest,
-    KuProjectUpdateRequest,
 )
 from .ku_request import (
     # Route-specific
@@ -170,15 +170,15 @@ __all__ = [
     "KuScheduleCreateRequest",
     "KuScheduleUpdateRequest",
     "AssessmentCreateRequest",
-    # KuProject (instruction templates)
-    "KuProject",
-    "KuProjectDTO",
-    "create_ku_project",
-    "ku_project_dto_to_domain",
-    "ku_project_domain_to_dto",
-    # KuProject requests
-    "KuProjectCreateRequest",
-    "KuProjectUpdateRequest",
+    # Assignment (instruction templates — Assign stage)
+    "Assignment",
+    "AssignmentDTO",
+    "create_assignment",
+    "assignment_dto_to_domain",
+    "assignment_domain_to_dto",
+    # Assignment requests
+    "AssignmentCreateRequest",
+    "AssignmentUpdateRequest",
     "KuFeedbackGenerateRequest",
     # KuSchedule (recurring progress generation)
     "KuSchedule",

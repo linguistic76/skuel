@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
-from core.events.report_events import ReportSubmitted
+from core.events.submission_events import SubmissionCreated
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType, ProgressDepth
 from core.models.ku import Ku
 from core.services.protocols.infrastructure_protocols import EventBusOperations
@@ -142,10 +142,10 @@ class ProgressKuGenerator:
                 await self._create_insight_relationships(uid, insights)
 
             # 7. Publish event
-            event = ReportSubmitted(
-                report_uid=uid,
+            event = SubmissionCreated(
+                submission_uid=uid,
                 user_uid=user_uid,
-                report_type=KuType.AI_REPORT.value,
+                ku_type=KuType.AI_REPORT.value,
                 processor_type=ProcessorType.AUTOMATIC.value,
                 occurred_at=datetime.now(),
             )

@@ -595,7 +595,7 @@ async def _wire_all_routes(
         logger.info("✅ Reports routes registered (Primary interface for audio/text processing)")
 
     # Journals routes (Admin-only AI submission via ReportProject instructions)
-    if services.reports and services.report_processor and services.report_projects:
+    if services.reports and services.report_processor and services.assignments:
         from adapters.inbound.journals_routes import create_journals_routes
 
         create_journals_routes(app, rt, services)
@@ -765,12 +765,12 @@ async def _wire_all_routes(
     create_advanced_routes(app, rt, services)
     logger.info("✅ Advanced API routes registered (Phase 2 - Optional)")
 
-    # Report Projects routes (renamed from Journal Projects, February 2026)
-    if services.report_projects:
-        from adapters.inbound.report_projects_routes import create_report_projects_routes
+    # Assignment routes (instruction templates for submissions)
+    if services.assignments:
+        from adapters.inbound.assignments_routes import create_assignments_routes
 
-        create_report_projects_routes(app, rt, services)
-        logger.info("✅ Report projects routes registered")
+        create_assignments_routes(app, rt, services)
+        logger.info("✅ Assignment routes registered")
 
     # Group routes (ADR-040: Teacher Assignment Workflow)
     if services.group_service:

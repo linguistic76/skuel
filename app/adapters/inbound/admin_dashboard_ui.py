@@ -318,11 +318,11 @@ def create_admin_dashboard_routes(_app, rt, services):
         except Exception as e:
             logger.warning(f"Failed to fetch reports for {uid}: {e}")
 
-        # Fetch user's report projects
+        # Fetch user's assignments
         projects_data: list = []
         try:
-            if services.report_projects:
-                projects_result = await services.report_projects.list_user_projects(
+            if services.assignments:
+                projects_result = await services.assignments.list_user_projects(
                     user_uid=uid, active_only=False
                 )
                 if not projects_result.is_error and projects_result.value:

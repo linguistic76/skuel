@@ -396,7 +396,7 @@ The dashboard uses HTMX for dynamic updates without full page reloads:
    │        VIEWED/IN_PROGRESS/MASTERED → Ku (learning)
    │        HAS_SESSION/HAD_AUTH_EVENT → Session/AuthEvent (activity)
    ├─ reports_core.get_recent_reports(uid) → reports list
-   └─ report_projects.list_user_projects(uid) → projects list
+   └─ assignments.list_user_projects(uid) → projects list
    │
    ▼
 2. AdminUIComponents.render_user_activity_stats(stats, uid)

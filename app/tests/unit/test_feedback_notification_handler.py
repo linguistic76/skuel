@@ -2,7 +2,7 @@
 Unit Tests for Feedback Notification Handler
 ==============================================
 
-Tests that ReportReviewed and ReportRevisionRequested events
+Tests that SubmissionReviewed and SubmissionRevisionRequested events
 create the correct notifications via NotificationService.
 """
 
@@ -15,7 +15,7 @@ from core.events.handlers.feedback_notification_handler import (
     handle_report_reviewed,
     handle_revision_requested,
 )
-from core.events.report_events import ReportReviewed, ReportRevisionRequested
+from core.events.submission_events import SubmissionReviewed, SubmissionRevisionRequested
 from core.utils.result_simplified import Result
 
 
@@ -28,15 +28,15 @@ def mock_notification_service():
 
 
 # ============================================================================
-# REPORT REVIEWED HANDLER TESTS
+# SUBMISSION REVIEWED HANDLER TESTS
 # ============================================================================
 
 
 @pytest.mark.asyncio
 async def test_handle_report_reviewed_creates_notification(mock_notification_service):
     """Should create a feedback_received notification for the student."""
-    event = ReportReviewed(
-        report_uid="ku_submission_123",
+    event = SubmissionReviewed(
+        submission_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="user_student",
         occurred_at=datetime.now(),
@@ -56,12 +56,12 @@ async def test_handle_report_reviewed_creates_notification(mock_notification_ser
 
 
 @pytest.mark.asyncio
-async def test_handle_report_reviewed_uses_report_uid_when_no_feedback_uid(
+async def test_handle_report_reviewed_uses_submission_uid_when_no_feedback_uid(
     mock_notification_service,
 ):
-    """Should fall back to report_uid when metadata has no feedback_uid."""
-    event = ReportReviewed(
-        report_uid="ku_submission_123",
+    """Should fall back to submission_uid when metadata has no feedback_uid."""
+    event = SubmissionReviewed(
+        submission_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="user_student",
         occurred_at=datetime.now(),
@@ -76,8 +76,8 @@ async def test_handle_report_reviewed_uses_report_uid_when_no_feedback_uid(
 @pytest.mark.asyncio
 async def test_handle_report_reviewed_skips_when_no_student(mock_notification_service):
     """Should skip notification when student_uid is empty."""
-    event = ReportReviewed(
-        report_uid="ku_submission_123",
+    event = SubmissionReviewed(
+        submission_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="",
         occurred_at=datetime.now(),
@@ -96,8 +96,8 @@ async def test_handle_report_reviewed_skips_when_no_student(mock_notification_se
 @pytest.mark.asyncio
 async def test_handle_revision_requested_creates_notification(mock_notification_service):
     """Should create a revision_requested notification for the student."""
-    event = ReportRevisionRequested(
-        report_uid="ku_submission_123",
+    event = SubmissionRevisionRequested(
+        submission_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="user_student",
         occurred_at=datetime.now(),
@@ -120,8 +120,8 @@ async def test_handle_revision_requested_creates_notification(mock_notification_
 @pytest.mark.asyncio
 async def test_handle_revision_requested_skips_when_no_student(mock_notification_service):
     """Should skip notification when student_uid is empty."""
-    event = ReportRevisionRequested(
-        report_uid="ku_submission_123",
+    event = SubmissionRevisionRequested(
+        submission_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="",
         occurred_at=datetime.now(),

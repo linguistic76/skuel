@@ -226,7 +226,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 **Content/Processing Domain (1)**:
 - **Reports** - All content submissions and AI/system-generated summaries. Uses unified Ku model with KuType discriminator:
   - **File submissions** (KuType.SUBMISSION) — user uploads via `/reports/submit`, `ProcessorType.HUMAN`
-  - **AI-processed** (KuType.JOURNAL) — admin uploads via `/journals/submit`, `ProcessorType.LLM`, uses KuProject instructions
+  - **AI-processed** (KuType.JOURNAL) — admin uploads via `/journals/submit`, `ProcessorType.LLM`, uses Assignment instructions
   - **AI-generated** (KuType.AI_REPORT) — system-generated progress reports, `ProcessorType.AUTOMATIC`
   - **Teacher feedback** (KuType.FEEDBACK_REPORT) — teacher assessments with `subject_uid` for student
 
@@ -284,10 +284,10 @@ Principles <--> Goals, Choices
     +-- GUIDES_GOAL (Principles inform Goal setting)
     +-- GUIDES_CHOICE (Principles inform decisions)
 
-Groups <--> KuProjects, Users
+Groups <--> Assignments, Users
     |
-    +-- FOR_GROUP (KuProject targets Group)
-    +-- FULFILLS_PROJECT (Ku fulfills KuProject)
+    +-- FOR_GROUP (Assignment targets Group)
+    +-- FULFILLS_PROJECT (Ku fulfills Assignment)
     +-- MEMBER_OF (Student belongs to Group)
     +-- OWNS (Teacher owns Group)
 
@@ -512,7 +512,7 @@ KuType.from_string("ku")         # -> KuType.CURRICULUM (alias support)
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, etc. | 6 protocols |
 | **Intelligence** | `intelligence_protocols.py` | Analytics operations | 1 protocol |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 protocols |
-| **Reports (Ku)** | `reports_protocols.py` | KuSubmission, KuContent, KuSharing, KuProcessing, KuProject, KuFeedback, ProgressKuGenerator, KuSchedule, KuContentSearch | 9 protocols |
+| **Reports (Ku)** | `reports_protocols.py` | KuSubmission, KuContent, KuSharing, KuProcessing, Assignment, KuFeedback, ProgressKuGenerator, KuSchedule, KuContentSearch | 9 protocols |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review | 2 protocols |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration, Lateral | 10 protocols |
 
@@ -729,7 +729,7 @@ PUBLIC            → Anyone (portfolio showcase)
 
 **Two Sharing Modes:**
 1. **Manual sharing** — Student completes Ku → shares with teacher → teacher views in "Shared With Me" inbox
-2. **Assignment auto-sharing (ADR-040)** — Student submits Ku against ASSIGNED KuProject → SHARES_WITH auto-created to teacher → appears in teacher review queue
+2. **Assignment auto-sharing (ADR-040)** — Student submits Ku against ASSIGNED Assignment → SHARES_WITH auto-created to teacher → appears in teacher review queue
 
 **Service:**
 ```python

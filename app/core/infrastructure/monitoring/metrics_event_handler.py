@@ -73,7 +73,7 @@ class MetricsEventHandler:
 
         # Content/Processing domains (2)
         # NOTE: JournalCreated subscription REMOVED (February 2026) - Journal merged into Reports
-        # Journal creation tracked via ReportSubmitted with report_type="journal"
+        # Journal creation tracked via SubmissionCreated with ku_type="journal"
         from core.events.transcription_events import TranscriptionCreated
 
         self.event_bus.subscribe(TranscriptionCreated, self._on_transcription_created)
@@ -86,10 +86,10 @@ class MetricsEventHandler:
         self.event_bus.subscribe(LearningStepCreated, self._on_ls_created)
         self.event_bus.subscribe(LearningPathStarted, self._on_lp_started)
 
-        # Report domain (1)
-        from core.events.report_events import ReportSubmitted
+        # Submission domain (1)
+        from core.events.submission_events import SubmissionCreated
 
-        self.event_bus.subscribe(ReportSubmitted, self._on_report_submitted)
+        self.event_bus.subscribe(SubmissionCreated, self._on_report_submitted)
 
     def _subscribe_to_completion_events(self) -> None:
         """Subscribe to entity completion events."""
@@ -131,7 +131,7 @@ class MetricsEventHandler:
         self.prometheus_metrics.domains.entities_created.labels(entity_type="expense").inc()
 
     # NOTE: _on_journal_created REMOVED (February 2026) - Journal merged into Reports
-    # Journal creation tracked via _on_report_submitted with report_type="journal"
+    # Journal creation tracked via _on_report_submitted with ku_type="journal"
 
     async def _on_transcription_created(self, event) -> None:
         """Track transcription creation."""

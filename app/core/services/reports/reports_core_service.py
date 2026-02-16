@@ -25,7 +25,7 @@ Services:
 - KuProcessingService: Content processing orchestration
 - KuCoreService: Content management + journal CRUD (THIS FILE)
 - KuSearchService: Read-only queries
-- KuProjectService: LLM instruction projects
+- AssignmentService: LLM instruction projects
 - KuFeedbackService: AI feedback generation
 """
 
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
-from core.events.report_events import AssessmentCreated, ReportDeleted
+from core.events.submission_events import AssessmentCreated, SubmissionDeleted
 from core.models.enums.ku_enums import JournalType, KuStatus, KuType, ProcessorType
 from core.models.ku import Ku, KuDTO
 from core.services.base_service import BaseService
@@ -406,15 +406,14 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             return Result.fail(delete_result.expect_error())
 
         if delete_result.value:
-            # Publish event (reusing ReportDeleted event name for now)
-            event = ReportDeleted(
-                report_uid=uid,
+            event = SubmissionDeleted(
+                submission_uid=uid,
                 user_uid=ku.user_uid,
-                report_type=ku.ku_type.value,
+                ku_type=ku.ku_type.value,
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
-            self.logger.debug(f"Published ReportDeleted event for {uid}")
+            self.logger.debug(f"Published SubmissionDeleted event for {uid}")
             return Result.ok(True)
 
         return Result.fail(Errors.system("Failed to delete Ku"))
@@ -850,7 +849,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             energy_level: Optional energy level (1-10)
             key_topics: Optional extracted topics
             action_items: Optional action items
-            project_uid: Optional KuProject UID for AI feedback
+            project_uid: Optional Assignment UID for AI feedback
             metadata: Optional additional metadata
             enforce_fifo: If True, enforce FIFO cleanup for VOICE journals
 
@@ -1063,7 +1062,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         project_uid: str,
     ) -> Result[bool]:
         """
-        Process a Ku submitted against an ASSIGNED KuProject.
+        Process a Ku submitted against an ASSIGNED Assignment.
 
         When a student submits against an assigned project:
         1. Create FULFILLS_PROJECT relationship
@@ -1075,7 +1074,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
 
         Args:
             ku_uid: The submitted Ku UID
-            project_uid: The KuProject UID this Ku fulfills
+            project_uid: The Assignment UID this Ku fulfills
 
         Returns:
             Result[bool]: True if assignment processing was applied
@@ -1086,7 +1085,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             # Check if the project is ASSIGNED scope and get group info
             records, _, _ = await self.backend.driver.execute_query(
                 """
-                MATCH (project:KuProject {uid: $project_uid})
+                MATCH (project:Assignment {uid: $project_uid})
                 OPTIONAL MATCH (project)-[:FOR_GROUP]->(g:Group)
                 RETURN project.scope as scope,
                        project.user_uid as teacher_uid,
@@ -1132,7 +1131,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             await self.backend.driver.execute_query(
                 f"""
                 MATCH (ku:Ku {{uid: $ku_uid}})
-                MATCH (project:KuProject {{uid: $project_uid}})
+                MATCH (project:Assignment {{uid: $project_uid}})
                 MERGE (ku)-[:{RelationshipName.FULFILLS_PROJECT}]->(project)
                 RETURN true as success
                 """,
@@ -1316,7 +1315,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
 
         # Publish event
         event = AssessmentCreated(
-            report_uid=uid,
+            submission_uid=uid,
             teacher_uid=teacher_uid,
             subject_uid=subject_uid,
             occurred_at=datetime.now(),

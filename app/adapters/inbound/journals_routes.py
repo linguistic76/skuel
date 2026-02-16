@@ -5,7 +5,7 @@ Journals Routes — Admin-Only AI Submission
 Wires Journal UI routes using DomainRouteConfig.
 No separate API factory — reuses existing /api/reports/* endpoints.
 
-Admin uploads files → processed by AI using ReportProject instructions.
+Admin uploads files → processed by AI using Assignment instructions.
 """
 
 from typing import Any
@@ -26,7 +26,7 @@ JOURNALS_CONFIG = DomainRouteConfig(
     ui_factory=create_journals_ui_routes,
     ui_related_services={
         "processing_service": "report_processor",
-        "report_projects_service": "report_projects",
+        "report_projects_service": "assignments",
         "user_service": "user_service",
         "journal_generator": "journal_generator",
     },

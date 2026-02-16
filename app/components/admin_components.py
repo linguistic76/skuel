@@ -656,10 +656,10 @@ class AdminUIComponents:
 
     @staticmethod
     def render_user_projects_list(projects: list, _user_uid: str) -> Div:
-        """Render a list of user report projects for admin user detail page.
+        """Render a list of user assignments for admin user detail page.
 
         Args:
-            projects: List of KuProject domain objects.
+            projects: List of Assignment domain objects.
             _user_uid: User UID (reserved for future linking).
         """
         if not projects:

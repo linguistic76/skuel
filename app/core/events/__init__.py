@@ -140,8 +140,8 @@ from core.events.habit_events import (
     HabitStreakMilestone,
 )
 
-# NOTE: Journal events DELETED (February 2026) - Journal merged into Reports
-# Journal operations now fire ReportSubmitted/ReportDeleted events with report_type="journal"
+# NOTE: Journal events DELETED (February 2026) - Journal merged into Submissions
+# Journal operations now fire SubmissionCreated/SubmissionDeleted events with ku_type="journal"
 # Knowledge substance events (tracking real-world application)
 from core.events.ku_events import (
     KnowledgeAppliedInTask,
@@ -174,13 +174,16 @@ from core.events.principle_events import (
     PrincipleUpdated,
 )
 
-# Report events
-from core.events.report_events import (
-    ReportDeleted,
-    ReportProcessingCompleted,
-    ReportProcessingFailed,
-    ReportProcessingStarted,
-    ReportSubmitted,
+# Submission events
+from core.events.submission_events import (
+    AssessmentCreated,
+    SubmissionCreated,
+    SubmissionDeleted,
+    SubmissionProcessingCompleted,
+    SubmissionProcessingFailed,
+    SubmissionProcessingStarted,
+    SubmissionReviewed,
+    SubmissionRevisionRequested,
 )
 
 # Task events
@@ -209,12 +212,15 @@ from core.events.user_events import (
 
 # Public API
 __all__ = [
-    # Report events
-    "ReportDeleted",
-    "ReportProcessingCompleted",
-    "ReportProcessingFailed",
-    "ReportProcessingStarted",
-    "ReportSubmitted",
+    # Submission events
+    "AssessmentCreated",
+    "SubmissionCreated",
+    "SubmissionDeleted",
+    "SubmissionProcessingCompleted",
+    "SubmissionProcessingFailed",
+    "SubmissionProcessingStarted",
+    "SubmissionReviewed",
+    "SubmissionRevisionRequested",
     # Base
     "BaseEvent",
     # Calendar Events
@@ -317,12 +323,15 @@ __all__ = [
 
 # Map event type strings to event classes for deserialization
 EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
-    # Reports
-    "report.submitted": ReportSubmitted,
-    "report.processing_started": ReportProcessingStarted,
-    "report.processing_completed": ReportProcessingCompleted,
-    "report.processing_failed": ReportProcessingFailed,
-    "report.deleted": ReportDeleted,
+    # Submissions
+    "submission.created": SubmissionCreated,
+    "submission.processing_started": SubmissionProcessingStarted,
+    "submission.processing_completed": SubmissionProcessingCompleted,
+    "submission.processing_failed": SubmissionProcessingFailed,
+    "submission.deleted": SubmissionDeleted,
+    "submission.reviewed": SubmissionReviewed,
+    "submission.assessment_created": AssessmentCreated,
+    "submission.revision_requested": SubmissionRevisionRequested,
     # Chunk embedding events (async background generation for RAG)
     "chunk.embedding_requested": ChunkEmbeddingRequested,
     "chunk.embeddings_completed": ChunkEmbeddingsCompleted,
@@ -490,12 +499,15 @@ def list_event_types() -> list[str]:
 # EVENT GROUPS
 # ============================================================================
 
-REPORT_EVENTS = [
-    ReportSubmitted,
-    ReportProcessingStarted,
-    ReportProcessingCompleted,
-    ReportProcessingFailed,
-    ReportDeleted,
+SUBMISSION_EVENTS = [
+    SubmissionCreated,
+    SubmissionProcessingStarted,
+    SubmissionProcessingCompleted,
+    SubmissionProcessingFailed,
+    SubmissionDeleted,
+    SubmissionReviewed,
+    AssessmentCreated,
+    SubmissionRevisionRequested,
 ]
 
 TASK_EVENTS = [
@@ -602,7 +614,7 @@ TRANSCRIPTION_EVENTS = [
 
 # All events
 ALL_EVENTS = (
-    REPORT_EVENTS
+    SUBMISSION_EVENTS
     + TASK_EVENTS
     + GOAL_EVENTS
     + HABIT_EVENTS

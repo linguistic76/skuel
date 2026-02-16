@@ -1709,7 +1709,16 @@ def _domain_progress_grid(context: UserContext) -> Div:
     ]
 
     domain_items = []
-    for icon, name, slug, primary, primary_label, secondary, secondary_label, create_href in domain_data:
+    for (
+        icon,
+        name,
+        slug,
+        primary,
+        primary_label,
+        secondary,
+        secondary_label,
+        create_href,
+    ) in domain_data:
         # Secondary line (only shown when count > 0)
         secondary_el = (
             Span(f"{secondary} {secondary_label}", cls="text-sm text-base-content/50")

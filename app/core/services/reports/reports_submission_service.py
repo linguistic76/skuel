@@ -22,7 +22,7 @@ from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
-from core.events.report_events import ReportSubmitted
+from core.events.submission_events import SubmissionCreated
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
 from core.models.ku import Ku, KuDTO
 from core.services.base_service import BaseService
@@ -193,10 +193,10 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
         )
 
         # Publish event
-        event = ReportSubmitted(
-            report_uid=uid,
+        event = SubmissionCreated(
+            submission_uid=uid,
             user_uid=user_uid,
-            report_type=ku_type.value,
+            ku_type=ku_type.value,
             processor_type=processor_type.value,
             file_size=len(file_content),
             file_type=file_type,

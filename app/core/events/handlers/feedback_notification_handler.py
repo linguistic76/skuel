@@ -9,26 +9,26 @@ Event handlers are registered in bootstrap via functools.partial for dependency 
 See: /docs/architecture/SUBMISSION_FEEDBACK_LOOP.md
 """
 
-from core.events.report_events import ReportReviewed, ReportRevisionRequested
+from core.events.submission_events import SubmissionReviewed, SubmissionRevisionRequested
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.events.feedback_notification_handler")
 
 
 async def handle_report_reviewed(
-    event: ReportReviewed,
+    event: SubmissionReviewed,
     notification_service: object,
 ) -> None:
     """
     Create notification when teacher provides feedback on a submission.
 
     Args:
-        event: The ReportReviewed event (contains report_uid, teacher_uid, student_uid)
+        event: The SubmissionReviewed event (contains submission_uid, teacher_uid, student_uid)
         notification_service: NotificationService instance (injected via functools.partial)
     """
     if not event.student_uid:
         logger.debug(
-            f"No student_uid on ReportReviewed for {event.report_uid}, skipping notification"
+            f"No student_uid on SubmissionReviewed for {event.submission_uid}, skipping notification"
         )
         return
 
@@ -36,7 +36,7 @@ async def handle_report_reviewed(
     if event.metadata:
         feedback_uid = event.metadata.get("feedback_uid", "")
 
-    source_uid = feedback_uid or event.report_uid
+    source_uid = feedback_uid or event.submission_uid
 
     result = await notification_service.create_notification(  # type: ignore[attr-defined]
         user_uid=event.student_uid,
@@ -55,24 +55,24 @@ async def handle_report_reviewed(
     else:
         logger.info(
             f"Feedback notification created for student {event.student_uid} "
-            f"on submission {event.report_uid}"
+            f"on submission {event.submission_uid}"
         )
 
 
 async def handle_revision_requested(
-    event: ReportRevisionRequested,
+    event: SubmissionRevisionRequested,
     notification_service: object,
 ) -> None:
     """
     Create notification when teacher requests revision on a submission.
 
     Args:
-        event: The ReportRevisionRequested event
+        event: The SubmissionRevisionRequested event
         notification_service: NotificationService instance (injected via functools.partial)
     """
     if not event.student_uid:
         logger.debug(
-            f"No student_uid on ReportRevisionRequested for {event.report_uid}, "
+            f"No student_uid on SubmissionRevisionRequested for {event.submission_uid}, "
             f"skipping notification"
         )
         return
@@ -81,7 +81,7 @@ async def handle_revision_requested(
     if event.metadata:
         feedback_uid = event.metadata.get("feedback_uid", "")
 
-    source_uid = feedback_uid or event.report_uid
+    source_uid = feedback_uid or event.submission_uid
 
     result = await notification_service.create_notification(  # type: ignore[attr-defined]
         user_uid=event.student_uid,
@@ -100,5 +100,5 @@ async def handle_revision_requested(
     else:
         logger.info(
             f"Revision notification created for student {event.student_uid} "
-            f"on submission {event.report_uid}"
+            f"on submission {event.submission_uid}"
         )

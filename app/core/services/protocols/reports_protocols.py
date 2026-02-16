@@ -13,7 +13,7 @@ handles backend CRUD. These protocols cover the higher-level content lifecycle:
     KuContentSearchOperations    — Cross-type search and statistics
     KuSharingOperations          — Visibility and sharing control
     KuProcessingOperations       — Processing pipeline (transcription, LLM)
-    KuProjectOperations          — LLM instruction templates
+    AssignmentOperations          — LLM instruction templates (assignments)
     KuFeedbackOperations         — LLM-based feedback generation
     ProgressKuGeneratorOperations — Progress Ku generation
     KuScheduleOperations         — Recurring progress Ku scheduling
@@ -346,11 +346,11 @@ class KuProcessingOperations(Protocol):
 
 
 @runtime_checkable
-class KuProjectOperations(Protocol):
+class AssignmentOperations(Protocol):
     """Reusable LLM instruction template operations.
 
-    Route consumer: ku_projects_api.py (via CRUDRouteFactory)
-    Implementation: KuProjectService
+    Route consumer: assignments_api.py (via CRUDRouteFactory)
+    Implementation: AssignmentService
     """
 
     async def create_project(
@@ -366,11 +366,11 @@ class KuProjectOperations(Protocol):
         processor_type: Any = ...,
         group_uid: str | None = None,
     ) -> Result[Any]:
-        """Create a KuProject. Returns Result[KuProject]."""
+        """Create an Assignment. Returns Result[Assignment]."""
         ...
 
     async def get_project(self, uid: str) -> Result[Any | None]:
-        """Get project by UID. Returns Result[KuProject | None]."""
+        """Get project by UID. Returns Result[Assignment | None]."""
         ...
 
     async def list_user_projects(
@@ -378,7 +378,7 @@ class KuProjectOperations(Protocol):
         user_uid: str,
         active_only: bool = True,
     ) -> Result[list[Any]]:
-        """List user's projects. Returns Result[list[KuProject]]."""
+        """List user's projects. Returns Result[list[Assignment]]."""
         ...
 
     async def update_project(
@@ -392,7 +392,7 @@ class KuProjectOperations(Protocol):
         is_active: bool | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Update a project. Returns Result[KuProject]."""
+        """Update a project. Returns Result[Assignment]."""
         ...
 
     async def delete_project(self, uid: str) -> Result[bool]:
@@ -415,7 +415,7 @@ class KuFeedbackOperations(Protocol):
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[str]:
-        """Generate AI feedback for a Ku entry using a KuProject. Returns Result[str]."""
+        """Generate AI feedback for a Ku entry using an Assignment. Returns Result[str]."""
         ...
 
 

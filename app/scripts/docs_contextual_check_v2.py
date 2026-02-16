@@ -631,7 +631,9 @@ def main() -> int:
                     f" (likely false positives — run with --verbose to see){RESET}"
                 )
             else:
-                print(f"{YELLOW}📄 {medium_count} doc(s) may need updating (medium confidence){RESET}")
+                print(
+                    f"{YELLOW}📄 {medium_count} doc(s) may need updating (medium confidence){RESET}"
+                )
                 for s in suggestions:
                     if s.confidence == "medium":
                         print(f"  - {s.doc_path}: {s.reason}")

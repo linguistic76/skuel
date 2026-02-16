@@ -81,7 +81,7 @@ class NeoLabel(str, Enum):
     # =========================================================================
     # Content/Processing Infrastructure
     # =========================================================================
-    KU_PROJECT = "KuProject"
+    ASSIGNMENT = "Assignment"
     KU_SCHEDULE = "KuSchedule"
     TRANSCRIPTION = "Transcription"
 

@@ -101,9 +101,7 @@ async def test_ask_endpoint_semantic_search(skuel_app, populated_test_data):
     user_uid = populated_test_data["user_uid"]
 
     # Ask question without exact keyword match — tests semantic understanding
-    result = await askesis.answer_user_question(
-        user_uid, "How do I make my code run concurrently?"
-    )
+    result = await askesis.answer_user_question(user_uid, "How do I make my code run concurrently?")
 
     assert result.is_ok, f"RAG pipeline failed: {result.error}"
     data = result.value

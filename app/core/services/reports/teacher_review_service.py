@@ -5,7 +5,7 @@ Teacher Review Service
 Manages the teacher review workflow for assigned Ku submissions.
 
 Reuses SHARES_WITH infrastructure. When a student submits a Ku against
-an ASSIGNED KuProject, the Ku is auto-shared with the teacher.
+an ASSIGNED Assignment, the Ku is auto-shared with the teacher.
 The teacher's review queue = Ku shared with them via role="teacher".
 
 When providing feedback or requesting revision, a FEEDBACK_REPORT Ku node
@@ -23,7 +23,7 @@ from typing import Any
 from neo4j import Driver
 
 from core.events import publish_event
-from core.events.report_events import ReportReviewed, ReportRevisionRequested
+from core.events.submission_events import SubmissionReviewed, SubmissionRevisionRequested
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -91,7 +91,7 @@ class TeacherReviewService:
         MATCH (teacher:User {{uid: $teacher_uid}})-[r:SHARES_WITH {{role: 'teacher'}}]->(ku:Ku)
         {where_clause}
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        OPTIONAL MATCH (ku)-[:FULFILLS_PROJECT]->(project:KuProject)
+        OPTIONAL MATCH (ku)-[:FULFILLS_PROJECT]->(project:Assignment)
         OPTIONAL MATCH (fb:Ku {{ku_type: 'feedback_report'}})-[:FEEDBACK_FOR]->(ku)
         WITH ku, student, project, r, count(fb) as feedback_count
         RETURN ku.uid as ku_uid,
@@ -279,8 +279,8 @@ class TeacherReviewService:
 
             await publish_event(
                 self.event_bus,
-                ReportReviewed(
-                    report_uid=report_uid,
+                SubmissionReviewed(
+                    submission_uid=report_uid,
                     teacher_uid=teacher_uid,
                     student_uid=student_uid,
                     occurred_at=datetime.now(),
@@ -395,8 +395,8 @@ class TeacherReviewService:
 
             await publish_event(
                 self.event_bus,
-                ReportRevisionRequested(
-                    report_uid=report_uid,
+                SubmissionRevisionRequested(
+                    submission_uid=report_uid,
                     teacher_uid=teacher_uid,
                     student_uid=student_uid,
                     occurred_at=datetime.now(),
@@ -493,8 +493,8 @@ class TeacherReviewService:
 
             await publish_event(
                 self.event_bus,
-                ReportReviewed(
-                    report_uid=report_uid,
+                SubmissionReviewed(
+                    submission_uid=report_uid,
                     teacher_uid=teacher_uid,
                     student_uid=student_uid,
                     occurred_at=datetime.now(),

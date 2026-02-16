@@ -318,4 +318,3 @@ class TestChoicesCoreOperations:
         assert created_choice.inspiration_type == "career_path"
         assert created_choice.expands_possibilities is True
         assert "architect" in created_choice.vision_statement.lower()
-
