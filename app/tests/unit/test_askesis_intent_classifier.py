@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.services.askesis.intent_classifier import IntentClassifier, QueryIntent
+from core.utils.result_simplified import Result
 
 # ============================================================================
 # MOCK FACTORIES
@@ -26,9 +27,8 @@ def create_mock_embeddings_service() -> Mock:
     """Create mock EmbeddingsService with correct method name and return type."""
     embeddings = Mock()
 
-    # Return embedding vector directly (not Result wrapped)
-    # intent_classifier.py line 200-202 checks truthiness, not .is_ok
-    embeddings.create_embedding = AsyncMock(return_value=[0.1] * 1536)
+    # Production code calls .is_ok/.is_error/.value on the result
+    embeddings.create_embedding = AsyncMock(return_value=Result.ok([0.1] * 1536))
 
     return embeddings
 
