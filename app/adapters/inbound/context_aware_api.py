@@ -22,6 +22,7 @@ from typing import Any
 
 from fasthtml.common import Request
 
+from core.auth import require_authenticated_user
 from core.models.goal.goal_request import ContextualGoalTaskGenerationRequest
 from core.models.habit.habit_request import ContextualHabitCompletionRequest
 from core.models.task.task_request import ContextualTaskCompletionRequest
@@ -54,8 +55,9 @@ def create_context_aware_api_routes(
 
     @rt("/api/context/dashboard")
     @boundary_handler()
-    async def get_context_dashboard_route(request: Request, user_uid: str) -> Result[Any]:
+    async def get_context_dashboard_route(request: Request) -> Result[Any]:
         """Get unified context dashboard for user."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
         # Parse boolean and validate time_window
@@ -75,8 +77,9 @@ def create_context_aware_api_routes(
 
     @rt("/api/context/analysis")
     @boundary_handler()
-    async def get_context_analysis_route(request: Request, user_uid: str) -> Result[Any]:
+    async def get_context_analysis_route(request: Request) -> Result[Any]:
         """Get AI-powered context analysis (alias for context summary)."""
+        user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
         include_insights = parse_bool_param(params, "include_insights", default=True)
@@ -89,8 +92,9 @@ def create_context_aware_api_routes(
 
     @rt("/api/context/next-action")
     @boundary_handler()
-    async def get_next_action_route(request: Request, user_uid: str) -> Result[Any]:
+    async def get_next_action_route(request: Request) -> Result[Any]:
         """Get AI-recommended next action based on context."""
+        user_uid = require_authenticated_user(request)
         return await context_service.get_next_action(user_uid)
 
     # ========================================================================
@@ -113,6 +117,7 @@ def create_context_aware_api_routes(
         Returns:
             Result containing completed task
         """
+        require_authenticated_user(request)
         return await context_service.complete_task_with_context(
             task_uid=task_uid,
             completion_context=body.context,
@@ -135,6 +140,7 @@ def create_context_aware_api_routes(
         Returns:
             Result containing list of created/template tasks
         """
+        require_authenticated_user(request)
         return await context_service.create_tasks_from_goal_context(
             goal_uid=goal_uid,
             context_preferences=body.context_preferences,
@@ -161,6 +167,7 @@ def create_context_aware_api_routes(
             Quality validation is now handled by Pydantic (QualityLiteral type).
             Manual validation removed - Pydantic returns 422 for invalid values.
         """
+        require_authenticated_user(request)
         return await context_service.complete_habit_with_context(
             habit_uid=habit_uid,
             completion_quality=body.quality,
@@ -173,20 +180,23 @@ def create_context_aware_api_routes(
 
     @rt("/api/context/habits/at-risk")
     @boundary_handler()
-    async def get_at_risk_habits_route(request: Request, user_uid: str) -> Result[Any]:
+    async def get_at_risk_habits_route(request: Request) -> Result[Any]:
         """Get habits at risk based on context analysis."""
+        user_uid = require_authenticated_user(request)
         return await context_service.get_at_risk_habits(user_uid)
 
     @rt("/api/context/learning/adaptive-path")
     @boundary_handler()
-    async def get_adaptive_learning_path_route(request: Request, user_uid: str) -> Result[Any]:
+    async def get_adaptive_learning_path_route(request: Request) -> Result[Any]:
         """Get adaptive learning path based on context."""
+        user_uid = require_authenticated_user(request)
         return await context_service.get_adaptive_learning_path(user_uid)
 
     @rt("/api/context/prediction/future-state")
     @boundary_handler()
-    async def predict_future_context_state_route(request: Request, user_uid: str) -> Result[Any]:
+    async def predict_future_context_state_route(request: Request) -> Result[Any]:
         """Predict future context state based on current patterns."""
+        user_uid = require_authenticated_user(request)
 
         # Get dashboard with predictions enabled
         dashboard_result = await context_service.get_context_dashboard(
@@ -218,8 +228,9 @@ def create_context_aware_api_routes(
 
     @rt("/api/context/health")
     @boundary_handler()
-    async def get_context_system_health_route(request: Request, user_uid: str) -> Result[Any]:
+    async def get_context_system_health_route(request: Request) -> Result[Any]:
         """Get overall context system health metrics."""
+        user_uid = require_authenticated_user(request)
         return await context_service.get_context_health(user_uid)
 
     logger.info("✅ Context-Aware API routes registered (service-based architecture)")

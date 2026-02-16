@@ -16,7 +16,7 @@ from typing import Any
 
 from fasthtml.common import Request
 
-from core.auth import require_authenticated_user
+from core.auth import require_admin, require_authenticated_user
 from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
 from core.infrastructure.routes.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
@@ -93,9 +93,12 @@ def create_ku_api_routes(
     # ----------------
 
     @rt("/api/ku/relationships", methods=["POST"])
+    @require_admin(user_service_getter)
     @boundary_handler()
-    async def create_ku_relationship_route(request: Request, uid: str) -> Result[Any]:
-        """Create a relationship between KUs."""
+    async def create_ku_relationship_route(
+        request: Request, current_user: Any, uid: str
+    ) -> Result[Any]:
+        """Create a relationship between KUs. Requires ADMIN role."""
         body = await request.json()
         target_uid = body.get("target_uid")
         relationship_type = body.get("type", "RELATED_TO")
@@ -131,10 +134,11 @@ def create_ku_api_routes(
     # KU Content Operations
     # ---------------------
 
-    @rt("/api/ku/content")
+    @rt("/api/ku/content", methods=["POST"])
+    @require_admin(user_service_getter)
     @boundary_handler()
-    async def update_ku_content_route(request: Request, uid: str) -> Result[Any]:
-        """Update KU content."""
+    async def update_ku_content_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
+        """Update KU content. Requires ADMIN role."""
         body = await request.json()
         content = body.get("content")
         title = body.get("title")  # Optional title update
@@ -143,18 +147,20 @@ def create_ku_api_routes(
         return await ku_service.update_ku_content(uid, content, title)
 
     @rt("/api/ku/tags", methods=["POST"])
+    @require_admin(user_service_getter)
     @boundary_handler()
-    async def add_ku_tags_route(request: Request, uid: str) -> Result[Any]:
-        """Add tags to a KU."""
+    async def add_ku_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
+        """Add tags to a KU. Requires ADMIN role."""
         body = await request.json()
         tags = body.get("tags", [])
 
         return await ku_service.add_knowledge_tags(uid, tags)
 
     @rt("/api/ku/tags", methods=["DELETE"])
+    @require_admin(user_service_getter)
     @boundary_handler()
-    async def remove_ku_tags_route(request: Request, uid: str) -> Result[Any]:
-        """Remove tags from a KU."""
+    async def remove_ku_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
+        """Remove tags from a KU. Requires ADMIN role."""
         body = await request.json()
         tags = body.get("tags", [])
 
