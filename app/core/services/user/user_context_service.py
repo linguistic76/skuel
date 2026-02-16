@@ -424,6 +424,7 @@ class UserContextService:
     async def complete_task_with_context(
         self,
         task_uid: str,
+        user_uid: str,
         completion_context: dict[str, Any] | None = None,
         reflection_notes: str = "",
     ) -> Result[Task]:
@@ -459,6 +460,10 @@ class UserContextService:
 
         task = task_result.value
         if not task:
+            return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
+
+        # Ownership check — return 404 to prevent UID enumeration
+        if task.user_uid != user_uid:
             return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
 
         # Extract context data
@@ -501,6 +506,7 @@ class UserContextService:
     async def create_tasks_from_goal_context(
         self,
         goal_uid: str,
+        user_uid: str,
         context_preferences: dict[str, Any] | None = None,
         auto_create: bool = True,
     ) -> Result[list[Task]]:
@@ -550,8 +556,11 @@ class UserContextService:
         if not goal:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
+        # Ownership check — return 404 to prevent UID enumeration
+        if goal.user_uid != user_uid:
+            return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
+
         # Build user context - builder owns user resolution (Option A architecture)
-        user_uid = goal.user_uid
         context_result = await self.context_builder.build(user_uid)
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
@@ -592,6 +601,7 @@ class UserContextService:
     async def complete_habit_with_context(
         self,
         habit_uid: str,
+        user_uid: str,
         completion_quality: str = "good",  # poor, fair, good, excellent
         environmental_factors: dict[str, Any] | None = None,
     ) -> Result[Any]:  # Returns Habit
@@ -639,8 +649,11 @@ class UserContextService:
         if not habit:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
+        # Ownership check — return 404 to prevent UID enumeration
+        if habit.user_uid != user_uid:
+            return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
+
         # Build user context - builder owns user resolution (Option A architecture)
-        user_uid = habit.user_uid
         context_result = await self.context_builder.build(user_uid)
         if context_result.is_error:
             return context_result

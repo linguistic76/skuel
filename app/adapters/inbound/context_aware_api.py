@@ -117,9 +117,10 @@ def create_context_aware_api_routes(
         Returns:
             Result containing completed task
         """
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
         return await context_service.complete_task_with_context(
             task_uid=task_uid,
+            user_uid=user_uid,
             completion_context=body.context,
             reflection_notes=body.reflection,
         )
@@ -140,9 +141,10 @@ def create_context_aware_api_routes(
         Returns:
             Result containing list of created/template tasks
         """
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
         return await context_service.create_tasks_from_goal_context(
             goal_uid=goal_uid,
+            user_uid=user_uid,
             context_preferences=body.context_preferences,
             auto_create=body.auto_create,
         )
@@ -167,9 +169,10 @@ def create_context_aware_api_routes(
             Quality validation is now handled by Pydantic (QualityLiteral type).
             Manual validation removed - Pydantic returns 422 for invalid values.
         """
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
         return await context_service.complete_habit_with_context(
             habit_uid=habit_uid,
+            user_uid=user_uid,
             completion_quality=body.quality,
             environmental_factors=body.environmental_factors,
         )

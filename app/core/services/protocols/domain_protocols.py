@@ -1431,6 +1431,7 @@ class UserContextOperations(Protocol):
     async def complete_task_with_context(
         self,
         task_uid: str,
+        user_uid: str,
         completion_context: dict[str, Any] | None = None,
         reflection_notes: str = "",
     ) -> Result[Any]:  # Result[Task]
@@ -1440,6 +1441,7 @@ class UserContextOperations(Protocol):
     async def create_tasks_from_goal_context(
         self,
         goal_uid: str,
+        user_uid: str,
         context_preferences: dict[str, Any] | None = None,
         auto_create: bool = True,
     ) -> Result[list[Any]]:  # Result[list[Task]]
@@ -1449,6 +1451,7 @@ class UserContextOperations(Protocol):
     async def complete_habit_with_context(
         self,
         habit_uid: str,
+        user_uid: str,
         completion_quality: str = "good",
         environmental_factors: dict[str, Any] | None = None,
     ) -> Result[Any]:  # Result[Habit]
