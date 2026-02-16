@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Generate KU Files from MOC Headings
-====================================
+Generate KU Files from Hierarchical Markdown
+=============================================
 
-Parses the Worldview MOC and generates KU markdown files in the
-Obsidian vault for each heading (H3-H6).
+Parses a hierarchical markdown file (e.g., a Map of Content) and generates
+KU markdown files in the Obsidian vault for each heading (H3-H6).
 
 Usage:
     poetry run python scripts/generate_kus_from_moc.py
@@ -19,11 +19,11 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.utils.moc_parser import (
+from core.utils.hierarchy_parser import (
     HeadingNode,
-    MOCStructure,
+    HierarchyStructure,
     generate_ku_yaml_from_heading,
-    parse_moc_file,
+    parse_hierarchy_file,
 )
 
 # Configuration
@@ -33,17 +33,17 @@ OUTPUT_BASE_PATH = Path("/home/mike/0bsidian/skuel/docs")
 
 def generate_ku_file(
     heading: HeadingNode,
-    moc: MOCStructure,
+    hierarchy: HierarchyStructure,
     section_slug: str,
     output_dir: Path,
     dry_run: bool = False,
 ) -> Path | None:
     """
-    Generate a KU markdown file from a MOC heading.
+    Generate a KU markdown file from a heading.
 
     Args:
         heading: The heading node to convert
-        moc: Parent MOC structure
+        hierarchy: Parent hierarchy structure
         section_slug: Section (H2) slug this belongs to
         output_dir: Directory to write the file
         dry_run: If True, don't actually write files
@@ -54,9 +54,9 @@ def generate_ku_file(
     # Generate YAML content
     yaml_content = generate_ku_yaml_from_heading(
         heading=heading,
-        moc_uid=moc.uid,
+        organizer_uid=hierarchy.uid,
         section_slug=section_slug,
-        domain=moc.domain,
+        domain=hierarchy.domain,
     )
 
     # Create filename
@@ -76,7 +76,7 @@ def generate_ku_file(
 
 def process_headings_recursive(
     headings: list[HeadingNode],
-    moc: MOCStructure,
+    hierarchy: HierarchyStructure,
     section_slug: str,
     output_dir: Path,
     dry_run: bool = False,
@@ -87,7 +87,7 @@ def process_headings_recursive(
 
     Args:
         headings: List of heading nodes to process
-        moc: Parent MOC structure
+        hierarchy: Parent hierarchy structure
         section_slug: Section (H2) slug
         output_dir: Base output directory
         dry_run: If True, don't write files
@@ -104,7 +104,7 @@ def process_headings_recursive(
             # Generate KU file for this heading
             result = generate_ku_file(
                 heading=heading,
-                moc=moc,
+                hierarchy=hierarchy,
                 section_slug=section_slug,
                 output_dir=output_dir,
                 dry_run=dry_run,
@@ -119,7 +119,7 @@ def process_headings_recursive(
             if heading.children:
                 process_headings_recursive(
                     headings=heading.children,
-                    moc=moc,
+                    hierarchy=hierarchy,
                     section_slug=section_slug,
                     output_dir=output_dir,
                     dry_run=dry_run,
@@ -134,7 +134,9 @@ def process_headings_recursive(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate KU files from MOC headings")
+    parser = argparse.ArgumentParser(
+        description="Generate KU files from hierarchical markdown headings"
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -149,7 +151,7 @@ def main():
         "--moc-path",
         type=str,
         default=str(MOC_FILE_PATH),
-        help="Path to the MOC file",
+        help="Path to the hierarchical markdown file",
     )
     parser.add_argument(
         "--output-path",
@@ -160,17 +162,17 @@ def main():
 
     args = parser.parse_args()
 
-    # Parse MOC
+    # Parse hierarchy
     moc_path = Path(args.moc_path)
     output_base = Path(args.output_path)
 
-    print(f"Parsing MOC: {moc_path}")
-    moc = parse_moc_file(moc_path)
+    print(f"Parsing: {moc_path}")
+    hierarchy = parse_hierarchy_file(moc_path)
 
-    print(f"MOC: {moc.title}")
-    print(f"UID: {moc.uid}")
-    print(f"Sections: {len(moc.sections)}")
-    print(f"Total headings: {len(moc.get_all_headings())}")
+    print(f"Title: {hierarchy.title}")
+    print(f"UID: {hierarchy.uid}")
+    print(f"Sections: {len(hierarchy.sections)}")
+    print(f"Total headings: {len(hierarchy.get_all_headings())}")
     print()
 
     if args.dry_run:
@@ -180,7 +182,7 @@ def main():
     # Process each section
     total_stats = {"created": 0, "skipped": 0, "errors": 0}
 
-    for section in moc.sections:
+    for section in hierarchy.sections:
         # Filter by section if specified
         if args.section and section.slug != args.section:
             continue
@@ -193,7 +195,7 @@ def main():
         # Process all children of this section
         stats = process_headings_recursive(
             headings=section.children,
-            moc=moc,
+            hierarchy=hierarchy,
             section_slug=section.slug,
             output_dir=section_dir,
             dry_run=args.dry_run,

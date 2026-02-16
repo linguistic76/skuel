@@ -8,8 +8,8 @@ This module provides a CONSISTENT protocol hierarchy for the three
 curriculum domains (KU, LS, LP), parallel to BackendOperations for
 Activity domains.
 
-NOTE: MOC is now KU-based (January 2026). MocOperations protocol removed.
-A KU "is" a MOC when it has outgoing ORGANIZES relationships to other KUs.
+Any Ku can organize other Kus via ORGANIZES relationships (emergent identity).
+Organization methods are part of KuOperations protocol.
 
 Design Principle: "Curriculum domains follow the same patterns as Activity domains"
 -------------------------------------------------------------------------------
@@ -440,6 +440,42 @@ class KuOperations(CurriculumOperations["Ku"], Protocol):
         Returns:
             Result[list[str]]: UIDs of learning paths featuring this KU
         """
+        ...
+
+    # =========================================================================
+    # ORGANIZATION (ORGANIZES relationships — any Ku can organize others)
+    # =========================================================================
+
+    async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
+        """Create ORGANIZES relationship between two Kus."""
+        ...
+
+    async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        """Remove ORGANIZES relationship between two Kus."""
+        ...
+
+    async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
+        """Change the order of a child Ku within its parent."""
+        ...
+
+    async def is_organizer(self, ku_uid: str) -> Result[bool]:
+        """Check if a Ku has organized children."""
+        ...
+
+    async def get_organization_view(self, ku_uid: str, max_depth: int = 3) -> Result[Any]:
+        """Get a Ku with its organized children hierarchy."""
+        ...
+
+    async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+        """Find all parent Kus that organize the given Ku."""
+        ...
+
+    async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
+        """List Kus that organize others but are not themselves organized."""
+        ...
+
+    async def get_organized_children(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get direct children of a Ku organized by ORGANIZES relationship."""
         ...
 
 
@@ -984,9 +1020,8 @@ class LpOperations(CurriculumOperations["Ku"], Protocol):
 # A KU "is" a MOC when it has outgoing ORGANIZES relationships to other KUs.
 # This is an emergent identity pattern, not a separate entity type.
 #
-# For MOC operations, use:
-# - MocNavigationService for graph navigation
-# - MocService facade for high-level operations
-# - KU models and KuOperations for underlying entity operations
+# For organization operations, use:
+# - KuOrganizationService (sub-service of KuService) for graph navigation
+# - KuOperations protocol for type-safe access
 #
 # See: /docs/domains/moc.md for full architecture documentation

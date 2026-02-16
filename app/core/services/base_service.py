@@ -34,11 +34,10 @@ DOMAINS NOT USING THIS BASE SERVICE (8 of 14)
     9. LsService  - Learning Steps (ls:)
     10. LpService - Learning Paths (lp:)
 
-**Content/Organization Domains (4)** - Cross-domain composition:
-    11. JournalsService        - File processing
-    12. MocService             - Map of Content organization
-    13. AnalyticsLifePathService  - Life goal alignment
-    14. AnalyticsService          - Statistical aggregation
+**Content/Organization Domains (3)** - Cross-domain composition:
+    11. JournalsService           - File processing
+    12. AnalyticsLifePathService  - Life goal alignment
+    13. AnalyticsService          - Statistical aggregation
 
 THE 4 CROSS-CUTTING SYSTEMS
 ---------------------------

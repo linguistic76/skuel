@@ -24,9 +24,9 @@ TYPE_MAPPING: dict[str, KuType | NonKuDomain] = {
     "ku": KuType.CURRICULUM,
     "knowledge": KuType.CURRICULUM,
     "knowledgeunit": KuType.CURRICULUM,
-    # Maps of Content
-    "moc": KuType.MOC,
-    "mapofcontent": KuType.MOC,
+    # Maps of Content (now CURRICULUM — MOC is emergent via ORGANIZES relationships)
+    "moc": KuType.CURRICULUM,
+    "mapofcontent": KuType.CURRICULUM,
     # Activity domains
     "task": KuType.TASK,
     "goal": KuType.GOAL,
@@ -105,9 +105,9 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> KuType | NonKuD
         if non_ku:
             return non_ku
 
-    # Check for MOC flag (markdown convention)
+    # Check for MOC flag (markdown convention) — MOC is now CURRICULUM
     if data.get("moc") is True:
-        return KuType.MOC
+        return KuType.CURRICULUM
 
     # Default to CURRICULUM for markdown files without explicit type
     if file_path.suffix.lower() == ".md":

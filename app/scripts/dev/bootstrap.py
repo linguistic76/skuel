@@ -647,10 +647,12 @@ async def _wire_all_routes(
         register_analytics_routes(app, services)
         logger.info("✅ Analytics API routes registered (Phase 5: Event-driven live metrics)")
 
-    from adapters.inbound.moc_routes import create_moc_routes
+    from adapters.inbound.ku_organization_api import create_ku_organization_api_routes
 
-    create_moc_routes(app, rt, services)
-    logger.info("✅ MOC routes registered (API + UI)")
+    create_ku_organization_api_routes(
+        app, rt, ku_service=services.ku, user_service=services.user_service
+    )
+    logger.info("✅ KU organization routes registered")
 
     # Hierarchy routes (TreeView, AccordionHierarchy API endpoints)
     from adapters.inbound.hierarchy_routes import create_hierarchy_routes

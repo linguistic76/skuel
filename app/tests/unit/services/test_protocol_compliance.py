@@ -43,9 +43,7 @@ from core.services.ku_service import KuService
 from core.services.lp_service import LpService
 from core.services.ls_service import LsService
 
-# NOTE: MOCService removed (January 2026) - MOC is now KU-based
-# MOCService is a thin facade over MocNavigationService, not a FacadeDelegationMixin
-# See /docs/domains/moc.md for the KU-based architecture
+# NOTE: MOCService removed (February 2026) - organization logic absorbed into KuService
 from core.services.principles_service import PrinciplesService
 
 # Backend protocol
@@ -56,7 +54,7 @@ from core.services.protocols import (
     GoalsFacadeProtocol,
     HabitsFacadeProtocol,
     LpFacadeProtocol,
-    # NOTE: MocFacadeProtocol removed (January 2026) - MOC is now KU-based
+    # NOTE: MocFacadeProtocol removed (February 2026) - organization absorbed into KuService
     PrinciplesFacadeProtocol,
     TasksFacadeProtocol,
 )
@@ -99,7 +97,7 @@ class TestFacadeProtocolCompliance:
         (PrinciplesFacadeProtocol, PrinciplesService, "Principles"),
         # Curriculum Domains
         (LpFacadeProtocol, LpService, "LP"),
-        # NOTE: MOC removed (January 2026) - MOC is now KU-based, not a FacadeDelegationMixin
+        # NOTE: MOC removed (February 2026) - organization absorbed into KuService
     ]
 
     @pytest.mark.parametrize(
@@ -180,7 +178,7 @@ class TestFacadeStructure:
         PrinciplesService,
     ]
 
-    # NOTE: MOCService removed (January 2026) - MOC is now KU-based, not a FacadeDelegationMixin
+    # NOTE: MOCService removed (February 2026) - organization logic absorbed into KuService
     CURRICULUM_FACADES = [KuService, LsService, LpService]
 
     @pytest.mark.parametrize(
@@ -235,7 +233,7 @@ class TestProtocolMethodCounts:
             EventsFacadeProtocol,
             PrinciplesFacadeProtocol,
             LpFacadeProtocol,
-            # NOTE: MocFacadeProtocol removed (January 2026) - MOC is now KU-based
+            # NOTE: MocFacadeProtocol removed (February 2026) - organization absorbed into KuService
         ]
         for protocol in protocols:
             method_count = len(get_protocol_methods(protocol))

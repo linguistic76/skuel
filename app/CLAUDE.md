@@ -196,7 +196,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 | 8-10 | KU, LS, LP | Curriculum | `ku_{slug}_{random}`, `ls:{random}`, `lp:{random}` | Knowledge organization |
 | 11 | Reports | Content | `ku_{slug}_{random}` | Submissions (transcripts, assignments, journals) — uses unified Ku model |
 | 12 | Groups | Organizational | `group_{slug}_{random}` | Teacher-student class management |
-| 13 | MOC | Organizational | `ku_{slug}_{random}` (MOC is a KU) | Non-linear KU navigation |
+| 13 | MOC | Organizational | N/A (emergent — any Ku with ORGANIZES) | Non-linear KU navigation |
 | 14 | LifePath | Destination | `lp_{random}` | "Am I living my life path?" |
 
 ### Domain Category Details
@@ -232,7 +232,7 @@ The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expr
 
 **Organizational Domains (2)**:
 - **Groups** - Teacher-student class management (ADR-040). Teacher creates group, adds students via MEMBER_OF. Assignments target groups via FOR_GROUP.
-- **MOC** - KU-based non-linear knowledge navigation. MOC is NOT a separate entity - it IS a KU with ORGANIZES relationships.
+- **MOC** - Non-linear knowledge navigation. MOC is NOT a KuType — any Ku can organize others via ORGANIZES relationships (emergent identity). Organization managed by `KuOrganizationService` (sub-service of KuService).
 
 **LifePath Domain (1)** - The Destination:
 - Philosophy: "The user's vision is understood via words, UserContext via actions"
@@ -358,10 +358,10 @@ Does the domain have 3+ business logic methods?
 
 | Pattern | Files | Tiers | Use For | Domains |
 |---------|-------|-------|---------|---------|
-| **Unified Ku** | 1 model + 1 DTO | Pydantic→DTO→Ku | All 16 KuType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, MOC, LifePath (12 domains) |
+| **Unified Ku** | 1 model + 1 DTO | Pydantic→DTO→Ku | All 15 KuType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, LifePath (11 domains) |
 | **B: Two-Tier** | 2 | Pydantic→DTO | Simple CRUD, minimal logic | Finance (1 domain) |
 
-**Unified Ku Model (ADR-041):** All 16 KuType domains share `Ku` (frozen dataclass) + `KuDTO` (mutable DTO). Domain-specific Pydantic request models (`*_request.py`) remain in domain packages for API validation. `KuStatus` is THE status enum — `ActivityStatus` and `GoalStatus` are deleted.
+**Unified Ku Model (ADR-041):** All 15 KuType domains share `Ku` (frozen dataclass) + `KuDTO` (mutable DTO). Domain-specific Pydantic request models (`*_request.py`) remain in domain packages for API validation. `KuStatus` is THE status enum — `ActivityStatus` and `GoalStatus` are deleted. MOC is not a KuType — it's emergent (any Ku with ORGANIZES relationships).
 
 Key: Frozen dataclasses with `__post_init__` for dynamic defaults, `DomainModelProtocol` for generics.
 
@@ -465,10 +465,10 @@ GraphDepth.DEFAULT                        # Named constants
 **Core Principle:** "Clear domain language -> clear types -> enforceable contracts"
 
 ```python
-# KuType — 16 knowledge-unit domain types (all :Ku nodes in Neo4j)
+# KuType — 15 knowledge-unit domain types (all :Ku nodes in Neo4j)
 class KuType(str, Enum):
     TASK, HABIT, GOAL, EVENT, PRINCIPLE, CHOICE = ...  # Activity
-    CURRICULUM, RESOURCE, MOC, LEARNING_STEP, LEARNING_PATH = ...  # Curriculum
+    CURRICULUM, RESOURCE, LEARNING_STEP, LEARNING_PATH = ...  # Curriculum
     JOURNAL, SUBMISSION, AI_REPORT, FEEDBACK_REPORT = ...  # Reports
     LIFE_PATH = "life_path"  # Destination
 
@@ -686,10 +686,10 @@ await service.get_for_user(uid, user_uid)      # Get with ownership check
 | Pattern | Domains | Create | Read | Ownership Check |
 |---------|---------|--------|------|-----------------|
 | **USER_OWNED** | Tasks, Goals, Habits, Events, Choices, Principles, Reports | User | Owner only | Yes (returns 404 if not owner) |
-| **SHARED** | KU, LS, LP, MOC | Admin only | All users | No (content is public) |
+| **SHARED** | KU, LS, LP | Admin only | All users | No (content is public) |
 | **ADMIN_ONLY** | Finance | Admin only | Admin only | No (admin-gated at route) |
 
-**Key distinction**: Regular users create Activity Domains + Reports. Admins build the knowledge architecture (KU, LS, LP, MOC). Finance is admin-only for both reads and writes.
+**Key distinction**: Regular users create Activity Domains + Reports. Admins build the knowledge architecture (KU, LS, LP). Finance is admin-only for both reads and writes.
 
 **See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`
 
@@ -702,7 +702,7 @@ await service.get_for_user(uid, user_uid)      # Get with ownership check
 | Tier | ContentOrigin | KuTypes | Description |
 |------|--------------|---------|-------------|
 | A | `CURATED` | Resource | Admin-curated content used by Askesis |
-| B | `CURRICULUM` | Curriculum, MOC, LS, LP | Curriculum structure and organization |
+| B | `CURRICULUM` | Curriculum, LS, LP | Curriculum structure and organization |
 | C | `USER_CREATED` | Activities, Submission, Journal, Life Path | User-generated content |
 | D | `FEEDBACK` | AI Report, Feedback Report | Analysis/feedback that acts on tier C |
 
@@ -1008,7 +1008,7 @@ tasks = await backend.find_by(priority='high', due_date__gte=date.today())
 - `/search` routes -> `SearchRouter.faceted_search()`
 - `/api/search/unified` -> `SearchRouter.advanced_search()`
 
-**Searchable Domains:** All 9 - Task, Goal, Habit, Event, Choice, Principle, KU, LS, LP (MOC is KU-based)
+**Searchable Domains:** All 9 - Task, Goal, Habit, Event, Choice, Principle, KU, LS, LP
 
 **BaseService Configuration** (ONE PATH FORWARD - January 2026):
 
@@ -1160,9 +1160,9 @@ from core.services.ingestion import UnifiedIngestionService
 
 **Two Paths to Knowledge (Montessori-Inspired):**
 - **LS Path:** Structured, linear, teacher-directed curriculum (KU → LS → LP)
-- **MOC Path:** Unstructured, graph, learner-directed exploration (KU organizing KUs via ORGANIZES)
+- **ORGANIZES Path:** Unstructured, graph, learner-directed exploration (any KU organizing other KUs)
 
-**MOC Architecture (January 2026):** MOC is NOT a separate entity - it IS a KU with ORGANIZES relationships. A KU "is" a MOC when it has outgoing ORGANIZES relationships (emergent identity).
+**MOC Architecture (February 2026):** MOC is NOT a KuType — it's emergent identity. Any Ku "is" an organizer when it has outgoing ORGANIZES relationships. Organization managed by `KuOrganizationService` (sub-service of KuService).
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/domains/moc.md`
 
@@ -1180,7 +1180,7 @@ ku.meditation-basics              (Markdown ingestion - legacy)
 
 **Hierarchy via Relationships:**
 ```cypher
-// MOC Pattern - KU organizing KUs
+// Organization Pattern - any KU can organize other KUs
 (moc:Ku {uid: "ku_yoga-fundamentals_abc123"})
   -[:ORGANIZES {order: 1, importance: "core"}]->
 (child:Ku {uid: "ku_meditation-basics_xyz789"})
@@ -1395,7 +1395,7 @@ All support `scope=ContentScope.USER_OWNED` (default) for multi-tenant security.
 
 **ContentScope Values:**
 - `ContentScope.USER_OWNED` - User-specific content with ownership verification (Activity domains + Reports)
-- `ContentScope.SHARED` - Public reading, admin-only creation (Curriculum domains: KU, LS, LP, MOC)
+- `ContentScope.SHARED` - Public reading, admin-only creation (Curriculum domains: KU, LS, LP)
 
 **Example:**
 ```python

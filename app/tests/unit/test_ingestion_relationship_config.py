@@ -84,10 +84,9 @@ class TestIngestionRelationshipConfig:
                 f"{entity_type}: ingestion config does not match registry"
             )
 
-    def test_moc_gets_organizes_not_ku_relationships(self):
-        """MOC only gets ORGANIZES, not KU's requires/enables/related."""
-        config = ENTITY_CONFIGS[KuType.MOC].relationship_config
+    def test_curriculum_gets_organizes_relationship(self):
+        """CURRICULUM config includes ORGANIZES for organization functionality."""
+        config = ENTITY_CONFIGS[KuType.CURRICULUM].relationship_config
         assert config is not None
-        assert len(config) == 1
         assert "organizes" in config
         assert config["organizes"]["rel_type"] == RelationshipName.ORGANIZES.value

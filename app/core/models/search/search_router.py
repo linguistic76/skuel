@@ -229,7 +229,6 @@ class SearchRouter:
         KuType.LEARNING_PATH: "learning_paths",
         # Content/Organization Domains
         KuType.SUBMISSION: "reports",
-        KuType.MOC: "moc",  # Non-linear knowledge navigation
         # The Destination - LifePath
         # "Everything flows toward the life path"
         KuType.LIFE_PATH: "lifepath",
@@ -247,11 +246,10 @@ class SearchRouter:
             KuType.EVENT,
             KuType.CHOICE,
             KuType.PRINCIPLE,
-            # Curriculum Domains (4) - KU, LS, LP, MOC (January 2026)
+            # Curriculum Domains (3) - KU, LS, LP
             KuType.CURRICULUM,
             KuType.LEARNING_STEP,
             KuType.LEARNING_PATH,
-            KuType.MOC,
         }
     )
 
@@ -496,10 +494,10 @@ class SearchRouter:
             return Result.fail(Errors.database(operation="faceted_search", message=str(e)))
 
     # Domains that support graph_aware_faceted_search (January 2026 - Unified Search)
-    # Includes Activity Domains + All Curriculum Domains (KU, LS, LP, MOC)
+    # Includes Activity Domains + All Curriculum Domains (KU, LS, LP)
     # One Path Forward: All domains use the same search pattern
     _GRAPH_AWARE_DOMAINS: frozenset[str] = frozenset(
-        {"tasks", "goals", "habits", "events", "choices", "principles", "ku", "ls", "lp", "moc"}
+        {"tasks", "goals", "habits", "events", "choices", "principles", "ku", "ls", "lp"}
     )
 
     async def _graph_aware_domain_search(
@@ -572,7 +570,6 @@ class SearchRouter:
             "ku": KuType.CURRICULUM,
             "ls": KuType.LEARNING_STEP,
             "lp": KuType.LEARNING_PATH,
-            "moc": KuType.MOC,
         }
 
         entity_type = domain_to_entity.get(domain_str.lower())

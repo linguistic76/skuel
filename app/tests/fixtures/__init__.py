@@ -19,11 +19,11 @@ Available Fixtures:
 - embedding_fixtures: Mock embeddings and vector search services
 
 Usage:
-    from tests.fixtures.service_factories import create_moc_service_for_testing
+    from tests.fixtures.service_factories import create_tasks_service_for_testing
     from tests.fixtures.embedding_fixtures import services_with_embeddings
 
     def test_something(services_with_embeddings):
-        service = create_moc_service_for_testing()
+        service = create_tasks_service_for_testing()
         # Test using service facade methods with mock AI services
 """
 
@@ -41,7 +41,6 @@ from tests.fixtures.service_factories import (
     create_askesis_user_context_for_testing,
     create_finance_service_for_testing,
     create_knowledge_state_for_testing,
-    create_moc_service_for_testing,
     create_mock_backend,
     create_mock_backend_for_base_service,
     create_mock_driver,
@@ -51,7 +50,6 @@ from tests.fixtures.service_factories import (
 
 __all__ = [
     # Service factories
-    "create_moc_service_for_testing",
     "create_unified_user_context_for_testing",
     "create_finance_service_for_testing",
     "create_tasks_service_for_testing",

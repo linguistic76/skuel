@@ -20,7 +20,7 @@ def create_ku_reading_routes(app, rt, services, _sync_service=None):
     Args:
         app: FastHTML app instance
         rt: FastHTML route decorator
-        services: Service container with ku, moc
+        services: Service container with ku
 
     Returns:
         List of registered route functions
@@ -32,7 +32,7 @@ def create_ku_reading_routes(app, rt, services, _sync_service=None):
         app=app,
         rt=rt,
         ku_interaction_service=services.ku.interaction,
-        moc_service=services.moc,
+        ku_service=services.ku,
     )
     routes.extend(api_routes)
 
@@ -41,7 +41,6 @@ def create_ku_reading_routes(app, rt, services, _sync_service=None):
         app=app,
         rt=rt,
         ku_service=services.ku,
-        moc_service=services.moc,
         ku_interaction_service=services.ku.interaction,
     )
     routes.extend(ui_routes)

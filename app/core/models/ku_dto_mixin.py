@@ -5,23 +5,23 @@ KuDTOMixin - Conditional Ownership for Unified Ku DTOs
 Handles conditional user_uid validation based on KuType:
 
     Shared (user_uid must be None):
-        CURRICULUM, MOC, LEARNING_STEP, LEARNING_PATH
+        CURRICULUM, LEARNING_STEP, LEARNING_PATH
 
     User-owned (user_uid required):
         SUBMISSION, AI_REPORT, FEEDBACK_REPORT,
         TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE, LIFE_PATH
 
 UID generation per KuType:
-    CURRICULUM/MOC:     ku_{slug}_{random}  (semantic UID from title)
+    CURRICULUM:         ku_{slug}_{random}  (semantic UID from title)
     LEARNING_STEP:      ls_{random}
     LEARNING_PATH:      lp_{random}
     SUBMISSION/AI/FB:   {userid}_ku_{type}_{random}  (user-namespaced)
     Activity domains:   {type}_{slug}_{random}  (semantic UID)
     LIFE_PATH:          lp_{random}  (LP with life path designation)
 
-Factory classmethods for each KuType (10 new + original 4 on KuDTO):
+Factory classmethods for each KuType (9 new + original 4 on KuDTO):
     create_task, create_goal, create_habit, create_event,
-    create_choice, create_principle, create_moc,
+    create_choice, create_principle,
     create_learning_step, create_learning_path, create_life_path
 
 See: ActivityDTOMixin for the Activity Domain equivalent (to be removed in Phase 4).
@@ -37,7 +37,6 @@ from core.models.enums.metadata_enums import Visibility
 _SHARED_KU_TYPES = frozenset(
     {
         KuType.CURRICULUM,
-        KuType.MOC,
         KuType.LEARNING_STEP,
         KuType.LEARNING_PATH,
     }
@@ -48,7 +47,7 @@ class KuDTOMixin:
     """
     Mixin providing factory methods for unified Ku DTOs with conditional ownership.
 
-    Shared types (CURRICULUM, MOC, LS, LP) have no owner.
+    Shared types (CURRICULUM, LS, LP) have no owner.
     All other types require user_uid.
 
     Class Variables:
@@ -101,7 +100,7 @@ class KuDTOMixin:
         from core.utils.uid_generator import UIDGenerator
 
         # Shared knowledge: semantic UID from title
-        if ku_type in {KuType.CURRICULUM, KuType.MOC}:
+        if ku_type in {KuType.CURRICULUM}:
             if title:
                 return UIDGenerator.generate_knowledge_uid(title)
             return UIDGenerator.generate_random_uid("ku")
@@ -271,23 +270,6 @@ class KuDTOMixin:
     # =========================================================================
     # SHARED / CURRICULUM FACTORY METHODS
     # =========================================================================
-
-    @classmethod
-    def create_moc(cls, title: str, **kwargs: Any) -> Self:
-        """Create a MOC Ku (Map of Content — KU organizing KUs).
-
-        No user_uid — MOC is shared content.
-        Status defaults to COMPLETED, visibility to PUBLIC.
-        """
-        kwargs.pop("user_uid", None)
-        kwargs.setdefault("status", KuStatus.COMPLETED)
-        kwargs.setdefault("visibility", Visibility.PUBLIC)
-        return cls._create_ku_dto(
-            ku_type=KuType.MOC,
-            title=title,
-            user_uid=None,
-            **kwargs,
-        )
 
     @classmethod
     def create_learning_step(cls, title: str, **kwargs: Any) -> Self:

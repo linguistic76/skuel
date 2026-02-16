@@ -12,11 +12,11 @@ Design Philosophy:
 
 Pattern:
     # Production
-    service = MOCService(backend=backend, driver=driver)
+    service = TasksService(backend=backend, driver=driver, ...)
 
     # Tests
-    service = create_moc_service_for_testing(
-        section_behavior={"add_section": Result.ok(section)}
+    service = create_tasks_service_for_testing(
+        backend_behavior={"get": Result.ok(task)}
     )
 
 This ensures tests stay in sync with production composition while
@@ -104,62 +104,6 @@ def create_mock_driver(behavior: dict[str, Any] | None = None) -> Mock:
 # ============================================================================
 # SERVICE FACTORIES - One per service
 # ============================================================================
-
-
-def create_moc_service_for_testing(
-    backend: Mock | None = None,
-    driver: Mock | None = None,
-    backend_behavior: dict[str, Any] | None = None,
-    driver_behavior: dict[str, Any] | None = None,
-) -> Any:  # Returns MOCService
-    """
-    Create MOCService instance for testing using production composition pattern.
-
-    This factory mirrors how MOCService is created in production:
-    - Accepts backend and driver (external dependencies)
-    - Service creates sub-services internally (section, core, content, etc.)
-
-    Args:
-        backend: Optional mock backend (created if not provided)
-        driver: Optional mock driver (created if not provided)
-        backend_behavior: Optional behavior customization for backend
-                         Example: {"get": Result.ok(moc), "create": Result.ok(moc)}
-        driver_behavior: Optional behavior customization for driver
-
-    Returns:
-        MOCService instance with mocked dependencies
-
-    Usage:
-        # Simple: Use defaults
-        service = create_moc_service_for_testing()
-
-        # Custom backend behavior
-        service = create_moc_service_for_testing(
-            backend_behavior={"get": Result.ok(my_moc)}
-        )
-
-        # Full control
-        my_backend = create_mock_backend({"create": Result.ok(moc)})
-        service = create_moc_service_for_testing(backend=my_backend)
-
-    Notes:
-        - Sub-services (section, core, content, discovery, template) are
-          created internally by MOCService.__init__
-        - To customize sub-service behavior, access via service.section,
-          service.core, etc. after creation
-        - This pattern maintains encapsulation while enabling testing
-    """
-    from core.services.moc_service import MOCService
-
-    # Create mocks if not provided
-    if backend is None:
-        backend = create_mock_backend(backend_behavior)
-    if driver is None:
-        driver = create_mock_driver(driver_behavior)
-
-    # Create service using production pattern
-    # MOCService.__init__ creates sub-services internally
-    return MOCService(backend=backend, driver=driver)
 
 
 def create_unified_user_context_for_testing(
@@ -507,11 +451,8 @@ def create_askesis_user_context_for_testing(
 """
 Service Factory Migration Checklist:
 
-Phase 1: MOC (26 failures) ✅ IN PROGRESS
-- [x] Create create_moc_service_for_testing()
-- [ ] Update tests/test_moc_service.py to use factory
-- [ ] Run tests: poetry run pytest tests/test_moc_service.py -v
-- [ ] Validate: 26 failures → 0 failures
+Phase 1: MOC — DELETED (February 2026). MOC is no longer a separate service.
+  KU organization tests use KuOrganizationService directly.
 
 Phase 2: UserContext (6 failures)
 - [x] Create create_unified_user_context_for_testing()

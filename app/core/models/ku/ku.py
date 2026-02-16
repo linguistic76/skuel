@@ -4,11 +4,10 @@ Unified Knowledge Domain Model (Tier 3 - Core)
 
 "Ku is the heartbeat of SKUEL."
 
-Immutable domain model for ALL knowledge in the system. 14 manifestations:
+Immutable domain model for ALL knowledge in the system. 15 manifestations:
 
     Knowledge (shared):
         CURRICULUM      → Admin-created shared knowledge
-        MOC             → Map of Content (KU organizing KUs)
     Curriculum Structure:
         LEARNING_STEP   → Step in a learning path
         LEARNING_PATH   → Ordered sequence of steps
@@ -104,7 +103,7 @@ class Ku:
     uid: str
     title: str
     ku_type: KuType = KuType.CURRICULUM
-    user_uid: str | None = None  # None for shared types (CURRICULUM, MOC, LS, LP)
+    user_uid: str | None = None  # None for shared types (CURRICULUM, LS, LP)
     parent_ku_uid: str | None = None  # Derivation chain — what Ku this was based on
     domain: Domain = Domain.KNOWLEDGE
     created_by: str | None = None
@@ -471,7 +470,6 @@ class Ku:
         if self.visibility is None:
             if self.ku_type in {
                 KuType.CURRICULUM,
-                KuType.MOC,
                 KuType.LEARNING_STEP,
                 KuType.LEARNING_PATH,
             }:

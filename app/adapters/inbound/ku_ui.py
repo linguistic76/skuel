@@ -588,9 +588,20 @@ def create_ku_ui_routes(_app, rt, ku_service):
 
     @rt("/ku/moc-nav")
     async def moc_nav_fragment(request) -> Any:
-        """HTMX: Load MOC navigation list for sidebar."""
-        # Placeholder — will be populated when MOCs exist
-        return P("No Maps of Content yet", cls="text-xs opacity-50 px-2")
+        """HTMX: Load Maps of Content navigation list for sidebar."""
+        result = await ku_service.list_root_organizers(limit=20)
+        if result.is_error or not result.value:
+            return P("No Maps of Content yet", cls="text-xs opacity-50 px-2")
+        return Div(
+            *[
+                Anchor(
+                    moc["title"],
+                    href=f"/ku/{moc['uid']}",
+                    cls="block text-xs hover:text-primary truncate px-2 py-0.5",
+                )
+                for moc in result.value
+            ],
+        )
 
     @rt("/ku/{uid}/details")
     async def knowledge_details_modal(_request, uid: str) -> Any:

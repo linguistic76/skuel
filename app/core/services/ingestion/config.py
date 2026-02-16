@@ -81,12 +81,6 @@ ENTITY_CONFIGS: dict[KuType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title", "content"),
         relationship_config=generate_ingestion_relationship_config(KuType.CURRICULUM),
     ),
-    KuType.MOC: EntityIngestionConfig(
-        entity_label="Ku",
-        uid_prefix="ku",
-        required_fields=("title",),
-        relationship_config=generate_ingestion_relationship_config(KuType.MOC),
-    ),
     KuType.TASK: EntityIngestionConfig(
         entity_label="Task",
         uid_prefix="task",

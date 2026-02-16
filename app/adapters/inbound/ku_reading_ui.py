@@ -78,7 +78,6 @@ def create_ku_reading_ui_routes(
     app: Any,
     rt: Any,
     ku_service: Any,
-    moc_service: Any,
     ku_interaction_service: Any,
 ) -> list[Any]:
     """
@@ -87,8 +86,7 @@ def create_ku_reading_ui_routes(
     Args:
         app: FastHTML app instance
         rt: FastHTML route decorator
-        ku_service: KU service facade (delegates get() from KuCoreService)
-        moc_service: MOC navigation service for breadcrumbs and next/prev
+        ku_service: KU service facade (with organization methods for breadcrumbs/navigation)
         ku_interaction_service: Interaction tracking service
 
     Returns:
@@ -139,17 +137,17 @@ def create_ku_reading_ui_routes(
         is_bookmarked = state_result.value.is_bookmarked if state_result.is_ok else False
         view_count = state_result.value.view_count if state_result.is_ok else 0
 
-        # Get MOC context for breadcrumbs + navigation
-        mocs_result = await moc_service.find_mocs_containing(uid)
-        mocs = mocs_result.value if mocs_result.is_ok else []
+        # Get organization context for breadcrumbs + navigation
+        organizers_result = await ku_service.find_organizers(uid)
+        mocs = organizers_result.value if organizers_result.is_ok else []
 
-        # Build navigation from MOC siblings
+        # Build navigation from siblings under parent organizer
         prev_ku = None
         next_ku = None
         if mocs:
             moc = mocs[0]
             moc_uid = moc.get("uid")
-            moc_view_result = await moc_service.get_moc_view(moc_uid, max_depth=1)
+            moc_view_result = await ku_service.get_organization_view(moc_uid, max_depth=1)
             if moc_view_result.is_ok:
                 children = moc_view_result.value.children
                 current_idx = None

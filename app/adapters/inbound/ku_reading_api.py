@@ -29,7 +29,7 @@ def create_ku_reading_api_routes(
     app: Any,
     rt: Any,
     ku_interaction_service: Any,
-    moc_service: Any,
+    ku_service: Any,
 ) -> list[Any]:
     """
     Create KU reading API routes.
@@ -38,7 +38,7 @@ def create_ku_reading_api_routes(
         app: FastHTML app instance
         rt: FastHTML route decorator
         ku_interaction_service: Interaction tracking service
-        moc_service: MOC navigation service for prev/next
+        ku_service: KU service with organization methods for prev/next
 
     Returns:
         List of registered route functions
@@ -105,16 +105,16 @@ def create_ku_reading_api_routes(
             "next_title": None,
         }
 
-        # Get MOCs containing this KU
-        mocs_result = await moc_service.find_mocs_containing(uid)
-        if mocs_result.is_error or not mocs_result.value:
+        # Get organizers containing this KU
+        organizers_result = await ku_service.find_organizers(uid)
+        if organizers_result.is_error or not organizers_result.value:
             return Result.ok(empty_nav)
 
-        # Use first MOC for navigation
-        moc_uid = mocs_result.value[0].get("uid")
+        # Use first organizer for navigation
+        moc_uid = organizers_result.value[0].get("uid")
 
-        # Get MOC children via get_moc_view (depth=1 for direct children only)
-        moc_view_result = await moc_service.get_moc_view(moc_uid, max_depth=1)
+        # Get children via organization view (depth=1 for direct children only)
+        moc_view_result = await ku_service.get_organization_view(moc_uid, max_depth=1)
         if moc_view_result.is_error:
             return Result.ok(empty_nav)
 

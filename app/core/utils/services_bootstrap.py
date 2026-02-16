@@ -28,8 +28,7 @@ THE 14 DOMAINS COMPOSED HERE
 
 **Content/Organization Domain Services (4):**
     11. reports → KuCoreService - File processing + journals (unified Ku model Feb 2026)
-    12. moc       → MocService        - Map of Content organization
-    13. life_path → AnalyticsLifePathService - Life goal alignment
+    12. life_path → AnalyticsLifePathService - Life goal alignment
     14. analytics → AnalyticsService     - Statistical aggregation
 
 THE 4 CROSS-CUTTING SYSTEMS
@@ -240,7 +239,6 @@ class Services:
 
     # ========================================================================
     # CURRICULUM DOMAINS (3) - KU, LS, LP
-    # Note: MOC is a Content/Organization domain, not Curriculum
     # ========================================================================
     ku: KuOperations | None = None  # KuService (Knowledge Units) - atomic knowledge content
     # adaptive_sel removed — absorbed into KuService.adaptive (February 2026)
@@ -352,12 +350,6 @@ class Services:
     insight_store: "InsightStore | None" = None
 
     # Note: choices moved to Activity Domains section above
-
-    # Content organization (Added: October 17, 2025)
-    # Note: MOC is KU-based (January 2026), uses KuOperations protocol
-    moc: KuOperations | None = (
-        None  # MOCService - Maps of Content for non-linear knowledge organization
-    )
 
     # Unified Ingestion Service (ADR-014: Merged MD + YAML ingestion)
     unified_ingestion: IngestionOperations | None = (
@@ -1125,9 +1117,6 @@ async def compose_services(
             driver, NeoLabel.USER_PROGRESS, UserProgress, prometheus_metrics=prometheus_metrics
         )
         # NOTE: vectors_backend REMOVED (January 2026) - was unused dead code
-        # NOTE: MOC backend REMOVED (January 2026) - MOC is now KU-based
-        # MOC is a KU with ORGANIZES relationships, uses KU backend via MOCService
-        # See /docs/domains/moc.md for the KU-based architecture
         # February 2026: Unified Ku model — reports_backend uses :Ku label (same as knowledge_backend)
         # Separate instance because report-related services were wired to reports_backend
         reports_backend = UniversalNeo4jBackend[Ku](
@@ -1497,13 +1486,10 @@ async def compose_services(
                 llm_service=llm_service,
                 embeddings_service=embeddings_service,
             )
-            # NOTE: MocAIService removed (January 2026) - MOC is now KU-based
-
             # Wire AI services into Curriculum Domain facades (post-construction)
             learning_services["ku_service"].ai = ku_ai
             learning_services["learning_steps"].ai = ls_ai
             learning_services["learning_paths"].ai = lp_ai
-            # NOTE: moc_service.ai removed (January 2026) - MOC is now KU-based
 
             # Create cross-cutting AI services (2)
             askesis_ai = AskesisAIService(
@@ -1800,17 +1786,6 @@ async def compose_services(
         context_service.goal_task_generator = orchestration["goal_task_generator"]
         context_service.habits_service = activity_services["habits"]
         logger.info("✅ UserContextService wired with GoalTaskGenerator and HabitsService")
-
-        # Create MOC (Map of Content) service for knowledge organization
-        # January 2026: MOC is now KU-based - MOC is a KU with ORGANIZES relationships
-        from core.services.moc_service import MOCService
-
-        # MOCService delegates to MocNavigationService which operates on KUs
-        moc_service = MOCService(
-            ku_service=learning_services["ku_service"],
-            driver=driver,
-        )
-        logger.info("MOC service created (KU-based architecture - January 2026)")
 
         # Create advanced services
         advanced = _create_advanced_services(driver)
@@ -2398,8 +2373,6 @@ async def compose_services(
             user_relationships=user_relationships,  # UserRelationshipService (pinning, following)
             graph_auth=graph_auth,  # Graph-native authentication (January 2026)
             context_service=context_service,  # Context-aware intelligence (NEW: 2025-11-18)
-            # Content organization
-            moc=moc_service,  # Maps of Content
             # Learning services
             learning=learning_services[
                 "learning_paths"

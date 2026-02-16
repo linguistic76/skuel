@@ -109,7 +109,7 @@ class BaseSearchFilters:
             visibility: str | None = None
 
         filters = MocSearchFilters(query="python", domain=Domain.TECH)
-        result = await moc_service.search_filtered(filters)
+        result = await ku_service.search_filtered(filters)
     """
 
     # Text search

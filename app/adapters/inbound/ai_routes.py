@@ -557,62 +557,6 @@ def create_ai_routes(app, rt, services):
     routes.append(lp_ai_strategy)
 
     # ==========================================================================
-    # MAPS OF CONTENT (MOC) AI ROUTES
-    # ==========================================================================
-
-    @rt("/api/moc/ai/similar")
-    async def moc_ai_similar(request, uid: str, limit: int = 5):
-        """Find semantically similar maps of content."""
-        require_authenticated_user(request)
-        if not services.moc.ai:
-            return _ai_unavailable_response("Maps of Content")
-        result = await services.moc.ai.find_similar_mocs(uid, limit)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"similar_mocs": result.value}
-
-    routes.append(moc_ai_similar)
-
-    @rt("/api/moc/ai/insight")
-    async def moc_ai_insight(request, uid: str):
-        """Generate AI insight about a map of content."""
-        require_authenticated_user(request)
-        if not services.moc.ai:
-            return _ai_unavailable_response("Maps of Content")
-        result = await services.moc.ai.generate_moc_insight(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return {"insight": result.value}
-
-    routes.append(moc_ai_insight)
-
-    @rt("/api/moc/ai/navigation", methods=["POST"])
-    async def moc_ai_navigation(request, uid: str, user_goal: str):
-        """Suggest a navigation path through the MOC based on user's goal."""
-        require_authenticated_user(request)
-        if not services.moc.ai:
-            return _ai_unavailable_response("Maps of Content")
-        result = await services.moc.ai.suggest_navigation_path(uid, user_goal)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
-
-    routes.append(moc_ai_navigation)
-
-    @rt("/api/moc/ai/gaps")
-    async def moc_ai_gaps(request, uid: str):
-        """Identify content gaps in a map of content."""
-        require_authenticated_user(request)
-        if not services.moc.ai:
-            return _ai_unavailable_response("Maps of Content")
-        result = await services.moc.ai.identify_content_gaps(uid)
-        if result.is_error:
-            return JSONResponse(status_code=400, content={"error": str(result.error)})
-        return result.value
-
-    routes.append(moc_ai_gaps)
-
-    # ==========================================================================
     # AI STATUS ENDPOINT
     # ==========================================================================
 
@@ -631,7 +575,6 @@ def create_ai_routes(app, rt, services):
                 "knowledge": services.ku.ai is not None,
                 "learning_steps": services.ls.ai is not None,
                 "learning_paths": services.lp.ai is not None,
-                "moc": services.moc.ai is not None,
             }
         }
 

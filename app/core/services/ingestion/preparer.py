@@ -143,7 +143,7 @@ async def prepare_entity_data_async(
             if value:
                 entity_data[f"connections.{key}"] = value
 
-    # Flatten contains/recommends for MOC
+    # Flatten contains/recommends for organizing KUs
     contains = entity_data.pop("contains", {})
     if contains:
         for key, value in contains.items():

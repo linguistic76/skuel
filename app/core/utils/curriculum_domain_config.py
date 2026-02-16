@@ -232,7 +232,6 @@ def create_curriculum_sub_services(
 # DOMAIN-SPECIFIC FACTORIES
 # KU and LP have complex dependencies that require specialized factories.
 # LS uses the generic create_curriculum_sub_services() above.
-# MOC has circular dependencies handled in MocService.__init__ directly.
 # =============================================================================
 
 

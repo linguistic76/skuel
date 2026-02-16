@@ -263,7 +263,7 @@ def test_user_uid_injection():
         assert config.requires_user_uid, f"{entity_type.value} should require user_uid"
 
     # Test 6: Curriculum domains should NOT require user_uid
-    curriculum_types = [KuType.CURRICULUM, KuType.MOC, KuType.LEARNING_PATH, KuType.LEARNING_STEP]
+    curriculum_types = [KuType.CURRICULUM, KuType.LEARNING_PATH, KuType.LEARNING_STEP]
     for entity_type in curriculum_types:
         config = ENTITY_CONFIGS[entity_type]
         assert not config.requires_user_uid, f"{entity_type.value} should NOT require user_uid"
@@ -302,10 +302,10 @@ def test_entity_type_detection():
         f"Expected KuType.CURRICULUM (alias normalized), got {result}"
     )
 
-    # Test 3: MOC flag detection
+    # Test 3: MOC flag detection (now maps to CURRICULUM)
     data_with_moc_flag = {"moc": True, "title": "Map of Content"}
     result = service.detect_entity_type(data_with_moc_flag, Path("/tmp/test.md"))
-    assert result == KuType.MOC, f"Expected KuType.MOC, got {result}"
+    assert result == KuType.CURRICULUM, f"Expected KuType.CURRICULUM (MOC flag), got {result}"
 
     # Test 4: Default to CURRICULUM for markdown without type
     data_no_type = {"title": "Some Knowledge"}

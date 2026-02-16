@@ -143,13 +143,6 @@ SEARCH_FIELD_CONFIG: dict[KuType | NonKuDomain, SearchFieldConfig] = {
         filter_fields=("domain", "difficulty", "status"),
         order_by="created_at",
     ),
-    KuType.MOC: SearchFieldConfig(
-        # Matches MocCoreService._search_fields = ["title", "description", "tags"]
-        text_fields=("title", "description", "tags"),
-        array_fields=(),  # Future: add proper array search for tags
-        filter_fields=("domain", "status"),
-        order_by="created_at",
-    ),
     # =========================================================================
     # ACTIVITY DOMAINS (6) - User action entities
     # =========================================================================

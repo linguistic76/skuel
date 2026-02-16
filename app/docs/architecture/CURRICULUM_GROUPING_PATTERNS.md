@@ -269,10 +269,10 @@ class KuType(str, Enum):
     # ... plus 10 more (activity domains, content processing, destination)
 ```
 
-Under the unified Ku model, curriculum patterns are KuType values alongside activity domains. The grouping patterns (CURRICULUM, LEARNING_STEP, LEARNING_PATH) form the shared knowledge organization system, while MOC provides non-linear graph navigation.
+Under the unified Ku model, curriculum patterns are KuType values alongside activity domains. The grouping patterns (CURRICULUM, LEARNING_STEP, LEARNING_PATH) form the shared knowledge organization system. MOC is not a separate KuType — any Ku can organize others via ORGANIZES relationships (emergent identity).
 
 **Domain Classification (February 2026 - Unified Ku):**
-- **Knowledge (shared curriculum):** KuType.CURRICULUM, KuType.MOC
+- **Knowledge (shared curriculum):** KuType.CURRICULUM (any Ku can be an organizer via ORGANIZES)
 - **Curriculum structure:** KuType.LEARNING_STEP, KuType.LEARNING_PATH
 
 ### Relationship Types

@@ -468,7 +468,7 @@ _SEARCHABLE_DOMAINS: frozenset[KuType] = frozenset({
     # All domains are peers - no Activity/Curriculum distinction
     KuType.TASK, KuType.GOAL, KuType.HABIT,
     KuType.EVENT, KuType.CHOICE, KuType.PRINCIPLE,
-    KuType.CURRICULUM, KuType.LEARNING_STEP, KuType.LEARNING_PATH, KuType.MOC,
+    KuType.CURRICULUM, KuType.LEARNING_STEP, KuType.LEARNING_PATH,
 })
 ```
 

@@ -47,9 +47,8 @@ from core.models.enums.ku_enums import KuType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 
-# NOTE (January 2026): MOC imports removed - MOC is now KU-based.
-# MOC is a KU with ORGANIZES relationships, not a separate entity.
-# See /docs/domains/moc.md for the new architecture.
+# NOTE (February 2026): MOC is not a separate KuType.
+# Any KU can organize others via ORGANIZES relationships (emergent MOC identity).
 from core.models.principle.reflection import PrincipleReflection
 from core.models.principle.reflection_dto import PrincipleReflectionDTO
 from core.models.query import QueryIntent
@@ -249,7 +248,7 @@ class UnifiedRelationshipDefinition:
     # When set, this relationship is created during YAML/Markdown import.
     yaml_field_path: str | None = None
     # Scopes yaml_field_path to a specific KuType.
-    # Needed when multiple KuTypes share a Neo4j label (CURRICULUM and MOC both use "Ku").
+    # Needed when multiple KuTypes share a Neo4j label.
     # None means: applies to the default KuType for this label.
     ingestion_ku_type: KuType | None = None
 
@@ -344,7 +343,7 @@ class DomainRelationshipConfig:
 
     # Feature flags
     use_semantic_helper: bool = True
-    is_shared_content: bool = False  # True for KU, LS, LP, MOC
+    is_shared_content: bool = False  # True for KU, LS, LP
 
     # Post-query processors for calculated fields (January 2026)
     post_processors: tuple[PostProcessor, ...] = ()
@@ -1684,8 +1683,7 @@ KU_CONFIG = DomainRelationshipConfig(
             "enabled_by_kus",
             "enabled_by",
         ),
-        # MOC Navigation (January 2026 - KU-based MOC)
-        # A KU "is" a MOC when it has outgoing ORGANIZES relationships
+        # Organization (any KU can organize others via ORGANIZES relationships)
         UnifiedRelationshipDefinition(
             RelationshipName.ORGANIZES,
             "Ku",
@@ -1696,7 +1694,6 @@ KU_CONFIG = DomainRelationshipConfig(
             order_direction="ASC",
             include_edge_properties=("order",),
             yaml_field_path="organizes",
-            ingestion_ku_type=KuType.MOC,
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ORGANIZES,
@@ -1895,12 +1892,10 @@ LP_CONFIG = DomainRelationshipConfig(
 )
 
 # =============================================================================
-# NOTE (January 2026): MOC_CONFIG and MOC_SECTION_CONFIG REMOVED
+# NOTE (February 2026): MOC_CONFIG REMOVED
 # =============================================================================
-# MOC is now KU-based - not a separate entity type.
-# A KU "is" a MOC when it has outgoing ORGANIZES relationships.
-# The KU config includes ORGANIZES relationship for MOC functionality.
-# See /docs/domains/moc.md and /core/services/moc_service.py
+# MOC is not a separate KuType. Any KU can organize others via ORGANIZES.
+# The KU config includes ORGANIZES relationship for organization functionality.
 
 
 # =============================================================================
@@ -1919,7 +1914,7 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     Domain.PRINCIPLES: PRINCIPLES_CONFIG,
     # Note: Finance is standalone (not in registry)
     # Curriculum Domains - Shared content (Phase 2)
-    # Note: KU and MOC both use Domain.KNOWLEDGE, LS and LP both use Domain.LEARNING
+    # Note: LS and LP both use Domain.LEARNING
     # Use LABEL_CONFIGS for unambiguous lookup
     Domain.KNOWLEDGE: KU_CONFIG,  # Primary for Domain.KNOWLEDGE
     Domain.LEARNING: LS_CONFIG,  # Primary for Domain.LEARNING
@@ -2174,7 +2169,6 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # All domain entities are :Ku nodes; virtual config keys kept for lookup
 _KU_TYPE_TO_LABEL: dict[KuType, str] = {
     KuType.CURRICULUM: "Ku",
-    KuType.MOC: "Ku",
     KuType.TASK: "Task",
     KuType.GOAL: "Goal",
     KuType.HABIT: "Habit",  # Virtual key — nodes are :Ku{ku_type='habit'}
@@ -2205,7 +2199,7 @@ def generate_ingestion_relationship_config(
     Generate ingestion relationship config from the registry (single source of truth).
 
     Extracts UnifiedRelationshipDefinitions that have yaml_field_path set,
-    filtered by ku_type for disambiguation (CURRICULUM vs MOC both use "Ku" label).
+    filtered by ku_type for disambiguation when multiple KuTypes share a label.
 
     Args:
         ku_type: The KuType to generate config for

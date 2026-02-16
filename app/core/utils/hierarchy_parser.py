@@ -1,7 +1,7 @@
 """
-MOC Parser - Extract hierarchical heading structure from Markdown MOCs.
+Hierarchy Parser - Extract hierarchical heading structure from Markdown.
 
-Parses MOC files like '0skg - taxonomy - short.md' to extract:
+Parses hierarchical markdown files to extract:
 - H2 = Domain/Section
 - H3 = Category
 - H4 = Topic
@@ -10,7 +10,7 @@ Parses MOC files like '0skg - taxonomy - short.md' to extract:
 
 This hierarchy becomes the basis for:
 1. Navigation in /docs
-2. KU generation with MOC membership
+2. KU generation with ORGANIZES relationships
 """
 
 import re
@@ -20,7 +20,7 @@ from pathlib import Path
 
 @dataclass
 class HeadingNode:
-    """A single heading in the MOC hierarchy."""
+    """A single heading in the hierarchy."""
 
     level: int  # 2-6
     title: str
@@ -46,8 +46,8 @@ class HeadingNode:
 
 
 @dataclass
-class MOCStructure:
-    """Complete MOC structure with metadata and heading tree."""
+class HierarchyStructure:
+    """Complete hierarchy structure with metadata and heading tree."""
 
     uid: str
     title: str
@@ -112,21 +112,21 @@ def parse_frontmatter(content: str) -> tuple[dict, str]:
     return {}, content
 
 
-def parse_moc_markdown(content: str) -> MOCStructure:
+def parse_hierarchy_markdown(content: str) -> HierarchyStructure:
     """
-    Parse a MOC markdown file into a hierarchical structure.
+    Parse a hierarchical markdown file into a structured tree.
 
     Args:
         content: Raw markdown content
 
     Returns:
-        MOCStructure with parsed hierarchy
+        HierarchyStructure with parsed hierarchy
     """
     frontmatter, body = parse_frontmatter(content)
 
-    # Extract MOC metadata
-    uid = frontmatter.get("uid", "moc:unknown")
-    title = frontmatter.get("title", "Unknown MOC")
+    # Extract metadata
+    uid = frontmatter.get("uid", "ku:unknown")
+    title = frontmatter.get("title", "Unknown")
     description = frontmatter.get("description", "")
     domain = frontmatter.get("domain", "LEARNING")
 
@@ -161,7 +161,7 @@ def parse_moc_markdown(content: str) -> MOCStructure:
     # Build tree structure
     sections = build_heading_tree(nodes)
 
-    return MOCStructure(
+    return HierarchyStructure(
         uid=uid,
         title=title,
         description=description,
@@ -203,33 +203,33 @@ def build_heading_tree(nodes: list[HeadingNode]) -> list[HeadingNode]:
     return root_nodes
 
 
-def parse_moc_file(file_path: Path | str) -> MOCStructure:
+def parse_hierarchy_file(file_path: Path | str) -> HierarchyStructure:
     """
-    Parse a MOC markdown file.
+    Parse a hierarchical markdown file.
 
     Args:
-        file_path: Path to the MOC file
+        file_path: Path to the markdown file
 
     Returns:
-        MOCStructure with parsed hierarchy
+        HierarchyStructure with parsed hierarchy
     """
     file_path = Path(file_path)
     content = file_path.read_text(encoding="utf-8")
-    return parse_moc_markdown(content)
+    return parse_hierarchy_markdown(content)
 
 
 def generate_ku_yaml_from_heading(
     heading: HeadingNode,
-    moc_uid: str,
+    organizer_uid: str,
     section_slug: str,
     domain: str = "LEARNING",
 ) -> str:
     """
-    Generate KU YAML frontmatter from a MOC heading.
+    Generate KU YAML frontmatter from a heading.
 
     Args:
         heading: The heading node
-        moc_uid: Parent MOC UID
+        organizer_uid: Parent organizer KU UID
         section_slug: Section (H2) slug this belongs to
         domain: Content domain
 
@@ -237,13 +237,13 @@ def generate_ku_yaml_from_heading(
         YAML frontmatter string
     """
     # Build hierarchical UID
-    uid = f"ku:{moc_uid.replace('moc:', '')}.{section_slug}.{heading.slug}"
+    uid = f"ku:{organizer_uid.replace('ku:', '').replace('moc:', '')}.{section_slug}.{heading.slug}"
 
     # Determine complexity based on heading level
     complexity_map = {2: "medium", 3: "medium", 4: "easy", 5: "easy", 6: "trivial"}
     complexity = complexity_map.get(heading.level, "medium")
 
-    # Build path from MOC
+    # Build path
     parent_path = f"{section_slug}/{heading.parent_slug}" if heading.parent_slug else section_slug
 
     return f"""---
@@ -260,16 +260,16 @@ tags:
   - worldview
   - {section_slug}
 
-# MOC Membership - indicates where this KU lives in the taxonomy
-moc:
-  uid: {moc_uid}
+# Organization - indicates where this KU lives in the hierarchy
+organizer:
+  uid: {organizer_uid}
   section: {section_slug}
   path: {parent_path}
   heading_level: {heading.level}
 
 metadata:
-  source_type: moc-derived
-  source_moc: {moc_uid}
+  source_type: hierarchy-derived
+  source_organizer: {organizer_uid}
   auto_generated: true
 ---
 
@@ -281,9 +281,9 @@ metadata:
 
 __all__ = [
     "HeadingNode",
-    "MOCStructure",
+    "HierarchyStructure",
     "generate_ku_yaml_from_heading",
-    "parse_moc_file",
-    "parse_moc_markdown",
+    "parse_hierarchy_file",
+    "parse_hierarchy_markdown",
     "slugify",
 ]

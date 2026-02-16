@@ -1,41 +1,19 @@
 """
-MOC Navigation Service - KU-Based MOC Architecture
-===================================================
+KU Organization Service — ORGANIZES Relationship Management
+============================================================
 
-Navigation service for MOC patterns on KUs.
+Manages hierarchical organization of Knowledge Units via ORGANIZES relationships.
 
-**January 2026 - MOC as KU Architecture:**
-MOC is NOT a separate entity - it IS a Knowledge Unit that organizes other KUs.
-A KU "is" a MOC when it has outgoing ORGANIZES relationships.
+Any Ku can organize other Kus — this is emergent identity, not a type discriminator.
+A Ku "is an organizer" when it has outgoing ORGANIZES relationships.
 
-This service provides convenient access patterns for MOC-style navigation
-while the underlying data is stored as KU nodes with ORGANIZES relationships.
+**Two Paths to Knowledge (Montessori-Inspired):**
+- LS Path: Structured, linear, teacher-directed curriculum
+- ORGANIZES Path: Unstructured, graph, learner-directed exploration
 
-**Key Concepts:**
-- MOC = KU with children (ORGANIZES relationships)
-- Section = KU with children within a MOC
-- Same KU can be in multiple MOCs (many-to-many)
-- Progress tracked on KU itself (unified across LS and MOC paths)
+Same Ku, two access paths — progress is tracked on the Ku itself.
 
-**Montessori-Inspired Pedagogy:**
-MOC provides unstructured, learner-directed exploration as a parallel path
-to LS (structured, teacher-directed curriculum).
-
-Usage:
-    # Check if a KU is a MOC (has organized children)
-    is_moc = await moc_nav.is_moc("ku.python-reference")
-
-    # Get a KU with its organized structure (the "MOC view")
-    moc_view = await moc_nav.get_moc_view("ku.python-reference")
-
-    # Organize one KU under another
-    await moc_nav.organize("ku.python-reference", "ku.python-basics", order=1)
-
-    # Find all MOCs that contain a KU
-    mocs = await moc_nav.find_mocs_containing("ku.python-basics")
-
-Version: 1.0.0
-Date: 2026-01-20
+See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """
 
 from dataclasses import dataclass, field
@@ -54,7 +32,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class OrganizedKu:
-    """A KU with its position in a MOC structure."""
+    """A Ku with its position in an organization hierarchy."""
 
     uid: str
     title: str
@@ -73,13 +51,8 @@ class OrganizedKu:
 
 
 @dataclass
-class MocView:
-    """
-    A MOC view of a KU - the KU with its organized children hierarchy.
-
-    This represents a KU acting as a MOC (Map of Content), showing
-    the hierarchical organization of child KUs.
-    """
+class OrganizationView:
+    """A Ku viewed as an organizer — with its organized children hierarchy."""
 
     root_uid: str
     root_title: str
@@ -93,22 +66,16 @@ class MocView:
             "root_title": self.root_title,
             "children": [c.to_dict() for c in self.children],
             "total_kus": self.total_kus,
-            "is_moc": len(self.children) > 0,
+            "is_organizer": len(self.children) > 0,
         }
 
 
-class MocNavigationService:
+class KuOrganizationService:
     """
-    Navigation service for MOC patterns on KUs.
+    Organization service for ORGANIZES relationships on Kus.
 
-    MOC is not a separate entity - it's a KU with ORGANIZES relationships.
-    This service provides convenient access patterns for MOC navigation.
-
-    Two Paths to Knowledge (Montessori-Inspired):
-    - LS Path: Structured, linear, teacher-directed curriculum
-    - MOC Path: Unstructured, graph, learner-directed exploration
-
-    Same KU, two access paths - progress is tracked on the KU itself.
+    Any Ku can organize other Kus — not limited to a specific KuType.
+    This service provides convenient access patterns for hierarchical navigation.
     """
 
     def __init__(
@@ -116,38 +83,20 @@ class MocNavigationService:
         ku_service: "KuService",
         driver: "AsyncDriver",
     ) -> None:
-        """
-        Initialize MOC navigation service.
-
-        Args:
-            ku_service: KuService for KU operations
-            driver: Neo4j driver for direct queries
-        """
         self.ku_service = ku_service
         self.driver = driver
         self.logger = logger
 
     # =========================================================================
-    # MOC IDENTITY OPERATIONS
+    # IDENTITY OPERATIONS
     # =========================================================================
 
-    async def is_moc(self, ku_uid: str) -> Result[bool]:
-        """
-        Check if a KU is acting as a MOC (has organized children).
-
-        A KU "is" a MOC when it has outgoing ORGANIZES relationships.
-        This is emergent identity - no special flag needed.
-
-        Args:
-            ku_uid: Knowledge Unit UID
-
-        Returns:
-            Result[bool]: True if KU has organized children
-        """
+    async def is_organizer(self, ku_uid: str) -> Result[bool]:
+        """Check if a Ku has organized children (outgoing ORGANIZES relationships)."""
         query = """
         MATCH (ku:Ku {uid: $ku_uid})
         OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Ku)
-        RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_moc
+        RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
         """
 
         try:
@@ -163,27 +112,16 @@ class MocNavigationService:
             if not record["ku_exists"]:
                 return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
 
-            return Result.ok(record["is_moc"])
+            return Result.ok(record["is_organizer"])
 
         except Exception as e:
-            self.logger.error(f"Error checking MOC status for {ku_uid}: {e}")
-            return Result.fail(Errors.database(message=str(e), operation="is_moc"))
+            self.logger.error(f"Error checking organizer status for {ku_uid}: {e}")
+            return Result.fail(Errors.database(message=str(e), operation="is_organizer"))
 
-    async def get_moc_view(self, ku_uid: str, max_depth: int = 3) -> Result[MocView]:
-        """
-        Get a KU with its organized children hierarchy (the "MOC view").
-
-        Returns the KU as a MOC root with all its organized children
-        up to the specified depth.
-
-        Args:
-            ku_uid: Root KU UID
-            max_depth: Maximum depth to traverse (default 3)
-
-        Returns:
-            Result[MocView]: The MOC view with hierarchy
-        """
-        # First verify the KU exists
+    async def get_organization_view(
+        self, ku_uid: str, max_depth: int = 3
+    ) -> Result[OrganizationView]:
+        """Get a Ku with its organized children hierarchy."""
         ku_result = await self.ku_service.get(ku_uid)
         if ku_result.is_error:
             return Result.fail(ku_result.expect_error())
@@ -192,27 +130,21 @@ class MocNavigationService:
         if not ku:
             return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
 
-        # Get organized children recursively
         children, total = await self._get_organized_children(ku_uid, max_depth)
 
-        moc_view = MocView(
+        view = OrganizationView(
             root_uid=ku_uid,
             root_title=ku.title,
             children=children,
             total_kus=total,
         )
 
-        return Result.ok(moc_view)
+        return Result.ok(view)
 
     async def _get_organized_children(
         self, parent_uid: str, max_depth: int, current_depth: int = 0
     ) -> tuple[list[OrganizedKu], int]:
-        """
-        Recursively get organized children of a KU.
-
-        Returns:
-            Tuple of (children list, total count)
-        """
+        """Recursively get organized children of a Ku."""
         if current_depth >= max_depth:
             return [], 0
 
@@ -236,7 +168,6 @@ class MocNavigationService:
                 child_title = record["title"]
                 order = record["order"] or 0
 
-                # Recursively get grandchildren
                 grandchildren, grandchild_count = await self._get_organized_children(
                     child_uid, max_depth, current_depth + 1
                 )
@@ -267,7 +198,7 @@ class MocNavigationService:
             return [], 0
 
     # =========================================================================
-    # MOC ORGANIZATION OPERATIONS
+    # ORGANIZATION OPERATIONS
     # =========================================================================
 
     async def organize(
@@ -276,20 +207,7 @@ class MocNavigationService:
         child_uid: str,
         order: int = 0,
     ) -> Result[bool]:
-        """
-        Organize a KU under another KU (create ORGANIZES relationship).
-
-        This makes the parent KU act as a MOC for the child KU.
-
-        Args:
-            parent_uid: Parent KU UID (the MOC/section)
-            child_uid: Child KU UID (the content being organized)
-            order: Order position (0-indexed)
-
-        Returns:
-            Result[bool]: True if relationship created successfully
-        """
-        # Verify both KUs exist
+        """Organize a Ku under another Ku (create ORGANIZES relationship)."""
         parent_result = await self.ku_service.get(parent_uid)
         if parent_result.is_error:
             return Result.fail(parent_result.expect_error())
@@ -302,7 +220,6 @@ class MocNavigationService:
         if not child_result.value:
             return Result.fail(Errors.not_found(resource="Ku (child)", identifier=child_uid))
 
-        # Create ORGANIZES relationship
         query = """
         MATCH (parent:Ku {uid: $parent_uid})
         MATCH (child:Ku {uid: $child_uid})
@@ -318,7 +235,7 @@ class MocNavigationService:
             )
 
             if records and records[0]["success"]:
-                self.logger.info(f"Organized KU {child_uid} under {parent_uid} at position {order}")
+                self.logger.info(f"Organized Ku {child_uid} under {parent_uid} at position {order}")
                 return Result.ok(True)
 
             return Result.ok(False)
@@ -328,16 +245,7 @@ class MocNavigationService:
             return Result.fail(Errors.database(message=str(e), operation="organize"))
 
     async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """
-        Remove organization relationship between KUs.
-
-        Args:
-            parent_uid: Parent KU UID
-            child_uid: Child KU UID
-
-        Returns:
-            Result[bool]: True if relationship removed
-        """
+        """Remove organization relationship between Kus."""
         query = """
         MATCH (parent:Ku {uid: $parent_uid})-[r:ORGANIZES]->(child:Ku {uid: $child_uid})
         DELETE r
@@ -361,17 +269,7 @@ class MocNavigationService:
             return Result.fail(Errors.database(message=str(e), operation="unorganize"))
 
     async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        """
-        Change the order of a child KU within its parent MOC.
-
-        Args:
-            parent_uid: Parent KU UID
-            child_uid: Child KU UID
-            new_order: New order position
-
-        Returns:
-            Result[bool]: True if order updated
-        """
+        """Change the order of a child Ku within its parent."""
         query = """
         MATCH (parent:Ku {uid: $parent_uid})-[r:ORGANIZES]->(child:Ku {uid: $child_uid})
         SET r.order = $new_order
@@ -391,23 +289,15 @@ class MocNavigationService:
             return Result.fail(Errors.database(message=str(e), operation="reorder"))
 
     # =========================================================================
-    # MOC DISCOVERY OPERATIONS
+    # DISCOVERY OPERATIONS
     # =========================================================================
 
-    async def find_mocs_containing(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
-        """
-        Find all MOCs (parent KUs) that organize the given KU.
-
-        Args:
-            ku_uid: KU UID to find parents for
-
-        Returns:
-            Result[list]: List of parent MOCs with order info
-        """
+    async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+        """Find all parent Kus that organize the given Ku."""
         query = """
-        MATCH (moc:Ku)-[r:ORGANIZES]->(ku:Ku {uid: $ku_uid})
-        RETURN moc.uid AS uid, moc.title AS title, r.order AS order
-        ORDER BY moc.title
+        MATCH (parent:Ku)-[r:ORGANIZES]->(ku:Ku {uid: $ku_uid})
+        RETURN parent.uid AS uid, parent.title AS title, r.order AS order
+        ORDER BY parent.title
         """
 
         try:
@@ -416,34 +306,25 @@ class MocNavigationService:
                 {"ku_uid": ku_uid},
             )
 
-            mocs = [{"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in records]
+            organizers = [
+                {"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in records
+            ]
 
-            return Result.ok(mocs)
+            return Result.ok(organizers)
 
         except Exception as e:
-            self.logger.error(f"Error finding MOCs containing {ku_uid}: {e}")
-            return Result.fail(Errors.database(message=str(e), operation="find_mocs_containing"))
+            self.logger.error(f"Error finding organizers of {ku_uid}: {e}")
+            return Result.fail(Errors.database(message=str(e), operation="find_organizers"))
 
-    async def list_root_mocs(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
-        """
-        List KUs that act as MOCs (have organized children) but are not
-        themselves organized by other KUs (root MOCs).
-
-        These are the top-level entry points for MOC navigation.
-
-        Args:
-            limit: Maximum number to return
-
-        Returns:
-            Result[list]: List of root MOC KUs
-        """
+    async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
+        """List Kus that organize others but are not themselves organized (root organizers)."""
         query = """
-        MATCH (moc:Ku)-[:ORGANIZES]->(:Ku)
-        WHERE NOT EXISTS((:Ku)-[:ORGANIZES]->(moc))
-        WITH DISTINCT moc
-        OPTIONAL MATCH (moc)-[:ORGANIZES]->(child:Ku)
-        RETURN moc.uid AS uid, moc.title AS title, count(child) AS child_count
-        ORDER BY moc.title
+        MATCH (root:Ku)-[:ORGANIZES]->(:Ku)
+        WHERE NOT EXISTS((:Ku)-[:ORGANIZES]->(root))
+        WITH DISTINCT root
+        OPTIONAL MATCH (root)-[:ORGANIZES]->(child:Ku)
+        RETURN root.uid AS uid, root.title AS title, count(child) AS child_count
+        ORDER BY root.title
         LIMIT $limit
         """
 
@@ -453,27 +334,19 @@ class MocNavigationService:
                 {"limit": limit},
             )
 
-            mocs = [
+            roots = [
                 {"uid": r["uid"], "title": r["title"], "child_count": r["child_count"]}
                 for r in records
             ]
 
-            return Result.ok(mocs)
+            return Result.ok(roots)
 
         except Exception as e:
-            self.logger.error(f"Error listing root MOCs: {e}")
-            return Result.fail(Errors.database(message=str(e), operation="list_root_mocs"))
+            self.logger.error(f"Error listing root organizers: {e}")
+            return Result.fail(Errors.database(message=str(e), operation="list_root_organizers"))
 
     async def get_organized_children(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
-        """
-        Get direct children of a KU organized by ORGANIZES relationship.
-
-        Args:
-            ku_uid: Parent KU UID
-
-        Returns:
-            Result[list]: List of child KUs with order
-        """
+        """Get direct children of a Ku organized by ORGANIZES relationship."""
         query = """
         MATCH (parent:Ku {uid: $ku_uid})-[r:ORGANIZES]->(child:Ku)
         RETURN child.uid AS uid, child.title AS title, r.order AS order
