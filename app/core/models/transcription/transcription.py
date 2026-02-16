@@ -12,10 +12,15 @@ Fields: Only what's needed for the core workflow.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from core.models.enums.transcription_enums import TranscriptionStatus
+
+
+def _utcnow() -> datetime:
+    """Return timezone-aware UTC timestamps for persistence and events."""
+    return datetime.now(UTC)
 
 
 @dataclass(frozen=True)
@@ -48,8 +53,8 @@ class Transcription:
     user_uid: str | None = None
 
     # Timestamps
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=_utcnow)
+    updated_at: datetime = field(default_factory=_utcnow)
 
     # Extensible metadata (for anything else)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -123,13 +128,13 @@ class Transcription:
         if isinstance(created_at, str):
             created_at = datetime.fromisoformat(created_at)
         elif created_at is None:
-            created_at = datetime.now()
+            created_at = _utcnow()
 
         updated_at = data.get("updated_at")
         if isinstance(updated_at, str):
             updated_at = datetime.fromisoformat(updated_at)
         elif updated_at is None:
-            updated_at = datetime.now()
+            updated_at = _utcnow()
 
         return cls(
             uid=data["uid"],
