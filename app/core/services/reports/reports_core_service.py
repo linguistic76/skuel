@@ -1202,6 +1202,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         Create a teacher assessment (feedback) for a student.
 
         Creates a Ku with ku_type=FEEDBACK_REPORT, auto-shares with student.
+        Verifies teacher has authority over student via shared group membership.
 
         Args:
             teacher_uid: Teacher creating the assessment
@@ -1211,9 +1212,34 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             metadata: Optional additional metadata
 
         Returns:
-            Result containing the created Ku
+            Result containing the created Ku, or forbidden error if no shared group
         """
         from core.models.enums.metadata_enums import Visibility
+
+        # Verify teacher has authority over student (share an active group)
+        try:
+            authority_records, _, _ = await self.backend.driver.execute_query(
+                """
+                MATCH (teacher:User {uid: $teacher_uid})-[:OWNS]->(g:Group)
+                      <-[:MEMBER_OF]-(student:User {uid: $subject_uid})
+                WHERE g.is_active = true
+                RETURN g.uid AS group_uid LIMIT 1
+                """,
+                teacher_uid=teacher_uid,
+                subject_uid=subject_uid,
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to verify teacher-student authority: {e}")
+            return Result.fail(Errors.database("create_assessment", str(e)))
+
+        if not authority_records:
+            return Result.fail(
+                Errors.forbidden(
+                    "create_assessment",
+                    f"Teacher {teacher_uid} does not have authority over student {subject_uid} "
+                    "(no shared group)",
+                )
+            )
 
         uid = UIDGenerator.generate_uid("ku")
 
@@ -1237,34 +1263,52 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
 
         # Create ASSESSMENT_OF relationship
         try:
-            await self.backend.driver.execute_query(
+            records, _, _ = await self.backend.driver.execute_query(
                 """
                 MATCH (k:Ku {uid: $ku_uid})
                 MATCH (u:User {uid: $subject_uid})
                 MERGE (k)-[:ASSESSMENT_OF]->(u)
+                RETURN true AS success
                 """,
                 ku_uid=uid,
                 subject_uid=subject_uid,
             )
+            if not records:
+                self.logger.error(f"ASSESSMENT_OF not created: student {subject_uid} not found")
+                return Result.fail(
+                    Errors.database(
+                        "create_assessment", "Failed to create ASSESSMENT_OF relationship"
+                    )
+                )
         except Exception as e:
-            self.logger.warning(f"Failed to create ASSESSMENT_OF relationship: {e}")
+            self.logger.error(f"Failed to create ASSESSMENT_OF relationship: {e}")
+            return Result.fail(Errors.database("create_assessment", str(e)))
 
         # Auto-share with student
         try:
-            await self.backend.driver.execute_query(
+            share_records, _, _ = await self.backend.driver.execute_query(
                 """
                 MATCH (student:User {uid: $subject_uid})
                 MATCH (k:Ku {uid: $ku_uid})
                 MERGE (student)-[rel:SHARES_WITH]->(k)
                 SET rel.shared_at = datetime($now),
                     rel.role = 'student'
+                RETURN true AS success
                 """,
                 subject_uid=subject_uid,
                 ku_uid=uid,
                 now=datetime.now().isoformat(),
             )
+            if not share_records:
+                self.logger.error(f"SHARES_WITH not created for student {subject_uid}")
+                return Result.fail(
+                    Errors.database(
+                        "create_assessment", "Failed to auto-share assessment with student"
+                    )
+                )
         except Exception as e:
-            self.logger.warning(f"Failed to auto-share assessment with student: {e}")
+            self.logger.error(f"Failed to auto-share assessment with student: {e}")
+            return Result.fail(Errors.database("create_assessment", str(e)))
 
         # Publish event
         event = AssessmentCreated(
