@@ -1053,7 +1053,7 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 10. `/adapters/inbound/reports_routes.py` (63 lines) - Meta-analysis
 11. `/adapters/inbound/finance_routes.py` (61 lines) - Admin-only bookkeeping
 12. `/adapters/inbound/askesis_routes.py` (54 lines) - AI assistant management
-13. `/adapters/inbound/report_projects_routes.py` - Report projects
+13. `/adapters/inbound/assignments_routes.py` - Assignments (instruction templates)
 
 **Tier 1-3 Migrations (9):** *(Migrated 2026-02-03)*
 14. `/adapters/inbound/transcription_routes.py` (26 lines) - Audio transcription API

@@ -257,7 +257,7 @@ class ReportActivityExtractorService:
 | Route | Purpose |
 |-------|---------|
 | `/journals` | Landing page (redirects to `/journals/submit`) |
-| `/journals/submit` | Upload form with ReportProject selector |
+| `/journals/submit` | Upload form with Assignment selector |
 | `/journals/browse` | AI-processed reports grid with filters |
 | `/journals/{uid}/download` | Download je_output markdown file |
 
@@ -286,10 +286,10 @@ Three ways to specify processing instructions:
 | Mode | Selector Value | Behavior |
 |------|----------------|----------|
 | **Default** | `__default__` | Uses built-in `DEFAULT_INSTRUCTIONS` constant |
-| **Existing project** | `{project_uid}` | Fetches ReportProject from Neo4j |
-| **Upload new** | `__upload__` | Uploads `.md` file → creates new ReportProject |
+| **Existing project** | `{project_uid}` | Fetches Assignment from Neo4j |
+| **Upload new** | `__upload__` | Uploads `.md` file → creates new Assignment |
 
-**ReportProject fields:**
+**Assignment fields:**
 - `instructions` (text): LLM processing instructions
 - `scope` (PERSONAL/ASSIGNED): Personal AI templates or teacher assignments (ADR-040)
 - `processor_type` (LLM/HUMAN): Processing mode
@@ -333,7 +333,7 @@ When a journal is processed, these fields are stored in `report.metadata`:
 | Field | Type | Description |
 |-------|------|-------------|
 | `identifier` | `str` | Knowledge Unit link (e.g., "meditation-basics") |
-| `project_uid` | `str` | ReportProject UID (or "__default__") |
+| `project_uid` | `str` | Assignment UID (or "__default__") |
 | `journal_weights` | `dict` | `{activity: 0.7, articulation: 0.2, exploration: 0.1}` |
 | `je_output_path` | `str` | Full path to generated je_output file |
 | `mode_threshold` | `float` | Threshold used for activity extraction (default: 0.2) |
@@ -390,7 +390,7 @@ When a journal is processed, these fields are stored in `report.metadata`:
 | Output Generator | `/core/services/journals/journal_output_generator.py` |
 | Activity Extractor | `/core/services/dsl/report_activity_extractor.py` |
 | Processing Service | `/core/services/reports/reports_processing_service.py` |
-| Report Projects | `/core/services/reports/report_project_service.py` |
+| Assignments | `/core/services/reports/assignment_service.py` |
 | **Types** | |
 | Journal Types | `/core/services/journals/journal_types.py` |
 | **Prompts** | |
@@ -438,5 +438,5 @@ OPENAI_API_KEY=sk-...
 
 - [Reports Domain](reports.md) - Parent domain for all submissions
 - [Activity DSL](/docs/dsl/DSL_SPECIFICATION.md) - `@context()` tag specification
-- [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md) - ReportProject dual purpose
+- [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md) - Assignment dual purpose
 - [UnifiedIngestionService](/docs/patterns/UNIFIED_INGESTION_GUIDE.md) - Post-curation ingestion

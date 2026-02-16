@@ -124,8 +124,8 @@ report = await reports_core_service.get_with_access_check(
 ```python
 from core.services.reports import ReportsCoreService, TeacherReviewService
 
-# Step 1: Teacher creates assigned ReportProject (targets a group)
-# (handled by ReportProjectService.create_project with scope=ASSIGNED)
+# Step 1: Teacher creates assigned Assignment (targets a group)
+# (handled by AssignmentService.create_project with scope=ASSIGNED)
 
 # Step 2: Student submits report against assigned project
 # Auto-sharing happens inside process_assignment_submission()
@@ -155,10 +155,10 @@ await teacher_review.approve_report(report_uid, teacher_uid)
 // Assignment structure
 (teacher:User)-[:OWNS]->(group:Group)
 (student:User)-[:MEMBER_OF]->(group:Group)
-(project:ReportProject {scope: "assigned"})-[:FOR_GROUP]->(group:Group)
+(project:Assignment {scope: "assigned"})-[:FOR_GROUP]->(group:Group)
 
 // On student submission (auto-created)
-(report:Report)-[:FULFILLS_PROJECT]->(project:ReportProject)
+(report:Ku)-[:FULFILLS_PROJECT]->(project:Assignment)
 (teacher:User)-[:SHARES_WITH {role: "teacher"}]->(report:Report)
 ```
 

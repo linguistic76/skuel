@@ -541,7 +541,7 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 
 | File | Protocols | Route Consumers |
 |------|-----------|-----------------|
-| `reports_protocols.py` | 9 protocols | `reports_api.py`, `reports_sharing_api.py`, `report_projects_api.py`, `reports_progress_api.py`, `reports_assessment_api.py` |
+| `reports_protocols.py` | 9 protocols | `reports_api.py`, `reports_sharing_api.py`, `assignments_api.py`, `reports_progress_api.py`, `reports_assessment_api.py` |
 | `group_protocols.py` | 2 protocols | `groups_api.py`, `teaching_api.py` |
 | `service_protocols.py` | 10 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
@@ -556,8 +556,8 @@ Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 | `KuContentSearchOperations` | `reports_query` | 4 (search_kus, get_ku_statistics, get_recent_kus, get_journal_for_ku) | `reports_api.py` |
 | `KuSharingOperations` | `reports_sharing` | 6 (share_ku, unshare_ku, get_shared_with_users, get_kus_shared_with_me, set_visibility, check_access) | `reports_api.py` |
 | `KuProcessingOperations` | `processing_pipeline` | 2 (process_ku, reprocess_ku) | `reports_api.py` |
-| `AssignmentOperations` | `assignments` | 5 (create, get, list, update, delete) | `report_projects_api.py` |
-| `KuFeedbackOperations` | `report_feedback` | 1 (generate_feedback) | `report_projects_api.py` |
+| `AssignmentOperations` | `assignments` | 5 (create, get, list, update, delete) | `assignments_api.py` |
+| `KuFeedbackOperations` | `report_feedback` | 1 (generate_feedback) | `assignments_api.py` |
 | `ProgressKuGeneratorOperations` | `progress_generator` | 1 (generate) | `reports_progress_api.py` |
 | `KuScheduleOperations` | `report_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `reports_progress_api.py` |
 

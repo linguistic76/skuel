@@ -30,6 +30,8 @@ Reports is the primary user-facing interface for all content submissions and sys
 | `PROGRESS` | System | No | System-generated activity completion summaries |
 | `ASSESSMENT` | Teacher | No | Teacher-authored qualitative evaluations of students |
 
+**Content Origin:** User-submitted types (TRANSCRIPT, ASSIGNMENT, JOURNAL, JOURNAL_VOICE, JOURNAL_CURATED) are `ContentOrigin.USER_CREATED`. System-generated types (PROGRESS, ASSESSMENT) are `ContentOrigin.FEEDBACK`. See `KuType.content_origin()` in `/core/models/enums/ku_enums.py`.
+
 ## Routes
 
 | Route | Type | Purpose |
@@ -62,6 +64,7 @@ Reports is the primary user-facing interface for all content submissions and sys
 | Relationship Service | `reports_relationship_service.py` |
 | Sharing Service | `report_sharing_service.py` |
 | Progress Generator | `progress_report_generator.py` |
+| Assignment Service | `assignment_service.py` (Assignment CRUD) |
 | Schedule Service | `report_schedule_service.py` |
 | Background Worker | `/core/services/background/progress_report_worker.py` |
 | **Models** | `/core/models/report/` |
@@ -74,6 +77,8 @@ Reports is the primary user-facing interface for all content submissions and sys
 | Progress API | `reports_progress_api.py` |
 | Assessment API | `reports_assessment_api.py` |
 | Route Wiring | `reports_routes.py` (Multi-Factory pattern) |
+| Assignments API | `assignments_api.py` |
+| Assignments Routes | `assignments_routes.py` |
 | Journals UI | `journals_ui.py` |
 | **Protocols** | `/core/services/protocols/reports_protocols.py` (9 protocols) |
 
@@ -123,7 +128,7 @@ Students see assessments at `/reports/feedback`.
 | `SHARES_WITH` | User → Report | Report | Sharing access |
 | `BASED_ON_INSIGHT` | Report → Insight | Insight | Progress report references insight |
 | `HAS_SCHEDULE` | User → ReportSchedule | ReportSchedule | User's generation schedule |
-| `FULFILLS_PROJECT` | Report → ReportProject | ReportProject | Assignment submission |
+| `FULFILLS_PROJECT` | Ku → Assignment | Assignment | Assignment fulfillment |
 
 ## See Also
 
