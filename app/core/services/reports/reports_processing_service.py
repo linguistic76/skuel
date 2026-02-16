@@ -20,7 +20,7 @@ When `extract_activities=True` in instructions, the processor will:
 
 from typing import Any
 
-from core.models.enums.ku_enums import KuStatus
+from core.models.enums.ku_enums import KuStatus, KuType
 from core.models.ku import Ku
 from core.services.reports.reports_submission_service import KuSubmissionService
 from core.utils.logging import get_logger
@@ -39,10 +39,9 @@ class KuProcessingService:
         self,
         ku_submission_service: KuSubmissionService,
         transcription_service=None,
-        transcript_processor=None,
+        content_enrichment=None,
         ku_relationship_service=None,
         activity_extractor=None,
-        journal_classifier=None,
         journal_generator=None,
         event_bus=None,
     ) -> None:
@@ -52,19 +51,17 @@ class KuProcessingService:
         Args:
             ku_submission_service: KuSubmissionService for status updates
             transcription_service: TranscriptionService for audio transcription
-            transcript_processor: TranscriptProcessorService for LLM formatting
+            content_enrichment: ContentEnrichmentService for LLM formatting
             ku_relationship_service: KuRelationshipService for graph relationships
             activity_extractor: ReportActivityExtractorService for DSL-based entity extraction
-            journal_classifier: JournalModeClassifier for multi-modal weight inference
             journal_generator: JournalOutputGenerator for je_output file generation
             event_bus: Event bus for domain events (optional)
         """
         self.ku_submission_service = ku_submission_service
         self.transcription_service = transcription_service
-        self.transcript_processor = transcript_processor
+        self.content_enrichment = content_enrichment
         self.ku_relationship_service = ku_relationship_service
         self.activity_extractor = activity_extractor
-        self.journal_classifier = journal_classifier
         self.journal_generator = journal_generator
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.ku_processing")
@@ -233,9 +230,8 @@ class KuProcessingService:
 
         updated_ku = update_result.value
 
-        # Check if journal processing is needed (via metadata)
-        ku_metadata = ku.metadata or {}
-        is_journal = ku_metadata.get("journal_type") is not None
+        # Check if journal processing is needed
+        is_journal = ku.ku_type == KuType.JOURNAL
 
         if is_journal:
             await self._process_journal(updated_ku, transcript_text, instructions)
@@ -285,8 +281,7 @@ class KuProcessingService:
         updated_ku = update_result.value
 
         # Check if journal processing is needed
-        ku_metadata = ku.metadata or {}
-        is_journal = ku_metadata.get("journal_type") is not None
+        is_journal = ku.ku_type == KuType.JOURNAL
 
         if is_journal:
             await self._process_journal(updated_ku, text_content, instructions)
@@ -304,52 +299,39 @@ class KuProcessingService:
         return Result.ok(updated_ku)
 
     # ========================================================================
-    # JOURNAL PROCESSING (Multi-Modal)
+    # JOURNAL PROCESSING
     # ========================================================================
 
     async def _process_journal(
         self, ku: Ku, content: str, instructions: dict[str, Any] | None
     ) -> None:
         """
-        Process journal-type Ku with multi-modal pipeline.
+        Process journal-type Ku with enrichment pipeline.
 
         Pipeline:
-        1. Infer mode weights (activity, articulation, exploration)
+        1. Read enrichment_mode from instructions
         2. Generate formatted je_output file
-        3. Extract activities if weight > threshold
-        4. Store weights and je_output_path in metadata
+        3. Extract activities if mode is activity_tracking
+        4. Store enrichment_mode and je_output_path in metadata
         """
-        if not self.journal_classifier or not self.journal_generator:
+        if not self.journal_generator:
             self.logger.warning(
-                f"Journal processing requested but services not configured for {ku.uid}"
+                f"Journal processing requested but generator not configured for {ku.uid}"
             )
             return
 
-        self.logger.info(f"Processing journal Ku {ku.uid} with multi-modal pipeline")
+        # Step 1: Read enrichment mode from instructions
+        enrichment_mode = instructions.get("enrichment_mode") if instructions else None
 
-        # Step 1: Infer mode weights
-        user_declared_mode = instructions.get("journal_mode") if instructions else None
-        weights_result = await self.journal_classifier.infer_weights(
-            content, user_declared_mode=user_declared_mode
-        )
-
-        if weights_result.is_error:
-            self.logger.error(f"Weight inference failed: {weights_result.error}")
-            return
-
-        weights = weights_result.value
-        threshold = (
-            self.journal_classifier.get_threshold_from_instructions(instructions)
-            if self.journal_classifier
-            else 0.2
+        self.logger.info(
+            f"Processing journal Ku {ku.uid} (enrichment_mode: {enrichment_mode or 'activity_tracking'})"
         )
 
         # Step 2: Generate je_output file
         output_result = await self.journal_generator.generate(
             content=content,
-            weights=weights,
+            enrichment_mode=enrichment_mode,
             report_uid=ku.uid,
-            threshold=threshold,
         )
 
         if output_result.is_error:
@@ -358,27 +340,23 @@ class KuProcessingService:
 
         je_output_path = output_result.value
 
-        # Step 3: Extract activities if weight exceeds threshold
-        if weights.should_extract_activities(threshold) and self.activity_extractor:
-            self.logger.info(
-                f"Activity weight {weights.activity} > {threshold}, extracting entities"
-            )
+        # Step 3: Extract activities if mode is activity_tracking (default)
+        effective_mode = enrichment_mode or "activity_tracking"
+        if effective_mode == "activity_tracking" and self.activity_extractor:
+            self.logger.info(f"Extracting activities for {ku.uid}")
             await self._extract_activities(ku, ku.user_uid, instructions)
 
         # Step 4: Store journal processing metadata
         current_metadata = ku.metadata or {}
-        current_metadata["journal_weights"] = weights.to_dict()
+        current_metadata["enrichment_mode"] = effective_mode
         current_metadata["je_output_path"] = je_output_path
-        current_metadata["mode_threshold"] = threshold
 
         await self.ku_submission_service.update_ku(
             uid=ku.uid,
             updates={"metadata": current_metadata},
         )
 
-        self.logger.info(
-            f"Journal processing complete: {ku.uid} - {weights.get_primary_mode().value}"
-        )
+        self.logger.info(f"Journal processing complete: {ku.uid} - {effective_mode}")
 
     # ========================================================================
     # ACTIVITY EXTRACTION (DSL Integration)

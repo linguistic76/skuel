@@ -293,6 +293,7 @@ class KuDTO(KuDTOMixin):
     processed_content: str | None = None
     processed_file_path: str | None = None
     instructions: str | None = None
+    max_retention: int | None = None  # FIFO cleanup limit (None = permanent)
 
     # =========================================================================
     # FEEDBACK
@@ -716,6 +717,7 @@ class KuDTO(KuDTOMixin):
                 "processed_content",
                 "processed_file_path",
                 "instructions",
+                "max_retention",
                 # Feedback
                 "feedback",
                 "feedback_generated_at",

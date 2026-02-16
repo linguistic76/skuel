@@ -4,12 +4,11 @@ Ku Enums - Unified Knowledge Unit Identity and Processing
 
 Enums for the unified Ku model where "Ku is the heartbeat of SKUEL."
 
-Organized in 13 sections:
-1. Core Identity: KuType (16 values — role and domain manifestation)
+Organized in 12 sections:
+1. Core Identity: KuType (15 values — role and domain manifestation)
 2. Processing Lifecycle: KuStatus (14 values — type-aware transitions), ProcessorType
 3. Project/Assignment: ProjectScope (teacher assignment workflow)
-4. Journal Processing: JournalType, JournalCategory, JournalMode
-5. LLM Processing: FormattingStyle, AnalysisDepth, ContextEnrichmentLevel
+4. LLM Processing: FormattingStyle, AnalysisDepth, ContextEnrichmentLevel
 6. Schedule: ScheduleType, ProgressDepth
 7. Goal: GoalType, GoalTimeframe, MeasurementType
 8. Habit: HabitPolarity, HabitCategory, HabitDifficulty
@@ -770,99 +769,7 @@ class ProjectScope(str, Enum):
 
 
 # =============================================================================
-# 4. JOURNAL PROCESSING
-# =============================================================================
-
-
-class JournalType(str, Enum):
-    """
-    Journal retention tiers.
-
-    Two-tier journal system:
-    - VOICE (PJ1): Ephemeral voice journals, max 3 stored, audio source
-    - CURATED (PJ2): Permanent curated text/markdown journals
-    """
-
-    VOICE = "voice"
-    CURATED = "curated"
-
-    def is_ephemeral(self) -> bool:
-        """Check if this type has auto-cleanup (max retention limit)."""
-        return self == JournalType.VOICE
-
-    def max_retention_count(self) -> int | None:
-        """
-        Return max retention count for ephemeral types, None for permanent.
-
-        VOICE journals have FIFO cleanup - only most recent 3 are kept.
-        CURATED journals are permanent (no limit).
-        """
-        if self == JournalType.VOICE:
-            return 3
-        return None
-
-    def get_display_name(self) -> str:
-        """Get human-readable display name."""
-        return {
-            JournalType.VOICE: "Voice Journal",
-            JournalType.CURATED: "Curated Journal",
-        }[self]
-
-
-class JournalCategory(str, Enum):
-    """Categories for journal entries."""
-
-    DAILY = "daily"
-    WEEKLY = "weekly"
-    MONTHLY = "monthly"
-    REFLECTION = "reflection"
-    GRATITUDE = "gratitude"
-    GOALS = "goals"
-    IDEAS = "ideas"
-    DREAMS = "dreams"
-    HEALTH = "health"
-    WORK = "work"
-    PERSONAL = "personal"
-    LEARNING = "learning"
-    PROJECT = "project"
-    OTHER = "other"
-
-
-class JournalMode(str, Enum):
-    """
-    Journal processing modes — determines output formatting strategy.
-
-    Typical journal: 80% one mode + 20% mixed.
-    System infers weights via LLM, user can override.
-
-    ACTIVITY_TRACKING: Focus on extracting actionable entities
-    IDEA_ARTICULATION: Focus on preserving original thought
-    CRITICAL_THINKING: Focus on question exploration
-    """
-
-    ACTIVITY_TRACKING = "activity_tracking"
-    IDEA_ARTICULATION = "idea_articulation"
-    CRITICAL_THINKING = "critical_thinking"
-
-    def get_display_name(self) -> str:
-        """Get human-readable display name."""
-        return {
-            JournalMode.ACTIVITY_TRACKING: "Activity Tracking",
-            JournalMode.IDEA_ARTICULATION: "Idea Articulation",
-            JournalMode.CRITICAL_THINKING: "Critical Thinking",
-        }[self]
-
-    def get_description(self) -> str:
-        """Get mode description for UI/help text."""
-        return {
-            JournalMode.ACTIVITY_TRACKING: "Extract tasks, goals, habits from your reflections",
-            JournalMode.IDEA_ARTICULATION: "Preserve your ideas with minimal processing",
-            JournalMode.CRITICAL_THINKING: "Organize your thoughts around questions",
-        }[self]
-
-
-# =============================================================================
-# 5. LLM PROCESSING
+# 4. LLM PROCESSING
 # =============================================================================
 
 

@@ -78,7 +78,7 @@ def __init__(
     finance_service=None,      # Layer 1
     choices_service=None,      # Layer 1
     principle_service=None,    # Layer 1
-    transcript_processor=None, # Layer 2 (TranscriptProcessorService)
+    content_enrichment=None, # Layer 2 (ContentEnrichmentService)
     user_service=None,         # Layer 3
     ku_service=None,           # Layer 0
     lp_service=None,           # Layer 0
@@ -454,7 +454,7 @@ class AnalyticsSubscription:
 | FinanceService | Expenses, budgets | `get_user_items_in_range(user_uid, dates)` |
 | ChoicesService | Decisions, outcomes | `get_user_items_in_range(user_uid, dates)` |
 | PrincipleService | Principle strength, alignment | `get_user_items_in_range(user_uid, dates)` |
-| TranscriptProcessor | Reflection patterns | Direct Journal node query |
+| ContentEnrichment | Reflection patterns | Direct Journal node query |
 | KuService | Knowledge mastery | `list_by_user(user_uid, limit)` |
 | LpService | Learning path progress | `list_by_user(user_uid, limit)` |
 

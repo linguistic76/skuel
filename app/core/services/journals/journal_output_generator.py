@@ -2,21 +2,21 @@
 Journal Output Generator
 =========================
 
-Generates formatted je_output files based on mode weights.
+Generates formatted je_output files based on enrichment mode.
 
 Three formatters for three modes:
 - Activity: Structured with DSL tags preserved
 - Articulation: Verbatim with formatting improvements
 - Exploration: Question-organized
+
+Enrichment mode is explicitly defined in Assignment processing instructions.
 """
 
 import os
 from datetime import datetime
 from pathlib import Path
 
-from core.models.enums.ku_enums import JournalMode
 from core.services.ai_service import OpenAIService
-from core.services.journals.journal_types import JournalWeights
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -25,7 +25,7 @@ logger = get_logger("skuel.services.journals.generator")
 
 class JournalOutputGenerator:
     """
-    Generates formatted journal output files based on processing mode.
+    Generates formatted journal output files based on enrichment mode.
 
     Uses LLM to format content according to mode-specific templates.
     Saves output to SKUEL_JOURNAL_STORAGE organized by date.
@@ -56,37 +56,36 @@ class JournalOutputGenerator:
     async def generate(
         self,
         content: str,
-        weights: JournalWeights,
+        enrichment_mode: str | None,
         report_uid: str,
-        threshold: float = 0.2,
     ) -> Result[str]:
         """
-        Generate formatted je_output file based on mode weights.
+        Generate formatted je_output file based on enrichment mode.
 
-        Primary mode (highest weight) determines formatter.
         Output saved to: {storage_base}/{YYYY-MM}/report_{uid}_output.md
 
         Args:
             content: Raw journal content to format
-            weights: Mode weight distribution
+            enrichment_mode: Processing strategy ("activity_tracking", "idea_articulation",
+                "critical_thinking"). Defaults to "activity_tracking" when None.
             report_uid: Report UID for filename
-            threshold: Minimum weight to trigger mode (default: 0.2)
 
         Returns:
             Result containing path to generated je_output file
         """
-        primary_mode = weights.get_primary_mode()
-        self.logger.info(
-            f"Generating je_output for {report_uid} (mode: {primary_mode.value}, weights: {weights.to_dict()})"
-        )
+        mode = enrichment_mode or "activity_tracking"
+        self.logger.info(f"Generating je_output for {report_uid} (mode: {mode})")
 
-        # Select formatter based on primary mode
-        if primary_mode == JournalMode.ACTIVITY_TRACKING:
+        # Select formatter based on enrichment mode
+        if mode == "activity_tracking":
             formatted_result = await self._format_activity(content)
-        elif primary_mode == JournalMode.IDEA_ARTICULATION:
+        elif mode == "idea_articulation":
             formatted_result = await self._format_articulation(content)
-        else:  # CRITICAL_THINKING
+        elif mode == "critical_thinking":
             formatted_result = await self._format_exploration(content)
+        else:
+            self.logger.warning(f"Unknown enrichment mode '{mode}', falling back to activity")
+            formatted_result = await self._format_activity(content)
 
         if formatted_result.is_error:
             return Result.fail(formatted_result.expect_error())

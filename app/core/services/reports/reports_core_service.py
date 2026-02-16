@@ -17,8 +17,8 @@ Four manifestations:
     AI_REPORT       → AI-derived from submission (user-owned)
     FEEDBACK_REPORT → Teacher feedback on submission (teacher-owned)
 
-Journal-specific fields (mood, energy_level, entry_date, journal_type,
-journal_category, etc.) live in metadata — they are NOT first-class Ku fields.
+Journal-specific fields (mood, energy_level, entry_date, etc.) live in metadata.
+max_retention is a first-class Ku field controlling FIFO cleanup (None = permanent).
 
 Services:
 - KuSubmissionService: File upload and storage
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
 from core.events.submission_events import AssessmentCreated, SubmissionDeleted
-from core.models.enums.ku_enums import JournalType, KuStatus, KuType, ProcessorType
+from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
 from core.models.ku import Ku, KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -151,7 +151,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         backend: UniversalNeo4jBackend[Ku] | None = None,
         event_bus: EventBusOperations | None = None,
         sharing_service: Any | None = None,
-        transcript_processor: Any | None = None,
+        content_enrichment: Any | None = None,
     ) -> None:
         """
         Initialize Ku core service.
@@ -160,12 +160,12 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             backend: Backend for Ku persistence
             event_bus: Optional event bus for publishing events
             sharing_service: Optional sharing service for access control
-            transcript_processor: Optional TranscriptProcessorService for AI processing
+            content_enrichment: Optional ContentEnrichmentService for AI processing
         """
         super().__init__(backend, "KuCoreService")
         self.event_bus = event_bus
         self.sharing_service = sharing_service
-        self.transcript_processor = transcript_processor
+        self.content_enrichment = content_enrichment
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -814,8 +814,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         user_uid: str,
         title: str,
         content: str,
-        journal_type: JournalType = JournalType.CURATED,
-        journal_category: str | None = None,
+        max_retention: int | None = None,
         entry_date: date | None = None,
         tags: list[str] | None = None,
         mood: str | None = None,
@@ -833,16 +832,15 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         """
         Create a journal-type Ku (JOURNAL with journal metadata).
 
-        Journals are Ku entities with ku_type=JOURNAL and journal-specific
-        fields stored in metadata. This method handles journal-specific
-        creation logic including FIFO cleanup for VOICE journals.
+        Journals are Ku entities with ku_type=JOURNAL. max_retention controls
+        FIFO cleanup: when set (e.g., 3), oldest journals are deleted to
+        maintain the limit. When None, journals are permanent.
 
         Args:
             user_uid: User who owns this journal
             title: Journal entry title
             content: Journal body text
-            journal_type: VOICE (ephemeral, max 3) or CURATED (permanent)
-            journal_category: Optional category for organization
+            max_retention: FIFO cleanup limit (None = permanent, 3 = keep last 3)
             entry_date: Date of entry (defaults to today)
             tags: Optional tags
             mood: Optional mood indicator
@@ -851,24 +849,15 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             action_items: Optional action items
             project_uid: Optional Assignment UID for AI feedback
             metadata: Optional additional metadata
-            enforce_fifo: If True, enforce FIFO cleanup for VOICE journals
+            enforce_fifo: If True, enforce FIFO cleanup when max_retention is set
 
         Returns:
             Result containing the created Ku
         """
-        from core.models.enums.ku_enums import JournalCategory as JCat
-
-        uid = UIDGenerator.generate_uid("ku")
+        uid = UIDGenerator.generate_uid("je", title)
 
         # Build journal metadata
         journal_metadata = metadata.copy() if metadata else {}
-        journal_metadata["journal_type"] = journal_type.value
-        if journal_category:
-            try:
-                category_enum = JCat(journal_category)
-                journal_metadata["journal_category"] = category_enum.value
-            except ValueError:
-                self.logger.warning(f"Unknown journal category '{journal_category}', ignoring")
         journal_metadata["entry_date"] = (entry_date or date.today()).isoformat()
         if mood:
             journal_metadata["mood"] = mood
@@ -894,6 +883,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             user_uid=user_uid,
             status=KuStatus.DRAFT,
             content=content,
+            max_retention=max_retention,
             tags=tuple(tags) if tags else (),
             metadata=journal_metadata,
         )
@@ -904,55 +894,39 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
 
         self.logger.info(f"Created journal Ku: {uid} - {title}")
 
-        # Enforce FIFO for voice journals
-        if enforce_fifo and journal_type == JournalType.VOICE:
-            await self._enforce_voice_fifo(user_uid)
+        # Enforce FIFO for ephemeral journals
+        if enforce_fifo and max_retention is not None:
+            await self._enforce_fifo(user_uid, max_retention)
 
         return Result.ok(journal)
 
-    @with_error_handling("get_journals_by_type", error_type="database")
-    async def get_journals_by_type(
-        self,
-        user_uid: str,
-        journal_type: JournalType,
-        limit: int = 50,
-    ) -> Result[list[Ku]]:
-        """
-        Get journal Ku entities by type for a user.
-
-        Args:
-            user_uid: User identifier
-            journal_type: VOICE or CURATED
-            limit: Maximum number of journals to return
-
-        Returns:
-            Result containing list of journal Ku entities, newest first
-        """
+    @with_error_handling("get_ephemeral_journals", error_type="database")
+    async def get_ephemeral_journals(self, user_uid: str, limit: int = 10) -> Result[list[Ku]]:
+        """Get journals with FIFO retention (max_retention is set) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
             ku_type=KuType.JOURNAL.value,
         )
-
         if result.is_error:
             return Result.fail(result.expect_error())
-
         kus = result.value or []
-        # Filter by journal_type in metadata
-        journals = [
-            k for k in kus if k.metadata and k.metadata.get("journal_type") == journal_type.value
-        ]
+        journals = [k for k in kus if k.max_retention is not None]
         journals.sort(key=_get_entry_date_key, reverse=True)
         return Result.ok(journals[:limit])
 
-    @with_error_handling("get_voice_journals", error_type="database")
-    async def get_voice_journals(self, user_uid: str, limit: int = 3) -> Result[list[Ku]]:
-        """Get voice journals (ephemeral, max 3) for a user."""
-        return await self.get_journals_by_type(user_uid, JournalType.VOICE, limit)
-
-    @with_error_handling("get_curated_journals", error_type="database")
-    async def get_curated_journals(self, user_uid: str, limit: int = 50) -> Result[list[Ku]]:
-        """Get curated journals (permanent) for a user."""
-        return await self.get_journals_by_type(user_uid, JournalType.CURATED, limit)
+    @with_error_handling("get_permanent_journals", error_type="database")
+    async def get_permanent_journals(self, user_uid: str, limit: int = 50) -> Result[list[Ku]]:
+        """Get permanent journals (no FIFO retention) for a user."""
+        result = await self.backend.find_by(
+            user_uid=user_uid,
+            ku_type=KuType.JOURNAL.value,
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        kus = result.value or []
+        journals = [k for k in kus if k.max_retention is None]
+        journals.sort(key=_get_entry_date_key, reverse=True)
+        return Result.ok(journals[:limit])
 
     @with_error_handling("get_journals_by_date_range", error_type="database")
     async def get_journals_by_date_range(
@@ -960,7 +934,6 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         user_uid: str,
         start_date: date,
         end_date: date,
-        journal_type: JournalType | None = None,
         limit: int = 100,
     ) -> Result[list[Ku]]:
         """
@@ -970,7 +943,6 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             user_uid: User identifier
             start_date: Start of date range (inclusive)
             end_date: End of date range (inclusive)
-            journal_type: Optional filter by type
             limit: Maximum number to return
 
         Returns:
@@ -980,21 +952,13 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             user_uid=user_uid,
             ku_type=KuType.JOURNAL.value,
         )
-
         if result.is_error:
             return Result.fail(result.expect_error())
 
         kus = result.value or []
-
-        # Filter by journal metadata
         journals = []
         for ku in kus:
-            if not ku.metadata or not ku.metadata.get("journal_type"):
-                continue
-            if journal_type and ku.metadata.get("journal_type") != journal_type.value:
-                continue
-            # Filter by entry_date in metadata
-            entry_date_str = ku.metadata.get("entry_date")
+            entry_date_str = (ku.metadata or {}).get("entry_date")
             if entry_date_str:
                 try:
                     entry = date.fromisoformat(entry_date_str)
@@ -1006,19 +970,18 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         journals.sort(key=_get_entry_date_key, reverse=True)
         return Result.ok(journals[:limit])
 
-    @with_error_handling("promote_to_curated", error_type="database")
-    async def promote_to_curated(self, uid: str) -> Result[Ku]:
+    @with_error_handling("make_permanent", error_type="database")
+    async def make_permanent(self, uid: str) -> Result[Ku]:
         """
-        Promote a voice journal to curated (permanent).
+        Make a journal permanent by clearing its max_retention.
 
-        Changes journal_type in metadata from VOICE to CURATED.
-        This removes the journal from FIFO cleanup.
+        Removes the journal from FIFO cleanup.
 
         Args:
-            uid: Ku UID to promote
+            uid: Ku UID to make permanent
 
         Returns:
-            Result containing the promoted Ku
+            Result containing the updated Ku
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
@@ -1028,9 +991,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         if not ku:
             return Result.fail(Errors.not_found("resource", f"Ku {uid} not found"))
 
-        current_metadata = ku.metadata or {}
-        current_metadata["journal_type"] = JournalType.CURATED.value
-        return await self.update_ku(uid, {"metadata": current_metadata})
+        return await self.update_ku(uid, {"max_retention": None})
 
     async def get_journal_with_insights(self, uid: str) -> Result[Ku | None]:
         """
@@ -1047,7 +1008,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             return Result.fail(result.expect_error())
 
         ku = result.value
-        if not ku or not (ku.metadata and ku.metadata.get("journal_type")):
+        if not ku or ku.ku_type != KuType.JOURNAL:
             return Result.ok(None)
 
         return Result.ok(ku)
@@ -1180,23 +1141,19 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             self.logger.error(f"Error processing assignment submission: {e}")
             return Result.ok(False)  # Non-fatal — Ku was still created
 
-    async def _enforce_voice_fifo(self, user_uid: str) -> Result[int]:
+    async def _enforce_fifo(self, user_uid: str, max_retention: int) -> Result[int]:
         """
-        Enforce FIFO cleanup for voice journals.
+        Enforce FIFO cleanup for ephemeral journals.
 
-        Voice journals have a max retention of 3. When a new voice journal is
-        created, delete oldest entries to maintain the limit.
+        When max_retention is set, delete oldest journal entries to maintain the limit.
 
         Args:
             user_uid: User identifier
+            max_retention: Maximum number of journals to keep
 
         Returns:
             Result containing count of journals deleted
         """
-        max_retention = JournalType.VOICE.max_retention_count()
-        if max_retention is None:
-            return Result.ok(0)
-
         result = await self.backend.find_by(
             user_uid=user_uid,
             ku_type=KuType.JOURNAL.value,
@@ -1207,12 +1164,8 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             return Result.ok(0)
 
         kus = result.value or []
-        # Filter to voice journals only
-        journals = [
-            k
-            for k in kus
-            if k.metadata and k.metadata.get("journal_type") == JournalType.VOICE.value
-        ]
+        # Filter to journals with FIFO retention
+        journals = [k for k in kus if k.max_retention is not None]
 
         if len(journals) <= max_retention:
             return Result.ok(0)
@@ -1228,7 +1181,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             delete_result = await self.backend.delete(journal.uid, cascade=True)
             if delete_result.is_ok and delete_result.value:
                 deleted_count += 1
-                self.logger.info(f"FIFO cleanup: deleted voice journal {journal.uid}")
+                self.logger.info(f"FIFO cleanup: deleted journal {journal.uid}")
 
         return Result.ok(deleted_count)
 
@@ -1395,7 +1348,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         Create journal-type Ku when transcription completes.
 
         Pipeline:
-        1. Try AI processing via TranscriptProcessorService (if available)
+        1. Try AI processing via ContentEnrichmentService (if available)
         2. Fall back to raw transcript if AI fails
         3. Create Ku with ku_type=JOURNAL and journal metadata via create_journal_ku()
         4. Triggers FIFO cleanup for VOICE journals
@@ -1421,8 +1374,8 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             summary: str | None = None
 
             # Try AI processing if available
-            if self.transcript_processor:
-                insights_result = await self.transcript_processor.process_transcript(
+            if self.content_enrichment:
+                insights_result = await self.content_enrichment.process_transcript(
                     raw_transcript=event.transcript_text,
                     user_uid=event.user_uid,
                 )
@@ -1451,7 +1404,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
                 user_uid=event.user_uid,
                 title=title,
                 content=content,
-                journal_type=JournalType.VOICE,
+                max_retention=3,  # Audio-sourced = ephemeral with FIFO
                 key_topics=key_topics if key_topics else None,
                 action_items=action_items if action_items else None,
                 source_type="audio",

@@ -134,7 +134,7 @@ class AnalyticsService:
         finance_service=None,
         choices_service=None,
         principle_service=None,
-        transcript_processor=None,
+        content_enrichment=None,
         user_service=None,
         ku_service=None,
         lp_service=None,
@@ -152,7 +152,7 @@ class AnalyticsService:
             finance_service: FinanceService facade (Layer 1)
             choices_service: ChoicesService facade (Layer 1)
             principle_service: PrincipleAlignmentService facade (Layer 1)
-            transcript_processor: TranscriptProcessorService (Layer 2) - for Phase 2
+            content_enrichment: ContentEnrichmentService (Layer 2) - for Phase 2
             user_service: UserService for getting UserContext (Layer 3 - for Life Path)
             ku_service: KuService for knowledge substance scores (Layer 0 - for Phase 2)
             lp_service: LpService for Learning Path details (Layer 0 - for Phase 2)
@@ -172,7 +172,7 @@ class AnalyticsService:
             choices_service=choices_service,
             principle_service=principle_service,
             # Layer 2: Pipeline services (Phase 2)
-            transcript_processor=transcript_processor,
+            content_enrichment=content_enrichment,
             # Layer 0: Curriculum services (Phase 2)
             ku_service=ku_service,
             lp_service=lp_service,

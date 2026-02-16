@@ -348,8 +348,8 @@ User Upload → ReportSubmissionService
             ReportsProcessingService
                     ↓
             [Processor Selection]
-            ├→ Audio → TranscriptionService (Deepgram) → TranscriptProcessorService
-            ├→ Text → TranscriptProcessorService
+            ├→ Audio → TranscriptionService (Deepgram) → ContentEnrichmentService
+            ├→ Text → ContentEnrichmentService
             └→ Other → Future processors
                     ↓
             Activity Extraction (DSL Parser)

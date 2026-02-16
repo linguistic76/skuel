@@ -265,7 +265,7 @@ class JournalsCoreService(BaseService[JournalsOperations, Report]):
 
 **Updated Services:**
 - `JournalsCoreService` → `JournalsOperations`
-- `TranscriptProcessorService` → `JournalsOperations`
+- `ContentEnrichmentService` → `JournalsOperations`
 - `KuSearchService` → `KuOperations`
 - `KuCoreService` → `BackendOperations[Ku]`
 - `KuSearchService` → `BackendOperations[Ku]`

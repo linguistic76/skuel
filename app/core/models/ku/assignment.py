@@ -57,6 +57,9 @@ class AssignmentDTO:
     due_date: date | None = None
     processor_type: str = "llm"  # ProcessorType value
     group_uid: str | None = None
+    enrichment_mode: str | None = (
+        None  # "activity_tracking", "idea_articulation", "critical_thinking"
+    )
     # Timestamps
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
@@ -77,6 +80,7 @@ class AssignmentDTO:
             "due_date": self.due_date.isoformat() if self.due_date else None,
             "processor_type": self.processor_type,
             "group_uid": self.group_uid,
+            "enrichment_mode": self.enrichment_mode,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "metadata": self.metadata,
@@ -118,6 +122,9 @@ class Assignment:
     due_date: date | None = None
     processor_type: ProcessorType = ProcessorType.LLM
     group_uid: str | None = None
+    enrichment_mode: str | None = (
+        None  # "activity_tracking", "idea_articulation", "critical_thinking"
+    )
     # Timestamps
     created_at: datetime = None  # type: ignore[assignment]
     updated_at: datetime = None  # type: ignore[assignment]
@@ -207,6 +214,7 @@ def assignment_dto_to_domain(dto: AssignmentDTO) -> Assignment:
         if dto.processor_type
         else ProcessorType.LLM,
         group_uid=dto.group_uid,
+        enrichment_mode=dto.enrichment_mode,
         created_at=dto.created_at,
         updated_at=dto.updated_at,
         metadata=dto.metadata.copy() if dto.metadata else {},
@@ -230,6 +238,7 @@ def assignment_domain_to_dto(project: Assignment) -> AssignmentDTO:
         if isinstance(project.processor_type, ProcessorType)
         else project.processor_type,
         group_uid=project.group_uid,
+        enrichment_mode=project.enrichment_mode,
         created_at=project.created_at,
         updated_at=project.updated_at,
         metadata=dict(project.metadata),
@@ -253,6 +262,7 @@ def create_assignment(
     due_date: date | None = None,
     processor_type: ProcessorType = ProcessorType.LLM,
     group_uid: str | None = None,
+    enrichment_mode: str | None = None,
 ) -> Assignment:
     """
     Factory function to create a new Assignment.
@@ -269,6 +279,7 @@ def create_assignment(
         due_date: Due date for ASSIGNED scope
         processor_type: LLM, HUMAN, or HYBRID
         group_uid: Target group UID for ASSIGNED scope
+        enrichment_mode: Processing strategy ("activity_tracking", "idea_articulation", "critical_thinking")
 
     Returns:
         Immutable Assignment instance
@@ -286,4 +297,5 @@ def create_assignment(
         due_date=due_date,
         processor_type=processor_type,
         group_uid=group_uid,
+        enrichment_mode=enrichment_mode,
     )

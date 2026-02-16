@@ -58,7 +58,7 @@ Use **single complex query** with:
 4. Advanced mood calculation using reduce() and list comprehensions
 5. Strategic WITH staging to avoid cartesian products
 
-**File:** `/core/services/transcript_processor_service.py` (context query)
+**File:** `/core/services/content_enrichment_service.py` (context query)
 **Types:** `/core/services/journals/journals_types.py` (`JournalContext`, `JournalAIInsights`)
 
 **Complexity Breakdown:**
@@ -286,7 +286,7 @@ AI with mood trends: "You've been low energy this week - consider self-care"
 
 ## Implementation Details
 
-**Location:** `/core/services/transcript_processor_service.py`
+**Location:** `/core/services/content_enrichment_service.py`
 
 **Method:** `gather_journal_context(user_uid: str)`
 
@@ -362,7 +362,7 @@ The transcript processor was refactored to streamline journal processing:
    - Purpose: Fetch all context needed for AI processing in one query
 
 2. **No Entity Creation in Transcript Processor**
-   - **Old:** TranscriptProcessorService created Journal nodes
+   - **Old:** ContentEnrichmentService created Journal nodes
    - **New:** Returns `JournalAIInsights` only (AI-processed data)
    - **Rationale:** Separation of concerns - processor analyzes, other services persist
 
@@ -381,7 +381,7 @@ The transcript processor was refactored to streamline journal processing:
 ### Updated Architecture
 
 ```
-Audio Transcript → TranscriptProcessorService (JournalsOperations protocol)
+Audio Transcript → ContentEnrichmentService (JournalsOperations protocol)
     │
     ├─ gather_journal_context(user_uid)     # Single query (this ADR)
     │  └─ Queries: :Journal nodes directly
@@ -395,7 +395,7 @@ JournalAIInsights → JournalsCoreService
        └─ Creates: Journal node in Neo4j
 ```
 
-**See:** `/core/services/transcript_processor_service.py` (protocol-compliant, line 45)
+**See:** `/core/services/content_enrichment_service.py` (protocol-compliant, line 45)
 
 ---
 

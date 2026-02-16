@@ -101,7 +101,7 @@ class AnalyticsMetricsService:
         finance_service=None,
         choices_service=None,
         principle_service=None,
-        transcript_processor=None,
+        content_enrichment=None,
         ku_service=None,
         lp_service=None,
     ) -> None:
@@ -116,7 +116,7 @@ class AnalyticsMetricsService:
             finance_service: FinanceService facade (Layer 1)
             choices_service: ChoicesService facade (Layer 1)
             principle_service: PrincipleAlignmentService facade (Layer 1)
-            transcript_processor: TranscriptProcessorService (Layer 2)
+            content_enrichment: ContentEnrichmentService (Layer 2)
             ku_service: KuService for knowledge metrics (Layer 0)
             lp_service: LpService for curriculum metrics (Layer 0)
         """
@@ -130,7 +130,7 @@ class AnalyticsMetricsService:
         self.principles = principle_service
 
         # Layer 2 submission service
-        self.transcript_processor = transcript_processor
+        self.content_enrichment = content_enrichment
 
         # Layer 0 curriculum services
         self.ku_service = ku_service
@@ -991,10 +991,10 @@ class AnalyticsMetricsService:
                 "metacognition_score": 0.72  # journal substance contribution
             }
         """
-        if not self.transcript_processor:
+        if not self.content_enrichment:
             return Result.fail(
                 Errors.system(
-                    message="TranscriptProcessorService not available",
+                    message="ContentEnrichmentService not available",
                     operation="calculate_journal_metrics",
                 )
             )
@@ -1094,8 +1094,8 @@ class AnalyticsMetricsService:
         """
         from datetime import datetime
 
-        # Access the driver through transcript_processor's backend
-        if not self.transcript_processor or not self.transcript_processor.backend:
+        # Access the driver through content_enrichment's backend
+        if not self.content_enrichment or not self.content_enrichment.backend:
             return []
 
         # Convert dates to datetime for Neo4j comparison
@@ -1115,7 +1115,7 @@ class AnalyticsMetricsService:
         """
 
         try:
-            async with self.transcript_processor.backend.driver.session() as session:
+            async with self.content_enrichment.backend.driver.session() as session:
                 result = await session.run(
                     cypher,
                     {

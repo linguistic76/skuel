@@ -3,7 +3,7 @@ AI Service - Wrapper for OpenAI/Anthropic API calls
 ====================================================
 
 Simple wrapper for AI completions used by:
-- TranscriptProcessorService for intelligent editing
+- ContentEnrichmentService for intelligent editing
 - JournalProjects for transparent feedback generation
 
 Supports both OpenAI and Anthropic models.

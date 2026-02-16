@@ -122,12 +122,12 @@ if TYPE_CHECKING:
     from core.services.background.progress_report_worker import ProgressReportWorker
     from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
+    from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.events.events_intelligence_service import EventsIntelligenceService
     from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.insight.insight_store import InsightStore
-    from core.services.journals.journal_mode_classifier import JournalModeClassifier
     from core.services.journals.journal_output_generator import JournalOutputGenerator
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.ku_intelligence_service import KuIntelligenceService
@@ -145,7 +145,6 @@ if TYPE_CHECKING:
     from core.services.reports.progress_report_generator import ProgressKuGenerator
     from core.services.reports.report_schedule_service import KuScheduleService
     from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
-    from core.services.transcript_processor_service import TranscriptProcessorService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
@@ -245,7 +244,7 @@ class Services:
     cross_domain: "AdaptiveLpCrossDomainService | None" = None
 
     # Content services
-    transcript_processor: "TranscriptProcessorService | None" = None
+    content_enrichment: "ContentEnrichmentService | None" = None
     transcription: "TranscriptionService | None" = None
 
     # Ku feedback services (LLM-based processing for any Ku type)
@@ -256,10 +255,7 @@ class Services:
         None  # AssignmentService - Reusable LLM instruction templates
     )
 
-    # Journal processing services (multi-modal journal pipeline)
-    journal_classifier: "JournalModeClassifier | None" = (
-        None  # JournalModeClassifier - LLM weight inference for journal modes
-    )
+    # Journal processing services
     journal_generator: "JournalOutputGenerator | None" = (
         None  # JournalOutputGenerator - je_output formatting and disk storage
     )
@@ -452,7 +448,7 @@ class Services:
             ("tasks", self.tasks),
             ("events", self.events),
             ("finance", self.finance),
-            ("transcript_processor", self.transcript_processor),
+            ("content_enrichment", self.content_enrichment),
             ("habits", self.habits),
             ("transcription", self.transcription),
             ("performance_optimization", self.performance_optimization),
@@ -1536,13 +1532,13 @@ async def compose_services(
         # Create transcript processor service (OpenAI API key required)
         from core.config.credential_store import get_credential
         from core.services.ai_service import OpenAIService
-        from core.services.transcript_processor_service import TranscriptProcessorService
+        from core.services.content_enrichment_service import ContentEnrichmentService
 
         # Get required API key (already validated in PHASE 1)
         openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
         ai_service = OpenAIService(api_key=openai_api_key)
 
-        transcript_processor = TranscriptProcessorService(
+        content_enrichment = ContentEnrichmentService(
             backend=reports_backend,  # February 2026: Uses Ku backend (unified model)
             transcription_service=core_services["transcription"],
             ai_service=ai_service,  # REQUIRED - always available
@@ -1645,12 +1641,12 @@ async def compose_services(
         report_sharing_service = KuSharingService(driver=driver)
 
         # Create Ku core service (content management: categories, tags, bulk operations)
-        # February 2026: transcript_processor for handle_transcription_completed
+        # February 2026: content_enrichment for handle_transcription_completed
         reports_core_service = KuCoreService(
             backend=reports_backend,
             event_bus=event_bus,
             sharing_service=report_sharing_service,
-            transcript_processor=transcript_processor,
+            content_enrichment=content_enrichment,
         )
 
         # LIFEPATH SERVICE (Domain #14: The Destination)
@@ -1694,11 +1690,8 @@ async def compose_services(
         )
         logger.info("✅ Report activity extractor created (DSL journal → entity extraction)")
 
-        # Create journal processing services (multi-modal journal pipeline)
-        from core.services.journals import JournalModeClassifier, JournalOutputGenerator
-
-        journal_classifier = JournalModeClassifier(openai_service=ai_service)
-        logger.info("✅ Journal mode classifier created (LLM weight inference)")
+        # Create journal processing services
+        from core.services.journals import JournalOutputGenerator
 
         # Get journal storage path from environment (default: /tmp/skuel_journals)
         journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
@@ -1710,9 +1703,8 @@ async def compose_services(
         report_processor = KuProcessingService(
             ku_submission_service=report_service,
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
-            transcript_processor=transcript_processor,  # For LLM formatting
+            content_enrichment=content_enrichment,  # For LLM formatting
             activity_extractor=activity_extractor,  # DSL entity extraction
-            journal_classifier=journal_classifier,  # Multi-modal weight inference
             journal_generator=journal_generator,  # je_output formatting and disk storage
             event_bus=event_bus,
         )
@@ -1764,7 +1756,7 @@ async def compose_services(
             finance_service=core_services["finance"],
             choices_service=activity_services["choices"],
             principle_service=activity_services["principles"],
-            transcript_processor=transcript_processor,  # ✅ TranscriptProcessorService - Layer 2 reporting
+            content_enrichment=content_enrichment,  # ✅ ContentEnrichmentService - Layer 2 reporting
             user_service=user_service,  # Life path alignment
             ku_service=learning_services["ku_service"],  # Layer 0 reporting
             lp_service=learning_services["learning_paths"],  # Layer 0 reporting
@@ -2340,10 +2332,9 @@ async def compose_services(
             ku=learning_services["ku_service"],
             cross_domain=learning_services["cross_domain"],
             # Content
-            transcript_processor=transcript_processor,
+            content_enrichment=content_enrichment,
             report_feedback=report_feedback_service,  # LLM feedback on reports/journals
             assignments=assignment_service,  # Reusable LLM instruction templates
-            journal_classifier=journal_classifier,  # Multi-modal weight inference
             journal_generator=journal_generator,  # je_output formatting and disk storage
             # Group & Teaching (ADR-040: Teacher assignment workflow)
             group_service=group_service,

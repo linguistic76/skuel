@@ -15,7 +15,7 @@ class KuProcessingContext:
     """
     Context gathered from Neo4j for intelligent Ku editing.
 
-    Used by TranscriptProcessorService to provide context-aware editing.
+    Used by ContentEnrichmentService to provide context-aware editing.
     """
 
     user_uid: str

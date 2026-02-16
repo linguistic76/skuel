@@ -88,7 +88,7 @@ Migrated all remaining BaseService subclasses outside Activity domains to achiev
 - `core/services/lp/lp_core_service.py` - Learning Path core operations
 
 **Content/Processing Domains (3):**
-- `core/services/transcript_processor_service.py` - Audio transcription processing
+- `core/services/content_enrichment_service.py` - Audio transcription processing
 - `core/services/journals/journals_core_service.py` - Journal entry management
 - `core/services/reports/report_project_service.py` - Report project operations
 
@@ -212,7 +212,7 @@ GOALS_CONFIG = create_activity_domain_config(
 - `core/services/lp/lp_core_service.py`
 
 ### Content Services (Phase 4) - 3 files
-- `core/services/transcript_processor_service.py`
+- `core/services/content_enrichment_service.py`
 - `core/services/journals/journals_core_service.py`
 - `core/services/reports/report_project_service.py`
 

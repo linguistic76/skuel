@@ -11,7 +11,7 @@ Module Organization:
 - learning_enums: LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus,
                   ContentType, PracticeLevel, KnowledgeType, SELCategory
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
-- ku_enums: KuType, KuStatus, CompletionStatus, ProcessorType, ProjectScope, JournalType, etc.
+- ku_enums: KuType, KuStatus, CompletionStatus, ProcessorType, ProjectScope, etc.
 
 Usage:
     from core.models.enums import Priority, KuStatus, KuType
@@ -46,9 +46,6 @@ from .ku_enums import (
     ContentOrigin,
     ContextEnrichmentLevel,
     FormattingStyle,
-    JournalCategory,
-    JournalMode,
-    JournalType,
     KuStatus,
     KuType,
     ProcessorType,
@@ -138,10 +135,6 @@ __all__ = [
     "GuidanceMode",
     "HealthStatus",
     "Intent",
-    # Ku enums (journal processing)
-    "JournalCategory",
-    "JournalMode",
-    "JournalType",
     "KnowledgeStatus",
     "KnowledgeType",
     "KuComplexity",

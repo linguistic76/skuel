@@ -20,7 +20,7 @@ related: [ADR-019-transcription-service-standalone]
 | AssignmentsCoreService | ✅ Implemented | `/core/services/assignments/assignments_core_service.py` |
 | AssignmentsSearchService | ✅ Implemented | `/core/services/assignments/assignments_search_service.py` |
 | AssignmentsRelationshipService | ✅ Implemented | `/core/services/assignments/assignments_relationship_service.py` |
-| TranscriptProcessorService | ✅ Implemented | AI transcript formatting |
+| ContentEnrichmentService | ✅ Implemented | AI transcript formatting |
 | `/assignments` UI | ✅ Implemented | Comprehensive dashboard |
 | `/journals` UI | ✅ Implemented | Focused journal submission |
 | Human review queue | 🔄 Planned | Future enhancement |

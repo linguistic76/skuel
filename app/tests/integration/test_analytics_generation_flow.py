@@ -62,7 +62,7 @@ class TestAnalyticsGenerationFlow:
             finance_service=None,
             choices_service=None,
             principle_service=None,
-            transcript_processor=None,  # Changed from journals_service to match constructor
+            content_enrichment=None,  # Changed from journals_service to match constructor
             ku_service=None,
             lp_service=None,
             event_bus=event_bus,
@@ -330,7 +330,7 @@ class TestAnalyticsGenerationFlow:
             finance_service=None,
             choices_service=None,
             principle_service=None,
-            transcript_processor=None,  # Changed from journals_service to match constructor
+            content_enrichment=None,  # Changed from journals_service to match constructor
             ku_service=None,
             lp_service=None,
             event_bus=None,  # No event bus

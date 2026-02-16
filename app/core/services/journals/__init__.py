@@ -2,23 +2,17 @@
 Journals Service Package
 =========================
 
-Multi-modal journal processing: Activity tracking, Idea articulation, Critical thinking.
+Journal output generation with three formatting strategies:
+- Activity: Structured with DSL tags preserved
+- Articulation: Verbatim with formatting improvements
+- Exploration: Question-organized
 
-Key Components:
-- JournalModeClassifier: LLM-based weight inference
-- JournalOutputGenerator: Format je_output based on mode weights
-- JournalWeights: Weight distribution dataclass
-
-See: /ACTIVITY_EXTRACTION_ENABLED.md for architecture overview.
+Enrichment mode is explicitly defined in Assignment processing instructions,
+not inferred by LLM classification.
 """
 
-from core.services.journals.journal_mode_classifier import JournalModeClassifier
 from core.services.journals.journal_output_generator import JournalOutputGenerator
-from core.services.journals.journal_types import JournalProcessingResult, JournalWeights
 
 __all__ = [
-    "JournalModeClassifier",
     "JournalOutputGenerator",
-    "JournalWeights",
-    "JournalProcessingResult",
 ]

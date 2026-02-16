@@ -12,7 +12,7 @@ Responsibilities:
 
 Does NOT handle:
 - Processing logic (KuProcessingService)
-- AI transcript formatting (TranscriptProcessorService)
+- AI content enrichment (ContentEnrichmentService)
 """
 
 import json

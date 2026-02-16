@@ -106,7 +106,7 @@ Only `COMPLETED` Ku can be shared (prevents sharing incomplete/failed work).
 | `KuProcessingService` | Routes files to processors, manages status transitions |
 | `KuSharingService` | Visibility control, SHARES_WITH management |
 | `TeacherReviewService` | Review queue, feedback, revision requests, approval |
-| `TranscriptProcessorService` | Audio transcription + AI formatting |
+| `ContentEnrichmentService` | Audio transcription + AI formatting |
 
 ## UI Surfaces
 

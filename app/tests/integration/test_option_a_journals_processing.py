@@ -152,13 +152,13 @@ class TestOptionAJournalsProcessing:
     ):
         """Create KuProcessingService with mocked dependencies.
 
-        Note: transcript_processor and report_relationship_service are NOT passed
+        Note: content_enrichment and report_relationship_service are NOT passed
         because they are NOT used after the January 2026 domain separation.
         """
         return KuProcessingService(
             ku_submission_service=mock_report_service,
             transcription_service=mock_transcription_service,
-            transcript_processor=None,  # Not used - journals have their own domain
+            content_enrichment=None,  # Not used - journals have their own domain
             ku_relationship_service=None,  # Not used - journals have their own domain
             event_bus=None,
         )

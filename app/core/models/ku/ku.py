@@ -135,6 +135,7 @@ class Ku:
     processed_content: str | None = None
     processed_file_path: str | None = None
     instructions: str | None = None  # LLM processing instructions
+    max_retention: int | None = None  # FIFO cleanup limit (None = permanent)
 
     # =========================================================================
     # FEEDBACK

@@ -1,28 +1,20 @@
 """
-Transcript Processor Service
-============================
+Content Enrichment Service
+===========================
 
-Processes transcripts into formatted documents using AI and Neo4j context.
-
-Core Purpose (The Three Functions):
-1. Format raw transcript text
-2. Edit transcript for better flow
-3. Use UserContext for intelligent, context-aware editing
+Enriches submitted content (audio transcripts, text) into formatted documents
+using AI and Neo4j context.
 
 Pipeline:
-Audio → TranscriptionService → Raw Text → TranscriptProcessorService → Formatted Document
+Submit (voice or text) → Extract (transcribe if audio) → Enrich (LLM + instructions)
 
 The power comes from Neo4j context awareness:
 - Recent entries, active goals, habits, tasks
 - UserContext for personalized editing
-- Instruction sets stored as markdown in Neo4j
+- Processing instructions stored as Assignment nodes in Neo4j
 
-Not a general journaling system - a specialized transcript processor that
-transforms raw transcripts into well-formatted documents according to
-configurable instruction sets.
-
-Version: 3.0.0 (November 27, 2025)
-Renamed from JournalsService to TranscriptProcessorService to reflect actual purpose
+Version: 4.0.0 (February 2026)
+Renamed from ContentEnrichmentService to ContentEnrichmentService
 """
 
 from contextlib import suppress
@@ -32,7 +24,7 @@ from typing import Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
-from core.models.enums.ku_enums import JournalType, KuStatus, KuType
+from core.models.enums.ku_enums import KuStatus, KuType
 from core.models.ku import Ku, KuDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -43,7 +35,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 
-class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
+class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
     """
     Transcript processor service - transforms raw transcripts into formatted documents.
 
@@ -69,9 +61,9 @@ class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
     - APPLIES_KNOWLEDGE: Processed documents apply knowledge units practically
     - REQUIRES_KNOWLEDGE: Processed documents require prerequisite knowledge
 
-    Source Tag: "transcript_processor_explicit"
-    - Format: "transcript_processor_explicit" for user-created relationships
-    - Format: "transcript_processor_inferred" for system-generated relationships
+    Source Tag: "content_enrichment_explicit"
+    - Format: "content_enrichment_explicit" for user-created relationships
+    - Format: "content_enrichment_inferred" for system-generated relationships
 
     Confidence Scoring:
     - 0.9+: User explicitly defined relationship
@@ -115,11 +107,11 @@ class TranscriptProcessorService(BaseService[BackendOperations[Ku], Ku]):
             ai_service: AI service for intelligent editing (e.g., OpenAI),
             event_bus: Event bus for publishing domain events (optional)
         """
-        super().__init__(backend, "TranscriptProcessorService")
+        super().__init__(backend, "ContentEnrichmentService")
         self.transcription_service = transcription_service
         self.ai_service = ai_service
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.transcript_processor")
+        self.logger = get_logger("skuel.services.content_enrichment")
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -1457,7 +1449,6 @@ Return ONLY Markdown in this structure:
             content=insights.formatted_content,
             metadata={
                 "summary": insights.summary,
-                "journal_type": JournalType.VOICE.value,
                 "content_type": "audio_transcript",
                 "key_topics": insights.themes,
                 "entry_date": date.today().isoformat(),

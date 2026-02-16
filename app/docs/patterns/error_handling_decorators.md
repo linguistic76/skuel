@@ -313,7 +313,7 @@ Keep manual try-except for:
 | askesis/ | ✅ Complete | 9 methods |
 | lp_intelligence/ | ✅ Complete | 9 methods |
 | **Processing Services** | | |
-| transcript_processor_service | ✅ Complete | 5 methods |
+| content_enrichment_service | ✅ Complete | 5 methods |
 | transcription_service | ✅ Complete | 10 methods |
 | assignment_service | ✅ Complete | 6 methods |
 | yaml_ingestion_service | ✅ Complete | 11 methods |

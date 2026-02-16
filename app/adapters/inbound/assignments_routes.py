@@ -16,12 +16,12 @@ ASSIGNMENTS_CONFIG = DomainRouteConfig(
     api_factory=create_assignments_api_routes,
     ui_factory=create_assignments_ui_routes,
     api_related_services={
-        "transcript_service": "transcript_processor",
+        "transcript_service": "content_enrichment",
         "report_feedback_service": "report_feedback",
         "user_service": "user_service",
     },
     ui_related_services={
-        "transcript_service": "transcript_processor",
+        "transcript_service": "content_enrichment",
         "user_service": "user_service",
     },
 )
