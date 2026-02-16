@@ -347,8 +347,9 @@ class ParsedActivityLine:
         uids = []
         if self.primary_ku:
             uids.append(self.primary_ku)
-        # Link type comes from raw DSL prefix: @link(ku:...) -> type="ku"
-        uids.extend([link["id"] for link in self.links if link.get("type") == "ku"])
+        uids.extend(
+            [link["id"] for link in self.links if link.get("type") == KuType.CURRICULUM.value]
+        )
         return uids
 
     def get_linked_choices(self) -> list[str]:
@@ -1012,6 +1013,12 @@ class ActivityDSLParser:
                 if len(parts) == 2:
                     link_type = parts[0].strip().lower()
                     link_id = parts[1].strip()
+
+                    # Normalize DSL prefix to KuType value
+                    # e.g. @link(ku:...) -> type="curriculum" (KuType.CURRICULUM)
+                    normalized = KuType.from_string(link_type)
+                    if normalized is not None:
+                        link_type = normalized.value
 
                     # Reconstruct full UID if needed
                     if link_type in ("goal", "principle", "project", "person", "vortex"):

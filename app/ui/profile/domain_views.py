@@ -1712,7 +1712,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
     for (
         icon,
         name,
-        slug,
+        _slug,
         primary,
         primary_label,
         secondary,

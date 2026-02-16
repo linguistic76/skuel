@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.query.cypher.post_processors import apply_processor
+from core.models.relationship_names import RelationshipName
 from core.services.protocols import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -193,7 +194,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         prereq_rels = (
             "|".join(self._prerequisite_relationships)
             if self._prerequisite_relationships
-            else "REQUIRES_KNOWLEDGE"
+            else RelationshipName.REQUIRES_KNOWLEDGE.value
         )
 
         query = f"""

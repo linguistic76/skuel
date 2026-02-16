@@ -19,6 +19,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.models.context_types import ScheduleAwareRecommendation
+from core.models.enums.ku_enums import KuType
 
 if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
@@ -427,13 +428,13 @@ class ScheduleIntelligenceMixin:
         """
         # Schedule fit based on time slot appropriateness
         schedule_fit = 0.7  # Default
-        if entity_type == "task" and time_slot in ["morning", "afternoon"]:
+        if entity_type == KuType.TASK.value and time_slot in ["morning", "afternoon"]:
             schedule_fit = 0.9
-        elif entity_type == "habit":
+        elif entity_type == KuType.HABIT.value:
             schedule_fit = 0.85  # Habits are flexible
-        elif entity_type in ("knowledge", "curriculum") and time_slot == "morning":
+        elif entity_type in ("knowledge", KuType.CURRICULUM.value) and time_slot == "morning":
             schedule_fit = 0.95  # Learning best in morning
-        elif entity_type == "goal":
+        elif entity_type == KuType.GOAL.value:
             schedule_fit = 0.75  # Goals need focused time
 
         # Energy match

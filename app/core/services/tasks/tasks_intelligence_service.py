@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 from core.constants import GraphDepth, QueryLimit
 from core.models.enums import CompletionStatus, Domain, KuStatus, Priority
 from core.models.enums.activity_enums import ProductivityLevel
+from core.models.enums.neo_labels import NeoLabel
 from core.models.graph_context import GraphContext
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
@@ -458,7 +459,9 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
                 if context_result.is_ok:
                     context = context_result.value
                     knowledge_nodes = [
-                        node for node in context.nodes if node.labels and "Ku" in node.labels
+                        node
+                        for node in context.nodes
+                        if node.labels and NeoLabel.KU.value in node.labels
                     ]
 
                     if knowledge_nodes:
@@ -687,7 +690,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
 
             # Task dependencies (bidirectional DEPENDS_ON)
             # Use directional markers (->DEPENDS_ON / <-DEPENDS_ON) to distinguish
-            if "Ku" in labels and (
+            if NeoLabel.KU.value in labels and (
                 "->DEPENDS_ON" in via_rels or "DEPENDS_ON" in via_rels or "<-DEPENDS_ON" in via_rels
             ):
                 task_entity = PathAwareTask(
@@ -707,7 +710,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
                     dependents.append(task_entity)
 
             # Knowledge requirements (REQUIRES_KNOWLEDGE, APPLIES_KNOWLEDGE)
-            elif "Ku" in labels and (
+            elif NeoLabel.KU.value in labels and (
                 RelationshipName.REQUIRES_KNOWLEDGE.value in via_rels
                 or RelationshipName.APPLIES_KNOWLEDGE.value in via_rels
             ):
@@ -724,7 +727,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
                     applied_knowledge.append(knowledge_entity)
 
             # Goals this task contributes to/fulfills
-            elif "Ku" in labels and (
+            elif NeoLabel.KU.value in labels and (
                 RelationshipName.CONTRIBUTES_TO_GOAL.value in via_rels
                 or RelationshipName.FULFILLS_GOAL.value in via_rels
             ):

@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
 from core.models.enums import KuStatus
+from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku as Task
 from core.services.tasks.task_relationships import TaskRelationships
 from core.utils.logging import get_logger
@@ -805,7 +806,7 @@ class KuAnalyticsEngine:
         for ku_uid in knowledge_uids:
             # Extract domain from ku.domain.specific format
             parts = ku_uid.split(".")
-            if len(parts) >= 2 and parts[0] == "ku":
+            if len(parts) >= 2 and parts[0] == NeoLabel.KU.value.lower():
                 domains.append(parts[1])
         return domains
 

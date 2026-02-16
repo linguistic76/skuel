@@ -716,12 +716,14 @@ class SkuelLinter:
             "_remove_from",
             "handle_",
             "increment_",
+            "ensure_",
         ]
 
         utility_files = [
             "performance_optimization_service.py",
             "base_service.py",
             "user_context_intelligence.py",
+            "progress_report_worker.py",
         ]
 
         if any(uf in str(file_path) for uf in utility_files):
@@ -750,6 +752,18 @@ class SkuelLinter:
                     continue
 
                 if any(p in line for p in utility_patterns):
+                    continue
+
+                # Skip @classmethod methods (factory methods on dataclasses, not services)
+                is_classmethod = False
+                for prev_idx in range(line_num - 2, max(0, line_num - 5), -1):
+                    prev_stripped = lines[prev_idx].strip()
+                    if prev_stripped == "@classmethod":
+                        is_classmethod = True
+                        break
+                    if not prev_stripped.startswith("@"):
+                        break
+                if is_classmethod:
                     continue
 
                 if "Result[" not in line:
