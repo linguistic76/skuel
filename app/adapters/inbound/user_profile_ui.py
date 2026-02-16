@@ -30,8 +30,8 @@ from core.services.protocols import get_enum_value
 from core.services.user.unified_user_context import UserContext
 from core.ui.daisy_components import Div
 from core.utils.logging import get_logger
-from ui.layouts.base_page import BasePage
 from core.utils.result_simplified import Result
+from ui.layouts.base_page import BasePage
 from ui.profile.domain_stats_config import (
     DOMAIN_STATS_CONFIG,
     knowledge_active,

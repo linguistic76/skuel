@@ -20,8 +20,8 @@ from datetime import date, timedelta
 from typing import Any
 
 from fasthtml.common import (
-    A,
     H2,
+    A,
     Datalist,
     Div,
     Form,

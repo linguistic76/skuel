@@ -12,7 +12,7 @@ Layout: Standard BasePage.
 
 from typing import Any
 
-from fasthtml.common import A, Div, H1, P, Span
+from fasthtml.common import H1, A, Div, P, Span
 from starlette.requests import Request
 
 from core.auth import require_authenticated_user

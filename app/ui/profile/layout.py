@@ -198,7 +198,7 @@ def _build_profile_sidebar_items(
                     _profile_item_renderer(item, item.slug == active_domain)
                     for item in activity_items
                 ],
-                _profile_item_renderer(journals_item, "journals" == active_domain),
+                _profile_item_renderer(journals_item, active_domain == "journals"),
             ]
         )
 
@@ -223,8 +223,8 @@ def _build_profile_sidebar_items(
 
     extra_sections.extend(
         [
-            _profile_item_renderer(submissions_item, "reports" == active_domain),
-            _profile_item_renderer(feedback_item, "feedback" == active_domain),
+            _profile_item_renderer(submissions_item, active_domain == "reports"),
+            _profile_item_renderer(feedback_item, active_domain == "feedback"),
         ]
     )
 

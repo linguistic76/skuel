@@ -45,18 +45,6 @@ Usage:
     from core.models.ku import Milestone, ChoiceOption, PrincipleExpression
 """
 
-from .ku import Ku
-from .ku_chunks import KuChunk, KuChunkType, chunk_content
-from .ku_content import KuContent
-from .ku_converters import ku_to_response
-from .ku_dto import KuDTO
-from .ku_metadata import KuMetadata
-from .ku_nested_types import (
-    AlignmentAssessment,
-    ChoiceOption,
-    Milestone,
-    PrincipleExpression,
-)
 from .assignment import (
     Assignment,
     AssignmentDTO,
@@ -68,6 +56,18 @@ from .assignment_request import (
     AssignmentCreateRequest,
     AssignmentUpdateRequest,
     KuFeedbackGenerateRequest,
+)
+from .ku import Ku
+from .ku_chunks import KuChunk, KuChunkType, chunk_content
+from .ku_content import KuContent
+from .ku_converters import ku_to_response
+from .ku_dto import KuDTO
+from .ku_metadata import KuMetadata
+from .ku_nested_types import (
+    AlignmentAssessment,
+    ChoiceOption,
+    Milestone,
+    PrincipleExpression,
 )
 from .ku_request import (
     # Route-specific
