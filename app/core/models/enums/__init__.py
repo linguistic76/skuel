@@ -43,6 +43,7 @@ from .entity_enums import (
 from .ku_enums import (
     AnalysisDepth,
     CompletionStatus,
+    ContentOrigin,
     ContextEnrichmentLevel,
     FormattingStyle,
     JournalCategory,
@@ -117,6 +118,7 @@ __all__ = [
     "CompletionStatus",
     # Dual-track assessment levels
     "ConsistencyLevel",
+    "ContentOrigin",
     "ContentScope",
     "ContentType",
     "Context",

@@ -62,6 +62,12 @@ class KuType(str, Enum):
         Destination:
             LIFE_PATH       → Knowledge about your life direction
 
+    Content origin tiers (see ContentOrigin):
+        A  CURATED      → RESOURCE
+        B  CURRICULUM   → CURRICULUM, MOC, LEARNING_STEP, LEARNING_PATH
+        C  USER_CREATED → Activities, SUBMISSION, JOURNAL, LIFE_PATH
+        D  FEEDBACK     → AI_REPORT, FEEDBACK_REPORT
+
     Ownership rules:
         Knowledge group:     user_uid = None (shared content, admin-created)
         Curriculum structure: user_uid = None (shared structure)
@@ -127,6 +133,10 @@ class KuType(str, Enum):
     def is_content_processing(self) -> bool:
         """Check if this is in the content processing chain."""
         return self in _CONTENT_PROCESSING_TYPES
+
+    def content_origin(self) -> ContentOrigin:
+        """Return the content origin tier (A-D) for this KuType."""
+        return _CONTENT_ORIGIN_BY_TYPE[self]
 
     # -------------------------------------------------------------------------
     # Ownership
@@ -228,6 +238,48 @@ _SHARED_TYPES = frozenset(
         KuType.LEARNING_PATH,
     }
 )
+
+
+class ContentOrigin(str, Enum):
+    """
+    Content origin tier — classifies KuTypes by where content comes from
+    and what role it plays in the system.
+
+    Four tiers:
+        CURATED      (A) → Admin-curated resources, used by Askesis
+        CURRICULUM   (B) → Curriculum structure and organization
+        USER_CREATED (C) → User-generated content (activities, submissions, journals)
+        FEEDBACK     (D) → Analysis/feedback that acts on user content
+    """
+
+    CURATED = "curated"
+    CURRICULUM = "curriculum"
+    USER_CREATED = "user_created"
+    FEEDBACK = "feedback"
+
+
+_CONTENT_ORIGIN_BY_TYPE: dict[KuType, ContentOrigin] = {
+    # A — Admin-curated resources
+    KuType.RESOURCE: ContentOrigin.CURATED,
+    # B — Curriculum structure and organization
+    KuType.CURRICULUM: ContentOrigin.CURRICULUM,
+    KuType.MOC: ContentOrigin.CURRICULUM,
+    KuType.LEARNING_STEP: ContentOrigin.CURRICULUM,
+    KuType.LEARNING_PATH: ContentOrigin.CURRICULUM,
+    # C — User-generated content
+    KuType.TASK: ContentOrigin.USER_CREATED,
+    KuType.GOAL: ContentOrigin.USER_CREATED,
+    KuType.HABIT: ContentOrigin.USER_CREATED,
+    KuType.EVENT: ContentOrigin.USER_CREATED,
+    KuType.CHOICE: ContentOrigin.USER_CREATED,
+    KuType.PRINCIPLE: ContentOrigin.USER_CREATED,
+    KuType.SUBMISSION: ContentOrigin.USER_CREATED,
+    KuType.JOURNAL: ContentOrigin.USER_CREATED,
+    KuType.LIFE_PATH: ContentOrigin.USER_CREATED,
+    # D — Feedback that acts on user content
+    KuType.AI_REPORT: ContentOrigin.FEEDBACK,
+    KuType.FEEDBACK_REPORT: ContentOrigin.FEEDBACK,
+}
 
 _KU_TYPE_ALIASES: dict[str, KuType] = {
     # Canonical values

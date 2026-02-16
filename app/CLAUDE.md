@@ -693,6 +693,29 @@ await service.get_for_user(uid, user_uid)      # Get with ownership check
 
 **See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`
 
+## Content Origin Tiers
+
+**Core Principle:** "ContentScope controls access, ContentOrigin classifies purpose"
+
+`ContentOrigin` is a derived property of `KuType` — it classifies **where content comes from and what role it plays**, complementing the access-control focus of `ContentScope`.
+
+| Tier | ContentOrigin | KuTypes | Description |
+|------|--------------|---------|-------------|
+| A | `CURATED` | Resource | Admin-curated content used by Askesis |
+| B | `CURRICULUM` | Curriculum, MOC, LS, LP | Curriculum structure and organization |
+| C | `USER_CREATED` | Activities, Submission, Journal, Life Path | User-generated content |
+| D | `FEEDBACK` | AI Report, Feedback Report | Analysis/feedback that acts on tier C |
+
+```python
+from core.models.enums.ku_enums import KuType, ContentOrigin
+
+KuType.TASK.content_origin()       # ContentOrigin.USER_CREATED
+KuType.RESOURCE.content_origin()   # ContentOrigin.CURATED
+KuType.AI_REPORT.content_origin()  # ContentOrigin.FEEDBACK
+```
+
+**See:** `ContentOrigin` in `/core/models/enums/ku_enums.py`
+
 ## Content Sharing (Phase 1: Reports)
 
 **Core Principle:** "Three-level visibility with relationship-based access control"
