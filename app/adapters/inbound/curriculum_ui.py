@@ -3,7 +3,7 @@ Curriculum Hub UI Routes
 =========================
 
 Card-grid hub page showing the 5 curriculum-related sections:
-Knowledge, Learning Steps, Learning Paths, Reports, Shared With Me.
+Knowledge, Learning Steps, Learning Paths, Submissions, Feedback.
 
 Accessible from the green "C" icon in the navbar.
 
@@ -107,17 +107,17 @@ def create_curriculum_ui_routes(app: Any, rt: Any, services: Any) -> None:
             ),
             _curriculum_card(
                 icon="📄",
-                name="Reports",
+                name="Submissions",
                 href="/reports",
                 primary_count=0,
                 primary_label="submitted",
             ),
             _curriculum_card(
-                icon="📥",
-                name="Shared With Me",
-                href="/profile/shared",
+                icon="💬",
+                name="Feedback",
+                href="/reports/feedback",
                 primary_count=0,
-                primary_label="items",
+                primary_label="received",
             ),
             cls="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5",
         )
@@ -131,4 +131,6 @@ def create_curriculum_ui_routes(app: Any, rt: Any, services: Any) -> None:
             cards,
         )
 
-        return await BasePage(content, title="Curriculum", request=request, active_page="curriculum")
+        return await BasePage(
+            content, title="Curriculum", request=request, active_page="curriculum"
+        )

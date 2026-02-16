@@ -1,13 +1,13 @@
 """
-Reports UI Routes
+Submissions UI Routes
 =====================
 
-File submission with sidebar navigation (Submit / Browse / Your Reports).
+File submission with sidebar navigation (Submit / Browse / Your Submissions).
 Regular users upload files here to share with teachers, peers, or mentors.
 Processor type is auto-set to HUMAN — AI processing lives in Report Projects
 (role-gated to TEACHER+).
 
-Layout: Unified sidebar (Tailwind + Alpine) with 3 nav items.
+Layout: Unified sidebar (Tailwind + Alpine) with 5 nav items.
 Desktop: collapsible sidebar. Mobile: horizontal tabs.
 """
 
@@ -593,7 +593,7 @@ def _render_sharing_section(report: Any) -> Any:
 REPORTS_SIDEBAR_ITEMS = [
     SidebarItem("Submit", "/reports/submit", "submit", icon="📤"),
     SidebarItem("Browse", "/reports/browse", "browse", icon="📂"),
-    SidebarItem("Your Reports", "/reports/yours", "yours", icon="📋"),
+    SidebarItem("Your Submissions", "/reports/yours", "yours", icon="📋"),
     SidebarItem("Feedback", "/reports/feedback", "feedback", icon="💬"),
     SidebarItem("Progress", "/reports/progress", "progress", icon="📊"),
 ]
@@ -811,7 +811,7 @@ def create_reports_ui_routes(
         _report_projects_service: KuProjectService for assignment dropdown (optional)
     """
 
-    logger.info("Creating Reports UI routes")
+    logger.info("Creating Submissions UI routes")
 
     # ========================================================================
     # SIDEBAR PAGES
@@ -840,7 +840,7 @@ def create_reports_ui_routes(
                 ]
 
         content = Div(
-            PageHeader("Submit Report", subtitle="Upload a file linked to a Knowledge Unit"),
+            PageHeader("Submit", subtitle="Upload a file linked to a Knowledge Unit"),
             _render_upload_form(assigned_projects),
             _upload_form_script(),
         )
@@ -848,10 +848,10 @@ def create_reports_ui_routes(
             content=content,
             items=REPORTS_SIDEBAR_ITEMS,
             active="submit",
-            title="Reports",
+            title="Submissions",
             subtitle="Submit and manage files",
             storage_key="reports-sidebar",
-            page_title="Submit Report",
+            page_title="Submit",
             request=request,
             active_page="reports",
             title_href="/reports",
@@ -862,7 +862,7 @@ def create_reports_ui_routes(
         """Browse page: filters + results grid."""
         require_authenticated_user(request)
         content = Div(
-            PageHeader("Browse Reports", subtitle="Filter and find reports"),
+            PageHeader("Browse Submissions", subtitle="Filter and find submissions"),
             _render_filters_section(),
             _render_reports_grid_container(),
         )
@@ -870,10 +870,10 @@ def create_reports_ui_routes(
             content=content,
             items=REPORTS_SIDEBAR_ITEMS,
             active="browse",
-            title="Reports",
+            title="Submissions",
             subtitle="Submit and manage files",
             storage_key="reports-sidebar",
-            page_title="Browse Reports",
+            page_title="Browse Submissions",
             request=request,
             active_page="reports",
             title_href="/reports",
@@ -884,17 +884,17 @@ def create_reports_ui_routes(
         """Your Reports page: full listing without filters."""
         require_authenticated_user(request)
         content = Div(
-            PageHeader("Your Reports", subtitle="View and manage your submitted files"),
+            PageHeader("Your Submissions", subtitle="View and manage your submitted files"),
             _render_reports_grid_container(),
         )
         return await SidebarPage(
             content=content,
             items=REPORTS_SIDEBAR_ITEMS,
             active="yours",
-            title="Reports",
+            title="Submissions",
             subtitle="Submit and manage files",
             storage_key="reports-sidebar",
-            page_title="Your Reports",
+            page_title="Your Submissions",
             request=request,
             active_page="reports",
             title_href="/reports",
@@ -1130,7 +1130,7 @@ def create_reports_ui_routes(
             content=content,
             items=REPORTS_SIDEBAR_ITEMS,
             active="feedback",
-            title="Reports",
+            title="Submissions",
             subtitle="Submit and manage files",
             storage_key="reports-sidebar",
             page_title="Feedback",
@@ -1252,7 +1252,7 @@ def create_reports_ui_routes(
             content=content,
             items=REPORTS_SIDEBAR_ITEMS,
             active="progress",
-            title="Reports",
+            title="Submissions",
             subtitle="Submit and manage files",
             storage_key="reports-sidebar",
             page_title="Progress Reports",
@@ -1318,7 +1318,7 @@ def create_reports_ui_routes(
         # Detail view card with HTMX loading
         detail_card = Div(
             Div(
-                H3("Report Details", cls="card-title"),
+                H3("Submission Details", cls="card-title"),
                 # Report info container (loaded via HTMX)
                 Div(
                     P("Loading report details...", cls="text-center text-base-content/60"),
@@ -1356,7 +1356,7 @@ def create_reports_ui_routes(
                 # Action buttons - use proper link instead of onclick
                 Div(
                     A(
-                        "\u2190 Back to Reports",
+                        "\u2190 Back to Submissions",
                         href="/reports",
                         cls="btn btn-ghost",
                     ),
@@ -1369,7 +1369,7 @@ def create_reports_ui_routes(
 
         content = Div(
             Div(
-                H1("Report Details", cls="text-3xl font-bold"),
+                H1("Submission Details", cls="text-3xl font-bold"),
                 P(f"UID: {uid}", cls="text-lg text-base-content/60"),
                 cls="text-center mb-8",
             ),
@@ -1378,12 +1378,12 @@ def create_reports_ui_routes(
 
         return await BasePage(
             content,
-            title="Report Details",
+            title="Submission Details",
             request=request,
             active_page="reports",
         )
 
-    logger.info("Reports UI routes created successfully")
+    logger.info("Submissions UI routes created successfully")
 
     # Route order matters! Specific routes must come BEFORE parameterized routes.
     # Otherwise /reports/grid would match /reports/{uid} with uid="grid"

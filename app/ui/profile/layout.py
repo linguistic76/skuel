@@ -139,7 +139,7 @@ def _profile_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
             )
         )
 
-    # Simple item (Overview, Shared With Me)
+    # Simple item (Overview, Feedback)
     return Li(
         Anchor(
             Span(item.icon, cls="text-lg", aria_hidden="true") if item.icon else "",
@@ -191,18 +191,20 @@ def _build_profile_sidebar_items(
 
         journals_item = SidebarItem("Journals", "/journals", "journals", icon="📓")
 
-        extra_sections.extend([
-            _section_header("Tracking"),
-            *[
-                _profile_item_renderer(item, item.slug == active_domain)
-                for item in activity_items
-            ],
-            _profile_item_renderer(journals_item, "journals" == active_domain),
-        ])
+        extra_sections.extend(
+            [
+                _section_header("Tracking"),
+                *[
+                    _profile_item_renderer(item, item.slug == active_domain)
+                    for item in activity_items
+                ],
+                _profile_item_renderer(journals_item, "journals" == active_domain),
+            ]
+        )
 
-    # Curriculum section (includes Reports and Shared With Me)
-    reports_item = SidebarItem("Reports", "/reports", "reports", icon="📄")
-    shared_item = SidebarItem("Shared With Me", "/profile/shared", "shared", icon="📥")
+    # Curriculum section (includes Submissions and Feedback)
+    submissions_item = SidebarItem("Submissions", "/reports", "reports", icon="📄")
+    feedback_item = SidebarItem("Feedback", "/reports/feedback", "feedback", icon="💬")
 
     extra_sections.append(_section_header("Curriculum"))
 
@@ -215,15 +217,16 @@ def _build_profile_sidebar_items(
             for d in curriculum_domains
         ]
 
-        extra_sections.extend([
-            _profile_item_renderer(item, item.slug == active_domain)
-            for item in curriculum_items
-        ])
+        extra_sections.extend(
+            [_profile_item_renderer(item, item.slug == active_domain) for item in curriculum_items]
+        )
 
-    extra_sections.extend([
-        _profile_item_renderer(reports_item, "reports" == active_domain),
-        _profile_item_renderer(shared_item, "shared" == active_domain),
-    ])
+    extra_sections.extend(
+        [
+            _profile_item_renderer(submissions_item, "reports" == active_domain),
+            _profile_item_renderer(feedback_item, "feedback" == active_domain),
+        ]
+    )
 
     return items, extra_sections or None
 
