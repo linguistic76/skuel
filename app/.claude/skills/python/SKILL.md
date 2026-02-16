@@ -84,7 +84,7 @@ from core.result import Result
 result = Result.ok(task)
 
 # Failure
-result = Result.fail("Task not found")
+result = Result.fail(Errors.not_found("Task", uid))
 
 # Checking results
 if result.is_error:

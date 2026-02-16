@@ -154,10 +154,10 @@ async def create_task(self, task_request: TaskCreateRequest) -> Result[Task]:
 
     # Pattern 1: Instant validation (no DB query)
     if len(task_request.prerequisite_task_uids) > 20:
-        return Result.fail("Too many prerequisites (max 20)")
+        return Result.fail(Errors.validation("Too many prerequisites (max 20)", field="prerequisite_task_uids"))
 
     if task_request.parent_uid and len(task_request.subtask_uids) > 0:
-        return Result.fail("Task cannot be both parent and subtask")
+        return Result.fail(Errors.business("parent_subtask_conflict", "Task cannot be both parent and subtask"))
 
     # Create task
     task = Task(**task_request.dict())
@@ -412,15 +412,15 @@ async def create_task_with_validation(
 
     # Instant check - no DB query
     if len(task_request.prerequisite_task_uids) > 20:
-        return Result.fail("Too many direct prerequisites (max 20)")
+        return Result.fail(Errors.validation("Too many direct prerequisites (max 20)", field="prerequisite_task_uids"))
 
     # Instant check - no DB query
     if task_request.parent_uid and len(task_request.subtask_uids) > 0:
-        return Result.fail("Task cannot be both parent and subtask")
+        return Result.fail(Errors.business("parent_subtask_conflict", "Task cannot be both parent and subtask"))
 
     # Instant type check - no DB query
     if len(task_request.applies_knowledge_uids) == 0 and task_request.knowledge_mastery_check:
-        return Result.fail("Mastery check requires applied knowledge")
+        return Result.fail(Errors.validation("Mastery check requires applied knowledge", field="applies_knowledge_uids"))
 
     # ========================================
     # Pattern 2: Deep graph validations
@@ -452,7 +452,7 @@ async def create_task_with_validation(
         )
 
         if not goal_context.is_active():
-            return Result.fail("Cannot create task for inactive goal")
+            return Result.fail(Errors.business("inactive_goal", "Cannot create task for inactive goal"))
 
     # ========================================
     # Create task
@@ -690,16 +690,16 @@ async def create_task_validated(self, request: TaskCreateRequest) -> Result[Task
     Example:
         # Pattern 1: Instant checks
         if len(request.prerequisite_task_uids) > 20:
-            return Result.fail("Too many prerequisites")
+            return Result.fail(Errors.validation("Too many prerequisites", field="prerequisite_task_uids"))
 
         # Pattern 2: Deep validation
         context = await graph_intelligence.get_context(...)
         if not context.all_prerequisites_met():
-            return Result.fail("Prerequisite chain incomplete")
+            return Result.fail(Errors.business("prerequisites_unmet", "Prerequisite chain incomplete"))
     """
     # Pattern 1 validation
     if len(request.prerequisite_task_uids) > 20:
-        return Result.fail("Too many prerequisites")
+        return Result.fail(Errors.validation("Too many prerequisites", field="prerequisite_task_uids"))
 
     # Pattern 2 validation
     context = await self.graph_intelligence.get_context(...)

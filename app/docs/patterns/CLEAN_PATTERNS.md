@@ -119,7 +119,7 @@ if not backend:
 # No alternative paths
 knowledge_service = services.learning_intelligence  # One way only
 if not knowledge_service:
-    return Result.fail("Knowledge intelligence not available")  # Clear error
+    return Result.fail(Errors.unavailable("knowledge_intelligence", "Knowledge intelligence not available"))
 ```
 
 ## Related Documentation

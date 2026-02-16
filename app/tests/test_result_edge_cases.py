@@ -51,7 +51,7 @@ class TestResultEdgeCases:
 
     def test_accessing_value_on_error_raises(self):
         """Test that accessing value on error result raises ValueError."""
-        result = Result.fail("Error occurred")
+        result = Result.fail(Errors.system("Error occurred"))
         with pytest.raises(ValueError, match="Attempted to access value on error result"):
             _ = result.value
 
@@ -89,7 +89,7 @@ class TestResultEdgeCases:
             call_count += 1
             return Result.ok(x * 2)
 
-        result = Result.fail("Original error")
+        result = Result.fail(Errors.system("Original error"))
         chained = result.and_then(should_not_be_called)
 
         assert chained.is_error
@@ -125,7 +125,7 @@ class TestResultEdgeCases:
             return Result.ok(x + 1)
 
         def fail_always(x):
-            return Result.fail("Intentional failure")
+            return Result.fail(Errors.business("intentional_failure", "Intentional failure"))
 
         def should_not_run(x):
             pytest.fail("This should not be called")
@@ -158,7 +158,7 @@ class TestResultEdgeCases:
             call_count += 1
             return x * 2
 
-        result = Result.fail("Original error")
+        result = Result.fail(Errors.system("Original error"))
         mapped = result.map(should_not_be_called)
 
         assert mapped.is_error
@@ -231,7 +231,7 @@ class TestResultEdgeCases:
         def log_value(v):
             side_effects.append(v)
 
-        result = Result.fail("Error").inspect(log_value)
+        result = Result.fail(Errors.system("Error")).inspect(log_value)
 
         assert result.is_error
         assert side_effects == []

@@ -30,7 +30,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from core.models.enums import KuStatus, Priority
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 @dataclass
@@ -86,7 +86,7 @@ class MockBackendOld:
         self.query_count += 1
         await asyncio.sleep(0.0005)  # Simulate query latency
         task = next((t for t in self._tasks if t["uid"] == uid), None)
-        return Result.ok(task) if task else Result.fail("Not found")
+        return Result.ok(task) if task else Result.fail(Errors.not_found("Task", uid))
 
 
 class MockBackendNew:
@@ -141,7 +141,7 @@ class MockBackendNew:
         self.query_count += 1
         await asyncio.sleep(0.0005)  # Simulate query latency
         task = next((t for t in self._tasks if t["uid"] == uid), None)
-        return Result.ok(task) if task else Result.fail("Not found")
+        return Result.ok(task) if task else Result.fail(Errors.not_found("Task", uid))
 
 
 class PerformanceBenchmark:

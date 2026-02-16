@@ -23,7 +23,7 @@ Chain operations that return Results, preventing double-wrapping.
 
 ```python
 def validate(x: int) -> Result[int]:
-    return Result.ok(x) if x > 0 else Result.fail("Must be positive")
+    return Result.ok(x) if x > 0 else Result.fail(Errors.validation("Must be positive", field="x"))
 
 result = Result.ok(5)
 validated = result.flat_map(validate)  # Result.ok(5)

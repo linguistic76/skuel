@@ -25,7 +25,7 @@ from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.models.ku.ku_request import KuTaskCreateRequest
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 from core.services.user import UserContext
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
 # FIXTURES
@@ -385,7 +385,7 @@ async def test_create_task_from_learning_step(scheduling_service, mock_backend):
 async def test_create_curriculum_task_backend_error(scheduling_service, mock_backend):
     """Test curriculum task creation with backend error."""
     # Setup
-    mock_backend.create_task.return_value = Result.fail("Database error")
+    mock_backend.create_task.return_value = Result.fail(Errors.database("create_task", "Database error"))
 
     # Execute
     result = await scheduling_service.create_task_from_learning_step(

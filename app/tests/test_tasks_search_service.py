@@ -28,7 +28,7 @@ from core.models.ku.ku import Ku as Task
 from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.services.tasks.tasks_search_service import TasksSearchService
 from core.services.user import UserContext
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
 # FIXTURES
@@ -277,7 +277,7 @@ async def test_get_tasks_applying_knowledge_success(search_service, mock_backend
             next(t.to_dto().to_dict() for t in sample_tasks if t.uid == uid)
         )
         if any(t.uid == uid for t in sample_tasks)
-        else Result.fail("Not found")
+        else Result.fail(Errors.not_found("Task", uid))
     )
 
     # Execute
@@ -504,7 +504,7 @@ async def test_multiple_search_criteria(search_service, mock_backend, sample_tas
 async def test_search_with_backend_error(search_service, mock_backend):
     """Test search operations handle backend errors gracefully."""
     # Setup - get_tasks_for_goal uses find_by
-    mock_backend.find_by.return_value = Result.fail("Database connection error")
+    mock_backend.find_by.return_value = Result.fail(Errors.database("find_by", "Database connection error"))
 
     # Execute
     result = await search_service.get_tasks_for_goal("goal:test")

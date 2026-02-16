@@ -24,7 +24,7 @@ from core.models.ku.ku import Ku as Task
 from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.services.tasks.tasks_progress_service import TasksProgressService
 from core.services.user import UserContext
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
 # FIXTURES
@@ -199,7 +199,7 @@ async def test_complete_task_cascade_effects(
 async def test_complete_task_not_found(progress_service, mock_backend, user_context):
     """Test completion when task doesn't exist."""
     # Setup
-    mock_backend.get.return_value = Result.fail("Task not found")
+    mock_backend.get.return_value = Result.fail(Errors.not_found("Task", "task:999"))
 
     # Execute
     result = await progress_service.complete_task_with_cascade("task:999", user_context)
@@ -240,7 +240,7 @@ async def test_record_task_completion_backend_error(progress_service, mock_backe
     """Test recording completion with backend error."""
     # Setup
     # Service now uses add_relationship instead of specific backend methods
-    mock_backend.add_relationship.return_value = Result.fail("Database error")
+    mock_backend.add_relationship.return_value = Result.fail(Errors.database("add_relationship", "Database error"))
 
     # Execute
     result = await progress_service.record_task_completion("task:123", "user:123")
@@ -448,7 +448,7 @@ async def test_assign_task_backend_error(progress_service, mock_backend):
     """Test task assignment with backend error."""
     # Setup
     # Service now uses add_relationship instead of specific backend methods
-    mock_backend.add_relationship.return_value = Result.fail("Assignment failed")
+    mock_backend.add_relationship.return_value = Result.fail(Errors.database("add_relationship", "Assignment failed"))
 
     # Execute
     result = await progress_service.assign_task_to_user("task:123", "user:456")

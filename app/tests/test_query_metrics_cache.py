@@ -31,7 +31,7 @@ from core.utils.metrics import (
     set_query_metrics_cache,
     track_query_metrics,
 )
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
 # FIXTURES
@@ -295,7 +295,7 @@ async def test_track_query_metrics_decorator_with_result():
 
     @track_query_metrics("result_operation_error")
     async def test_function_error():
-        return Result.fail("Error occurred")
+        return Result.fail(Errors.system("Error occurred"))
 
     # Test success case
     result_ok = await test_function_success()

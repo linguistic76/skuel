@@ -25,7 +25,7 @@ from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.models.ku.ku_request import KuTaskCreateRequest
 from core.services.protocols.query_types import TaskUpdatePayload
 from core.services.tasks.tasks_core_service import TasksCoreService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
 # FIXTURES
@@ -224,7 +224,7 @@ async def test_create_task_inference_failure_is_fail_fast(
 async def test_create_task_backend_error(core_service, mock_backend, sample_task_request):
     """Test task creation with backend error."""
     # Setup
-    mock_backend.create.return_value = Result.fail("Database error")
+    mock_backend.create.return_value = Result.fail(Errors.database("create", "Database error"))
 
     # Execute
     result = await core_service.create_task(sample_task_request, user_uid="user:demo")
@@ -273,7 +273,7 @@ async def test_get_task_not_found(core_service, mock_backend):
 async def test_get_task_backend_error(core_service, mock_backend):
     """Test task retrieval with backend error."""
     # Setup
-    mock_backend.get.return_value = Result.fail("Connection error")
+    mock_backend.get.return_value = Result.fail(Errors.database("get", "Connection error"))
 
     # Execute
     result = await core_service.get_task("task:123")
@@ -395,7 +395,7 @@ async def test_update_task_success(core_service, mock_backend, sample_task_dto):
 async def test_update_task_not_found(core_service, mock_backend):
     """Test update when task doesn't exist."""
     # Setup - service calls backend.update() (generic BackendOperations method)
-    mock_backend.update.return_value = Result.fail("Task not found")
+    mock_backend.update.return_value = Result.fail(Errors.not_found("Task", "task:999"))
 
     # Execute
     result = await core_service.update_task("task:999", {"title": "New Title"})
@@ -429,7 +429,7 @@ async def test_delete_task_success(core_service, mock_backend, sample_task_dto):
 async def test_delete_task_not_found(core_service, mock_backend):
     """Test deletion when task doesn't exist."""
     # Setup - delete_task calls get() first, which fails for non-existent task
-    mock_backend.get.return_value = Result.fail("Task not found")
+    mock_backend.get.return_value = Result.fail(Errors.not_found("Task", "task:999"))
 
     # Execute
     result = await core_service.delete_task("task:999")

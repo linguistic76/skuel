@@ -28,7 +28,7 @@ from core.models.ku.ku_dto import KuDTO as TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.services.tasks_service import TasksService
 from core.services.user import UserContext
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # Add project root to path
 
@@ -159,7 +159,7 @@ class BiDirectionalDemo:
             async def get_task(self, task_id: str) -> Result[dict[str, Any]]:
                 if task_id in self.tasks:
                     return Result.ok(self.tasks[task_id])
-                return Result.fail(f"Task {task_id} not found")
+                return Result.fail(Errors.not_found("Task", task_id))
 
             async def get_user_tasks(self, user_uid: str) -> Result[list]:
                 user_tasks = [t for t in self.tasks.values() if t.get("created_by") == user_uid]

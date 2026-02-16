@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.services.askesis.entity_extractor import EntityExtractor
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
 # MOCK FACTORIES
@@ -37,7 +37,7 @@ def create_mock_ku_service() -> Mock:
         }
         if uid in entities:
             return Result.ok(entities[uid])
-        return Result.fail("Not found")
+        return Result.fail(Errors.not_found("Entity", uid))
 
     ku_service.get = AsyncMock(side_effect=mock_get)
     return ku_service
@@ -54,7 +54,7 @@ def create_mock_tasks_service() -> Mock:
         }
         if uid in entities:
             return Result.ok(entities[uid])
-        return Result.fail("Not found")
+        return Result.fail(Errors.not_found("Entity", uid))
 
     tasks_service.get = AsyncMock(side_effect=mock_get)
     return tasks_service
@@ -71,7 +71,7 @@ def create_mock_goals_service() -> Mock:
         }
         if uid in entities:
             return Result.ok(entities[uid])
-        return Result.fail("Not found")
+        return Result.fail(Errors.not_found("Entity", uid))
 
     goals_service.get = AsyncMock(side_effect=mock_get)
     return goals_service

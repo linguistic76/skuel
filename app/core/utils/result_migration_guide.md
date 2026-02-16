@@ -175,10 +175,7 @@ return Result.fail(SkuelError("Something went wrong"))
 
 **New:**
 ```python
-# Quick string failures automatically become SYSTEM errors
-return Result.fail("Something went wrong")
-
-# Or be more specific
+# Always use the Errors factory for structured error context
 return Result.fail(Errors.system("Something went wrong"))
 ```
 
@@ -316,7 +313,7 @@ After migrating, test that:
 # Should all create proper ErrorContext
 result1 = Result.fail(Errors.validation("Bad input", field="test"))
 result2 = Result.fail(Errors.database("connection", "Timeout"))
-result3 = Result.fail("Quick failure")  # String shorthand
+result3 = Result.fail(Errors.system("Quick failure"))
 
 assert result1.is_error
 assert result1.error.category == ErrorCategory.VALIDATION

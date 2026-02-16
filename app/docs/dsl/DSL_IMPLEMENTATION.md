@@ -474,7 +474,7 @@ class ActivityEntityConverter:
         primary_type = activity.contexts[0] if activity.contexts else None
 
         if not primary_type:
-            return Result.fail("No context type specified")
+            return Result.fail(Errors.validation("No context type specified", field="contexts"))
 
         # Dispatch to appropriate converter
         match primary_type:

@@ -14,14 +14,14 @@ def test_basic_success():
     print("✅ Basic success test passed")
 
 
-def test_basic_failure():
-    """Test basic failure result."""
+def test_string_shorthand_creates_system_error():
+    """Test that Result.fail(string) creates a SYSTEM error via string shorthand API."""
     result = Result.fail("Something went wrong")
     assert not result.is_ok
     assert result.is_error
     assert result.error.message == "Something went wrong"
     assert result.error.category == ErrorCategory.SYSTEM
-    print("✅ Basic failure test passed")
+    print("✅ String shorthand test passed")
 
 
 def test_validation_error():
@@ -121,7 +121,7 @@ def test_map_failure():
     def double_value(x):
         return x * 2
 
-    result = Result.fail("Original error")
+    result = Result.fail(Errors.system("Original error"))
     mapped = result.map(double_value)
 
     assert mapped.is_error
@@ -142,7 +142,7 @@ def test_double_wrap_prevention():
 def test_or_else():
     """Test or_else method."""
     success = Result.ok(42)
-    failure = Result.fail("Error")
+    failure = Result.fail(Errors.system("Error"))
 
     assert success.or_else(0) == 42
     assert failure.or_else(0) == 0
@@ -217,7 +217,7 @@ def main():
 
     tests = [
         test_basic_success,
-        test_basic_failure,
+        test_string_shorthand_creates_system_error,
         test_validation_error,
         test_database_error,
         test_not_found_error,
