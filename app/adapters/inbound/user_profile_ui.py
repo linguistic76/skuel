@@ -30,6 +30,7 @@ from core.services.protocols import get_enum_value
 from core.services.user.unified_user_context import UserContext
 from core.ui.daisy_components import Div
 from core.utils.logging import get_logger
+from ui.layouts.base_page import BasePage
 from core.utils.result_simplified import Result
 from ui.profile.domain_stats_config import (
     DOMAIN_STATS_CONFIG,
@@ -594,17 +595,11 @@ def setup_user_profile_routes(rt, services):
     @rt("/profile")
     async def profile_page(request: Request) -> Any:
         """
-        Profile overview page - shows all 6 Activity Domains + Curriculum with sidebar.
+        Tracking overview page — no sidebar, standard BasePage.
 
         Operates in two modes:
         - Basic mode: Core profile data (always works)
         - Full mode: Intelligence features when properly configured
-
-        Intelligence features (when available):
-        - Daily work plan (THE flagship recommendation)
-        - Life path alignment (5 dimensions)
-        - Cross-domain synergies (high-leverage actions)
-        - Optimal learning steps
 
         Requires authentication.
         Fail-fast: Actual errors propagate to HTTP boundary.
@@ -614,7 +609,7 @@ def setup_user_profile_routes(rt, services):
 
         # Get user and context - ONE PATH (no fallback)
         try:
-            user, context = await _get_user_and_context(user_uid)
+            _user, context = await _get_user_and_context(user_uid)
         except ValueError as e:
             logger.error(
                 "Failed to load user or context for profile page",
@@ -625,7 +620,6 @@ def setup_user_profile_routes(rt, services):
         # Get intelligence data - may return None for basic mode
         intel_result = await _get_intelligence_data(context)
         if intel_result.is_error:
-            # Actual error - propagate to HTTP boundary
             from starlette.responses import JSONResponse
 
             return JSONResponse(
@@ -634,21 +628,6 @@ def setup_user_profile_routes(rt, services):
             )
 
         intel_data = intel_result.value  # May be None (basic mode) or dict (full mode)
-
-        # Get insight counts by domain for Profile Hub integration (Phase 1)
-        insight_counts: dict[str, int] = {}
-        total_unread_insights = 0
-        if services.insight_store:
-            counts_result = await services.insight_store.get_insight_counts_by_domain(user_uid)
-            if not counts_result.is_error:
-                insight_counts = counts_result.value
-                total_unread_insights = sum(insight_counts.values())
-            else:
-                logger.warning(f"Failed to fetch insight counts: {counts_result.error}")
-
-        domain_items = _build_domain_items(context, insight_counts)
-        curriculum_items = _build_curriculum_items(context)
-        display_name = user.display_name if user.display_name else user.username
 
         # Create OverviewView - passes None for intelligence data in basic mode
         if intel_data is not None:
@@ -660,22 +639,13 @@ def setup_user_profile_routes(rt, services):
                 learning_steps=intel_data["learning_steps"],
             )
         else:
-            # Basic mode - show profile without intelligence features
             content = OverviewView(context)
 
-        # Check if user is admin (shows Admin Dashboard in navbar instead of Profile Hub)
-        is_admin = user.can_manage_users() if hasattr(user, "can_manage_users") else False
-
-        return await create_profile_page(
-            content=content,
-            domains=domain_items,
-            active_domain="",
-            user_display_name=display_name,
-            title="Profile Hub",
-            is_admin=is_admin,
-            curriculum_domains=curriculum_items,
-            unread_insights=total_unread_insights,
+        return await BasePage(
+            content,
+            title="Tracking",
             request=request,
+            active_page="profile/hub",
         )
 
     @rt("/profile/{domain}")
@@ -724,7 +694,18 @@ def setup_user_profile_routes(rt, services):
             )
             return await error_page(str(e), 500)
 
-        # Get insight counts by domain for Profile Hub integration (Phase 1)
+        content = await _get_domain_view(domain, context, user_uid, focus_uid)
+
+        # Knowledge uses BasePage (navbar page, no sidebar)
+        if domain == "knowledge":
+            return await BasePage(
+                content,
+                title="Knowledge",
+                request=request,
+                active_page="knowledge",
+            )
+
+        # All other domains use profile sidebar
         insight_counts: dict[str, int] = {}
         total_unread_insights = 0
         if services.insight_store:
@@ -738,10 +719,7 @@ def setup_user_profile_routes(rt, services):
         domain_items = _build_domain_items(context, insight_counts)
         curriculum_items = _build_curriculum_items(context)
         display_name = user.display_name if user.display_name else user.username
-        content = await _get_domain_view(domain, context, user_uid, focus_uid)
         domain_title = DEFAULT_DOMAIN_NAMES.get(domain, domain.title())
-
-        # Check if user is admin (shows Admin Dashboard in navbar instead of Profile Hub)
         is_admin = user.can_manage_users() if hasattr(user, "can_manage_users") else False
 
         return await create_profile_page(
