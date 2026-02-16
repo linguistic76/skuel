@@ -107,9 +107,7 @@ def create_assignments_api_routes(
         """
         if not report_feedback_service:
             return Result.fail(
-                Errors.system(
-                    "Feedback service not available", service="KuFeedbackService"
-                )
+                Errors.system("Feedback service not available", service="KuFeedbackService")
             )
 
         if not transcript_service:

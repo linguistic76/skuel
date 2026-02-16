@@ -360,7 +360,8 @@ class AssignmentService(BaseService):
             self.logger.error(f"Error loading assignment from file {file_path}: {e}")
             return Result.fail(
                 Errors.system(
-                    f"Failed to load assignment from file: {e!s}", operation="load_project_from_file"
+                    f"Failed to load assignment from file: {e!s}",
+                    operation="load_project_from_file",
                 )
             )
 
