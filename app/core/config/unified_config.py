@@ -241,30 +241,6 @@ class VectorSearchConfig:
         return mapping.get(learning_state.lower(), 0.0)
 
 
-@dataclass
-class ABTestingConfig:
-    """
-    A/B testing configuration for search experiments.
-
-    **Use Case:** Compare semantic search vs standard search performance.
-
-    **Design:**
-    - Hash-based assignment (deterministic, no DB storage)
-    - Configuration-driven (enable/disable per test)
-    - Simple 50/50 split by default
-
-    Created: January 2026 (Phase 2 Enhancement)
-    See: /docs/architecture/AB_TESTING.md
-    """
-
-    # Semantic search A/B test
-    semantic_search_enabled: bool = False  # Disabled by default
-    semantic_search_treatment_pct: float = 0.5  # 50% in treatment group
-
-    # Future tests can be added here
-    # example_test_enabled: bool = False
-    # example_test_treatment_pct: float = 0.5
-
 
 # ============================================================================
 # ADAPTER CONFIGURATIONS (Outbound)
@@ -719,9 +695,6 @@ class UnifiedConfig:
     application: ApplicationConfig = field(default_factory=ApplicationConfig)
     features: FeatureFlags = field(default_factory=FeatureFlags)
     dependencies: DependencyConfig = field(default_factory=DependencyConfig)
-
-    # Experimental configurations (Phase 2 Enhancement - January 2026)
-    ab_testing: ABTestingConfig = field(default_factory=ABTestingConfig)
 
     # Metadata
     created_at: datetime = field(default_factory=datetime.now)
