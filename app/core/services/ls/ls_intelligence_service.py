@@ -212,7 +212,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
             }
         )
 
-    def _require_executor(self) -> Result[GraphQueryExecutor]:
+    def _require_executor(self) -> Result[Any]:
         """Fail-fast guard for executor availability."""
         if not self.executor:
             return Result.fail(

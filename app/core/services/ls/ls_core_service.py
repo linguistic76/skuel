@@ -223,21 +223,21 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                 Errors.database(operation="create_step", message="Step creation failed")
             )
 
-            logger.info(f"✅ Created learning step {step.uid}")
+        logger.info(f"✅ Created learning step {step.uid}")
 
-            # Publish event
-            event = LearningStepCreated(
-                ls_uid=step.uid,
-                title=step.title,
-                occurred_at=datetime.now(UTC),
-                intent=step.intent,
-                linked_lp_uid=path_uid,
-                linked_ku_uids=step.primary_knowledge_uids + step.supporting_knowledge_uids,
-                sequence_order=step.sequence,
-            )
-            await publish_event(self.event_bus, event, self.logger)
+        # Publish event
+        event = LearningStepCreated(
+            ls_uid=step.uid,
+            title=step.title,
+            occurred_at=datetime.now(UTC),
+            intent=step.intent,
+            linked_lp_uid=path_uid,
+            linked_ku_uids=step.primary_knowledge_uids + step.supporting_knowledge_uids,
+            sequence_order=step.sequence,
+        )
+        await publish_event(self.event_bus, event, self.logger)
 
-            return Result.ok(step)
+        return Result.ok(step)
 
     @with_error_handling(operation="get_step", error_type="database", uid_param="step_uid")
     async def get_step(self, step_uid: str) -> Result[Ku | None]:
@@ -698,18 +698,18 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                 )
             )
 
-            logger.info(f"✅ Deleted learning step {step_uid}")
+        logger.info(f"✅ Deleted learning step {step_uid}")
 
-            # Publish event
-            event = LearningStepDeleted(
-                ls_uid=step_uid,
-                occurred_at=datetime.now(UTC),
-                linked_lp_uid=linked_lp_uid,
-                had_ku_links=had_ku_links,
-            )
-            await publish_event(self.event_bus, event, self.logger)
+        # Publish event
+        event = LearningStepDeleted(
+            ls_uid=step_uid,
+            occurred_at=datetime.now(UTC),
+            linked_lp_uid=linked_lp_uid,
+            had_ku_links=had_ku_links,
+        )
+        await publish_event(self.event_bus, event, self.logger)
 
-            return Result.ok(True)
+        return Result.ok(True)
 
     @with_error_handling(operation="list_steps", error_type="database")
     async def list_steps(

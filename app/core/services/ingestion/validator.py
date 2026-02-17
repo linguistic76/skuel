@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from neo4j import AsyncDriver
 
 from core.models.enums.entity_enums import NonKuDomain

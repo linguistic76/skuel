@@ -67,12 +67,13 @@ See: /docs/architecture/GRAPH_NATIVE_ANALYSIS.md for architecture details
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from neo4j import AsyncSession
 from core.utils.neo4j_mapper import to_neo4j_node
 from core.utils.result_simplified import Errors, Result
@@ -91,7 +92,7 @@ class CypherTemplate:
     description: str
 
     @classmethod
-    def from_file(cls, path: Path) -> "CypherTemplate":
+    def from_file(cls, path: Path) -> CypherTemplate:
         """Load template from a .cypher file."""
         if not path.exists():
             raise FileNotFoundError(f"Template not found: {path}")

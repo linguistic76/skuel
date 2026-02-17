@@ -268,7 +268,7 @@ def create_ku_sub_services(
     graph_intelligence_service: Any,
     query_builder: "QueryBuilderOperations | None",
     event_bus: "EventBusOperations | None",
-    driver: "AsyncDriver | None",
+    _driver: "AsyncDriver | None",
     user_service: Any | None = None,
     vector_search_service: Any | None = None,
     embeddings_service: Any | None = None,

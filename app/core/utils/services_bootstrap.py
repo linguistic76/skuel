@@ -835,7 +835,7 @@ def _create_activity_services(
     }
 
 
-def _create_advanced_services(driver: Any, query_executor: Any = None) -> dict[str, Any]:
+def _create_advanced_services(_driver: Any, query_executor: Any = None) -> dict[str, Any]:
     """Create Phase 2 advanced services."""
     from pathlib import Path
 

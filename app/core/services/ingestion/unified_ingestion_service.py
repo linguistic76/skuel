@@ -31,10 +31,11 @@ from __future__ import annotations
 
 __version__ = "2.0"
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from neo4j import AsyncDriver
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
