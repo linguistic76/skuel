@@ -1027,7 +1027,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
         if not result.value:
             return Result.ok([])
 
@@ -1061,7 +1061,7 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         result = await self.backend.execute_query(query, {"subchoice_uid": subchoice_uid})
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
         if not result.value:
             return Result.ok(None)
 

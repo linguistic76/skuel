@@ -186,7 +186,7 @@ class HabitSearchService(BaseService[HabitsOperations, Ku]):
             },
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         # Convert to domain models
         habits = []

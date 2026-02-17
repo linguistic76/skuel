@@ -281,7 +281,7 @@ class HabitAchievementService:
             },
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         return Result.ok(True)
 

@@ -657,7 +657,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Ku]):
         result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
         if not result.value:
             return Result.ok([])
 
@@ -693,7 +693,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Ku]):
         result = await self.backend.execute_query(query, {"subprinciple_uid": subprinciple_uid})
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
         if not result.value:
             return Result.ok(None)
 

@@ -95,7 +95,7 @@ class KuSharingService:
             },
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.fail(Errors.not_found(f"User {recipient_uid} or Ku {ku_uid} not found"))
@@ -138,7 +138,7 @@ class KuSharingService:
             {"recipient_uid": recipient_uid, "ku_uid": ku_uid},
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         deleted_count = records[0]["deleted_count"] if records else 0
@@ -178,7 +178,7 @@ class KuSharingService:
 
         result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         users = [
             {
@@ -223,7 +223,7 @@ class KuSharingService:
             {"user_uid": user_uid, "limit": limit},
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         kus = []
         for record in result.value:
@@ -279,7 +279,7 @@ class KuSharingService:
             },
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.fail(
@@ -324,7 +324,7 @@ class KuSharingService:
             {"ku_uid": ku_uid, "user_uid": user_uid},
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if not records:
@@ -366,7 +366,7 @@ class KuSharingService:
 
         result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if not records:
@@ -407,7 +407,7 @@ class KuSharingService:
 
         result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if not records:

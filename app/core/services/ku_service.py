@@ -288,7 +288,7 @@ class KuService(FacadeDelegationMixin):
             graph_intelligence_service=graph_intelligence_service,
             query_builder=query_builder,
             event_bus=event_bus,
-            driver=executor,  # Dead param in factory (no sub-service uses it)
+            _driver=executor,  # Dead param in factory (no sub-service uses it)
             user_service=user_service,
             vector_search_service=vector_search_service,  # NEW: January 2026 GenAI
             embeddings_service=embeddings_service,  # NEW: January 2026 GenAI

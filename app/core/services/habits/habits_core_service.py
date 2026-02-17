@@ -430,7 +430,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
         result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
         if not result.value:
             return Result.ok([])
 
@@ -464,7 +464,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
         result = await self.backend.execute_query(query, {"subhabit_uid": subhabit_uid})
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
         if not result.value:
             return Result.ok(None)
 

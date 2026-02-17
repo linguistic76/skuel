@@ -443,7 +443,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         # Execute single query via protocol-compliant backend
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.fail(Errors.not_found(resource="Ku", identifier=uid))
@@ -688,7 +688,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         # Get the knowledge unit
         result = await self.get(uid)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         dto = result.value
 
@@ -785,7 +785,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
 
         result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
         from core.utils.neo4j_mapper import from_neo4j_node
@@ -825,7 +825,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
 
         result = await self.backend.execute_query(query, {"ku_uid": ku_uid})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
         from core.utils.neo4j_mapper import from_neo4j_node
@@ -893,11 +893,11 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         siblings_result = await self.backend.execute_query(siblings_query, {"ku_uid": ku_uid})
 
         if ancestors_result.is_error:
-            return ancestors_result
+            return Result.fail(ancestors_result.expect_error())
         if children_result.is_error:
-            return children_result
+            return Result.fail(children_result.expect_error())
         if siblings_result.is_error:
-            return siblings_result
+            return Result.fail(siblings_result.expect_error())
 
         hierarchy = {
             "ancestors": [
@@ -974,7 +974,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
             cycle_query, {"parent_uid": parent_uid, "child_uid": child_uid}
         )
         if cycle_result.is_error:
-            return cycle_result
+            return Result.fail(cycle_result.expect_error())
 
         if cycle_result.value:
             return Result.fail(
@@ -1006,7 +1006,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
             },
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         success = len(result.value) > 0
         if success:
@@ -1054,7 +1054,7 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
             query, {"parent_uid": parent_uid, "child_uid": child_uid}
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         deleted = result.value[0]["deleted"] if result.value else 0
         success = deleted > 0

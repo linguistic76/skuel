@@ -425,7 +425,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
 
         result = await self.backend.execute_query(query, {"user_uid": user_uid, "limit": limit})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         # Convert Neo4j records to domain models
         tasks = []

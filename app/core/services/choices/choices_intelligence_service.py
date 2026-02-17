@@ -1837,7 +1837,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.ok(
@@ -1989,7 +1989,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
@@ -2251,7 +2251,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.ok(

@@ -112,7 +112,7 @@ class TeacherReviewService:
 
         result = await self.executor.execute_query(query, params)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         items = [
             {
@@ -162,7 +162,7 @@ class TeacherReviewService:
 
         result = await self.executor.execute_query(query, {"submission_uid": submission_uid})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         items = [
             {
@@ -265,7 +265,7 @@ class TeacherReviewService:
             },
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if not records:
@@ -379,7 +379,7 @@ class TeacherReviewService:
             },
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if not records:
@@ -454,7 +454,7 @@ class TeacherReviewService:
             },
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if not records:
@@ -526,7 +526,7 @@ class TeacherReviewService:
             {"teacher_uid": teacher_uid, "report_uid": report_uid},
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.fail(

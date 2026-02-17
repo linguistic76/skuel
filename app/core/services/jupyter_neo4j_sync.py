@@ -265,7 +265,7 @@ class JupyterNeo4jSync:
             # Find items needing sync
             if uid:
                 query = "MATCH (ku:Ku {uid: $uid}) RETURN ku"
-                params = {"uid": uid}
+                params: dict[str, Any] = {"uid": uid}
             else:
                 query = """
                 MATCH (ku:Ku)

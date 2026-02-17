@@ -983,7 +983,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
             query, {"start_uid": start_uid, "goal_uid": goal_uid}
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value or []
         record = records[0] if records else None
@@ -1073,7 +1073,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
             query, {"current_uid": current_step_uid, "user_uid": user_uid}
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value or []
         record = records[0] if records else None

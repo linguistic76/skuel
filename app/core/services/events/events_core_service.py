@@ -520,7 +520,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
         if not result.value:
             return Result.ok([])
 
@@ -554,7 +554,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         result = await self.backend.execute_query(query, {"subevent_uid": subevent_uid})
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
         if not result.value:
             return Result.ok(None)
 

@@ -166,7 +166,7 @@ class GraphIntelligenceService:
 
         result = await self.executor.execute_query(query, params)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value or []
 
@@ -266,7 +266,7 @@ class GraphIntelligenceService:
 
         result = await self.executor.execute_query(query, params)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value or []
 
@@ -351,7 +351,7 @@ class GraphIntelligenceService:
 
         result = await self.executor.execute_query(query, params)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value or []
         record = records[0] if records else None
@@ -465,7 +465,7 @@ class GraphIntelligenceService:
 
         result = await self.executor.execute_query(query, params)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value or []
 
@@ -560,7 +560,7 @@ class GraphIntelligenceService:
 
         result = await self.executor.execute_query(query, params)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value or []
         record = records[0] if records else None
@@ -642,7 +642,7 @@ class GraphIntelligenceService:
 
         result = await self.executor.execute_query(query, params)
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value or []
 
@@ -786,7 +786,7 @@ class GraphIntelligenceService:
 
         result = await self.executor.execute_query(query, {"uid": entity_uid})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value or []
 

@@ -129,7 +129,7 @@ class LateralRelationshipService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.fail(
@@ -196,7 +196,7 @@ class LateralRelationshipService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         deleted_count = records[0]["deleted_count"] if records else 0
@@ -509,7 +509,7 @@ class LateralRelationshipService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if not records:
@@ -535,7 +535,7 @@ class LateralRelationshipService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if not records or records[0]["shared_parent_count"] == 0:
@@ -562,7 +562,7 @@ class LateralRelationshipService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if not records:
@@ -601,7 +601,7 @@ class LateralRelationshipService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if records and records[0]["cycle_count"] > 0:
@@ -728,7 +728,7 @@ class LateralRelationshipService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.ok(
@@ -1024,7 +1024,7 @@ class LateralRelationshipService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             # Return just the center node

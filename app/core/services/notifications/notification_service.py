@@ -89,7 +89,7 @@ class NotificationService:
             },
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.fail(Errors.not_found(f"User {user_uid} not found"))
@@ -114,7 +114,7 @@ class NotificationService:
 
         result = await self.executor.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         count = records[0]["count"] if records else 0
@@ -156,7 +156,7 @@ class NotificationService:
 
         result = await self.executor.execute_query(query, {"user_uid": user_uid, "limit": limit})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         items = [
             {
@@ -195,7 +195,7 @@ class NotificationService:
             query, {"user_uid": user_uid, "notification_uid": notification_uid}
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.fail(Errors.not_found(f"Notification {notification_uid} not found"))
@@ -220,7 +220,7 @@ class NotificationService:
 
         result = await self.executor.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         count = records[0]["count"] if records else 0

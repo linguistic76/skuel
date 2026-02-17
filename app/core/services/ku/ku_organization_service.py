@@ -100,7 +100,7 @@ class KuOrganizationService:
 
         result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if not records:
@@ -221,7 +221,7 @@ class KuOrganizationService:
             {"parent_uid": parent_uid, "child_uid": child_uid, "order": order},
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         if records and records[0]["success"]:
@@ -243,7 +243,7 @@ class KuOrganizationService:
             {"parent_uid": parent_uid, "child_uid": child_uid},
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         success = bool(records and records[0]["success"])
@@ -265,7 +265,7 @@ class KuOrganizationService:
             {"parent_uid": parent_uid, "child_uid": child_uid, "new_order": new_order},
         )
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         records = result.value
         return Result.ok(bool(records and records[0]["success"]))

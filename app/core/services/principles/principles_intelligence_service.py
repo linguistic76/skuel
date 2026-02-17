@@ -1894,7 +1894,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result.expect_error())
 
         if not result.value:
             return Result.ok(

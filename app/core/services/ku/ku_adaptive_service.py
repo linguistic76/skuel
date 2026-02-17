@@ -320,7 +320,7 @@ class KuAdaptiveService:
             }
             result = await self.ku_backend.execute_query(query, params)
             if result.is_error:
-                return result
+                return Result.fail(result.expect_error())
             self.logger.info(f"Tracked curriculum completion: {user_uid} -> {ku_uid}")
             return Result.ok(None)
         except Exception as e:
