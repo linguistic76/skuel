@@ -484,9 +484,7 @@ class KuRetrieval:
 
         return min(score, 1.0)
 
-    def _calculate_context_boost(
-        self, result: EnhancedResult, context: UserContext
-    ) -> float:
+    def _calculate_context_boost(self, result: EnhancedResult, context: UserContext) -> float:
         """Calculate boost factor based on user context"""
         boost = 1.0
 

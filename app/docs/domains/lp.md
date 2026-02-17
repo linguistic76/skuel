@@ -206,6 +206,159 @@ config = LP_CONFIG
 # Defines: steps, prerequisites, enables, goal alignment, milestones
 ```
 
+## Future: Practice Gap Analysis
+
+**Status:** Blocked — learning paths need real content with practice relationships populated
+**Method:** `LpIntelligenceService.identify_practice_gaps(path_uid)` → `Result[dict]`
+**Code location:** TODO block in `/core/services/lp_intelligence_service.py`
+
+### What It Does
+
+For a learning path, analyzes every step to determine which steps lack complete practice
+opportunities. A step with full practice has all three relationship types:
+
+| Relationship | Target | Meaning |
+|--------------|--------|---------|
+| `BUILDS_HABIT` | Habit | "Practice this daily to internalize the knowledge" |
+| `ASSIGNS_TASK` | Task | "Do this concrete thing to apply the knowledge" |
+| `SCHEDULES_EVENT` | Event | "Attend this to experience the knowledge" |
+
+A step missing one or more of these types has a *practice gap* — the learner can read about
+the concept but has no structured way to embody it.
+
+### Existing Infrastructure (Already Built)
+
+The per-step practice analysis already works via `LsIntelligenceService`:
+
+```python
+# These methods exist TODAY in /core/services/ls/ls_intelligence_service.py
+
+# Count practice items per step
+result = await ls_intelligence.get_practice_summary("ls:functions")
+# → {"habits": 2, "tasks": 3, "events": 1, "total": 6}
+
+# Calculate 0.0-1.0 completeness per step
+# (each type contributes 1/3: habits + tasks + events)
+score = await ls_intelligence.practice_completeness_score("ls:functions")
+# → 1.0 (all three types present)
+
+# Boolean checks
+await ls_intelligence.has_practice_opportunities("ls:functions")  # → True
+```
+
+The Cypher that powers this:
+
+```cypher
+MATCH (ls:Ku {uid: $ls_uid})
+OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(h)
+OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(t)
+OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(e)
+RETURN count(DISTINCT h) as habits,
+       count(DISTINCT t) as tasks,
+       count(DISTINCT e) as events
+```
+
+### What's Missing (The Gap Between LS and LP)
+
+The per-step methods work, but LP-level analysis needs **cross-service access**:
+
+```
+LpIntelligenceService  ──needs──>  LsIntelligenceService
+        │                                    │
+        │  "For each step in this path,      │  "For this step, count
+        │   what practice is missing?"       │   habits, tasks, events"
+        └────────────────────────────────────┘
+```
+
+**Current state:** `LpIntelligenceService` has no reference to `LsIntelligenceService`.
+**Required change:** Inject `ls_intelligence` as a constructor parameter, or access via
+`LsService.intelligence` through the existing `ls_service` dependency.
+
+### Implementation Path
+
+When learning paths have content with practice relationships:
+
+1. **Wire the dependency** — `LpIntelligenceService.__init__` accepts `ls_intelligence` parameter
+   (or access `ls_service.intelligence` from the factory in `curriculum_domain_config.py`)
+
+2. **Implement the method:**
+   ```python
+   async def identify_practice_gaps(self, path_uid: str) -> Result[dict[str, Any]]:
+       # Get path and its steps
+       path = await self.learning_backend.get(path_uid)
+
+       # For each step, call existing LS intelligence
+       gaps = []
+       for step in path.steps:
+           score = await self.ls_intelligence.practice_completeness_score(step.uid)
+           if score.value < 1.0:
+               summary = await self.ls_intelligence.get_practice_summary(step.uid)
+               missing = [t for t in ("habits", "tasks", "events") if summary.value[t] == 0]
+               gaps.append({
+                   "step_uid": step.uid,
+                   "step_title": step.title,
+                   "practice_completeness": score.value,
+                   "missing_types": missing,
+               })
+
+       return Result.ok({
+           "path_uid": path_uid,
+           "total_steps": len(path.steps),
+           "steps_with_gaps": len(gaps),
+           "overall_practice_coverage": avg(completeness scores),
+           "gaps": gaps,
+       })
+   ```
+
+3. **Wire to facade** — Add `"identify_practice_gaps"` to `LpService._delegations` map
+4. **Wire to protocol** — Add to `LpFacadeProtocol` in `facade_protocols.py`
+5. **Wire to route** — Add API endpoint in LP routes
+
+### Expected Return Shape
+
+```json
+{
+  "path_uid": "lp:python-fundamentals",
+  "total_steps": 8,
+  "steps_with_gaps": 3,
+  "overall_practice_coverage": 0.625,
+  "gaps": [
+    {
+      "step_uid": "ls:decorators",
+      "step_title": "Python Decorators",
+      "practice_completeness": 0.33,
+      "missing_types": ["habits", "events"]
+    },
+    {
+      "step_uid": "ls:generators",
+      "step_title": "Generator Functions",
+      "practice_completeness": 0.0,
+      "missing_types": ["habits", "tasks", "events"]
+    }
+  ],
+  "recommendations": [
+    "3 of 8 steps lack complete practice opportunities",
+    "ls:generators has no practice at all — consider adding a task or habit"
+  ]
+}
+```
+
+### Why This Matters
+
+SKUEL's [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md)
+measures knowledge by how it's *lived*. A learning path without practice relationships is
+a reading list — not a curriculum. Practice gap analysis ensures every step has concrete
+ways to embody the knowledge, connecting the curriculum domain (KU/LS/LP) to the activity
+domains (Tasks, Habits, Events).
+
+### See Also
+
+- [LS Domain: Practice Infrastructure](ls.md#cross-domain-practice-infrastructure)
+- [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md)
+- [Curriculum Grouping Patterns](../architecture/CURRICULUM_GROUPING_PATTERNS.md)
+
+---
+
 ## Related ADRs
 
 - [ADR-023: Curriculum BaseService Migration](../decisions/ADR-023-curriculum-base-service.md)

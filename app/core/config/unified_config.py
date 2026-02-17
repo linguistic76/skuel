@@ -241,7 +241,6 @@ class VectorSearchConfig:
         return mapping.get(learning_state.lower(), 0.0)
 
 
-
 # ============================================================================
 # ADAPTER CONFIGURATIONS (Outbound)
 # ============================================================================

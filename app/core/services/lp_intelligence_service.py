@@ -873,18 +873,24 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
     # ========================================================================
     # FUTURE: identify_practice_gaps(path_uid)
     # ========================================================================
-    # When learning paths have real content with practice relationships
-    # (BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT on LS nodes), implement:
+    # Blocked: Learning paths need content with practice relationships populated.
     #
-    # Prerequisites:
-    #   1. Inject UnifiedRelationshipService (LS_CONFIG) into this service
-    #   2. For each step: rels = await LsRelationships.fetch(step.uid, service)
-    #   3. Check rels.habit_uids, rels.task_uids, rels.event_template_uids
+    # The per-step infrastructure ALREADY EXISTS in LsIntelligenceService:
+    #   - get_practice_summary(ls_uid) → {"habits": int, "tasks": int, "events": int}
+    #   - practice_completeness_score(ls_uid) → 0.0-1.0 (each type = 1/3)
     #
-    # Returns per-step practice completeness (0.0-1.0) and missing elements,
-    # plus overall path practice coverage score and recommendations.
+    # Implementation: Inject ls_intelligence (or access via ls_service.intelligence),
+    # iterate path steps, call practice_completeness_score per step, aggregate.
     #
-    # Wire to: LpService delegation map + LpFacadeProtocol + API route
+    # Wiring checklist:
+    #   1. Add ls_intelligence param to __init__ (or resolve from ls_service)
+    #   2. Implement identify_practice_gaps() calling LS per-step methods
+    #   3. Add to LpService._delegations map
+    #   4. Add to LpFacadeProtocol in facade_protocols.py
+    #   5. Add API route
+    #
+    # Full design: /docs/domains/lp.md § "Future: Practice Gap Analysis"
+    # LS infrastructure: /docs/domains/ls.md § "Cross-Domain: Practice Infrastructure"
     # ========================================================================
 
     # ========================================================================

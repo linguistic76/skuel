@@ -111,6 +111,57 @@ LsIntelligenceService provides:
 | `has_guidance(ls_uid)` | `bool` | Has GUIDED_BY_PRINCIPLE or OFFERS_CHOICE |
 | `has_practice_opportunities(ls_uid)` | `bool` | Has habits, tasks, or events |
 
+## Cross-Domain: Practice Infrastructure
+
+Learning Steps are where SKUEL's curriculum domain connects to the activity domains.
+The three practice relationships bridge "what to learn" with "how to live it":
+
+```
+LS (Learning Step)
+ ├── BUILDS_HABIT ──→ Habit    "Practice this daily"
+ ├── ASSIGNS_TASK ──→ Task     "Do this concrete thing"
+ └── SCHEDULES_EVENT → Event   "Attend this experience"
+```
+
+### Per-Step Practice Analysis
+
+`LsIntelligenceService` provides methods that measure practice coverage for individual steps:
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_practice_summary(ls_uid)` | `dict` | `{"habits": int, "tasks": int, "events": int, "total": int}` |
+| `practice_completeness_score(ls_uid)` | `float` | 0.0-1.0 — each type contributes 1/3 |
+| `has_practice_opportunities(ls_uid)` | `bool` | True if any practice relationship exists |
+
+These methods query the graph directly:
+
+```cypher
+MATCH (ls:Ku {uid: $ls_uid})
+OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(h)
+OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(t)
+OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(e)
+RETURN count(DISTINCT h) as habits,
+       count(DISTINCT t) as tasks,
+       count(DISTINCT e) as events
+```
+
+### LP-Level Consumption
+
+These per-step methods are the building blocks for LP-level practice gap analysis.
+When learning paths have content with practice relationships populated,
+`LpIntelligenceService.identify_practice_gaps()` will iterate through path steps
+and aggregate these scores into a path-wide coverage report.
+
+See: [LP Domain: Future Practice Gap Analysis](lp.md#future-practice-gap-analysis)
+
+### Knowledge Substance Connection
+
+Practice relationships are how SKUEL measures whether knowledge is being *lived*, not
+just studied. A step with all three types (habit + task + event) has full practice coverage.
+A step with none is pure theory — valuable but incomplete without embodiment.
+
+See: [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md)
+
 ## Relationship Config
 
 LS uses `LS_CONFIG` from the relationship registry:
