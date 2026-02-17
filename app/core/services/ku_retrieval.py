@@ -34,7 +34,7 @@ from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsSer
 
 # Use protocol interfaces instead of ports
 from core.services.protocols.curriculum_protocols import KuOperations
-from core.services.user import UserContext as UnifiedUserContextDTO
+from core.services.user import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_final_score
@@ -146,7 +146,7 @@ class KuRetrieval:
         logger.info(f"✅ KuRetrieval initialized with {', '.join(features)}")
 
     async def retrieve(
-        self, query: str, context: UnifiedUserContextDTO | None = None, limit: int = 10
+        self, query: str, context: UserContext | None = None, limit: int = 10
     ) -> Result[KuRetrievalResult]:
         """
         THE way to retrieve knowledge. All retrieval goes through this method.
@@ -418,7 +418,7 @@ class KuRetrieval:
     async def _rank_and_filter(
         self,
         results: list[EnhancedResult],
-        context: UnifiedUserContextDTO | None,
+        context: UserContext | None,
         query_elements: QueryElements,
         limit: int,
     ) -> list[EnhancedResult]:
@@ -485,7 +485,7 @@ class KuRetrieval:
         return min(score, 1.0)
 
     def _calculate_context_boost(
-        self, result: EnhancedResult, context: UnifiedUserContextDTO
+        self, result: EnhancedResult, context: UserContext
     ) -> float:
         """Calculate boost factor based on user context"""
         boost = 1.0
@@ -595,7 +595,7 @@ class KuRetrieval:
         return "unknown"
 
     async def retrieve_with_optimized_query(
-        self, query: str, context: UnifiedUserContextDTO | None = None, limit: int = 10
+        self, query: str, context: UserContext | None = None, limit: int = 10
     ) -> Result[KuRetrievalResult]:
         """
         Retrieve knowledge using the unified query builder's optimization.

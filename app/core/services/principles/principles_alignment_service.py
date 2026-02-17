@@ -11,7 +11,7 @@ Responsibilities:
 - Support principle-based decision making
 - Calculate integrity scores
 
-Part of the PrincipleAlignmentService decomposition (October 13, 2025).
+Part of the PrinciplesService decomposition.
 """
 
 from dataclasses import dataclass

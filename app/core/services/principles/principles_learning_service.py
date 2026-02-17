@@ -10,7 +10,7 @@ Responsibilities:
 - Suggest learning-supported principles
 - Track principle development through learning
 
-Part of the PrincipleAlignmentService decomposition (October 13, 2025).
+Part of the PrinciplesService decomposition.
 """
 
 from operator import itemgetter

@@ -566,7 +566,3 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             f"get_principle_links called for {principle_uid} but linking system not implemented"
         )
         return Result.ok([])
-
-
-# Alias for backward compatibility
-PrincipleAlignmentService = PrinciplesService

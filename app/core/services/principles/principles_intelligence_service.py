@@ -10,7 +10,7 @@ Responsibilities:
 - Analyze adherence trends over time
 - Detect principle conflicts
 
-Part of the PrincipleAlignmentService decomposition (October 13, 2025).
+Part of the PrinciplesService decomposition.
 """
 
 from __future__ import annotations

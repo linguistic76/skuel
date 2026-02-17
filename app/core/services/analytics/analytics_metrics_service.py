@@ -113,7 +113,7 @@ class AnalyticsMetricsService:
             events_service: EventsService facade (Layer 1)
             finance_service: FinanceService facade (Layer 1)
             choices_service: ChoicesService facade (Layer 1)
-            principle_service: PrincipleAlignmentService facade (Layer 1)
+            principle_service: PrinciplesService facade (Layer 1)
             content_enrichment: ContentEnrichmentService (Layer 2)
             ku_service: KuService for knowledge metrics (Layer 0)
             lp_service: LpService for curriculum metrics (Layer 0)

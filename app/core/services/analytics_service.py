@@ -102,7 +102,7 @@ class AnalyticsService:
             events_service: EventsService facade (Layer 1)
             finance_service: FinanceService facade (Layer 1)
             choices_service: ChoicesService facade (Layer 1)
-            principle_service: PrincipleAlignmentService facade (Layer 1)
+            principle_service: PrinciplesService facade (Layer 1)
             content_enrichment: ContentEnrichmentService (Layer 2) - for Phase 2
             user_service: UserService for getting UserContext (Layer 3 - for Life Path)
             ku_service: KuService for knowledge substance scores (Layer 0 - for Phase 2)

@@ -10,7 +10,7 @@ Responsibilities:
 - Basic principle queries
 - Principle filtering
 
-Part of the PrincipleAlignmentService decomposition (October 13, 2025).
+Part of the PrinciplesService decomposition.
 """
 
 from datetime import date, datetime

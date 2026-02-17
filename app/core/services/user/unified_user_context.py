@@ -1041,8 +1041,3 @@ class UserContext:
 __all__ = [
     "UserContext",
 ]
-
-
-# Backward compatibility alias - kept for external imports only
-# Internal code should use UserContext directly
-UnifiedUserContext = UserContext

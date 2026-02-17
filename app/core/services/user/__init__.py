@@ -46,7 +46,7 @@ methods, making it a service-layer component rather than a simple data model.
 
 from core.models.context_types import DailyWorkPlan, LearningStep
 from core.services.user.intelligence import UserContextIntelligence
-from core.services.user.unified_user_context import UnifiedUserContext, UserContext
+from core.services.user.unified_user_context import UserContext
 from core.services.user.user_activity_service import (
     ACTIVITY_FIELD_MAP,
     InvalidationReason,
@@ -89,7 +89,6 @@ __all__ = [
     "KnowledgeRelationshipData",
     "LearningStep",
     "TaskRelationshipData",
-    "UnifiedUserContext",  # Backward compatibility alias
     "UserActivityService",
     # Core context
     "UserContext",
