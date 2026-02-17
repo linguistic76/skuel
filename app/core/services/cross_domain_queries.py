@@ -27,8 +27,6 @@ from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.finance.finance_pure import ExpensePure
 from core.models.ku.ku import Ku
-from core.models.ku.ku import Ku as Habit
-from core.models.ku.ku import Ku as Task
 from core.models.query import build_prerequisite_chain
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -188,7 +186,7 @@ class CrossDomainQueries:
     )
     async def find_tasks_using_knowledge(
         self, ku_uid: str, user_uid: str | None = None
-    ) -> Result[list[Task]]:
+    ) -> Result[list[Ku]]:
         """
         Find tasks that apply specific knowledge.
 
@@ -199,7 +197,7 @@ class CrossDomainQueries:
             user_uid: Filter by user (optional)
 
         Returns:
-            Result containing list of Task objects
+            Result containing list of Ku objects
         """
         if user_uid:
             cypher = """
@@ -279,7 +277,7 @@ class CrossDomainQueries:
     )
     async def find_habits_for_goal(
         self, goal_uid: str, only_active: bool = True
-    ) -> Result[list[Habit]]:
+    ) -> Result[list[Ku]]:
         """
         Find habits contributing to a goal.
 
@@ -290,7 +288,7 @@ class CrossDomainQueries:
             only_active: Only return active habits
 
         Returns:
-            Result containing list of Habit objects
+            Result containing list of Ku objects
         """
         if only_active:
             cypher = """
@@ -549,7 +547,7 @@ class CrossDomainQueries:
     )
     async def find_tasks_for_goal(
         self, goal_uid: str, status_filter: str | None = None
-    ) -> Result[list[Task]]:
+    ) -> Result[list[Ku]]:
         """
         Find tasks advancing a goal.
 
@@ -560,7 +558,7 @@ class CrossDomainQueries:
             status_filter: Filter by task status (e.g., 'pending', 'completed')
 
         Returns:
-            Result containing list of Task objects
+            Result containing list of Ku objects
         """
         if status_filter:
             cypher = """
@@ -691,13 +689,13 @@ class CrossDomainQueries:
     # Helper Methods for Neo4j Node Conversion
     # =========================================================================
 
-    def _neo4j_node_to_task(self, node) -> Task:
+    def _neo4j_node_to_task(self, node) -> Ku:
         """Convert Neo4j node to Task domain model."""
         from core.models.ku.ku_dto import KuDTO
         from core.utils.neo4j_mapper import from_neo4j_node
 
         dto = from_neo4j_node(dict(node), KuDTO)
-        return Task.from_dto(dto)
+        return Ku.from_dto(dto)
 
     def _neo4j_node_to_event(self, node) -> Ku:
         """Convert Neo4j node to Event domain model."""
@@ -707,13 +705,13 @@ class CrossDomainQueries:
         dto = from_neo4j_node(dict(node), KuDTO)
         return Ku.from_dto(dto)
 
-    def _neo4j_node_to_habit(self, node) -> Habit:
+    def _neo4j_node_to_habit(self, node) -> Ku:
         """Convert Neo4j node to Habit domain model."""
-        from core.models.ku.ku_dto import KuDTO as HabitDTO
+        from core.models.ku.ku_dto import KuDTO
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        dto = from_neo4j_node(dict(node), HabitDTO)
-        return Habit.from_dto(dto)
+        dto = from_neo4j_node(dict(node), KuDTO)
+        return Ku.from_dto(dto)
 
     def _neo4j_node_to_goal(self, node) -> Ku:
         """Convert Neo4j node to Goal domain model."""
