@@ -177,9 +177,7 @@ class LpProgressService:
         RETURN total_kus, mastered_kus
         """
 
-        result = await self.executor.execute_query(
-            query, {"lp_uid": lp_uid, "user_uid": user_uid}
-        )
+        result = await self.executor.execute_query(query, {"lp_uid": lp_uid, "user_uid": user_uid})
         if result.is_error:
             self.logger.error(f"Failed to query LP progress: {result.error}")
             return

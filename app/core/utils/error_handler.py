@@ -43,9 +43,7 @@ def handle_repository_errors(func: Callable) -> Callable:
                     raise Errors.database("operation", f"Query syntax error: {e!s}") from e
                 elif name in ("SessionExpired", "ServiceUnavailable"):
                     logger.error(f"Neo4j connection error in {func.__name__}: {e}")
-                    raise Errors.database(
-                        "operation", f"Database connection error: {e!s}"
-                    ) from e
+                    raise Errors.database("operation", f"Database connection error: {e!s}") from e
                 else:
                     logger.error(f"Database error in {func.__name__}: {e}")
                     raise Errors.database("operation", f"Database error: {e!s}") from e

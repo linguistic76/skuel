@@ -114,9 +114,7 @@ class Neo4jVectorSearchService:
             return Result.ok([])
 
         # Convert to list of dicts
-        similar = [
-            {"node": record["node"], "score": record["score"]} for record in records
-        ]
+        similar = [{"node": record["node"], "score": record["score"]} for record in records]
 
         return Result.ok(similar)
 
@@ -202,7 +200,8 @@ class Neo4jVectorSearchService:
             self.logger.error(f"Failed to get source embedding: {result.error}")
             return Result.fail(
                 Errors.database(
-                    operation="get_embedding", message=f"Failed to retrieve embedding: {result.error}"
+                    operation="get_embedding",
+                    message=f"Failed to retrieve embedding: {result.error}",
                 )
             )
 

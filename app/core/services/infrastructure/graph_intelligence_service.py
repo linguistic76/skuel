@@ -377,8 +377,7 @@ class GraphIntelligenceService:
         }
 
         self.logger.info(
-            f"Prerequisite analysis: depth={analysis['max_depth']}, "
-            f"paths={analysis['total_paths']}"
+            f"Prerequisite analysis: depth={analysis['max_depth']}, paths={analysis['total_paths']}"
         )
         return Result.ok(analysis)
 

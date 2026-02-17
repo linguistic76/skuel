@@ -159,9 +159,7 @@ class LifePathAlignmentService:
         RETURN lp.uid AS life_path_uid
         """
 
-        result = await self.executor.execute_query(
-            query, {"user_uid": user_uid}
-        )
+        result = await self.executor.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
             logger.error(
                 "Failed to get life path - returning None",

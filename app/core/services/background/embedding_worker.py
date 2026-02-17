@@ -333,7 +333,9 @@ class EmbeddingBackgroundWorker:
             )
 
             if result.is_error:
-                self.logger.warning(f"Failed to store embedding for {entity_type} {entity_uid}: {result.error}")
+                self.logger.warning(
+                    f"Failed to store embedding for {entity_type} {entity_uid}: {result.error}"
+                )
                 return False
 
             if result.value:

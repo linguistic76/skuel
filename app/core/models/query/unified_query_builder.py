@@ -110,9 +110,7 @@ class ModelQueryBuilder[T]:
     Routes to CypherGenerator internally.
     """
 
-    def __init__(
-        self, model: type[T], executor: Any = None, label: str | None = None
-    ) -> None:
+    def __init__(self, model: type[T], executor: Any = None, label: str | None = None) -> None:
         self.model = model
         self.executor = executor
         self.label = label  # Neo4j label (e.g., "Report" instead of Python class name)
@@ -124,7 +122,7 @@ class ModelQueryBuilder[T]:
         self._fulltext_query: str | None = None
         self._fulltext_index: str | None = None
 
-    def filter(self, **filters: Any) -> "ModelQueryBuilder[T]":
+    def filter(self, **filters: Any) -> ModelQueryBuilder[T]:
         """
         Add filters to query.
 
@@ -137,23 +135,23 @@ class ModelQueryBuilder[T]:
         self._filters.update(filters)
         return self
 
-    def limit(self, limit: int) -> "ModelQueryBuilder[T]":
+    def limit(self, limit: int) -> ModelQueryBuilder[T]:
         """Limit number of results."""
         self._limit_val = limit
         return self
 
-    def offset(self, offset: int) -> "ModelQueryBuilder[T]":
+    def offset(self, offset: int) -> ModelQueryBuilder[T]:
         """Skip first N results."""
         self._offset_val = offset
         return self
 
-    def order_by(self, field: str, desc: bool = False) -> "ModelQueryBuilder[T]":
+    def order_by(self, field: str, desc: bool = False) -> ModelQueryBuilder[T]:
         """Order results by field."""
         self._order_by_field = field
         self._order_desc = desc
         return self
 
-    def fulltext(self, query_text: str, index_name: str | None = None) -> "ModelQueryBuilder[T]":
+    def fulltext(self, query_text: str, index_name: str | None = None) -> ModelQueryBuilder[T]:
         """
         Search using Neo4j full-text index for optimal text search performance.
 
@@ -325,27 +323,27 @@ class SemanticQueryBuilder:
         self._query_type: str = "context"  # context, prerequisites, traversal
         self._end_uid: str | None = None
 
-    def traverse(self, types: list[SemanticRelationshipType]) -> "SemanticQueryBuilder":
+    def traverse(self, types: list[SemanticRelationshipType]) -> SemanticQueryBuilder:
         """Specify semantic relationship types to traverse."""
         self._semantic_types = types
         return self
 
-    def depth(self, depth: int) -> "SemanticQueryBuilder":
+    def depth(self, depth: int) -> SemanticQueryBuilder:
         """Set maximum traversal depth."""
         self._depth = depth
         return self
 
-    def min_confidence(self, confidence: float) -> "SemanticQueryBuilder":
+    def min_confidence(self, confidence: float) -> SemanticQueryBuilder:
         """Filter relationships by minimum confidence score."""
         self._min_confidence = confidence
         return self
 
-    def prerequisites(self) -> "SemanticQueryBuilder":
+    def prerequisites(self) -> SemanticQueryBuilder:
         """Get prerequisite chain instead of general context."""
         self._query_type = "prerequisites"
         return self
 
-    def path_to(self, end_uid: str) -> "SemanticQueryBuilder":
+    def path_to(self, end_uid: str) -> SemanticQueryBuilder:
         """Find shortest path to target node."""
         self._query_type = "traversal"
         self._end_uid = end_uid
@@ -417,7 +415,7 @@ class TemplateQueryBuilder:
         self.query_builder_service = query_builder_service
         self._params: dict[str, Any] = {}
 
-    def params(self, **params: Any) -> "TemplateQueryBuilder":
+    def params(self, **params: Any) -> TemplateQueryBuilder:
         """Set template parameters."""
         self._params.update(params)
         return self
@@ -549,7 +547,7 @@ class UnifiedQueryBuilder:
     # batch() method removed - Pure Cypher migration (October 20, 2025)
     # Use Pure Cypher UNWIND patterns for batch operations instead
 
-    def _ensure_query_builder(self) -> "QueryBuilder":
+    def _ensure_query_builder(self) -> QueryBuilder:
         """
         Lazy initialization of QueryBuilder if not provided.
 

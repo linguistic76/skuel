@@ -304,9 +304,7 @@ class IngestionTracker:
         RETURN count(*) AS deleted
         """
 
-        result = await self.executor.execute_query(
-            query, {"paths": [str(fp) for fp in file_paths]}
-        )
+        result = await self.executor.execute_query(query, {"paths": [str(fp) for fp in file_paths]})
 
         if result.is_error:
             self.logger.error(

@@ -1065,9 +1065,7 @@ class UserContextQueryExecutor:
             {
                 "tasks": {
                     "active_uids": [uid for uid in (record["active_task_uids"] or []) if uid],
-                    "completed_uids": {
-                        uid for uid in (record["completed_task_uids"] or []) if uid
-                    },
+                    "completed_uids": {uid for uid in (record["completed_task_uids"] or []) if uid},
                     "overdue_uids": [uid for uid in (record["overdue_task_uids"] or []) if uid],
                     "today_uids": [uid for uid in (record["today_task_uids"] or []) if uid],
                 },
@@ -1086,9 +1084,7 @@ class UserContextQueryExecutor:
                 },
                 "goals": {
                     "active_uids": [uid for uid in (record["active_goal_uids"] or []) if uid],
-                    "completed_uids": {
-                        uid for uid in (record["completed_goal_uids"] or []) if uid
-                    },
+                    "completed_uids": {uid for uid in (record["completed_goal_uids"] or []) if uid},
                     "goal_progress": {
                         item["uid"]: item["progress"]
                         for item in (record["goal_data"] or [])

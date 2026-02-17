@@ -40,9 +40,9 @@ load_dotenv()
 
 from neo4j import AsyncGraphDatabase
 
+from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 from core.config import create_config
 from core.utils.logging import get_logger
-from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 
 logger = get_logger("skuel.scripts.create_vector_indexes")
 

@@ -160,9 +160,7 @@ class TeacherReviewService:
         ORDER BY fb.created_at ASC
         """
 
-        result = await self.executor.execute_query(
-            query, {"submission_uid": submission_uid}
-        )
+        result = await self.executor.execute_query(query, {"submission_uid": submission_uid})
         if result.is_error:
             return result
 
@@ -274,9 +272,7 @@ class TeacherReviewService:
             return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
 
         student_uid = records[0]["student_uid"] or ""
-        logger.info(
-            f"Teacher {teacher_uid} submitted feedback {feedback_uid} for Ku {report_uid}"
-        )
+        logger.info(f"Teacher {teacher_uid} submitted feedback {feedback_uid} for Ku {report_uid}")
 
         await publish_event(
             self.event_bus,
@@ -390,9 +386,7 @@ class TeacherReviewService:
             return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
 
         student_uid = records[0]["student_uid"] or ""
-        logger.info(
-            f"Teacher {teacher_uid} requested revision {feedback_uid} for Ku {report_uid}"
-        )
+        logger.info(f"Teacher {teacher_uid} requested revision {feedback_uid} for Ku {report_uid}")
 
         await publish_event(
             self.event_bus,

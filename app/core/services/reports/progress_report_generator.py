@@ -280,9 +280,7 @@ class ProgressKuGenerator:
                 logger.warning(f"Failed to query habit completions: {habits_result.error}")
             else:
                 records = habits_result.value
-                result["habits_completed"] = len(
-                    [r for r in records if r["status"] == "completed"]
-                )
+                result["habits_completed"] = len([r for r in records if r["status"] == "completed"])
                 result["habits_details"] = [
                     {
                         "uid": r["uid"],
@@ -434,4 +432,6 @@ class ProgressKuGenerator:
                 {"ku_uid": ku_uid, "insight_uid": insight_uid},
             )
             if result.is_error:
-                logger.warning(f"Failed to create BASED_ON_INSIGHT for {insight_uid}: {result.error}")
+                logger.warning(
+                    f"Failed to create BASED_ON_INSIGHT for {insight_uid}: {result.error}"
+                )

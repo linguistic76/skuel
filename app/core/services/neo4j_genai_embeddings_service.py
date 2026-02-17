@@ -203,7 +203,9 @@ class Neo4jGenAIEmbeddingsService:
 
             self.logger.error(f"Embedding generation failed: {result.error}")
             return Result.fail(
-                Errors.integration(service="GenAI", message=f"Embedding generation failed: {result.error}")
+                Errors.integration(
+                    service="GenAI", message=f"Embedding generation failed: {result.error}"
+                )
             )
 
         records = result.value
@@ -319,7 +321,9 @@ class Neo4jGenAIEmbeddingsService:
 
             self.logger.error(f"Batch embedding failed: {result.error}")
             return Result.fail(
-                Errors.integration(service="GenAI", message=f"Batch embedding failed: {result.error}")
+                Errors.integration(
+                    service="GenAI", message=f"Batch embedding failed: {result.error}"
+                )
             )
 
         records = result.value
@@ -342,9 +346,7 @@ class Neo4jGenAIEmbeddingsService:
             ).inc(estimated_tokens)
 
         # Extract embeddings in order
-        embeddings = [
-            record["embedding"] for record in sorted(records, key=itemgetter("index"))
-        ]
+        embeddings = [record["embedding"] for record in sorted(records, key=itemgetter("index"))]
 
         # Validate all dimensions
         for idx, emb in enumerate(embeddings):
@@ -450,7 +452,9 @@ class Neo4jGenAIEmbeddingsService:
         if result.is_error:
             self.logger.error(f"Failed to store embedding metadata: {result.error}")
             return Result.fail(
-                Errors.database(operation="store_embedding", message=f"Failed to store: {result.error}")
+                Errors.database(
+                    operation="store_embedding", message=f"Failed to store: {result.error}"
+                )
             )
 
         if not result.value:
@@ -489,7 +493,9 @@ class Neo4jGenAIEmbeddingsService:
         if result.is_error:
             self.logger.error(f"Failed to get embedding metadata: {result.error}")
             return Result.fail(
-                Errors.database(operation="get_metadata", message=f"Failed to get metadata: {result.error}")
+                Errors.database(
+                    operation="get_metadata", message=f"Failed to get metadata: {result.error}"
+                )
             )
 
         if not result.value:

@@ -304,9 +304,7 @@ class CrossDomainAnalyticsService:
             SET velocity.paths_completed = coalesce(velocity.paths_completed, 0) + 1
             """
 
-            result = await self.executor.execute_query(
-                query, {"user_uid": event.user_uid}
-            )
+            result = await self.executor.execute_query(query, {"user_uid": event.user_uid})
             if result.is_error:
                 self.logger.error(f"Error tracking path completion: {result.error}")
 

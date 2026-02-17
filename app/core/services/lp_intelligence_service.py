@@ -114,7 +114,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
         learning_backend: Any | None = None,  # Duplicate of backend for backward compatibility
         event_bus: Any | None = None,
         user_service: Any | None = None,
-        executor: "QueryExecutor | None" = None,  # January 2026: For adaptive/validation operations
+        executor: QueryExecutor | None = None,  # January 2026: For adaptive/validation operations
     ) -> None:
         """
         Initialize unified intelligence service.

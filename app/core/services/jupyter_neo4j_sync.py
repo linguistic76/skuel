@@ -116,7 +116,9 @@ class JupyterNeo4jSync:
         result = await self.executor.execute_query(query, {"uid": uid})
         if result.is_error:
             self.logger.error(f"Failed to fetch content for Jupyter: {result.error}")
-            return Result.fail(Errors.database(operation="fetch_for_jupyter", message=str(result.error)))
+            return Result.fail(
+                Errors.database(operation="fetch_for_jupyter", message=str(result.error))
+            )
 
         records = result.value or []
         record = records[0] if records else None
@@ -277,7 +279,9 @@ class JupyterNeo4jSync:
             if query_result.is_error:
                 return Result.fail(
                     Errors.integration(
-                        service="obsidian_sync", operation="sync_to_obsidian", message=str(query_result.error)
+                        service="obsidian_sync",
+                        operation="sync_to_obsidian",
+                        message=str(query_result.error),
                     )
                 )
 

@@ -85,9 +85,7 @@ class LifePathCoreService:
         """
 
         try:
-            result = await self.executor.execute_query(
-                query, {"user_uid": user_uid}
-            )
+            result = await self.executor.execute_query(query, {"user_uid": user_uid})
 
             if result.is_error:
                 logger.error(f"Failed to get designation for {user_uid}: {result.error}")
@@ -171,7 +169,9 @@ class LifePathCoreService:
 
             if result.is_error:
                 logger.error(f"Failed to save vision for {user_uid}: {result.error}")
-                return Result.fail(Errors.database("save_vision", f"Failed to save vision: {result.error}"))
+                return Result.fail(
+                    Errors.database("save_vision", f"Failed to save vision: {result.error}")
+                )
 
             if not result.value:
                 return Result.fail(Errors.not_found("User", user_uid))
@@ -257,7 +257,9 @@ class LifePathCoreService:
 
             if result.is_error:
                 return Result.fail(
-                    Errors.database("designate_life_path", f"Failed to designate life path: {result.error}")
+                    Errors.database(
+                        "designate_life_path", f"Failed to designate life path: {result.error}"
+                    )
                 )
 
             records = result.value or []
@@ -310,13 +312,13 @@ class LifePathCoreService:
         """
 
         try:
-            result = await self.executor.execute_query(
-                query, {"user_uid": user_uid}
-            )
+            result = await self.executor.execute_query(query, {"user_uid": user_uid})
 
             if result.is_error:
                 return Result.fail(
-                    Errors.database("remove_designation", f"Failed to remove designation: {result.error}")
+                    Errors.database(
+                        "remove_designation", f"Failed to remove designation: {result.error}"
+                    )
                 )
 
             records = result.value or []
@@ -400,7 +402,10 @@ class LifePathCoreService:
 
             if result.is_error:
                 return Result.fail(
-                    Errors.database("update_alignment_score", f"Failed to update alignment score: {result.error}")
+                    Errors.database(
+                        "update_alignment_score",
+                        f"Failed to update alignment score: {result.error}",
+                    )
                 )
 
             records = result.value or []

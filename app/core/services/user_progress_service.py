@@ -195,9 +195,7 @@ class UserProgressService:
         in_progress_uids = {p.knowledge_uid for p in in_progress}
 
         # Get completed prerequisites
-        completed_prereqs = await self._get_completed_prerequisites(
-            user_uid, mastered_uids
-        )
+        completed_prereqs = await self._get_completed_prerequisites(user_uid, mastered_uids)
 
         # Get prerequisite map (what knowledge needs what prereqs)
         prereq_map = await self._build_prerequisite_map(user_uid)
@@ -306,9 +304,7 @@ class UserProgressService:
             return Result.ok(0.75)
 
         # Calculate how many prereqs are met
-        met_prereqs = sum(
-            1 for p_uid in prereq_uids if p_uid in profile.completed_prerequisites
-        )
+        met_prereqs = sum(1 for p_uid in prereq_uids if p_uid in profile.completed_prerequisites)
 
         readiness = met_prereqs / total_prereqs
 
@@ -389,9 +385,7 @@ class UserProgressService:
         if result.is_error:
             self.logger.warning(f"Failed to record mastery: {result.error}")
 
-        self.logger.info(
-            f"✅ Recorded mastery: {user_uid} -> {knowledge_uid} ({mastery_score})"
-        )
+        self.logger.info(f"✅ Recorded mastery: {user_uid} -> {knowledge_uid} ({mastery_score})")
 
         return Result.ok(True)
 
@@ -491,9 +485,7 @@ class UserProgressService:
             for record in (result.value or [])
         ]
 
-    async def _get_in_progress_knowledge(
-        self, user_uid: str
-    ) -> list[UserLearningProgress]:
+    async def _get_in_progress_knowledge(self, user_uid: str) -> list[UserLearningProgress]:
         """Get all in-progress knowledge for user."""
         result = await self.executor.execute_query(
             """
@@ -559,10 +551,7 @@ class UserProgressService:
         if result.is_error:
             return {}
 
-        return {
-            record["knowledge_uid"]: record["prereq_uids"]
-            for record in (result.value or [])
-        }
+        return {record["knowledge_uid"]: record["prereq_uids"] for record in (result.value or [])}
 
     async def _get_learning_paths(self, user_uid: str) -> tuple[list[str], set[str]]:
         """Get active and completed learning paths."""
@@ -732,9 +721,7 @@ class UserProgressService:
         ORDER BY coverage_ratio DESC, topic.confidence DESC
         """
 
-        result = await self.executor.execute_query(
-            query, {"user_uid": user_uid, "domain": domain}
-        )
+        result = await self.executor.execute_query(query, {"user_uid": user_uid, "domain": domain})
         if result.is_error:
             return Result.fail(result.expect_error())
 

@@ -127,9 +127,7 @@ class CrossDomainQueries:
                     RETURN DISTINCT prereq
                     """
 
-                    prereq_result = await self.executor.execute_query(
-                        prereq_query, prereq_params
-                    )
+                    prereq_result = await self.executor.execute_query(prereq_query, prereq_params)
                     if prereq_result.is_error:
                         continue
 

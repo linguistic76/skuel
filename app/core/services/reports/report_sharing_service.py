@@ -98,9 +98,7 @@ class KuSharingService:
             return result
 
         if not result.value:
-            return Result.fail(
-                Errors.not_found(f"User {recipient_uid} or Ku {ku_uid} not found")
-            )
+            return Result.fail(Errors.not_found(f"User {recipient_uid} or Ku {ku_uid} not found"))
 
         logger.info(f"Ku {ku_uid} shared with {recipient_uid} as {role}")
         return Result.ok(True)

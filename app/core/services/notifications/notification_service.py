@@ -154,9 +154,7 @@ class NotificationService:
         LIMIT $limit
         """
 
-        result = await self.executor.execute_query(
-            query, {"user_uid": user_uid, "limit": limit}
-        )
+        result = await self.executor.execute_query(query, {"user_uid": user_uid, "limit": limit})
         if result.is_error:
             return result
 

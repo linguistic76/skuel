@@ -79,8 +79,6 @@ from .base_protocols import (
     EntitySearchOperations,
     # Core Conversion Protocols (5)
     EnumLike,
-    # Standalone query execution port (February 2026)
-    QueryExecutor,
     # Pydantic Field Constraint Protocols (7)
     GeConstraint,
     GraphContextNode,
@@ -135,6 +133,8 @@ from .base_protocols import (
     MinLenConstraint,
     PydanticFieldInfo,
     PydanticModel,
+    # Standalone query execution port (February 2026)
+    QueryExecutor,
     RelationshipCrudOperations,
     RelationshipMetadata,
     RelationshipMetadataOperations,
