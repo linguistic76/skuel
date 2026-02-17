@@ -45,8 +45,6 @@ from core.services.relationships import UnifiedRelationshipService
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
-    from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-    from core.models.ku import Ku
     from core.services.ku.ku_adaptive_service import KuAdaptiveService
     from core.services.ku.ku_core_service import KuCoreService
     from core.services.ku.ku_graph_service import KuGraphService
@@ -259,7 +257,7 @@ class LpSubServices:
     relationships: "UnifiedRelationshipService"
     intelligence: "LpIntelligenceService"
     progress: "LpProgressService"
-    backend: "UniversalNeo4jBackend[Ku]"
+    backend: Any  # BackendOperations[Ku] — protocol-typed to avoid adapter import
 
 
 def create_ku_sub_services(
@@ -389,7 +387,8 @@ def create_ku_sub_services(
 
 
 def create_lp_sub_services(
-    driver: "AsyncDriver",
+    backend: Any,
+    executor: Any,
     ls_service: "LsService",
     graph_intelligence_service: Any,
     event_bus: "EventBusOperations | None" = None,
@@ -402,15 +401,15 @@ def create_lp_sub_services(
     Handles cross-domain dependency: LpCoreService requires ls_service.
 
     Creation Order:
-    1. UniversalNeo4jBackend[Ku] (driver, NeoLabel.KU, Ku, default_filters={"ku_type": "learning_path"})
-    2. LpSearchService (backend)
-    3. UnifiedRelationshipService (backend, config, graph_intel)
-    4. LpCoreService (backend, ls_service, event_bus)
-    5. LpProgressService (driver, event_bus)
-    6. LpIntelligenceService (backend, graph_intel, progress_backend, event_bus, user_service, driver)
+    1. LpSearchService (backend)
+    2. UnifiedRelationshipService (backend, config, graph_intel)
+    3. LpCoreService (backend, ls_service, event_bus)
+    4. LpProgressService (executor, event_bus)
+    5. LpIntelligenceService (backend, graph_intel, progress_backend, event_bus, user_service, executor)
 
     Args:
-        driver: Neo4j async driver - REQUIRED
+        backend: BackendOperations for LP entities (REQUIRED — created by composition root)
+        executor: QueryExecutor for raw Cypher (REQUIRED — created by composition root)
         ls_service: LsService - REQUIRED for path-step operations
         graph_intelligence_service: GraphIntelligenceService - REQUIRED
         event_bus: Event bus for publishing domain events (optional)
@@ -420,52 +419,39 @@ def create_lp_sub_services(
     Returns:
         LpSubServices dataclass with all 5 sub-services + backend
     """
-    # Lazy imports
-    from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-    from core.models.enums.neo_labels import NeoLabel
-    from core.models.ku import Ku as KuModel
+    # Lazy imports (core-only — no adapter imports)
     from core.services.lp.lp_core_service import LpCoreService
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
     from core.services.lp_intelligence_service import LpIntelligenceService
 
-    # Step 1: Create shared backend — Phase 3: LP nodes are :Ku{ku_type='learning_path'}
-    lp_backend: UniversalNeo4jBackend[KuModel] = UniversalNeo4jBackend[KuModel](
-        driver, NeoLabel.KU, KuModel, default_filters={"ku_type": "learning_path"}
-    )
+    # Step 1: Create search (simple, no dependencies)
+    search = LpSearchService(backend=backend)
 
-    # Step 2: Create search (simple, no dependencies)
-    search = LpSearchService(backend=lp_backend)
-
-    # Step 3: Create relationships
+    # Step 2: Create relationships
     relationships = UnifiedRelationshipService(
-        backend=lp_backend,
+        backend=backend,
         config=LP_CONFIG,
         graph_intel=graph_intelligence_service,
     )
 
-    # Step 4: Create core (requires ls_service)
+    # Step 3: Create core (requires ls_service)
     core = LpCoreService(
-        backend=lp_backend,
+        backend=backend,
         ls_service=ls_service,
         event_bus=event_bus,
     )
 
-    # Step 5: Create query executor for sub-services
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-
-    executor = Neo4jQueryExecutor(driver)
-
-    # Step 6: Create progress
+    # Step 4: Create progress
     progress = LpProgressService(executor=executor, event_bus=event_bus)
 
-    # Step 7: Create intelligence
+    # Step 5: Create intelligence
     # ADR-030: Analytics services have zero AI dependencies
     intelligence = LpIntelligenceService(
-        backend=lp_backend,
+        backend=backend,
         graph_intelligence_service=graph_intelligence_service,
         progress_backend=progress_backend,
-        learning_backend=lp_backend,
+        learning_backend=backend,
         event_bus=event_bus,
         user_service=user_service,
         executor=executor,
@@ -477,5 +463,5 @@ def create_lp_sub_services(
         relationships=relationships,
         intelligence=intelligence,
         progress=progress,
-        backend=lp_backend,
+        backend=backend,
     )

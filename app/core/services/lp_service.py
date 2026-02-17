@@ -52,8 +52,6 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
-
     from core.models.ku import Ku
     from core.services.ku_service import KuService
     from core.services.ls_service import LsService
@@ -137,7 +135,8 @@ class LpService(FacadeDelegationMixin):
 
     def __init__(
         self,
-        driver: AsyncDriver,
+        backend: Any,
+        executor: Any,
         ls_service: LsService,
         ku_service: KuService | None = None,
         progress_service: Any | None = None,
@@ -151,7 +150,7 @@ class LpService(FacadeDelegationMixin):
         Initialize facade with sub-services via factory.
 
         FAIL-FAST ARCHITECTURE (per CLAUDE.md):
-        The driver, ls_service, and graph_intelligence_service are REQUIRED.
+        The backend, executor, ls_service, and graph_intelligence_service are REQUIRED.
         Services run at full capacity or fail immediately at startup.
 
         **January 2026 - Factory Pattern (Architecture Consistency Review):**
@@ -159,7 +158,8 @@ class LpService(FacadeDelegationMixin):
         Factory handles cross-domain dependency: LpCoreService requires ls_service.
 
         Args:
-            driver: Neo4j async driver - REQUIRED for persistence
+            backend: BackendOperations for LP entities (REQUIRED — created by composition root)
+            executor: QueryExecutor for raw Cypher (REQUIRED — created by composition root)
             ls_service: LsService for learning step operations - REQUIRED
             ku_service: Optional KuService for prerequisite queries
             progress_service: Optional UserProgressService for progress tracking
@@ -170,9 +170,15 @@ class LpService(FacadeDelegationMixin):
             ai_service: Optional LpAIService for AI features (ADR-030 separation)
         """
         # FAIL-FAST: Required dependencies
-        if not driver:
+        if not backend:
             raise ValueError(
-                "LpService driver is REQUIRED. "
+                "LpService backend is REQUIRED. "
+                "SKUEL follows fail-fast architecture - all required dependencies "
+                "must be provided at initialization."
+            )
+        if not executor:
+            raise ValueError(
+                "LpService executor is REQUIRED. "
                 "SKUEL follows fail-fast architecture - all required dependencies "
                 "must be provided at initialization."
             )
@@ -193,7 +199,8 @@ class LpService(FacadeDelegationMixin):
         from core.utils.curriculum_domain_config import create_lp_sub_services
 
         subs = create_lp_sub_services(
-            driver=driver,
+            backend=backend,
+            executor=executor,
             ls_service=ls_service,
             graph_intelligence_service=graph_intelligence_service,
             event_bus=event_bus,

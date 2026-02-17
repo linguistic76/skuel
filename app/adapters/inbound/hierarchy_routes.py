@@ -15,7 +15,7 @@ See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 
 from typing import Any
 
-from core.infrastructure.routes.hierarchy_route_factory import HierarchyRouteFactory
+from adapters.inbound.hierarchy_route_factory import HierarchyRouteFactory
 
 
 def create_hierarchy_routes(app: Any, rt: Any, services: Any) -> list[Any]:

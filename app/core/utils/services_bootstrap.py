@@ -610,6 +610,8 @@ def _create_learning_services(
     query_executor: Any = None,
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
+    from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+    from core.models.ku import Ku as KuModel
     from core.services.ku_retrieval import KuRetrieval
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService  # Intelligence created internally
@@ -678,12 +680,26 @@ def _create_learning_services(
 
     # Create learning step service (LS operations)
     # January 2026: graph_intel now REQUIRED for unified Curriculum architecture (ADR-030)
-    ls_service = LsService(executor=query_executor, graph_intel=graph_intelligence, event_bus=event_bus)
+    # Backend created here (composition root) — core services never import adapters
+    ls_backend = UniversalNeo4jBackend[KuModel](
+        driver, NeoLabel.KU, KuModel, default_filters={"ku_type": "learning_step"}
+    )
+    ls_service = LsService(
+        backend=ls_backend,
+        executor=query_executor,
+        graph_intel=graph_intelligence,
+        event_bus=event_bus,
+    )
 
     # Create path service (LP operations - delegates LS operations to LsService)
     # January 2026: Intelligence created internally (unified with other domains)
+    # Backend created here (composition root) — core services never import adapters
+    lp_backend = UniversalNeo4jBackend[KuModel](
+        driver, NeoLabel.KU, KuModel, default_filters={"ku_type": "learning_path"}
+    )
     learning_paths = LpService(
-        driver=driver,
+        backend=lp_backend,
+        executor=query_executor,
         ls_service=ls_service,  # Delegate LS operations to LsService
         ku_service=ku_service,
         progress_service=user_progress,

@@ -49,8 +49,6 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     import builtins
 
-    from neo4j import AsyncDriver
-
     from core.models.ku import Ku
     from core.services.ls.ls_intelligence_service import LsIntelligenceService
     from core.services.protocols.facade_protocols import LsFacadeProtocol
@@ -118,6 +116,7 @@ class LsService(FacadeDelegationMixin):
 
     def __init__(
         self,
+        backend: Any = None,
         executor: Any = None,
         graph_intel: Any = None,
         event_bus: Any = None,
@@ -127,17 +126,24 @@ class LsService(FacadeDelegationMixin):
         Initialize facade with sub-services via factory.
 
         FAIL-FAST ARCHITECTURE (per CLAUDE.md):
-        Driver and graph_intel are REQUIRED. Services run at full capacity or fail immediately.
+        Backend and graph_intel are REQUIRED. Services run at full capacity or fail immediately.
 
         **January 2026 - Unified Curriculum Architecture (ADR-030):**
         Uses `create_curriculum_sub_services()` factory for consistent initialization,
         matching Activity Domain patterns exactly.
 
         Args:
+            backend: BackendOperations for LS entities (REQUIRED — created by composition root)
             executor: Query executor (REQUIRED for persistence)
             graph_intel: GraphIntelligenceService for cross-domain queries (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
         """
+        if not backend:
+            raise ValueError(
+                "LsService backend is REQUIRED. "
+                "SKUEL follows fail-fast architecture - all required dependencies "
+                "must be provided at initialization."
+            )
         if not executor:
             raise ValueError(
                 "LsService executor is REQUIRED. "
@@ -151,27 +157,16 @@ class LsService(FacadeDelegationMixin):
                 "cross-domain queries for curriculum domains."
             )
 
-        # Import infrastructure
-        from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-        from core.models.enums.neo_labels import NeoLabel
-        from core.models.ku import Ku as KuModel
         from core.utils.curriculum_domain_config import (
             CurriculumCommonSubServices,
             create_curriculum_sub_services,
-        )
-
-        # Create backend FIRST - shared by all sub-services (January 2026 Unified)
-        # Use UniversalNeo4jBackend directly - no wrapper needed
-        # Phase 3: LS nodes are :Ku{ku_type='learning_step'}
-        ls_backend = UniversalNeo4jBackend[KuModel](
-            driver, NeoLabel.KU, KuModel, default_filters={"ku_type": "learning_step"}
         )
 
         # Create 4 common sub-services via factory (January 2026 - ADR-030)
         # This matches Activity Domain patterns exactly
         common: CurriculumCommonSubServices[LsIntelligenceService] = create_curriculum_sub_services(
             domain="ls",
-            backend=ls_backend,
+            backend=backend,
             graph_intel=graph_intel,
             event_bus=event_bus,
         )
