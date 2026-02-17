@@ -11,7 +11,7 @@ Sub-Services:
 - LpSearchService: Search operations (extends BaseService)
 - LpProgressService: Progress tracking (event-driven)
 - UnifiedRelationshipService: Path-step associations (shared with other domains)
-- LpIntelligenceService: Validation, analysis, adaptive learning, context
+- LpIntelligenceService: Validation, adaptive learning, context
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ class LpService(FacadeDelegationMixin):
             get_current_step, update_path, delete_path
     - Intelligence: validate_path_prerequisites, identify_path_blockers,
             get_optimal_path_recommendation, get_path_with_context,
-            analyze_path_knowledge_scope, identify_practice_gaps,
+            analyze_path_knowledge_scope,
             find_learning_sequence, get_next_adaptive_step, get_recommended_learning_steps
 
     Explicit Methods (custom logic):
@@ -98,7 +98,6 @@ class LpService(FacadeDelegationMixin):
             "get_path_with_context": ("intelligence", "get_path_with_context"),
             # Analysis operations
             "analyze_path_knowledge_scope": ("intelligence", "analyze_path_knowledge_scope"),
-            "identify_practice_gaps": ("intelligence", "identify_practice_gaps"),
             # Adaptive operations
             "find_learning_sequence": ("intelligence", "find_learning_sequence"),
             "get_next_adaptive_step": ("intelligence", "get_next_adaptive_step"),
@@ -214,7 +213,7 @@ class LpService(FacadeDelegationMixin):
     # January 2026 Consolidation: All these now route to intelligence service:
     # - Validation: validate_path_prerequisites, identify_path_blockers, get_optimal_path_recommendation
     # - Context: get_path_with_context
-    # - Analysis: analyze_path_knowledge_scope, identify_practice_gaps
+    # - Analysis: analyze_path_knowledge_scope
     # - Adaptive: find_learning_sequence, get_next_adaptive_step, get_recommended_learning_steps
 
     # ============================================================================

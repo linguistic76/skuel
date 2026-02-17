@@ -451,12 +451,18 @@ class PrinciplesAlignmentService:
         else:
             dto = principle_dict.to_dto()
 
-        # Add assessment to history using DTO method
-        dto.assess_alignment(
-            level=assessment.alignment_level,
+        # Add assessment to history (append pattern — no assess_alignment method on KuDTO)
+        from datetime import date
+
+        from core.models.ku.ku_nested_types import AlignmentAssessment as KuAlignmentAssessment
+
+        ku_assessment = KuAlignmentAssessment(
+            assessed_date=date.today(),
+            alignment_level=assessment.alignment_level,
             evidence=assessment.evidence,
             reflection=assessment.reflection,
         )
+        dto.alignment_history.append(ku_assessment)
 
         # Update in backend
         await self.backend.update(principle_uid, dto.to_dict())

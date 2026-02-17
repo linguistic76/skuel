@@ -47,7 +47,7 @@ from core.services.protocols.domain_protocols import (
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.principles.principles_alignment_service import (
@@ -61,6 +61,11 @@ if TYPE_CHECKING:
 
 # NOTE: AlignmentAssessment and MotivationalProfile are now imported from
 # principles_alignment_service to avoid type duplication issues
+
+
+def _by_assessed_date(item: dict[str, Any]) -> str:
+    """Sort key for alignment history by assessed_date (SKUEL012: no lambdas)."""
+    return item.get("assessed_date", "")
 
 
 class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations, Ku]):
@@ -84,7 +89,9 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
     - create_principle (many parameters)
     - Relationship methods: create_user_principle_relationship, get_user_principle_portfolio
     - search_principles (has post-filtering logic)
-    - Stub methods for future implementation
+    - Expression CRUD: create_principle_expression, get_principle_expressions
+    - Alignment history: get_principle_alignment_history
+    - Principle links: create_principle_link, get_principle_links
 
     SKUEL Architecture:
     - Uses FacadeDelegationMixin for delegation (January 2026 Phase 3)
@@ -411,7 +418,6 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             Result with list of unique sources
         """
         from core.models.enums.ku_enums import PrincipleSource
-        from core.utils.result_simplified import Result
 
         # Return all PrincipleSource enum values
         sources = [s.value for s in PrincipleSource]
@@ -435,11 +441,8 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         return await self.search.get_prioritized(user_context, limit=limit)
 
     # ========================================================================
-    # STUB METHODS - Future Implementation (Not Yet Developed)
+    # PRINCIPLE EXPRESSIONS — Inline list on Ku model
     # ========================================================================
-    # These methods are called by the API but require more design work.
-    # They return stub responses to avoid MyPy errors while marking them
-    # as not implemented for future development.
 
     async def create_principle_expression(
         self,
@@ -448,26 +451,57 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         """
         Create a principle expression (how principle was lived out).
 
-        STUB: Expression tracking system not yet implemented.
+        Stores expression on principle's inline expressions list via KuDTO.
 
         Args:
-            dto: Expression creation DTO
+            dto: Dict with principle_uid, context, behavior, and optional example
 
         Returns:
-            Result with stub response
+            Result with the created expression dict
         """
-        from core.utils.result_simplified import Result
+        from core.models.ku.ku_nested_types import PrincipleExpression
 
-        self.logger.warning(
-            "create_principle_expression called but expression system not implemented"
+        principle_uid = (
+            dto.get("principle_uid")
+            if isinstance(dto, dict)
+            else getattr(dto, "principle_uid", None)
         )
-        return Result.ok(
-            {
-                "status": "stub_not_implemented",
-                "message": "Principle expression tracking not yet implemented",
-                "dto_received": str(type(dto).__name__),
-            }
-        )
+        if not principle_uid:
+            return Result.fail(
+                Errors.validation(message="principle_uid is required", field="principle_uid")
+            )
+
+        context = dto.get("context") if isinstance(dto, dict) else getattr(dto, "context", None)
+        behavior = dto.get("behavior") if isinstance(dto, dict) else getattr(dto, "behavior", None)
+        if not context or not behavior:
+            return Result.fail(
+                Errors.validation(message="context and behavior are required", field="context")
+            )
+
+        example = dto.get("example") if isinstance(dto, dict) else getattr(dto, "example", None)
+
+        # Get current principle
+        principle_result = await self.core.backend.get(principle_uid)
+        if principle_result.is_error:
+            return Result.fail(principle_result.expect_error())
+
+        principle_data = principle_result.value
+        if isinstance(principle_data, Ku):
+            ku_dto = principle_data.to_dto()
+        elif isinstance(principle_data, dict):
+            ku_dto = KuDTO.from_dict(principle_data)
+        else:
+            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
+
+        # Create and append expression
+        expression = PrincipleExpression(context=context, behavior=behavior, example=example)
+        ku_dto.expressions.append(expression)
+
+        # Save
+        await self.core.backend.update(principle_uid, ku_dto.to_dict())
+        self.logger.info("Created expression for principle %s", principle_uid)
+
+        return Result.ok({"context": context, "behavior": behavior, "example": example})
 
     async def get_principle_expressions(
         self,
@@ -476,20 +510,36 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         """
         Get expressions of a principle (instances where it was lived out).
 
-        STUB: Expression tracking system not yet implemented.
+        Reads from the principle's inline expressions list.
 
         Args:
             principle_uid: Principle UID
 
         Returns:
-            Result with empty list (stub)
+            Result with list of expression dicts
         """
-        from core.utils.result_simplified import Result
+        principle_result = await self.core.backend.get(principle_uid)
+        if principle_result.is_error:
+            return Result.fail(principle_result.expect_error())
 
-        self.logger.warning(
-            f"get_principle_expressions called for {principle_uid} but expression system not implemented"
+        principle_data = principle_result.value
+        if isinstance(principle_data, Ku):
+            ku_dto = principle_data.to_dto()
+        elif isinstance(principle_data, dict):
+            ku_dto = KuDTO.from_dict(principle_data)
+        else:
+            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
+
+        return Result.ok(
+            [
+                {"context": e.context, "behavior": e.behavior, "example": e.example}
+                for e in ku_dto.expressions
+            ]
         )
-        return Result.ok([])
+
+    # ========================================================================
+    # ALIGNMENT HISTORY — Inline list on Ku model
+    # ========================================================================
 
     async def get_principle_alignment_history(
         self,
@@ -500,7 +550,8 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         """
         Get historical alignment assessments for a principle.
 
-        STUB: Alignment history tracking not yet implemented.
+        Reads from the principle's inline alignment_history list, filtered
+        by recency (days) and capped by limit.
 
         Args:
             principle_uid: Principle UID
@@ -508,38 +559,114 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
             days: Lookback period in days
 
         Returns:
-            Result with empty list (stub)
+            Result with list of alignment assessment dicts
         """
-        from core.utils.result_simplified import Result
+        from datetime import date, timedelta
 
-        self.logger.warning(
-            f"get_principle_alignment_history called for {principle_uid} but history tracking not implemented"
-        )
-        return Result.ok([])
+        principle_result = await self.core.backend.get(principle_uid)
+        if principle_result.is_error:
+            return Result.fail(principle_result.expect_error())
+
+        principle_data = principle_result.value
+        if isinstance(principle_data, Ku):
+            ku_dto = principle_data.to_dto()
+        elif isinstance(principle_data, dict):
+            ku_dto = KuDTO.from_dict(principle_data)
+        else:
+            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
+
+        cutoff = date.today() - timedelta(days=days)
+        history = [
+            {
+                "assessed_date": str(a.assessed_date),
+                "alignment_level": a.alignment_level.value if a.alignment_level else None,
+                "evidence": a.evidence,
+                "reflection": a.reflection,
+            }
+            for a in ku_dto.alignment_history
+            if a.assessed_date >= cutoff
+        ]
+
+        # Most recent first, then cap
+        history.sort(key=_by_assessed_date, reverse=True)
+        return Result.ok(history[:limit])
+
+    # ========================================================================
+    # PRINCIPLE LINKS — Neo4j relationships via UnifiedRelationshipService
+    # ========================================================================
 
     async def create_principle_link(
         self,
         dto: Any,
     ) -> Result[dict[str, Any]]:
         """
-        Create a link between principles (e.g., supports, conflicts with).
+        Create a link between a principle and another entity.
 
-        STUB: Principle linking system not yet implemented.
+        Maps link_type to the appropriate relationship config key in PRINCIPLES_CONFIG
+        and delegates to UnifiedRelationshipService.
 
         Args:
-            dto: Link creation DTO
+            dto: Dict with principle_uid, target_uid, link_type (goal/habit/knowledge/principle),
+                 and optional properties
 
         Returns:
-            Result with stub response
+            Result with the created link info
         """
-        from core.utils.result_simplified import Result
+        principle_uid = (
+            dto.get("principle_uid")
+            if isinstance(dto, dict)
+            else getattr(dto, "principle_uid", None)
+        )
+        target_uid = (
+            dto.get("target_uid") if isinstance(dto, dict) else getattr(dto, "target_uid", None)
+        )
+        link_type = (
+            dto.get("link_type") if isinstance(dto, dict) else getattr(dto, "link_type", None)
+        )
 
-        self.logger.warning("create_principle_link called but linking system not implemented")
+        if not principle_uid or not target_uid or not link_type:
+            return Result.fail(
+                Errors.validation(
+                    message="principle_uid, target_uid, and link_type are required",
+                    field="link_type",
+                )
+            )
+
+        # Map link_type to PRINCIPLES_CONFIG relationship config key
+        link_type_map = {
+            "goal": "guided_goals",
+            "habit": "inspired_habits",
+            "knowledge": "grounding_knowledge",
+            "principle": "supporting_principles",
+            "choice": "guided_choices",
+        }
+
+        config_key = link_type_map.get(link_type)
+        if not config_key:
+            return Result.fail(
+                Errors.validation(
+                    message=f"Unknown link_type: {link_type}. Valid: {', '.join(link_type_map)}",
+                    field="link_type",
+                )
+            )
+
+        properties = (
+            dto.get("properties") if isinstance(dto, dict) else getattr(dto, "properties", None)
+        )
+        result = await self.relationships.create_relationship(
+            config_key, principle_uid, target_uid, properties
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        self.logger.info(
+            "Created %s link from principle %s to %s", link_type, principle_uid, target_uid
+        )
         return Result.ok(
             {
-                "status": "stub_not_implemented",
-                "message": "Principle linking not yet implemented",
-                "dto_received": str(type(dto).__name__),
+                "principle_uid": principle_uid,
+                "target_uid": target_uid,
+                "link_type": link_type,
             }
         )
 
@@ -549,20 +676,49 @@ class PrinciplesService(FacadeDelegationMixin, BaseService[PrinciplesOperations,
         link_type: str | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
-        Get links for a principle (relationships to other principles).
+        Get links for a principle (relationships to goals, habits, knowledge, principles).
 
-        STUB: Principle linking system not yet implemented.
+        Queries via UnifiedRelationshipService cross-domain context and filters
+        by link_type if provided.
 
         Args:
             principle_uid: Principle UID
-            link_type: Optional filter by link type
+            link_type: Optional filter (goal/habit/knowledge/principle/choice)
 
         Returns:
-            Result with empty list (stub)
+            Result with list of link dicts containing target info
         """
-        from core.utils.result_simplified import Result
+        # Map link_type to config keys
+        link_type_map = {
+            "goal": "guided_goals",
+            "habit": "inspired_habits",
+            "knowledge": "grounding_knowledge",
+            "principle": "supporting_principles",
+            "choice": "guided_choices",
+        }
 
-        self.logger.warning(
-            f"get_principle_links called for {principle_uid} but linking system not implemented"
-        )
-        return Result.ok([])
+        if link_type:
+            config_key = link_type_map.get(link_type)
+            if not config_key:
+                return Result.fail(
+                    Errors.validation(
+                        message=f"Unknown link_type: {link_type}. Valid: {', '.join(link_type_map)}",
+                        field="link_type",
+                    )
+                )
+            uids_result = await self.relationships.get_related_uids(config_key, principle_uid)
+            if uids_result.is_error:
+                return Result.fail(uids_result.expect_error())
+            return Result.ok(
+                [{"target_uid": uid, "link_type": link_type} for uid in uids_result.value]
+            )
+
+        # No filter — get all link types
+        all_links: list[dict[str, Any]] = []
+        for lt, config_key in link_type_map.items():
+            uids_result = await self.relationships.get_related_uids(config_key, principle_uid)
+            if uids_result.is_error:
+                continue  # Skip failed queries, return what we can
+            all_links.extend({"target_uid": uid, "link_type": lt} for uid in uids_result.value)
+
+        return Result.ok(all_links)

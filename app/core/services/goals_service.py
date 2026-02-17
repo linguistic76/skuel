@@ -507,19 +507,6 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
 
         return Result.ok(task_suggestions)
 
-    async def get_recommended_next_goals(
-        self, _user_context: UserContext, _limit: int = 3
-    ) -> Result[list[Ku]]:
-        """
-        Get recommended next goals based on user's context (orchestration method).
-
-        This would integrate with a recommendation engine.
-        For now, return empty list (placeholder for future implementation).
-        """
-        # This would integrate with a recommendation engine
-        # For now, return empty list
-        return Result.ok([])
-
     async def assess_goal_feasibility(
         self, goal: Ku, user_context: UserContext
     ) -> Result[GoalFeasibilityAssessment]:

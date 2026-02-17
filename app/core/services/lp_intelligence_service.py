@@ -14,7 +14,7 @@ This service is part of the refactored LpIntelligenceService architecture:
 **January 2026 - LP Consolidation (ADR-031):**
 This service now includes methods previously in standalone sub-services:
 - Validation methods: validate_path_prerequisites, identify_path_blockers, get_optimal_path_recommendation
-- Analysis methods: analyze_path_knowledge_scope, identify_practice_gaps
+- Analysis methods: analyze_path_knowledge_scope
 - Adaptive methods: find_learning_sequence, get_next_adaptive_step, get_recommended_learning_steps
 - Context methods: get_path_with_context
 
@@ -77,7 +77,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
     - Content recommendations (via LearningRecommendationEngine sub-service)
     - Content analysis (via ContentAnalyzer/ContentQualityAssessor sub-services)
     - Validation: Prerequisites, blockers, optimal path recommendations
-    - Analysis: Knowledge scope, practice gaps
+    - Analysis: Knowledge scope
     - Adaptive: Learning sequences, next step, recommendations
     - Context: Path with full graph context
 
@@ -867,73 +867,6 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
 
         self.logger.info(
             f"Knowledge scope analysis for {path_uid}: {analysis['total_unique_knowledge_units']} units"
-        )
-        return Result.ok(analysis)
-
-    async def identify_practice_gaps(self, path_uid: str) -> Result[dict[str, Any]]:
-        """
-        Identify learning steps that lack complete practice opportunities.
-
-        Phase 3 Graph-Native: This method requires LsRelationships.fetch() to check
-        practice relationships (BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT).
-        Currently returns placeholder analysis - needs relationship service injection.
-
-        Args:
-            path_uid: Learning path identifier
-
-        Returns:
-            Practice gap analysis with recommendations
-        """
-        if not self.learning_backend:
-            return Result.fail(
-                Errors.system(
-                    message="Learning backend not available", operation="identify_practice_gaps"
-                )
-            )
-
-        # Get the path using backend
-        path_result = await self.learning_backend.get(path_uid)
-        if path_result.is_error:
-            return path_result
-
-        path = path_result.value
-        if not path:
-            return Result.fail(Errors.not_found(resource="learning_path", identifier=path_uid))
-
-        # Phase 3 Graph-Native: Practice relationship fields (task_uids, habit_uids,
-        # event_template_uids) are NOT on Ls model. They require LsRelationships.fetch()
-        # which needs UnifiedRelationshipService injected into this service.
-        #
-        # For now, return placeholder analysis indicating all steps need review.
-        # Full implementation requires:
-        # 1. Inject ls_relationships_service into LpIntelligenceService
-        # 2. For each step: rels = await LsRelationships.fetch(step.uid, service)
-        # 3. Check rels.habit_uids, rels.task_uids, rels.event_template_uids
-        gaps = [
-            {
-                "step_uid": step.uid,
-                "step_title": step.title,
-                "practice_completeness": 0.0,  # Placeholder - needs relationship query
-                "missing_elements": ["requires_relationship_query"],
-            }
-            for step in path.steps
-        ]
-
-        analysis = {
-            "path_uid": path_uid,
-            "total_steps": len(path.steps),
-            "steps_with_gaps": len(gaps),
-            "overall_practice_coverage": 0.0,  # Placeholder
-            "gaps": gaps,
-            "recommendations": [
-                "Practice gap analysis requires LsRelationships integration (Phase 3 Graph-Native)"
-            ],
-            "analyzed_at": datetime.now().isoformat(),
-            "_note": "Graph-native migration incomplete - needs UnifiedRelationshipService",
-        }
-
-        self.logger.info(
-            f"Practice gap analysis for {path_uid}: placeholder (needs relationship service)"
         )
         return Result.ok(analysis)
 

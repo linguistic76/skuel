@@ -23,11 +23,10 @@ This service provides:
 The app works WITHOUT this service. It's an enhancement layer.
 """
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.services.base_ai_service import BaseAIService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.infrastructure.graph_intelligence_service import (
@@ -102,81 +101,29 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
     async def get_behavioral_insights(
         self, user_uid: str, period_days: int = 90
     ) -> Result[dict[str, Any]]:
-        """Analyze context-aware behavioral patterns."""
-        self.logger.info(f"Analyzing context patterns for user {user_uid}")
+        """
+        Analyze context-aware behavioral patterns.
 
-        return Result.ok(
-            {
-                "behavior_patterns": [
-                    {
-                        "pattern": "environment_productivity",
-                        "description": "Home office boosts deep work",
-                        "confidence": 0.85,
-                    },
-                    {
-                        "pattern": "time_context",
-                        "description": "Morning hours for creative work",
-                        "confidence": 0.80,
-                    },
-                    {
-                        "pattern": "energy_matching",
-                        "description": "Task-energy alignment",
-                        "confidence": 0.75,
-                    },
-                ],
-                "success_factors": [
-                    "Environment design reduces friction",
-                    "Time-task matching improves efficiency",
-                    "Context awareness enables better decisions",
-                ],
-                "recommendations": [
-                    "Optimize environment for specific task types",
-                    "Schedule context switches during natural breaks",
-                    "Track environmental factors affecting performance",
-                ],
-                "context_insights": {
-                    "optimal_contexts": ["Morning deep work", "Afternoon collaboration"],
-                    "context_switching_cost": "15-20 minutes per switch",
-                    "environmental_factors": ["Lighting", "Noise", "Temperature"],
-                },
-                "metadata": {
-                    "generated_at": datetime.now().isoformat(),
-                    "user_uid": user_uid,
-                    "period_days": period_days,
-                },
-            }
+        Not yet implemented — requires LLM integration for narrative synthesis.
+        """
+        return Result.fail(
+            Errors.business(
+                "not_implemented", "Context-aware behavioral insights not yet implemented"
+            )
         )
 
     async def get_performance_analytics(
         self, user_uid: str, period_days: int = 30
     ) -> Result[dict[str, Any]]:
-        """Analyze context-aware performance metrics."""
-        return Result.ok(
-            {
-                "metrics": {
-                    "context_optimization_score": 0.76,
-                    "environment_utilization": 0.82,
-                    "context_switching_efficiency": 0.68,
-                },
-                "trends": {"context_awareness": "improving"},
-                "optimization_opportunities": [
-                    {
-                        "area": "context_switching",
-                        "suggestion": "Batch similar tasks to reduce context switching costs",
-                        "potential_impact": "20-30% improvement in cognitive efficiency",
-                    },
-                    {
-                        "area": "environment_design",
-                        "suggestion": "Create dedicated spaces for different work modes",
-                        "potential_impact": "15-25% increase in task completion speed",
-                    },
-                ],
-                "metadata": {
-                    "generated_at": datetime.now().isoformat(),
-                    "user_uid": user_uid,
-                    "period_days": period_days,
-                },
-            }
+        """
+        Analyze context-aware performance metrics.
+
+        Not yet implemented — requires LLM integration for narrative synthesis.
+        """
+        return Result.fail(
+            Errors.business(
+                "not_implemented", "Context-aware performance analytics not yet implemented"
+            )
         )
 
     async def get_ai_insights(
@@ -188,8 +135,7 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
         """
         Get AI-powered context-aware recommendations.
 
-        Uses LLM to analyze user context, environment, and entity properties
-        to provide personalized, situation-aware recommendations.
+        Not yet implemented — requires LLM integration with entity-specific context.
 
         Args:
             user_uid: User identifier
@@ -197,37 +143,8 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
             query: Optional specific query to answer
 
         Returns:
-            AI-generated insights and recommendations
+            Result.fail with business error (not yet implemented)
         """
-        self.logger.info(f"Generating AI insights for user {user_uid}")
-
-        # TODO(intelligence): Implement real LLM integration with entity-specific context
-        # When implemented:
-        # if entity_uid:
-        #     entity_context = await self._get_entity_context(entity_uid)
-        #     prompt = self._build_context_aware_prompt(user_uid, entity_context, query)
-        # else:
-        #     prompt = self._build_general_context_prompt(user_uid, query)
-        # return await self._generate_insight(prompt)
-
-        # Current: Mock data for development
-        return Result.ok(
-            {
-                "insights": [
-                    "Current context favors analytical tasks",
-                    "Energy levels optimal for challenging work",
-                    "Environment suggests focus mode",
-                ],
-                "recommendations": [
-                    "Tackle high-priority complex tasks now",
-                    "Schedule collaboration for afternoon",
-                    "Take break before next context switch",
-                ],
-                "analysis": "Based on current time, environment, and historical patterns, this is an optimal window for deep work.",
-                "metadata": {
-                    "generated_at": datetime.now().isoformat(),
-                    "user_uid": user_uid,
-                    "query": query,
-                },
-            }
+        return Result.fail(
+            Errors.business("not_implemented", "Context-aware AI insights not yet implemented")
         )

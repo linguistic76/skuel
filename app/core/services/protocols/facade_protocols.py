@@ -806,10 +806,6 @@ class LpFacadeProtocol(Protocol):
         """Analyze KU coverage, complexity, practice in path."""
         ...
 
-    async def identify_practice_gaps(self, path_uid: str) -> Result[dict[str, Any]]:
-        """Find steps lacking complete practice opportunities."""
-        ...
-
     async def find_learning_sequence(
         self, user_uid: str, target_knowledge_uids: list[str]
     ) -> Result[list[Ku]]:
