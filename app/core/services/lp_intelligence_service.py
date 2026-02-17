@@ -871,6 +871,23 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
         return Result.ok(analysis)
 
     # ========================================================================
+    # FUTURE: identify_practice_gaps(path_uid)
+    # ========================================================================
+    # When learning paths have real content with practice relationships
+    # (BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT on LS nodes), implement:
+    #
+    # Prerequisites:
+    #   1. Inject UnifiedRelationshipService (LS_CONFIG) into this service
+    #   2. For each step: rels = await LsRelationships.fetch(step.uid, service)
+    #   3. Check rels.habit_uids, rels.task_uids, rels.event_template_uids
+    #
+    # Returns per-step practice completeness (0.0-1.0) and missing elements,
+    # plus overall path practice coverage score and recommendations.
+    #
+    # Wire to: LpService delegation map + LpFacadeProtocol + API route
+    # ========================================================================
+
+    # ========================================================================
     # ADAPTIVE OPERATIONS (January 2026 - Consolidated from LpAdaptiveService)
     # ========================================================================
 

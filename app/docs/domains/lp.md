@@ -176,7 +176,7 @@ LpIntelligenceService is created internally by LpService (January 2026 - unified
 | **Validation** | `get_optimal_path_recommendation(user_uid)` | `Result[Lp]` | Best path for user |
 | **Context** | `get_path_with_context(path_uid)` | `Result[dict]` | Path with graph context |
 | **Analysis** | `analyze_path_knowledge_scope(path_uid)` | `Result[dict]` | Knowledge coverage analysis |
-| **Analysis** | `identify_practice_gaps(path_uid, user_uid)` | `Result[list]` | Missing practice areas |
+| **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Future* — needs LS practice relationships (BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT) |
 | **Adaptive** | `find_learning_sequence(goals, user_uid)` | `Result[list]` | Optimal step sequence |
 | **Adaptive** | `get_next_adaptive_step(path_uid, user_uid)` | `Result[Ls]` | Best next step |
 | **Adaptive** | `get_recommended_learning_steps(user_uid)` | `Result[list]` | Daily "what to learn" |
