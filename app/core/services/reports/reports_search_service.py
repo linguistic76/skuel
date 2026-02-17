@@ -14,7 +14,6 @@ Core Capabilities:
 from datetime import date, timedelta
 from typing import Any
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import QueryLimit
 from core.models.enums.ku_enums import KuType
 from core.models.ku import Ku, KuDTO
@@ -58,12 +57,12 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         user_ownership_relationship="OWNS",
     )
 
-    def __init__(self, ku_backend: UniversalNeo4jBackend[Ku], event_bus=None) -> None:
+    def __init__(self, ku_backend: BackendOperations[Ku], event_bus=None) -> None:
         """
         Initialize Ku search service.
 
         Args:
-            ku_backend: UniversalNeo4jBackend[Ku] for storage
+            ku_backend: Backend for Ku storage
             event_bus: Event bus for domain events (optional)
         """
         super().__init__(ku_backend, "KuSearchService")

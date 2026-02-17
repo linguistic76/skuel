@@ -318,7 +318,9 @@ class KuAdaptiveService:
                 "ku_uid": ku_uid,
                 "completion_time_minutes": completion_time_minutes,
             }
-            await self.ku_backend.driver.execute_query(query, params)
+            result = await self.ku_backend.execute_query(query, params)
+            if result.is_error:
+                return result
             self.logger.info(f"Tracked curriculum completion: {user_uid} -> {ku_uid}")
             return Result.ok(None)
         except Exception as e:
@@ -421,9 +423,10 @@ class KuAdaptiveService:
                 m.created_at as created_at,
                 m.updated_at as updated_at
             """
-            async with self.ku_backend.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid})
-                records = await result.data()
+            query_result = await self.ku_backend.execute_query(query, {"user_uid": user_uid})
+            if query_result.is_error:
+                return {}
+            records = query_result.value or []
 
             masteries = {}
             for record in records:
@@ -509,18 +512,18 @@ class KuAdaptiveService:
             WHERE lp.status = 'active' OR lp.status = 'in_progress'
             RETURN lp
             """
-            async with self.ku_backend.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid})
-                records = await result.data()
+            query_result = await self.ku_backend.execute_query(query, {"user_uid": user_uid})
+            if query_result.is_error:
+                return []
 
             from core.utils.neo4j_mapper import from_neo4j_node
 
             learning_paths = []
-            for record in records:
+            for record in query_result.value or []:
                 lp_node = record.get("lp")
                 if lp_node:
                     try:
-                        learning_path = from_neo4j_node(dict(lp_node), Ku)
+                        learning_path = from_neo4j_node(lp_node, Ku)
                         learning_paths.append(learning_path)
                     except Exception:
                         continue
@@ -537,11 +540,13 @@ class KuAdaptiveService:
             MATCH (u:User {uid: $user_uid})-[:COMPLETED]->(lp:Lp)
             RETURN lp.uid as lp_uid
             """
-            async with self.ku_backend.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid})
-                records = await result.data()
+            query_result = await self.ku_backend.execute_query(query, {"user_uid": user_uid})
+            if query_result.is_error:
+                return []
 
-            return [record["lp_uid"] for record in records if record.get("lp_uid")]
+            return [
+                record["lp_uid"] for record in (query_result.value or []) if record.get("lp_uid")
+            ]
 
         except Exception:
             return []
@@ -595,19 +600,19 @@ class KuAdaptiveService:
             RETURN pref
             LIMIT 1
             """
-            async with self.ku_backend.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid})
-                record = await result.single()
+            result = await self.ku_backend.execute_query(query, {"user_uid": user_uid})
 
-            if not record:
+            if result.is_error or not result.value:
                 return None
+
+            record = result.value[0]
 
             from core.utils.neo4j_mapper import from_neo4j_node
 
             pref_node = record.get("pref")
             if pref_node:
                 try:
-                    return from_neo4j_node(dict(pref_node), LearningPreference)
+                    return from_neo4j_node(pref_node, LearningPreference)
                 except Exception:
                     return None
 

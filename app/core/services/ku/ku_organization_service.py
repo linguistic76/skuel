@@ -23,9 +23,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
-
     from core.services.ku_service import KuService
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger(__name__)
 
@@ -81,10 +80,10 @@ class KuOrganizationService:
     def __init__(
         self,
         ku_service: "KuService",
-        driver: "AsyncDriver",
+        executor: "QueryExecutor",
     ) -> None:
         self.ku_service = ku_service
-        self.driver = driver
+        self.executor = executor
         self.logger = logger
 
     # =========================================================================
@@ -99,24 +98,19 @@ class KuOrganizationService:
         RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                {"ku_uid": ku_uid},
-            )
+        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return result
 
-            if not records:
-                return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
+        records = result.value
+        if not records:
+            return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
 
-            record = records[0]
-            if not record["ku_exists"]:
-                return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
+        record = records[0]
+        if not record["ku_exists"]:
+            return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
 
-            return Result.ok(record["is_organizer"])
-
-        except Exception as e:
-            self.logger.error(f"Error checking organizer status for {ku_uid}: {e}")
-            return Result.fail(Errors.database(message=str(e), operation="is_organizer"))
+        return Result.ok(record["is_organizer"])
 
     async def get_organization_view(
         self, ku_uid: str, max_depth: int = 3
@@ -154,48 +148,42 @@ class KuOrganizationService:
         ORDER BY r.order ASC
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                {"parent_uid": parent_uid},
-            )
-
-            children = []
-            total = 0
-
-            for record in records:
-                child_uid = record["uid"]
-                child_title = record["title"]
-                order = record["order"] or 0
-
-                grandchildren, grandchild_count = await self._get_organized_children(
-                    child_uid, max_depth, current_depth + 1
-                )
-
-                children.append(
-                    OrganizedKu(
-                        uid=child_uid,
-                        title=child_title,
-                        order=order,
-                        children=grandchildren,
-                    )
-                )
-                total += 1 + grandchild_count
-
-            return children, total
-
-        except Exception as e:
+        result = await self.executor.execute_query(query, {"parent_uid": parent_uid})
+        if result.is_error:
             self.logger.error(
                 "Error getting organized children - returning empty",
                 extra={
                     "parent_uid": parent_uid,
                     "current_depth": current_depth,
                     "max_depth": max_depth,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
             return [], 0
+
+        children = []
+        total = 0
+
+        for record in result.value:
+            child_uid = record["uid"]
+            child_title = record["title"]
+            order = record["order"] or 0
+
+            grandchildren, grandchild_count = await self._get_organized_children(
+                child_uid, max_depth, current_depth + 1
+            )
+
+            children.append(
+                OrganizedKu(
+                    uid=child_uid,
+                    title=child_title,
+                    order=order,
+                    children=grandchildren,
+                )
+            )
+            total += 1 + grandchild_count
+
+        return children, total
 
     # =========================================================================
     # ORGANIZATION OPERATIONS
@@ -228,21 +216,19 @@ class KuOrganizationService:
         RETURN true AS success
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                {"parent_uid": parent_uid, "child_uid": child_uid, "order": order},
-            )
+        result = await self.executor.execute_query(
+            query,
+            {"parent_uid": parent_uid, "child_uid": child_uid, "order": order},
+        )
+        if result.is_error:
+            return result
 
-            if records and records[0]["success"]:
-                self.logger.info(f"Organized Ku {child_uid} under {parent_uid} at position {order}")
-                return Result.ok(True)
+        records = result.value
+        if records and records[0]["success"]:
+            self.logger.info(f"Organized Ku {child_uid} under {parent_uid} at position {order}")
+            return Result.ok(True)
 
-            return Result.ok(False)
-
-        except Exception as e:
-            self.logger.error(f"Error organizing {child_uid} under {parent_uid}: {e}")
-            return Result.fail(Errors.database(message=str(e), operation="organize"))
+        return Result.ok(False)
 
     async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
         """Remove organization relationship between Kus."""
@@ -252,21 +238,19 @@ class KuOrganizationService:
         RETURN true AS success
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                {"parent_uid": parent_uid, "child_uid": child_uid},
-            )
+        result = await self.executor.execute_query(
+            query,
+            {"parent_uid": parent_uid, "child_uid": child_uid},
+        )
+        if result.is_error:
+            return result
 
-            success = bool(records and records[0]["success"])
-            if success:
-                self.logger.info(f"Removed organization of {child_uid} from {parent_uid}")
+        records = result.value
+        success = bool(records and records[0]["success"])
+        if success:
+            self.logger.info(f"Removed organization of {child_uid} from {parent_uid}")
 
-            return Result.ok(success)
-
-        except Exception as e:
-            self.logger.error(f"Error removing organization: {e}")
-            return Result.fail(Errors.database(message=str(e), operation="unorganize"))
+        return Result.ok(success)
 
     async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
         """Change the order of a child Ku within its parent."""
@@ -276,17 +260,15 @@ class KuOrganizationService:
         RETURN true AS success
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                {"parent_uid": parent_uid, "child_uid": child_uid, "new_order": new_order},
-            )
+        result = await self.executor.execute_query(
+            query,
+            {"parent_uid": parent_uid, "child_uid": child_uid, "new_order": new_order},
+        )
+        if result.is_error:
+            return result
 
-            return Result.ok(bool(records and records[0]["success"]))
-
-        except Exception as e:
-            self.logger.error(f"Error reordering: {e}")
-            return Result.fail(Errors.database(message=str(e), operation="reorder"))
+        records = result.value
+        return Result.ok(bool(records and records[0]["success"]))
 
     # =========================================================================
     # DISCOVERY OPERATIONS
@@ -300,21 +282,15 @@ class KuOrganizationService:
         ORDER BY parent.title
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                {"ku_uid": ku_uid},
-            )
+        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return result
 
-            organizers = [
-                {"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in records
-            ]
+        organizers = [
+            {"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in result.value
+        ]
 
-            return Result.ok(organizers)
-
-        except Exception as e:
-            self.logger.error(f"Error finding organizers of {ku_uid}: {e}")
-            return Result.fail(Errors.database(message=str(e), operation="find_organizers"))
+        return Result.ok(organizers)
 
     async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
         """List Kus that organize others but are not themselves organized (root organizers)."""
@@ -328,22 +304,16 @@ class KuOrganizationService:
         LIMIT $limit
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                {"limit": limit},
-            )
+        result = await self.executor.execute_query(query, {"limit": limit})
+        if result.is_error:
+            return result
 
-            roots = [
-                {"uid": r["uid"], "title": r["title"], "child_count": r["child_count"]}
-                for r in records
-            ]
+        roots = [
+            {"uid": r["uid"], "title": r["title"], "child_count": r["child_count"]}
+            for r in result.value
+        ]
 
-            return Result.ok(roots)
-
-        except Exception as e:
-            self.logger.error(f"Error listing root organizers: {e}")
-            return Result.fail(Errors.database(message=str(e), operation="list_root_organizers"))
+        return Result.ok(roots)
 
     async def get_organized_children(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
         """Get direct children of a Ku organized by ORGANIZES relationship."""
@@ -353,18 +323,12 @@ class KuOrganizationService:
         ORDER BY r.order ASC
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                {"ku_uid": ku_uid},
-            )
+        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return result
 
-            children = [
-                {"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in records
-            ]
+        children = [
+            {"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in result.value
+        ]
 
-            return Result.ok(children)
-
-        except Exception as e:
-            self.logger.error(f"Error getting organized children: {e}")
-            return Result.fail(Errors.database(message=str(e), operation="get_organized_children"))
+        return Result.ok(children)

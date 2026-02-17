@@ -10,23 +10,28 @@ Relationships Created:
 3. SUPPORTS_GOAL -> Goals mentioned in content (goal progress tracking)
 """
 
+from typing import TYPE_CHECKING, Any
+
 from core.models.ku import Ku
 from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
+
 
 class KuRelationshipService:
     """Service for creating graph relationships on Ku nodes."""
 
-    def __init__(self, driver) -> None:
+    def __init__(self, backend: "BackendOperations[Any]") -> None:
         """
         Initialize Ku relationship service.
 
         Args:
-            driver: Neo4j driver for database access
+            backend: BackendOperations for database access (REQUIRED)
         """
-        self.driver = driver
+        self.backend = backend
         self.logger = get_logger("skuel.services.ku_relationship")
 
     # ========================================================================
@@ -53,32 +58,29 @@ class KuRelationshipService:
         relationships_created = {"temporal": 0, "thematic": 0, "goal_support": 0}
 
         try:
-            async with self.driver.session() as session:
-                # 1. Temporal Relationship: FOLLOWS (previous Ku of same type)
-                temporal_result = await self._create_temporal_relationship(
-                    session,
+            # 1. Temporal Relationship: FOLLOWS (previous Ku of same type)
+            temporal_result = await self._create_temporal_relationship(
+                ku.uid,
+                ku.user_uid,
+                ku.ku_type.value,
+            )
+            relationships_created["temporal"] = temporal_result
+
+            # 2. Thematic Relationships: RELATED_TO (shared topics)
+            if themes:
+                thematic_result = await self._create_thematic_relationships(
                     ku.uid,
                     ku.user_uid,
-                    ku.ku_type.value,
+                    themes,
                 )
-                relationships_created["temporal"] = temporal_result
+                relationships_created["thematic"] = thematic_result
 
-                # 2. Thematic Relationships: RELATED_TO (shared topics)
-                if themes:
-                    thematic_result = await self._create_thematic_relationships(
-                        session,
-                        ku.uid,
-                        ku.user_uid,
-                        themes,
-                    )
-                    relationships_created["thematic"] = thematic_result
-
-                # 3. Goal Support Relationships: SUPPORTS_GOAL
-                if active_goals and ku.processed_content:
-                    goal_result = await self._create_goal_relationships(
-                        session, ku.uid, ku.processed_content, active_goals
-                    )
-                    relationships_created["goal_support"] = goal_result
+            # 3. Goal Support Relationships: SUPPORTS_GOAL
+            if active_goals and ku.processed_content:
+                goal_result = await self._create_goal_relationships(
+                    ku.uid, ku.processed_content, active_goals
+                )
+                relationships_created["goal_support"] = goal_result
 
             self.logger.info(
                 f"Created Ku relationships: {relationships_created['temporal']} temporal, "
@@ -100,13 +102,12 @@ class KuRelationshipService:
     # ========================================================================
 
     async def _create_temporal_relationship(
-        self, session, ku_uid: str, user_uid: str | None, ku_type: str
+        self, ku_uid: str, user_uid: str | None, ku_type: str
     ) -> int:
         """
         Create FOLLOWS relationship to most recent previous Ku of same type.
 
         Args:
-            session: Neo4j session
             ku_uid: UID of the new Ku
             user_uid: User identifier (None for curriculum)
             ku_type: Type of Ku for filtering
@@ -129,7 +130,7 @@ class KuRelationshipService:
         RETURN count(r) as count
         """
 
-        result = await session.run(
+        result = await self.backend.execute_query(
             cypher,
             {
                 "ku_uid": ku_uid,
@@ -137,8 +138,10 @@ class KuRelationshipService:
                 "ku_type": ku_type,
             },
         )
-        record = await result.single()
-        return record["count"] if record else 0
+        if result.is_error:
+            return 0
+        records = result.value or []
+        return records[0]["count"] if records else 0
 
     # ========================================================================
     # THEMATIC RELATIONSHIPS
@@ -146,7 +149,6 @@ class KuRelationshipService:
 
     async def _create_thematic_relationships(
         self,
-        session,
         ku_uid: str,
         user_uid: str | None,
         themes: list[str],
@@ -155,7 +157,6 @@ class KuRelationshipService:
         Create RELATED_TO relationships for Ku sharing topics.
 
         Args:
-            session: Neo4j session
             ku_uid: UID of the new Ku
             user_uid: User identifier
             themes: List of themes to match
@@ -180,7 +181,7 @@ class KuRelationshipService:
         RETURN count(r) as count
         """
 
-        result = await session.run(
+        result = await self.backend.execute_query(
             cypher,
             {
                 "ku_uid": ku_uid,
@@ -189,8 +190,10 @@ class KuRelationshipService:
                 "shared_topics_str": ", ".join(themes[:3]),
             },
         )
-        record = await result.single()
-        return record["count"] if record else 0
+        if result.is_error:
+            return 0
+        records = result.value or []
+        return records[0]["count"] if records else 0
 
     # ========================================================================
     # GOAL RELATIONSHIPS
@@ -198,7 +201,6 @@ class KuRelationshipService:
 
     async def _create_goal_relationships(
         self,
-        session,
         ku_uid: str,
         processed_content: str,
         active_goals: list[dict[str, str]],
@@ -207,7 +209,6 @@ class KuRelationshipService:
         Create SUPPORTS_GOAL relationships for mentioned goals.
 
         Args:
-            session: Neo4j session
             ku_uid: UID of the Ku
             processed_content: Processed Ku content
             active_goals: List of active goals from context
@@ -237,9 +238,11 @@ class KuRelationshipService:
 
         total_created = 0
         for query, rels_data in queries:
-            result = await session.run(query, {"rels": rels_data})
-            record = await result.single()
-            total_created += record["created_count"] if record else 0
+            result = await self.backend.execute_query(query, {"rels": rels_data})
+            if result.is_error:
+                continue
+            records = result.value or []
+            total_created += records[0]["created_count"] if records else 0
 
         return total_created
 
@@ -265,18 +268,11 @@ class KuRelationshipService:
         ORDER BY related.uid
         """
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(cypher, {"ku_uid": ku_uid})
-                records = [r async for r in result]
-                return Result.ok([r["uid"] for r in records if r["uid"]])
-        except Exception as e:
-            return Result.fail(
-                Errors.database(
-                    operation="get_related_kus",
-                    message=f"Failed to get related Ku: {e!s}",
-                )
-            )
+        result = await self.backend.execute_query(cypher, {"ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
 
     async def get_supported_goals(self, ku_uid: str) -> Result[list[str]]:
         """
@@ -296,18 +292,11 @@ class KuRelationshipService:
         ORDER BY goal.uid
         """
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(cypher, {"ku_uid": ku_uid})
-                records = [r async for r in result]
-                return Result.ok([r["uid"] for r in records if r["uid"]])
-        except Exception as e:
-            return Result.fail(
-                Errors.database(
-                    operation="get_supported_goals",
-                    message=f"Failed to get supported goals: {e!s}",
-                )
-            )
+        result = await self.backend.execute_query(cypher, {"ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
 
     async def get_ku_summary(self, ku_uid: str) -> Result[dict[str, int]]:
         """
@@ -331,31 +320,25 @@ class KuRelationshipService:
                count(DISTINCT prev) as follows_count
         """
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(cypher, {"ku_uid": ku_uid})
-                record = await result.single()
+        result = await self.backend.execute_query(cypher, {"ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-                if not record:
-                    return Result.ok(
-                        {
-                            "related_ku_count": 0,
-                            "supported_goal_count": 0,
-                            "follows_count": 0,
-                        }
-                    )
-
-                return Result.ok(
-                    {
-                        "related_ku_count": record["related_count"],
-                        "supported_goal_count": record["goal_count"],
-                        "follows_count": record["follows_count"],
-                    }
-                )
-        except Exception as e:
-            return Result.fail(
-                Errors.database(
-                    operation="get_ku_summary",
-                    message=f"Failed to get Ku summary: {e!s}",
-                )
+        records = result.value or []
+        if not records:
+            return Result.ok(
+                {
+                    "related_ku_count": 0,
+                    "supported_goal_count": 0,
+                    "follows_count": 0,
+                }
             )
+
+        record = records[0]
+        return Result.ok(
+            {
+                "related_ku_count": record["related_count"],
+                "supported_goal_count": record["goal_count"],
+                "follows_count": record["follows_count"],
+            }
+        )

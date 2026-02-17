@@ -177,20 +177,21 @@ class HabitSearchService(BaseService[HabitsOperations, Ku]):
         LIMIT $fetch_limit
         """
 
-        async with self.backend.driver.session() as session:
-            result = await session.run(
-                query,
-                user_uid=user_context.user_uid,
-                terminal_statuses=list(self._TERMINAL_STATUSES),
-                fetch_limit=limit * 2,  # Fetch extra for scoring refinement
-            )
-            records = await result.data()
+        result = await self.backend.execute_query(
+            query,
+            {
+                "user_uid": user_context.user_uid,
+                "terminal_statuses": list(self._TERMINAL_STATUSES),
+                "fetch_limit": limit * 2,  # Fetch extra for scoring refinement
+            },
+        )
+        if result.is_error:
+            return result
 
         # Convert to domain models
         habits = []
-        for record in records:
-            node_data = dict(record["h"])
-            dto = KuDTO.from_dict(node_data)
+        for record in result.value:
+            dto = KuDTO.from_dict(record["h"])
             habits.append(Ku.from_dto(dto))
 
         # Apply fine-grained scoring that uses UserContext

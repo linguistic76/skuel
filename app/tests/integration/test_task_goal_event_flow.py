@@ -67,12 +67,11 @@ class TestTaskGoalEventFlow:
 
     @pytest_asyncio.fixture
     async def goals_progress_service(self, goals_backend, event_bus, neo4j_driver):
-        """Create GoalsProgressService with event bus and driver."""
+        """Create GoalsProgressService with event bus."""
         return GoalsProgressService(
             backend=goals_backend,
             event_bus=event_bus,
             relationships_service=None,
-            driver=neo4j_driver,  # Phase 4: For Task→Goal Cypher queries
         )
 
     @pytest_asyncio.fixture

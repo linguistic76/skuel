@@ -64,13 +64,16 @@ See: /docs/architecture/YAML_MARKDOWN_INGESTION_GUIDE.md for complete flow
 See: /docs/architecture/GRAPH_NATIVE_ANALYSIS.md for architecture details
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypeVar
-
-from neo4j import AsyncSession
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from neo4j import AsyncSession
 from core.utils.neo4j_mapper import to_neo4j_node
 from core.utils.result_simplified import Errors, Result
 

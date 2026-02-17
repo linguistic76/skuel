@@ -504,7 +504,9 @@ async def test_multiple_search_criteria(search_service, mock_backend, sample_tas
 async def test_search_with_backend_error(search_service, mock_backend):
     """Test search operations handle backend errors gracefully."""
     # Setup - get_tasks_for_goal uses find_by
-    mock_backend.find_by.return_value = Result.fail(Errors.database("find_by", "Database connection error"))
+    mock_backend.find_by.return_value = Result.fail(
+        Errors.database("find_by", "Database connection error")
+    )
 
     # Execute
     result = await search_service.get_tasks_for_goal("goal:test")

@@ -80,10 +80,10 @@ class TestGoalRecommendationsFlow:
         )
 
     @pytest_asyncio.fixture
-    async def recommendation_service(self, event_bus, neo4j_driver):
-        """Create GoalsRecommendationService with event bus and driver."""
+    async def recommendation_service(self, goal_backend, event_bus):
+        """Create GoalsRecommendationService with event bus and backend."""
         return GoalsRecommendationService(
-            driver=neo4j_driver,  # Phase 4: For Goal→Recommendations Cypher queries
+            backend=goal_backend,
             event_bus=event_bus,
         )
 

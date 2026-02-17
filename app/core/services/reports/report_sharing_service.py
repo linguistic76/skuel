@@ -20,14 +20,15 @@ See: /docs/patterns/SHARING_PATTERNS.md
 """
 
 from datetime import datetime
-from typing import Any
-
-from neo4j import Driver
+from typing import TYPE_CHECKING, Any
 
 from core.models.enums.metadata_enums import Visibility
 from core.models.ku import KuDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger("skuel.services.ku_sharing")
 
@@ -35,14 +36,14 @@ logger = get_logger("skuel.services.ku_sharing")
 class KuSharingService:
     """Service for managing Ku sharing and access control."""
 
-    def __init__(self, driver: Driver) -> None:
+    def __init__(self, executor: "QueryExecutor") -> None:
         """
         Initialize the sharing service.
 
         Args:
-            driver: Neo4j driver for database operations
+            executor: Query executor for database operations
         """
-        self.driver = driver
+        self.executor = executor
 
     async def share_ku(
         self,
@@ -84,26 +85,25 @@ class KuSharingService:
         RETURN true as success
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                recipient_uid=recipient_uid,
-                ku_uid=ku_uid,
-                shared_at=datetime.now().isoformat(),
-                role=role,
+        result = await self.executor.execute_query(
+            query,
+            {
+                "recipient_uid": recipient_uid,
+                "ku_uid": ku_uid,
+                "shared_at": datetime.now().isoformat(),
+                "role": role,
+            },
+        )
+        if result.is_error:
+            return result
+
+        if not result.value:
+            return Result.fail(
+                Errors.not_found(f"User {recipient_uid} or Ku {ku_uid} not found")
             )
 
-            if not records:
-                return Result.fail(
-                    Errors.not_found(f"User {recipient_uid} or Ku {ku_uid} not found")
-                )
-
-            logger.info(f"Ku {ku_uid} shared with {recipient_uid} as {role}")
-            return Result.ok(True)
-
-        except Exception as e:
-            logger.error(f"Error sharing Ku: {e}")
-            return Result.fail(Errors.database("share_ku", str(e)))
+        logger.info(f"Ku {ku_uid} shared with {recipient_uid} as {role}")
+        return Result.ok(True)
 
     async def unshare_ku(
         self,
@@ -135,27 +135,24 @@ class KuSharingService:
         RETURN count(r) as deleted_count
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                recipient_uid=recipient_uid,
-                ku_uid=ku_uid,
+        result = await self.executor.execute_query(
+            query,
+            {"recipient_uid": recipient_uid, "ku_uid": ku_uid},
+        )
+        if result.is_error:
+            return result
+
+        records = result.value
+        deleted_count = records[0]["deleted_count"] if records else 0
+        if deleted_count == 0:
+            return Result.fail(
+                Errors.not_found(
+                    f"No sharing relationship found between {recipient_uid} and {ku_uid}"
+                )
             )
 
-            deleted_count = records[0]["deleted_count"] if records else 0
-            if deleted_count == 0:
-                return Result.fail(
-                    Errors.not_found(
-                        f"No sharing relationship found between {recipient_uid} and {ku_uid}"
-                    )
-                )
-
-            logger.info(f"Ku {ku_uid} unshared from {recipient_uid}")
-            return Result.ok(True)
-
-        except Exception as e:
-            logger.error(f"Error unsharing Ku: {e}")
-            return Result.fail(Errors.database("unshare_ku", str(e)))
+        logger.info(f"Ku {ku_uid} unshared from {recipient_uid}")
+        return Result.ok(True)
 
     async def get_shared_with_users(
         self,
@@ -181,27 +178,21 @@ class KuSharingService:
         ORDER BY r.shared_at DESC
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                ku_uid=ku_uid,
-            )
+        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return result
 
-            users = [
-                {
-                    "user_uid": record["user_uid"],
-                    "user_name": record["user_name"],
-                    "role": record["role"],
-                    "shared_at": record["shared_at"],
-                }
-                for record in records
-            ]
+        users = [
+            {
+                "user_uid": record["user_uid"],
+                "user_name": record["user_name"],
+                "role": record["role"],
+                "shared_at": record["shared_at"],
+            }
+            for record in result.value
+        ]
 
-            return Result.ok(users)
-
-        except Exception as e:
-            logger.error(f"Error fetching shared users: {e}")
-            return Result.fail(Errors.database("get_shared_users", str(e)))
+        return Result.ok(users)
 
     async def get_kus_shared_with_me(
         self,
@@ -229,24 +220,20 @@ class KuSharingService:
         LIMIT $limit
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                user_uid=user_uid,
-                limit=limit,
-            )
+        result = await self.executor.execute_query(
+            query,
+            {"user_uid": user_uid, "limit": limit},
+        )
+        if result.is_error:
+            return result
 
-            kus = []
-            for record in records:
-                props = dict(record["ku"])
-                dto = KuDTO.from_dict(props)
-                kus.append(dto)
+        kus = []
+        for record in result.value:
+            props = record["ku"]
+            dto = KuDTO.from_dict(props)
+            kus.append(dto)
 
-            return Result.ok(kus)
-
-        except Exception as e:
-            logger.error(f"Error fetching shared Ku: {e}")
-            return Result.fail(Errors.database("get_kus_shared_with_me", str(e)))
+        return Result.ok(kus)
 
     async def set_visibility(
         self,
@@ -285,25 +272,24 @@ class KuSharingService:
         RETURN ku.uid as uid
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                ku_uid=ku_uid,
-                owner_uid=owner_uid,
-                visibility=visibility.value,
+        result = await self.executor.execute_query(
+            query,
+            {
+                "ku_uid": ku_uid,
+                "owner_uid": owner_uid,
+                "visibility": visibility.value,
+            },
+        )
+        if result.is_error:
+            return result
+
+        if not result.value:
+            return Result.fail(
+                Errors.not_found(f"Ku {ku_uid} not found or not owned by {owner_uid}")
             )
 
-            if not records:
-                return Result.fail(
-                    Errors.not_found(f"Ku {ku_uid} not found or not owned by {owner_uid}")
-                )
-
-            logger.info(f"Ku {ku_uid} visibility set to {visibility.value}")
-            return Result.ok(True)
-
-        except Exception as e:
-            logger.error(f"Error setting visibility: {e}")
-            return Result.fail(Errors.database("set_visibility", str(e)))
+        logger.info(f"Ku {ku_uid} visibility set to {visibility.value}")
+        return Result.ok(True)
 
     async def check_access(
         self,
@@ -335,40 +321,37 @@ class KuSharingService:
                count(user) > 0 as has_share_relationship
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                ku_uid=ku_uid,
-                user_uid=user_uid,
-            )
+        result = await self.executor.execute_query(
+            query,
+            {"ku_uid": ku_uid, "user_uid": user_uid},
+        )
+        if result.is_error:
+            return result
 
-            if not records:
-                return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
+        records = result.value
+        if not records:
+            return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
 
-            record = records[0]
-            owner_uid = record["owner_uid"]
-            visibility = (
-                Visibility(record["visibility"]) if record["visibility"] else Visibility.PRIVATE
-            )
-            ku_type = record["ku_type"]
-            has_share = record["has_share_relationship"]
+        record = records[0]
+        owner_uid = record["owner_uid"]
+        visibility = (
+            Visibility(record["visibility"]) if record["visibility"] else Visibility.PRIVATE
+        )
+        ku_type = record["ku_type"]
+        has_share = record["has_share_relationship"]
 
-            # CURRICULUM Ku are always accessible
-            if ku_type == "curriculum":
-                return Result.ok(True)
-            # Owner always has access
-            if user_uid == owner_uid:
-                return Result.ok(True)
-            if visibility == Visibility.PUBLIC:
-                return Result.ok(True)
-            if visibility == Visibility.SHARED and has_share:
-                return Result.ok(True)
+        # CURRICULUM Ku are always accessible
+        if ku_type == "curriculum":
+            return Result.ok(True)
+        # Owner always has access
+        if user_uid == owner_uid:
+            return Result.ok(True)
+        if visibility == Visibility.PUBLIC:
+            return Result.ok(True)
+        if visibility == Visibility.SHARED and has_share:
+            return Result.ok(True)
 
-            return Result.ok(False)
-
-        except Exception as e:
-            logger.error(f"Error checking access: {e}")
-            return Result.fail(Errors.database("check_access", str(e)))
+        return Result.ok(False)
 
     # Private helper methods
 
@@ -383,24 +366,19 @@ class KuSharingService:
         RETURN ku.user_uid as actual_owner
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                ku_uid=ku_uid,
-            )
+        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return result
 
-            if not records:
-                return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
+        records = result.value
+        if not records:
+            return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
 
-            actual_owner = records[0]["actual_owner"]
-            if actual_owner != owner_uid:
-                return Result.fail(Errors.validation(f"User {owner_uid} does not own Ku {ku_uid}"))
+        actual_owner = records[0]["actual_owner"]
+        if actual_owner != owner_uid:
+            return Result.fail(Errors.validation(f"User {owner_uid} does not own Ku {ku_uid}"))
 
-            return Result.ok(True)
-
-        except Exception as e:
-            logger.error(f"Error verifying ownership: {e}")
-            return Result.fail(Errors.database("verify_ownership", str(e)))
+        return Result.ok(True)
 
     # Activity ku_types that can be shared when active (not just completed)
     _ACTIVITY_KU_TYPES = frozenset(
@@ -429,36 +407,31 @@ class KuSharingService:
         RETURN ku.status as status, ku.ku_type as ku_type
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                ku_uid=ku_uid,
+        result = await self.executor.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return result
+
+        records = result.value
+        if not records:
+            return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
+
+        status = records[0]["status"]
+        ku_type = records[0]["ku_type"]
+
+        # Activity types can be shared when active or completed
+        if ku_type in self._ACTIVITY_KU_TYPES:
+            if status in ("active", "completed"):
+                return Result.ok(True)
+            return Result.fail(
+                Errors.validation(
+                    f"Activity Ku can be shared when active or completed. Current status: {status}"
+                )
             )
 
-            if not records:
-                return Result.fail(Errors.not_found(f"Ku {ku_uid} not found"))
+        # All other types: only completed
+        if status != "completed":
+            return Result.fail(
+                Errors.validation(f"Only completed Ku can be shared. Current status: {status}")
+            )
 
-            status = records[0]["status"]
-            ku_type = records[0]["ku_type"]
-
-            # Activity types can be shared when active or completed
-            if ku_type in self._ACTIVITY_KU_TYPES:
-                if status in ("active", "completed"):
-                    return Result.ok(True)
-                return Result.fail(
-                    Errors.validation(
-                        f"Activity Ku can be shared when active or completed. Current status: {status}"
-                    )
-                )
-
-            # All other types: only completed
-            if status != "completed":
-                return Result.fail(
-                    Errors.validation(f"Only completed Ku can be shared. Current status: {status}")
-                )
-
-            return Result.ok(True)
-
-        except Exception as e:
-            logger.error(f"Error verifying shareable: {e}")
-            return Result.fail(Errors.database("verify_shareable", str(e)))
+        return Result.ok(True)

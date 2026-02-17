@@ -256,7 +256,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         self.logger = get_logger(f"skuel.universal.{label_str.lower()}")
 
         # Phase 2: UnifiedQueryBuilder for all query building
-        self.query_builder = UnifiedQueryBuilder(driver)
+        self.query_builder = UnifiedQueryBuilder(executor=self)
 
         intel_status = "with Phase 1-4" if graph_intelligence_service else "basic"
         metrics_status = "metrics-enabled" if prometheus_metrics else "no-metrics"

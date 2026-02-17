@@ -662,14 +662,9 @@ def parse_date_field(value: Any) -> date | None:
         return value
     if isinstance(value, str):
         return date.fromisoformat(value)
-    # Neo4j date objects - import at runtime to avoid circular imports
-    try:
-        from neo4j.time import Date as Neo4jDate
-
-        if isinstance(value, Neo4jDate):
-            return date(value.year, value.month, value.day)
-    except ImportError:
-        pass
+    # Neo4j date objects — detect via module name (no import needed)
+    if getattr(type(value), "__module__", "") == "neo4j.time":
+        return date(value.year, value.month, value.day)
     return None
 
 
@@ -689,22 +684,17 @@ def parse_datetime_field(value: Any) -> datetime | None:
         return value
     if isinstance(value, str):
         return datetime.fromisoformat(value)
-    # Neo4j datetime objects - import at runtime to avoid circular imports
-    try:
-        from neo4j.time import DateTime as Neo4jDateTime
-
-        if isinstance(value, Neo4jDateTime):
-            return datetime(
-                value.year,
-                value.month,
-                value.day,
-                value.hour,
-                value.minute,
-                value.second,
-                getattr(value, "nanosecond", 0) // 1000,  # Convert nanoseconds to microseconds
-            )
-    except ImportError:
-        pass
+    # Neo4j datetime objects — detect via module name (no import needed)
+    if getattr(type(value), "__module__", "") == "neo4j.time":
+        return datetime(
+            value.year,
+            value.month,
+            value.day,
+            value.hour,
+            value.minute,
+            value.second,
+            getattr(value, "nanosecond", 0) // 1000,  # Convert nanoseconds to microseconds
+        )
     return None
 
 

@@ -796,15 +796,38 @@ class GraphTraversalOperations(Protocol):
 
 
 @runtime_checkable
-class LowLevelOperations(Protocol):
+class QueryExecutor(Protocol):
+    """
+    Port for executing raw Cypher queries against the graph database.
+
+    Use this for services that need direct query access without a typed
+    BackendOperations[T] entity backend. Any BackendOperations[T] also
+    satisfies this protocol (via LowLevelOperations).
+
+    Implementations:
+    - Neo4jQueryExecutor (adapters/persistence/neo4j/) - standalone executor
+    - UniversalNeo4jBackend[T] (via LowLevelOperations) - entity backend
+
+    See: /docs/patterns/protocol_architecture.md
+    """
+
+    async def execute_query(
+        self, query: str, params: dict[str, Any] | None = None
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Execute a Cypher query, returning records as dicts wrapped in Result."""
+        ...
+
+
+@runtime_checkable
+class LowLevelOperations(QueryExecutor, Protocol):
     """
     Low-level infrastructure operations.
 
     Used by services that need direct database access or health monitoring.
     Use sparingly - prefer higher-level protocols.
-    """
 
-    driver: Any  # Neo4j AsyncDriver (implementation-specific)
+    Inherits from QueryExecutor - any LowLevelOperations also satisfies QueryExecutor.
+    """
 
     async def execute_query(
         self, query: str, params: dict[str, Any] | None = None

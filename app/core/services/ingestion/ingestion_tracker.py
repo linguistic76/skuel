@@ -12,7 +12,7 @@ Key Design Decisions:
 - Supports both "incremental" and "smart" ingestion modes
 
 Usage:
-    tracker = IngestionTracker(driver)
+    tracker = IngestionTracker(executor)
 
     # Check which files need ingestion
     result = await tracker.get_ingestion_metadata(file_paths)
@@ -27,12 +27,13 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-
-from neo4j import AsyncDriver
-from neo4j.time import DateTime as Neo4jDateTime
+from typing import TYPE_CHECKING
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger("skuel.services.ingestion.ingestion_tracker")
 
@@ -66,14 +67,14 @@ class IngestionTracker:
     Used by ingest_directory() to skip unchanged files.
     """
 
-    def __init__(self, driver: AsyncDriver) -> None:
+    def __init__(self, executor: "QueryExecutor") -> None:
         """
         Initialize ingestion tracker.
 
         Args:
-            driver: Neo4j async driver
+            executor: Query executor for database operations
         """
-        self.driver = driver
+        self.executor = executor
         self.logger = logger
 
     async def ensure_constraints(self) -> Result[None]:
@@ -86,19 +87,16 @@ class IngestionTracker:
         CREATE CONSTRAINT ingestion_metadata_file_path IF NOT EXISTS
         FOR (s:IngestionMetadata) REQUIRE s.file_path IS UNIQUE
         """
-        try:
-            async with self.driver.session() as session:
-                await session.run(query)
-            return Result.ok(None)
-        except Exception as e:
+        result = await self.executor.execute_query(query)
+        if result.is_error:
             self.logger.error(
                 "Failed to create IngestionMetadata constraint",
                 extra={
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
-            return Result.fail(str(e))
+            return Result.fail(str(result.error))
+        return Result.ok(None)
 
     async def get_ingestion_metadata(
         self, file_paths: list[Path]
@@ -129,41 +127,37 @@ class IngestionTracker:
 
         result_map: dict[str, FileIngestionMetadata] = {}
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"paths": path_strings})
-                records = await result.data()
+        result = await self.executor.execute_query(query, {"paths": path_strings})
 
-                for record in records:
-                    # Handle datetime - Neo4j returns neo4j.time.DateTime
-                    last_ingested = record["last_ingested_at"]
-                    if isinstance(last_ingested, Neo4jDateTime):
-                        last_ingested = last_ingested.to_native()
-
-                    metadata = FileIngestionMetadata(
-                        file_path=record["file_path"],
-                        content_hash=record["content_hash"],
-                        file_mtime=record["file_mtime"],
-                        last_ingested_at=last_ingested,
-                        entity_uid=record["entity_uid"],
-                    )
-                    result_map[record["file_path"]] = metadata
-
-            self.logger.debug(
-                f"Retrieved ingestion metadata for {len(result_map)}/{len(file_paths)} files"
-            )
-            return Result.ok(result_map)
-
-        except Exception as e:
+        if result.is_error:
             self.logger.error(
                 "Failed to fetch ingestion metadata",
                 extra={
                     "file_count": len(file_paths),
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
-            return Result.fail(str(e))
+            return Result.fail(str(result.error))
+
+        for record in result.value:
+            # Handle datetime - Neo4j returns neo4j.time.DateTime
+            last_ingested = record["last_ingested_at"]
+            if getattr(type(last_ingested), "__module__", "") == "neo4j.time":
+                last_ingested = last_ingested.to_native()
+
+            metadata = FileIngestionMetadata(
+                file_path=record["file_path"],
+                content_hash=record["content_hash"],
+                file_mtime=record["file_mtime"],
+                last_ingested_at=last_ingested,
+                entity_uid=record["entity_uid"],
+            )
+            result_map[record["file_path"]] = metadata
+
+        self.logger.debug(
+            f"Retrieved ingestion metadata for {len(result_map)}/{len(file_paths)} files"
+        )
+        return Result.ok(result_map)
 
     async def update_ingestion_metadata(
         self,
@@ -191,28 +185,39 @@ class IngestionTracker:
 
         try:
             file_mtime = file_path.stat().st_mtime
-            async with self.driver.session() as session:
-                await session.run(
-                    query,
-                    {
-                        "file_path": str(file_path),
-                        "content_hash": content_hash,
-                        "file_mtime": file_mtime,
-                        "entity_uid": entity_uid,
-                    },
-                )
-            return Result.ok(None)
-        except Exception as e:
+        except OSError as e:
             self.logger.error(
-                "Failed to update ingestion metadata",
+                "Failed to stat file for ingestion metadata update",
                 extra={
                     "file_path": str(file_path),
-                    "entity_uid": entity_uid,
                     "error_type": type(e).__name__,
                     "error_message": str(e),
                 },
             )
             return Result.fail(str(e))
+
+        result = await self.executor.execute_query(
+            query,
+            {
+                "file_path": str(file_path),
+                "content_hash": content_hash,
+                "file_mtime": file_mtime,
+                "entity_uid": entity_uid,
+            },
+        )
+
+        if result.is_error:
+            self.logger.error(
+                "Failed to update ingestion metadata",
+                extra={
+                    "file_path": str(file_path),
+                    "entity_uid": entity_uid,
+                    "error_message": str(result.error),
+                },
+            )
+            return Result.fail(str(result.error))
+
+        return Result.ok(None)
 
     async def update_ingestion_metadata_batch(
         self,
@@ -261,22 +266,21 @@ class IngestionTracker:
         if not items:
             return Result.ok(0)
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"items": items})
-                record = await result.single()
-                updated_count = record["updated"] if record else 0
-            return Result.ok(updated_count)
-        except Exception as e:
+        result = await self.executor.execute_query(query, {"items": items})
+
+        if result.is_error:
             self.logger.error(
                 "Failed to batch update ingestion metadata",
                 extra={
                     "batch_size": len(items),
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
-            return Result.fail(str(e))
+            return Result.fail(str(result.error))
+
+        records = result.value
+        updated_count = records[0]["updated"] if records else 0
+        return Result.ok(updated_count)
 
     async def delete_ingestion_metadata(self, file_paths: list[Path]) -> Result[int]:
         """
@@ -300,22 +304,23 @@ class IngestionTracker:
         RETURN count(*) AS deleted
         """
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"paths": [str(fp) for fp in file_paths]})
-                record = await result.single()
-                deleted_count = record["deleted"] if record else 0
-            return Result.ok(deleted_count)
-        except Exception as e:
+        result = await self.executor.execute_query(
+            query, {"paths": [str(fp) for fp in file_paths]}
+        )
+
+        if result.is_error:
             self.logger.error(
                 "Failed to delete ingestion metadata",
                 extra={
                     "file_count": len(file_paths),
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
-            return Result.fail(str(e))
+            return Result.fail(str(result.error))
+
+        records = result.value
+        deleted_count = records[0]["deleted"] if records else 0
+        return Result.ok(deleted_count)
 
     def compute_file_hash(self, file_path: Path) -> str:
         """

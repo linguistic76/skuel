@@ -36,7 +36,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.events.transcription_events import TranscriptionCompleted
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
 from core.events.submission_events import AssessmentCreated, SubmissionDeleted
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
@@ -148,7 +147,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
 
     def __init__(
         self,
-        backend: UniversalNeo4jBackend[Ku] | None = None,
+        backend: BackendOperations[Ku] | None = None,
         event_bus: EventBusOperations | None = None,
         sharing_service: Any | None = None,
         content_enrichment: Any | None = None,
@@ -1042,104 +1041,120 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         """
         from core.models.relationship_names import RelationshipName
 
-        try:
-            # Check if the project is ASSIGNED scope and get group info
-            records, _, _ = await self.backend.driver.execute_query(
+        # Check if the project is ASSIGNED scope and get group info
+        project_result = await self.backend.execute_query(
+            """
+            MATCH (project:Assignment {uid: $project_uid})
+            OPTIONAL MATCH (project)-[:FOR_GROUP]->(g:Group)
+            RETURN project.scope as scope,
+                   project.user_uid as teacher_uid,
+                   project.processor_type as processor_type,
+                   g.uid as group_uid
+            """,
+            {"project_uid": project_uid},
+        )
+
+        if project_result.is_error:
+            self.logger.error(f"Error querying project: {project_result.error}")
+            return Result.ok(False)  # Non-fatal
+
+        records = project_result.value or []
+        if not records:
+            return Result.ok(False)  # Project not found — not an error, just not an assignment
+
+        scope = records[0]["scope"]
+        if scope != "assigned":
+            return Result.ok(False)  # Not an assigned project
+
+        teacher_uid = records[0]["teacher_uid"]
+        processor_type = records[0]["processor_type"]
+        group_uid = records[0]["group_uid"]
+
+        # Verify student is a member of the target group (if group exists)
+        if group_uid:
+            # Find the student who owns this Ku
+            student_result = await self.backend.execute_query(
                 """
-                MATCH (project:Assignment {uid: $project_uid})
-                OPTIONAL MATCH (project)-[:FOR_GROUP]->(g:Group)
-                RETURN project.scope as scope,
-                       project.user_uid as teacher_uid,
-                       project.processor_type as processor_type,
-                       g.uid as group_uid
+                MATCH (student:User)-[:OWNS]->(ku:Ku {uid: $ku_uid})
+                OPTIONAL MATCH (student)-[:MEMBER_OF]->(g:Group {uid: $group_uid})
+                RETURN student.uid as student_uid, g.uid as member_of_group
                 """,
-                project_uid=project_uid,
+                {"ku_uid": ku_uid, "group_uid": group_uid},
             )
 
-            if not records:
-                return Result.ok(False)  # Project not found — not an error, just not an assignment
+            if student_result.is_error:
+                self.logger.error(f"Error verifying student membership: {student_result.error}")
+                return Result.ok(False)
 
-            scope = records[0]["scope"]
-            if scope != "assigned":
-                return Result.ok(False)  # Not an assigned project
-
-            teacher_uid = records[0]["teacher_uid"]
-            processor_type = records[0]["processor_type"]
-            group_uid = records[0]["group_uid"]
-
-            # Verify student is a member of the target group (if group exists)
-            if group_uid:
-                # Find the student who owns this Ku
-                student_records, _, _ = await self.backend.driver.execute_query(
-                    """
-                    MATCH (student:User)-[:OWNS]->(ku:Ku {uid: $ku_uid})
-                    OPTIONAL MATCH (student)-[:MEMBER_OF]->(g:Group {uid: $group_uid})
-                    RETURN student.uid as student_uid, g.uid as member_of_group
-                    """,
-                    ku_uid=ku_uid,
-                    group_uid=group_uid,
+            student_records = student_result.value or []
+            if student_records and not student_records[0]["member_of_group"]:
+                student_uid = student_records[0]["student_uid"]
+                self.logger.warning(
+                    f"Student {student_uid} is not a member of group {group_uid} "
+                    f"for assignment project {project_uid}"
                 )
+                return Result.ok(False)
 
-                if student_records and not student_records[0]["member_of_group"]:
-                    student_uid = student_records[0]["student_uid"]
-                    self.logger.warning(
-                        f"Student {student_uid} is not a member of group {group_uid} "
-                        f"for assignment project {project_uid}"
-                    )
-                    return Result.ok(False)
+        # 1. Create FULFILLS_PROJECT relationship
+        fulfills_result = await self.backend.execute_query(
+            f"""
+            MATCH (ku:Ku {{uid: $ku_uid}})
+            MATCH (project:Assignment {{uid: $project_uid}})
+            MERGE (ku)-[:{RelationshipName.FULFILLS_PROJECT}]->(project)
+            RETURN true as success
+            """,
+            {"ku_uid": ku_uid, "project_uid": project_uid},
+        )
 
-            # 1. Create FULFILLS_PROJECT relationship
-            await self.backend.driver.execute_query(
-                f"""
-                MATCH (ku:Ku {{uid: $ku_uid}})
-                MATCH (project:Assignment {{uid: $project_uid}})
-                MERGE (ku)-[:{RelationshipName.FULFILLS_PROJECT}]->(project)
-                RETURN true as success
-                """,
-                ku_uid=ku_uid,
-                project_uid=project_uid,
-            )
+        if fulfills_result.is_error:
+            self.logger.warning(f"Failed to create FULFILLS_PROJECT: {fulfills_result.error}")
 
-            # 2. Auto-share with teacher
-            await self.backend.driver.execute_query(
+        # 2. Auto-share with teacher
+        share_result = await self.backend.execute_query(
+            """
+            MATCH (teacher:User {uid: $teacher_uid})
+            MATCH (ku:Ku {uid: $ku_uid})
+            MERGE (teacher)-[r:SHARES_WITH]->(ku)
+            SET r.shared_at = datetime($now),
+                r.role = 'teacher'
+            RETURN true as success
+            """,
+            {
+                "teacher_uid": teacher_uid,
+                "ku_uid": ku_uid,
+                "now": datetime.now().isoformat(),
+            },
+        )
+
+        if share_result.is_error:
+            self.logger.warning(f"Failed to auto-share with teacher: {share_result.error}")
+
+        # 3. Set status to SUBMITTED if processor_type is HUMAN
+        if processor_type in ("human", "hybrid"):
+            status_result = await self.backend.execute_query(
                 """
-                MATCH (teacher:User {uid: $teacher_uid})
                 MATCH (ku:Ku {uid: $ku_uid})
-                MERGE (teacher)-[r:SHARES_WITH]->(ku)
-                SET r.shared_at = datetime($now),
-                    r.role = 'teacher'
+                SET ku.status = $status,
+                    ku.processor_type = $processor_type,
+                    ku.updated_at = datetime($now)
                 RETURN true as success
                 """,
-                teacher_uid=teacher_uid,
-                ku_uid=ku_uid,
-                now=datetime.now().isoformat(),
+                {
+                    "ku_uid": ku_uid,
+                    "status": KuStatus.SUBMITTED.value,
+                    "processor_type": processor_type,
+                    "now": datetime.now().isoformat(),
+                },
             )
 
-            # 3. Set status to SUBMITTED if processor_type is HUMAN
-            if processor_type in ("human", "hybrid"):
-                await self.backend.driver.execute_query(
-                    """
-                    MATCH (ku:Ku {uid: $ku_uid})
-                    SET ku.status = $status,
-                        ku.processor_type = $processor_type,
-                        ku.updated_at = datetime($now)
-                    RETURN true as success
-                    """,
-                    ku_uid=ku_uid,
-                    status=KuStatus.SUBMITTED.value,
-                    processor_type=processor_type,
-                    now=datetime.now().isoformat(),
-                )
+            if status_result.is_error:
+                self.logger.warning(f"Failed to set status to SUBMITTED: {status_result.error}")
 
-            self.logger.info(
-                f"Assignment submission processed: ku={ku_uid} -> project={project_uid}, "
-                f"teacher={teacher_uid}, processor={processor_type}"
-            )
-            return Result.ok(True)
-
-        except Exception as e:
-            self.logger.error(f"Error processing assignment submission: {e}")
-            return Result.ok(False)  # Non-fatal — Ku was still created
+        self.logger.info(
+            f"Assignment submission processed: ku={ku_uid} -> project={project_uid}, "
+            f"teacher={teacher_uid}, processor={processor_type}"
+        )
+        return Result.ok(True)
 
     async def _enforce_fifo(self, user_uid: str, max_retention: int) -> Result[int]:
         """
@@ -1217,21 +1232,23 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         from core.models.enums.metadata_enums import Visibility
 
         # Verify teacher has authority over student (share an active group)
-        try:
-            authority_records, _, _ = await self.backend.driver.execute_query(
-                """
-                MATCH (teacher:User {uid: $teacher_uid})-[:OWNS]->(g:Group)
-                      <-[:MEMBER_OF]-(student:User {uid: $subject_uid})
-                WHERE g.is_active = true
-                RETURN g.uid AS group_uid LIMIT 1
-                """,
-                teacher_uid=teacher_uid,
-                subject_uid=subject_uid,
-            )
-        except Exception as e:
-            self.logger.error(f"Failed to verify teacher-student authority: {e}")
-            return Result.fail(Errors.database("create_assessment", str(e)))
+        authority_result = await self.backend.execute_query(
+            """
+            MATCH (teacher:User {uid: $teacher_uid})-[:OWNS]->(g:Group)
+                  <-[:MEMBER_OF]-(student:User {uid: $subject_uid})
+            WHERE g.is_active = true
+            RETURN g.uid AS group_uid LIMIT 1
+            """,
+            {"teacher_uid": teacher_uid, "subject_uid": subject_uid},
+        )
 
+        if authority_result.is_error:
+            self.logger.error(
+                f"Failed to verify teacher-student authority: {authority_result.error}"
+            )
+            return Result.fail(Errors.database("create_assessment", str(authority_result.error)))
+
+        authority_records = authority_result.value or []
         if not authority_records:
             return Result.fail(
                 Errors.forbidden(
@@ -1262,53 +1279,52 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             return Result.fail(result.expect_error())
 
         # Create ASSESSMENT_OF relationship
-        try:
-            records, _, _ = await self.backend.driver.execute_query(
-                """
-                MATCH (k:Ku {uid: $ku_uid})
-                MATCH (u:User {uid: $subject_uid})
-                MERGE (k)-[:ASSESSMENT_OF]->(u)
-                RETURN true AS success
-                """,
-                ku_uid=uid,
-                subject_uid=subject_uid,
+        assess_result = await self.backend.execute_query(
+            """
+            MATCH (k:Ku {uid: $ku_uid})
+            MATCH (u:User {uid: $subject_uid})
+            MERGE (k)-[:ASSESSMENT_OF]->(u)
+            RETURN true AS success
+            """,
+            {"ku_uid": uid, "subject_uid": subject_uid},
+        )
+
+        if assess_result.is_error:
+            self.logger.error(f"Failed to create ASSESSMENT_OF relationship: {assess_result.error}")
+            return Result.fail(Errors.database("create_assessment", str(assess_result.error)))
+
+        if not (assess_result.value or []):
+            self.logger.error(f"ASSESSMENT_OF not created: student {subject_uid} not found")
+            return Result.fail(
+                Errors.database("create_assessment", "Failed to create ASSESSMENT_OF relationship")
             )
-            if not records:
-                self.logger.error(f"ASSESSMENT_OF not created: student {subject_uid} not found")
-                return Result.fail(
-                    Errors.database(
-                        "create_assessment", "Failed to create ASSESSMENT_OF relationship"
-                    )
-                )
-        except Exception as e:
-            self.logger.error(f"Failed to create ASSESSMENT_OF relationship: {e}")
-            return Result.fail(Errors.database("create_assessment", str(e)))
 
         # Auto-share with student
-        try:
-            share_records, _, _ = await self.backend.driver.execute_query(
-                """
-                MATCH (student:User {uid: $subject_uid})
-                MATCH (k:Ku {uid: $ku_uid})
-                MERGE (student)-[rel:SHARES_WITH]->(k)
-                SET rel.shared_at = datetime($now),
-                    rel.role = 'student'
-                RETURN true AS success
-                """,
-                subject_uid=subject_uid,
-                ku_uid=uid,
-                now=datetime.now().isoformat(),
+        share_result = await self.backend.execute_query(
+            """
+            MATCH (student:User {uid: $subject_uid})
+            MATCH (k:Ku {uid: $ku_uid})
+            MERGE (student)-[rel:SHARES_WITH]->(k)
+            SET rel.shared_at = datetime($now),
+                rel.role = 'student'
+            RETURN true AS success
+            """,
+            {
+                "subject_uid": subject_uid,
+                "ku_uid": uid,
+                "now": datetime.now().isoformat(),
+            },
+        )
+
+        if share_result.is_error:
+            self.logger.error(f"Failed to auto-share assessment with student: {share_result.error}")
+            return Result.fail(Errors.database("create_assessment", str(share_result.error)))
+
+        if not (share_result.value or []):
+            self.logger.error(f"SHARES_WITH not created for student {subject_uid}")
+            return Result.fail(
+                Errors.database("create_assessment", "Failed to auto-share assessment with student")
             )
-            if not share_records:
-                self.logger.error(f"SHARES_WITH not created for student {subject_uid}")
-                return Result.fail(
-                    Errors.database(
-                        "create_assessment", "Failed to auto-share assessment with student"
-                    )
-                )
-        except Exception as e:
-            self.logger.error(f"Failed to auto-share assessment with student: {e}")
-            return Result.fail(Errors.database("create_assessment", str(e)))
 
         # Publish event
         event = AssessmentCreated(
@@ -1336,27 +1352,26 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         Returns:
             Result containing list of FEEDBACK_REPORT Ku entities
         """
-        try:
-            records, _, _ = await self.backend.driver.execute_query(
-                """
-                MATCH (k:Ku)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
-                WHERE k.ku_type = 'feedback_report'
-                RETURN k
-                ORDER BY k.created_at DESC
-                LIMIT $limit
-                """,
-                student_uid=student_uid,
-                limit=limit,
-            )
-            kus = []
-            for record in records:
-                node = record["k"]
-                dto = KuDTO.from_dict(dict(node))
-                kus.append(Ku.from_dto(dto))
-            return Result.ok(kus)
-        except Exception as e:
-            self.logger.error(f"Failed to get assessments for student {student_uid}: {e}")
-            return Result.fail(Errors.database("get_assessments_for_student", str(e)))
+        result = await self.backend.execute_query(
+            """
+            MATCH (k:Ku)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
+            WHERE k.ku_type = 'feedback_report'
+            RETURN k
+            ORDER BY k.created_at DESC
+            LIMIT $limit
+            """,
+            {"student_uid": student_uid, "limit": limit},
+        )
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        kus = []
+        for record in result.value or []:
+            node = record["k"]
+            dto = KuDTO.from_dict(node)
+            kus.append(Ku.from_dto(dto))
+        return Result.ok(kus)
 
     @with_error_handling("get_assessments_by_teacher", error_type="database")
     async def get_assessments_by_teacher(

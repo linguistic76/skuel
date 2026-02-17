@@ -22,7 +22,7 @@ from core.events.learning_events import KnowledgeMastered
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
+    from core.services.protocols import QueryExecutor
 
 
 class LpProgressService:
@@ -53,17 +53,17 @@ class LpProgressService:
 
     def __init__(
         self,
-        driver: "AsyncDriver | None" = None,
+        executor: "QueryExecutor | None" = None,
         event_bus=None,
     ) -> None:
         """
         Initialize learning path progress service.
 
         Args:
-            driver: Neo4j driver for Cypher queries (REQUIRED for Phase 4)
+            executor: QueryExecutor for Cypher queries (REQUIRED for Phase 4)
             event_bus: Optional event bus for publishing events
         """
-        self.driver = driver
+        self.executor = executor
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.lp.progress")
 
@@ -94,8 +94,8 @@ class LpProgressService:
             to prevent KU mastery from failing if LP update fails.
         """
         try:
-            if not self.driver:
-                self.logger.warning("No driver available for KU→LP event integration")
+            if not self.executor:
+                self.logger.warning("No executor available for KU→LP event integration")
                 return
 
             self.logger.debug(
@@ -109,9 +109,12 @@ class LpProgressService:
             RETURN DISTINCT lp.uid as lp_uid
             """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"ku_uid": event.ku_uid})
-                records = await result.data()
+            result = await self.executor.execute_query(query, {"ku_uid": event.ku_uid})
+            if result.is_error:
+                self.logger.error(f"Failed to query learning paths: {result.error}")
+                return
+
+            records = result.value or []
 
             self.logger.debug(f"Found {len(records)} learning paths containing KU: {records}")
             lp_uids = [record["lp_uid"] for record in records]
@@ -153,8 +156,8 @@ class LpProgressService:
             user_uid: User who mastered the KU
             newly_mastered_ku: UID of newly mastered KU
         """
-        if not self.driver:
-            self.logger.warning("No driver available for LP progress tracking")
+        if not self.executor:
+            self.logger.warning("No executor available for LP progress tracking")
             return
 
         # Note: We don't need to fetch the LP entity for progress calculation
@@ -174,9 +177,14 @@ class LpProgressService:
         RETURN total_kus, mastered_kus
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"lp_uid": lp_uid, "user_uid": user_uid})
-            records = await result.data()
+        result = await self.executor.execute_query(
+            query, {"lp_uid": lp_uid, "user_uid": user_uid}
+        )
+        if result.is_error:
+            self.logger.error(f"Failed to query LP progress: {result.error}")
+            return
+
+        records = result.value or []
 
         if not records or records[0].get("total_kus", 0) == 0:
             self.logger.debug(f"No KUs found for learning path {lp_uid}")

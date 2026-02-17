@@ -25,13 +25,13 @@ Date: 2026-01-04
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
+    from core.services.protocols import BackendOperations
 
 
 class LearningState(str, Enum):
@@ -81,17 +81,17 @@ class KuInteractionService:
 
     def __init__(
         self,
-        driver: "AsyncDriver | None" = None,
+        backend: "BackendOperations[Any] | None" = None,
         event_bus=None,
     ) -> None:
         """
         Initialize KU interaction service.
 
         Args:
-            driver: Neo4j driver for Cypher queries (REQUIRED)
+            backend: BackendOperations for Cypher queries (REQUIRED)
             event_bus: Optional event bus for publishing events
         """
-        self.driver = driver
+        self.backend = backend
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.ku.interaction")
 
@@ -115,8 +115,8 @@ class KuInteractionService:
         Returns:
             Result[bool]: True if recorded successfully
         """
-        if not self.driver:
-            return Result.fail(Errors.database("record_view", "Driver not available"))
+        if not self.backend:
+            return Result.fail(Errors.database("record_view", "Backend not available"))
 
         now = datetime.now(UTC).isoformat()
 
@@ -136,31 +136,30 @@ class KuInteractionService:
         RETURN r.view_count as view_count
         """
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    user_uid=user_uid,
-                    ku_uid=ku_uid,
-                    now=now,
-                    time_spent=time_spent_seconds,
-                )
-                record = await result.single()
+        result = await self.backend.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "ku_uid": ku_uid,
+                "now": now,
+                "time_spent": time_spent_seconds,
+            },
+        )
 
-                if record:
-                    self.logger.debug(
-                        "Recorded view",
-                        user_uid=user_uid,
-                        ku_uid=ku_uid,
-                        view_count=record["view_count"],
-                    )
-                    return Result.ok(True)
-                else:
-                    return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-        except Exception as e:
-            self.logger.error("Failed to record view", error=str(e))
-            return Result.fail(Errors.database("record_view", f"Failed to record view: {e}"))
+        if result.value:
+            record = result.value[0]
+            self.logger.debug(
+                "Recorded view",
+                user_uid=user_uid,
+                ku_uid=ku_uid,
+                view_count=record["view_count"],
+            )
+            return Result.ok(True)
+        else:
+            return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
 
     async def mark_in_progress(
         self,
@@ -180,8 +179,8 @@ class KuInteractionService:
         Returns:
             Result[bool]: True if marked successfully
         """
-        if not self.driver:
-            return Result.fail(Errors.database("mark_in_progress", "Driver not available"))
+        if not self.backend:
+            return Result.fail(Errors.database("mark_in_progress", "Backend not available"))
 
         now = datetime.now(UTC).isoformat()
 
@@ -198,31 +197,23 @@ class KuInteractionService:
         RETURN true as success
         """
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    user_uid=user_uid,
-                    ku_uid=ku_uid,
-                    now=now,
-                )
-                record = await result.single()
+        result = await self.backend.execute_query(
+            query,
+            {"user_uid": user_uid, "ku_uid": ku_uid, "now": now},
+        )
 
-                if record:
-                    self.logger.debug(
-                        "Marked in progress",
-                        user_uid=user_uid,
-                        ku_uid=ku_uid,
-                    )
-                    return Result.ok(True)
-                else:
-                    return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-        except Exception as e:
-            self.logger.error("Failed to mark in progress", error=str(e))
-            return Result.fail(
-                Errors.database("mark_in_progress", f"Failed to mark in progress: {e}")
+        if result.value:
+            self.logger.debug(
+                "Marked in progress",
+                user_uid=user_uid,
+                ku_uid=ku_uid,
             )
+            return Result.ok(True)
+        else:
+            return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
 
     async def get_learning_state(
         self,
@@ -242,8 +233,8 @@ class KuInteractionService:
         Returns:
             Result[UserKuProgress]: User's progress on this KU
         """
-        if not self.driver:
-            return Result.fail(Errors.database("get_learning_state", "Driver not available"))
+        if not self.backend:
+            return Result.fail(Errors.database("get_learning_state", "Backend not available"))
 
         query = """
         MATCH (ku:Ku {uid: $ku_uid})
@@ -266,65 +257,60 @@ class KuInteractionService:
             m.mastered_at as mastered_at
         """
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    user_uid=user_uid,
-                    ku_uid=ku_uid,
-                )
-                record = await result.single()
+        result = await self.backend.execute_query(
+            query,
+            {"user_uid": user_uid, "ku_uid": ku_uid},
+        )
 
-                if not record:
-                    return Result.fail(Errors.not_found("KU", ku_uid))
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-                # Determine state from highest relationship
-                if record["has_mastered"]:
-                    state = LearningState.MASTERED
-                elif record["has_in_progress"]:
-                    state = LearningState.IN_PROGRESS
-                elif record["has_viewed"]:
-                    state = LearningState.VIEWED
-                else:
-                    state = LearningState.NONE
+        if not result.value:
+            return Result.fail(Errors.not_found("KU", ku_uid))
 
-                # Parse datetime fields
-                first_viewed = None
-                if record["first_viewed_at"]:
-                    first_viewed = record["first_viewed_at"].to_native()
+        record = result.value[0]
 
-                last_viewed = None
-                if record["last_viewed_at"]:
-                    last_viewed = record["last_viewed_at"].to_native()
+        # Determine state from highest relationship
+        if record["has_mastered"]:
+            state = LearningState.MASTERED
+        elif record["has_in_progress"]:
+            state = LearningState.IN_PROGRESS
+        elif record["has_viewed"]:
+            state = LearningState.VIEWED
+        else:
+            state = LearningState.NONE
 
-                started = None
-                if record["started_at"]:
-                    started = record["started_at"].to_native()
+        # Parse datetime fields
+        first_viewed = None
+        if record["first_viewed_at"]:
+            first_viewed = record["first_viewed_at"].to_native()
 
-                mastered = None
-                if record["mastered_at"]:
-                    mastered = record["mastered_at"].to_native()
+        last_viewed = None
+        if record["last_viewed_at"]:
+            last_viewed = record["last_viewed_at"].to_native()
 
-                progress = UserKuProgress(
-                    ku_uid=ku_uid,
-                    state=state,
-                    first_viewed_at=first_viewed,
-                    last_viewed_at=last_viewed,
-                    view_count=record["view_count"] or 0,
-                    started_at=started,
-                    mastered_at=mastered,
-                    time_spent_seconds=record["time_spent_seconds"] or 0,
-                    is_marked_as_read=record["has_marked_as_read"],
-                    is_bookmarked=record["has_bookmarked"],
-                )
+        started = None
+        if record["started_at"]:
+            started = record["started_at"].to_native()
 
-                return Result.ok(progress)
+        mastered = None
+        if record["mastered_at"]:
+            mastered = record["mastered_at"].to_native()
 
-        except Exception as e:
-            self.logger.error("Failed to get learning state", error=str(e))
-            return Result.fail(
-                Errors.database("get_learning_state", f"Failed to get learning state: {e}")
-            )
+        progress = UserKuProgress(
+            ku_uid=ku_uid,
+            state=state,
+            first_viewed_at=first_viewed,
+            last_viewed_at=last_viewed,
+            view_count=record["view_count"] or 0,
+            started_at=started,
+            mastered_at=mastered,
+            time_spent_seconds=record["time_spent_seconds"] or 0,
+            is_marked_as_read=record["has_marked_as_read"],
+            is_bookmarked=record["has_bookmarked"],
+        )
+
+        return Result.ok(progress)
 
     async def get_learning_states_batch(
         self,
@@ -343,8 +329,10 @@ class KuInteractionService:
         Returns:
             Result[dict[str, LearningState]]: Map of ku_uid -> LearningState
         """
-        if not self.driver:
-            return Result.fail(Errors.database("get_learning_states_batch", "Driver not available"))
+        if not self.backend:
+            return Result.fail(
+                Errors.database("get_learning_states_batch", "Backend not available")
+            )
 
         if not ku_uids:
             return Result.ok({})
@@ -362,36 +350,27 @@ class KuInteractionService:
             m IS NOT NULL as has_mastered
         """
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    user_uid=user_uid,
-                    ku_uids=ku_uids,
-                )
-                records = await result.data()
+        result = await self.backend.execute_query(
+            query,
+            {"user_uid": user_uid, "ku_uids": ku_uids},
+        )
 
-                states = {}
-                for record in records:
-                    if record["has_mastered"]:
-                        state = LearningState.MASTERED
-                    elif record["has_in_progress"]:
-                        state = LearningState.IN_PROGRESS
-                    elif record["has_viewed"]:
-                        state = LearningState.VIEWED
-                    else:
-                        state = LearningState.NONE
-                    states[record["ku_uid"]] = state
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-                return Result.ok(states)
+        states = {}
+        for record in result.value or []:
+            if record["has_mastered"]:
+                state = LearningState.MASTERED
+            elif record["has_in_progress"]:
+                state = LearningState.IN_PROGRESS
+            elif record["has_viewed"]:
+                state = LearningState.VIEWED
+            else:
+                state = LearningState.NONE
+            states[record["ku_uid"]] = state
 
-        except Exception as e:
-            self.logger.error("Failed to get learning states batch", error=str(e))
-            return Result.fail(
-                Errors.database(
-                    "get_learning_states_batch", f"Failed to get learning states batch: {e}"
-                )
-            )
+        return Result.ok(states)
 
     # =========================================================================
     # MVP PHASE A: Reading Interface Methods
@@ -415,29 +394,24 @@ class KuInteractionService:
         Returns:
             Result[None]: Success or database error
         """
-        if not self.driver:
-            return Result.fail(
-                Errors.system("Neo4j driver required", service="KuInteractionService")
-            )
+        if not self.backend:
+            return Result.fail(Errors.system("Backend required", service="KuInteractionService"))
 
-        try:
-            query = """
-            MATCH (user:User {uid: $user_uid})
-            MATCH (ku:Ku {uid: $ku_uid})
-            MERGE (user)-[r:MARKED_AS_READ]->(ku)
-            ON CREATE SET r.marked_at = datetime()
-            RETURN r
-            """
+        query = """
+        MATCH (user:User {uid: $user_uid})
+        MATCH (ku:Ku {uid: $ku_uid})
+        MERGE (user)-[r:MARKED_AS_READ]->(ku)
+        ON CREATE SET r.marked_at = datetime()
+        RETURN r
+        """
 
-            async with self.driver.session() as session:
-                await session.run(query, {"user_uid": user_uid, "ku_uid": ku_uid})
+        result = await self.backend.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
 
-            self.logger.info(f"Marked KU as read: {user_uid} -> {ku_uid}")
-            return Result.ok(None)
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-        except Exception as e:
-            self.logger.error(f"Failed to mark KU as read: {e}")
-            return Result.fail(Errors.database("mark_as_read", f"Failed to mark KU as read: {e}"))
+        self.logger.info(f"Marked KU as read: {user_uid} -> {ku_uid}")
+        return Result.ok(None)
 
     async def toggle_bookmark(
         self,
@@ -456,49 +430,52 @@ class KuInteractionService:
         Returns:
             Result[bool]: True if bookmarked, False if unbookmarked
         """
-        if not self.driver:
-            return Result.fail(
-                Errors.system("Neo4j driver required", service="KuInteractionService")
-            )
+        if not self.backend:
+            return Result.fail(Errors.system("Backend required", service="KuInteractionService"))
 
-        try:
-            # Check if bookmark exists
-            check_query = """
+        # Check if bookmark exists
+        check_query = """
+        MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Ku {uid: $ku_uid})
+        RETURN r IS NOT NULL as is_bookmarked
+        """
+
+        check_result = await self.backend.execute_query(
+            check_query, {"user_uid": user_uid, "ku_uid": ku_uid}
+        )
+
+        if check_result.is_error:
+            return Result.fail(check_result.expect_error())
+
+        is_bookmarked = check_result.value[0]["is_bookmarked"] if check_result.value else False
+
+        if is_bookmarked:
+            # Remove bookmark
+            delete_query = """
             MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Ku {uid: $ku_uid})
-            RETURN r IS NOT NULL as is_bookmarked
+            DELETE r
             """
-
-            async with self.driver.session() as session:
-                result = await session.run(check_query, {"user_uid": user_uid, "ku_uid": ku_uid})
-                record = await result.single()
-                is_bookmarked = record["is_bookmarked"] if record else False
-
-                if is_bookmarked:
-                    # Remove bookmark
-                    delete_query = """
-                    MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Ku {uid: $ku_uid})
-                    DELETE r
-                    """
-                    await session.run(delete_query, {"user_uid": user_uid, "ku_uid": ku_uid})
-                    self.logger.info(f"Removed bookmark: {user_uid} -> {ku_uid}")
-                    return Result.ok(False)
-                else:
-                    # Add bookmark
-                    create_query = """
-                    MATCH (user:User {uid: $user_uid})
-                    MATCH (ku:Ku {uid: $ku_uid})
-                    MERGE (user)-[r:BOOKMARKED]->(ku)
-                    ON CREATE SET r.bookmarked_at = datetime()
-                    """
-                    await session.run(create_query, {"user_uid": user_uid, "ku_uid": ku_uid})
-                    self.logger.info(f"Added bookmark: {user_uid} -> {ku_uid}")
-                    return Result.ok(True)
-
-        except Exception as e:
-            self.logger.error(f"Failed to toggle bookmark: {e}")
-            return Result.fail(
-                Errors.database("toggle_bookmark", f"Failed to toggle bookmark: {e}")
+            del_result = await self.backend.execute_query(
+                delete_query, {"user_uid": user_uid, "ku_uid": ku_uid}
             )
+            if del_result.is_error:
+                return Result.fail(del_result.expect_error())
+            self.logger.info(f"Removed bookmark: {user_uid} -> {ku_uid}")
+            return Result.ok(False)
+        else:
+            # Add bookmark
+            create_query = """
+            MATCH (user:User {uid: $user_uid})
+            MATCH (ku:Ku {uid: $ku_uid})
+            MERGE (user)-[r:BOOKMARKED]->(ku)
+            ON CREATE SET r.bookmarked_at = datetime()
+            """
+            create_result = await self.backend.execute_query(
+                create_query, {"user_uid": user_uid, "ku_uid": ku_uid}
+            )
+            if create_result.is_error:
+                return Result.fail(create_result.expect_error())
+            self.logger.info(f"Added bookmark: {user_uid} -> {ku_uid}")
+            return Result.ok(True)
 
     async def mark_mastered(
         self,
@@ -522,10 +499,8 @@ class KuInteractionService:
         Returns:
             Result[bool]: True if mastered successfully
         """
-        if not self.driver:
-            return Result.fail(
-                Errors.system("Neo4j driver required", service="KuInteractionService")
-            )
+        if not self.backend:
+            return Result.fail(Errors.system("Backend required", service="KuInteractionService"))
 
         now = datetime.now(UTC).isoformat()
 
@@ -551,32 +526,29 @@ class KuInteractionService:
         RETURN r.mastery_score as mastery_score
         """
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    user_uid=user_uid,
-                    ku_uid=ku_uid,
-                    now=now,
-                    mastery_score=mastery_score,
-                    method=method,
-                )
-                record = await result.single()
+        result = await self.backend.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "ku_uid": ku_uid,
+                "now": now,
+                "mastery_score": mastery_score,
+                "method": method,
+            },
+        )
 
-                if record:
-                    self.logger.info(
-                        f"Marked KU as mastered: {user_uid} -> {ku_uid} "
-                        f"(score={record['mastery_score']}, method={method})"
-                    )
-                    return Result.ok(True)
-                else:
-                    return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-        except Exception as e:
-            self.logger.error(f"Failed to mark KU as mastered: {e}")
-            return Result.fail(
-                Errors.database("mark_mastered", f"Failed to mark KU as mastered: {e}")
+        if result.value:
+            record = result.value[0]
+            self.logger.info(
+                f"Marked KU as mastered: {user_uid} -> {ku_uid} "
+                f"(score={record['mastery_score']}, method={method})"
             )
+            return Result.ok(True)
+        else:
+            return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
 
     async def get_bookmarked_kus(
         self,
@@ -591,28 +563,21 @@ class KuInteractionService:
         Returns:
             Result[list[str]]: List of bookmarked KU UIDs
         """
-        if not self.driver:
-            return Result.fail(
-                Errors.system("Neo4j driver required", service="KuInteractionService")
-            )
+        if not self.backend:
+            return Result.fail(Errors.system("Backend required", service="KuInteractionService"))
 
-        try:
-            query = """
-            MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Ku)
-            RETURN ku.uid as ku_uid
-            ORDER BY r.bookmarked_at DESC
-            """
+        query = """
+        MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Ku)
+        RETURN ku.uid as ku_uid
+        ORDER BY r.bookmarked_at DESC
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid})
-                records = await result.data()
-                ku_uids = [record["ku_uid"] for record in records if record.get("ku_uid")]
+        result = await self.backend.execute_query(query, {"user_uid": user_uid})
 
-            self.logger.debug(f"Retrieved {len(ku_uids)} bookmarked KUs for {user_uid}")
-            return Result.ok(ku_uids)
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-        except Exception as e:
-            self.logger.error(f"Failed to get bookmarked KUs: {e}")
-            return Result.fail(
-                Errors.database("get_bookmarked_kus", f"Failed to get bookmarked KUs: {e}")
-            )
+        ku_uids = [record["ku_uid"] for record in (result.value or []) if record.get("ku_uid")]
+
+        self.logger.debug(f"Retrieved {len(ku_uids)} bookmarked KUs for {user_uid}")
+        return Result.ok(ku_uids)

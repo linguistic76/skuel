@@ -14,13 +14,14 @@ See: /docs/architecture/SUBMISSION_FEEDBACK_LOOP.md
 """
 
 from datetime import datetime
-from typing import Any
-
-from neo4j import Driver
+from typing import TYPE_CHECKING, Any
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger("skuel.services.notifications")
 
@@ -28,8 +29,8 @@ logger = get_logger("skuel.services.notifications")
 class NotificationService:
     """CRUD operations for Notification nodes in Neo4j."""
 
-    def __init__(self, driver: Driver) -> None:
-        self.driver = driver
+    def __init__(self, executor: "QueryExecutor") -> None:
+        self.executor = executor
 
     async def create_notification(
         self,
@@ -74,28 +75,27 @@ class NotificationService:
         RETURN n.uid as uid
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                user_uid=user_uid,
-                uid=uid,
-                notification_type=notification_type,
-                title=title,
-                message=message,
-                source_uid=source_uid,
-                source_type=source_type,
-                now=now,
-            )
+        result = await self.executor.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "uid": uid,
+                "notification_type": notification_type,
+                "title": title,
+                "message": message,
+                "source_uid": source_uid,
+                "source_type": source_type,
+                "now": now,
+            },
+        )
+        if result.is_error:
+            return result
 
-            if not records:
-                return Result.fail(Errors.not_found(f"User {user_uid} not found"))
+        if not result.value:
+            return Result.fail(Errors.not_found(f"User {user_uid} not found"))
 
-            logger.debug(f"Created notification {uid} for user {user_uid}: {notification_type}")
-            return Result.ok(uid)
-
-        except Exception as e:
-            logger.error(f"Error creating notification: {e}")
-            return Result.fail(Errors.database("create_notification", str(e)))
+        logger.debug(f"Created notification {uid} for user {user_uid}: {notification_type}")
+        return Result.ok(uid)
 
     async def get_unread_count(self, user_uid: str) -> Result[int]:
         """
@@ -112,14 +112,13 @@ class NotificationService:
         RETURN count(n) as count
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(query, user_uid=user_uid)
-            count = records[0]["count"] if records else 0
-            return Result.ok(count)
+        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return result
 
-        except Exception as e:
-            logger.error(f"Error getting unread count: {e}")
-            return Result.fail(Errors.database("get_unread_count", str(e)))
+        records = result.value
+        count = records[0]["count"] if records else 0
+        return Result.ok(count)
 
     async def get_notifications(
         self,
@@ -155,28 +154,27 @@ class NotificationService:
         LIMIT $limit
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(query, user_uid=user_uid, limit=limit)
+        result = await self.executor.execute_query(
+            query, {"user_uid": user_uid, "limit": limit}
+        )
+        if result.is_error:
+            return result
 
-            items = [
-                {
-                    "uid": record["uid"],
-                    "notification_type": record["notification_type"],
-                    "title": record["title"],
-                    "message": record["message"],
-                    "source_uid": record["source_uid"],
-                    "source_type": record["source_type"],
-                    "read": record["read"],
-                    "created_at": record["created_at"],
-                }
-                for record in records
-            ]
+        items = [
+            {
+                "uid": record["uid"],
+                "notification_type": record["notification_type"],
+                "title": record["title"],
+                "message": record["message"],
+                "source_uid": record["source_uid"],
+                "source_type": record["source_type"],
+                "read": record["read"],
+                "created_at": record["created_at"],
+            }
+            for record in result.value
+        ]
 
-            return Result.ok(items)
-
-        except Exception as e:
-            logger.error(f"Error getting notifications: {e}")
-            return Result.fail(Errors.database("get_notifications", str(e)))
+        return Result.ok(items)
 
     async def mark_read(self, notification_uid: str, user_uid: str) -> Result[bool]:
         """
@@ -195,19 +193,16 @@ class NotificationService:
         RETURN n.uid as uid
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query, user_uid=user_uid, notification_uid=notification_uid
-            )
+        result = await self.executor.execute_query(
+            query, {"user_uid": user_uid, "notification_uid": notification_uid}
+        )
+        if result.is_error:
+            return result
 
-            if not records:
-                return Result.fail(Errors.not_found(f"Notification {notification_uid} not found"))
+        if not result.value:
+            return Result.fail(Errors.not_found(f"Notification {notification_uid} not found"))
 
-            return Result.ok(True)
-
-        except Exception as e:
-            logger.error(f"Error marking notification as read: {e}")
-            return Result.fail(Errors.database("mark_read", str(e)))
+        return Result.ok(True)
 
     async def mark_all_read(self, user_uid: str) -> Result[int]:
         """
@@ -225,12 +220,11 @@ class NotificationService:
         RETURN count(n) as count
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(query, user_uid=user_uid)
-            count = records[0]["count"] if records else 0
-            logger.info(f"Marked {count} notifications as read for user {user_uid}")
-            return Result.ok(count)
+        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return result
 
-        except Exception as e:
-            logger.error(f"Error marking all notifications as read: {e}")
-            return Result.fail(Errors.database("mark_all_read", str(e)))
+        records = result.value
+        count = records[0]["count"] if records else 0
+        logger.info(f"Marked {count} notifications as read for user {user_uid}")
+        return Result.ok(count)

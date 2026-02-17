@@ -21,13 +21,14 @@ Following SKUEL principles:
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any
-
-from neo4j import AsyncDriver
+from typing import TYPE_CHECKING, Any
 
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger(__name__)
 
@@ -131,20 +132,20 @@ class UserProgressService:
 
     """
 
-    def __init__(self, driver: AsyncDriver) -> None:
+    def __init__(self, executor: "QueryExecutor") -> None:
         """
-        Initialize with Neo4j driver.
+        Initialize with QueryExecutor.
 
         Args:
-            driver: Neo4j async driver (required)
+            executor: QueryExecutor (required)
 
         Raises:
-            ValueError: If driver is not provided
+            ValueError: If executor is not provided
         """
-        if not driver:
-            raise ValueError("Neo4j driver is required - no fallback")
+        if not executor:
+            raise ValueError("QueryExecutor is required - no fallback")
 
-        self.driver = driver
+        self.executor = executor
         self.logger = logger
 
     # ========================================================================
@@ -167,72 +168,74 @@ class UserProgressService:
         """
         self.logger.info(f"🔍 Building knowledge profile for user {user_uid}")
 
-        async with self.driver.session() as session:
-            # Get user basic info
-            user_result = await session.run(
-                """
-                MATCH (u:User {uid: $user_uid})
-                RETURN u.username as username
+        # Get user basic info
+        user_result = await self.executor.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})
+            RETURN u.username as username
             """,
-                {"user_uid": user_uid},
-            )
+            {"user_uid": user_uid},
+        )
+        if user_result.is_error:
+            return Result.fail(user_result.expect_error())
 
-            user_record = await user_result.single()
-            if not user_record:
-                return Result.fail(Errors.not_found("User", user_uid))
+        user_records = user_result.value or []
+        user_record = user_records[0] if user_records else None
+        if not user_record:
+            return Result.fail(Errors.not_found("User", user_uid))
 
-            username = user_record["username"] or "User"
+        username = user_record["username"] or "User"
 
-            # Get mastered knowledge
-            mastered = await self._get_mastered_knowledge(session, user_uid)
-            mastered_uids = {m.knowledge_uid for m in mastered}
+        # Get mastered knowledge
+        mastered = await self._get_mastered_knowledge(user_uid)
+        mastered_uids = {m.knowledge_uid for m in mastered}
 
-            # Get in-progress knowledge
-            in_progress = await self._get_in_progress_knowledge(session, user_uid)
-            in_progress_uids = {p.knowledge_uid for p in in_progress}
+        # Get in-progress knowledge
+        in_progress = await self._get_in_progress_knowledge(user_uid)
+        in_progress_uids = {p.knowledge_uid for p in in_progress}
 
-            # Get completed prerequisites
-            completed_prereqs = await self._get_completed_prerequisites(
-                session, user_uid, mastered_uids
-            )
+        # Get completed prerequisites
+        completed_prereqs = await self._get_completed_prerequisites(
+            user_uid, mastered_uids
+        )
 
-            # Get prerequisite map (what knowledge needs what prereqs)
-            prereq_map = await self._build_prerequisite_map(session, user_uid)
+        # Get prerequisite map (what knowledge needs what prereqs)
+        prereq_map = await self._build_prerequisite_map(user_uid)
 
-            # Get learning path enrollments
-            active_paths, completed_paths = await self._get_learning_paths(session, user_uid)
+        # Get learning path enrollments
+        active_paths, completed_paths = await self._get_learning_paths(user_uid)
 
-            # Get interests and bookmarks
-            interested = await self._get_interested_knowledge(session, user_uid)
-            bookmarked = await self._get_bookmarked_knowledge(session, user_uid)
+        # Get interests and bookmarks
+        interested = await self._get_interested_knowledge(user_uid)
+        bookmarked = await self._get_bookmarked_knowledge(user_uid)
 
-            # Get struggle and review needs
-            struggling = await self._get_struggling_knowledge(session, user_uid)
-            needs_review = await self._get_needs_review_knowledge(session, user_uid)
+        # Get struggle and review needs
+        struggling = await self._get_struggling_knowledge(user_uid)
+        needs_review = await self._get_needs_review_knowledge(user_uid)
 
-            profile = UserKnowledgeProfile(
-                user_uid=user_uid,
-                username=username,
-                mastered_knowledge=mastered,
-                mastered_uids=mastered_uids,
-                in_progress_knowledge=in_progress,
-                in_progress_uids=in_progress_uids,
-                completed_prerequisites=completed_prereqs,
-                prerequisite_map=prereq_map,
-                active_learning_paths=active_paths,
-                completed_paths=completed_paths,
-                interested_uids=interested,
-                bookmarked_uids=bookmarked,
-                struggling_uids=struggling,
-                needs_review_uids=needs_review,
-            )
+        profile = UserKnowledgeProfile(
+            user_uid=user_uid,
+            username=username,
+            mastered_knowledge=mastered,
+            mastered_uids=mastered_uids,
+            in_progress_knowledge=in_progress,
+            in_progress_uids=in_progress_uids,
+            completed_prerequisites=completed_prereqs,
+            prerequisite_map=prereq_map,
+            active_learning_paths=active_paths,
+            completed_paths=completed_paths,
+            interested_uids=interested,
+            bookmarked_uids=bookmarked,
+            struggling_uids=struggling,
+            needs_review_uids=needs_review,
+        )
 
-            self.logger.info(
-                f"✅ Profile built: {len(mastered)} mastered, "
-                f"{len(in_progress)} in-progress, {len(active_paths)} active paths"
-            )
+        self.logger.info(
+            f"✅ Profile built: {len(mastered)} mastered, "
+            f"{len(in_progress)} in-progress, {len(active_paths)} active paths"
+        )
 
-            return Result.ok(profile)
+        return Result.ok(profile)
 
     @with_error_handling("calculate_readiness_for_knowledge", error_type="database")
     async def calculate_readiness_for_knowledge(
@@ -276,46 +279,48 @@ class UserProgressService:
             return Result.ok(0.9)
 
         # Check prerequisites
-        async with self.driver.session() as session:
-            result = await session.run(
-                """
-                MATCH (target:Ku {uid: $target_uid})
-                OPTIONAL MATCH (target)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
-                WITH target, collect(prereq.uid) as prereq_uids
-                RETURN
-                    size(prereq_uids) as total_prereqs,
-                    prereq_uids
+        prereq_result = await self.executor.execute_query(
+            """
+            MATCH (target:Ku {uid: $target_uid})
+            OPTIONAL MATCH (target)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
+            WITH target, collect(prereq.uid) as prereq_uids
+            RETURN
+                size(prereq_uids) as total_prereqs,
+                prereq_uids
             """,
-                {"target_uid": knowledge_uid},
-            )
+            {"target_uid": knowledge_uid},
+        )
+        if prereq_result.is_error:
+            return Result.fail(prereq_result.expect_error())
 
-            record = await result.single()
-            if not record:
-                return Result.ok(0.5)  # Knowledge not found, moderate readiness
+        prereq_records = prereq_result.value or []
+        record = prereq_records[0] if prereq_records else None
+        if not record:
+            return Result.ok(0.5)  # Knowledge not found, moderate readiness
 
-            total_prereqs = record["total_prereqs"]
-            prereq_uids = record["prereq_uids"]
+        total_prereqs = record["total_prereqs"]
+        prereq_uids = record["prereq_uids"]
 
-            if total_prereqs == 0:
-                # No prerequisites, high readiness
-                return Result.ok(0.75)
+        if total_prereqs == 0:
+            # No prerequisites, high readiness
+            return Result.ok(0.75)
 
-            # Calculate how many prereqs are met
-            met_prereqs = sum(
-                1 for p_uid in prereq_uids if p_uid in profile.completed_prerequisites
-            )
+        # Calculate how many prereqs are met
+        met_prereqs = sum(
+            1 for p_uid in prereq_uids if p_uid in profile.completed_prerequisites
+        )
 
-            readiness = met_prereqs / total_prereqs
+        readiness = met_prereqs / total_prereqs
 
-            # Boost if user is interested
-            if knowledge_uid in profile.interested_uids:
-                readiness = min(1.0, readiness + 0.1)
+        # Boost if user is interested
+        if knowledge_uid in profile.interested_uids:
+            readiness = min(1.0, readiness + 0.1)
 
-            # Reduce if user is struggling with related content
-            if knowledge_uid in profile.struggling_uids:
-                readiness = max(0.0, readiness - 0.2)
+        # Reduce if user is struggling with related content
+        if knowledge_uid in profile.struggling_uids:
+            readiness = max(0.0, readiness - 0.2)
 
-            return Result.ok(readiness)
+        return Result.ok(readiness)
 
     # ========================================================================
     # MASTERY TRACKING
@@ -350,44 +355,45 @@ class UserProgressService:
                 Errors.validation("Mastery score must be >= 0.8", field="mastery_score")
             )
 
-        async with self.driver.session() as session:
-            await session.run(
-                """
-                MATCH (u:User {uid: $user_uid}), (k:Ku {uid: $knowledge_uid})
-                MERGE (u)-[r:MASTERED]->(k)
-                ON CREATE SET
-                    r.mastery_score = $mastery_score,
-                    r.achieved_at = datetime(),
-                    r.practice_count = $practice_count,
-                    r.last_practiced = datetime(),
-                    r.confidence_level = $confidence_level,
-                    r.retention_score = $mastery_score
-                ON MATCH SET
-                    r.mastery_score = $mastery_score,
-                    r.practice_count = r.practice_count + 1,
-                    r.last_practiced = datetime(),
-                    r.confidence_level = $confidence_level,
-                    r.retention_score = ($mastery_score + r.retention_score) / 2.0
+        result = await self.executor.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid}), (k:Ku {uid: $knowledge_uid})
+            MERGE (u)-[r:MASTERED]->(k)
+            ON CREATE SET
+                r.mastery_score = $mastery_score,
+                r.achieved_at = datetime(),
+                r.practice_count = $practice_count,
+                r.last_practiced = datetime(),
+                r.confidence_level = $confidence_level,
+                r.retention_score = $mastery_score
+            ON MATCH SET
+                r.mastery_score = $mastery_score,
+                r.practice_count = r.practice_count + 1,
+                r.last_practiced = datetime(),
+                r.confidence_level = $confidence_level,
+                r.retention_score = ($mastery_score + r.retention_score) / 2.0
 
-                // Remove IN_PROGRESS if it exists
-                WITH u, k
-                OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(k)
-                DETACH DELETE ip
+            // Remove IN_PROGRESS if it exists
+            WITH u, k
+            OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(k)
+            DETACH DELETE ip
             """,
-                {
-                    "user_uid": user_uid,
-                    "knowledge_uid": knowledge_uid,
-                    "mastery_score": mastery_score,
-                    "practice_count": practice_count,
-                    "confidence_level": confidence_level,
-                },
-            )
+            {
+                "user_uid": user_uid,
+                "knowledge_uid": knowledge_uid,
+                "mastery_score": mastery_score,
+                "practice_count": practice_count,
+                "confidence_level": confidence_level,
+            },
+        )
+        if result.is_error:
+            self.logger.warning(f"Failed to record mastery: {result.error}")
 
-            self.logger.info(
-                f"✅ Recorded mastery: {user_uid} -> {knowledge_uid} ({mastery_score})"
-            )
+        self.logger.info(
+            f"✅ Recorded mastery: {user_uid} -> {knowledge_uid} ({mastery_score})"
+        )
 
-            return Result.ok(True)
+        return Result.ok(True)
 
     @with_error_handling("record_progress", error_type="database")
     async def record_progress(
@@ -418,42 +424,43 @@ class UserProgressService:
                 Errors.validation("Progress must be between 0.0 and 1.0", field="progress")
             )
 
-        async with self.driver.session() as session:
-            await session.run(
-                """
-                MATCH (u:User {uid: $user_uid}), (k:Ku {uid: $knowledge_uid})
-                MERGE (u)-[r:IN_PROGRESS]->(k)
-                ON CREATE SET
-                    r.progress = $progress,
-                    r.started_at = datetime(),
-                    r.time_invested_minutes = $time_invested,
-                    r.last_accessed = datetime(),
-                    r.difficulty_rating = $difficulty_rating
-                ON MATCH SET
-                    r.progress = $progress,
-                    r.time_invested_minutes = r.time_invested_minutes + $time_invested,
-                    r.last_accessed = datetime()
+        result = await self.executor.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid}), (k:Ku {uid: $knowledge_uid})
+            MERGE (u)-[r:IN_PROGRESS]->(k)
+            ON CREATE SET
+                r.progress = $progress,
+                r.started_at = datetime(),
+                r.time_invested_minutes = $time_invested,
+                r.last_accessed = datetime(),
+                r.difficulty_rating = $difficulty_rating
+            ON MATCH SET
+                r.progress = $progress,
+                r.time_invested_minutes = r.time_invested_minutes + $time_invested,
+                r.last_accessed = datetime()
             """,
-                {
-                    "user_uid": user_uid,
-                    "knowledge_uid": knowledge_uid,
-                    "progress": progress,
-                    "time_invested": time_invested_minutes,
-                    "difficulty_rating": difficulty_rating or 0.5,
-                },
-            )
+            {
+                "user_uid": user_uid,
+                "knowledge_uid": knowledge_uid,
+                "progress": progress,
+                "time_invested": time_invested_minutes,
+                "difficulty_rating": difficulty_rating or 0.5,
+            },
+        )
+        if result.is_error:
+            self.logger.warning(f"Failed to record progress: {result.error}")
 
-            self.logger.info(f"✅ Recorded progress: {user_uid} -> {knowledge_uid} ({progress})")
+        self.logger.info(f"✅ Recorded progress: {user_uid} -> {knowledge_uid} ({progress})")
 
-            return Result.ok(True)
+        return Result.ok(True)
 
     # ========================================================================
     # PRIVATE HELPER METHODS (Graph Queries)
     # ========================================================================
 
-    async def _get_mastered_knowledge(self, session, user_uid: str) -> list[UserKnowledgeMastery]:
+    async def _get_mastered_knowledge(self, user_uid: str) -> list[UserKnowledgeMastery]:
         """Get all mastered knowledge for user."""
-        result = await session.run(
+        result = await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Ku)
             RETURN
@@ -465,9 +472,11 @@ class UserProgressService:
                 r.confidence_level as confidence_level,
                 r.retention_score as retention_score
             ORDER BY r.last_practiced DESC
-        """,
+            """,
             {"user_uid": user_uid},
         )
+        if result.is_error:
+            return []
 
         return [
             UserKnowledgeMastery(
@@ -479,14 +488,14 @@ class UserProgressService:
                 confidence_level=record["confidence_level"],
                 retention_score=record["retention_score"],
             )
-            async for record in result
+            for record in (result.value or [])
         ]
 
     async def _get_in_progress_knowledge(
-        self, session, user_uid: str
+        self, user_uid: str
     ) -> list[UserLearningProgress]:
         """Get all in-progress knowledge for user."""
-        result = await session.run(
+        result = await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[r:IN_PROGRESS]->(k:Ku)
             RETURN
@@ -498,9 +507,11 @@ class UserProgressService:
                 r.difficulty_rating as difficulty_rating,
                 r.last_accessed as last_accessed
             ORDER BY r.last_accessed DESC
-        """,
+            """,
             {"user_uid": user_uid},
         )
+        if result.is_error:
+            return []
 
         return [
             UserLearningProgress(
@@ -512,126 +523,139 @@ class UserProgressService:
                 difficulty_rating=record["difficulty_rating"],
                 last_accessed=record["last_accessed"],
             )
-            async for record in result
+            for record in (result.value or [])
         ]
 
     async def _get_completed_prerequisites(
-        self, session, user_uid: str, _mastered_uids: set[str]
+        self, user_uid: str, _mastered_uids: set[str]
     ) -> set[str]:
         """
         Get all prerequisites that user has completed.
 
         This is THE key query for readiness calculation.
         """
-        result = await session.run(
+        result = await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[:MASTERED]->(mastered:Ku)
             MATCH (target:Ku)-[:REQUIRES_KNOWLEDGE]->(mastered)
             RETURN DISTINCT mastered.uid as prereq_uid
-        """,
+            """,
             {"user_uid": user_uid},
         )
+        if result.is_error:
+            return set()
 
-        completed = set()
-        async for record in result:
-            completed.add(record["prereq_uid"])
+        return {record["prereq_uid"] for record in (result.value or [])}
 
-        return completed
-
-    async def _build_prerequisite_map(self, session, user_uid: str) -> dict[str, list[str]]:
+    async def _build_prerequisite_map(self, user_uid: str) -> dict[str, list[str]]:
         """Build map of knowledge units to their prerequisites."""
-        result = await session.run(
+        result = await self.executor.execute_query(
             """
             MATCH (k:Ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
             RETURN k.uid as knowledge_uid, collect(prereq.uid) as prereq_uids
-        """,
+            """,
             {"user_uid": user_uid},
         )
+        if result.is_error:
+            return {}
 
-        prereq_map = {}
-        async for record in result:
-            prereq_map[record["knowledge_uid"]] = record["prereq_uids"]
+        return {
+            record["knowledge_uid"]: record["prereq_uids"]
+            for record in (result.value or [])
+        }
 
-        return prereq_map
-
-    async def _get_learning_paths(self, session, user_uid: str) -> tuple[list[str], set[str]]:
+    async def _get_learning_paths(self, user_uid: str) -> tuple[list[str], set[str]]:
         """Get active and completed learning paths."""
-        result = await session.run(
+        active_result = await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[e:ENROLLED]->(p:Lp)
             WHERE e.enrollment_status = 'active'
             RETURN collect(p.uid) as active_paths
-        """,
+            """,
             {"user_uid": user_uid},
         )
 
-        record = await result.single()
-        active_paths = record["active_paths"] if record else []
+        active_records = active_result.value or [] if active_result.is_ok else []
+        active_record = active_records[0] if active_records else None
+        active_paths = active_record["active_paths"] if active_record else []
 
-        result = await session.run(
+        completed_result = await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[c:COMPLETED]->(p:Lp)
             RETURN collect(p.uid) as completed_paths
-        """,
+            """,
             {"user_uid": user_uid},
         )
 
-        record = await result.single()
-        completed_paths = set(record["completed_paths"]) if record else set()
+        completed_records = completed_result.value or [] if completed_result.is_ok else []
+        completed_record = completed_records[0] if completed_records else None
+        completed_paths = set(completed_record["completed_paths"]) if completed_record else set()
 
         return active_paths, completed_paths
 
-    async def _get_interested_knowledge(self, session, user_uid: str) -> set[str]:
+    async def _get_interested_knowledge(self, user_uid: str) -> set[str]:
         """Get knowledge units user is interested in."""
-        result = await session.run(
+        result = await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[:INTERESTED_IN]->(k:Ku)
             RETURN collect(k.uid) as interested_uids
-        """,
+            """,
             {"user_uid": user_uid},
         )
+        if result.is_error:
+            return set()
 
-        record = await result.single()
+        records = result.value or []
+        record = records[0] if records else None
         return set(record["interested_uids"]) if record else set()
 
-    async def _get_bookmarked_knowledge(self, session, user_uid: str) -> set[str]:
+    async def _get_bookmarked_knowledge(self, user_uid: str) -> set[str]:
         """Get bookmarked knowledge units."""
-        result = await session.run(
+        result = await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[:BOOKMARKED]->(k:Ku)
             RETURN collect(k.uid) as bookmarked_uids
-        """,
+            """,
             {"user_uid": user_uid},
         )
+        if result.is_error:
+            return set()
 
-        record = await result.single()
+        records = result.value or []
+        record = records[0] if records else None
         return set(record["bookmarked_uids"]) if record else set()
 
-    async def _get_struggling_knowledge(self, session, user_uid: str) -> set[str]:
+    async def _get_struggling_knowledge(self, user_uid: str) -> set[str]:
         """Get knowledge units user is struggling with."""
-        result = await session.run(
+        result = await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[:STRUGGLING_WITH]->(k:Ku)
             RETURN collect(k.uid) as struggling_uids
-        """,
+            """,
             {"user_uid": user_uid},
         )
+        if result.is_error:
+            return set()
 
-        record = await result.single()
+        records = result.value or []
+        record = records[0] if records else None
         return set(record["struggling_uids"]) if record else set()
 
-    async def _get_needs_review_knowledge(self, session, user_uid: str) -> set[str]:
+    async def _get_needs_review_knowledge(self, user_uid: str) -> set[str]:
         """Get knowledge units that need review."""
-        result = await session.run(
+        result = await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[r:NEEDS_REVIEW]->(k:Ku)
             WHERE r.next_review_due <= date()
             RETURN collect(k.uid) as review_uids
-        """,
+            """,
             {"user_uid": user_uid},
         )
+        if result.is_error:
+            return set()
 
-        record = await result.single()
+        records = result.value or []
+        record = records[0] if records else None
         return set(record["review_uids"]) if record else set()
 
     # ========================================================================
@@ -708,33 +732,36 @@ class UserProgressService:
         ORDER BY coverage_ratio DESC, topic.confidence DESC
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"user_uid": user_uid, "domain": domain})
+        result = await self.executor.execute_query(
+            query, {"user_uid": user_uid, "domain": domain}
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-            topics = [record["topic"] async for record in result]
+        topics = [record["topic"] for record in (result.value or [])]
 
-            # Aggregate statistics
-            if topics:
-                ready_count = sum(1 for t in topics if t["ready_to_learn"])
-                avg_coverage = sum(t["coverage_ratio"] for t in topics) / len(topics)
-            else:
-                ready_count = 0
-                avg_coverage = 0.0
+        # Aggregate statistics
+        if topics:
+            ready_count = sum(1 for t in topics if t["ready_to_learn"])
+            avg_coverage = sum(t["coverage_ratio"] for t in topics) / len(topics)
+        else:
+            ready_count = 0
+            avg_coverage = 0.0
 
-            coverage_data = {
-                "total_unlearned": len(topics),
-                "ready_to_learn": ready_count,
-                "average_coverage": avg_coverage,
-                "topics": topics[:50],  # Limit to top 50 for performance
-            }
+        coverage_data = {
+            "total_unlearned": len(topics),
+            "ready_to_learn": ready_count,
+            "average_coverage": avg_coverage,
+            "topics": topics[:50],  # Limit to top 50 for performance
+        }
 
-            self.logger.info(
-                f"📊 Coverage for {user_uid}: "
-                f"{ready_count}/{len(topics)} topics ready "
-                f"(avg coverage: {avg_coverage:.1%})"
-            )
+        self.logger.info(
+            f"📊 Coverage for {user_uid}: "
+            f"{ready_count}/{len(topics)} topics ready "
+            f"(avg coverage: {avg_coverage:.1%})"
+        )
 
-            return Result.ok(coverage_data)
+        return Result.ok(coverage_data)
 
 
 # ============================================================================

@@ -20,7 +20,7 @@ Part of LpService decomposition (October 24, 2025)
 - Extends BaseService[BackendOperations[Lp], Lp] for unified infrastructure
 - Uses specialized Cypher queries for path-step relationships
 - Class attributes match unified domain conventions
-- Accesses driver via self.backend.driver for graph-native operations
+- Accesses database via self.backend.execute_query for graph-native operations
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
     **Architecture (January 2026 Unified):**
     Extends BaseService[BackendOperations[Lp], Lp] for unified infrastructure.
     Uses specialized Cypher queries for path-step relationships via
-    self.backend.driver (no wrapper backend needed).
+    self.backend.execute_query (no wrapper backend needed).
 
     This service owns:
     - Path creation and persistence to Neo4j
@@ -224,7 +224,7 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
             estimated_hours=total_estimated_hours,
         )
 
-        if self.backend.driver:
+        if self.backend:
             persist_result = await self._persist_path(path, steps, user_uid)
             if persist_result.is_error:
                 logger.warning(f"Failed to persist path: {persist_result.error}")
@@ -269,7 +269,7 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
             estimated_hours=sum(s.estimated_hours for s in steps if s.estimated_hours),
         )
 
-        if self.backend.driver:
+        if self.backend:
             persist_result = await self._persist_path(path, steps, user_uid)
             if persist_result.is_error:
                 return Result.fail(persist_result.expect_error())
@@ -596,36 +596,38 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
             order_by: Field to sort by (e.g., 'uid', 'created_at', 'title')
             order_desc: Sort in descending order if True
         """
-        async with self.backend.driver.session() as session:
-            # Build dynamic ORDER BY clause
-            order_field = f"p.{order_by}" if order_by else "p.uid"
-            order_direction = "DESC" if order_desc else "ASC"
+        # Build dynamic ORDER BY clause
+        order_field = f"p.{order_by}" if order_by else "p.uid"
+        order_direction = "DESC" if order_desc else "ASC"
 
-            query = f"""
-            MATCH (p:Ku {{ku_type: 'learning_path'}})
-            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Ku {{ku_type: 'learning_step'}})
-            WITH p, collect({{step: s, sequence: r.sequence}}) as steps_data
-            ORDER BY {order_field} {order_direction}
-            """
-            if offset > 0:
-                query += " SKIP $offset"
-            if limit:
-                query += " LIMIT $limit"
-            query += " RETURN p, steps_data"
+        query = f"""
+        MATCH (p:Ku {{ku_type: 'learning_path'}})
+        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Ku {{ku_type: 'learning_step'}})
+        WITH p, collect({{step: s, sequence: r.sequence}}) as steps_data
+        ORDER BY {order_field} {order_direction}
+        """
+        if offset > 0:
+            query += " SKIP $offset"
+        if limit:
+            query += " LIMIT $limit"
+        query += " RETURN p, steps_data"
 
-            params = {"offset": offset}
-            if limit:
-                params["limit"] = limit
+        params: dict[str, Any] = {"offset": offset}
+        if limit:
+            params["limit"] = limit
 
-            result = await session.run(query, params)
+        query_result = await self.backend.execute_query(query, params)
 
-            paths = []
-            async for record in result:
-                path_data = dict(record["p"])
-                steps = self._build_steps_from_data(record["steps_data"])
-                paths.append(self._build_lp_from_record(path_data, steps))
+        if query_result.is_error:
+            return Result.fail(query_result)
 
-            return Result.ok(paths)
+        paths = []
+        for record in query_result.value or []:
+            path_data = dict(record["p"])
+            steps = self._build_steps_from_data(record["steps_data"])
+            paths.append(self._build_lp_from_record(path_data, steps))
+
+        return Result.ok(paths)
 
     async def get_path_steps(self, path_uid: str) -> Result[list[Ku]]:
         """
@@ -720,38 +722,40 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
         set_clauses.append("p.updated_at = $updated_at")
         params["updated_at"] = datetime.now().isoformat()
 
-        async with self.backend.driver.session() as session:
-            query = f"""
-            MATCH (p:Ku {{uid: $uid}})
-            SET {", ".join(set_clauses)}
-            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Ku {{ku_type: 'learning_step'}})
-            WITH p, collect(s) as steps
-            RETURN p, steps
-            """
+        query = f"""
+        MATCH (p:Ku {{uid: $uid}})
+        SET {", ".join(set_clauses)}
+        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Ku {{ku_type: 'learning_step'}})
+        WITH p, collect(s) as steps
+        RETURN p, steps
+        """
 
-            result = await session.run(query, params)
-            record = await result.single()
+        query_result = await self.backend.execute_query(query, params)
 
-            if not record:
-                return Result.fail(
-                    Errors.database(
-                        operation="update_path", message=f"Failed to update path {path_uid}"
-                    )
+        if query_result.is_error:
+            return Result.fail(query_result)
+
+        if not query_result.value:
+            return Result.fail(
+                Errors.database(
+                    operation="update_path", message=f"Failed to update path {path_uid}"
                 )
+            )
 
-            path_data = dict(record["p"])
-            steps_data = record["steps"]
+        record = query_result.value[0]
+        path_data = dict(record["p"])
+        steps_data = record["steps"]
 
-            steps = []
-            for step_node in steps_data:
-                step_dict = dict(step_node)
-                if step_dict.get("uid"):
-                    steps.append(from_neo4j_node(step_dict, Ku))
+        steps = []
+        for step_node in steps_data:
+            step_dict = dict(step_node) if not isinstance(step_node, dict) else step_node
+            if step_dict.get("uid"):
+                steps.append(from_neo4j_node(step_dict, Ku))
 
-            updated_path = self._build_lp_from_record(path_data, steps)
+        updated_path = self._build_lp_from_record(path_data, steps)
 
-            logger.info(f"✅ Updated learning path {path_uid}")
-            return Result.ok(updated_path)
+        logger.info(f"✅ Updated learning path {path_uid}")
+        return Result.ok(updated_path)
 
     @with_error_handling("delete_path", error_type="database", uid_param="path_uid")
     async def delete_path(self, path_uid: str) -> Result[bool]:
@@ -768,29 +772,30 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if not get_result.value:
             return Result.fail(Errors.not_found(resource="learning_path", identifier=path_uid))
 
-        async with self.backend.driver.session() as session:
-            result = await session.run(
-                """
-                MATCH (p:Ku {uid: $uid})
-                OPTIONAL MATCH (p)-[:HAS_STEP]->(s:Ku {ku_type: 'learning_step'})
-                DETACH DELETE p, s
-                RETURN count(p) as deleted_count
-                """,
-                uid=path_uid,
+        query_result = await self.backend.execute_query(
+            """
+            MATCH (p:Ku {uid: $uid})
+            OPTIONAL MATCH (p)-[:HAS_STEP]->(s:Ku {ku_type: 'learning_step'})
+            DETACH DELETE p, s
+            RETURN count(p) as deleted_count
+            """,
+            {"uid": path_uid},
+        )
+
+        if query_result.is_error:
+            return Result.fail(query_result)
+
+        deleted_count = query_result.value[0]["deleted_count"] if query_result.value else 0
+
+        if deleted_count == 0:
+            return Result.fail(
+                Errors.database(
+                    operation="delete_path", message=f"Failed to delete path {path_uid}"
+                )
             )
 
-            record = await result.single()
-            deleted_count = record["deleted_count"] if record else 0
-
-            if deleted_count == 0:
-                return Result.fail(
-                    Errors.database(
-                        operation="delete_path", message=f"Failed to delete path {path_uid}"
-                    )
-                )
-
-            logger.info(f"✅ Deleted learning path {path_uid}")
-            return Result.ok(True)
+        logger.info(f"✅ Deleted learning path {path_uid}")
+        return Result.ok(True)
 
     # ============================================================================
     # STEP MANAGEMENT (2026-01-30 - Universal Hierarchical Pattern)
@@ -818,14 +823,17 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
         ORDER BY sequence
         """
 
-        result = await self.backend.driver.execute_query(query, path_uid=path_uid)
+        result = await self.backend.execute_query(query, {"path_uid": path_uid})
 
-        if not result.records:
+        if result.is_error:
+            return Result.fail(result)
+
+        if not result.value:
             return Result.ok([])
 
         steps = []
-        for record in result.records:
-            ls_data = dict(record["ls"])
+        for record in result.value:
+            ls_data = record["ls"]
             steps.append(from_neo4j_node(ls_data, Ku))
 
         return Result.ok(steps)
@@ -850,12 +858,15 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
         LIMIT 1
         """
 
-        result = await self.backend.driver.execute_query(query, step_uid=step_uid)
+        result = await self.backend.execute_query(query, {"step_uid": step_uid})
 
-        if not result.records:
+        if result.is_error:
+            return Result.fail(result)
+
+        if not result.value:
             return Result.ok(None)
 
-        lp_data = dict(result.records[0]["lp"])
+        lp_data = result.value[0]["lp"]
         lp = self._to_domain_model(lp_data, KuDTO, Ku)
         return Result.ok(lp)
 
@@ -924,8 +935,10 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
         MATCH (ls:Ku {uid: $step_uid})
         RETURN ls
         """
-        step_check = await self.backend.driver.execute_query(step_query, step_uid=step_uid)
-        if not step_check.records:
+        step_check = await self.backend.execute_query(step_query, {"step_uid": step_uid})
+        if step_check.is_error:
+            return Result.fail(step_check)
+        if not step_check.value:
             return Result.fail(Errors.not_found(f"Learning step not found: {step_uid}"))
 
         # Create relationship
@@ -940,11 +953,15 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN true as success
         """
 
-        result = await self.backend.driver.execute_query(
-            query, path_uid=path_uid, step_uid=step_uid, sequence=sequence, order=order
+        result = await self.backend.execute_query(
+            query,
+            {"path_uid": path_uid, "step_uid": step_uid, "sequence": sequence, "order": order},
         )
 
-        if result.records:
+        if result.is_error:
+            return Result.fail(result)
+
+        if result.value:
             self.logger.info(f"Added step {step_uid} to path {path_uid} at sequence {sequence}")
             return Result.ok(True)
 
@@ -974,11 +991,14 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN count(r) as deleted_count
         """
 
-        result = await self.backend.driver.execute_query(
-            delete_query, path_uid=path_uid, step_uid=step_uid
+        result = await self.backend.execute_query(
+            delete_query, {"path_uid": path_uid, "step_uid": step_uid}
         )
 
-        if not result.records or result.records[0]["deleted_count"] == 0:
+        if result.is_error:
+            return Result.fail(result)
+
+        if not result.value or result.value[0]["deleted_count"] == 0:
             return Result.ok(False)
 
         # Reorder remaining steps to close gaps
@@ -993,7 +1013,7 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN count(r) as updated
         """
 
-        await self.backend.driver.execute_query(reorder_query, path_uid=path_uid)
+        await self.backend.execute_query(reorder_query, {"path_uid": path_uid})
 
         self.logger.info(
             f"Removed step {step_uid} from path {path_uid} and reordered remaining steps"
@@ -1025,11 +1045,14 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN count(r) as updated
         """
 
-        result = await self.backend.driver.execute_query(
-            query, path_uid=path_uid, step_uids=step_uids
+        result = await self.backend.execute_query(
+            query, {"path_uid": path_uid, "step_uids": step_uids}
         )
 
-        updated = result.records[0]["updated"] if result.records else 0
+        if result.is_error:
+            return Result.fail(result)
+
+        updated = result.value[0]["updated"] if result.value else 0
         success = updated == len(step_uids)
 
         if success:
@@ -1044,81 +1067,90 @@ class LpCoreService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("_persist_path", error_type="database", uid_param="user_uid")
     async def _persist_path(self, path: Ku, steps: list[Ku], user_uid: str) -> Result[bool]:
         """Persist a learning path to Neo4j graph."""
-        async with self.backend.driver.session() as session:
-            # Create path node with all fields
-            await session.run(
+        # Create path node with all fields
+        path_result = await self.backend.execute_query(
+            """
+            MERGE (u:User {uid: $user_uid})
+            CREATE (p:Ku {
+                uid: $uid,
+                ku_type: 'learning_path',
+                title: $title,
+                description: $description,
+                domain: $domain,
+                path_type: $path_type,
+                step_difficulty: $step_difficulty,
+                created_by: $created_by,
+                estimated_hours: $estimated_hours,
+                outcomes: $outcomes,
+                checkpoint_week_intervals: $checkpoint_week_intervals,
+                created_at: datetime(),
+                updated_at: datetime()
+            })
+            CREATE (u)-[:HAS_PATH]->(p)
+            """,
+            {
+                "user_uid": user_uid,
+                "uid": path.uid,
+                "title": path.title,
+                "description": path.description,
+                "domain": get_enum_value(path.domain),
+                "path_type": get_enum_value(path.path_type),
+                "step_difficulty": get_enum_value(path.step_difficulty),
+                "created_by": path.created_by,
+                "estimated_hours": path.estimated_hours,
+                "outcomes": list(path.outcomes),
+                "checkpoint_week_intervals": list(path.checkpoint_week_intervals),
+            },
+        )
+
+        if path_result.is_error:
+            return Result.fail(path_result)
+
+        # Create step nodes and relationships
+        for _i, step in enumerate(steps):
+            step_result = await self.backend.execute_query(
                 """
-                MERGE (u:User {uid: $user_uid})
-                CREATE (p:Ku {
+                MATCH (p:Ku {uid: $path_uid})
+                CREATE (s:Ku {
                     uid: $uid,
-                    ku_type: 'learning_path',
+                    ku_type: 'learning_step',
                     title: $title,
+                    intent: $intent,
                     description: $description,
-                    domain: $domain,
-                    path_type: $path_type,
-                    step_difficulty: $step_difficulty,
-                    created_by: $created_by,
+                    learning_path_uid: $learning_path_uid,
+                    sequence: $sequence,
+                    mastery_threshold: $mastery_threshold,
+                    current_mastery: $current_mastery,
                     estimated_hours: $estimated_hours,
-                    outcomes: $outcomes,
-                    checkpoint_week_intervals: $checkpoint_week_intervals,
+                    step_difficulty: $step_difficulty,
+                    status: $status,
+                    domain: $domain,
+                    priority: $priority,
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (u)-[:HAS_PATH]->(p)
+                CREATE (p)-[:HAS_STEP {sequence: $sequence}]->(s)
                 """,
-                user_uid=user_uid,
-                uid=path.uid,
-                title=path.title,
-                description=path.description,
-                domain=get_enum_value(path.domain),
-                path_type=get_enum_value(path.path_type),
-                step_difficulty=get_enum_value(path.step_difficulty),
-                created_by=path.created_by,
-                estimated_hours=path.estimated_hours,
-                outcomes=list(path.outcomes),
-                checkpoint_week_intervals=list(path.checkpoint_week_intervals),
+                {
+                    "path_uid": path.uid,
+                    "uid": step.uid,
+                    "title": step.title,
+                    "intent": step.intent,
+                    "description": step.description,
+                    "learning_path_uid": step.learning_path_uid,
+                    "sequence": step.sequence,
+                    "mastery_threshold": step.mastery_threshold,
+                    "current_mastery": step.current_mastery,
+                    "estimated_hours": step.estimated_hours,
+                    "step_difficulty": get_enum_value(step.step_difficulty),
+                    "status": get_enum_value(step.status),
+                    "domain": get_enum_value(step.domain),
+                    "priority": get_enum_value(step.priority),
+                },
             )
 
-            # Create step nodes and relationships
-            for _i, step in enumerate(steps):
-                await session.run(
-                    """
-                    MATCH (p:Ku {uid: $path_uid})
-                    CREATE (s:Ku {
-                        uid: $uid,
-                        ku_type: 'learning_step',
-                        title: $title,
-                        intent: $intent,
-                        description: $description,
-                        learning_path_uid: $learning_path_uid,
-                        sequence: $sequence,
-                        mastery_threshold: $mastery_threshold,
-                        current_mastery: $current_mastery,
-                        estimated_hours: $estimated_hours,
-                        step_difficulty: $step_difficulty,
-                        status: $status,
-                        domain: $domain,
-                        priority: $priority,
-                        created_at: datetime(),
-                        updated_at: datetime()
-                    })
-                    CREATE (p)-[:HAS_STEP {sequence: $sequence}]->(s)
-                    """,
-                    path_uid=path.uid,
-                    uid=step.uid,
-                    title=step.title,
-                    intent=step.intent,
-                    description=step.description,
-                    learning_path_uid=step.learning_path_uid,
-                    sequence=step.sequence,
-                    mastery_threshold=step.mastery_threshold,
-                    current_mastery=step.current_mastery,
-                    estimated_hours=step.estimated_hours,
-                    step_difficulty=get_enum_value(step.step_difficulty),
-                    status=get_enum_value(step.status),
-                    domain=get_enum_value(step.domain),
-                    priority=get_enum_value(step.priority),
-                )
+            if step_result.is_error:
+                return Result.fail(step_result)
 
-            logger.debug(f"✅ Persisted path {path.uid} with {len(steps)} steps")
-            return Result.ok(True)
+        logger.debug(f"✅ Persisted path {path.uid} with {len(steps)} steps")
+        return Result.ok(True)

@@ -735,7 +735,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         goals = []
         for record in result.value:
             goal_node = record["g"]
-            dto = KuDTO.from_dict(dict(goal_node))
+            dto = KuDTO.from_dict(goal_node)
             goals.append(Ku.from_dto(dto))
 
         return Result.ok(goals)
@@ -845,15 +845,17 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         ORDER BY subgoal.created_at
         """
 
-        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid)
+        result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
 
-        if not result.records:
+        if result.is_error:
+            return result
+        if not result.value:
             return Result.ok([])
 
         # Convert to Goal models
         goals = []
-        for record in result.records:
-            goal_data = dict(record["subgoal"])
+        for record in result.value:
+            goal_data = record["subgoal"]
             goal = self._to_domain_model(goal_data, KuDTO, Ku)
             goals.append(goal)
 
@@ -877,12 +879,14 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         LIMIT 1
         """
 
-        result = await self.backend.driver.execute_query(query, subgoal_uid=subgoal_uid)
+        result = await self.backend.execute_query(query, {"subgoal_uid": subgoal_uid})
 
-        if not result.records:
+        if result.is_error:
+            return result
+        if not result.value:
             return Result.ok(None)
 
-        parent_data = dict(result.records[0]["parent"])
+        parent_data = result.value[0]["parent"]
         parent = self._to_domain_model(parent_data, KuDTO, Ku)
         return Result.ok(parent)
 
@@ -942,33 +946,43 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
 
         current_goal = self._to_domain_model(current_result.value, KuDTO, Ku)
 
-        ancestors_result = await self.backend.driver.execute_query(
-            ancestors_query, goal_uid=goal_uid
-        )
-        siblings_result = await self.backend.driver.execute_query(siblings_query, goal_uid=goal_uid)
-        children_result = await self.backend.driver.execute_query(children_query, goal_uid=goal_uid)
+        ancestors_result = await self.backend.execute_query(ancestors_query, {"goal_uid": goal_uid})
+        siblings_result = await self.backend.execute_query(siblings_query, {"goal_uid": goal_uid})
+        children_result = await self.backend.execute_query(children_query, {"goal_uid": goal_uid})
 
         # Process ancestors
         ancestors = []
-        if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
-            for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
-                goal_data = dict(node)
+        if (
+            not ancestors_result.is_error
+            and ancestors_result.value
+            and ancestors_result.value[0]["ancestors"]
+        ):
+            for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
+                goal_data = node
                 ancestors.append(self._to_domain_model(goal_data, KuDTO, Ku))
 
         # Process siblings
         siblings = []
-        if siblings_result.records and siblings_result.records[0]["siblings"]:
-            for node in siblings_result.records[0]["siblings"]:
+        if (
+            not siblings_result.is_error
+            and siblings_result.value
+            and siblings_result.value[0]["siblings"]
+        ):
+            for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
-                    goal_data = dict(node)
+                    goal_data = node
                     siblings.append(self._to_domain_model(goal_data, KuDTO, Ku))
 
         # Process children
         children = []
-        if children_result.records and children_result.records[0]["children"]:
-            for node in children_result.records[0]["children"]:
+        if (
+            not children_result.is_error
+            and children_result.value
+            and children_result.value[0]["children"]
+        ):
+            for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
-                    goal_data = dict(node)
+                    goal_data = node
                     children.append(self._to_domain_model(goal_data, KuDTO, Ku))
 
         return Result.ok(
@@ -1026,11 +1040,15 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         RETURN true as success
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, subgoal_uid=subgoal_uid, weight=progress_weight
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "subgoal_uid": subgoal_uid, "weight": progress_weight}
         )
 
-        if result.records:
+        if result.is_error:
+            return Result.fail(
+                Errors.database(operation="create", message="Failed to create subgoal relationship")
+            )
+        if result.value:
             self.logger.info(
                 f"Created subgoal relationship: {parent_uid} -> {subgoal_uid} (weight: {progress_weight})"
             )
@@ -1059,12 +1077,12 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         RETURN count(r1) + count(r2) as deleted_count
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, subgoal_uid=subgoal_uid
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "subgoal_uid": subgoal_uid}
         )
 
-        if result.records:
-            deleted = result.records[0]["deleted_count"]
+        if not result.is_error and result.value:
+            deleted = result.value[0]["deleted_count"]
             if deleted > 0:
                 self.logger.info(f"Removed subgoal relationship: {parent_uid} -> {subgoal_uid}")
                 return Result.ok(True)
@@ -1079,11 +1097,13 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         RETURN count(path) > 0 as would_create_cycle
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, child_uid=child_uid
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "child_uid": child_uid}
         )
 
-        if result.records:
-            return result.records[0]["would_create_cycle"]
+        if result.is_error:
+            return False
+        if result.value:
+            return result.value[0]["would_create_cycle"]
 
         return False

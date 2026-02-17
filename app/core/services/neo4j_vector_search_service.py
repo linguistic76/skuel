@@ -20,9 +20,12 @@ See: /docs/architecture/NEO4J_GENAI_ARCHITECTURE.md
 import time
 from datetime import datetime
 from operator import itemgetter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.config.unified_config import VectorSearchConfig
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 from core.models.semantic import SearchMetrics
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -39,7 +42,7 @@ class Neo4jVectorSearchService:
 
     def __init__(
         self,
-        driver: Any,
+        executor: "QueryExecutor",
         embeddings_service: Any | None = None,
         config: VectorSearchConfig | None = None,
     ) -> None:
@@ -47,11 +50,11 @@ class Neo4jVectorSearchService:
         Initialize vector search service.
 
         Args:
-            driver: Neo4j driver instance
+            executor: Query executor for database operations
             embeddings_service: Optional embeddings service for text-to-embedding conversion
             config: Optional vector search configuration (uses defaults if not provided)
         """
-        self.driver = driver
+        self.executor = executor
         self.embeddings = embeddings_service
         self.config = config or VectorSearchConfig()
         self.logger = logger
@@ -98,24 +101,24 @@ class Neo4jVectorSearchService:
             "min_score": min_score,
         }
 
-        try:
-            records, _, _ = await self.driver.execute_query(query, params)
+        result = await self.executor.execute_query(query, params)
 
-            if not records:
-                return Result.ok([])
-
-            # Convert to list of dicts
-            similar = [
-                {"node": dict(record["node"]), "score": record["score"]} for record in records
-            ]
-
-            return Result.ok(similar)
-
-        except Exception as e:
-            self.logger.error(f"Vector search failed: {e}")
+        if result.is_error:
+            self.logger.error(f"Vector search failed: {result.error}")
             return Result.fail(
-                Errors.database(operation="vector_search", message=f"Search failed: {e}")
+                Errors.database(operation="vector_search", message=f"Search failed: {result.error}")
             )
+
+        records = result.value
+        if not records:
+            return Result.ok([])
+
+        # Convert to list of dicts
+        similar = [
+            {"node": record["node"], "score": record["score"]} for record in records
+        ]
+
+        return Result.ok(similar)
 
     async def find_similar_by_text(
         self,
@@ -193,26 +196,26 @@ class Neo4jVectorSearchService:
         RETURN source.embedding as embedding
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(query, {"uid": uid})
+        result = await self.executor.execute_query(query, {"uid": uid})
 
-            if not records or not records[0].get("embedding"):
-                return Result.fail(
-                    Errors.not_found(
-                        resource=label,
-                        identifier=uid,
-                    )
-                )
-
-            source_embedding = records[0]["embedding"]
-
-        except Exception as e:
-            self.logger.error(f"Failed to get source embedding: {e}")
+        if result.is_error:
+            self.logger.error(f"Failed to get source embedding: {result.error}")
             return Result.fail(
                 Errors.database(
-                    operation="get_embedding", message=f"Failed to retrieve embedding: {e}"
+                    operation="get_embedding", message=f"Failed to retrieve embedding: {result.error}"
                 )
             )
+
+        records = result.value
+        if not records or not records[0].get("embedding"):
+            return Result.fail(
+                Errors.not_found(
+                    resource=label,
+                    identifier=uid,
+                )
+            )
+
+        source_embedding = records[0]["embedding"]
 
         # Find similar nodes
         similar_result = await self.find_similar_by_vector(
@@ -424,22 +427,22 @@ class Neo4jVectorSearchService:
 
         params = {"index_name": index_name, "query_text": query_text, "limit": limit}
 
-        try:
-            records, _, _ = await self.driver.execute_query(query, params)
+        result = await self.executor.execute_query(query, params)
 
-            if not records:
-                return Result.ok([])
-
-            # Convert to list of dicts
-            nodes = [{"node": dict(record["node"]), "score": record["score"]} for record in records]
-
-            return Result.ok(nodes)
-
-        except Exception as e:
+        if result.is_error:
             # Full-text index might not exist - return empty results instead of error
             # This allows hybrid search to fall back to vector-only
-            self.logger.warning(f"Full-text search failed (index may not exist): {e}")
+            self.logger.warning(f"Full-text search failed (index may not exist): {result.error}")
             return Result.ok([])
+
+        records = result.value
+        if not records:
+            return Result.ok([])
+
+        # Convert to list of dicts
+        nodes = [{"node": record["node"], "score": record["score"]} for record in records]
+
+        return Result.ok(nodes)
 
     def _create_metrics(
         self,
@@ -750,10 +753,12 @@ class Neo4jVectorSearchService:
         }
 
         try:
-            records, _, _ = await self.driver.execute_query(query, params)
+            result = await self.executor.execute_query(query, params)
 
-            if not records:
+            if result.is_error or not result.value:
                 return 0.0
+
+            records = result.value
 
             # Aggregate boosts from all relationships
             total_boost = 0.0
@@ -958,27 +963,26 @@ class Neo4jVectorSearchService:
             m IS NOT NULL as has_mastered
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query, {"user_uid": user_uid, "ku_uids": ku_uids}
-            )
+        result = await self.executor.execute_query(
+            query, {"user_uid": user_uid, "ku_uids": ku_uids}
+        )
 
-            states = {}
-            for record in records:
-                if record["has_mastered"]:
-                    state = "mastered"
-                elif record["has_in_progress"]:
-                    state = "in_progress"
-                elif record["has_viewed"]:
-                    state = "viewed"
-                else:
-                    state = "none"
-                states[record["ku_uid"]] = state
-
-            return Result.ok(states)
-
-        except Exception as e:
-            self.logger.error(f"Failed to batch fetch learning states: {e}")
+        if result.is_error:
+            self.logger.error(f"Failed to batch fetch learning states: {result.error}")
             return Result.fail(
-                Errors.database(operation="get_learning_states_batch", message=str(e))
+                Errors.database(operation="get_learning_states_batch", message=str(result.error))
             )
+
+        states = {}
+        for record in result.value:
+            if record["has_mastered"]:
+                state = "mastered"
+            elif record["has_in_progress"]:
+                state = "in_progress"
+            elif record["has_viewed"]:
+                state = "viewed"
+            else:
+                state = "none"
+            states[record["ku_uid"]] = state
+
+        return Result.ok(states)

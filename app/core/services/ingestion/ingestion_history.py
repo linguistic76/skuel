@@ -26,7 +26,7 @@ Graph Model:
     })
 
 Usage:
-    service = IngestionHistoryService(driver)
+    service = IngestionHistoryService(executor)
     operation_id = await service.create_entry("directory", "user_admin", "/vault/docs")
     # ... perform ingestion ...
     await service.update_entry(operation_id, "completed", stats, errors)
@@ -35,12 +35,13 @@ Usage:
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
-
-from neo4j import AsyncDriver
+from typing import TYPE_CHECKING, Any
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger("skuel.services.ingestion.ingestion_history")
 
@@ -63,14 +64,14 @@ class IngestionHistoryEntry:
 class IngestionHistoryService:
     """Tracks ingestion operations in Neo4j for audit trail."""
 
-    def __init__(self, driver: AsyncDriver) -> None:
+    def __init__(self, executor: "QueryExecutor") -> None:
         """
         Initialize ingestion history service.
 
         Args:
-            driver: Neo4j async driver
+            executor: Query executor for database operations
         """
-        self.driver = driver
+        self.executor = executor
         self.logger = logger
 
     async def ensure_constraints(self) -> None:
@@ -80,7 +81,10 @@ class IngestionHistoryService:
         FOR (ih:IngestionHistory)
         REQUIRE ih.operation_id IS UNIQUE
         """
-        await self.driver.execute_query(constraint_query, database_="neo4j")
+        result = await self.executor.execute_query(constraint_query)
+        if result.is_error:
+            self.logger.error(f"Failed to ensure IngestionHistory constraints: {result.error}")
+            return
         self.logger.info("IngestionHistory constraints ensured")
 
     async def create_entry(
@@ -115,31 +119,28 @@ class IngestionHistoryService:
         RETURN ih.operation_id AS operation_id
         """
 
-        try:
-            await self.driver.execute_query(
-                query,
-                {
-                    "operation_id": operation_id,
-                    "operation_type": operation_type,
-                    "started_at": started_at.isoformat(),
-                    "user_uid": user_uid,
-                    "source_path": source_path,
-                },
-                database_="neo4j",
-            )
+        result = await self.executor.execute_query(
+            query,
+            {
+                "operation_id": operation_id,
+                "operation_type": operation_type,
+                "started_at": started_at.isoformat(),
+                "user_uid": user_uid,
+                "source_path": source_path,
+            },
+        )
 
-            self.logger.info(f"Created ingestion history entry: {operation_id}")
-            return Result.ok(operation_id)
-
-        except Exception as e:
-            self.logger.error(f"Failed to create ingestion history entry: {e}")
+        if result.is_error:
+            self.logger.error(f"Failed to create ingestion history entry: {result.error}")
             return Result.fail(
                 Errors.database(
                     "create_ingestion_history",
                     "Failed to create ingestion history entry",
-                    details={"error": str(e)},
                 )
             )
+
+        self.logger.info(f"Created ingestion history entry: {operation_id}")
+        return Result.ok(operation_id)
 
     async def update_entry(
         self,
@@ -188,25 +189,23 @@ class IngestionHistoryService:
             "duration_seconds": stats.get("duration_seconds", 0.0),
         }
 
-        try:
-            await self.driver.execute_query(query, params, database_="neo4j")
+        result = await self.executor.execute_query(query, params)
 
-            # Create error nodes if any
-            if errors:
-                await self._create_error_nodes(operation_id, errors)
-
-            self.logger.info(f"Updated ingestion history entry: {operation_id} (status: {status})")
-            return Result.ok(None)
-
-        except Exception as e:
-            self.logger.error(f"Failed to update ingestion history entry: {e}")
+        if result.is_error:
+            self.logger.error(f"Failed to update ingestion history entry: {result.error}")
             return Result.fail(
                 Errors.database(
                     "update_ingestion_history",
                     "Failed to update ingestion history entry",
-                    details={"error": str(e)},
                 )
             )
+
+        # Create error nodes if any
+        if errors:
+            await self._create_error_nodes(operation_id, errors)
+
+        self.logger.info(f"Updated ingestion history entry: {operation_id} (status: {status})")
+        return Result.ok(None)
 
     async def _create_error_nodes(
         self,
@@ -235,12 +234,14 @@ class IngestionHistoryService:
         """
 
         try:
-            await self.driver.execute_query(
+            result = await self.executor.execute_query(
                 query,
                 {"operation_id": operation_id, "errors": errors},
-                database_="neo4j",
             )
-            self.logger.info(f"Created {len(errors)} error nodes for ingestion {operation_id}")
+            if result.is_error:
+                self.logger.error(f"Failed to create error nodes: {result.error}")
+            else:
+                self.logger.info(f"Created {len(errors)} error nodes for ingestion {operation_id}")
         except Exception as e:
             self.logger.error(f"Failed to create error nodes: {e}")
 
@@ -269,100 +270,22 @@ class IngestionHistoryService:
         LIMIT $limit
         """
 
-        try:
-            result = await self.driver.execute_query(
-                query,
-                {"limit": limit, "offset": offset},
-                database_="neo4j",
-            )
+        result = await self.executor.execute_query(
+            query,
+            {"limit": limit, "offset": offset},
+        )
 
-            entries: list[IngestionHistoryEntry] = []
-            for record in result.records:
-                ih = record["ih"]
-                errors = record["errors"]
-
-                # Convert Neo4j datetime to Python datetime
-                started_at = ih["started_at"]
-                completed_at = ih.get("completed_at")
-
-                # Convert error nodes to dicts
-                error_dicts = [
-                    {
-                        "file": e["file"],
-                        "error": e["error"],
-                        "stage": e["stage"],
-                        "error_type": e.get("error_type", "unknown"),
-                        "entity_type": e.get("entity_type"),
-                        "suggestion": e.get("suggestion"),
-                    }
-                    for e in errors
-                    if e is not None
-                ]
-
-                # Build stats dict
-                stats_dict = {
-                    "total_files": ih.get("total_files", 0),
-                    "successful": ih.get("successful", 0),
-                    "failed": ih.get("failed", 0),
-                    "nodes_created": ih.get("nodes_created", 0),
-                    "nodes_updated": ih.get("nodes_updated", 0),
-                    "relationships_created": ih.get("relationships_created", 0),
-                    "duration_seconds": ih.get("duration_seconds", 0.0),
-                }
-
-                entry = IngestionHistoryEntry(
-                    operation_id=ih["operation_id"],
-                    operation_type=ih["operation_type"],
-                    started_at=started_at,
-                    completed_at=completed_at,
-                    status=ih["status"],
-                    user_uid=ih["user_uid"],
-                    source_path=ih["source_path"],
-                    stats=stats_dict,
-                    errors=error_dicts,
-                )
-                entries.append(entry)
-
-            return Result.ok(entries)
-
-        except Exception as e:
-            self.logger.error(f"Failed to retrieve ingestion history: {e}")
+        if result.is_error:
+            self.logger.error(f"Failed to retrieve ingestion history: {result.error}")
             return Result.fail(
                 Errors.database(
                     "get_ingestion_history",
                     "Failed to retrieve ingestion history",
-                    details={"error": str(e)},
                 )
             )
 
-    async def get_entry(self, operation_id: str) -> Result[IngestionHistoryEntry | None]:
-        """
-        Get specific ingestion operation by ID.
-
-        Args:
-            operation_id: UUID of the ingestion operation
-
-        Returns:
-            Result with IngestionHistoryEntry or None if not found
-        """
-        query = """
-        MATCH (ih:IngestionHistory {operation_id: $operation_id})
-        OPTIONAL MATCH (ih)-[:HAD_ERROR]->(e:IngestionError)
-        WITH ih, COLLECT(e) AS errors
-        RETURN ih, errors
-        """
-
-        try:
-            result = await self.driver.execute_query(
-                query,
-                {"operation_id": operation_id},
-                database_="neo4j",
-            )
-
-            if not result.records:
-                return Result.ok(None)
-
-            record = result.records[0]
+        entries: list[IngestionHistoryEntry] = []
+        for record in result.value:
             ih = record["ih"]
             errors = record["errors"]
 
@@ -406,18 +329,90 @@ class IngestionHistoryService:
                 stats=stats_dict,
                 errors=error_dicts,
             )
+            entries.append(entry)
 
-            return Result.ok(entry)
+        return Result.ok(entries)
 
-        except Exception as e:
-            self.logger.error(f"Failed to retrieve ingestion entry: {e}")
+    async def get_entry(self, operation_id: str) -> Result[IngestionHistoryEntry | None]:
+        """
+        Get specific ingestion operation by ID.
+
+        Args:
+            operation_id: UUID of the ingestion operation
+
+        Returns:
+            Result with IngestionHistoryEntry or None if not found
+        """
+        query = """
+        MATCH (ih:IngestionHistory {operation_id: $operation_id})
+        OPTIONAL MATCH (ih)-[:HAD_ERROR]->(e:IngestionError)
+        WITH ih, COLLECT(e) AS errors
+        RETURN ih, errors
+        """
+
+        result = await self.executor.execute_query(
+            query,
+            {"operation_id": operation_id},
+        )
+
+        if result.is_error:
+            self.logger.error(f"Failed to retrieve ingestion entry: {result.error}")
             return Result.fail(
                 Errors.database(
                     "get_ingestion_entry",
                     "Failed to retrieve ingestion entry",
-                    details={"error": str(e)},
                 )
             )
+
+        if not result.value:
+            return Result.ok(None)
+
+        record = result.value[0]
+        ih = record["ih"]
+        errors = record["errors"]
+
+        # Convert Neo4j datetime to Python datetime
+        started_at = ih["started_at"]
+        completed_at = ih.get("completed_at")
+
+        # Convert error nodes to dicts
+        error_dicts = [
+            {
+                "file": e["file"],
+                "error": e["error"],
+                "stage": e["stage"],
+                "error_type": e.get("error_type", "unknown"),
+                "entity_type": e.get("entity_type"),
+                "suggestion": e.get("suggestion"),
+            }
+            for e in errors
+            if e is not None
+        ]
+
+        # Build stats dict
+        stats_dict = {
+            "total_files": ih.get("total_files", 0),
+            "successful": ih.get("successful", 0),
+            "failed": ih.get("failed", 0),
+            "nodes_created": ih.get("nodes_created", 0),
+            "nodes_updated": ih.get("nodes_updated", 0),
+            "relationships_created": ih.get("relationships_created", 0),
+            "duration_seconds": ih.get("duration_seconds", 0.0),
+        }
+
+        entry = IngestionHistoryEntry(
+            operation_id=ih["operation_id"],
+            operation_type=ih["operation_type"],
+            started_at=started_at,
+            completed_at=completed_at,
+            status=ih["status"],
+            user_uid=ih["user_uid"],
+            source_path=ih["source_path"],
+            stats=stats_dict,
+            errors=error_dicts,
+        )
+
+        return Result.ok(entry)
 
     async def get_total_count(self) -> Result[int]:
         """
@@ -431,20 +426,19 @@ class IngestionHistoryService:
         RETURN COUNT(ih) AS total
         """
 
-        try:
-            result = await self.driver.execute_query(query, database_="neo4j")
-            total = result.records[0]["total"] if result.records else 0
-            return Result.ok(total)
+        result = await self.executor.execute_query(query)
 
-        except Exception as e:
-            self.logger.error(f"Failed to get ingestion history count: {e}")
+        if result.is_error:
+            self.logger.error(f"Failed to get ingestion history count: {result.error}")
             return Result.fail(
                 Errors.database(
                     "get_ingestion_count",
                     "Failed to get ingestion history count",
-                    details={"error": str(e)},
                 )
             )
+
+        total = result.value[0]["total"] if result.value else 0
+        return Result.ok(total)
 
 
 __all__ = ["IngestionHistoryEntry", "IngestionHistoryService"]

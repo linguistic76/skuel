@@ -1024,15 +1024,17 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         ORDER BY subchoice.created_at
         """
 
-        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid)
+        result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
 
-        if not result.records:
+        if result.is_error:
+            return result
+        if not result.value:
             return Result.ok([])
 
         # Convert to Choice models
         choices = []
-        for record in result.records:
-            choice_data = dict(record["subchoice"])
+        for record in result.value:
+            choice_data = record["subchoice"]
             choice = self._to_domain_model(choice_data, KuDTO, Ku)
             choices.append(choice)
 
@@ -1056,12 +1058,14 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         LIMIT 1
         """
 
-        result = await self.backend.driver.execute_query(query, subchoice_uid=subchoice_uid)
+        result = await self.backend.execute_query(query, {"subchoice_uid": subchoice_uid})
 
-        if not result.records:
+        if result.is_error:
+            return result
+        if not result.value:
             return Result.ok(None)
 
-        parent_data = dict(result.records[0]["parent"])
+        parent_data = result.value[0]["parent"]
         parent = self._to_domain_model(parent_data, KuDTO, Ku)
         return Result.ok(parent)
 
@@ -1121,37 +1125,49 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         current_choice = self._to_domain_model(current_result.value, KuDTO, Ku)
 
-        ancestors_result = await self.backend.driver.execute_query(
-            ancestors_query, choice_uid=choice_uid
+        ancestors_result = await self.backend.execute_query(
+            ancestors_query, {"choice_uid": choice_uid}
         )
-        siblings_result = await self.backend.driver.execute_query(
-            siblings_query, choice_uid=choice_uid
+        siblings_result = await self.backend.execute_query(
+            siblings_query, {"choice_uid": choice_uid}
         )
-        children_result = await self.backend.driver.execute_query(
-            children_query, choice_uid=choice_uid
+        children_result = await self.backend.execute_query(
+            children_query, {"choice_uid": choice_uid}
         )
 
         # Process ancestors
         ancestors = []
-        if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
-            for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
-                choice_data = dict(node)
+        if (
+            not ancestors_result.is_error
+            and ancestors_result.value
+            and ancestors_result.value[0]["ancestors"]
+        ):
+            for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
+                choice_data = node
                 ancestors.append(self._to_domain_model(choice_data, KuDTO, Ku))
 
         # Process siblings
         siblings = []
-        if siblings_result.records and siblings_result.records[0]["siblings"]:
-            for node in siblings_result.records[0]["siblings"]:
+        if (
+            not siblings_result.is_error
+            and siblings_result.value
+            and siblings_result.value[0]["siblings"]
+        ):
+            for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
-                    choice_data = dict(node)
+                    choice_data = node
                     siblings.append(self._to_domain_model(choice_data, KuDTO, Ku))
 
         # Process children
         children = []
-        if children_result.records and children_result.records[0]["children"]:
-            for node in children_result.records[0]["children"]:
+        if (
+            not children_result.is_error
+            and children_result.value
+            and children_result.value[0]["children"]
+        ):
+            for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
-                    choice_data = dict(node)
+                    choice_data = node
                     children.append(self._to_domain_model(choice_data, KuDTO, Ku))
 
         return Result.ok(
@@ -1224,9 +1240,15 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         """
 
         params = {"parent_uid": parent_uid, "subchoice_uid": subchoice_uid, **rel_props}
-        result = await self.backend.driver.execute_query(query, **params)
+        result = await self.backend.execute_query(query, params)
 
-        if result.records:
+        if result.is_error:
+            return Result.fail(
+                Errors.database(
+                    operation="create", message="Failed to create subchoice relationship"
+                )
+            )
+        if result.value:
             self.logger.info(
                 f"Created subchoice relationship: {parent_uid} -> {subchoice_uid} (order: {order})"
             )
@@ -1257,12 +1279,12 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN count(r1) + count(r2) as deleted_count
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, subchoice_uid=subchoice_uid
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "subchoice_uid": subchoice_uid}
         )
 
-        if result.records:
-            deleted = result.records[0]["deleted_count"]
+        if not result.is_error and result.value:
+            deleted = result.value[0]["deleted_count"]
             if deleted > 0:
                 self.logger.info(f"Removed subchoice relationship: {parent_uid} -> {subchoice_uid}")
                 return Result.ok(True)
@@ -1277,11 +1299,13 @@ class ChoicesCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN count(path) > 0 as would_create_cycle
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, child_uid=child_uid
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "child_uid": child_uid}
         )
 
-        if result.records:
-            return result.records[0]["would_create_cycle"]
+        if result.is_error:
+            return False
+        if result.value:
+            return result.value[0]["would_create_cycle"]
 
         return False

@@ -20,7 +20,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
@@ -57,7 +56,7 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
 
     def __init__(
         self,
-        backend: UniversalNeo4jBackend[Ku],
+        backend: BackendOperations[Ku],
         storage_path: str = "/tmp/skuel_reports",
         event_bus=None,
     ) -> None:
@@ -65,7 +64,7 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
         Initialize Ku submission service.
 
         Args:
-            backend: UniversalNeo4jBackend for Ku storage
+            backend: Backend for Ku storage
             storage_path: Base path for file storage (default: /tmp/skuel_reports)
             event_bus: Event bus for domain events (optional)
         """

@@ -118,7 +118,7 @@ class LsService(FacadeDelegationMixin):
 
     def __init__(
         self,
-        driver: AsyncDriver | None = None,
+        executor: Any = None,
         graph_intel: Any = None,
         event_bus: Any = None,
         ai_service: LsAIService | None = None,
@@ -134,13 +134,13 @@ class LsService(FacadeDelegationMixin):
         matching Activity Domain patterns exactly.
 
         Args:
-            driver: Neo4j async driver (REQUIRED for persistence)
+            executor: Query executor (REQUIRED for persistence)
             graph_intel: GraphIntelligenceService for cross-domain queries (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
         """
-        if not driver:
+        if not executor:
             raise ValueError(
-                "LsService driver is REQUIRED. "
+                "LsService executor is REQUIRED. "
                 "SKUEL follows fail-fast architecture - all required dependencies "
                 "must be provided at initialization."
             )
@@ -183,7 +183,7 @@ class LsService(FacadeDelegationMixin):
         self.intelligence: LsIntelligenceService = common.intelligence
 
         # Store dependencies
-        self.driver = driver
+        self.executor = executor
         self.event_bus = event_bus
         self.ai: LsAIService | None = ai_service
         self.logger = logger
@@ -289,10 +289,12 @@ class LsService(FacadeDelegationMixin):
             MATCH (p:Ku {uid: $path_uid})-[r:HAS_STEP]->()
             RETURN coalesce(max(r.sequence), -1) + 1 as next_sequence
             """
-            async with self.driver.session() as session:
-                seq_result = await session.run(seq_query, {"path_uid": path_uid})
-                seq_record = await seq_result.single()
-                sequence = seq_record["next_sequence"] if seq_record else 0
+            seq_result = await self.executor.execute_query(seq_query, {"path_uid": path_uid})
+            if seq_result.is_error:
+                sequence = 0
+            else:
+                records = seq_result.value
+                sequence = records[0]["next_sequence"] if records else 0
 
         # Create relationship via UnifiedRelationshipService
         # LS config has "in_paths" as incoming HAS_STEP from LP

@@ -27,9 +27,8 @@ from core.utils.result_simplified import Errors, Result
 from .lifepath_types import LifePathDesignation
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
-
     from core.services.lp_service import LpService
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger(__name__)
 
@@ -44,17 +43,17 @@ class LifePathCoreService:
 
     def __init__(
         self,
-        driver: AsyncDriver | None = None,
+        executor: QueryExecutor | None = None,
         lp_service: LpService | None = None,
     ) -> None:
         """
         Initialize core service.
 
         Args:
-            driver: Neo4j async driver
+            executor: Query executor for database operations
             lp_service: LP service for validation
         """
-        self.driver = driver
+        self.executor = executor
         self.lp_service = lp_service
         logger.info("LifePathCoreService initialized")
 
@@ -71,8 +70,8 @@ class LifePathCoreService:
         Returns:
             Result[LifePathDesignation | None]
         """
-        if not self.driver:
-            return Result.fail(Errors.system("Driver not available", operation="get_designation"))
+        if not self.executor:
+            return Result.fail(Errors.system("Executor not available", operation="get_designation"))
 
         query = """
         MATCH (u:User {uid: $user_uid})
@@ -86,14 +85,20 @@ class LifePathCoreService:
         """
 
         try:
-            result = await self.driver.execute_query(
-                query, {"user_uid": user_uid}, database_="neo4j"
+            result = await self.executor.execute_query(
+                query, {"user_uid": user_uid}
             )
 
-            if not result.records:
+            if result.is_error:
+                logger.error(f"Failed to get designation for {user_uid}: {result.error}")
+                return Result.fail(
+                    Errors.database("get_designation", f"Failed to get designation: {result.error}")
+                )
+
+            if not result.value:
                 return Result.ok(None)
 
-            record = result.records[0]
+            record = result.value[0]
 
             # User exists but may not have a designation
             vision_statement = record.get("vision_statement") or ""
@@ -140,8 +145,8 @@ class LifePathCoreService:
         Returns:
             Result[LifePathDesignation] with updated data
         """
-        if not self.driver:
-            return Result.fail(Errors.system("Driver not available", operation="save_vision"))
+        if not self.executor:
+            return Result.fail(Errors.system("Executor not available", operation="save_vision"))
 
         now = datetime.now()
 
@@ -154,7 +159,7 @@ class LifePathCoreService:
         """
 
         try:
-            result = await self.driver.execute_query(
+            result = await self.executor.execute_query(
                 query,
                 {
                     "user_uid": user_uid,
@@ -162,10 +167,13 @@ class LifePathCoreService:
                     "vision_themes": vision_themes,
                     "captured_at": now.isoformat(),
                 },
-                database_="neo4j",
             )
 
-            if not result.records:
+            if result.is_error:
+                logger.error(f"Failed to save vision for {user_uid}: {result.error}")
+                return Result.fail(Errors.database("save_vision", f"Failed to save vision: {result.error}"))
+
+            if not result.value:
                 return Result.fail(Errors.not_found("User", user_uid))
 
             logger.info(f"Vision saved for user {user_uid}")
@@ -201,9 +209,9 @@ class LifePathCoreService:
         Returns:
             Result[LifePathDesignation] with updated data
         """
-        if not self.driver:
+        if not self.executor:
             return Result.fail(
-                Errors.system("Driver not available", operation="designate_life_path")
+                Errors.system("Executor not available", operation="designate_life_path")
             )
 
         # Validate LP exists
@@ -238,20 +246,25 @@ class LifePathCoreService:
         """
 
         try:
-            result = await self.driver.execute_query(
+            result = await self.executor.execute_query(
                 query,
                 {
                     "user_uid": user_uid,
                     "life_path_uid": life_path_uid,
                     "designated_at": now.isoformat(),
                 },
-                database_="neo4j",
             )
 
-            if not result.records:
+            if result.is_error:
+                return Result.fail(
+                    Errors.database("designate_life_path", f"Failed to designate life path: {result.error}")
+                )
+
+            records = result.value or []
+            if not records:
                 return Result.fail(Errors.not_found("User or LP", f"{user_uid} or {life_path_uid}"))
 
-            record = result.records[0]
+            record = records[0]
             logger.info(f"Life path {life_path_uid} designated for user {user_uid}")
 
             return Result.ok(
@@ -284,9 +297,9 @@ class LifePathCoreService:
         Returns:
             Result[bool] True if removed, False if no designation existed
         """
-        if not self.driver:
+        if not self.executor:
             return Result.fail(
-                Errors.system("Driver not available", operation="remove_designation")
+                Errors.system("Executor not available", operation="remove_designation")
             )
 
         query = """
@@ -297,12 +310,18 @@ class LifePathCoreService:
         """
 
         try:
-            result = await self.driver.execute_query(
-                query, {"user_uid": user_uid}, database_="neo4j"
+            result = await self.executor.execute_query(
+                query, {"user_uid": user_uid}
             )
 
-            if result.records:
-                removed = result.records[0].get("removed", False)
+            if result.is_error:
+                return Result.fail(
+                    Errors.database("remove_designation", f"Failed to remove designation: {result.error}")
+                )
+
+            records = result.value or []
+            if records:
+                removed = records[0].get("removed", False)
                 if removed:
                     logger.info(f"Life path designation removed for user {user_uid}")
                 return Result.ok(removed)
@@ -334,9 +353,9 @@ class LifePathCoreService:
         Returns:
             Result[bool] True if updated
         """
-        if not self.driver:
+        if not self.executor:
             return Result.fail(
-                Errors.system("Driver not available", operation="update_alignment_score")
+                Errors.system("Executor not available", operation="update_alignment_score")
             )
 
         alignment_level = AlignmentLevel.from_score(alignment_score)
@@ -377,9 +396,15 @@ class LifePathCoreService:
         query += "\nRETURN r.alignment_score AS score"
 
         try:
-            result = await self.driver.execute_query(query, params, database_="neo4j")
+            result = await self.executor.execute_query(query, params)
 
-            if result.records:
+            if result.is_error:
+                return Result.fail(
+                    Errors.database("update_alignment_score", f"Failed to update alignment score: {result.error}")
+                )
+
+            records = result.value or []
+            if records:
                 logger.info(
                     f"Alignment score updated for {user_uid}: {alignment_score:.2f} ({alignment_level.value})"
                 )

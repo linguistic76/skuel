@@ -14,8 +14,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
+    from core.services.protocols import BackendOperations, QueryExecutor
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType, ProgressDepth
@@ -41,8 +41,8 @@ class ProgressKuGenerator:
     Generates progress Ku by querying historical activity completions.
 
     Constructor dependencies:
-        driver: Neo4j async driver for direct Cypher queries
-        ku_backend: UniversalNeo4jBackend[Ku] for creating Ku nodes
+        driver: Query executor for direct Cypher queries
+        ku_backend: Backend for creating Ku nodes
         user_service: UserOperations for building UserContext
         insight_store: InsightStore for referencing active insights
         event_bus: EventBusOperations for publishing events
@@ -50,13 +50,13 @@ class ProgressKuGenerator:
 
     def __init__(
         self,
-        driver: Any,
-        ku_backend: UniversalNeo4jBackend[Ku],
+        executor: "QueryExecutor",
+        ku_backend: "BackendOperations[Ku]",
         user_service: Any | None = None,
         insight_store: "InsightStore | None" = None,
         event_bus: EventBusOperations | None = None,
     ) -> None:
-        self.driver = driver
+        self.executor = executor
         self.ku_backend = ku_backend
         self.user_service = user_service
         self.insight_store = insight_store
@@ -184,24 +184,29 @@ class ProgressKuGenerator:
 
         # Tasks completed in period
         if include_all or "tasks" in (domains or []):
-            try:
-                records, _, _ = await self.driver.execute_query(
-                    """
-                    MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
-                    WHERE t.updated_at >= datetime($start) AND t.updated_at <= datetime($end)
-                    WITH t, t.status = 'completed' AS is_completed
-                    OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
-                    OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
-                    RETURN t.uid AS uid, t.title AS title, t.status AS status,
-                           is_completed,
-                           collect(DISTINCT g.title) AS goal_titles,
-                           collect(DISTINCT ku.title) AS ku_titles
-                    ORDER BY t.updated_at DESC
-                    """,
-                    user_uid=user_uid,
-                    start=start_date.isoformat(),
-                    end=end_date.isoformat(),
-                )
+            tasks_result = await self.executor.execute_query(
+                """
+                MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
+                WHERE t.updated_at >= datetime($start) AND t.updated_at <= datetime($end)
+                WITH t, t.status = 'completed' AS is_completed
+                OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
+                OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
+                RETURN t.uid AS uid, t.title AS title, t.status AS status,
+                       is_completed,
+                       collect(DISTINCT g.title) AS goal_titles,
+                       collect(DISTINCT ku.title) AS ku_titles
+                ORDER BY t.updated_at DESC
+                """,
+                {
+                    "user_uid": user_uid,
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
+            )
+            if tasks_result.is_error:
+                logger.warning(f"Failed to query task completions: {tasks_result.error}")
+            else:
+                records = tasks_result.value
                 completed = [r for r in records if r["is_completed"]]
                 result["tasks_completed"] = len(completed)
                 result["tasks_total"] = len(records)
@@ -223,24 +228,27 @@ class ProgressKuGenerator:
                     for ku in r["ku_titles"]:
                         if ku:
                             result["knowledge_applications"].append(ku)
-            except Exception as e:
-                logger.warning(f"Failed to query task completions: {e}")
 
         # Goals progressed in period
         if include_all or "goals" in (domains or []):
-            try:
-                records, _, _ = await self.driver.execute_query(
-                    """
-                    MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Goal)
-                    WHERE g.updated_at >= datetime($start) AND g.updated_at <= datetime($end)
-                    RETURN g.uid AS uid, g.title AS title, g.status AS status,
-                           g.progress AS progress
-                    ORDER BY g.updated_at DESC
-                    """,
-                    user_uid=user_uid,
-                    start=start_date.isoformat(),
-                    end=end_date.isoformat(),
-                )
+            goals_result = await self.executor.execute_query(
+                """
+                MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Goal)
+                WHERE g.updated_at >= datetime($start) AND g.updated_at <= datetime($end)
+                RETURN g.uid AS uid, g.title AS title, g.status AS status,
+                       g.progress AS progress
+                ORDER BY g.updated_at DESC
+                """,
+                {
+                    "user_uid": user_uid,
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
+            )
+            if goals_result.is_error:
+                logger.warning(f"Failed to query goal progress: {goals_result.error}")
+            else:
+                records = goals_result.value
                 result["goals_progressed"] = len(records)
                 result["goals_details"] = [
                     {
@@ -251,25 +259,30 @@ class ProgressKuGenerator:
                     }
                     for r in records
                 ]
-            except Exception as e:
-                logger.warning(f"Failed to query goal progress: {e}")
 
         # Habits completed in period
         if include_all or "habits" in (domains or []):
-            try:
-                records, _, _ = await self.driver.execute_query(
-                    """
-                    MATCH (u:User {uid: $user_uid})-[:OWNS]->(h:Habit)
-                    WHERE h.updated_at >= datetime($start) AND h.updated_at <= datetime($end)
-                    RETURN h.uid AS uid, h.title AS title, h.status AS status,
-                           h.streak_count AS streak
-                    ORDER BY h.updated_at DESC
-                    """,
-                    user_uid=user_uid,
-                    start=start_date.isoformat(),
-                    end=end_date.isoformat(),
+            habits_result = await self.executor.execute_query(
+                """
+                MATCH (u:User {uid: $user_uid})-[:OWNS]->(h:Habit)
+                WHERE h.updated_at >= datetime($start) AND h.updated_at <= datetime($end)
+                RETURN h.uid AS uid, h.title AS title, h.status AS status,
+                       h.streak_count AS streak
+                ORDER BY h.updated_at DESC
+                """,
+                {
+                    "user_uid": user_uid,
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
+            )
+            if habits_result.is_error:
+                logger.warning(f"Failed to query habit completions: {habits_result.error}")
+            else:
+                records = habits_result.value
+                result["habits_completed"] = len(
+                    [r for r in records if r["status"] == "completed"]
                 )
-                result["habits_completed"] = len([r for r in records if r["status"] == "completed"])
                 result["habits_details"] = [
                     {
                         "uid": r["uid"],
@@ -279,25 +292,28 @@ class ProgressKuGenerator:
                     }
                     for r in records
                 ]
-            except Exception as e:
-                logger.warning(f"Failed to query habit completions: {e}")
 
         # Choices made in period
         if include_all or "choices" in (domains or []):
-            try:
-                records, _, _ = await self.driver.execute_query(
-                    """
-                    MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Choice)
-                    WHERE c.created_at >= datetime($start) AND c.created_at <= datetime($end)
-                    OPTIONAL MATCH (c)-[:INFORMED_BY_PRINCIPLE]->(p:Principle)
-                    RETURN c.uid AS uid, c.title AS title,
-                           collect(DISTINCT p.title) AS principle_titles
-                    ORDER BY c.created_at DESC
-                    """,
-                    user_uid=user_uid,
-                    start=start_date.isoformat(),
-                    end=end_date.isoformat(),
-                )
+            choices_result = await self.executor.execute_query(
+                """
+                MATCH (u:User {uid: $user_uid})-[:OWNS]->(c:Choice)
+                WHERE c.created_at >= datetime($start) AND c.created_at <= datetime($end)
+                OPTIONAL MATCH (c)-[:INFORMED_BY_PRINCIPLE]->(p:Principle)
+                RETURN c.uid AS uid, c.title AS title,
+                       collect(DISTINCT p.title) AS principle_titles
+                ORDER BY c.created_at DESC
+                """,
+                {
+                    "user_uid": user_uid,
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
+            )
+            if choices_result.is_error:
+                logger.warning(f"Failed to query choices: {choices_result.error}")
+            else:
+                records = choices_result.value
                 result["choices_made"] = len(records)
                 result["choices_details"] = [
                     {
@@ -307,8 +323,6 @@ class ProgressKuGenerator:
                     }
                     for r in records
                 ]
-            except Exception as e:
-                logger.warning(f"Failed to query choices: {e}")
 
         return result
 
@@ -411,15 +425,13 @@ class ProgressKuGenerator:
             insight_uid = getattr(insight, "uid", None)
             if not insight_uid:
                 continue
-            try:
-                await self.driver.execute_query(
-                    """
-                    MATCH (k:Ku {uid: $ku_uid})
-                    MATCH (i:Insight {uid: $insight_uid})
-                    MERGE (k)-[:BASED_ON_INSIGHT]->(i)
-                    """,
-                    ku_uid=ku_uid,
-                    insight_uid=insight_uid,
-                )
-            except Exception as e:
-                logger.warning(f"Failed to create BASED_ON_INSIGHT for {insight_uid}: {e}")
+            result = await self.executor.execute_query(
+                """
+                MATCH (k:Ku {uid: $ku_uid})
+                MATCH (i:Insight {uid: $insight_uid})
+                MERGE (k)-[:BASED_ON_INSIGHT]->(i)
+                """,
+                {"ku_uid": ku_uid, "insight_uid": insight_uid},
+            )
+            if result.is_error:
+                logger.warning(f"Failed to create BASED_ON_INSIGHT for {insight_uid}: {result.error}")

@@ -35,8 +35,6 @@ from core.constants import GraphDepth, QueryLimit
 from core.services.mixins import FacadeDelegationMixin, merge_delegations
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
-
     from core.services.protocols import (
         EventBusOperations,
         KuOperations,
@@ -234,7 +232,7 @@ class KuService(FacadeDelegationMixin):
         graph_intelligence_service: "Any | None" = None,
         query_builder: "QueryBuilderOperations | None" = None,
         event_bus: "EventBusOperations | None" = None,
-        driver: "AsyncDriver | None" = None,
+        executor: "Any | None" = None,
         user_service: "Any | None" = None,
         ai_service: KuAIService | None = None,
         vector_search_service: "Any | None" = None,
@@ -290,7 +288,7 @@ class KuService(FacadeDelegationMixin):
             graph_intelligence_service=graph_intelligence_service,
             query_builder=query_builder,
             event_bus=event_bus,
-            driver=driver,
+            driver=executor,  # Dead param in factory (no sub-service uses it)
             user_service=user_service,
             vector_search_service=vector_search_service,  # NEW: January 2026 GenAI
             embeddings_service=embeddings_service,  # NEW: January 2026 GenAI
@@ -323,7 +321,7 @@ class KuService(FacadeDelegationMixin):
         from core.services.ku.ku_organization_service import KuOrganizationService
 
         self.organization = (
-            KuOrganizationService(ku_service=self, driver=driver) if driver else None
+            KuOrganizationService(ku_service=self, executor=executor) if executor else None
         )
 
         # Optional AI service (ADR-030: AI features are optional)

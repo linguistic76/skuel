@@ -21,7 +21,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from operator import itemgetter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.events import (
     ExpenseCreated,
@@ -35,6 +35,9 @@ from core.events import (
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 
 @dataclass
@@ -137,14 +140,14 @@ class CrossDomainAnalyticsService:
     - No confidence scoring (analytics aggregation only)
     """
 
-    def __init__(self, driver: Any) -> None:
+    def __init__(self, executor: "QueryExecutor") -> None:
         """
         Initialize cross-domain analytics service.
 
         Args:
-            driver: Neo4j driver for analytics storage
+            executor: QueryExecutor for analytics storage
         """
-        self.driver = driver
+        self.executor = executor
         self.logger = get_logger("skuel.services.cross_domain_analytics")
 
         # In-memory caches for fast analytics (could be Redis in production)
@@ -197,14 +200,17 @@ class CrossDomainAnalyticsService:
             ON MATCH SET r.total_amount = r.total_amount + $amount, r.count = r.count + 1
             """
 
-            async with self.driver.session() as session:
-                await session.run(
-                    query,
-                    user_uid=event.user_uid,
-                    amount=event.amount,
-                    category=event.category,
-                    occurred_at=event.occurred_at.isoformat(),
-                )
+            result = await self.executor.execute_query(
+                query,
+                {
+                    "user_uid": event.user_uid,
+                    "amount": event.amount,
+                    "category": event.category,
+                    "occurred_at": event.occurred_at.isoformat(),
+                },
+            )
+            if result.is_error:
+                self.logger.error(f"Error tracking expense: {result.error}")
 
             self.logger.debug(f"Tracked expense for financial analytics: {event.expense_uid}")
             return Result.ok(None)
@@ -267,13 +273,16 @@ class CrossDomainAnalyticsService:
                 velocity.last_mastery_at = datetime($occurred_at)
             """
 
-            async with self.driver.session() as session:
-                await session.run(
-                    query,
-                    user_uid=event.user_uid,
-                    mastery_score=event.mastery_score,
-                    occurred_at=event.occurred_at.isoformat(),
-                )
+            result = await self.executor.execute_query(
+                query,
+                {
+                    "user_uid": event.user_uid,
+                    "mastery_score": event.mastery_score,
+                    "occurred_at": event.occurred_at.isoformat(),
+                },
+            )
+            if result.is_error:
+                self.logger.error(f"Error tracking learning velocity: {result.error}")
 
             self.logger.debug(f"Tracked knowledge mastery for velocity: {event.ku_uid}")
             return Result.ok(None)
@@ -295,8 +304,11 @@ class CrossDomainAnalyticsService:
             SET velocity.paths_completed = coalesce(velocity.paths_completed, 0) + 1
             """
 
-            async with self.driver.session() as session:
-                await session.run(query, user_uid=event.user_uid)
+            result = await self.executor.execute_query(
+                query, {"user_uid": event.user_uid}
+            )
+            if result.is_error:
+                self.logger.error(f"Error tracking path completion: {result.error}")
 
             self.logger.debug(f"Tracked path completion for velocity: {event.path_uid}")
             return Result.ok(None)
@@ -342,12 +354,15 @@ class CrossDomainAnalyticsService:
                 analytics.last_completion_at = datetime($occurred_at)
             """
 
-            async with self.driver.session() as session:
-                await session.run(
-                    query,
-                    user_uid=event.user_uid,
-                    occurred_at=event.occurred_at.isoformat(),
-                )
+            result = await self.executor.execute_query(
+                query,
+                {
+                    "user_uid": event.user_uid,
+                    "occurred_at": event.occurred_at.isoformat(),
+                },
+            )
+            if result.is_error:
+                self.logger.error(f"Error tracking task completion: {result.error}")
 
             self.logger.debug(f"Tracked task completion for analytics: {event.task_uid}")
             return Result.ok(None)
@@ -382,12 +397,15 @@ class CrossDomainAnalyticsService:
                 analytics.last_completion_at = datetime($occurred_at)
             """
 
-            async with self.driver.session() as session:
-                await session.run(
-                    query,
-                    user_uid=event.user_uid,
-                    occurred_at=event.occurred_at.isoformat(),
-                )
+            result = await self.executor.execute_query(
+                query,
+                {
+                    "user_uid": event.user_uid,
+                    "occurred_at": event.occurred_at.isoformat(),
+                },
+            )
+            if result.is_error:
+                self.logger.error(f"Error tracking habit completion: {result.error}")
 
             self.logger.debug(f"Tracked habit completion for analytics: {event.habit_uid}")
             return Result.ok(None)
@@ -422,12 +440,15 @@ class CrossDomainAnalyticsService:
                 analytics.last_attendance_at = datetime($occurred_at)
             """
 
-            async with self.driver.session() as session:
-                await session.run(
-                    query,
-                    user_uid=event.user_uid,
-                    occurred_at=event.occurred_at.isoformat(),
-                )
+            result = await self.executor.execute_query(
+                query,
+                {
+                    "user_uid": event.user_uid,
+                    "occurred_at": event.occurred_at.isoformat(),
+                },
+            )
+            if result.is_error:
+                self.logger.error(f"Error tracking event attendance: {result.error}")
 
             self.logger.debug(f"Tracked event attendance for analytics: {event.event_uid}")
             return Result.ok(None)
@@ -471,9 +492,14 @@ class CrossDomainAnalyticsService:
         RETURN velocity, recent_kus, total_hours
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, user_uid=user_uid, start_date=start_date.isoformat())
-            record = await result.single()
+        result = await self.executor.execute_query(
+            query, {"user_uid": user_uid, "start_date": start_date.isoformat()}
+        )
+        if result.is_error:
+            return result
+
+        records = result.value or []
+        record = records[0] if records else None
 
         if not record:
             return Result.ok(
@@ -547,9 +573,11 @@ class CrossDomainAnalyticsService:
         ORDER BY r.total_amount DESC
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, user_uid=user_uid)
-            records = await result.data()
+        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         if not records:
             return Result.ok(
@@ -605,9 +633,12 @@ class CrossDomainAnalyticsService:
         RETURN analytics
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, user_uid=user_uid)
-            record = await result.single()
+        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return result
+
+        records = result.value or []
+        record = records[0] if records else None
 
         if not record:
             return Result.ok(
@@ -664,9 +695,12 @@ class CrossDomainAnalyticsService:
         RETURN goal, expenses, total
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, goal_uid=goal_uid)
-            record = await result.single()
+        result = await self.executor.execute_query(query, {"goal_uid": goal_uid})
+        if result.is_error:
+            return result
+
+        records = result.value or []
+        record = records[0] if records else None
 
         if not record:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
@@ -724,9 +758,12 @@ class CrossDomainAnalyticsService:
         RETURN analytics
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, user_uid=user_uid)
-            record = await result.single()
+        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return result
+
+        records = result.value or []
+        record = records[0] if records else None
 
         if not record:
             return Result.ok(
@@ -786,9 +823,12 @@ class CrossDomainAnalyticsService:
         RETURN analytics
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, user_uid=user_uid)
-            record = await result.single()
+        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return result
+
+        records = result.value or []
+        record = records[0] if records else None
 
         if not record:
             return Result.ok(

@@ -79,6 +79,8 @@ from .base_protocols import (
     EntitySearchOperations,
     # Core Conversion Protocols (5)
     EnumLike,
+    # Standalone query execution port (February 2026)
+    QueryExecutor,
     # Pydantic Field Constraint Protocols (7)
     GeConstraint,
     GraphContextNode,
@@ -460,6 +462,7 @@ __all__ = [
     "LifePathOperations",
     # "LearningPathsOperations", - DELETED January 2026, use LpOperations
     "LowLevelOperations",  # Direct DB access (2 methods + driver)
+    "QueryExecutor",  # Standalone Cypher query execution port
     "LpFacadeProtocol",
     "LpOperations",  # Learning Path operations (path)
     # MocFacadeProtocol removed January 2026 - MOC is KU-based

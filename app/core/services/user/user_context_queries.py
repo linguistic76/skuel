@@ -15,12 +15,15 @@ Architecture:
 """
 
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_updated_timestamp
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger(__name__)
 
@@ -981,19 +984,19 @@ class UserContextQueryExecutor:
     Contains only query execution logic, no result processing.
     """
 
-    def __init__(self, driver: Any) -> None:
+    def __init__(self, executor: "QueryExecutor") -> None:
         """
         Initialize query executor.
 
         Args:
-            driver: Neo4j driver for database queries
+            executor: QueryExecutor for database queries
 
         Raises:
-            ValueError: If driver is None
+            ValueError: If executor is None
         """
-        if not driver:
-            raise ValueError("Neo4j driver is required for query execution")
-        self.driver = driver
+        if not executor:
+            raise ValueError("QueryExecutor is required for query execution")
+        self.executor = executor
 
     @with_error_handling("execute_mega_query", error_type="database", uid_param="user_uid")
     async def execute_mega_query(
@@ -1019,14 +1022,17 @@ class UserContextQueryExecutor:
             "min_confidence": min_confidence,
         }
 
-        async with self.driver.session() as session:
-            result = await session.run(MEGA_QUERY, params)
-            record = await result.single()
+        result = await self.executor.execute_query(MEGA_QUERY, params)
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-            if not record or not record["result"]:
-                return Result.ok({"uids": {}, "rich": {}})
+        records = result.value or []
+        record = records[0] if records else None
 
-            return Result.ok(record["result"])
+        if not record or not record["result"]:
+            return Result.ok({"uids": {}, "rich": {}})
+
+        return Result.ok(record["result"])
 
     @with_error_handling("execute_consolidated_query", error_type="database", uid_param="user_uid")
     async def execute_consolidated_query(self, user_uid: str) -> Result[dict[str, Any]]:
@@ -1044,110 +1050,113 @@ class UserContextQueryExecutor:
         today = date.today().isoformat()
         params = {"user_uid": user_uid, "today": today}
 
-        async with self.driver.session() as session:
-            result = await session.run(CONSOLIDATED_QUERY, params)
-            record = await result.single()
+        result = await self.executor.execute_query(CONSOLIDATED_QUERY, params)
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-            if not record:
-                return Result.ok(empty_context_data())
+        records = result.value or []
+        record = records[0] if records else None
 
-            # Extract and structure all domain data
-            return Result.ok(
-                {
-                    "tasks": {
-                        "active_uids": [uid for uid in (record["active_task_uids"] or []) if uid],
-                        "completed_uids": {
-                            uid for uid in (record["completed_task_uids"] or []) if uid
-                        },
-                        "overdue_uids": [uid for uid in (record["overdue_task_uids"] or []) if uid],
-                        "today_uids": [uid for uid in (record["today_task_uids"] or []) if uid],
+        if not record:
+            return Result.ok(empty_context_data())
+
+        # Extract and structure all domain data
+        return Result.ok(
+            {
+                "tasks": {
+                    "active_uids": [uid for uid in (record["active_task_uids"] or []) if uid],
+                    "completed_uids": {
+                        uid for uid in (record["completed_task_uids"] or []) if uid
                     },
-                    "habits": {
-                        "active_uids": [uid for uid in (record["active_habit_uids"] or []) if uid],
-                        "habit_streaks": {
-                            item["uid"]: item["streak"]
-                            for item in (record["habit_data"] or [])
-                            if item and item.get("uid") is not None
-                        },
-                        "completion_rates": {
-                            item["uid"]: item["rate"]
-                            for item in (record["habit_data"] or [])
-                            if item and item.get("uid") is not None
-                        },
+                    "overdue_uids": [uid for uid in (record["overdue_task_uids"] or []) if uid],
+                    "today_uids": [uid for uid in (record["today_task_uids"] or []) if uid],
+                },
+                "habits": {
+                    "active_uids": [uid for uid in (record["active_habit_uids"] or []) if uid],
+                    "habit_streaks": {
+                        item["uid"]: item["streak"]
+                        for item in (record["habit_data"] or [])
+                        if item and item.get("uid") is not None
                     },
-                    "goals": {
-                        "active_uids": [uid for uid in (record["active_goal_uids"] or []) if uid],
-                        "completed_uids": {
-                            uid for uid in (record["completed_goal_uids"] or []) if uid
-                        },
-                        "goal_progress": {
-                            item["uid"]: item["progress"]
-                            for item in (record["goal_data"] or [])
-                            if item and item.get("uid") is not None
-                        },
+                    "completion_rates": {
+                        item["uid"]: item["rate"]
+                        for item in (record["habit_data"] or [])
+                        if item and item.get("uid") is not None
                     },
-                    "knowledge": {
-                        "mastered_uids": {
-                            item["uid"]
-                            for item in (record["knowledge_data"] or [])
-                            if item and item.get("uid") is not None
-                        },
-                        "enrolled_path_uids": [
-                            uid for uid in (record["enrolled_path_uids"] or []) if uid
-                        ],
-                        "knowledge_mastery": {
-                            item["uid"]: item["score"]
-                            for item in (record["knowledge_data"] or [])
-                            if item and item.get("uid") is not None
-                        },
-                        "ku_view_counts": {
-                            item["uid"]: item["view_count"]
-                            for item in (record["ku_view_data"] or [])
-                            if item and item.get("uid") is not None
-                        },
-                        "recently_viewed_ku_uids": [
-                            item["uid"]
-                            for item in sorted(
-                                [
-                                    i
-                                    for i in (record["ku_view_data"] or [])
-                                    if i and i.get("uid") and i.get("last_viewed_at")
-                                ],
-                                key=_sort_by_last_viewed_at,
-                                reverse=True,
-                            )
-                        ][:10],
-                        "ku_marked_as_read_uids": {
-                            uid for uid in (record["ku_marked_as_read_uids"] or []) if uid
-                        },
-                        "ku_bookmarked_uids": {
-                            uid for uid in (record["ku_bookmarked_uids"] or []) if uid
-                        },
-                        "ku_time_spent_seconds": {
-                            item["uid"]: item.get("time_spent_seconds", 0)
-                            for item in (record["ku_view_data"] or [])
-                            if item and item.get("uid") is not None
-                        },
+                },
+                "goals": {
+                    "active_uids": [uid for uid in (record["active_goal_uids"] or []) if uid],
+                    "completed_uids": {
+                        uid for uid in (record["completed_goal_uids"] or []) if uid
                     },
-                    "events": {
-                        "upcoming_uids": record["upcoming_event_uids"] or [],
-                        "today_uids": [uid for uid in (record["today_event_uids"] or []) if uid],
+                    "goal_progress": {
+                        item["uid"]: item["progress"]
+                        for item in (record["goal_data"] or [])
+                        if item and item.get("uid") is not None
                     },
-                    "mocs": {
-                        "active_uids": [uid for uid in (record["active_moc_uids"] or []) if uid],
-                        "view_counts": {
-                            item["uid"]: item["view_count"]
-                            for item in (record["moc_data"] or [])
-                            if item and item.get("uid") is not None
-                        },
-                        "recently_viewed_uids": [
-                            item["uid"]
-                            for item in sorted(
-                                [i for i in (record["moc_data"] or []) if i and i.get("uid")],
-                                key=get_updated_timestamp,
-                                reverse=True,
-                            )[:10]
-                        ],
+                },
+                "knowledge": {
+                    "mastered_uids": {
+                        item["uid"]
+                        for item in (record["knowledge_data"] or [])
+                        if item and item.get("uid") is not None
                     },
-                }
-            )
+                    "enrolled_path_uids": [
+                        uid for uid in (record["enrolled_path_uids"] or []) if uid
+                    ],
+                    "knowledge_mastery": {
+                        item["uid"]: item["score"]
+                        for item in (record["knowledge_data"] or [])
+                        if item and item.get("uid") is not None
+                    },
+                    "ku_view_counts": {
+                        item["uid"]: item["view_count"]
+                        for item in (record["ku_view_data"] or [])
+                        if item and item.get("uid") is not None
+                    },
+                    "recently_viewed_ku_uids": [
+                        item["uid"]
+                        for item in sorted(
+                            [
+                                i
+                                for i in (record["ku_view_data"] or [])
+                                if i and i.get("uid") and i.get("last_viewed_at")
+                            ],
+                            key=_sort_by_last_viewed_at,
+                            reverse=True,
+                        )
+                    ][:10],
+                    "ku_marked_as_read_uids": {
+                        uid for uid in (record["ku_marked_as_read_uids"] or []) if uid
+                    },
+                    "ku_bookmarked_uids": {
+                        uid for uid in (record["ku_bookmarked_uids"] or []) if uid
+                    },
+                    "ku_time_spent_seconds": {
+                        item["uid"]: item.get("time_spent_seconds", 0)
+                        for item in (record["ku_view_data"] or [])
+                        if item and item.get("uid") is not None
+                    },
+                },
+                "events": {
+                    "upcoming_uids": record["upcoming_event_uids"] or [],
+                    "today_uids": [uid for uid in (record["today_event_uids"] or []) if uid],
+                },
+                "mocs": {
+                    "active_uids": [uid for uid in (record["active_moc_uids"] or []) if uid],
+                    "view_counts": {
+                        item["uid"]: item["view_count"]
+                        for item in (record["moc_data"] or [])
+                        if item and item.get("uid") is not None
+                    },
+                    "recently_viewed_uids": [
+                        item["uid"]
+                        for item in sorted(
+                            [i for i in (record["moc_data"] or []) if i and i.get("uid")],
+                            key=get_updated_timestamp,
+                            reverse=True,
+                        )[:10]
+                    ],
+                },
+            }
+        )

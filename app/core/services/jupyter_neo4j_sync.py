@@ -16,15 +16,17 @@ import hashlib
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
-from neo4j import AsyncDriver
 
 from core.models.ku import Ku as KnowledgeUnit
 from core.services.sync_types import SyncStats
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 # Primary alias
 KnowledgeUnitPure = KnowledgeUnit
@@ -65,7 +67,7 @@ class JupyterNeo4jSync:
 
     def __init__(
         self,
-        driver: AsyncDriver,
+        executor: "QueryExecutor",
         vault_path: Path,
         conflict_strategy: ConflictResolution = ConflictResolution.MANUAL,
     ) -> None:
@@ -73,11 +75,11 @@ class JupyterNeo4jSync:
         Initialize sync service.
 
         Args:
-            driver: Neo4j async driver,
+            executor: QueryExecutor for database operations,
             vault_path: Path to Obsidian vault,
             conflict_strategy: How to handle conflicts
         """
-        self.driver = driver
+        self.executor = executor
         self.vault_path = vault_path
         self.conflict_strategy = conflict_strategy
         self.logger = logger
@@ -111,38 +113,37 @@ class JupyterNeo4jSync:
                collect(DISTINCT related.uid) as related_to
         """
 
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"uid": uid})
-                record = await result.single()
+        result = await self.executor.execute_query(query, {"uid": uid})
+        if result.is_error:
+            self.logger.error(f"Failed to fetch content for Jupyter: {result.error}")
+            return Result.fail(Errors.database(operation="fetch_for_jupyter", message=str(result.error)))
 
-                if not record:
-                    return Result.fail(Errors.not_found(resource="Knowledge unit", identifier=uid))
+        records = result.value or []
+        record = records[0] if records else None
 
-                ku_data = dict(record["ku"])
+        if not record:
+            return Result.fail(Errors.not_found(resource="Knowledge unit", identifier=uid))
 
-                # Format for Jupyter editing (current schema)
-                jupyter_content = {
-                    "version": ku_data.get("version", "1.0"),
-                    "type": ku_data.get("type", "Ku"),
-                    "uid": ku_data.get("uid"),
-                    "title": ku_data.get("title"),
-                    "content": ku_data.get("content", ""),
-                    "domain": ku_data.get("domain", "personal"),
-                    "quality_score": ku_data.get("quality_score", 0.85),
-                    "complexity": ku_data.get("complexity", "basic"),
-                    "tags": ku_data.get("tags", []),
-                    "prerequisites": [p for p in record["prerequisites"] if p],
-                    "enables": [e for e in record["enables"] if e],
-                    "related_to": [r for r in record["related_to"] if r],
-                    "edit_timestamp": datetime.now().isoformat(),
-                }
+        ku_data = record["ku"]
 
-                return Result.ok(jupyter_content)
+        # Format for Jupyter editing (current schema)
+        jupyter_content = {
+            "version": ku_data.get("version", "1.0"),
+            "type": ku_data.get("type", "Ku"),
+            "uid": ku_data.get("uid"),
+            "title": ku_data.get("title"),
+            "content": ku_data.get("content", ""),
+            "domain": ku_data.get("domain", "personal"),
+            "quality_score": ku_data.get("quality_score", 0.85),
+            "complexity": ku_data.get("complexity", "basic"),
+            "tags": ku_data.get("tags", []),
+            "prerequisites": [p for p in record["prerequisites"] if p],
+            "enables": [e for e in record["enables"] if e],
+            "related_to": [r for r in record["related_to"] if r],
+            "edit_timestamp": datetime.now().isoformat(),
+        }
 
-        except Exception as e:
-            self.logger.error(f"Failed to fetch content for Jupyter: {e}")
-            return Result.fail(Errors.database(operation="fetch_for_jupyter", message=str(e)))
+        return Result.ok(jupyter_content)
 
     async def save_from_jupyter(
         self, uid: str, edited_content: dict[str, Any], editor: str = "jupyter"
@@ -191,49 +192,55 @@ class JupyterNeo4jSync:
             RETURN ku
             """
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    update_query,
-                    {
-                        "uid": uid,
-                        "title": edited_content.get("title"),
-                        "word_count": len(content.split()) if content else 0,
-                        "domain": edited_content.get("domain", "personal"),
-                        "complexity": edited_content.get("complexity", "basic"),
-                        "quality_score": edited_content.get("quality_score", 0.85),
-                        "tags": edited_content.get("tags", []),
-                        "content_hash": new_hash,
-                        "editor": editor,
-                    },
-                )
+            update_result = await self.executor.execute_query(
+                update_query,
+                {
+                    "uid": uid,
+                    "title": edited_content.get("title"),
+                    "word_count": len(content.split()) if content else 0,
+                    "domain": edited_content.get("domain", "personal"),
+                    "complexity": edited_content.get("complexity", "basic"),
+                    "quality_score": edited_content.get("quality_score", 0.85),
+                    "tags": edited_content.get("tags", []),
+                    "content_hash": new_hash,
+                    "editor": editor,
+                },
+            )
 
-                updated = await result.single()
-                if not updated:
-                    return Result.fail(
-                        Errors.database(
-                            operation="save_from_jupyter", message="Failed to update knowledge unit"
-                        )
+            if update_result.is_error:
+                return Result.fail(
+                    Errors.database(
+                        operation="save_from_jupyter", message="Failed to update knowledge unit"
                     )
-
-                # Update relationships
-                await self._update_relationships(
-                    uid,
-                    edited_content.get("prerequisites", []),
-                    edited_content.get("enables", []),
-                    edited_content.get("related_to", []),
                 )
 
-                # Track change for sync
-                await self._track_change(uid, "jupyter_edit", new_hash)
-
-                return Result.ok(
-                    {
-                        "uid": uid,
-                        "content_hash": new_hash,
-                        "updated_at": datetime.now().isoformat(),
-                        "needs_sync": True,
-                    }
+            records = update_result.value or []
+            if not records:
+                return Result.fail(
+                    Errors.database(
+                        operation="save_from_jupyter", message="Failed to update knowledge unit"
+                    )
                 )
+
+            # Update relationships
+            await self._update_relationships(
+                uid,
+                edited_content.get("prerequisites", []),
+                edited_content.get("enables", []),
+                edited_content.get("related_to", []),
+            )
+
+            # Track change for sync
+            await self._track_change(uid, "jupyter_edit", new_hash)
+
+            return Result.ok(
+                {
+                    "uid": uid,
+                    "content_hash": new_hash,
+                    "updated_at": datetime.now().isoformat(),
+                    "needs_sync": True,
+                }
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to save from Jupyter: {e}")
@@ -256,7 +263,7 @@ class JupyterNeo4jSync:
             # Find items needing sync
             if uid:
                 query = "MATCH (ku:Ku {uid: $uid}) RETURN ku"
-                params = ({"uid": uid},)
+                params = {"uid": uid}
             else:
                 query = """
                 MATCH (ku:Ku)
@@ -266,37 +273,43 @@ class JupyterNeo4jSync:
                 """
                 params = {"force": force}
 
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                records = await result.data()
-
-                # Mutable accumulation variables
-                synced_count = 0
-                conflicts_count = 0
-                errors_list: list[dict[str, str]] = []
-
-                for record in records:
-                    ku_data = record["ku"]
-                    sync_result = await self._sync_single_to_obsidian(ku_data)
-
-                    if sync_result.is_ok:
-                        synced_count += 1
-                        # Mark as synced
-                        await self._mark_synced(ku_data["uid"])
-                    else:
-                        if "conflict" in str(sync_result.error):
-                            conflicts_count += 1
-                        errors_list.append({"uid": ku_data["uid"], "error": str(sync_result.error)})
-
-                # Build immutable result
-                stats = SyncStats(
-                    total=len(records),
-                    synced=synced_count,
-                    conflicts=conflicts_count,
-                    errors=errors_list,
+            query_result = await self.executor.execute_query(query, params)
+            if query_result.is_error:
+                return Result.fail(
+                    Errors.integration(
+                        service="obsidian_sync", operation="sync_to_obsidian", message=str(query_result.error)
+                    )
                 )
 
-                return Result.ok(stats)
+            records = query_result.value or []
+
+            # Mutable accumulation variables
+            synced_count = 0
+            conflicts_count = 0
+            errors_list: list[dict[str, str]] = []
+
+            for record in records:
+                ku_data = record["ku"]
+                sync_result = await self._sync_single_to_obsidian(ku_data)
+
+                if sync_result.is_ok:
+                    synced_count += 1
+                    # Mark as synced
+                    await self._mark_synced(ku_data["uid"])
+                else:
+                    if "conflict" in str(sync_result.error):
+                        conflicts_count += 1
+                    errors_list.append({"uid": ku_data["uid"], "error": str(sync_result.error)})
+
+            # Build immutable result
+            stats = SyncStats(
+                total=len(records),
+                synced=synced_count,
+                conflicts=conflicts_count,
+                errors=errors_list,
+            )
+
+            return Result.ok(stats)
 
         except Exception as e:
             self.logger.error(f"Failed to sync to Obsidian: {e}")
@@ -325,18 +338,19 @@ class JupyterNeo4jSync:
                 return Result.fail(
                     Errors.validation(message="Knowledge unit UID is required", field="uid")
                 )
-            async with self.driver.session() as session:
-                rel_query = """
-                MATCH (ku:Ku {uid: $uid})
-                OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
-                OPTIONAL MATCH (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
-                OPTIONAL MATCH (ku)-[:RELATED_TO]->(related)
-                RETURN collect(DISTINCT prereq.uid) as prerequisites,
-                       collect(DISTINCT enabled.uid) as enables,
-                       collect(DISTINCT related.uid) as related_to
-                """
-                result = await session.run(rel_query, {"uid": uid})
-                record = await result.single()
+            rel_query = """
+            MATCH (ku:Ku {uid: $uid})
+            OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
+            OPTIONAL MATCH (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
+            OPTIONAL MATCH (ku)-[:RELATED_TO]->(related)
+            RETURN collect(DISTINCT prereq.uid) as prerequisites,
+                   collect(DISTINCT enabled.uid) as enables,
+                   collect(DISTINCT related.uid) as related_to
+            """
+            rel_result = await self.executor.execute_query(rel_query, {"uid": uid})
+            if rel_result.is_ok:
+                rel_records = rel_result.value or []
+                record = rel_records[0] if rel_records else None
 
                 if record:
                     ku_data["prerequisites"] = [p for p in record["prerequisites"] if p]
@@ -427,21 +441,24 @@ class JupyterNeo4jSync:
                ku.needs_obsidian_sync as pending_sync
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"uid": uid})
-            record = await result.single()
+        result = await self.executor.execute_query(query, {"uid": uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-            if record and record["pending_sync"]:
-                return Result.fail(
-                    Errors.business(
-                        rule="sync_conflict",
-                        message="Unsynchronized changes exist",
-                        uid=uid,
-                        pending_sync=True,
-                    )
+        records = result.value or []
+        record = records[0] if records else None
+
+        if record and record["pending_sync"]:
+            return Result.fail(
+                Errors.business(
+                    rule="sync_conflict",
+                    message="Unsynchronized changes exist",
+                    uid=uid,
+                    pending_sync=True,
                 )
+            )
 
-            return Result.ok(True)
+        return Result.ok(True)
 
     async def _handle_conflict(
         self, ku_data: dict[str, Any], file_path: Path, _existing_content: str
@@ -513,48 +530,47 @@ class JupyterNeo4jSync:
             enables: List of enabled UIDs,
             related_to: List of related UIDs
         """
-        async with self.driver.session() as session:
-            # Clear existing relationships
-            await session.run(
-                """
-                MATCH (ku:Ku {uid: $uid})-[r:REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE|RELATED_TO]->()
-                DETACH DELETE r
+        # Clear existing relationships
+        await self.executor.execute_query(
+            """
+            MATCH (ku:Ku {uid: $uid})-[r:REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE|RELATED_TO]->()
+            DETACH DELETE r
             """,
-                {"uid": uid},
+            {"uid": uid},
+        )
+
+        # Create prerequisite relationships
+        for prereq_uid in prerequisites:
+            await self.executor.execute_query(
+                """
+                MATCH (ku:Ku {uid: $uid})
+                MATCH (prereq:Ku {uid: $prereq_uid})
+                CREATE (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
+                """,
+                {"uid": uid, "prereq_uid": prereq_uid},
             )
 
-            # Create prerequisite relationships
-            for prereq_uid in prerequisites:
-                await session.run(
-                    """
-                    MATCH (ku:Ku {uid: $uid})
-                    MATCH (prereq:Ku {uid: $prereq_uid})
-                    CREATE (ku)-[:REQUIRES_KNOWLEDGE]->(prereq)
+        # Create enables relationships
+        for enable_uid in enables:
+            await self.executor.execute_query(
+                """
+                MATCH (ku:Ku {uid: $uid})
+                MATCH (enabled:Ku {uid: $enable_uid})
+                CREATE (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
                 """,
-                    {"uid": uid, "prereq_uid": prereq_uid},
-                )
+                {"uid": uid, "enable_uid": enable_uid},
+            )
 
-            # Create enables relationships
-            for enable_uid in enables:
-                await session.run(
-                    """
-                    MATCH (ku:Ku {uid: $uid})
-                    MATCH (enabled:Ku {uid: $enable_uid})
-                    CREATE (ku)-[:ENABLES_KNOWLEDGE]->(enabled)
+        # Create related_to relationships
+        for related_uid in related_to:
+            await self.executor.execute_query(
+                """
+                MATCH (ku:Ku {uid: $uid})
+                MATCH (related:Ku {uid: $related_uid})
+                CREATE (ku)-[:RELATED_TO]->(related)
                 """,
-                    {"uid": uid, "enable_uid": enable_uid},
-                )
-
-            # Create related_to relationships
-            for related_uid in related_to:
-                await session.run(
-                    """
-                    MATCH (ku:Ku {uid: $uid})
-                    MATCH (related:Ku {uid: $related_uid})
-                    CREATE (ku)-[:RELATED_TO]->(related)
-                """,
-                    {"uid": uid, "related_uid": related_uid},
-                )
+                {"uid": uid, "related_uid": related_uid},
+            )
 
     async def _track_change(self, uid: str, change_type: str, content_hash: str) -> None:
         """Track changes for audit and sync purposes."""
@@ -566,10 +582,11 @@ class JupyterNeo4jSync:
             timestamp: datetime()
         })
         """
-        async with self.driver.session() as session:
-            await session.run(
-                query, {"uid": uid, "change_type": change_type, "content_hash": content_hash}
-            )
+        result = await self.executor.execute_query(
+            query, {"uid": uid, "change_type": change_type, "content_hash": content_hash}
+        )
+        if result.is_error:
+            self.logger.warning(f"Failed to track change for {uid}: {result.error}")
 
     async def _mark_synced(self, uid: str) -> None:
         """Mark a knowledge unit as synced."""
@@ -578,8 +595,9 @@ class JupyterNeo4jSync:
         SET ku.needs_obsidian_sync = false,
             ku.last_synced = datetime()
         """
-        async with self.driver.session() as session:
-            await session.run(query, {"uid": uid})
+        result = await self.executor.execute_query(query, {"uid": uid})
+        if result.is_error:
+            self.logger.warning(f"Failed to mark {uid} as synced: {result.error}")
 
     async def _update_obsidian_hash(self, uid: str, hash_value: str) -> None:
         """Update the Obsidian content hash for tracking."""
@@ -587,5 +605,6 @@ class JupyterNeo4jSync:
         MATCH (ku:Ku {uid: $uid})
         SET ku.last_obsidian_hash = $hash
         """
-        async with self.driver.session() as session:
-            await session.run(query, {"uid": uid, "hash": hash_value})
+        result = await self.executor.execute_query(query, {"uid": uid, "hash": hash_value})
+        if result.is_error:
+            self.logger.warning(f"Failed to update obsidian hash for {uid}: {result.error}")

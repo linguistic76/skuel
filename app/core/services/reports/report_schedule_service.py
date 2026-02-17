@@ -7,11 +7,13 @@ Manages recurring progress Ku generation schedules.
 """
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.ku_enums import ScheduleType
 from core.models.ku import KuSchedule, KuScheduleDTO, ku_schedule_dto_to_domain
+
+if TYPE_CHECKING:
+    from core.services.protocols import BackendOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -22,13 +24,11 @@ logger = get_logger("skuel.services.ku.schedule")
 class KuScheduleService:
     """
     CRUD and scheduling logic for Ku generation schedules.
-
-    Uses UniversalNeo4jBackend[KuSchedule] for persistence.
     """
 
     def __init__(
         self,
-        backend: UniversalNeo4jBackend[KuSchedule],
+        backend: "BackendOperations[KuSchedule]",
     ) -> None:
         self.backend = backend
 
@@ -73,18 +73,16 @@ class KuScheduleService:
             return Result.fail(result.expect_error())
 
         # Create HAS_SCHEDULE relationship
-        try:
-            await self.backend.driver.execute_query(
-                """
-                MATCH (u:User {uid: $user_uid})
-                MATCH (s:KuSchedule {uid: $schedule_uid})
-                MERGE (u)-[:HAS_SCHEDULE]->(s)
-                """,
-                user_uid=user_uid,
-                schedule_uid=uid,
-            )
-        except Exception as e:
-            logger.warning(f"Failed to create HAS_SCHEDULE relationship: {e}")
+        rel_result = await self.backend.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})
+            MATCH (s:KuSchedule {uid: $schedule_uid})
+            MERGE (u)-[:HAS_SCHEDULE]->(s)
+            """,
+            {"user_uid": user_uid, "schedule_uid": uid},
+        )
+        if rel_result.is_error:
+            logger.warning(f"Failed to create HAS_SCHEDULE relationship: {rel_result.error}")
 
         logger.info(f"Created Ku schedule {uid} for {user_uid}: {schedule_type}")
         return Result.ok(schedule)
@@ -124,7 +122,7 @@ class KuScheduleService:
     async def get_due_schedules(self) -> Result[list[KuSchedule]]:
         """Get all active schedules that are due for generation."""
         try:
-            records, _, _ = await self.backend.driver.execute_query(
+            result = await self.backend.execute_query(
                 """
                 MATCH (s:KuSchedule)
                 WHERE s.is_active = true
@@ -133,8 +131,11 @@ class KuScheduleService:
                 ORDER BY s.next_due_at ASC
                 """,
             )
+            if result.is_error:
+                return Result.fail(result.expect_error())
+
             schedules = []
-            for record in records:
+            for record in result.value or []:
                 node = record["s"]
                 dto = KuScheduleDTO(
                     uid=node["uid"],

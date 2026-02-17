@@ -32,7 +32,6 @@ from core.models.graph_context import GraphContext
 from core.models.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.graph_query_executor import GraphQueryExecutor
 from core.services.intelligence import GraphContextOrchestrator
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -69,6 +68,7 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
         graph_intelligence_service: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
+        executor: Any | None = None,
     ) -> None:
         """
         Initialize LsIntelligenceService.
@@ -82,11 +82,8 @@ class LsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
             event_bus=event_bus,
         )
 
-        # Initialize query executor for direct Cypher access
-        # Use driver from backend for complex queries
-        driver = getattr(backend, "driver", None)
-        self.executor: GraphQueryExecutor | None = GraphQueryExecutor(driver) if driver else None
-        self.driver = driver
+        # Query executor for direct Cypher access
+        self.executor = executor
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:

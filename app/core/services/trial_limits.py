@@ -28,7 +28,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger("skuel.services.trial_limits")
 
@@ -97,7 +97,7 @@ class TrialLimitsService:
     def __init__(
         self,
         user_service: Any,
-        driver: "AsyncDriver",
+        executor: "QueryExecutor",
         limits: TrialLimits | None = None,
     ) -> None:
         """
@@ -105,16 +105,16 @@ class TrialLimitsService:
 
         Args:
             user_service: UserService for user lookups
-            driver: Neo4j async driver for usage queries
+            executor: Query executor for usage queries
             limits: Optional custom limits (defaults to TRIAL_LIMITS)
         """
         if not user_service:
             raise ValueError("UserService is required")
-        if not driver:
-            raise ValueError("Neo4j driver is required")
+        if not executor:
+            raise ValueError("QueryExecutor is required")
 
         self.user_service = user_service
-        self.driver = driver
+        self.executor = executor
         self.limits = limits or TRIAL_LIMITS
 
     async def check_limit(
@@ -326,10 +326,12 @@ class TrialLimitsService:
             return 0
 
         try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"uid": user_uid})
-                record = await result.single()
-                return record["count"] if record else 0
+            result = await self.executor.execute_query(query, {"uid": user_uid})
+            if result.is_error:
+                logger.error(f"Error counting {entity_type} for {user_uid}: {result.error}")
+                return 0
+            records = result.value
+            return records[0]["count"] if records else 0
         except Exception as e:
             logger.error(f"Error counting {entity_type} for {user_uid}: {e}")
             return 0
@@ -366,7 +368,7 @@ class TrialLimitsService:
 
 def create_trial_limits_service(
     user_service: Any,
-    driver: "AsyncDriver",
+    executor: "QueryExecutor",
     limits: TrialLimits | None = None,
 ) -> TrialLimitsService:
     """
@@ -374,13 +376,13 @@ def create_trial_limits_service(
 
     Args:
         user_service: UserService for user lookups
-        driver: Neo4j async driver
+        executor: Query executor for database queries
         limits: Optional custom limits
 
     Returns:
         TrialLimitsService instance
     """
-    return TrialLimitsService(user_service, driver, limits)
+    return TrialLimitsService(user_service, executor, limits)
 
 
 # ============================================================================

@@ -97,7 +97,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
         backend: GoalsOperations,
         event_bus=None,
         relationships_service: "UnifiedRelationshipService | None" = None,
-        driver=None,  # Neo4j driver for raw Cypher queries (Phase 4)
     ) -> None:
         """
         Initialize goals progress service.
@@ -106,7 +105,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
             backend: Protocol-based backend for goal operations,
             event_bus: Event bus for publishing domain events (optional)
             relationships_service: Service for fetching goal relationships
-            driver: Neo4j async driver for raw Cypher queries (Phase 4)
 
         Note:
             Context invalidation now happens via event-driven architecture.
@@ -115,7 +113,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
         super().__init__(backend)  # Uses _service_name class attribute
         self.event_bus = event_bus
         self.relationships = relationships_service  # GRAPH-NATIVE: For fetching goal relationships
-        self.driver = driver  # Phase 4: For Task→Goal event integration queries
 
     # ========================================================================
     # CONTEXT-FIRST PATTERN HELPERS (November 26, 2025)
@@ -1038,10 +1035,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
         try:
             # Query Neo4j to find goals linked to this task
             # Pattern: (Goal)-[:SUPPORTS_GOAL]->(Task)
-            if not self.driver:
-                self.logger.warning("No driver available for Task→Goal event integration")
-                return
-
             self.logger.debug(
                 f"Querying for goals linked to task {event.task_uid}, user {event.user_uid}"
             )
@@ -1052,12 +1045,16 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
             RETURN goal.uid as goal_uid
             """
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"task_uid": event.task_uid, "user_uid": event.user_uid}
+            result = await self.backend.execute_query(
+                query, {"task_uid": event.task_uid, "user_uid": event.user_uid}
+            )
+            if result.is_error:
+                self.logger.error(
+                    f"Failed to query goals for task {event.task_uid}: {result.error}"
                 )
-                records = await result.data()
+                return
 
+            records = result.value or []
             self.logger.debug(f"Found {len(records)} linked goals: {records}")
             goal_uids = [record["goal_uid"] for record in records]
 
@@ -1108,10 +1105,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
             return
 
         # Query all tasks linked to this goal and count completed
-        if not self.driver:
-            self.logger.warning("No driver available for task counting")
-            return
-
         query = """
         MATCH (goal:Ku {uid: $goal_uid, ku_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Ku {ku_type: 'task'})
         WHERE task.user_uid = $user_uid
@@ -1122,15 +1115,18 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
         RETURN total_tasks, count(completed) as completed_tasks
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"goal_uid": goal_uid, "user_uid": user_uid})
-            records = await result.data()
+        result = await self.backend.execute_query(
+            query, {"goal_uid": goal_uid, "user_uid": user_uid}
+        )
+        if result.is_error:
+            self.logger.error(f"Failed to query tasks for goal {goal_uid}: {result.error}")
+            return
 
-        if not records:
+        if not result.value:
             self.logger.warning(f"No task data found for goal {goal_uid}")
             return
 
-        record = records[0]
+        record = result.value[0]
         total_tasks = record.get("total_tasks", 0)
         completed_tasks = record.get("completed_tasks", 0)
 
@@ -1221,10 +1217,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
         try:
             # Query Neo4j to find goals linked to this habit
             # Pattern: (Goal)-[:SUPPORTS_GOAL]->(Habit)
-            if not self.driver:
-                self.logger.warning("No driver available for Habit→Goal event integration")
-                return
-
             self.logger.debug(
                 f"Querying for goals linked to habit {event.habit_uid}, user {event.user_uid}"
             )
@@ -1235,12 +1227,16 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
             RETURN goal.uid as goal_uid
             """
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"habit_uid": event.habit_uid, "user_uid": event.user_uid}
+            result = await self.backend.execute_query(
+                query, {"habit_uid": event.habit_uid, "user_uid": event.user_uid}
+            )
+            if result.is_error:
+                self.logger.error(
+                    f"Failed to query goals for habit {event.habit_uid}: {result.error}"
                 )
-                records = await result.data()
+                return
 
+            records = result.value or []
             self.logger.debug(f"Found {len(records)} linked goals: {records}")
             goal_uids = [record["goal_uid"] for record in records]
 
@@ -1307,16 +1303,19 @@ class GoalsProgressService(BaseService[GoalsOperations, Ku]):
         RETURN total_habits, avg(COALESCE(habit.current_streak, 0)) as avg_streak
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"goal_uid": goal_uid, "user_uid": user_uid})
-            records = await result.data()
+        result = await self.backend.execute_query(
+            query, {"goal_uid": goal_uid, "user_uid": user_uid}
+        )
+        if result.is_error:
+            self.logger.error(f"Failed to query habits for goal {goal_uid}: {result.error}")
+            return
 
-        if not records or records[0].get("total_habits", 0) == 0:
+        if not result.value or result.value[0].get("total_habits", 0) == 0:
             self.logger.debug(f"No habits found for goal {goal_uid}")
             return
 
-        total_habits = records[0].get("total_habits", 0)
-        avg_streak = records[0].get("avg_streak", 0)
+        total_habits = result.value[0].get("total_habits", 0)
+        avg_streak = result.value[0].get("avg_streak", 0)
 
         # Calculate progress based on goal type
         old_progress = goal.progress_percentage or 0.0

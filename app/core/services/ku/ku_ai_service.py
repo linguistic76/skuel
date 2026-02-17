@@ -271,27 +271,19 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
             "ku_uid": ku_uid,
         }
 
-        # Execute query via backend driver
-        try:
-            result = await self.backend.driver.execute_query(cypher, params)
+        # Execute query via protocol-compliant backend
+        result = await self.backend.execute_query(cypher, params)
+        if result.is_error:
+            return result
 
-            if not result:
-                return Result.ok([])
+        if not result.value:
+            return Result.ok([])
 
-            chunks = [dict(record) for record in result]
-            self.logger.info(
-                f"Found {len(chunks)} chunks with similarity >= {similarity_threshold:.2f}"
-            )
-            return Result.ok(chunks)
-
-        except Exception as e:
-            self.logger.error(f"Chunk semantic search failed: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation="semantic_search_chunks",
-                    message=f"Vector search failed: {e}",
-                )
-            )
+        chunks = list(result.value)
+        self.logger.info(
+            f"Found {len(chunks)} chunks with similarity >= {similarity_threshold:.2f}"
+        )
+        return Result.ok(chunks)
 
     # ========================================================================
     # AI-GENERATED SUMMARIES

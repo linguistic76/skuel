@@ -79,13 +79,16 @@ See: /docs/architecture/GRAPH_NATIVE_ANALYSIS.md
 See: /docs/architecture/YAML_MARKDOWN_INGESTION_GUIDE.md
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, TypedDict, TypeVar
-
-from neo4j import AsyncDriver
+from typing import TYPE_CHECKING, Literal, TypedDict, TypeVar
 
 from core.ingestion.cypher_executor import CypherExecutor, CypherTemplate
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 

@@ -598,15 +598,17 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         ORDER BY subtask.created_at
         """
 
-        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid)
+        result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
 
-        if not result.records:
+        if result.is_error:
+            return result
+        if not result.value:
             return Result.ok([])
 
         # Convert to Task models
         tasks = []
-        for record in result.records:
-            task_data = dict(record["subtask"])
+        for record in result.value:
+            task_data = record["subtask"]
             task = self._to_domain_model(task_data, KuDTO, Ku)
             tasks.append(task)
 
@@ -630,12 +632,14 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         LIMIT 1
         """
 
-        result = await self.backend.driver.execute_query(query, subtask_uid=subtask_uid)
+        result = await self.backend.execute_query(query, {"subtask_uid": subtask_uid})
 
-        if not result.records:
+        if result.is_error:
+            return result
+        if not result.value:
             return Result.ok(None)
 
-        parent_data = dict(result.records[0]["parent"])
+        parent_data = result.value[0]["parent"]
         parent = self._to_domain_model(parent_data, KuDTO, Ku)
         return Result.ok(parent)
 
@@ -695,33 +699,43 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         current_task = self._to_domain_model(current_result.value, KuDTO, Ku)
 
-        ancestors_result = await self.backend.driver.execute_query(
-            ancestors_query, task_uid=task_uid
-        )
-        siblings_result = await self.backend.driver.execute_query(siblings_query, task_uid=task_uid)
-        children_result = await self.backend.driver.execute_query(children_query, task_uid=task_uid)
+        ancestors_result = await self.backend.execute_query(ancestors_query, {"task_uid": task_uid})
+        siblings_result = await self.backend.execute_query(siblings_query, {"task_uid": task_uid})
+        children_result = await self.backend.execute_query(children_query, {"task_uid": task_uid})
 
         # Process ancestors
         ancestors = []
-        if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
-            for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
-                task_data = dict(node)
+        if (
+            not ancestors_result.is_error
+            and ancestors_result.value
+            and ancestors_result.value[0]["ancestors"]
+        ):
+            for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
+                task_data = node
                 ancestors.append(self._to_domain_model(task_data, KuDTO, Ku))
 
         # Process siblings
         siblings = []
-        if siblings_result.records and siblings_result.records[0]["siblings"]:
-            for node in siblings_result.records[0]["siblings"]:
+        if (
+            not siblings_result.is_error
+            and siblings_result.value
+            and siblings_result.value[0]["siblings"]
+        ):
+            for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
-                    task_data = dict(node)
+                    task_data = node
                     siblings.append(self._to_domain_model(task_data, KuDTO, Ku))
 
         # Process children
         children = []
-        if children_result.records and children_result.records[0]["children"]:
-            for node in children_result.records[0]["children"]:
+        if (
+            not children_result.is_error
+            and children_result.value
+            and children_result.value[0]["children"]
+        ):
+            for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
-                    task_data = dict(node)
+                    task_data = node
                     children.append(self._to_domain_model(task_data, KuDTO, Ku))
 
         return Result.ok(
@@ -778,11 +792,15 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN true as success
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, subtask_uid=subtask_uid, weight=progress_weight
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "subtask_uid": subtask_uid, "weight": progress_weight}
         )
 
-        if result.records:
+        if result.is_error:
+            return Result.fail(
+                Errors.database(operation="create", message="Failed to create subtask relationship")
+            )
+        if result.value:
             self.logger.info(
                 f"Created subtask relationship: {parent_uid} -> {subtask_uid} (weight: {progress_weight})"
             )
@@ -800,12 +818,14 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN count(path) > 0 as would_create_cycle
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, child_uid=child_uid
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "child_uid": child_uid}
         )
 
-        if result.records:
-            return result.records[0]["would_create_cycle"]
+        if result.is_error:
+            return False
+        if result.value:
+            return result.value[0]["would_create_cycle"]
 
         return False
 
@@ -859,10 +879,10 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN parent.uid as parent_uid
         """
 
-        result = await self.backend.driver.execute_query(query, task_uid=completed_task_uid)
+        result = await self.backend.execute_query(query, {"task_uid": completed_task_uid})
 
-        if result.records:
-            for record in result.records:
+        if not result.is_error and result.value:
+            for record in result.value:
                 parent_uid = record["parent_uid"]
                 auto_completed_uids.append(parent_uid)
                 self.logger.info(
@@ -930,9 +950,11 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
           END as progress_percentage
         """
 
-        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid)
+        result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
 
-        if not result.records:
+        if result.is_error:
+            return result
+        if not result.value:
             return Result.ok(
                 {
                     "total_weight": 0.0,
@@ -943,7 +965,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
                 }
             )
 
-        record = result.records[0]
+        record = result.value[0]
         return Result.ok(
             {
                 "total_weight": record["total_weight"] or 0.0,

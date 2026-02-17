@@ -517,15 +517,17 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         ORDER BY subevent.created_at
         """
 
-        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid)
+        result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
 
-        if not result.records:
+        if result.is_error:
+            return result
+        if not result.value:
             return Result.ok([])
 
         # Convert to Ku models
         events = []
-        for record in result.records:
-            event_data = dict(record["subevent"])
+        for record in result.value:
+            event_data = record["subevent"]
             event = self._to_domain_model(event_data, KuDTO, Ku)
             events.append(event)
 
@@ -549,12 +551,14 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         LIMIT 1
         """
 
-        result = await self.backend.driver.execute_query(query, subevent_uid=subevent_uid)
+        result = await self.backend.execute_query(query, {"subevent_uid": subevent_uid})
 
-        if not result.records:
+        if result.is_error:
+            return result
+        if not result.value:
             return Result.ok(None)
 
-        parent_data = dict(result.records[0]["parent"])
+        parent_data = result.value[0]["parent"]
         parent = self._to_domain_model(parent_data, KuDTO, Ku)
         return Result.ok(parent)
 
@@ -614,37 +618,45 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         current_event = self._to_domain_model(current_result.value, KuDTO, Ku)
 
-        ancestors_result = await self.backend.driver.execute_query(
-            ancestors_query, event_uid=event_uid
+        ancestors_result = await self.backend.execute_query(
+            ancestors_query, {"event_uid": event_uid}
         )
-        siblings_result = await self.backend.driver.execute_query(
-            siblings_query, event_uid=event_uid
-        )
-        children_result = await self.backend.driver.execute_query(
-            children_query, event_uid=event_uid
-        )
+        siblings_result = await self.backend.execute_query(siblings_query, {"event_uid": event_uid})
+        children_result = await self.backend.execute_query(children_query, {"event_uid": event_uid})
 
         # Process ancestors
         ancestors = []
-        if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
-            for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
-                event_data = dict(node)
+        if (
+            not ancestors_result.is_error
+            and ancestors_result.value
+            and ancestors_result.value[0]["ancestors"]
+        ):
+            for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
+                event_data = node
                 ancestors.append(self._to_domain_model(event_data, KuDTO, Ku))
 
         # Process siblings
         siblings = []
-        if siblings_result.records and siblings_result.records[0]["siblings"]:
-            for node in siblings_result.records[0]["siblings"]:
+        if (
+            not siblings_result.is_error
+            and siblings_result.value
+            and siblings_result.value[0]["siblings"]
+        ):
+            for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
-                    event_data = dict(node)
+                    event_data = node
                     siblings.append(self._to_domain_model(event_data, KuDTO, Ku))
 
         # Process children
         children = []
-        if children_result.records and children_result.records[0]["children"]:
-            for node in children_result.records[0]["children"]:
+        if (
+            not children_result.is_error
+            and children_result.value
+            and children_result.value[0]["children"]
+        ):
+            for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
-                    event_data = dict(node)
+                    event_data = node
                     children.append(self._to_domain_model(event_data, KuDTO, Ku))
 
         return Result.ok(
@@ -716,9 +728,15 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         """
 
         params = {"parent_uid": parent_uid, "subevent_uid": subevent_uid, **rel_props}
-        result = await self.backend.driver.execute_query(query, **params)
+        result = await self.backend.execute_query(query, params)
 
-        if result.records:
+        if result.is_error:
+            return Result.fail(
+                Errors.database(
+                    operation="create", message="Failed to create subevent relationship"
+                )
+            )
+        if result.value:
             self.logger.info(
                 f"Created subevent relationship: {parent_uid} -> {subevent_uid} (order: {order})"
             )
@@ -749,12 +767,12 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN count(r1) + count(r2) as deleted_count
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, subevent_uid=subevent_uid
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "subevent_uid": subevent_uid}
         )
 
-        if result.records:
-            deleted = result.records[0]["deleted_count"]
+        if not result.is_error and result.value:
+            deleted = result.value[0]["deleted_count"]
             if deleted > 0:
                 self.logger.info(f"Removed subevent relationship: {parent_uid} -> {subevent_uid}")
                 return Result.ok(True)
@@ -769,11 +787,13 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN count(path) > 0 as would_create_cycle
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, child_uid=child_uid
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "child_uid": child_uid}
         )
 
-        if result.records:
-            return result.records[0]["would_create_cycle"]
+        if result.is_error:
+            return False
+        if result.value:
+            return result.value[0]["would_create_cycle"]
 
         return False

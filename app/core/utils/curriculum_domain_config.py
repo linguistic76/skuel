@@ -288,8 +288,8 @@ def create_ku_sub_services(
     4. KuSearchService (backend, content_repo, intelligence, query_builder, vector_search, embeddings)
     5. KuGraphService (repo, neo4j_adapter, graph_intel)
     6. KuSemanticService (repo, neo4j_adapter, intelligence)
-    7. KuPracticeService (driver, event_bus)
-    8. KuInteractionService (driver, event_bus)
+    7. KuPracticeService (backend, event_bus)
+    8. KuInteractionService (backend, event_bus)
 
     Args:
         backend: KuOperations backend - REQUIRED
@@ -367,10 +367,10 @@ def create_ku_sub_services(
     )
 
     # Step 7: Create practice (event-driven)
-    practice = KuPracticeService(driver=driver, event_bus=event_bus)
+    practice = KuPracticeService(backend=backend, event_bus=event_bus)
 
     # Step 8: Create interaction (event-driven)
-    interaction = KuInteractionService(driver=driver, event_bus=event_bus)
+    interaction = KuInteractionService(backend=backend, event_bus=event_bus)
 
     # Step 9: Create adaptive curriculum service
     adaptive = KuAdaptiveService(ku_backend=backend, user_service=user_service)
@@ -451,10 +451,15 @@ def create_lp_sub_services(
         event_bus=event_bus,
     )
 
-    # Step 5: Create progress
-    progress = LpProgressService(driver=driver, event_bus=event_bus)
+    # Step 5: Create query executor for sub-services
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
-    # Step 6: Create intelligence
+    executor = Neo4jQueryExecutor(driver)
+
+    # Step 6: Create progress
+    progress = LpProgressService(executor=executor, event_bus=event_bus)
+
+    # Step 7: Create intelligence
     # ADR-030: Analytics services have zero AI dependencies
     intelligence = LpIntelligenceService(
         backend=lp_backend,
@@ -463,7 +468,7 @@ def create_lp_sub_services(
         learning_backend=lp_backend,
         event_bus=event_bus,
         user_service=user_service,
-        driver=driver,
+        executor=executor,
     )
 
     return LpSubServices(

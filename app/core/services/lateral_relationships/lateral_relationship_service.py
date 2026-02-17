@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.relationship_names import RelationshipName
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
+    from core.services.protocols import QueryExecutor
 from core.models.relationship_registry import get_lateral_spec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -58,8 +58,8 @@ class LateralRelationshipService:
     - Store relationship metadata
     """
 
-    def __init__(self, driver: "AsyncDriver") -> None:
-        self.driver = driver
+    def __init__(self, executor: "QueryExecutor") -> None:
+        self.executor = executor
 
     async def create_lateral_relationship(
         self,
@@ -114,49 +114,47 @@ class LateralRelationshipService:
         rel_metadata["is_symmetric"] = spec.is_symmetric if spec else False
 
         # Create the relationship
-        try:
-            result = await self.driver.execute_query(
-                f"""
-                MATCH (source {{uid: $source_uid}})
-                MATCH (target {{uid: $target_uid}})
-                CREATE (source)-[r:{relationship_type.value} $metadata]->(target)
-                RETURN r
-                """,
-                {
-                    "source_uid": source_uid,
-                    "target_uid": target_uid,
-                    "metadata": rel_metadata,
-                },
+        result = await self.executor.execute_query(
+            f"""
+            MATCH (source {{uid: $source_uid}})
+            MATCH (target {{uid: $target_uid}})
+            CREATE (source)-[r:{relationship_type.value} $metadata]->(target)
+            RETURN r
+            """,
+            {
+                "source_uid": source_uid,
+                "target_uid": target_uid,
+                "metadata": rel_metadata,
+            },
+        )
+
+        if result.is_error:
+            return result
+
+        if not result.value:
+            return Result.fail(
+                Errors.database(
+                    operation="create_relationship",
+                    message=f"Failed to create {relationship_type.value} relationship",
+                )
             )
 
-            if not result.records:
-                return Result.fail(
-                    Errors.database(
-                        operation="create_relationship",
-                        message=f"Failed to create {relationship_type.value} relationship",
-                    )
+        logger.info(
+            f"Created lateral relationship: {source_uid} -[{relationship_type.value}]-> {target_uid}"
+        )
+
+        # Auto-create inverse if asymmetric
+        if auto_inverse and spec and not spec.is_symmetric:
+            inverse_type = spec.inverse_type
+            if inverse_type:
+                await self._create_inverse_relationship(
+                    source_uid=target_uid,  # Reversed
+                    target_uid=source_uid,  # Reversed
+                    relationship_type=inverse_type,
+                    metadata=rel_metadata,
                 )
 
-            logger.info(
-                f"✅ Created lateral relationship: {source_uid} -[{relationship_type.value}]-> {target_uid}"
-            )
-
-            # Auto-create inverse if asymmetric
-            if auto_inverse and spec and not spec.is_symmetric:
-                inverse_type = spec.inverse_type
-                if inverse_type:
-                    await self._create_inverse_relationship(
-                        source_uid=target_uid,  # Reversed
-                        target_uid=source_uid,  # Reversed
-                        relationship_type=inverse_type,
-                        metadata=rel_metadata,
-                    )
-
-            return Result.ok(True)
-
-        except Exception as e:
-            logger.error(f"❌ Failed to create lateral relationship: {e}")
-            return Result.fail(Errors.database(operation="Relationship creation", message=str(e)))
+        return Result.ok(True)
 
     async def delete_lateral_relationship(
         self,
@@ -188,45 +186,44 @@ class LateralRelationshipService:
                 if ownership_result.is_error:
                     return Result.fail(Errors.not_found(f"Entity {uid} not found or access denied"))
 
-        try:
-            result = await self.driver.execute_query(
-                f"""
-                MATCH (source {{uid: $source_uid}})-[r:{relationship_type.value}]->(target {{uid: $target_uid}})
-                DELETE r
-                RETURN count(r) as deleted_count
-                """,
-                {"source_uid": source_uid, "target_uid": target_uid},
+        result = await self.executor.execute_query(
+            f"""
+            MATCH (source {{uid: $source_uid}})-[r:{relationship_type.value}]->(target {{uid: $target_uid}})
+            DELETE r
+            RETURN count(r) as deleted_count
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
+
+        if result.is_error:
+            return result
+
+        records = result.value
+        deleted_count = records[0]["deleted_count"] if records else 0
+
+        if deleted_count == 0:
+            return Result.fail(
+                Errors.not_found(
+                    f"Relationship {relationship_type.value} not found between {source_uid} and {target_uid}"
+                )
             )
 
-            deleted_count = result.records[0]["deleted_count"] if result.records else 0
+        logger.info(
+            f"Deleted lateral relationship: {source_uid} -[{relationship_type.value}]-> {target_uid}"
+        )
 
-            if deleted_count == 0:
-                return Result.fail(
-                    Errors.not_found(
-                        f"Relationship {relationship_type.value} not found between {source_uid} and {target_uid}"
-                    )
+        # Delete inverse if needed
+        spec = get_lateral_spec(relationship_type)
+        if delete_inverse and spec and not spec.is_symmetric:
+            inverse_type = spec.inverse_type
+            if inverse_type:
+                await self._delete_inverse_relationship(
+                    source_uid=target_uid,
+                    target_uid=source_uid,
+                    relationship_type=inverse_type,
                 )
 
-            logger.info(
-                f"✅ Deleted lateral relationship: {source_uid} -[{relationship_type.value}]-> {target_uid}"
-            )
-
-            # Delete inverse if needed
-            spec = get_lateral_spec(relationship_type)
-            if delete_inverse and spec and not spec.is_symmetric:
-                inverse_type = spec.inverse_type
-                if inverse_type:
-                    await self._delete_inverse_relationship(
-                        source_uid=target_uid,
-                        target_uid=source_uid,
-                        relationship_type=inverse_type,
-                    )
-
-            return Result.ok(True)
-
-        except Exception as e:
-            logger.error(f"❌ Failed to delete lateral relationship: {e}")
-            return Result.fail(Errors.database(operation="Relationship deletion", message=str(e)))
+        return Result.ok(True)
 
     async def get_lateral_relationships(
         self,
@@ -285,42 +282,40 @@ class LateralRelationshipService:
         else:  # both
             pattern = f"(entity)-[r:{type_filter}]-(related)"
 
-        try:
-            result = await self.driver.execute_query(
-                f"""
-                MATCH {pattern}
-                WHERE entity.uid = $entity_uid
-                RETURN
-                    type(r) as relationship_type,
-                    related.uid as related_uid,
-                    related.title as related_title,
-                    properties(r) as metadata,
-                    CASE
-                        WHEN startNode(r) = entity THEN 'outgoing'
-                        ELSE 'incoming'
-                    END as direction
-                ORDER BY relationship_type, related_title
-                """,
-                {"entity_uid": entity_uid},
-            )
+        result = await self.executor.execute_query(
+            f"""
+            MATCH {pattern}
+            WHERE entity.uid = $entity_uid
+            RETURN
+                type(r) as relationship_type,
+                related.uid as related_uid,
+                related.title as related_title,
+                properties(r) as metadata,
+                CASE
+                    WHEN startNode(r) = entity THEN 'outgoing'
+                    ELSE 'incoming'
+                END as direction
+            ORDER BY relationship_type, related_title
+            """,
+            {"entity_uid": entity_uid},
+        )
 
-            relationships = [
-                {
-                    "type": record["relationship_type"],
-                    "target_uid": record["related_uid"],
-                    "target_title": record["related_title"],
-                    "metadata": record["metadata"] if include_metadata else {},
-                    "direction": record["direction"],
-                }
-                for record in result.records
-            ]
+        if result.is_error:
+            return result
 
-            logger.info(f"✅ Retrieved {len(relationships)} lateral relationships for {entity_uid}")
-            return Result.ok(relationships)
+        relationships = [
+            {
+                "type": record["relationship_type"],
+                "target_uid": record["related_uid"],
+                "target_title": record["related_title"],
+                "metadata": record["metadata"] if include_metadata else {},
+                "direction": record["direction"],
+            }
+            for record in result.value
+        ]
 
-        except Exception as e:
-            logger.error(f"❌ Failed to get lateral relationships: {e}")
-            return Result.fail(Errors.database(operation="Query", message=str(e)))
+        logger.info(f"Retrieved {len(relationships)} lateral relationships for {entity_uid}")
+        return Result.ok(relationships)
 
     async def get_siblings(
         self,
@@ -359,40 +354,38 @@ class LateralRelationshipService:
             )
         else:
             # Derive from hierarchy (share same parent)
-            try:
-                result = await self.driver.execute_query(
-                    """
-                    MATCH (parent)-[r]->(sibling)
-                    WHERE (parent)-[]->(entity {uid: $entity_uid})
-                    AND sibling.uid != $entity_uid
-                    AND type(r) IN ['SUBGOAL', 'SUBHABIT', 'SUBEVENT', 'SUBPRINCIPLE',
-                                     'SUBCHOICE', 'CONTAINS_STEP', 'ORGANIZES']
-                    RETURN
-                        sibling.uid as sibling_uid,
-                        sibling.title as sibling_title,
-                        type(r) as hierarchy_type,
-                        r.order as order
-                    ORDER BY r.order, sibling.title
-                    """,
-                    {"entity_uid": entity_uid},
-                )
+            result = await self.executor.execute_query(
+                """
+                MATCH (parent)-[r]->(sibling)
+                WHERE (parent)-[]->(entity {uid: $entity_uid})
+                AND sibling.uid != $entity_uid
+                AND type(r) IN ['SUBGOAL', 'SUBHABIT', 'SUBEVENT', 'SUBPRINCIPLE',
+                                 'SUBCHOICE', 'CONTAINS_STEP', 'ORGANIZES']
+                RETURN
+                    sibling.uid as sibling_uid,
+                    sibling.title as sibling_title,
+                    type(r) as hierarchy_type,
+                    r.order as order
+                ORDER BY r.order, sibling.title
+                """,
+                {"entity_uid": entity_uid},
+            )
 
-                siblings = [
-                    {
-                        "uid": record["sibling_uid"],
-                        "title": record["sibling_title"],
-                        "hierarchy_type": record["hierarchy_type"],
-                        "order": record["order"],
-                        "relationship": "derived_sibling",
-                    }
-                    for record in result.records
-                ]
+            if result.is_error:
+                return result
 
-                return Result.ok(siblings)
+            siblings = [
+                {
+                    "uid": record["sibling_uid"],
+                    "title": record["sibling_title"],
+                    "hierarchy_type": record["hierarchy_type"],
+                    "order": record["order"],
+                    "relationship": "derived_sibling",
+                }
+                for record in result.value
+            ]
 
-            except Exception as e:
-                logger.error(f"❌ Failed to get siblings: {e}")
-                return Result.fail(Errors.database(operation="Sibling query", message=str(e)))
+            return Result.ok(siblings)
 
     async def get_cousins(
         self,
@@ -409,51 +402,49 @@ class LateralRelationshipService:
         Returns:
             Result with list of cousins
         """
-        try:
-            # Build pattern based on degree
-            # 1st cousins: grandparent -> parent1 -> entity, grandparent -> parent2 -> cousin
-            # 2nd cousins: great-grandparent -> gp1 -> p1 -> entity, ggp -> gp2 -> p2 -> cousin
+        # Build pattern based on degree
+        # 1st cousins: grandparent -> parent1 -> entity, grandparent -> parent2 -> cousin
+        # 2nd cousins: great-grandparent -> gp1 -> p1 -> entity, ggp -> gp2 -> p2 -> cousin
 
-            # For simplicity, implement 1st cousins only for now
-            if degree != 1:
-                return Result.fail(
-                    Errors.validation("Only first cousins (degree=1) currently supported")
-                )
-
-            result = await self.driver.execute_query(
-                """
-                MATCH (grandparent)-[]->(parent1)-[]->(entity {uid: $entity_uid})
-                MATCH (grandparent)-[]->(parent2)-[]->(cousin)
-                WHERE parent1 != parent2
-                AND cousin.uid != $entity_uid
-                AND NOT (parent1)-[]->(cousin)  // Not a sibling
-                RETURN
-                    cousin.uid as cousin_uid,
-                    cousin.title as cousin_title,
-                    grandparent.uid as shared_ancestor_uid,
-                    grandparent.title as shared_ancestor_title
-                ORDER BY cousin.title
-                """,
-                {"entity_uid": entity_uid},
+        # For simplicity, implement 1st cousins only for now
+        if degree != 1:
+            return Result.fail(
+                Errors.validation("Only first cousins (degree=1) currently supported")
             )
 
-            cousins = [
-                {
-                    "uid": record["cousin_uid"],
-                    "title": record["cousin_title"],
-                    "shared_ancestor_uid": record["shared_ancestor_uid"],
-                    "shared_ancestor_title": record["shared_ancestor_title"],
-                    "degree": degree,
-                    "relationship": "derived_cousin",
-                }
-                for record in result.records
-            ]
+        result = await self.executor.execute_query(
+            """
+            MATCH (grandparent)-[]->(parent1)-[]->(entity {uid: $entity_uid})
+            MATCH (grandparent)-[]->(parent2)-[]->(cousin)
+            WHERE parent1 != parent2
+            AND cousin.uid != $entity_uid
+            AND NOT (parent1)-[]->(cousin)  // Not a sibling
+            RETURN
+                cousin.uid as cousin_uid,
+                cousin.title as cousin_title,
+                grandparent.uid as shared_ancestor_uid,
+                grandparent.title as shared_ancestor_title
+            ORDER BY cousin.title
+            """,
+            {"entity_uid": entity_uid},
+        )
 
-            return Result.ok(cousins)
+        if result.is_error:
+            return result
 
-        except Exception as e:
-            logger.error(f"❌ Failed to get cousins: {e}")
-            return Result.fail(Errors.database(operation="Cousin query", message=str(e)))
+        cousins = [
+            {
+                "uid": record["cousin_uid"],
+                "title": record["cousin_title"],
+                "shared_ancestor_uid": record["shared_ancestor_uid"],
+                "shared_ancestor_title": record["shared_ancestor_title"],
+                "degree": degree,
+                "relationship": "derived_cousin",
+            }
+            for record in result.value
+        ]
+
+        return Result.ok(cousins)
 
     # ========================================================================
     # Private Helper Methods
@@ -508,87 +499,86 @@ class LateralRelationshipService:
 
     async def _check_entities_exist(self, source_uid: str, target_uid: str) -> Result[bool]:
         """Verify both entities exist in the graph."""
-        try:
-            result = await self.driver.execute_query(
-                """
-                MATCH (source {uid: $source_uid})
-                MATCH (target {uid: $target_uid})
-                RETURN count(source) as source_count, count(target) as target_count
-                """,
-                {"source_uid": source_uid, "target_uid": target_uid},
-            )
+        result = await self.executor.execute_query(
+            """
+            MATCH (source {uid: $source_uid})
+            MATCH (target {uid: $target_uid})
+            RETURN count(source) as source_count, count(target) as target_count
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
 
-            if not result.records:
-                return Result.fail(Errors.not_found("One or both entities not found"))
+        if result.is_error:
+            return result
 
-            record = result.records[0]
-            if record["source_count"] == 0:
-                return Result.fail(Errors.not_found(f"Source entity {source_uid} not found"))
-            if record["target_count"] == 0:
-                return Result.fail(Errors.not_found(f"Target entity {target_uid} not found"))
+        records = result.value
+        if not records:
+            return Result.fail(Errors.not_found("One or both entities not found"))
 
-            return Result.ok(True)
+        record = records[0]
+        if record["source_count"] == 0:
+            return Result.fail(Errors.not_found(f"Source entity {source_uid} not found"))
+        if record["target_count"] == 0:
+            return Result.fail(Errors.not_found(f"Target entity {target_uid} not found"))
 
-        except Exception as e:
-            return Result.fail(Errors.database(operation="Entity existence check", message=str(e)))
+        return Result.ok(True)
 
     async def _check_same_parent(self, source_uid: str, target_uid: str) -> Result[bool]:
         """Verify entities share the same parent."""
-        try:
-            result = await self.driver.execute_query(
-                """
-                MATCH (parent)-[]->(source {uid: $source_uid})
-                MATCH (parent)-[]->(target {uid: $target_uid})
-                RETURN count(parent) as shared_parent_count
-                """,
-                {"source_uid": source_uid, "target_uid": target_uid},
+        result = await self.executor.execute_query(
+            """
+            MATCH (parent)-[]->(source {uid: $source_uid})
+            MATCH (parent)-[]->(target {uid: $target_uid})
+            RETURN count(parent) as shared_parent_count
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
+
+        if result.is_error:
+            return result
+
+        records = result.value
+        if not records or records[0]["shared_parent_count"] == 0:
+            return Result.fail(
+                Errors.validation("Entities must share same parent for this relationship type")
             )
 
-            if not result.records or result.records[0]["shared_parent_count"] == 0:
-                return Result.fail(
-                    Errors.validation("Entities must share same parent for this relationship type")
-                )
-
-            return Result.ok(True)
-
-        except Exception as e:
-            return Result.fail(Errors.database(operation="Same parent check", message=str(e)))
+        return Result.ok(True)
 
     async def _check_same_depth(self, source_uid: str, target_uid: str) -> Result[bool]:
         """Verify entities are at the same hierarchical depth."""
-        try:
-            # Calculate depth by counting ancestors
-            result = await self.driver.execute_query(
-                """
-                MATCH path1 = (root)-[*]->(source {uid: $source_uid})
-                WHERE NOT ()-[]->(root)
-                WITH length(path1) as source_depth
-                MATCH path2 = (root2)-[*]->(target {uid: $target_uid})
-                WHERE NOT ()-[]->(root2)
-                WITH source_depth, length(path2) as target_depth
-                RETURN source_depth, target_depth
-                LIMIT 1
-                """,
-                {"source_uid": source_uid, "target_uid": target_uid},
-            )
+        result = await self.executor.execute_query(
+            """
+            MATCH path1 = (root)-[*]->(source {uid: $source_uid})
+            WHERE NOT ()-[]->(root)
+            WITH length(path1) as source_depth
+            MATCH path2 = (root2)-[*]->(target {uid: $target_uid})
+            WHERE NOT ()-[]->(root2)
+            WITH source_depth, length(path2) as target_depth
+            RETURN source_depth, target_depth
+            LIMIT 1
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
 
-            if not result.records:
-                # Entities might be roots (depth 0)
-                return Result.ok(True)
+        if result.is_error:
+            return result
 
-            record = result.records[0]
-            if record["source_depth"] != record["target_depth"]:
-                return Result.fail(
-                    Errors.validation(
-                        f"Entities must be at same depth for this relationship type "
-                        f"(source depth: {record['source_depth']}, target depth: {record['target_depth']}))"
-                    )
-                )
-
+        records = result.value
+        if not records:
+            # Entities might be roots (depth 0)
             return Result.ok(True)
 
-        except Exception as e:
-            return Result.fail(Errors.database(operation="Same depth check", message=str(e)))
+        record = records[0]
+        if record["source_depth"] != record["target_depth"]:
+            return Result.fail(
+                Errors.validation(
+                    f"Entities must be at same depth for this relationship type "
+                    f"(source depth: {record['source_depth']}, target depth: {record['target_depth']}))"
+                )
+            )
+
+        return Result.ok(True)
 
     async def _check_no_cycles(
         self,
@@ -601,27 +591,27 @@ class LateralRelationshipService:
 
         For BLOCKS/PREREQUISITE_FOR: source -> target is invalid if target -> ... -> source exists.
         """
-        try:
-            # Check if path already exists from target back to source
-            result = await self.driver.execute_query(
-                f"""
-                MATCH (target {{uid: $target_uid}})-[:{relationship_type.value}*1..10]->(source {{uid: $source_uid}})
-                RETURN count(*) as cycle_count
-                """,
-                {"source_uid": source_uid, "target_uid": target_uid},
+        # Check if path already exists from target back to source
+        result = await self.executor.execute_query(
+            f"""
+            MATCH (target {{uid: $target_uid}})-[:{relationship_type.value}*1..10]->(source {{uid: $source_uid}})
+            RETURN count(*) as cycle_count
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
+
+        if result.is_error:
+            return result
+
+        records = result.value
+        if records and records[0]["cycle_count"] > 0:
+            return Result.fail(
+                Errors.validation(
+                    f"Creating this {relationship_type.value} relationship would create a circular dependency"
+                )
             )
 
-            if result.records and result.records[0]["cycle_count"] > 0:
-                return Result.fail(
-                    Errors.validation(
-                        f"Creating this {relationship_type.value} relationship would create a circular dependency"
-                    )
-                )
-
-            return Result.ok(True)
-
-        except Exception as e:
-            return Result.fail(Errors.database(operation="Cycle check", message=str(e)))
+        return Result.ok(True)
 
     async def _create_inverse_relationship(
         self,
@@ -631,22 +621,22 @@ class LateralRelationshipService:
         metadata: dict[str, Any],
     ) -> None:
         """Create inverse relationship for asymmetric types."""
-        try:
-            await self.driver.execute_query(
-                f"""
-                MATCH (source {{uid: $source_uid}})
-                MATCH (target {{uid: $target_uid}})
-                CREATE (source)-[r:{relationship_type.value} $metadata]->(target)
-                """,
-                {
-                    "source_uid": source_uid,
-                    "target_uid": target_uid,
-                    "metadata": metadata,
-                },
-            )
-            logger.info(f"✅ Created inverse relationship: {relationship_type.value}")
-        except Exception as e:
-            logger.error(f"❌ Failed to create inverse relationship: {e}")
+        result = await self.executor.execute_query(
+            f"""
+            MATCH (source {{uid: $source_uid}})
+            MATCH (target {{uid: $target_uid}})
+            CREATE (source)-[r:{relationship_type.value} $metadata]->(target)
+            """,
+            {
+                "source_uid": source_uid,
+                "target_uid": target_uid,
+                "metadata": metadata,
+            },
+        )
+        if result.is_error:
+            logger.error(f"Failed to create inverse relationship: {result.error}")
+        else:
+            logger.info(f"Created inverse relationship: {relationship_type.value}")
 
     async def _delete_inverse_relationship(
         self,
@@ -655,17 +645,17 @@ class LateralRelationshipService:
         relationship_type: RelationshipName,
     ) -> None:
         """Delete inverse relationship for asymmetric types."""
-        try:
-            await self.driver.execute_query(
-                f"""
-                MATCH (source {{uid: $source_uid}})-[r:{relationship_type.value}]->(target {{uid: $target_uid}})
-                DELETE r
-                """,
-                {"source_uid": source_uid, "target_uid": target_uid},
-            )
-            logger.info(f"✅ Deleted inverse relationship: {relationship_type.value}")
-        except Exception as e:
-            logger.error(f"❌ Failed to delete inverse relationship: {e}")
+        result = await self.executor.execute_query(
+            f"""
+            MATCH (source {{uid: $source_uid}})-[r:{relationship_type.value}]->(target {{uid: $target_uid}})
+            DELETE r
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
+        if result.is_error:
+            logger.error(f"Failed to delete inverse relationship: {result.error}")
+        else:
+            logger.info(f"Deleted inverse relationship: {relationship_type.value}")
 
     # ========================================================================
     # Enhanced UX Methods (Phase 5)
@@ -721,85 +711,83 @@ class LateralRelationshipService:
                     print(f"Depth {level['depth']}: {len(level['entities'])} blockers")
             ```
         """
-        try:
-            result = await self.driver.execute_query(
-                """
-                MATCH path = (blocker)-[:BLOCKS*1..10]->(entity {uid: $uid})
-                WITH blocker, path, length(path) as depth
-                RETURN
-                    blocker.uid as uid,
-                    blocker.title as title,
-                    blocker.status as status,
-                    labels(blocker)[0] as entity_type,
-                    depth,
-                    size((blocker)-[:BLOCKS]->()) as blocks_count
-                ORDER BY depth DESC
-                """,
-                {"uid": entity_uid},
+        result = await self.executor.execute_query(
+            """
+            MATCH path = (blocker)-[:BLOCKS*1..10]->(entity {uid: $uid})
+            WITH blocker, path, length(path) as depth
+            RETURN
+                blocker.uid as uid,
+                blocker.title as title,
+                blocker.status as status,
+                labels(blocker)[0] as entity_type,
+                depth,
+                size((blocker)-[:BLOCKS]->()) as blocks_count
+            ORDER BY depth DESC
+            """,
+            {"uid": entity_uid},
+        )
+
+        if result.is_error:
+            return result
+
+        if not result.value:
+            return Result.ok(
+                {
+                    "root_uid": entity_uid,
+                    "total_blockers": 0,
+                    "chain_depth": 0,
+                    "levels": [],
+                    "critical_path": [entity_uid],
+                }
             )
 
-            if not result.records:
-                return Result.ok(
-                    {
-                        "root_uid": entity_uid,
-                        "total_blockers": 0,
-                        "chain_depth": 0,
-                        "levels": [],
-                        "critical_path": [entity_uid],
-                    }
-                )
+        # Group by depth
+        levels_dict: dict[int, list[dict[str, Any]]] = {}
+        all_blockers = []
 
-            # Group by depth
-            levels_dict: dict[int, list[dict[str, Any]]] = {}
-            all_blockers = []
-
-            for record in result.records:
-                depth_val = record["depth"]
-                blocker_data = {
-                    "uid": record["uid"],
-                    "title": record["title"],
-                    "entity_type": record["entity_type"],
-                    "status": record["status"],
-                    "blocks_count": record["blocks_count"],
-                }
-
-                if depth_val not in levels_dict:
-                    levels_dict[depth_val] = []
-                levels_dict[depth_val].append(blocker_data)
-                all_blockers.append(record["uid"])
-
-            # Convert to sorted list
-            levels = [
-                {"depth": depth, "entities": entities}
-                for depth, entities in sorted(levels_dict.items(), reverse=True)
-            ]
-
-            # Build critical path (longest chain)
-            max_depth_val = max(levels_dict.keys()) if levels_dict else 0
-            critical_path = []
-            if levels:
-                # Take first entity from each depth level + the target
-                for depth in sorted(levels_dict.keys(), reverse=True):
-                    critical_path.append(levels_dict[depth][0]["uid"])
-                critical_path.append(entity_uid)
-
-            chain_data = {
-                "root_uid": entity_uid,
-                "total_blockers": len(all_blockers),
-                "chain_depth": max_depth_val,
-                "levels": levels,
-                "critical_path": critical_path,
+        for record in result.value:
+            depth_val = record["depth"]
+            blocker_data = {
+                "uid": record["uid"],
+                "title": record["title"],
+                "entity_type": record["entity_type"],
+                "status": record["status"],
+                "blocks_count": record["blocks_count"],
             }
 
-            logger.info(
-                f"✅ Retrieved blocking chain for {entity_uid}: "
-                f"{len(all_blockers)} blockers across {max_depth_val} levels"
-            )
-            return Result.ok(chain_data)
+            if depth_val not in levels_dict:
+                levels_dict[depth_val] = []
+            levels_dict[depth_val].append(blocker_data)
+            all_blockers.append(record["uid"])
 
-        except Exception as e:
-            logger.error(f"❌ Failed to get blocking chain: {e}")
-            return Result.fail(Errors.database(operation="Blocking chain query", message=str(e)))
+        # Convert to sorted list
+        levels = [
+            {"depth": depth, "entities": entities}
+            for depth, entities in sorted(levels_dict.items(), reverse=True)
+        ]
+
+        # Build critical path (longest chain)
+        max_depth_val = max(levels_dict.keys()) if levels_dict else 0
+        critical_path = []
+        if levels:
+            # Take first entity from each depth level + the target
+            for depth in sorted(levels_dict.keys(), reverse=True):
+                critical_path.append(levels_dict[depth][0]["uid"])
+            critical_path.append(entity_uid)
+
+        chain_data = {
+            "root_uid": entity_uid,
+            "total_blockers": len(all_blockers),
+            "chain_depth": max_depth_val,
+            "levels": levels,
+            "critical_path": critical_path,
+        }
+
+        logger.info(
+            f"Retrieved blocking chain for {entity_uid}: "
+            f"{len(all_blockers)} blockers across {max_depth_val} levels"
+        )
+        return Result.ok(chain_data)
 
     async def get_alternatives_with_comparison(
         self,
@@ -851,77 +839,75 @@ class LateralRelationshipService:
                     print(f"Tradeoffs: {alt['metadata']['tradeoffs']}")
             ```
         """
-        try:
-            result = await self.driver.execute_query(
-                """
-                MATCH (entity {uid: $uid})-[r:ALTERNATIVE_TO]-(alternative)
-                RETURN
-                    alternative.uid as uid,
-                    alternative.title as title,
-                    alternative.description as description,
-                    alternative.status as status,
-                    alternative.priority as priority,
-                    labels(alternative)[0] as entity_type,
-                    r.comparison_criteria as comparison_criteria,
-                    r.tradeoffs as tradeoffs,
-                    r.timeframe as timeframe,
-                    r.difficulty as difficulty,
-                    r.resources as resources,
-                    properties(alternative) as all_properties,
-                    properties(r) as rel_properties
-                """,
-                {"uid": entity_uid},
-            )
+        result = await self.executor.execute_query(
+            """
+            MATCH (entity {uid: $uid})-[r:ALTERNATIVE_TO]-(alternative)
+            RETURN
+                alternative.uid as uid,
+                alternative.title as title,
+                alternative.description as description,
+                alternative.status as status,
+                alternative.priority as priority,
+                labels(alternative)[0] as entity_type,
+                r.comparison_criteria as comparison_criteria,
+                r.tradeoffs as tradeoffs,
+                r.timeframe as timeframe,
+                r.difficulty as difficulty,
+                r.resources as resources,
+                properties(alternative) as all_properties,
+                properties(r) as rel_properties
+            """,
+            {"uid": entity_uid},
+        )
 
-            if not result.records:
-                return Result.ok([])
+        if result.is_error:
+            return result
 
-            alternatives = []
-            for record in result.records:
-                # Build comparison data from relationship properties
-                comparison_data = {}
-                if record["timeframe"]:
-                    comparison_data["timeframe"] = record["timeframe"]
-                if record["difficulty"]:
-                    comparison_data["difficulty"] = record["difficulty"]
-                if record["resources"]:
-                    comparison_data["resources"] = record["resources"]
+        if not result.value:
+            return Result.ok([])
 
-                # Add any custom comparison fields from relationship
-                rel_props = record["rel_properties"] or {}
-                for key, value in rel_props.items():
-                    if key not in [
-                        "comparison_criteria",
-                        "tradeoffs",
-                        "created_at",
-                        "relationship_category",
-                        "is_symmetric",
-                    ]:
-                        if comparison_fields is None or key in comparison_fields:
-                            comparison_data[key] = value
+        alternatives = []
+        for record in result.value:
+            # Build comparison data from relationship properties
+            comparison_data = {}
+            if record["timeframe"]:
+                comparison_data["timeframe"] = record["timeframe"]
+            if record["difficulty"]:
+                comparison_data["difficulty"] = record["difficulty"]
+            if record["resources"]:
+                comparison_data["resources"] = record["resources"]
 
-                alternative_data = {
-                    "uid": record["uid"],
-                    "title": record["title"],
-                    "entity_type": record["entity_type"],
-                    "status": record["status"],
-                    "priority": record["priority"],
-                    "description": record["description"],
-                    "comparison_data": comparison_data,
-                    "metadata": {
-                        "tradeoffs": record["tradeoffs"] or "",
-                        "comparison_criteria": record["comparison_criteria"] or "",
-                    },
-                }
+            # Add any custom comparison fields from relationship
+            rel_props = record["rel_properties"] or {}
+            for key, value in rel_props.items():
+                if key not in [
+                    "comparison_criteria",
+                    "tradeoffs",
+                    "created_at",
+                    "relationship_category",
+                    "is_symmetric",
+                ]:
+                    if comparison_fields is None or key in comparison_fields:
+                        comparison_data[key] = value
 
-                alternatives.append(alternative_data)
+            alternative_data = {
+                "uid": record["uid"],
+                "title": record["title"],
+                "entity_type": record["entity_type"],
+                "status": record["status"],
+                "priority": record["priority"],
+                "description": record["description"],
+                "comparison_data": comparison_data,
+                "metadata": {
+                    "tradeoffs": record["tradeoffs"] or "",
+                    "comparison_criteria": record["comparison_criteria"] or "",
+                },
+            }
 
-            logger.info(f"✅ Retrieved {len(alternatives)} alternatives for {entity_uid}")
-            return Result.ok(alternatives)
+            alternatives.append(alternative_data)
 
-        except Exception as e:
-            logger.error(f"❌ Failed to get alternatives with comparison: {e}")
-            return Result.fail(Errors.database(operation="Alternatives query", message=str(e)))
+        logger.info(f"Retrieved {len(alternatives)} alternatives for {entity_uid}")
+        return Result.ok(alternatives)
 
     async def get_relationship_graph(
         self,
@@ -1013,117 +999,113 @@ class LateralRelationshipService:
             }
             return color_map.get(rel_type, "#6B7280")
 
-        try:
-            # Query graph with depth limit
-            result = await self.driver.execute_query(
-                f"""
-                MATCH path = (center {{uid: $uid}})-[r:{type_filter}*1..{depth}]-(related)
-                WITH center, r, related, length(path) as depth_level
-                RETURN DISTINCT
-                    center.uid as center_uid,
-                    center.title as center_title,
-                    labels(center)[0] as center_type,
-                    center.status as center_status,
-                    related.uid as related_uid,
-                    related.title as related_title,
-                    labels(related)[0] as related_type,
-                    related.status as related_status,
-                    [rel in r | {{
-                        type: type(rel),
-                        from: startNode(rel).uid,
-                        to: endNode(rel).uid
-                    }}] as relationships,
-                    depth_level
-                """,
-                {"uid": entity_uid},
+        # Query graph with depth limit
+        result = await self.executor.execute_query(
+            f"""
+            MATCH path = (center {{uid: $uid}})-[r:{type_filter}*1..{depth}]-(related)
+            WITH center, r, related, length(path) as depth_level
+            RETURN DISTINCT
+                center.uid as center_uid,
+                center.title as center_title,
+                labels(center)[0] as center_type,
+                center.status as center_status,
+                related.uid as related_uid,
+                related.title as related_title,
+                labels(related)[0] as related_type,
+                related.status as related_status,
+                [rel in r | {{
+                    type: type(rel),
+                    from: startNode(rel).uid,
+                    to: endNode(rel).uid
+                }}] as relationships,
+                depth_level
+            """,
+            {"uid": entity_uid},
+        )
+
+        if result.is_error:
+            return result
+
+        if not result.value:
+            # Return just the center node
+            return Result.ok(
+                {
+                    "nodes": [
+                        {
+                            "id": entity_uid,
+                            "label": entity_uid,
+                            "type": "unknown",
+                            "status": "unknown",
+                            "group": "center",
+                            "level": 0,
+                        }
+                    ],
+                    "edges": [],
+                }
             )
 
-            if not result.records:
-                # Return just the center node
-                return Result.ok(
-                    {
-                        "nodes": [
-                            {
-                                "id": entity_uid,
-                                "label": entity_uid,
-                                "type": "unknown",
-                                "status": "unknown",
-                                "group": "center",
-                                "level": 0,
-                            }
-                        ],
-                        "edges": [],
-                    }
-                )
+        # Build nodes and edges
+        nodes_dict: dict[str, dict[str, Any]] = {}
+        edges_list = []
 
-            # Build nodes and edges
-            nodes_dict: dict[str, dict[str, Any]] = {}
-            edges_list = []
+        # Add center node
+        center_record = result.value[0]
+        nodes_dict[entity_uid] = {
+            "id": entity_uid,
+            "label": center_record["center_title"] or entity_uid,
+            "type": center_record["center_type"] or "unknown",
+            "status": center_record["center_status"] or "unknown",
+            "group": "center",
+            "level": 0,
+        }
 
-            # Add center node
-            center_record = result.records[0]
-            nodes_dict[entity_uid] = {
-                "id": entity_uid,
-                "label": center_record["center_title"] or entity_uid,
-                "type": center_record["center_type"] or "unknown",
-                "status": center_record["center_status"] or "unknown",
-                "group": "center",
-                "level": 0,
-            }
+        # Process all records
+        for record in result.value:
+            related_uid = record["related_uid"]
+            depth_level = record["depth_level"]
 
-            # Process all records
-            for record in result.records:
-                related_uid = record["related_uid"]
-                depth_level = record["depth_level"]
+            # Add related node
+            if related_uid not in nodes_dict:
+                # Determine group based on relationship
+                group = "related"
+                nodes_dict[related_uid] = {
+                    "id": related_uid,
+                    "label": record["related_title"] or related_uid,
+                    "type": record["related_type"] or "unknown",
+                    "status": record["related_status"] or "unknown",
+                    "group": group,
+                    "level": depth_level,
+                }
 
-                # Add related node
-                if related_uid not in nodes_dict:
-                    # Determine group based on relationship
-                    group = "related"
-                    nodes_dict[related_uid] = {
-                        "id": related_uid,
-                        "label": record["related_title"] or related_uid,
-                        "type": record["related_type"] or "unknown",
-                        "status": record["related_status"] or "unknown",
-                        "group": group,
-                        "level": depth_level,
-                    }
+            # Add edges from relationships
+            relationships = record["relationships"] or []
+            for rel in relationships:
+                rel_type = rel["type"]
+                edge = {
+                    "from": rel["from"],
+                    "to": rel["to"],
+                    "label": rel_type.lower().replace("_", " "),
+                    "arrows": "to",
+                    "color": {"color": get_relationship_color(rel_type)},
+                    "relationship_type": rel_type,
+                }
+                # Avoid duplicates
+                edge_key = f"{edge['from']}-{edge['to']}-{rel_type}"
+                if edge_key not in {
+                    f"{e['from']}-{e['to']}-{e['relationship_type']}" for e in edges_list
+                }:
+                    edges_list.append(edge)
 
-                # Add edges from relationships
-                relationships = record["relationships"] or []
-                for rel in relationships:
-                    rel_type = rel["type"]
-                    edge = {
-                        "from": rel["from"],
-                        "to": rel["to"],
-                        "label": rel_type.lower().replace("_", " "),
-                        "arrows": "to",
-                        "color": {"color": get_relationship_color(rel_type)},
-                        "relationship_type": rel_type,
-                    }
-                    # Avoid duplicates
-                    edge_key = f"{edge['from']}-{edge['to']}-{rel_type}"
-                    if edge_key not in {
-                        f"{e['from']}-{e['to']}-{e['relationship_type']}" for e in edges_list
-                    }:
-                        edges_list.append(edge)
+        graph_data = {
+            "nodes": list(nodes_dict.values()),
+            "edges": edges_list,
+        }
 
-            graph_data = {
-                "nodes": list(nodes_dict.values()),
-                "edges": edges_list,
-            }
-
-            logger.info(
-                f"✅ Generated relationship graph for {entity_uid}: "
-                f"{len(nodes_dict)} nodes, {len(edges_list)} edges"
-            )
-            return Result.ok(graph_data)
-
-        except Exception as e:
-            logger.error(f"❌ Failed to get relationship graph: {e}")
-            return Result.fail(
-                Errors.database(operation="Relationship graph query", message=str(e))
-            )
+        logger.info(
+            f"Generated relationship graph for {entity_uid}: "
+            f"{len(nodes_dict)} nodes, {len(edges_list)} edges"
+        )
+        return Result.ok(graph_data)
 
 
 __all__ = ["LateralRelationshipService"]

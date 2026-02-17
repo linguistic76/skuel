@@ -240,7 +240,9 @@ async def test_record_task_completion_backend_error(progress_service, mock_backe
     """Test recording completion with backend error."""
     # Setup
     # Service now uses add_relationship instead of specific backend methods
-    mock_backend.add_relationship.return_value = Result.fail(Errors.database("add_relationship", "Database error"))
+    mock_backend.add_relationship.return_value = Result.fail(
+        Errors.database("add_relationship", "Database error")
+    )
 
     # Execute
     result = await progress_service.record_task_completion("task:123", "user:123")
@@ -448,7 +450,9 @@ async def test_assign_task_backend_error(progress_service, mock_backend):
     """Test task assignment with backend error."""
     # Setup
     # Service now uses add_relationship instead of specific backend methods
-    mock_backend.add_relationship.return_value = Result.fail(Errors.database("add_relationship", "Assignment failed"))
+    mock_backend.add_relationship.return_value = Result.fail(
+        Errors.database("add_relationship", "Assignment failed")
+    )
 
     # Execute
     result = await progress_service.assign_task_to_user("task:123", "user:456")

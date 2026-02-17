@@ -35,8 +35,6 @@ from .lifepath_types import WordActionAlignment
 from .lifepath_vision_service import LifePathVisionService
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
-
     from core.services.ku_service import KuService
     from core.services.llm_service import LLMService
     from core.services.lp_service import LpService
@@ -76,7 +74,7 @@ class LifePathService:
 
     def __init__(
         self,
-        driver: AsyncDriver | None = None,
+        executor: Any = None,
         lp_service: LpService | None = None,
         ku_service: KuService | None = None,
         user_service: UserService | None = None,
@@ -86,14 +84,12 @@ class LifePathService:
         Initialize LifePath service with all sub-services.
 
         Args:
-            driver: Neo4j async driver
+            executor: Query executor for graph queries
             lp_service: LP service for path operations
             ku_service: KU service for knowledge operations
             user_service: User service for context
             llm_service: LLM service for vision analysis
         """
-        self.driver = driver
-
         # Sub-services
         self.vision = LifePathVisionService(
             llm_service=llm_service,
@@ -101,12 +97,12 @@ class LifePathService:
         )
 
         self.core = LifePathCoreService(
-            driver=driver,
+            executor=executor,
             lp_service=lp_service,
         )
 
         self.alignment = LifePathAlignmentService(
-            driver=driver,
+            executor=executor,
             lp_service=lp_service,
             ku_service=ku_service,
             user_service=user_service,

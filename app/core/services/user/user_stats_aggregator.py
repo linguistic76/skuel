@@ -25,13 +25,16 @@ Architecture:
 - Requires Neo4j driver for recent activities query
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.services.user import UserContext
 from core.services.user_stats_types import ProfileHubData
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger(__name__)
 
@@ -59,7 +62,7 @@ class UserStatsAggregator:
         self,
         user_core_service: Any,  # UserCoreService
         context_builder: Any,  # UserContextBuilder
-        driver: Any,  # Neo4j driver
+        executor: "QueryExecutor",
     ) -> None:
         """
         Initialize stats aggregator.
@@ -67,7 +70,7 @@ class UserStatsAggregator:
         Args:
             user_core_service: UserCoreService for user CRUD
             context_builder: UserContextBuilder for context building
-            driver: Neo4j driver for activity queries
+            executor: QueryExecutor for activity queries
 
         Raises:
             ValueError: If any dependency is None
@@ -76,12 +79,12 @@ class UserStatsAggregator:
             raise ValueError("UserCoreService is required")
         if not context_builder:
             raise ValueError("UserContextBuilder is required")
-        if not driver:
-            raise ValueError("Neo4j driver is required")
+        if not executor:
+            raise ValueError("QueryExecutor is required")
 
         self.user_core = user_core_service
         self.context_builder = context_builder
-        self.driver = driver
+        self.executor = executor
 
     # ========================================================================
     # PROFILE HUB DATA GENERATION
@@ -248,60 +251,53 @@ class UserStatsAggregator:
             - goal.completed: Recently achieved goals
             - habit.practiced: Recently practiced habits (from completions)
         """
-        activities = []
+        query = """
+        MATCH (u:User {uid: $user_uid})
 
-        try:
-            query = """
-            MATCH (u:User {uid: $user_uid})
+        // Recent completed tasks
+        OPTIONAL MATCH (u)-[:HAS_TASK]->(t:Task {status: 'completed'})
+        WHERE t.completed_at IS NOT NULL
+        WITH u, collect({
+            type: 'task',
+            action: 'completed',
+            entity_uid: t.uid,
+            entity_title: t.title,
+            timestamp: t.completed_at
+        })[0..5] as task_activities
 
-            // Recent completed tasks
-            OPTIONAL MATCH (u)-[:HAS_TASK]->(t:Task {status: 'completed'})
-            WHERE t.completed_at IS NOT NULL
-            WITH u, collect({
-                type: 'task',
-                action: 'completed',
-                entity_uid: t.uid,
-                entity_title: t.title,
-                timestamp: t.completed_at
-            })[0..5] as task_activities
+        // Recent mastered knowledge
+        OPTIONAL MATCH (u)-[m:MASTERED]->(ku:Ku)
+        WHERE m.mastered_at IS NOT NULL
+        WITH u, task_activities, collect({
+            type: 'knowledge',
+            action: 'mastered',
+            entity_uid: ku.uid,
+            entity_title: ku.title,
+            timestamp: m.mastered_at
+        })[0..5] as knowledge_activities
 
-            // Recent mastered knowledge
-            OPTIONAL MATCH (u)-[m:MASTERED]->(ku:Ku)
-            WHERE m.mastered_at IS NOT NULL
-            WITH u, task_activities, collect({
-                type: 'knowledge',
-                action: 'mastered',
-                entity_uid: ku.uid,
-                entity_title: ku.title,
-                timestamp: m.mastered_at
-            })[0..5] as knowledge_activities
+        // Recent completed goals
+        OPTIONAL MATCH (u)-[:HAS_GOAL]->(g:Goal {status: 'completed'})
+        WHERE g.completed_at IS NOT NULL
+        With task_activities, knowledge_activities, collect({
+            type: 'goal',
+            action: 'completed',
+            entity_uid: g.uid,
+            entity_title: g.title,
+            timestamp: g.completed_at
+        })[0..5] as goal_activities
 
-            // Recent completed goals
-            OPTIONAL MATCH (u)-[:HAS_GOAL]->(g:Goal {status: 'completed'})
-            WHERE g.completed_at IS NOT NULL
-            WITH task_activities, knowledge_activities, collect({
-                type: 'goal',
-                action: 'completed',
-                entity_uid: g.uid,
-                entity_title: g.title,
-                timestamp: g.completed_at
-            })[0..5] as goal_activities
+        // Combine and sort by timestamp
+        UNWIND (task_activities + knowledge_activities + goal_activities) as activity
+        RETURN activity
+        ORDER BY activity.timestamp DESC
+        LIMIT 20
+        """
 
-            // Combine and sort by timestamp
-            UNWIND (task_activities + knowledge_activities + goal_activities) as activity
-            RETURN activity
-            ORDER BY activity.timestamp DESC
-            LIMIT 20
-            """
+        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            logger.warning(f"Error fetching recent activities: {result.error}")
+            return []
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid})
-                records = await result.values()
-
-                # Extract non-null activities
-                activities.extend(record[0] for record in records if record and record[0])
-
-        except Exception as e:
-            logger.warning(f"Error fetching recent activities: {e}")
-
-        return activities
+        records = result.value or []
+        return [record["activity"] for record in records if record and record.get("activity")]

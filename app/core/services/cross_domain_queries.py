@@ -10,18 +10,18 @@ PHASE 5 MIGRATION (October 3, 2025):
 - Pure Cypher benefits: query planner, indexes, cache
 
 This module provides specialized queries for domain-to-domain relationships:
-- Tasks ↔ Knowledge (applies_knowledge)
-- Habits ↔ Goals (contributes_to)
-- Events ↔ Knowledge (reinforces_concept)
-- Finance ↔ Goals (supports_financially)
-- Tasks ↔ Goals (advances_goal)
-- Knowledge ↔ Learning Paths (part_of_path)
+- Tasks <-> Knowledge (applies_knowledge)
+- Habits <-> Goals (contributes_to)
+- Events <-> Knowledge (reinforces_concept)
+- Finance <-> Goals (supports_financially)
+- Tasks <-> Goals (advances_goal)
+- Knowledge <-> Learning Paths (part_of_path)
 
 Each relationship is bidirectional with optimized queries in both directions.
 """
 
 from operator import attrgetter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
@@ -34,6 +34,9 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
+
 
 class CrossDomainQueries:
     """
@@ -45,18 +48,18 @@ class CrossDomainQueries:
     span multiple domains. Uses pure Cypher with semantic relationship types.
     """
 
-    def __init__(self, neo4j_driver) -> None:
+    def __init__(self, executor: "QueryExecutor") -> None:
         """
         Initialize cross-domain query service.
 
         Args:
-            neo4j_driver: Neo4j driver for graph queries
+            executor: QueryExecutor for graph queries
         """
-        self.driver = neo4j_driver
+        self.executor = executor
         self.logger = get_logger("skuel.services.cross_domain_queries")
 
     # =========================================================================
-    # Task ↔ Knowledge Relationships
+    # Task <-> Knowledge Relationships
     # =========================================================================
 
     async def find_knowledge_for_task(
@@ -85,13 +88,17 @@ class CrossDomainQueries:
                 RETURN collect(ku.uid) as direct_knowledge_uids, collect(ku) as direct_knowledge_nodes
                 """
 
-                async with self.driver.session() as session:
-                    result = await session.run(direct_cypher, task_uid=task_uid)
-                    record = await result.single()
+                direct_result = await self.executor.execute_query(
+                    direct_cypher, {"task_uid": task_uid}
+                )
+                if direct_result.is_error:
+                    return Result.fail(direct_result.expect_error())
 
-                if not record:
+                records = direct_result.value
+                if not records:
                     return Result.ok([])
 
+                record = records[0]
                 direct_uids = record["direct_knowledge_uids"] or []
                 direct_nodes = record["direct_knowledge_nodes"] or []
 
@@ -120,9 +127,13 @@ class CrossDomainQueries:
                     RETURN DISTINCT prereq
                     """
 
-                    async with self.driver.session() as session:
-                        result = await session.run(prereq_query, prereq_params)
-                        prereq_records = [record async for record in result]
+                    prereq_result = await self.executor.execute_query(
+                        prereq_query, prereq_params
+                    )
+                    if prereq_result.is_error:
+                        continue
+
+                    prereq_records = prereq_result.value or []
 
                     for prereq_record in prereq_records:
                         prereq_node = prereq_record["prereq"]
@@ -148,9 +159,11 @@ class CrossDomainQueries:
                 ORDER BY ku.title
                 """
 
-                async with self.driver.session() as session:
-                    result = await session.run(cypher, task_uid=task_uid)
-                    records = [record async for record in result]
+                result = await self.executor.execute_query(cypher, {"task_uid": task_uid})
+                if result.is_error:
+                    return Result.fail(result.expect_error())
+
+                records = result.value or []
 
                 knowledge_units = []
                 for record in records:
@@ -197,7 +210,7 @@ class CrossDomainQueries:
             RETURN t AS task
             ORDER BY t.created_at DESC
             """
-            params = ({"ku_uid": ku_uid, "user_uid": user_uid},)
+            params = {"ku_uid": ku_uid, "user_uid": user_uid}
         else:
             cypher = """
             MATCH (ku:Ku {uid: $ku_uid})<-[:APPLIES_KNOWLEDGE]-(t:Task)
@@ -206,9 +219,11 @@ class CrossDomainQueries:
             """
             params = {"ku_uid": ku_uid}
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, **params)
-            records = [record async for record in result]
+        result = await self.executor.execute_query(cypher, params)
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         tasks = []
         for record in records:
@@ -221,7 +236,7 @@ class CrossDomainQueries:
         return Result.ok(tasks)
 
     # =========================================================================
-    # Habit ↔ Goal Relationships
+    # Habit <-> Goal Relationships
     # =========================================================================
 
     @with_error_handling(
@@ -245,9 +260,11 @@ class CrossDomainQueries:
         ORDER BY g.target_date
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, habit_uid=habit_uid)
-            records = [record async for record in result]
+        result = await self.executor.execute_query(cypher, {"habit_uid": habit_uid})
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         goals = []
         for record in records:
@@ -291,9 +308,11 @@ class CrossDomainQueries:
             ORDER BY h.created_at DESC
             """
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, goal_uid=goal_uid)
-            records = [record async for record in result]
+        result = await self.executor.execute_query(cypher, {"goal_uid": goal_uid})
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         habits = []
         for record in records:
@@ -306,7 +325,7 @@ class CrossDomainQueries:
         return Result.ok(habits)
 
     # =========================================================================
-    # Event ↔ Knowledge Relationships
+    # Event <-> Knowledge Relationships
     # =========================================================================
 
     @with_error_handling(
@@ -330,9 +349,11 @@ class CrossDomainQueries:
         ORDER BY ku.title
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, event_uid=event_uid)
-            records = [record async for record in result]
+        result = await self.executor.execute_query(cypher, {"event_uid": event_uid})
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         knowledge_units = []
         for record in records:
@@ -362,7 +383,7 @@ class CrossDomainQueries:
             Result containing list of Event objects
         """
         conditions = ["ku.uid = $ku_uid"]
-        params = {"ku_uid": ku_uid}
+        params: dict[str, Any] = {"ku_uid": ku_uid}
 
         if user_uid:
             conditions.append("e.user_uid = $user_uid")
@@ -380,9 +401,11 @@ class CrossDomainQueries:
         ORDER BY e.start_time
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, **params)
-            records = [record async for record in result]
+        result = await self.executor.execute_query(cypher, params)
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         events = []
         for record in records:
@@ -393,7 +416,7 @@ class CrossDomainQueries:
         return Result.ok(events)
 
     # =========================================================================
-    # Finance ↔ Goal Relationships
+    # Finance <-> Goal Relationships
     # =========================================================================
 
     @with_error_handling(
@@ -417,9 +440,11 @@ class CrossDomainQueries:
         ORDER BY g.target_date
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, budget_uid=budget_uid)
-            records = [record async for record in result]
+        result = await self.executor.execute_query(cypher, {"budget_uid": budget_uid})
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         goals = []
         for record in records:
@@ -455,9 +480,12 @@ class CrossDomainQueries:
             collect(DISTINCT e) AS expenses
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, goal_uid=goal_uid)
-            record = await result.single()
+        result = await self.executor.execute_query(cypher, {"goal_uid": goal_uid})
+        if result.is_error:
+            return result
+
+        records = result.value or []
+        record = records[0] if records else {"budgets": [], "expenses": []}
 
         budgets = []
         for budget_node in record["budgets"]:
@@ -481,7 +509,7 @@ class CrossDomainQueries:
         )
 
     # =========================================================================
-    # Task ↔ Goal Relationships
+    # Task <-> Goal Relationships
     # =========================================================================
 
     @with_error_handling(
@@ -505,12 +533,14 @@ class CrossDomainQueries:
         LIMIT 1
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, task_uid=task_uid)
-            record = await result.single()
+        result = await self.executor.execute_query(cypher, {"task_uid": task_uid})
+        if result.is_error:
+            return result
 
-        if record:
-            goal_node = record["goal"]
+        records = result.value or []
+
+        if records:
+            goal_node = records[0]["goal"]
             goal = self._neo4j_node_to_goal(goal_node)
             return Result.ok(goal)
         else:
@@ -541,7 +571,7 @@ class CrossDomainQueries:
             RETURN t AS task
             ORDER BY t.due_date, t.priority DESC
             """
-            params = ({"goal_uid": goal_uid, "status": status_filter},)
+            params = {"goal_uid": goal_uid, "status": status_filter}
         else:
             cypher = """
             MATCH (g:Goal {uid: $goal_uid})<-[:ADVANCES_GOAL]-(t:Task)
@@ -550,9 +580,11 @@ class CrossDomainQueries:
             """
             params = {"goal_uid": goal_uid}
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, **params)
-            records = [record async for record in result]
+        result = await self.executor.execute_query(cypher, params)
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         tasks = []
         for record in records:
@@ -614,12 +646,18 @@ class CrossDomainQueries:
             collect(DISTINCT ku) AS knowledge_units
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, goal_uid=goal_uid, user_uid=user_uid)
-            record = await result.single()
+        result = await self.executor.execute_query(
+            cypher, {"goal_uid": goal_uid, "user_uid": user_uid}
+        )
+        if result.is_error:
+            return result
 
-        if not record:
+        records = result.value or []
+
+        if not records:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
+
+        record = records[0]
 
         # Parse results
         tasks = [self._neo4j_node_to_task(n) for n in record["tasks"] if n]

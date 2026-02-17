@@ -9,12 +9,15 @@ plus dry-run capabilities for previewing ingestion.
 Extracted from unified_ingestion_service.py for separation of concerns.
 """
 
+from __future__ import annotations
+
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from neo4j import AsyncDriver
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
 
 from core.models.enums.entity_enums import NonKuDomain
 from core.models.enums.ku_enums import KuType

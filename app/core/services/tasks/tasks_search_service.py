@@ -423,15 +423,14 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
             LIMIT $limit
         """
 
-        records, _, _ = await self.backend.driver.execute_query(
-            query, {"user_uid": user_uid, "limit": limit}
-        )
+        result = await self.backend.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        if result.is_error:
+            return result
 
-        # Convert Neo4j nodes to domain models
+        # Convert Neo4j records to domain models
         tasks = []
-        for record in records:
-            node = record["t"]
-            task = self._to_domain_model(dict(node), KuDTO, Ku)
+        for record in result.value:
+            task = self._to_domain_model(record["t"], KuDTO, Ku)
             tasks.append(task)
 
         self.logger.debug(f"Found {len(tasks)} assigned tasks for user {user_uid}")

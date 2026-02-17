@@ -32,12 +32,11 @@ Graph Relationships Managed:
 Date: November 26, 2025
 """
 
+from __future__ import annotations
+
 from typing import Any
 
-from neo4j import AsyncDriver
-
 from core.infrastructure.batch import BatchOperationHelper
-from core.services.graph_query_executor import GraphQueryExecutor
 from core.utils.processor_functions import (
     extract_dict_from_first_record,
     extract_uids_list,
@@ -65,15 +64,14 @@ class AnalyticsRelationshipService:
     - 1.0: All analytics relationships are deterministic (based on analytics_domain)
     """
 
-    def __init__(self, driver: AsyncDriver | None = None) -> None:
+    def __init__(self, executor: Any = None) -> None:
         """
         Initialize Analytics relationship service.
 
         Args:
-            driver: Neo4j async driver for graph queries
+            executor: Query executor for graph queries
         """
-        self.driver = driver
-        self.executor = GraphQueryExecutor(driver)  # Generic query executor
+        self.executor = executor
 
     # ========================================================================
     # User Reports (2 methods)

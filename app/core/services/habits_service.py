@@ -68,8 +68,6 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
-
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.habit.habit_request import (
         ArchiveHabitRequest,
@@ -238,7 +236,6 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Ku]):
         backend: HabitsOperations,
         graph_intelligence_service: GraphIntelligenceService,
         completions_backend: BackendOperations[HabitCompletion],
-        driver: AsyncDriver,
         event_bus: EventBusOperations | None = None,
         ai_service: HabitsAIService | None = None,
         insight_store: Any = None,
@@ -250,7 +247,6 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Ku]):
             backend: Protocol-based backend for habit operations (REQUIRED)
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             completions_backend: Backend for habit completion tracking (REQUIRED)
-            driver: Neo4j driver for event-driven integrations (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
             ai_service: Optional AI service for LLM/embeddings features (January 2026)
             insight_store: InsightStore for persisting event-driven insights (optional, Phase 1 - January 2026)
@@ -264,7 +260,7 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Ku]):
             Fail-fast at construction, not at method call.
 
         Migration Note (January 2026 - Fail-Fast):
-            Made completions_backend and driver REQUIRED - no graceful degradation.
+            Made completions_backend REQUIRED - no graceful degradation.
         """
         super().__init__(backend, "habits")
 
@@ -314,9 +310,9 @@ class HabitsService(FacadeDelegationMixin, BaseService[HabitsOperations, Ku]):
             event_bus=event_bus,
         )
 
-        # Phase 4: Event-driven achievement service (driver is REQUIRED)
+        # Phase 4: Event-driven achievement service (backend is REQUIRED)
         self.achievements = HabitAchievementService(
-            driver=driver,
+            backend=backend,
             event_bus=event_bus,
         )
 

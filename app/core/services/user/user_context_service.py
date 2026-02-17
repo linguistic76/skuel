@@ -65,7 +65,6 @@ class UserContextService:
         context_builder: UserContextBuilder,
         user_service: "UserService",  # String annotation to avoid circular import
         tasks_service: TasksOperations | None = None,
-        driver: Any | None = None,
         goal_task_generator: Any | None = None,  # GoalTaskGenerator
         habits_service: Any | None = None,  # HabitsService
         intelligence_factory: UserContextIntelligenceFactory | None = None,
@@ -86,7 +85,6 @@ class UserContextService:
         self.context_builder = context_builder
         self.user_service = user_service
         self.tasks_service = tasks_service
-        self.driver = driver
         self.goal_task_generator = goal_task_generator
         self.habits_service = habits_service
         self.intelligence_factory = intelligence_factory

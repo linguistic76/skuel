@@ -11,14 +11,6 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any, TypeVar
 
-from neo4j.exceptions import (
-    ConstraintError,
-    CypherSyntaxError,
-    Neo4jError,
-    ServiceUnavailable,
-    SessionExpired,
-)
-
 from core.errors import DatabaseError, NotFoundError, ValidationError
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -37,21 +29,29 @@ def handle_repository_errors(func: Callable) -> Callable:
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return await func(*args, **kwargs)
-        except ConstraintError as e:
-            logger.error(f"Constraint violation in {func.__name__}: {e}")
-            raise Errors.validation(f"Constraint violation: {e!s}") from e
-        except CypherSyntaxError as e:
-            logger.error(f"Cypher syntax error in {func.__name__}: {e}")
-            raise Errors.database("operation", f"Query syntax error: {e!s}") from e
-        except (SessionExpired, ServiceUnavailable) as e:
-            logger.error(f"Neo4j connection error in {func.__name__}: {e}")
-            raise Errors.database("operation", f"Database connection error: {e!s}") from e
-        except Neo4jError as e:
-            logger.error(f"Neo4j error in {func.__name__}: {e}")
-            raise Errors.database("operation", f"Database error: {e!s}") from e
         except Exception as e:
-            logger.error(f"Unexpected error in {func.__name__}: {e}")
-            raise Errors.database("operation", f"Unexpected error: {e!s}") from e
+            # Detect database-specific errors via module name (no import needed)
+            module = getattr(type(e), "__module__", "") or ""
+            name = type(e).__name__
+
+            if "neo4j" in module:
+                if name == "ConstraintError":
+                    logger.error(f"Constraint violation in {func.__name__}: {e}")
+                    raise Errors.validation(f"Constraint violation: {e!s}") from e
+                elif name == "CypherSyntaxError":
+                    logger.error(f"Cypher syntax error in {func.__name__}: {e}")
+                    raise Errors.database("operation", f"Query syntax error: {e!s}") from e
+                elif name in ("SessionExpired", "ServiceUnavailable"):
+                    logger.error(f"Neo4j connection error in {func.__name__}: {e}")
+                    raise Errors.database(
+                        "operation", f"Database connection error: {e!s}"
+                    ) from e
+                else:
+                    logger.error(f"Database error in {func.__name__}: {e}")
+                    raise Errors.database("operation", f"Database error: {e!s}") from e
+            else:
+                logger.error(f"Unexpected error in {func.__name__}: {e}")
+                raise Errors.database("operation", f"Unexpected error: {e!s}") from e
 
     return wrapper
 
@@ -109,8 +109,9 @@ class ErrorContext:
                 extra={**self.context, "error_type": exc_type.__name__},
             )
 
-            # Convert to appropriate domain error
-            if isinstance(exc_val, Neo4jError):
+            # Convert database-specific errors to domain errors (no neo4j import needed)
+            exc_module = getattr(type(exc_val), "__module__", "") or ""
+            if "neo4j" in exc_module:
                 if "not found" in str(exc_val).lower():
                     raise NotFoundError(str(exc_val)) from exc_val
                 elif "constraint" in str(exc_val).lower():
@@ -141,7 +142,18 @@ def with_retry(max_attempts: int = 3, delay: float = 1.0):
             for attempt in range(max_attempts):
                 try:
                     return await func(*args, **kwargs)
-                except (SessionExpired, ServiceUnavailable) as e:
+                except Exception as e:
+                    # Only retry transient database errors (e.g. SessionExpired, ServiceUnavailable)
+                    exc_module = getattr(type(e), "__module__", "") or ""
+                    exc_name = type(e).__name__
+                    is_transient = "neo4j" in exc_module and exc_name in (
+                        "SessionExpired",
+                        "ServiceUnavailable",
+                    )
+
+                    if not is_transient:
+                        raise
+
                     last_error = e
                     if attempt < max_attempts - 1:
                         logger.warning(
@@ -150,9 +162,6 @@ def with_retry(max_attempts: int = 3, delay: float = 1.0):
                         await asyncio.sleep(delay * (attempt + 1))
                     else:
                         logger.error(f"Max retries reached for {func.__name__}: {e}")
-                except Exception:
-                    # Don't retry on non-transient errors
-                    raise
 
             # If we get here, all retries failed
             raise Errors.database(

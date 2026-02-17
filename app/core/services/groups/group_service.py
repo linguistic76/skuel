@@ -102,16 +102,17 @@ class GroupService(BaseService):
             return result
 
         # Create OWNS relationship from teacher to group
-        await self.backend.driver.execute_query(
+        owns_result = await self.backend.execute_query(
             """
             MATCH (teacher:User {uid: $teacher_uid})
             MATCH (group:Group {uid: $group_uid})
             MERGE (teacher)-[:OWNS]->(group)
             RETURN true as success
             """,
-            teacher_uid=teacher_uid,
-            group_uid=uid,
+            {"teacher_uid": teacher_uid, "group_uid": uid},
         )
+        if owns_result.is_error:
+            self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
 
         if self.event_bus:
             from core.events.group_events import GroupCreated
@@ -164,19 +165,22 @@ class GroupService(BaseService):
         Returns:
             Result containing list of groups
         """
-        records, _, _ = await self.backend.driver.execute_query(
+        result = await self.backend.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
             WHERE group.is_active = true
             RETURN group
             ORDER BY group.created_at DESC
             """,
-            user_uid=user_uid,
+            {"user_uid": user_uid},
         )
 
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
         groups = []
-        for record in records:
-            props = dict(record["group"])
+        for record in result.value or []:
+            props = record["group"]
             try:
                 group = Group(**props)
                 groups.append(group)
@@ -281,7 +285,7 @@ class GroupService(BaseService):
                     )
                 )
 
-        records, _, _ = await self.backend.driver.execute_query(
+        result = await self.backend.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})
             MATCH (group:Group {{uid: $group_uid}})
@@ -290,12 +294,18 @@ class GroupService(BaseService):
                 r.role = $role
             RETURN true as success
             """,
-            user_uid=user_uid,
-            group_uid=group_uid,
-            joined_at=datetime.now().isoformat(),
-            role=role,
+            {
+                "user_uid": user_uid,
+                "group_uid": group_uid,
+                "joined_at": datetime.now().isoformat(),
+                "role": role,
+            },
         )
 
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        records = result.value or []
         if not records:
             return Result.fail(Errors.not_found(f"User {user_uid} or Group {group_uid} not found"))
 
@@ -334,16 +344,19 @@ class GroupService(BaseService):
         Returns:
             Result[bool]: Success if removed
         """
-        records, _, _ = await self.backend.driver.execute_query(
+        result = await self.backend.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.MEMBER_OF}]->(group:Group {{uid: $group_uid}})
             DELETE r
             RETURN count(r) as deleted_count
             """,
-            user_uid=user_uid,
-            group_uid=group_uid,
+            {"user_uid": user_uid, "group_uid": group_uid},
         )
 
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        records = result.value or []
         deleted_count = records[0]["deleted_count"] if records else 0
         if deleted_count == 0:
             return Result.fail(
@@ -379,7 +392,7 @@ class GroupService(BaseService):
         Returns:
             Result containing list of member dicts
         """
-        records, _, _ = await self.backend.driver.execute_query(
+        result = await self.backend.execute_query(
             f"""
             MATCH (user:User)-[r:{RelationshipName.MEMBER_OF}]->(group:Group {{uid: $group_uid}})
             RETURN user.uid as user_uid,
@@ -388,8 +401,11 @@ class GroupService(BaseService):
                    r.joined_at as joined_at
             ORDER BY r.joined_at
             """,
-            group_uid=group_uid,
+            {"group_uid": group_uid},
         )
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
         members = [
             {
@@ -398,7 +414,7 @@ class GroupService(BaseService):
                 "role": record["role"],
                 "joined_at": record["joined_at"],
             }
-            for record in records
+            for record in result.value or []
         ]
 
         return Result.ok(members)
@@ -409,14 +425,18 @@ class GroupService(BaseService):
 
     async def _get_member_count(self, group_uid: str) -> Result[int]:
         """Get current member count for a group."""
-        records, _, _ = await self.backend.driver.execute_query(
+        result = await self.backend.execute_query(
             f"""
             MATCH (user:User)-[:{RelationshipName.MEMBER_OF}]->(group:Group {{uid: $group_uid}})
             RETURN count(user) as member_count
             """,
-            group_uid=group_uid,
+            {"group_uid": group_uid},
         )
 
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        records = result.value or []
         count = records[0]["member_count"] if records else 0
         return Result.ok(count)
 

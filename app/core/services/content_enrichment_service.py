@@ -22,7 +22,6 @@ from dataclasses import asdict
 from datetime import date, datetime
 from typing import Any
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import publish_event
 from core.models.enums.ku_enums import KuStatus, KuType
 from core.models.ku import Ku, KuDTO
@@ -93,7 +92,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
 
     def __init__(
         self,
-        backend: UniversalNeo4jBackend[Ku] | None = None,
+        backend: BackendOperations[Ku] | None = None,
         transcription_service=None,
         ai_service=None,  # For intelligent editing (OpenAI/Anthropic)
         event_bus=None,  # For publishing domain events
@@ -102,7 +101,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
         Initialize transcript processor service.
 
         Args:
-            backend: UniversalNeo4jBackend[Ku] for storage,
+            backend: Backend for Ku storage,
             transcription_service: TranscriptionService for audio → text,
             ai_service: AI service for intelligent editing (e.g., OpenAI),
             event_bus: Event bus for publishing domain events (optional)
@@ -316,130 +315,131 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
         } as context
         """
 
-        async with self.backend.driver.session() as session:
-            result = await session.run(cypher, {"user_uid": user_uid})
-            record = await result.single()
+        query_result = await self.backend.execute_query(cypher, {"user_uid": user_uid})
 
-            if not record:
-                # No data found - return empty context
-                return Result.ok(
-                    KuProcessingContext(
-                        user_uid=user_uid,
-                        gathered_at=datetime.now().isoformat(),
-                        recent_journals=[],
-                        active_goals=[],
-                        recent_topics=[],
-                        mood_trends=None,
-                    )
-                )
+        if query_result.is_error:
+            return Result.fail(query_result.expect_error())
 
-            context_data = record["context"]
-
-            # Process recent journals
-            import json
-
-            recent_journals_list = []
-            for j in context_data.get("recent_entries", []):
-                if j and j.get("uid"):
-                    # Parse key_topics from JSON string if needed
-                    key_topics = []
-                    if j.get("key_topics"):
-                        with suppress(json.JSONDecodeError, TypeError):
-                            key_topics = (
-                                json.loads(j["key_topics"])
-                                if isinstance(j["key_topics"], str)
-                                else j["key_topics"]
-                            )
-
-                    recent_journals_list.append(
-                        {
-                            "uid": j["uid"],
-                            "title": j.get("title", ""),
-                            "content_excerpt": j.get("content", "")[:200]
-                            if j.get("content")
-                            else "",
-                            "date": j.get("entry_date", ""),
-                            "mood": j.get("mood") or "not specified",
-                            "energy_level": j.get("energy_level") or 0,
-                            "key_topics": key_topics,
-                        }
-                    )
-
-            # Process active goals
-            active_goals_list = [
-                {
-                    "uid": g["uid"],
-                    "title": g.get("title", ""),
-                    "description": g.get("description", ""),
-                }
-                for g in context_data.get("active_goals", [])
-                if g and g.get("uid")
-            ]
-
-            # Process topics - aggregate and count
-            from collections import Counter
-
-            all_topics = []
-            for topics_json in context_data.get("all_topics_json", []):
-                if topics_json:
-                    try:
-                        topics = (
-                            json.loads(topics_json) if isinstance(topics_json, str) else topics_json
-                        )
-                        if isinstance(topics, list):
-                            all_topics.extend(topics)
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-
-            # Get top 10 trending topics
-            topic_counts = Counter(all_topics)
-            trending_topics = [topic for topic, count in topic_counts.most_common(10)]
-
-            # Build mood trends
-            avg_energy = context_data.get("recent_mood_avg", 0.0)
-            data_points = context_data.get("data_points", 0)
-
-            # Simple trend detection (comparing first half vs second half of recent journals)
-            trend = "stable"
-            if len(recent_journals_list) >= 4:
-                mid_point = len(recent_journals_list) // 2
-                recent_half = [
-                    j["energy_level"] for j in recent_journals_list[:mid_point] if j["energy_level"]
-                ]
-                older_half = [
-                    j["energy_level"] for j in recent_journals_list[mid_point:] if j["energy_level"]
-                ]
-
-                if recent_half and older_half:
-                    recent_avg = sum(recent_half) / len(recent_half)
-                    older_avg = sum(older_half) / len(older_half)
-
-                    if recent_avg > older_avg + 1:
-                        trend = "improving"
-                    elif recent_avg < older_avg - 1:
-                        trend = "declining"
-
-            mood_trends = {
-                "average_energy": round(avg_energy, 1),
-                "recent_moods": [
-                    j["mood"]
-                    for j in recent_journals_list[:5]
-                    if j["mood"] and j["mood"] != "not specified"
-                ],
-                "trend": trend,
-                "data_points": data_points,
-            }
-
+        records = query_result.value or []
+        if not records:
+            # No data found - return empty context
             return Result.ok(
                 KuProcessingContext(
                     user_uid=user_uid,
                     gathered_at=datetime.now().isoformat(),
-                    recent_journals=recent_journals_list,
-                    active_goals=active_goals_list,
-                    recent_topics=trending_topics,
-                    mood_trends=mood_trends,
+                    recent_journals=[],
+                    active_goals=[],
+                    recent_topics=[],
+                    mood_trends=None,
                 )
             )
+
+        record = records[0]
+        context_data = record["context"]
+
+        # Process recent journals
+        import json
+
+        recent_journals_list = []
+        for j in context_data.get("recent_entries", []):
+            if j and j.get("uid"):
+                # Parse key_topics from JSON string if needed
+                key_topics = []
+                if j.get("key_topics"):
+                    with suppress(json.JSONDecodeError, TypeError):
+                        key_topics = (
+                            json.loads(j["key_topics"])
+                            if isinstance(j["key_topics"], str)
+                            else j["key_topics"]
+                        )
+
+                recent_journals_list.append(
+                    {
+                        "uid": j["uid"],
+                        "title": j.get("title", ""),
+                        "content_excerpt": j.get("content", "")[:200] if j.get("content") else "",
+                        "date": j.get("entry_date", ""),
+                        "mood": j.get("mood") or "not specified",
+                        "energy_level": j.get("energy_level") or 0,
+                        "key_topics": key_topics,
+                    }
+                )
+
+        # Process active goals
+        active_goals_list = [
+            {
+                "uid": g["uid"],
+                "title": g.get("title", ""),
+                "description": g.get("description", ""),
+            }
+            for g in context_data.get("active_goals", [])
+            if g and g.get("uid")
+        ]
+
+        # Process topics - aggregate and count
+        from collections import Counter
+
+        all_topics = []
+        for topics_json in context_data.get("all_topics_json", []):
+            if topics_json:
+                try:
+                    topics = (
+                        json.loads(topics_json) if isinstance(topics_json, str) else topics_json
+                    )
+                    if isinstance(topics, list):
+                        all_topics.extend(topics)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+        # Get top 10 trending topics
+        topic_counts = Counter(all_topics)
+        trending_topics = [topic for topic, count in topic_counts.most_common(10)]
+
+        # Build mood trends
+        avg_energy = context_data.get("recent_mood_avg", 0.0)
+        data_points = context_data.get("data_points", 0)
+
+        # Simple trend detection (comparing first half vs second half of recent journals)
+        trend = "stable"
+        if len(recent_journals_list) >= 4:
+            mid_point = len(recent_journals_list) // 2
+            recent_half = [
+                j["energy_level"] for j in recent_journals_list[:mid_point] if j["energy_level"]
+            ]
+            older_half = [
+                j["energy_level"] for j in recent_journals_list[mid_point:] if j["energy_level"]
+            ]
+
+            if recent_half and older_half:
+                recent_avg = sum(recent_half) / len(recent_half)
+                older_avg = sum(older_half) / len(older_half)
+
+                if recent_avg > older_avg + 1:
+                    trend = "improving"
+                elif recent_avg < older_avg - 1:
+                    trend = "declining"
+
+        mood_trends = {
+            "average_energy": round(avg_energy, 1),
+            "recent_moods": [
+                j["mood"]
+                for j in recent_journals_list[:5]
+                if j["mood"] and j["mood"] != "not specified"
+            ],
+            "trend": trend,
+            "data_points": data_points,
+        }
+
+        return Result.ok(
+            KuProcessingContext(
+                user_uid=user_uid,
+                gathered_at=datetime.now().isoformat(),
+                recent_journals=recent_journals_list,
+                active_goals=active_goals_list,
+                recent_topics=trending_topics,
+                mood_trends=mood_trends,
+            )
+        )
 
     async def _gather_context(self, user_uid: str) -> KuProcessingContext:
         """
@@ -507,39 +507,41 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
         LIMIT 10
         """
 
-        async with self.backend.driver.session() as session:
-            result = await session.run(
-                cypher, {"user_uid": user_uid, "cutoff_datetime": cutoff_datetime.isoformat()}
+        result = await self.backend.execute_query(
+            cypher, {"user_uid": user_uid, "cutoff_datetime": cutoff_datetime.isoformat()}
+        )
+
+        if result.is_error:
+            self.logger.warning(f"Failed to get recent journals: {result.error}")
+            return []
+
+        journals = []
+        for record in result.value or []:
+            # Parse key_topics from JSON string or list
+            import json
+
+            key_topics = []
+            if record["key_topics"]:
+                with suppress(json.JSONDecodeError):
+                    key_topics = (
+                        json.loads(record["key_topics"])
+                        if isinstance(record["key_topics"], str)
+                        else record["key_topics"]
+                    )
+
+            journals.append(
+                {
+                    "uid": record["uid"],
+                    "title": record["title"] or "Untitled",
+                    "content_excerpt": record["content"][:200] if record["content"] else "",
+                    "date": str(record["entry_date"]) if record["entry_date"] else "",
+                    "mood": record["mood"] or "not specified",
+                    "energy_level": record["energy_level"] or 0,
+                    "key_topics": key_topics,
+                }
             )
-            records = [r async for r in result]
 
-            journals = []
-            for record in records:
-                # Parse key_topics from JSON string or list
-                import json
-
-                key_topics = []
-                if record["key_topics"]:
-                    with suppress(json.JSONDecodeError):
-                        key_topics = (
-                            json.loads(record["key_topics"])
-                            if isinstance(record["key_topics"], str)
-                            else record["key_topics"]
-                        )
-
-                journals.append(
-                    {
-                        "uid": record["uid"],
-                        "title": record["title"] or "Untitled",
-                        "content_excerpt": record["content"][:200] if record["content"] else "",
-                        "date": str(record["entry_date"]) if record["entry_date"] else "",
-                        "mood": record["mood"] or "not specified",
-                        "energy_level": record["energy_level"] or 0,
-                        "key_topics": key_topics,
-                    }
-                )
-
-            return journals
+        return journals
 
     async def _get_active_goals(self, user_uid: str) -> list[dict[str, str]]:
         """
@@ -559,18 +561,20 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
         LIMIT 10
         """
 
-        async with self.backend.driver.session() as session:
-            result = await session.run(cypher, {"user_uid": user_uid})
-            records = [r async for r in result]
+        result = await self.backend.execute_query(cypher, {"user_uid": user_uid})
 
-            return [
-                {
-                    "uid": record["uid"],
-                    "title": record["title"],
-                    "description": record["description"] or "",
-                }
-                for record in records
-            ]
+        if result.is_error:
+            self.logger.warning(f"Failed to get active goals: {result.error}")
+            return []
+
+        return [
+            {
+                "uid": record["uid"],
+                "title": record["title"],
+                "description": record["description"] or "",
+            }
+            for record in result.value or []
+        ]
 
     async def _get_recent_topics(self, user_uid: str, days: int = 30) -> list[str]:
         """
@@ -597,30 +601,32 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
         RETURN j.key_topics as key_topics
         """
 
-        async with self.backend.driver.session() as session:
-            result = await session.run(
-                cypher, {"user_uid": user_uid, "cutoff_datetime": cutoff_datetime.isoformat()}
-            )
-            records = [r async for r in result]
+        result = await self.backend.execute_query(
+            cypher, {"user_uid": user_uid, "cutoff_datetime": cutoff_datetime.isoformat()}
+        )
 
-            # Aggregate all topics
-            all_topics = []
-            for record in records:
-                if record["key_topics"]:
-                    try:
-                        topics = (
-                            json.loads(record["key_topics"])
-                            if isinstance(record["key_topics"], str)
-                            else record["key_topics"]
-                        )
-                        if isinstance(topics, list):
-                            all_topics.extend(topics)
-                    except json.JSONDecodeError:
-                        pass
+        if result.is_error:
+            self.logger.warning(f"Failed to get recent topics: {result.error}")
+            return []
 
-            # Count frequency and return top 10
-            topic_counts = Counter(all_topics)
-            return [topic for topic, count in topic_counts.most_common(10)]
+        # Aggregate all topics
+        all_topics = []
+        for record in result.value or []:
+            if record["key_topics"]:
+                try:
+                    topics = (
+                        json.loads(record["key_topics"])
+                        if isinstance(record["key_topics"], str)
+                        else record["key_topics"]
+                    )
+                    if isinstance(topics, list):
+                        all_topics.extend(topics)
+                except json.JSONDecodeError:
+                    pass
+
+        # Count frequency and return top 10
+        topic_counts = Counter(all_topics)
+        return [topic for topic, count in topic_counts.most_common(10)]
 
     async def _summarize_mood_trends(self, journals: list[dict[str, str]]) -> dict[str, Any]:
         """
@@ -689,26 +695,21 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
         """
         relationships_created = {"temporal": 0, "thematic": 0, "goal_support": 0}
 
-        async with self.backend.driver.session() as session:
-            # 1. Temporal Relationship: FOLLOWS (previous journal)
-            temporal_result = await self._create_temporal_relationship(
-                session, journal.uid, journal.user_uid
+        # 1. Temporal Relationship: FOLLOWS (previous journal)
+        temporal_result = await self._create_temporal_relationship(journal.uid, journal.user_uid)
+        relationships_created["temporal"] = temporal_result
+
+        # 2. Thematic Relationships: RELATED_TO (shared topics)
+        if context and context.recent_topics:
+            thematic_result = await self._create_thematic_relationships(
+                journal, context.recent_topics
             )
-            relationships_created["temporal"] = temporal_result
+            relationships_created["thematic"] = thematic_result
 
-            # 2. Thematic Relationships: RELATED_TO (shared topics)
-            if context and context.recent_topics:
-                thematic_result = await self._create_thematic_relationships(
-                    session, journal, context.recent_topics
-                )
-                relationships_created["thematic"] = thematic_result
-
-            # 3. Goal Support Relationships: SUPPORTS_GOAL
-            if context and context.active_goals:
-                goal_result = await self._create_goal_relationships(
-                    session, journal, context.active_goals
-                )
-                relationships_created["goal_support"] = goal_result
+        # 3. Goal Support Relationships: SUPPORTS_GOAL
+        if context and context.active_goals:
+            goal_result = await self._create_goal_relationships(journal, context.active_goals)
+            relationships_created["goal_support"] = goal_result
 
         self.logger.info(
             f"Created journal relationships: {relationships_created['temporal']} temporal, "
@@ -717,7 +718,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
 
         return Result.ok(relationships_created)
 
-    async def _create_temporal_relationship(self, session, journal_uid: str, user_uid: str) -> int:
+    async def _create_temporal_relationship(self, journal_uid: str, user_uid: str) -> int:
         """Create FOLLOWS relationship to most recent previous journal-type report."""
         cypher = """
         MATCH (new:Ku {uid: $journal_uid})
@@ -731,13 +732,15 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
         RETURN count(r) as count
         """
 
-        result = await session.run(cypher, {"journal_uid": journal_uid, "user_uid": user_uid})
-        record = await result.single()
-        return record["count"] if record else 0
+        result = await self.backend.execute_query(
+            cypher, {"journal_uid": journal_uid, "user_uid": user_uid}
+        )
+        if result.is_error:
+            return 0
+        records = result.value or []
+        return records[0]["count"] if records else 0
 
-    async def _create_thematic_relationships(
-        self, session, journal: Ku, recent_topics: list[str]
-    ) -> int:
+    async def _create_thematic_relationships(self, journal: Ku, recent_topics: list[str]) -> int:
         """Create RELATED_TO relationships for journal reports sharing topics."""
 
         # Get journal's topics
@@ -763,7 +766,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
         RETURN count(r) as count
         """
 
-        result = await session.run(
+        result = await self.backend.execute_query(
             cypher,
             {
                 "journal_uid": journal.uid,
@@ -772,11 +775,13 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
                 "shared_topics_str": ", ".join(shared_topics[:3]),
             },
         )
-        record = await result.single()
-        return record["count"] if record else 0
+        if result.is_error:
+            return 0
+        records = result.value or []
+        return records[0]["count"] if records else 0
 
     async def _create_goal_relationships(
-        self, session, journal: Ku, active_goals: list[dict[str, str]]
+        self, journal: Ku, active_goals: list[dict[str, str]]
     ) -> int:
         """Create SUPPORTS_GOAL relationships for mentioned goals."""
         # Extract goal mentions from journal content
@@ -803,11 +808,13 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
         RETURN count(r) as count
         """
 
-        result = await session.run(
+        result = await self.backend.execute_query(
             cypher, {"journal_uid": journal.uid, "goal_uids": mentioned_goal_uids}
         )
-        record = await result.single()
-        return record["count"] if record else 0
+        if result.is_error:
+            return 0
+        records = result.value or []
+        return records[0]["count"] if records else 0
 
     # ========================================================================
     # INSTRUCTION SET MANAGEMENT
@@ -830,30 +837,27 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
             instructions_uid = "instructions:default-report-formatting"
 
         # Load from Neo4j (instructions stored as Assignment nodes)
-        try:
-            query = """
-            MATCH (i:Assignment {uid: $uid})
-            RETURN i.instructions as instructions, i.name as name
-            """
+        query = """
+        MATCH (i:Assignment {uid: $uid})
+        RETURN i.instructions as instructions, i.name as name
+        """
 
-            async with self.backend.driver.session() as session:
-                result = await session.run(query, {"uid": instructions_uid})
-                record = await result.single()
+        result = await self.backend.execute_query(query, {"uid": instructions_uid})
 
-                if not record:
-                    # Return default instructions if not found
-                    return Result.ok(self._get_default_instructions())
-
-                instructions = record["instructions"]
-                self.logger.info(
-                    f"Loaded instructions: {record['name']} ({len(instructions)} chars)"
-                )
-
-                return Result.ok(instructions)
-
-        except Exception as e:
-            self.logger.warning(f"Failed to load instructions, using default: {e}")
+        if result.is_error:
+            self.logger.warning(f"Failed to load instructions, using default: {result.error}")
             return Result.ok(self._get_default_instructions())
+
+        records = result.value or []
+        if not records:
+            # Return default instructions if not found
+            return Result.ok(self._get_default_instructions())
+
+        record = records[0]
+        instructions = record["instructions"]
+        self.logger.info(f"Loaded instructions: {record['name']} ({len(instructions)} chars)")
+
+        return Result.ok(instructions)
 
     def _get_default_instructions(self) -> str:
         """
@@ -919,11 +923,14 @@ Preserve the author's voice and authenticity while improving readability.
         RETURN i
         """
 
-        async with self.backend.driver.session() as session:
-            result = await session.run(query, {"uid": uid, "name": name, "instructions": content})
-            await result.single()
+        result = await self.backend.execute_query(
+            query, {"uid": uid, "name": name, "instructions": content}
+        )
 
-            return Result.ok({"uid": uid, "name": name, "char_count": len(content)})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        return Result.ok({"uid": uid, "name": name, "char_count": len(content)})
 
     @with_error_handling("list_instruction_sets", error_type="database")
     async def list_instruction_sets(self) -> Result[list[dict[str, Any]]]:
@@ -934,15 +941,17 @@ Preserve the author's voice and authenticity while improving readability.
         ORDER BY i.name
         """
 
-        async with self.backend.driver.session() as session:
-            result = await session.run(query)
-            records = await result.values()
+        result = await self.backend.execute_query(query)
 
-            instruction_sets = [
-                {"uid": record[0], "name": record[1], "char_count": record[2]} for record in records
-            ]
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-            return Result.ok(instruction_sets)
+        instruction_sets = [
+            {"uid": record["uid"], "name": record["name"], "char_count": record["char_count"]}
+            for record in result.value or []
+        ]
+
+        return Result.ok(instruction_sets)
 
     # ========================================================================
     # AI-POWERED INTELLIGENT EDITING

@@ -1884,7 +1884,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
             sum(CASE WHEN c.satisfaction_score >= 4 THEN 1 ELSE 0 END) AS positive_outcomes
         """
 
-        result = await self.backend.driver.execute_query(
+        result = await self.backend.execute_query(
             query,
             {
                 "principle_uid": principle_uid,
@@ -1893,7 +1893,10 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
             },
         )
 
-        if not result or not result[0]:
+        if result.is_error:
+            return result
+
+        if not result.value:
             return Result.ok(
                 {
                     "total_choices_guided": 0,
@@ -1904,7 +1907,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
                 }
             )
 
-        record = result[0][0]
+        record = result.value[0]
         total = record.get("total_choices", 0)
         avg_sat = record.get("avg_satisfaction") or 0.0
         positive = record.get("positive_outcomes", 0)

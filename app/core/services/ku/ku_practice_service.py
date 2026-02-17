@@ -14,7 +14,7 @@ Date: 2025-11-05
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.calendar_event_events import CalendarEventCompleted
@@ -22,7 +22,7 @@ from core.events.ku_events import KnowledgePracticed
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
+    from core.services.protocols import BackendOperations
 
 
 class KuPracticeService:
@@ -53,17 +53,17 @@ class KuPracticeService:
 
     def __init__(
         self,
-        driver: "AsyncDriver | None" = None,
+        backend: "BackendOperations[Any] | None" = None,
         event_bus=None,
     ) -> None:
         """
         Initialize knowledge practice service.
 
         Args:
-            driver: Neo4j driver for Cypher queries (REQUIRED for Phase 4)
+            backend: BackendOperations for Cypher queries (REQUIRED for Phase 4)
             event_bus: Optional event bus for publishing events
         """
-        self.driver = driver
+        self.backend = backend
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.ku.practice")
 
@@ -94,8 +94,8 @@ class KuPracticeService:
             to prevent event completion from failing if KU update fails.
         """
         try:
-            if not self.driver:
-                self.logger.warning("No driver available for Event→KU practice tracking")
+            if not self.backend:
+                self.logger.warning("No backend available for Event→KU practice tracking")
                 return
 
             self.logger.debug(
@@ -109,9 +109,15 @@ class KuPracticeService:
             RETURN DISTINCT ku.uid as ku_uid
             """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"event_uid": event.event_uid})
-                records = await result.data()
+            result = await self.backend.execute_query(query, {"event_uid": event.event_uid})
+
+            if result.is_error:
+                self.logger.error(
+                    f"Failed to query KUs for event {event.event_uid}: {result.error}"
+                )
+                return
+
+            records = result.value or []
 
             self.logger.debug(f"Found {len(records)} KUs practiced by event: {records}")
             ku_uids = [record["ku_uid"] for record in records]
@@ -153,8 +159,8 @@ class KuPracticeService:
             event_uid: Event that was completed
             occurred_at: When the event was completed
         """
-        if not self.driver:
-            self.logger.warning("No driver available for KU practice tracking")
+        if not self.backend:
+            self.logger.warning("No backend available for KU practice tracking")
             return
 
         # Update KU practice fields directly in Neo4j
@@ -166,11 +172,15 @@ class KuPracticeService:
         RETURN ku.times_practiced_in_events as new_count
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query, {"ku_uid": ku_uid, "occurred_at": occurred_at.isoformat()}
-            )
-            records = await result.data()
+        result = await self.backend.execute_query(
+            query, {"ku_uid": ku_uid, "occurred_at": occurred_at.isoformat()}
+        )
+
+        if result.is_error:
+            self.logger.warning(f"Failed to update KU {ku_uid} practice count: {result.error}")
+            return
+
+        records = result.value or []
 
         if not records:
             self.logger.warning(f"KU {ku_uid} not found during practice update")

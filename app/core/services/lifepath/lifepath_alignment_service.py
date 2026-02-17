@@ -28,10 +28,9 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
-
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService
+    from core.services.protocols import QueryExecutor
     from core.services.user_service import UserService
 
 logger = get_logger(__name__)
@@ -54,7 +53,7 @@ class LifePathAlignmentService:
 
     def __init__(
         self,
-        driver: AsyncDriver | None = None,
+        executor: QueryExecutor | None = None,
         lp_service: LpService | None = None,
         ku_service: KuService | None = None,
         user_service: UserService | None = None,
@@ -63,12 +62,12 @@ class LifePathAlignmentService:
         Initialize alignment service.
 
         Args:
-            driver: Neo4j async driver
+            executor: QueryExecutor for database operations
             lp_service: LP service for path details
             ku_service: KU service for knowledge substance
             user_service: User service for context
         """
-        self.driver = driver
+        self.executor = executor
         self.lp_service = lp_service
         self.ku_service = ku_service
         self.user_service = user_service
@@ -152,7 +151,7 @@ class LifePathAlignmentService:
 
     async def _get_user_life_path(self, user_uid: str) -> str | None:
         """Get user's designated life path UID."""
-        if not self.driver:
+        if not self.executor:
             return None
 
         query = """
@@ -160,23 +159,23 @@ class LifePathAlignmentService:
         RETURN lp.uid AS life_path_uid
         """
 
-        try:
-            result = await self.driver.execute_query(
-                query, {"user_uid": user_uid}, database_="neo4j"
-            )
-            if result.records:
-                return result.records[0].get("life_path_uid")
-            return None
-        except Exception as e:
+        result = await self.executor.execute_query(
+            query, {"user_uid": user_uid}
+        )
+        if result.is_error:
             logger.error(
                 "Failed to get life path - returning None",
                 extra={
                     "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
             return None
+
+        records = result.value or []
+        if records:
+            return records[0].get("life_path_uid")
+        return None
 
     async def _get_life_path_details(self, life_path_uid: str) -> dict[str, Any]:
         """Get life path title and metadata."""
@@ -196,7 +195,7 @@ class LifePathAlignmentService:
         Measures mastery of knowledge units in the life path.
         Uses Knowledge Substance Philosophy - applied knowledge > theory.
         """
-        if not self.driver:
+        if not self.executor:
             return 0.0
 
         query = """
@@ -220,27 +219,26 @@ class LifePathAlignmentService:
         RETURN avg(CASE WHEN weighted_mastery > 1.0 THEN 1.0 ELSE weighted_mastery END) AS knowledge_alignment
         """
 
-        try:
-            result = await self.driver.execute_query(
-                query,
-                {"user_uid": user_uid, "life_path_uid": life_path_uid},
-                database_="neo4j",
-            )
-            if result.records:
-                score = result.records[0].get("knowledge_alignment")
-                return float(score) if score else 0.0
-            return 0.0
-        except Exception as e:
+        result = await self.executor.execute_query(
+            query,
+            {"user_uid": user_uid, "life_path_uid": life_path_uid},
+        )
+        if result.is_error:
             logger.error(
                 "Knowledge alignment calculation failed - returning 0.0",
                 extra={
                     "user_uid": user_uid,
                     "life_path_uid": life_path_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
             return 0.0
+
+        records = result.value or []
+        if records:
+            score = records[0].get("knowledge_alignment")
+            return float(score) if score else 0.0
+        return 0.0
 
     async def _calculate_activity_alignment(self, user_uid: str, life_path_uid: str) -> float:
         """
@@ -248,7 +246,7 @@ class LifePathAlignmentService:
 
         Measures how tasks and habits support the life path.
         """
-        if not self.driver:
+        if not self.executor:
             return 0.0
 
         query = """
@@ -283,27 +281,26 @@ class LifePathAlignmentService:
         RETURN (task_ratio * 0.4 + habit_ratio * 0.6) AS activity_alignment
         """
 
-        try:
-            result = await self.driver.execute_query(
-                query,
-                {"user_uid": user_uid, "life_path_uid": life_path_uid},
-                database_="neo4j",
-            )
-            if result.records:
-                score = result.records[0].get("activity_alignment")
-                return float(score) if score else 0.0
-            return 0.0
-        except Exception as e:
+        result = await self.executor.execute_query(
+            query,
+            {"user_uid": user_uid, "life_path_uid": life_path_uid},
+        )
+        if result.is_error:
             logger.error(
                 "Activity alignment calculation failed - returning 0.0",
                 extra={
                     "user_uid": user_uid,
                     "life_path_uid": life_path_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
             return 0.0
+
+        records = result.value or []
+        if records:
+            score = records[0].get("activity_alignment")
+            return float(score) if score else 0.0
+        return 0.0
 
     async def _calculate_goal_alignment(self, user_uid: str, life_path_uid: str) -> float:
         """
@@ -311,7 +308,7 @@ class LifePathAlignmentService:
 
         Measures if active goals contribute to life path.
         """
-        if not self.driver:
+        if not self.executor:
             return 0.0
 
         query = """
@@ -327,27 +324,26 @@ class LifePathAlignmentService:
                     ELSE toFloat(aligned_goals) / total_goals END AS goal_alignment
         """
 
-        try:
-            result = await self.driver.execute_query(
-                query,
-                {"user_uid": user_uid, "life_path_uid": life_path_uid},
-                database_="neo4j",
-            )
-            if result.records:
-                score = result.records[0].get("goal_alignment")
-                return float(score) if score else 0.0
-            return 0.0
-        except Exception as e:
+        result = await self.executor.execute_query(
+            query,
+            {"user_uid": user_uid, "life_path_uid": life_path_uid},
+        )
+        if result.is_error:
             logger.error(
                 "Goal alignment calculation failed - returning 0.0",
                 extra={
                     "user_uid": user_uid,
                     "life_path_uid": life_path_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
             return 0.0
+
+        records = result.value or []
+        if records:
+            score = records[0].get("goal_alignment")
+            return float(score) if score else 0.0
+        return 0.0
 
     async def _calculate_principle_alignment(self, user_uid: str, life_path_uid: str) -> float:
         """
@@ -355,7 +351,7 @@ class LifePathAlignmentService:
 
         Measures if user's principles support the life path direction.
         """
-        if not self.driver:
+        if not self.executor:
             return 0.0
 
         query = """
@@ -371,27 +367,26 @@ class LifePathAlignmentService:
                     ELSE toFloat(aligned_principles) / total_principles END AS principle_alignment
         """
 
-        try:
-            result = await self.driver.execute_query(
-                query,
-                {"user_uid": user_uid, "life_path_uid": life_path_uid},
-                database_="neo4j",
-            )
-            if result.records:
-                score = result.records[0].get("principle_alignment")
-                return float(score) if score else 0.0
-            return 0.0
-        except Exception as e:
+        result = await self.executor.execute_query(
+            query,
+            {"user_uid": user_uid, "life_path_uid": life_path_uid},
+        )
+        if result.is_error:
             logger.error(
                 "Principle alignment calculation failed - returning 0.0",
                 extra={
                     "user_uid": user_uid,
                     "life_path_uid": life_path_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
             return 0.0
+
+        records = result.value or []
+        if records:
+            score = records[0].get("principle_alignment")
+            return float(score) if score else 0.0
+        return 0.0
 
     async def _calculate_momentum(self, user_uid: str, life_path_uid: str) -> float:
         """
@@ -400,7 +395,7 @@ class LifePathAlignmentService:
         Measures recent activity trend toward life path.
         Compares last 7 days vs previous 7 days.
         """
-        if not self.driver:
+        if not self.executor:
             return 0.0
 
         now = datetime.now()
@@ -436,38 +431,37 @@ class LifePathAlignmentService:
                     ELSE 0.3 END AS momentum
         """
 
-        try:
-            result = await self.driver.execute_query(
-                query,
-                {
-                    "user_uid": user_uid,
-                    "life_path_uid": life_path_uid,
-                    "seven_days_ago": seven_days_ago.isoformat(),
-                    "fourteen_days_ago": fourteen_days_ago.isoformat(),
-                },
-                database_="neo4j",
-            )
-            if result.records:
-                score = result.records[0].get("momentum")
-                return float(score) if score else 0.5
-            return 0.5
-        except Exception as e:
+        result = await self.executor.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "life_path_uid": life_path_uid,
+                "seven_days_ago": seven_days_ago.isoformat(),
+                "fourteen_days_ago": fourteen_days_ago.isoformat(),
+            },
+        )
+        if result.is_error:
             logger.error(
                 "Momentum calculation failed - returning 0.5",
                 extra={
                     "user_uid": user_uid,
                     "life_path_uid": life_path_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
             return 0.5
+
+        records = result.value or []
+        if records:
+            score = records[0].get("momentum")
+            return float(score) if score else 0.5
+        return 0.5
 
     async def _get_knowledge_substance_stats(
         self, user_uid: str, life_path_uid: str
     ) -> dict[str, int]:
         """Get counts of embodied vs theoretical knowledge."""
-        if not self.driver:
+        if not self.executor:
             return {"total": 0, "embodied": 0, "theoretical": 0}
 
         query = """
@@ -481,31 +475,30 @@ class LifePathAlignmentService:
                sum(CASE WHEN substance < 0.5 THEN 1 ELSE 0 END) AS theoretical
         """
 
-        try:
-            result = await self.driver.execute_query(
-                query,
-                {"user_uid": user_uid, "life_path_uid": life_path_uid},
-                database_="neo4j",
-            )
-            if result.records:
-                r = result.records[0]
-                return {
-                    "total": int(r.get("total") or 0),
-                    "embodied": int(r.get("embodied") or 0),
-                    "theoretical": int(r.get("theoretical") or 0),
-                }
-            return {"total": 0, "embodied": 0, "theoretical": 0}
-        except Exception as e:
+        result = await self.executor.execute_query(
+            query,
+            {"user_uid": user_uid, "life_path_uid": life_path_uid},
+        )
+        if result.is_error:
             logger.error(
                 "Knowledge stats query failed - returning defaults",
                 extra={
                     "user_uid": user_uid,
                     "life_path_uid": life_path_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
+                    "error_message": str(result.error),
                 },
             )
             return {"total": 0, "embodied": 0, "theoretical": 0}
+
+        records = result.value or []
+        if records:
+            r = records[0]
+            return {
+                "total": int(r.get("total") or 0),
+                "embodied": int(r.get("embodied") or 0),
+                "theoretical": int(r.get("theoretical") or 0),
+            }
+        return {"total": 0, "embodied": 0, "theoretical": 0}
 
     def _generate_recommendations(
         self,

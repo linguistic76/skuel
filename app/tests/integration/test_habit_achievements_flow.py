@@ -56,9 +56,9 @@ class TestHabitAchievementsFlow:
         )
 
     @pytest_asyncio.fixture
-    async def achievement_service(self, neo4j_driver, event_bus):
-        """Create HabitAchievementService with driver and event bus."""
-        return HabitAchievementService(driver=neo4j_driver, event_bus=event_bus)
+    async def achievement_service(self, habit_backend, event_bus):
+        """Create HabitAchievementService with backend and event bus."""
+        return HabitAchievementService(backend=habit_backend, event_bus=event_bus)
 
     @pytest_asyncio.fixture
     async def test_user(self, neo4j_driver, test_user_uid):

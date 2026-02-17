@@ -33,7 +33,7 @@ from core.services.query_builder import QueryBuilder
 def test_list_templates_without_manual_injection():
     """Test that template discovery auto-initializes QueryBuilder."""
     # Create UnifiedQueryBuilder WITHOUT manually injecting QueryBuilder
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # Should auto-initialize QueryBuilder and list templates
     templates = builder.list_templates()
@@ -56,7 +56,7 @@ def test_list_templates_without_manual_injection():
 
 def test_template_validation_with_helpful_errors():
     """Test that template validation provides helpful error messages."""
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # Try to use nonexistent template
     with pytest.raises(ValueError) as exc_info:
@@ -76,7 +76,7 @@ def test_template_validation_with_helpful_errors():
 
 def test_category_based_filtering():
     """Test template discovery with category filtering."""
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # Get all templates
     all_templates = builder.list_templates()
@@ -99,7 +99,7 @@ def test_category_based_filtering():
 def test_lazy_query_builder_initialization():
     """Test that QueryBuilder is lazily initialized only when needed."""
     # Create builder without QueryBuilder or schema_service
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # QueryBuilder should NOT be initialized yet
     assert builder.query_builder_service is None
@@ -115,7 +115,7 @@ def test_lazy_query_builder_initialization():
 
 def test_template_library_caching():
     """Test that template library is cached after first access."""
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # First access - should initialize and cache
     templates1 = builder.list_templates()
@@ -137,7 +137,7 @@ def test_template_library_caching():
 @pytest.mark.asyncio
 async def test_optimize_query_bridge():
     """Test that optimize_query() bridges to QueryOptimizer correctly."""
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # Simple query to optimize
     cypher = "MATCH (t:Task) WHERE t.status = 'active' RETURN t"
@@ -156,7 +156,7 @@ async def test_optimize_query_bridge():
 @pytest.mark.asyncio
 async def test_validate_query_bridge():
     """Test that validate_query() bridges to QueryValidator correctly."""
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # Simple query to validate
     cypher = "MATCH (t:Task) WHERE t.status = 'active' RETURN t"
@@ -173,7 +173,7 @@ async def test_validate_query_bridge():
 
 def test_explain_query_bridge():
     """Test that explain_query() bridges to QueryOptimizer correctly."""
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # Simple query to explain
     cypher = "MATCH (t:Task)-[:APPLIES_KNOWLEDGE]->(ku:Ku) RETURN t, ku"
@@ -192,7 +192,7 @@ def test_explain_query_bridge():
 def test_optimization_methods_with_schema_service():
     """Test optimization methods work when schema_service is provided."""
     # Create builder with schema_service=None (QueryBuilder can initialize with None)
-    builder = UnifiedQueryBuilder(driver=None, schema_service=None)
+    builder = UnifiedQueryBuilder(executor=None, schema_service=None)
 
     # QueryBuilder should be lazily initialized when needed
     assert builder.query_builder_service is None
@@ -215,7 +215,7 @@ def test_optimization_methods_with_schema_service():
 @pytest.mark.asyncio
 async def test_full_integration_workflow():
     """Test complete workflow: templates + optimization together."""
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # Step 1: Discover templates (Phase 1)
     templates = builder.list_templates()
@@ -241,7 +241,7 @@ async def test_full_integration_workflow():
 
 def test_phase_2_methods_available_in_api():
     """Test that Phase 2 methods are discoverable via dir()."""
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # Verify all Phase 2 methods are available
     api_methods = dir(builder)
@@ -263,7 +263,7 @@ def test_phase_2_methods_available_in_api():
 def test_template_access_without_schema_succeeds():
     """Test that templates work even without schema_service."""
     # Create builder without schema_service
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # Templates should still work (QueryBuilder can initialize with None schema)
     templates = builder.list_templates()
@@ -273,7 +273,7 @@ def test_template_access_without_schema_succeeds():
 def test_optimization_without_driver_succeeds():
     """Test that optimization bridge works even without driver."""
     # Create builder without driver
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # Optimization methods should still be callable (may fail internally, but bridge exists)
     explanation = builder.explain_query("MATCH (n) RETURN n")
@@ -287,7 +287,7 @@ def test_optimization_without_driver_succeeds():
 
 def test_docstrings_exist_for_phase_2_methods():
     """Test that all Phase 2 methods have comprehensive docstrings."""
-    builder = UnifiedQueryBuilder(driver=None)
+    builder = UnifiedQueryBuilder(executor=None)
 
     # Check optimize_query docstring
     assert builder.optimize_query.__doc__ is not None

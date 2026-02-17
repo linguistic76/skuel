@@ -63,7 +63,7 @@ def relationship(
 
     def decorator(cls) -> Any:
         # Get source label from class (assumes UniversalNeo4jBackend pattern)
-        # We'll inject methods that use self.label and self.driver
+        # We'll inject methods that use self.label and self.execute_query
 
         target_name_lower = target_label.lower()
 
@@ -90,9 +90,9 @@ def relationship(
                 RETURN r
                 """
 
-                async with self.driver.session() as session:
-                    result = await session.run(query, params)
-                    await result.single()
+                result = await self.execute_query(query, params)
+                if result.is_error:
+                    return Result.fail(result.expect_error())
 
                 # If bidirectional, create reverse relationship
                 if bidirectional and reverse_rel_type:
@@ -102,9 +102,9 @@ def relationship(
                     MERGE (t)-[r:{reverse_rel_type.value}]->(s)
                     RETURN r
                     """
-                    async with self.driver.session() as session:
-                        result = await session.run(reverse_query, params)
-                        await result.single()
+                    result = await self.execute_query(reverse_query, params)
+                    if result.is_error:
+                        return Result.fail(result.expect_error())
 
                 self.logger.info(
                     f"Linked {self.label}:{source_uid} -{rel_type.value}-> {target_label}:{target_uid}"
@@ -128,30 +128,31 @@ def relationship(
                 query = f"""
                 MATCH (s:{self.label} {{uid: $source_uid}})-[r:{rel_type.value}]->(t:{target_label} {{uid: $target_uid}})
                 DELETE r
+                RETURN count(*) as deleted
                 """
 
                 params = {"source_uid": source_uid, "target_uid": target_uid}
 
-                async with self.driver.session() as session:
-                    result = await session.run(query, params)
-                    summary = await result.consume()
+                result = await self.execute_query(query, params)
+                if result.is_error:
+                    return Result.fail(result.expect_error())
 
-                    if summary.counters.relationships_deleted == 0:
-                        return Result.fail(
-                            Errors.not_found(
-                                resource=f"{self.label}-{target_label}",
-                                identifier=f"{source_uid}→{target_uid}",
-                            )
+                if not result.value:
+                    return Result.fail(
+                        Errors.not_found(
+                            resource=f"{self.label}-{target_label}",
+                            identifier=f"{source_uid}→{target_uid}",
                         )
+                    )
 
                 # If bidirectional, delete reverse relationship
                 if bidirectional and reverse_rel_type:
                     reverse_query = f"""
                     MATCH (t:{target_label} {{uid: $target_uid}})-[r:{reverse_rel_type.value}]->(s:{self.label} {{uid: $source_uid}})
                     DELETE r
+                    RETURN count(*) as deleted
                     """
-                    async with self.driver.session() as session:
-                        await session.run(reverse_query, params)
+                    await self.execute_query(reverse_query, params)
 
                 self.logger.info(
                     f"Unlinked {self.label}:{source_uid} -{rel_type.value}-> {target_label}:{target_uid}"
@@ -179,11 +180,11 @@ def relationship(
 
                 params = {"source_uid": source_uid}
 
-                async with self.driver.session() as session:
-                    result = await session.run(query, params)
-                    records = await result.data()
+                result = await self.execute_query(query, params)
+                if result.is_error:
+                    return Result.fail(result.expect_error())
 
-                target_uids = [record["target_uid"] for record in records]
+                target_uids = [record["target_uid"] for record in result.value]
 
                 return Result.ok(target_uids)
 
@@ -342,9 +343,9 @@ def add_relationships(backend_instance, *rel_configs: Any):
                 RETURN r
                 """
 
-                async with _backend.driver.session() as session:
-                    result = await session.run(query, params)
-                    await result.single()
+                result = await _backend.execute_query(query, params)
+                if result.is_error:
+                    return Result.fail(result.expect_error())
 
                 if _bidirectional and _reverse_rel_type:
                     reverse_query = f"""
@@ -353,9 +354,9 @@ def add_relationships(backend_instance, *rel_configs: Any):
                     MERGE (t)-[r:{_reverse_rel_type.value}]->(s)
                     RETURN r
                     """
-                    async with _backend.driver.session() as session:
-                        result = await session.run(reverse_query, params)
-                        await result.single()
+                    result = await _backend.execute_query(reverse_query, params)
+                    if result.is_error:
+                        return Result.fail(result.expect_error())
 
                 _backend.logger.info(
                     f"Linked {_backend.label}:{source_uid} -{_rel_type.value}-> {_target_label}:{target_uid}"
@@ -388,29 +389,30 @@ def add_relationships(backend_instance, *rel_configs: Any):
                 query = f"""
                 MATCH (s:{_backend.label} {{uid: $source_uid}})-[r:{_rel_type.value}]->(t:{_target_label} {{uid: $target_uid}})
                 DELETE r
+                RETURN count(*) as deleted
                 """
 
                 params = {"source_uid": source_uid, "target_uid": target_uid}
 
-                async with _backend.driver.session() as session:
-                    result = await session.run(query, params)
-                    summary = await result.consume()
+                result = await _backend.execute_query(query, params)
+                if result.is_error:
+                    return Result.fail(result.expect_error())
 
-                    if summary.counters.relationships_deleted == 0:
-                        return Result.fail(
-                            Errors.not_found(
-                                resource=f"{_backend.label}-{_target_label}",
-                                identifier=f"{source_uid}→{target_uid}",
-                            )
+                if not result.value:
+                    return Result.fail(
+                        Errors.not_found(
+                            resource=f"{_backend.label}-{_target_label}",
+                            identifier=f"{source_uid}→{target_uid}",
                         )
+                    )
 
                 if _bidirectional and _reverse_rel_type:
                     reverse_query = f"""
                     MATCH (t:{_target_label} {{uid: $target_uid}})-[r:{_reverse_rel_type.value}]->(s:{_backend.label} {{uid: $source_uid}})
                     DELETE r
+                    RETURN count(*) as deleted
                     """
-                    async with _backend.driver.session() as session:
-                        await session.run(reverse_query, params)
+                    await _backend.execute_query(reverse_query, params)
 
                 _backend.logger.info(
                     f"Unlinked {_backend.label}:{source_uid} -{_rel_type.value}-> {_target_label}:{target_uid}"
@@ -444,11 +446,11 @@ def add_relationships(backend_instance, *rel_configs: Any):
 
                 params = {"source_uid": source_uid}
 
-                async with _backend.driver.session() as session:
-                    result = await session.run(query, params)
-                    records = await result.data()
+                result = await _backend.execute_query(query, params)
+                if result.is_error:
+                    return Result.fail(result.expect_error())
 
-                target_uids = [record["target_uid"] for record in records]
+                target_uids = [record["target_uid"] for record in result.value]
 
                 return Result.ok(target_uids)
 

@@ -15,14 +15,14 @@ Date: 2025-11-05
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.goal_events import GoalAchieved, GoalRecommendationsGenerated
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
+    from core.services.protocols import BackendOperations
 
 
 class GoalsRecommendationService:
@@ -53,17 +53,17 @@ class GoalsRecommendationService:
 
     def __init__(
         self,
-        driver: "AsyncDriver | None" = None,
+        backend: "BackendOperations[Any] | None" = None,
         event_bus=None,
     ) -> None:
         """
         Initialize goal recommendation service.
 
         Args:
-            driver: Neo4j driver for graph queries (REQUIRED for Phase 4)
+            backend: Backend for executing graph queries
             event_bus: Optional event bus for publishing recommendation events
         """
-        self.driver = driver
+        self.backend = backend
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.goals.recommendations")
 
@@ -96,8 +96,8 @@ class GoalsRecommendationService:
             to prevent goal achievement from failing if recommendation fails.
         """
         try:
-            if not self.driver:
-                self.logger.warning("No driver available for Goal→Recommendations integration")
+            if not self.backend:
+                self.logger.warning("No backend available for Goal→Recommendations integration")
                 return
 
             self.logger.info(f"Generating recommendations for achieved goal {event.goal_uid}")
@@ -150,8 +150,8 @@ class GoalsRecommendationService:
         Returns:
             Goal context dict with properties and relationships, or None if not found
         """
-        if not self.driver:
-            self.logger.warning("No driver available for goal context retrieval")
+        if not self.backend:
+            self.logger.warning("No backend available for goal context retrieval")
             return None
 
         query = """
@@ -180,14 +180,17 @@ class GoalsRecommendationService:
                principles
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"goal_uid": goal_uid, "user_uid": user_uid})
-            records = await result.data()
-
-        if not records:
+        result = await self.backend.execute_query(
+            query, {"goal_uid": goal_uid, "user_uid": user_uid}
+        )
+        if result.is_error:
+            self.logger.error(f"Failed to get goal context for {goal_uid}: {result.error}")
             return None
 
-        return records[0]
+        if not result.value:
+            return None
+
+        return result.value[0]
 
     async def _generate_recommendations(self, goal_context: dict, user_uid: str) -> list[dict]:
         """

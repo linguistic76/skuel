@@ -134,9 +134,12 @@ async def get_learning_state(
         """
 
         params = {"user_uid": user_uid}
-        result = await graph.driver.execute_query(query, params)
+        result = await graph.executor.execute_query(query, params)
 
-        if not result.records:
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        if not result.value:
             return Result.ok(
                 {
                     "mastered_knowledge": [],
@@ -146,7 +149,7 @@ async def get_learning_state(
                 }
             )
 
-        record = result.records[0]
+        record = result.value[0]
         mastered = record.get("mastered", [])
         paths = record.get("paths", [])
 
@@ -226,9 +229,12 @@ async def analyze_knowledge_patterns(
         """
 
         params = {"entity_uids": entity_uids}
-        result = await graph.driver.execute_query(query, params)
+        result = await graph.executor.execute_query(query, params)
 
-        if not result.records:
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        if not result.value:
             return Result.ok(
                 {
                     "common_knowledge": [],
@@ -238,7 +244,7 @@ async def analyze_knowledge_patterns(
                 }
             )
 
-        knowledge_units = result.records[0].get("knowledge_units", [])
+        knowledge_units = result.value[0].get("knowledge_units", [])
 
         # Identify common knowledge (used by 2+ entities)
         common_knowledge = [ku for ku in knowledge_units if ku.get("usage_count", 0) >= 2]
@@ -397,12 +403,15 @@ async def find_cross_domain_connections(
 
         params = {"entity_uid": entity_uid, "target_domains": target_domains}
 
-        result = await graph.driver.execute_query(query, params)
+        result = await graph.executor.execute_query(query, params)
 
-        if not result.records:
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        if not result.value:
             return Result.ok({"connections": [], "connection_types": [], "strength_scores": {}})
 
-        connections = result.records[0].get("connections", [])
+        connections = result.value[0].get("connections", [])
 
         # Extract relationship types
         connection_types = list({conn["relationship_type"] for conn in connections})

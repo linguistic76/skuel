@@ -427,15 +427,17 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
         ORDER BY subhabit.created_at
         """
 
-        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid)
+        result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
 
-        if not result.records:
+        if result.is_error:
+            return result
+        if not result.value:
             return Result.ok([])
 
         # Convert to Habit models
         habits = []
-        for record in result.records:
-            habit_data = dict(record["subhabit"])
+        for record in result.value:
+            habit_data = record["subhabit"]
             habit = self._to_domain_model(habit_data, KuDTO, Ku)
             habits.append(habit)
 
@@ -459,12 +461,14 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
         LIMIT 1
         """
 
-        result = await self.backend.driver.execute_query(query, subhabit_uid=subhabit_uid)
+        result = await self.backend.execute_query(query, {"subhabit_uid": subhabit_uid})
 
-        if not result.records:
+        if result.is_error:
+            return result
+        if not result.value:
             return Result.ok(None)
 
-        parent_data = dict(result.records[0]["parent"])
+        parent_data = result.value[0]["parent"]
         parent = self._to_domain_model(parent_data, KuDTO, Ku)
         return Result.ok(parent)
 
@@ -524,37 +528,45 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
 
         current_habit = self._to_domain_model(current_result.value, KuDTO, Ku)
 
-        ancestors_result = await self.backend.driver.execute_query(
-            ancestors_query, habit_uid=habit_uid
+        ancestors_result = await self.backend.execute_query(
+            ancestors_query, {"habit_uid": habit_uid}
         )
-        siblings_result = await self.backend.driver.execute_query(
-            siblings_query, habit_uid=habit_uid
-        )
-        children_result = await self.backend.driver.execute_query(
-            children_query, habit_uid=habit_uid
-        )
+        siblings_result = await self.backend.execute_query(siblings_query, {"habit_uid": habit_uid})
+        children_result = await self.backend.execute_query(children_query, {"habit_uid": habit_uid})
 
         # Process ancestors
         ancestors = []
-        if ancestors_result.records and ancestors_result.records[0]["ancestors"]:
-            for node in ancestors_result.records[0]["ancestors"][:-1]:  # Exclude current
-                habit_data = dict(node)
+        if (
+            not ancestors_result.is_error
+            and ancestors_result.value
+            and ancestors_result.value[0]["ancestors"]
+        ):
+            for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
+                habit_data = node
                 ancestors.append(self._to_domain_model(habit_data, KuDTO, Ku))
 
         # Process siblings
         siblings = []
-        if siblings_result.records and siblings_result.records[0]["siblings"]:
-            for node in siblings_result.records[0]["siblings"]:
+        if (
+            not siblings_result.is_error
+            and siblings_result.value
+            and siblings_result.value[0]["siblings"]
+        ):
+            for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
-                    habit_data = dict(node)
+                    habit_data = node
                     siblings.append(self._to_domain_model(habit_data, KuDTO, Ku))
 
         # Process children
         children = []
-        if children_result.records and children_result.records[0]["children"]:
-            for node in children_result.records[0]["children"]:
+        if (
+            not children_result.is_error
+            and children_result.value
+            and children_result.value[0]["children"]
+        ):
+            for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
-                    habit_data = dict(node)
+                    habit_data = node
                     children.append(self._to_domain_model(habit_data, KuDTO, Ku))
 
         return Result.ok(
@@ -612,11 +624,18 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
         RETURN true as success
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, subhabit_uid=subhabit_uid, weight=progress_weight
+        result = await self.backend.execute_query(
+            query,
+            {"parent_uid": parent_uid, "subhabit_uid": subhabit_uid, "weight": progress_weight},
         )
 
-        if result.records:
+        if result.is_error:
+            return Result.fail(
+                Errors.database(
+                    operation="create", message="Failed to create subhabit relationship"
+                )
+            )
+        if result.value:
             self.logger.info(
                 f"Created subhabit relationship: {parent_uid} -> {subhabit_uid} (weight: {progress_weight})"
             )
@@ -647,12 +666,12 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
         RETURN count(r1) + count(r2) as deleted_count
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, subhabit_uid=subhabit_uid
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "subhabit_uid": subhabit_uid}
         )
 
-        if result.records:
-            deleted = result.records[0]["deleted_count"]
+        if not result.is_error and result.value:
+            deleted = result.value[0]["deleted_count"]
             if deleted > 0:
                 self.logger.info(f"Removed subhabit relationship: {parent_uid} -> {subhabit_uid}")
                 return Result.ok(True)
@@ -667,11 +686,13 @@ class HabitsCoreService(BaseService[HabitsOperations, Ku]):
         RETURN count(path) > 0 as would_create_cycle
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, child_uid=child_uid
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "child_uid": child_uid}
         )
 
-        if result.records:
-            return result.records[0]["would_create_cycle"]
+        if result.is_error:
+            return False
+        if result.value:
+            return result.value[0]["would_create_cycle"]
 
         return False

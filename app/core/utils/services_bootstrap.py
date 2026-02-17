@@ -189,6 +189,7 @@ from core.services.protocols import (
     LpOperations,
     LsOperations,
     PrinciplesOperations,
+    QueryExecutor,
     SearchOperations,
     SystemServiceOperations,
     # Domain operations
@@ -393,8 +394,9 @@ class Services:
     principles_intelligence: "PrinciplesIntelligenceService | None" = None
     context_aware_ai: "ContextAwareAIService | None" = None
 
-    # Infrastructure - Neo4j driver (exposed for routes that need context building)
+    # Infrastructure - Neo4j driver and query executor
     neo4j_driver: "AsyncDriver | None" = None
+    query_executor: "QueryExecutor | None" = None
 
     # GenAI services (Neo4j native embeddings and vector search - January 2026)
     embeddings_service: "Neo4jGenAIEmbeddingsService | None" = None
@@ -492,7 +494,6 @@ def _create_core_services(
     ku_inference_service=None,
     analytics_engine=None,
     ku_generation_service=None,
-    driver=None,  # Phase 4: Neo4j driver for event-driven integrations
 ) -> dict[str, Any]:
     """Create core productivity services.
 
@@ -546,7 +547,6 @@ def _create_core_services(
             backend=habits_backend,
             graph_intelligence_service=graph_intelligence,  # REQUIRED for relationship service
             completions_backend=habit_completions_backend,  # REQUIRED - fail-fast
-            driver=driver,  # REQUIRED - fail-fast
             event_bus=event_bus,  # Event-driven architecture
         ),
         "transcription": TranscriptionService(
@@ -607,6 +607,7 @@ def _create_learning_services(
     _events_service: Any = None,  # Placeholder: EventsService for entity extraction (Phase 2.5)
     event_bus: Any = None,
     prometheus_metrics: Any = None,
+    query_executor: Any = None,
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
     from core.services.ku_retrieval import KuRetrieval
@@ -632,13 +633,13 @@ def _create_learning_services(
 
         # Create GenAI embeddings service (uses ai.text.embed())
         embeddings_service = Neo4jGenAIEmbeddingsService(
-            driver=driver,
+            executor=query_executor,
             prometheus_metrics=prometheus_metrics,  # Phase 1 - Track OpenAI calls
         )
         logger.info("✅ Neo4j GenAI embeddings service created (with Prometheus instrumentation)")
 
         # Create vector search service (uses db.index.vector.queryNodes())
-        vector_search_service = Neo4jVectorSearchService(driver, embeddings_service)
+        vector_search_service = Neo4jVectorSearchService(query_executor, embeddings_service)
         logger.info("✅ Neo4j vector search service created")
 
     except Exception as e:
@@ -665,19 +666,19 @@ def _create_learning_services(
         graph_intelligence_service=graph_intelligence,
         query_builder=unified_query_builder,  # Phase 3: QueryBuilder is now REQUIRED
         event_bus=event_bus,  # Event-driven architecture
-        driver=driver,  # Phase 4: For event-driven practice tracking
+        executor=query_executor,  # Phase 4: For KuOrganizationService
         user_service=user_service,  # January 2026: KU-Activity Integration
         vector_search_service=vector_search_service,  # January 2026: GenAI vector search
         embeddings_service=embeddings_service,  # January 2026: GenAI embeddings (THE ONLY service)
     )
 
     # Create progress services
-    user_progress = UserProgressService(driver)
+    user_progress = UserProgressService(query_executor)
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
 
     # Create learning step service (LS operations)
     # January 2026: graph_intel now REQUIRED for unified Curriculum architecture (ADR-030)
-    ls_service = LsService(driver=driver, graph_intel=graph_intelligence, event_bus=event_bus)
+    ls_service = LsService(executor=query_executor, graph_intel=graph_intelligence, event_bus=event_bus)
 
     # Create path service (LP operations - delegates LS operations to LsService)
     # January 2026: Intelligence created internally (unified with other domains)
@@ -746,7 +747,6 @@ def _create_activity_services(
     # Shared dependencies
     graph_intelligence: Any = None,
     event_bus: Any = None,
-    driver: Any = None,
     # Tasks-specific optional dependencies
     ku_inference_service: Any = None,
     analytics_engine: Any = None,
@@ -763,8 +763,7 @@ def _create_activity_services(
 
     Domain-specific dependencies:
         - Tasks: ku_inference_service, analytics_engine, ku_generation_service
-        - Habits: completions_backend, driver (for achievements)
-        - Goals: driver (for event-driven recommendations)
+        - Habits: completions_backend (for achievements)
         - Principles: goals_backend, habits_backend (cross-domain alignment), reflection_backend
 
     All facades embed intelligence (access via facade.intelligence).
@@ -794,7 +793,6 @@ def _create_activity_services(
             backend=habits_backend,
             graph_intelligence_service=graph_intelligence,
             completions_backend=habit_completions_backend,  # REQUIRED - fail-fast
-            driver=driver,  # REQUIRED - fail-fast
             event_bus=event_bus,
             insight_store=insight_store,
         ),
@@ -802,7 +800,6 @@ def _create_activity_services(
             backend=goals_backend,
             graph_intelligence_service=graph_intelligence,
             event_bus=event_bus,
-            driver=driver,
         ),
         "choices": ChoicesService(
             backend=choices_backend,
@@ -822,7 +819,7 @@ def _create_activity_services(
     }
 
 
-def _create_advanced_services(driver: Any) -> dict[str, Any]:
+def _create_advanced_services(driver: Any, query_executor: Any = None) -> dict[str, Any]:
     """Create Phase 2 advanced services."""
     from pathlib import Path
 
@@ -835,9 +832,9 @@ def _create_advanced_services(driver: Any) -> dict[str, Any]:
 
     return {
         "calendar_optimization": CalendarOptimizationService(),
-        "jupyter_sync": JupyterNeo4jSync(driver=driver, vault_path=vault_path),
+        "jupyter_sync": JupyterNeo4jSync(executor=query_executor, vault_path=vault_path),
         "performance_optimization": PerformanceOptimizationService(),
-        "cross_domain_analytics": CrossDomainAnalyticsService(driver=driver),  # Phase 4
+        "cross_domain_analytics": CrossDomainAnalyticsService(executor=query_executor),  # Phase 4
     }
 
 
@@ -927,10 +924,16 @@ async def compose_services(
 
         logger.info("✅ Neo4j driver validated")
 
+        # Create QueryExecutor adapter — THE single path for raw Cypher in core services
+        from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
+        query_executor = Neo4jQueryExecutor(driver)
+        logger.info("✅ QueryExecutor created (hexagonal architecture port)")
+
         # ========================================================================
         # PHASE 1.5: SYNC AUTH INDEXES AND CLEANUP (Startup Tasks)
         # ========================================================================
-        from core.utils.neo4j_schema_manager import Neo4jSchemaManager
+        from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 
         schema_manager = Neo4jSchemaManager(driver)
 
@@ -1141,7 +1144,7 @@ async def compose_services(
         # Create user relationship service (pinning, following, etc.)
         from core.services.user_relationship_service import UserRelationshipService
 
-        user_relationships = UserRelationshipService(driver=driver)
+        user_relationships = UserRelationshipService(executor=query_executor)
         logger.info("✅ UserRelationshipService created (pinning, following)")
 
         # Create graph-native authentication service (January 2026)
@@ -1161,12 +1164,11 @@ async def compose_services(
         # This eliminates repetitive user lookup in every service method.
         from core.services.user import UserContextBuilder, UserContextService
 
-        context_builder = UserContextBuilder(driver, user_service=user_service)
+        context_builder = UserContextBuilder(query_executor, user_service=user_service)
         context_service = UserContextService(
             context_builder=context_builder,
             user_service=user_service,
             tasks_service=None,  # Will be wired after tasks service is created
-            driver=driver,
         )
         logger.info("✅ UserContextService created (context-aware intelligence)")
         logger.info("   - UserContextBuilder owns user resolution (Option A architecture)")
@@ -1174,7 +1176,7 @@ async def compose_services(
         # Create graph intelligence (needed by tasks service)
         from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
-        graph_intelligence = GraphIntelligenceService(driver)
+        graph_intelligence = GraphIntelligenceService(query_executor)
         logger.info("✅ GraphIntelligenceService created")
 
         # Create analytics services (needed by tasks service)
@@ -1190,7 +1192,7 @@ async def compose_services(
         # Create InsightStore (Phase 1: Event-Driven Architecture - January 2026)
         from core.services.insight import InsightStore
 
-        insight_store = InsightStore(driver)
+        insight_store = InsightStore(query_executor)
         logger.info("✅ InsightStore created (event-driven insights)")
 
         # ========================================================================
@@ -1207,7 +1209,6 @@ async def compose_services(
             reflection_backend=reflection_backend,
             graph_intelligence=graph_intelligence,
             event_bus=event_bus,
-            driver=driver,
             ku_inference_service=ku_inference_service,
             analytics_engine=analytics_engine,
             ku_generation_service=ku_generation_service,
@@ -1235,7 +1236,6 @@ async def compose_services(
             ku_inference_service=ku_inference_service,
             analytics_engine=analytics_engine,
             ku_generation_service=ku_generation_service,
-            driver=driver,  # Phase 4: For event-driven integrations (Habit→Achievements)
             deepgram_api_key=deepgram_api_key,  # For audio transcription
         )
         logger.info("✅ Core services created (with event bus + Deepgram wiring)")
@@ -1269,6 +1269,7 @@ async def compose_services(
 
         unified_ingestion = UnifiedIngestionService(
             driver=driver,
+            executor=query_executor,
             embeddings_service=None,  # Optional - will be created later in learning_services
             chunking_service=chunking_service,  # Automatic chunk generation for KU entities
         )
@@ -1322,6 +1323,7 @@ async def compose_services(
             _events_service=activity_services["events"],  # Placeholder: Phase 2.5 entity extraction
             event_bus=event_bus,  # Event-driven architecture
             prometheus_metrics=prometheus_metrics,  # Phase 1 - Metrics instrumentation
+            query_executor=query_executor,
         )
         logger.info("✅ Learning services created")
 
@@ -1343,7 +1345,7 @@ async def compose_services(
                 embedding_worker = EmbeddingBackgroundWorker(
                     event_bus=event_bus,
                     embeddings_service=embeddings_service,
-                    driver=driver,
+                    executor=query_executor,
                     config=config,
                     prometheus_metrics=prometheus_metrics,  # Phase 1 - Real-time metrics exposure
                     batch_size=25,  # Process 25 entities per batch (cost-optimized)
@@ -1583,7 +1585,7 @@ async def compose_services(
         from core.services.reports.teacher_review_service import TeacherReviewService
 
         teacher_review_service = TeacherReviewService(
-            driver=driver,
+            executor=query_executor,
             ku_interaction_service=learning_services["ku_service"].interaction,
             event_bus=event_bus,
         )
@@ -1592,7 +1594,7 @@ async def compose_services(
         # Create notification service
         from core.services.notifications.notification_service import NotificationService
 
-        notification_service = NotificationService(driver=driver)
+        notification_service = NotificationService(executor=query_executor)
         logger.info("✅ NotificationService created")
 
         # Load default transcript instructions from file
@@ -1638,7 +1640,7 @@ async def compose_services(
         # Create Ku sharing service (content sharing)
         from core.services.reports import KuSharingService
 
-        report_sharing_service = KuSharingService(driver=driver)
+        report_sharing_service = KuSharingService(executor=query_executor)
 
         # Create Ku core service (content management: categories, tags, bulk operations)
         # February 2026: content_enrichment for handle_transcription_completed
@@ -1656,7 +1658,7 @@ async def compose_services(
         from core.services.lifepath import LifePathService
 
         lifepath_service = LifePathService(
-            driver=driver,
+            executor=query_executor,
             lp_service=learning_services["learning_paths"],
             ku_service=learning_services["ku_service"],
             user_service=user_service,
@@ -1727,7 +1729,7 @@ async def compose_services(
         report_schedule_service = KuScheduleService(backend=report_schedule_backend)
 
         progress_generator = ProgressKuGenerator(
-            driver=driver,
+            executor=query_executor,
             ku_backend=reports_backend,
             user_service=core_services["user"],
             insight_store=insight_store,
@@ -1780,7 +1782,7 @@ async def compose_services(
         logger.info("✅ UserContextService wired with GoalTaskGenerator and HabitsService")
 
         # Create advanced services
-        advanced = _create_advanced_services(driver)
+        advanced = _create_advanced_services(driver, query_executor=query_executor)
         await advanced["performance_optimization"].initialize()
         logger.info("✅ Advanced services created")
 
@@ -2384,6 +2386,7 @@ async def compose_services(
             event_bus=event_bus,
             prometheus_metrics=prometheus_metrics,
             neo4j_driver=driver,
+            query_executor=query_executor,
             insight_store=insight_store,  # Event-driven insights (Phase 1 - January 2026)
             # GenAI services (Neo4j native - January 2026)
             embeddings_service=embeddings_service,
@@ -2436,10 +2439,10 @@ async def compose_services(
         from core.services.reports import KuRelationshipService
         from core.services.user.intelligence import UserContextIntelligenceFactory
 
-        # Create processing domain relationship services (Direct Driver pattern)
+        # Create processing domain relationship services
         # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Ku
         # KuRelationshipService handles all Ku content relationships
-        report_relationship_service = KuRelationshipService(driver)
+        report_relationship_service = KuRelationshipService(backend=reports_backend)
         analytics_relationship_service = AnalyticsRelationshipService(driver)
         logger.info("✅ Processing domain relationship services created (Reports, Analytics)")
 

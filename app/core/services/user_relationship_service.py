@@ -36,13 +36,12 @@ Note: follower_uids removed - use inverse query: MATCH (follower)-[:FOLLOWS]->(u
 Date: October 26, 2025
 """
 
-from typing import Any
+from __future__ import annotations
 
-from neo4j import AsyncDriver
+from typing import Any
 
 from core.infrastructure.batch import BatchOperationHelper
 from core.models.relationship_names import RelationshipName
-from core.services.graph_query_executor import GraphQueryExecutor
 from core.utils.processor_functions import (
     extract_created_count,
     extract_dict_from_first_record,
@@ -82,15 +81,14 @@ class UserRelationshipService:
     - 1.0: All user relationships are explicit choices
     """
 
-    def __init__(self, driver: AsyncDriver | None = None) -> None:
+    def __init__(self, executor: Any = None) -> None:
         """
         Initialize User relationship service.
 
         Args:
-            driver: Neo4j async driver for graph queries
+            executor: Query executor for graph queries
         """
-        self.driver = driver
-        self.executor = GraphQueryExecutor(driver)  # Generic query executor
+        self.executor = executor
 
     # ========================================================================
     # Pinned Entities (4 methods)

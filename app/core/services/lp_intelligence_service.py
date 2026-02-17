@@ -58,7 +58,7 @@ from core.utils.decorators import requires_graph_intelligence, with_error_handli
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
+    from core.services.protocols import QueryExecutor
 
 
 class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
@@ -114,7 +114,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
         learning_backend: Any | None = None,  # Duplicate of backend for backward compatibility
         event_bus: Any | None = None,
         user_service: Any | None = None,
-        driver: AsyncDriver | None = None,  # January 2026: For adaptive/validation operations
+        executor: "QueryExecutor | None" = None,  # January 2026: For adaptive/validation operations
     ) -> None:
         """
         Initialize unified intelligence service.
@@ -127,7 +127,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
             learning_backend: Learning backend (LP-specific, also mapped to backend)
             event_bus: Event bus for publishing events
             user_service: UserService for UserContext
-            driver: Neo4j async driver - REQUIRED for adaptive operations (January 2026)
+            executor: QueryExecutor - REQUIRED for adaptive operations (January 2026)
 
         NOTE: No embeddings_service or llm_service parameters (ADR-030).
         """
@@ -147,8 +147,8 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
         self.learning_backend = learning_backend or primary_backend
         self.user_service = user_service
 
-        # January 2026: Store driver and graph_intel for consolidated methods
-        self.driver = driver
+        # January 2026: Store executor and graph_intel for consolidated methods
+        self.executor = executor
         self.graph_intel = graph_intelligence_service
 
         # Initialize all sub-services (no AI dependencies - ADR-030)
@@ -960,9 +960,9 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
         Returns:
             Result containing list of knowledge UIDs in optimal sequence
         """
-        if not self.driver:
+        if not self.executor:
             return Result.fail(
-                Errors.system("Neo4j driver not available", operation="find_learning_sequence")
+                Errors.system("QueryExecutor not available", operation="find_learning_sequence")
             )
 
         query = """
@@ -979,19 +979,24 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
         RETURN [node IN nodes(path) | node.uid] as sequence
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"start_uid": start_uid, "goal_uid": goal_uid})
-            record = await result.single()
+        result = await self.executor.execute_query(
+            query, {"start_uid": start_uid, "goal_uid": goal_uid}
+        )
+        if result.is_error:
+            return result
 
-            if not record:
-                self.logger.info(f"No learning path found from {start_uid} to {goal_uid}")
-                return Result.ok([])  # No path found
+        records = result.value or []
+        record = records[0] if records else None
 
-            sequence = record["sequence"]
-            self.logger.info(
-                f"Found learning sequence from {start_uid} to {goal_uid}: {len(sequence)} steps"
-            )
-            return Result.ok(sequence)
+        if not record:
+            self.logger.info(f"No learning path found from {start_uid} to {goal_uid}")
+            return Result.ok([])  # No path found
+
+        sequence = record["sequence"]
+        self.logger.info(
+            f"Found learning sequence from {start_uid} to {goal_uid}: {len(sequence)} steps"
+        )
+        return Result.ok(sequence)
 
     @with_error_handling(
         "get_next_adaptive_step", error_type="database", uid_param="current_step_uid"
@@ -1018,9 +1023,9 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
         Returns:
             Result containing next step UID, or empty string if no ready steps
         """
-        if not self.driver:
+        if not self.executor:
             return Result.fail(
-                Errors.system("Neo4j driver not available", operation="get_next_adaptive_step")
+                Errors.system("QueryExecutor not available", operation="get_next_adaptive_step")
             )
 
         query = """
@@ -1064,28 +1069,31 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
         LIMIT 1
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query, {"current_uid": current_step_uid, "user_uid": user_uid}
-            )
-            record = await result.single()
+        result = await self.executor.execute_query(
+            query, {"current_uid": current_step_uid, "user_uid": user_uid}
+        )
+        if result.is_error:
+            return result
 
-            if not record:
-                self.logger.info(
-                    f"No ready next step found after {current_step_uid} for user {user_uid}"
-                )
-                return Result.ok("")  # Empty string instead of None
+        records = result.value or []
+        record = records[0] if records else None
 
-            next_uid = record["next_uid"]
-            readiness = record["readiness_score"]
-            difficulty = record["avg_difficulty"]
-
+        if not record:
             self.logger.info(
-                f"Next adaptive step for {user_uid}: {next_uid} "
-                f"(readiness: {readiness:.2f}, difficulty_gap: {difficulty:.2f})"
+                f"No ready next step found after {current_step_uid} for user {user_uid}"
             )
+            return Result.ok("")  # Empty string instead of None
 
-            return Result.ok(next_uid)
+        next_uid = record["next_uid"]
+        readiness = record["readiness_score"]
+        difficulty = record["avg_difficulty"]
+
+        self.logger.info(
+            f"Next adaptive step for {user_uid}: {next_uid} "
+            f"(readiness: {readiness:.2f}, difficulty_gap: {difficulty:.2f})"
+        )
+
+        return Result.ok(next_uid)
 
     @with_error_handling(
         "get_recommended_learning_steps", error_type="database", uid_param="user_uid"
@@ -1109,10 +1117,10 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
         Returns:
             Result containing list of recommendations with metadata
         """
-        if not self.driver:
+        if not self.executor:
             return Result.fail(
                 Errors.system(
-                    "Neo4j driver not available", operation="get_recommended_learning_steps"
+                    "QueryExecutor not available", operation="get_recommended_learning_steps"
                 )
             )
 
@@ -1162,27 +1170,30 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Ku]):
         LIMIT $limit
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query, {"user_uid": user_uid, "max_difficulty": max_difficulty, "limit": limit}
-            )
+        result = await self.executor.execute_query(
+            query, {"user_uid": user_uid, "max_difficulty": max_difficulty, "limit": limit}
+        )
+        if result.is_error:
+            return result
 
-            recommendations = [
-                {
-                    "uid": record["uid"],
-                    "title": record["title"],
-                    "domain": record["domain"],
-                    "confidence": record["confidence"],
-                    "strength": record["strength"],
-                    "difficulty_gap": record["difficulty_gap"],
-                    "semantic_distance": record["semantic_distance"],
-                    "prerequisite_readiness": record["prerequisite_readiness"],
-                }
-                async for record in result
-            ]
+        records = result.value or []
 
-            self.logger.info(f"Found {len(recommendations)} recommended steps for {user_uid}")
-            return Result.ok(recommendations)
+        recommendations = [
+            {
+                "uid": record["uid"],
+                "title": record["title"],
+                "domain": record["domain"],
+                "confidence": record["confidence"],
+                "strength": record["strength"],
+                "difficulty_gap": record["difficulty_gap"],
+                "semantic_distance": record["semantic_distance"],
+                "prerequisite_readiness": record["prerequisite_readiness"],
+            }
+            for record in records
+        ]
+
+        self.logger.info(f"Found {len(recommendations)} recommended steps for {user_uid}")
+        return Result.ok(recommendations)
 
     # ========================================================================
     # CONTEXT OPERATIONS (January 2026 - Consolidated from LpContextService)
@@ -1318,7 +1329,7 @@ def create_lp_intelligence_service(
     progress_backend: Any | None = None,
     learning_backend: Any | None = None,
     graph_intelligence_service: Any = None,
-    driver: Any = None,  # January 2026: For consolidated adaptive/validation methods
+    executor: Any = None,  # January 2026: For consolidated adaptive/validation methods
 ) -> LpIntelligenceService:
     """
     Factory function to create LpIntelligenceService instance.
@@ -1329,7 +1340,7 @@ def create_lp_intelligence_service(
         progress_backend: Progress backend (Universal Backend pattern)
         learning_backend: Learning backend (Universal Backend pattern)
         graph_intelligence_service: GraphIntelligenceService
-        driver: Neo4j async driver (January 2026 - for consolidated methods)
+        executor: QueryExecutor (January 2026 - for consolidated methods)
 
     Returns:
         LpIntelligenceService: Configured service instance (facade pattern)
@@ -1338,5 +1349,5 @@ def create_lp_intelligence_service(
         progress_backend=progress_backend,
         learning_backend=learning_backend,
         graph_intelligence_service=graph_intelligence_service,
-        driver=driver,
+        executor=executor,
     )

@@ -24,10 +24,13 @@ See: /docs/development/GENAI_SETUP.md
 """
 
 from operator import itemgetter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger("skuel.genai_embeddings")
 
@@ -55,7 +58,7 @@ class Neo4jGenAIEmbeddingsService:
 
     def __init__(
         self,
-        driver: Any,
+        executor: "QueryExecutor",
         model: str = "text-embedding-3-small",
         dimension: int = 1536,
         prometheus_metrics: Any | None = None,
@@ -64,12 +67,12 @@ class Neo4jGenAIEmbeddingsService:
         Initialize embeddings service.
 
         Args:
-            driver: Neo4j driver instance
+            executor: Query executor for database operations
             model: Embedding model to use (default: text-embedding-3-small)
             dimension: Expected embedding dimension (default: 1536 for text-embedding-3-small)
             prometheus_metrics: PrometheusMetrics for tracking OpenAI calls (Phase 1 - January 2026)
         """
-        self.driver = driver
+        self.executor = executor
         self.model = model
         self.dimension = dimension
         self.logger = logger
@@ -102,15 +105,15 @@ class Neo4jGenAIEmbeddingsService:
         """
 
         try:
-            result = await self.driver.execute_query(query)
+            result = await self.executor.execute_query(query)
 
-            if result and len(result) > 0:
+            if result.is_ok and result.value and len(result.value) > 0:
                 self._plugin_available = True
-                self.logger.info("✅ Neo4j GenAI plugin available")
+                self.logger.info("Neo4j GenAI plugin available")
                 return True
             else:
                 self._plugin_available = False
-                self.logger.warning("⚠️ Neo4j GenAI plugin not available - embeddings disabled")
+                self.logger.warning("Neo4j GenAI plugin not available - embeddings disabled")
                 return False
 
         except Exception as e:
@@ -186,59 +189,60 @@ class Neo4jGenAIEmbeddingsService:
 
         start_time = time.time()
 
-        try:
-            # Unpack the result tuple (records, summary, keys)
-            records, summary, keys = await self.driver.execute_query(query, params)
+        result = await self.executor.execute_query(query, params)
 
-            # Track successful request
-            duration = time.time() - start_time
-            if self.prometheus_metrics:
-                self.prometheus_metrics.ai.openai_requests_total.labels(
-                    operation="embeddings", model=self.model
-                ).inc()
+        # Track timing
+        duration = time.time() - start_time
 
-                self.prometheus_metrics.ai.openai_duration_seconds.labels(
-                    operation="embeddings", model=self.model
-                ).observe(duration)
-
-                # Estimate token usage (rough approximation: ~4 chars per token)
-                estimated_tokens = len(text) // 4
-                self.prometheus_metrics.ai.openai_tokens_used.labels(
-                    operation="embeddings", model=self.model, token_type="prompt"
-                ).inc(estimated_tokens)
-
-            if not records or not records[0].get("embedding"):
-                return Result.fail(
-                    Errors.integration(
-                        service="GenAI", message="No embedding returned from GenAI plugin"
-                    )
-                )
-
-            embedding = records[0]["embedding"]
-
-            # Validate dimension
-            if len(embedding) != self.dimension:
-                return Result.fail(
-                    Errors.integration(
-                        service="GenAI",
-                        message=f"Expected {self.dimension}d embedding, got {len(embedding)}d",
-                    )
-                )
-
-            return Result.ok(embedding)
-
-        except Exception as e:
+        if result.is_error:
             # Track error metrics
             if self.prometheus_metrics:
-                error_type = "timeout" if "timeout" in str(e).lower() else "unknown"
                 self.prometheus_metrics.ai.openai_errors_total.labels(
-                    operation="embeddings", error_type=error_type
+                    operation="embeddings", error_type="unknown"
                 ).inc()
 
-            self.logger.error(f"Embedding generation failed: {e}")
+            self.logger.error(f"Embedding generation failed: {result.error}")
             return Result.fail(
-                Errors.integration(service="GenAI", message=f"Embedding generation failed: {e}")
+                Errors.integration(service="GenAI", message=f"Embedding generation failed: {result.error}")
             )
+
+        records = result.value
+
+        # Track successful request
+        if self.prometheus_metrics:
+            self.prometheus_metrics.ai.openai_requests_total.labels(
+                operation="embeddings", model=self.model
+            ).inc()
+
+            self.prometheus_metrics.ai.openai_duration_seconds.labels(
+                operation="embeddings", model=self.model
+            ).observe(duration)
+
+            # Estimate token usage (rough approximation: ~4 chars per token)
+            estimated_tokens = len(text) // 4
+            self.prometheus_metrics.ai.openai_tokens_used.labels(
+                operation="embeddings", model=self.model, token_type="prompt"
+            ).inc(estimated_tokens)
+
+        if not records or not records[0].get("embedding"):
+            return Result.fail(
+                Errors.integration(
+                    service="GenAI", message="No embedding returned from GenAI plugin"
+                )
+            )
+
+        embedding = records[0]["embedding"]
+
+        # Validate dimension
+        if len(embedding) != self.dimension:
+            return Result.fail(
+                Errors.integration(
+                    service="GenAI",
+                    message=f"Expected {self.dimension}d embedding, got {len(embedding)}d",
+                )
+            )
+
+        return Result.ok(embedding)
 
     async def create_batch_embeddings(
         self, texts: list[str], metadata_list: list[dict[str, Any]] | None = None
@@ -301,57 +305,58 @@ class Neo4jGenAIEmbeddingsService:
 
         start_time = time.time()
 
-        try:
-            # Unpack the result tuple (records, summary, keys)
-            records, summary, keys = await self.driver.execute_query(query, params)
+        result = await self.executor.execute_query(query, params)
 
-            # Track successful batch request
-            duration = time.time() - start_time
-            if self.prometheus_metrics:
-                self.prometheus_metrics.ai.openai_requests_total.labels(
-                    operation="embeddings", model=self.model
-                ).inc()
+        # Track timing
+        duration = time.time() - start_time
 
-                self.prometheus_metrics.ai.openai_duration_seconds.labels(
-                    operation="embeddings", model=self.model
-                ).observe(duration)
-
-                # Estimate total token usage for batch (rough approximation)
-                total_chars = sum(len(t) for t in truncated_texts)
-                estimated_tokens = total_chars // 4
-                self.prometheus_metrics.ai.openai_tokens_used.labels(
-                    operation="embeddings", model=self.model, token_type="prompt"
-                ).inc(estimated_tokens)
-
-            # Extract embeddings in order
-            embeddings = [
-                record["embedding"] for record in sorted(records, key=itemgetter("index"))
-            ]
-
-            # Validate all dimensions
-            for idx, emb in enumerate(embeddings):
-                if len(emb) != self.dimension:
-                    return Result.fail(
-                        Errors.integration(
-                            service="GenAI",
-                            message=f"Embedding {idx} has wrong dimension: {len(emb)} != {self.dimension}",
-                        )
-                    )
-
-            return Result.ok(embeddings)
-
-        except Exception as e:
+        if result.is_error:
             # Track error metrics
             if self.prometheus_metrics:
-                error_type = "timeout" if "timeout" in str(e).lower() else "unknown"
                 self.prometheus_metrics.ai.openai_errors_total.labels(
-                    operation="embeddings", error_type=error_type
+                    operation="embeddings", error_type="unknown"
                 ).inc()
 
-            self.logger.error(f"Batch embedding failed: {e}")
+            self.logger.error(f"Batch embedding failed: {result.error}")
             return Result.fail(
-                Errors.integration(service="GenAI", message=f"Batch embedding failed: {e}")
+                Errors.integration(service="GenAI", message=f"Batch embedding failed: {result.error}")
             )
+
+        records = result.value
+
+        # Track successful batch request
+        if self.prometheus_metrics:
+            self.prometheus_metrics.ai.openai_requests_total.labels(
+                operation="embeddings", model=self.model
+            ).inc()
+
+            self.prometheus_metrics.ai.openai_duration_seconds.labels(
+                operation="embeddings", model=self.model
+            ).observe(duration)
+
+            # Estimate total token usage for batch (rough approximation)
+            total_chars = sum(len(t) for t in truncated_texts)
+            estimated_tokens = total_chars // 4
+            self.prometheus_metrics.ai.openai_tokens_used.labels(
+                operation="embeddings", model=self.model, token_type="prompt"
+            ).inc(estimated_tokens)
+
+        # Extract embeddings in order
+        embeddings = [
+            record["embedding"] for record in sorted(records, key=itemgetter("index"))
+        ]
+
+        # Validate all dimensions
+        for idx, emb in enumerate(embeddings):
+            if len(emb) != self.dimension:
+                return Result.fail(
+                    Errors.integration(
+                        service="GenAI",
+                        message=f"Embedding {idx} has wrong dimension: {len(emb)} != {self.dimension}",
+                    )
+                )
+
+        return Result.ok(embeddings)
 
     async def calculate_similarity(
         self, embedding1: list[float], embedding2: list[float]
@@ -440,20 +445,19 @@ class Neo4jGenAIEmbeddingsService:
             "text": text,
         }
 
-        try:
-            result = await self.driver.execute_query(query, params)
+        result = await self.executor.execute_query(query, params)
 
-            if not result:
-                return Result.fail(Errors.not_found(resource="Node", identifier=f"{label}:{uid}"))
-
-            self.logger.debug(f"Stored embedding for {label}:{uid} (version={EMBEDDING_VERSION})")
-            return Result.ok(None)
-
-        except Exception as e:
-            self.logger.error(f"Failed to store embedding metadata: {e}")
+        if result.is_error:
+            self.logger.error(f"Failed to store embedding metadata: {result.error}")
             return Result.fail(
-                Errors.database(operation="store_embedding", message=f"Failed to store: {e}")
+                Errors.database(operation="store_embedding", message=f"Failed to store: {result.error}")
             )
+
+        if not result.value:
+            return Result.fail(Errors.not_found(resource="Node", identifier=f"{label}:{uid}"))
+
+        self.logger.debug(f"Stored embedding for {label}:{uid} (version={EMBEDDING_VERSION})")
+        return Result.ok(None)
 
     async def get_embedding_metadata(self, uid: str, label: str) -> Result[dict[str, Any]]:
         """
@@ -480,30 +484,29 @@ class Neo4jGenAIEmbeddingsService:
                n.embedding_updated_at as updated_at
         """
 
-        try:
-            result = await self.driver.execute_query(query, {"uid": uid})
+        result = await self.executor.execute_query(query, {"uid": uid})
 
-            if not result:
-                return Result.fail(Errors.not_found(resource="Node", identifier=f"{label}:{uid}"))
-
-            record = result[0]
-            embedding = record.get("embedding")
-
-            metadata = {
-                "has_embedding": embedding is not None,
-                "version": record.get("version"),
-                "model": record.get("model"),
-                "updated_at": record.get("updated_at"),
-                "dimension": len(embedding) if embedding else None,
-            }
-
-            return Result.ok(metadata)
-
-        except Exception as e:
-            self.logger.error(f"Failed to get embedding metadata: {e}")
+        if result.is_error:
+            self.logger.error(f"Failed to get embedding metadata: {result.error}")
             return Result.fail(
-                Errors.database(operation="get_metadata", message=f"Failed to get metadata: {e}")
+                Errors.database(operation="get_metadata", message=f"Failed to get metadata: {result.error}")
             )
+
+        if not result.value:
+            return Result.fail(Errors.not_found(resource="Node", identifier=f"{label}:{uid}"))
+
+        record = result.value[0]
+        embedding = record.get("embedding")
+
+        metadata = {
+            "has_embedding": embedding is not None,
+            "version": record.get("version"),
+            "model": record.get("model"),
+            "updated_at": record.get("updated_at"),
+            "dimension": len(embedding) if embedding else None,
+        }
+
+        return Result.ok(metadata)
 
     async def check_version_compatibility(self, uid: str, label: str) -> Result[dict[str, Any]]:
         """
@@ -580,11 +583,11 @@ class Neo4jGenAIEmbeddingsService:
                 """
 
                 try:
-                    result = await self.driver.execute_query(query, {"uid": uid})
+                    result = await self.executor.execute_query(query, {"uid": uid})
 
-                    if result and result[0].get("embedding"):
+                    if result.is_ok and result.value and result.value[0].get("embedding"):
                         self.logger.debug(f"Cache hit: {label}:{uid} (version={EMBEDDING_VERSION})")
-                        return Result.ok(result[0]["embedding"])
+                        return Result.ok(result.value[0]["embedding"])
 
                 except Exception as e:
                     self.logger.warning(f"Failed to get cached embedding: {e}")

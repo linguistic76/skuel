@@ -1115,39 +1115,39 @@ class AnalyticsMetricsService:
         """
 
         try:
-            async with self.content_enrichment.backend.driver.session() as session:
-                result = await session.run(
-                    cypher,
+            result = await self.content_enrichment.backend.execute_query(
+                cypher,
+                {
+                    "user_uid": user_uid,
+                    "start_datetime": start_datetime.isoformat(),
+                    "end_datetime": end_datetime.isoformat(),
+                },
+            )
+            if result.is_error:
+                self.logger.warning(f"Failed to query journal assignments: {result.error}")
+                return []
+
+            import json
+
+            journals = []
+            for record in result.value:
+                metadata = record["metadata"]
+                if isinstance(metadata, str):
+                    try:
+                        metadata = json.loads(metadata)
+                    except json.JSONDecodeError:
+                        metadata = {}
+
+                journals.append(
                     {
-                        "user_uid": user_uid,
-                        "start_datetime": start_datetime.isoformat(),
-                        "end_datetime": end_datetime.isoformat(),
-                    },
+                        "uid": record["uid"],
+                        "processed_content": record["processed_content"] or "",
+                        "metadata": metadata or {},
+                        "created_at": record["created_at"],
+                    }
                 )
-                records = [r async for r in result]
 
-                journals = []
-                for record in records:
-                    # Parse metadata from JSON if needed
-                    import json
-
-                    metadata = record["metadata"]
-                    if isinstance(metadata, str):
-                        try:
-                            metadata = json.loads(metadata)
-                        except json.JSONDecodeError:
-                            metadata = {}
-
-                    journals.append(
-                        {
-                            "uid": record["uid"],
-                            "processed_content": record["processed_content"] or "",
-                            "metadata": metadata or {},
-                            "created_at": record["created_at"],
-                        }
-                    )
-
-                return journals
+            return journals
 
         except Exception as e:
             self.logger.warning(f"Failed to query journal assignments: {e}")

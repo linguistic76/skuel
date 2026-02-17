@@ -18,9 +18,7 @@ See: /docs/architecture/SUBMISSION_FEEDBACK_LOOP.md
 """
 
 from datetime import datetime
-from typing import Any
-
-from neo4j import Driver
+from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.submission_events import SubmissionReviewed, SubmissionRevisionRequested
@@ -28,6 +26,9 @@ from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger("skuel.services.teacher_review")
 
@@ -37,7 +38,7 @@ class TeacherReviewService:
 
     def __init__(
         self,
-        driver: Driver,
+        executor: "QueryExecutor",
         ku_interaction_service: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:
@@ -45,11 +46,11 @@ class TeacherReviewService:
         Initialize the teacher review service.
 
         Args:
-            driver: Neo4j driver for database operations
+            executor: Query executor for database operations
             ku_interaction_service: Optional KU interaction service for mastery updates
             event_bus: Optional event bus for publishing review events
         """
-        self.driver = driver
+        self.executor = executor
         self.ku_interaction_service = ku_interaction_service
         self.event_bus = event_bus
 
@@ -109,32 +110,29 @@ class TeacherReviewService:
         ORDER BY ku.created_at DESC
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(query, **params)
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            return result
 
-            items = [
-                {
-                    "ku_uid": record["ku_uid"],
-                    "title": record["title"],
-                    "status": record["status"],
-                    "ku_type": record["ku_type"],
-                    "submitted_at": record["submitted_at"],
-                    "student_uid": record["student_uid"],
-                    "student_name": record["student_name"],
-                    "project_uid": record["project_uid"],
-                    "project_name": record["project_name"],
-                    "due_date": record["due_date"],
-                    "shared_at": record["shared_at"],
-                    "feedback_count": record["feedback_count"],
-                }
-                for record in records
-            ]
+        items = [
+            {
+                "ku_uid": record["ku_uid"],
+                "title": record["title"],
+                "status": record["status"],
+                "ku_type": record["ku_type"],
+                "submitted_at": record["submitted_at"],
+                "student_uid": record["student_uid"],
+                "student_name": record["student_name"],
+                "project_uid": record["project_uid"],
+                "project_name": record["project_name"],
+                "due_date": record["due_date"],
+                "shared_at": record["shared_at"],
+                "feedback_count": record["feedback_count"],
+            }
+            for record in result.value
+        ]
 
-            return Result.ok(items)
-
-        except Exception as e:
-            logger.error(f"Error fetching review queue: {e}")
-            return Result.fail(Errors.database("get_review_queue", str(e)))
+        return Result.ok(items)
 
     async def get_feedback_history(
         self,
@@ -162,27 +160,26 @@ class TeacherReviewService:
         ORDER BY fb.created_at ASC
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(query, submission_uid=submission_uid)
+        result = await self.executor.execute_query(
+            query, {"submission_uid": submission_uid}
+        )
+        if result.is_error:
+            return result
 
-            items = [
-                {
-                    "uid": record["uid"],
-                    "title": record["title"],
-                    "content": record["content"],
-                    "status": record["status"],
-                    "created_at": record["created_at"],
-                    "teacher_uid": record["teacher_uid"],
-                    "teacher_name": record["teacher_name"],
-                }
-                for record in records
-            ]
+        items = [
+            {
+                "uid": record["uid"],
+                "title": record["title"],
+                "content": record["content"],
+                "status": record["status"],
+                "created_at": record["created_at"],
+                "teacher_uid": record["teacher_uid"],
+                "teacher_name": record["teacher_name"],
+            }
+            for record in result.value
+        ]
 
-            return Result.ok(items)
-
-        except Exception as e:
-            logger.error(f"Error fetching feedback history: {e}")
-            return Result.fail(Errors.database("get_feedback_history", str(e)))
+        return Result.ok(items)
 
     async def submit_feedback(
         self,
@@ -255,52 +252,52 @@ class TeacherReviewService:
                fb.uid as feedback_uid
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                report_uid=report_uid,
-                feedback_uid=feedback_uid,
+        result = await self.executor.execute_query(
+            query,
+            {
+                "report_uid": report_uid,
+                "feedback_uid": feedback_uid,
+                "teacher_uid": teacher_uid,
+                "feedback": feedback,
+                "title": f"Feedback: {report_uid[:30]}",
+                "ku_type": KuType.FEEDBACK_REPORT.value,
+                "completed_status": KuStatus.COMPLETED.value,
+                "processor_type": ProcessorType.HUMAN.value,
+                "now": now,
+            },
+        )
+        if result.is_error:
+            return result
+
+        records = result.value
+        if not records:
+            return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
+
+        student_uid = records[0]["student_uid"] or ""
+        logger.info(
+            f"Teacher {teacher_uid} submitted feedback {feedback_uid} for Ku {report_uid}"
+        )
+
+        await publish_event(
+            self.event_bus,
+            SubmissionReviewed(
+                submission_uid=report_uid,
                 teacher_uid=teacher_uid,
-                feedback=feedback,
-                title=f"Feedback: {report_uid[:30]}",
-                ku_type=KuType.FEEDBACK_REPORT.value,
-                completed_status=KuStatus.COMPLETED.value,
-                processor_type=ProcessorType.HUMAN.value,
-                now=now,
-            )
+                student_uid=student_uid,
+                occurred_at=datetime.now(),
+                metadata={"feedback_uid": feedback_uid},
+            ),
+            logger,
+        )
 
-            if not records:
-                return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
-
-            student_uid = records[0]["student_uid"] or ""
-            logger.info(
-                f"Teacher {teacher_uid} submitted feedback {feedback_uid} for Ku {report_uid}"
-            )
-
-            await publish_event(
-                self.event_bus,
-                SubmissionReviewed(
-                    submission_uid=report_uid,
-                    teacher_uid=teacher_uid,
-                    student_uid=student_uid,
-                    occurred_at=datetime.now(),
-                    metadata={"feedback_uid": feedback_uid},
-                ),
-                logger,
-            )
-
-            return Result.ok(
-                {
-                    "ku_uid": records[0]["uid"],
-                    "status": records[0]["status"],
-                    "feedback_uid": feedback_uid,
-                    "feedback_submitted": True,
-                }
-            )
-
-        except Exception as e:
-            logger.error(f"Error submitting feedback: {e}")
-            return Result.fail(Errors.database("submit_feedback", str(e)))
+        return Result.ok(
+            {
+                "ku_uid": records[0]["uid"],
+                "status": records[0]["status"],
+                "feedback_uid": feedback_uid,
+                "feedback_submitted": True,
+            }
+        )
 
     async def request_revision(
         self,
@@ -370,54 +367,54 @@ class TeacherReviewService:
                fb.uid as feedback_uid
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                report_uid=report_uid,
-                feedback_uid=feedback_uid,
+        result = await self.executor.execute_query(
+            query,
+            {
+                "report_uid": report_uid,
+                "feedback_uid": feedback_uid,
+                "teacher_uid": teacher_uid,
+                "notes": notes,
+                "title": f"Revision request: {report_uid[:30]}",
+                "ku_type": KuType.FEEDBACK_REPORT.value,
+                "revision_status": KuStatus.REVISION_REQUESTED.value,
+                "completed_status": KuStatus.COMPLETED.value,
+                "processor_type": ProcessorType.HUMAN.value,
+                "now": now,
+            },
+        )
+        if result.is_error:
+            return result
+
+        records = result.value
+        if not records:
+            return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
+
+        student_uid = records[0]["student_uid"] or ""
+        logger.info(
+            f"Teacher {teacher_uid} requested revision {feedback_uid} for Ku {report_uid}"
+        )
+
+        await publish_event(
+            self.event_bus,
+            SubmissionRevisionRequested(
+                submission_uid=report_uid,
                 teacher_uid=teacher_uid,
-                notes=notes,
-                title=f"Revision request: {report_uid[:30]}",
-                ku_type=KuType.FEEDBACK_REPORT.value,
-                revision_status=KuStatus.REVISION_REQUESTED.value,
-                completed_status=KuStatus.COMPLETED.value,
-                processor_type=ProcessorType.HUMAN.value,
-                now=now,
-            )
+                student_uid=student_uid,
+                occurred_at=datetime.now(),
+                revision_notes=notes,
+                metadata={"feedback_uid": feedback_uid},
+            ),
+            logger,
+        )
 
-            if not records:
-                return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
-
-            student_uid = records[0]["student_uid"] or ""
-            logger.info(
-                f"Teacher {teacher_uid} requested revision {feedback_uid} for Ku {report_uid}"
-            )
-
-            await publish_event(
-                self.event_bus,
-                SubmissionRevisionRequested(
-                    submission_uid=report_uid,
-                    teacher_uid=teacher_uid,
-                    student_uid=student_uid,
-                    occurred_at=datetime.now(),
-                    revision_notes=notes,
-                    metadata={"feedback_uid": feedback_uid},
-                ),
-                logger,
-            )
-
-            return Result.ok(
-                {
-                    "ku_uid": records[0]["uid"],
-                    "status": records[0]["status"],
-                    "feedback_uid": feedback_uid,
-                    "revision_requested": True,
-                }
-            )
-
-        except Exception as e:
-            logger.error(f"Error requesting revision: {e}")
-            return Result.fail(Errors.database("request_revision", str(e)))
+        return Result.ok(
+            {
+                "ku_uid": records[0]["uid"],
+                "status": records[0]["status"],
+                "feedback_uid": feedback_uid,
+                "revision_requested": True,
+            }
+        )
 
     async def approve_report(
         self,
@@ -453,67 +450,67 @@ class TeacherReviewService:
                collect(curriculum.uid) as linked_ku_uids
         """
 
-        try:
-            now = datetime.now().isoformat()
-            records, _, _ = await self.driver.execute_query(
-                query,
-                report_uid=report_uid,
-                now=now,
-                status=KuStatus.COMPLETED.value,
-            )
+        now = datetime.now().isoformat()
+        result = await self.executor.execute_query(
+            query,
+            {
+                "report_uid": report_uid,
+                "now": now,
+                "status": KuStatus.COMPLETED.value,
+            },
+        )
+        if result.is_error:
+            return result
 
-            if not records:
-                return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
+        records = result.value
+        if not records:
+            return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
 
-            record = records[0]
-            student_uid = record["student_uid"] or ""
-            linked_ku_uids = [uid for uid in (record["linked_ku_uids"] or []) if uid]
+        record = records[0]
+        student_uid = record["student_uid"] or ""
+        linked_ku_uids = [uid for uid in (record["linked_ku_uids"] or []) if uid]
 
-            # Update mastery for linked curriculum Ku
-            mastered_count = 0
-            if self.ku_interaction_service and student_uid and linked_ku_uids:
-                for linked_uid in linked_ku_uids:
-                    mastery_result = await self.ku_interaction_service.mark_mastered(
-                        user_uid=student_uid,
-                        ku_uid=linked_uid,
-                        mastery_score=0.8,
-                        method="ku_approval",
+        # Update mastery for linked curriculum Ku
+        mastered_count = 0
+        if self.ku_interaction_service and student_uid and linked_ku_uids:
+            for linked_uid in linked_ku_uids:
+                mastery_result = await self.ku_interaction_service.mark_mastered(
+                    user_uid=student_uid,
+                    ku_uid=linked_uid,
+                    mastery_score=0.8,
+                    method="ku_approval",
+                )
+                if mastery_result.is_ok:
+                    mastered_count += 1
+                else:
+                    logger.warning(
+                        f"Failed to update mastery for KU {linked_uid}: {mastery_result.error}"
                     )
-                    if mastery_result.is_ok:
-                        mastered_count += 1
-                    else:
-                        logger.warning(
-                            f"Failed to update mastery for KU {linked_uid}: {mastery_result.error}"
-                        )
 
-                if mastered_count > 0:
-                    logger.info(f"Updated mastery for {mastered_count} KUs from Ku {report_uid}")
+            if mastered_count > 0:
+                logger.info(f"Updated mastery for {mastered_count} KUs from Ku {report_uid}")
 
-            logger.info(f"Teacher {teacher_uid} approved Ku {report_uid}")
+        logger.info(f"Teacher {teacher_uid} approved Ku {report_uid}")
 
-            await publish_event(
-                self.event_bus,
-                SubmissionReviewed(
-                    submission_uid=report_uid,
-                    teacher_uid=teacher_uid,
-                    student_uid=student_uid,
-                    occurred_at=datetime.now(),
-                ),
-                logger,
-            )
+        await publish_event(
+            self.event_bus,
+            SubmissionReviewed(
+                submission_uid=report_uid,
+                teacher_uid=teacher_uid,
+                student_uid=student_uid,
+                occurred_at=datetime.now(),
+            ),
+            logger,
+        )
 
-            return Result.ok(
-                {
-                    "ku_uid": record["uid"],
-                    "status": record["status"],
-                    "approved": True,
-                    "mastered_ku_count": mastered_count,
-                }
-            )
-
-        except Exception as e:
-            logger.error(f"Error approving Ku: {e}")
-            return Result.fail(Errors.database("approve_report", str(e)))
+        return Result.ok(
+            {
+                "ku_uid": record["uid"],
+                "status": record["status"],
+                "approved": True,
+                "mastered_ku_count": mastered_count,
+            }
+        )
 
     # ========================================================================
     # PRIVATE HELPERS
@@ -530,22 +527,18 @@ class TeacherReviewService:
         RETURN true as has_access
         """
 
-        try:
-            records, _, _ = await self.driver.execute_query(
-                query,
-                teacher_uid=teacher_uid,
-                report_uid=report_uid,
+        result = await self.executor.execute_query(
+            query,
+            {"teacher_uid": teacher_uid, "report_uid": report_uid},
+        )
+        if result.is_error:
+            return result
+
+        if not result.value:
+            return Result.fail(
+                Errors.not_found(
+                    f"Teacher {teacher_uid} does not have review access to Ku {report_uid}"
+                )
             )
 
-            if not records:
-                return Result.fail(
-                    Errors.not_found(
-                        f"Teacher {teacher_uid} does not have review access to Ku {report_uid}"
-                    )
-                )
-
-            return Result.ok(True)
-
-        except Exception as e:
-            logger.error(f"Error verifying teacher access: {e}")
-            return Result.fail(Errors.database("verify_teacher_access", str(e)))
+        return Result.ok(True)

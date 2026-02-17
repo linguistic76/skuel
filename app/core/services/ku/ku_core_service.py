@@ -440,18 +440,19 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
 
         params = {"uid": uid, "min_confidence": min_confidence}
 
-        # Execute single query (returns EagerResult with .records attribute)
-        result = await self.backend.driver.execute_query(query, params)
-        records = result.records  # EagerResult.records is list[Record]
+        # Execute single query via protocol-compliant backend
+        result = await self.backend.execute_query(query, params)
+        if result.is_error:
+            return result
 
-        if not records or len(records) == 0:
+        if not result.value:
             return Result.fail(Errors.not_found(resource="Ku", identifier=uid))
 
-        record = records[0]
+        record = result.value[0]
         ku_node = record["ku"]
 
         # Build KuDTO from node
-        dto = KuDTO.from_dict(dict(ku_node))
+        dto = KuDTO.from_dict(ku_node)
 
         # Enrich metadata with graph context
         dto.metadata["graph_context"] = {
@@ -782,12 +783,14 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         ORDER BY r[0].order ASC
         """
 
-        result = await self.backend.driver.execute_query(query, parent_uid=parent_uid, routing_="r")
+        result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
+        if result.is_error:
+            return result
 
         # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        kus = [from_neo4j_node(dict(record["child"]), Ku) for record in result.records]
+        kus = [from_neo4j_node(record["child"], Ku) for record in result.value]
 
         self.logger.info(f"Found {len(kus)} subKUs for parent {parent_uid} (depth={depth})")
         return Result.ok(kus)
@@ -820,12 +823,14 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         ORDER BY parent.title
         """
 
-        result = await self.backend.driver.execute_query(query, ku_uid=ku_uid, routing_="r")
+        result = await self.backend.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return result
 
         # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        parents = [from_neo4j_node(dict(record["parent"]), Ku) for record in result.records]
+        parents = [from_neo4j_node(record["parent"], Ku) for record in result.value]
 
         self.logger.info(f"Found {len(parents)} parent KUs for {ku_uid}")
         return Result.ok(parents)
@@ -883,24 +888,31 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         """
 
         # Execute queries
-        ancestors_result = await self.backend.driver.execute_query(ancestors_query, ku_uid=ku_uid)
-        children_result = await self.backend.driver.execute_query(children_query, ku_uid=ku_uid)
-        siblings_result = await self.backend.driver.execute_query(siblings_query, ku_uid=ku_uid)
+        ancestors_result = await self.backend.execute_query(ancestors_query, {"ku_uid": ku_uid})
+        children_result = await self.backend.execute_query(children_query, {"ku_uid": ku_uid})
+        siblings_result = await self.backend.execute_query(siblings_query, {"ku_uid": ku_uid})
+
+        if ancestors_result.is_error:
+            return ancestors_result
+        if children_result.is_error:
+            return children_result
+        if siblings_result.is_error:
+            return siblings_result
 
         hierarchy = {
             "ancestors": [
                 {"uid": r["ancestor"]["uid"], "title": r["ancestor"]["title"], "level": r["depth"]}
-                for r in ancestors_result.records
+                for r in ancestors_result.value
             ],
             "children": [
                 {"uid": r["child"]["uid"], "title": r["child"]["title"]}
-                for r in children_result.records
+                for r in children_result.value
             ],
             "siblings": [
                 {"uid": r["sibling"]["uid"], "title": r["sibling"]["title"]}
-                for r in siblings_result.records
+                for r in siblings_result.value
             ],
-            "depth": len(ancestors_result.records),
+            "depth": len(ancestors_result.value),
         }
 
         self.logger.info(
@@ -958,11 +970,13 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         RETURN length(path) as cycle_length
         LIMIT 1
         """
-        cycle_result = await self.backend.driver.execute_query(
-            cycle_query, parent_uid=parent_uid, child_uid=child_uid
+        cycle_result = await self.backend.execute_query(
+            cycle_query, {"parent_uid": parent_uid, "child_uid": child_uid}
         )
+        if cycle_result.is_error:
+            return cycle_result
 
-        if cycle_result.records:
+        if cycle_result.value:
             return Result.fail(
                 Errors.validation(
                     f"Cannot organize: would create cycle ({child_uid} already organizes {parent_uid})",
@@ -982,11 +996,19 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         RETURN r
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, child_uid=child_uid, order=order, importance=importance
+        result = await self.backend.execute_query(
+            query,
+            {
+                "parent_uid": parent_uid,
+                "child_uid": child_uid,
+                "order": order,
+                "importance": importance,
+            },
         )
+        if result.is_error:
+            return result
 
-        success = len(result.records) > 0
+        success = len(result.value) > 0
         if success:
             self.logger.info(
                 f"Created ORGANIZES: {parent_uid} -> {child_uid} "
@@ -1028,11 +1050,13 @@ class KuCoreService(BaseService[CurriculumOperations[Ku], Ku], MetadataManagerMi
         RETURN count(r) as deleted
         """
 
-        result = await self.backend.driver.execute_query(
-            query, parent_uid=parent_uid, child_uid=child_uid
+        result = await self.backend.execute_query(
+            query, {"parent_uid": parent_uid, "child_uid": child_uid}
         )
+        if result.is_error:
+            return result
 
-        deleted = result.records[0]["deleted"] if result.records else 0
+        deleted = result.value[0]["deleted"] if result.value else 0
         success = deleted > 0
 
         if success:

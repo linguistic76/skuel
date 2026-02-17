@@ -19,15 +19,16 @@ See: /docs/ADVANCED_GDS_INTEGRATION.md
 Date: October 26, 2025
 """
 
-from typing import Any
-
-from neo4j import AsyncDriver
+from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
 from core.services.protocols import get_enum_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 logger = get_logger(__name__)
 
@@ -64,14 +65,14 @@ class GraphIntelligenceService:
     - 0.6-0.8: Clustering/community detection (heuristic-based)
     """
 
-    def __init__(self, driver: AsyncDriver) -> None:
+    def __init__(self, executor: "QueryExecutor") -> None:
         """
         Initialize graph intelligence service.
 
         Args:
-            driver: Neo4j async driver for graph queries
+            executor: QueryExecutor for graph queries
         """
-        self.driver = driver
+        self.executor = executor
         self.logger = get_logger("skuel.graph.intelligence")
 
     # ========================================================================
@@ -163,25 +164,27 @@ class GraphIntelligenceService:
         LIMIT $limit
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            records = await result.data()
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            return result
 
-            hubs = [
-                {
-                    "uid": record["uid"],
-                    "title": record["title"],
-                    "domain": record["domain"],
-                    "connections": record["total_connections"],
-                    "incoming_count": record["incoming_count"],
-                    "outgoing_count": record["outgoing_count"],
-                    "centrality_score": record["centrality_score"],
-                }
-                for record in records
-            ]
+        records = result.value or []
 
-            self.logger.info(f"Found {len(hubs)} knowledge hubs")
-            return Result.ok(hubs)
+        hubs = [
+            {
+                "uid": record["uid"],
+                "title": record["title"],
+                "domain": record["domain"],
+                "connections": record["total_connections"],
+                "incoming_count": record["incoming_count"],
+                "outgoing_count": record["outgoing_count"],
+                "centrality_score": record["centrality_score"],
+            }
+            for record in records
+        ]
+
+        self.logger.info(f"Found {len(hubs)} knowledge hubs")
+        return Result.ok(hubs)
 
     # ========================================================================
     # SIMILARITY - JACCARD VIA SHARED NEIGHBORS
@@ -261,24 +264,26 @@ class GraphIntelligenceService:
 
         params = {"uid": ku_uid, "min_similarity": min_similarity, "limit": limit}
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            records = await result.data()
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            return result
 
-            similar = [
-                {
-                    "uid": record["uid"],
-                    "title": record["title"],
-                    "domain": record["domain"],
-                    "similarity": record["similarity"],
-                    "shared_neighbors": record["shared_count"],
-                    "total_neighbors": record["total_neighbors"],
-                }
-                for record in records
-            ]
+        records = result.value or []
 
-            self.logger.info(f"Found {len(similar)} similar knowledge units")
-            return Result.ok(similar)
+        similar = [
+            {
+                "uid": record["uid"],
+                "title": record["title"],
+                "domain": record["domain"],
+                "similarity": record["similarity"],
+                "shared_neighbors": record["shared_count"],
+                "total_neighbors": record["total_neighbors"],
+            }
+            for record in records
+        ]
+
+        self.logger.info(f"Found {len(similar)} similar knowledge units")
+        return Result.ok(similar)
 
     # ========================================================================
     # PREREQUISITE CHAIN ANALYSIS
@@ -344,35 +349,38 @@ class GraphIntelligenceService:
 
         params = {"uid": ku_uid}
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            record = await result.single()
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            return result
 
-            if not record or record["max_depth"] is None:
-                # No prerequisites found
-                return Result.ok(
-                    {
-                        "max_depth": 0,
-                        "avg_depth": 0.0,
-                        "total_paths": 0,
-                        "root_prerequisites": [],
-                        "complexity_score": 0,
-                    }
-                )
+        records = result.value or []
+        record = records[0] if records else None
 
-            analysis = {
-                "max_depth": record["max_depth"],
-                "avg_depth": record["avg_depth"],
-                "total_paths": record["total_paths"],
-                "root_prerequisites": record["root_uids"],
-                "complexity_score": record["complexity_score"],
-            }
-
-            self.logger.info(
-                f"Prerequisite analysis: depth={analysis['max_depth']}, "
-                f"paths={analysis['total_paths']}"
+        if not record or record.get("max_depth") is None:
+            # No prerequisites found
+            return Result.ok(
+                {
+                    "max_depth": 0,
+                    "avg_depth": 0.0,
+                    "total_paths": 0,
+                    "root_prerequisites": [],
+                    "complexity_score": 0,
+                }
             )
-            return Result.ok(analysis)
+
+        analysis = {
+            "max_depth": record["max_depth"],
+            "avg_depth": record["avg_depth"],
+            "total_paths": record["total_paths"],
+            "root_prerequisites": record["root_uids"],
+            "complexity_score": record["complexity_score"],
+        }
+
+        self.logger.info(
+            f"Prerequisite analysis: depth={analysis['max_depth']}, "
+            f"paths={analysis['total_paths']}"
+        )
+        return Result.ok(analysis)
 
     # ========================================================================
     # LEARNING CLUSTER DETECTION - DENSITY-BASED
@@ -456,24 +464,26 @@ class GraphIntelligenceService:
         LIMIT $limit
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            records = await result.data()
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            return result
 
-            clusters = [
-                {
-                    "uid": record["uid"],
-                    "title": record["title"],
-                    "domain": record["domain"],
-                    "neighbor_count": record["neighbor_count"],
-                    "triangles": record["triangles"],
-                    "density": record["density"],
-                }
-                for record in records
-            ]
+        records = result.value or []
 
-            self.logger.info(f"Found {len(clusters)} cluster members")
-            return Result.ok(clusters)
+        clusters = [
+            {
+                "uid": record["uid"],
+                "title": record["title"],
+                "domain": record["domain"],
+                "neighbor_count": record["neighbor_count"],
+                "triangles": record["triangles"],
+                "density": record["density"],
+            }
+            for record in records
+        ]
+
+        self.logger.info(f"Found {len(clusters)} cluster members")
+        return Result.ok(clusters)
 
     # ========================================================================
     # KNOWLEDGE IMPORTANCE - COMPOSITE SCORE
@@ -549,23 +559,26 @@ class GraphIntelligenceService:
 
         params = {"uid": ku_uid}
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            record = await result.single()
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            return result
 
-            if not record:
-                return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
+        records = result.value or []
+        record = records[0] if records else None
 
-            importance = {
-                "importance_score": record["importance_score"],
-                "degree_centrality": record["degree_centrality"],
-                "prerequisite_importance": record["prerequisite_importance"],
-                "cluster_coefficient": record["cluster_coefficient"],
-                "avg_confidence": record["avg_confidence"],
-            }
+        if not record:
+            return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
 
-            self.logger.info(f"Importance score: {importance['importance_score']:.2f}")
-            return Result.ok(importance)
+        importance = {
+            "importance_score": record["importance_score"],
+            "degree_centrality": record["degree_centrality"],
+            "prerequisite_importance": record["prerequisite_importance"],
+            "cluster_coefficient": record["cluster_coefficient"],
+            "avg_confidence": record["avg_confidence"],
+        }
+
+        self.logger.info(f"Importance score: {importance['importance_score']:.2f}")
+        return Result.ok(importance)
 
     # ========================================================================
     # GRAPH CONTEXT RETRIEVAL - CORE INTELLIGENCE METHODS
@@ -628,9 +641,11 @@ class GraphIntelligenceService:
         query = self._build_context_query_for_intent(intent, depth)
         params = {"uid": node_uid}
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            records = await result.data()
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         if not records:
             return Result.fail(Errors.not_found(resource="Node", identifier=node_uid))
@@ -770,9 +785,11 @@ class GraphIntelligenceService:
         RETURN n, labels(n) as labels
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"uid": entity_uid})
-            records = await result.data()
+        result = await self.executor.execute_query(query, {"uid": entity_uid})
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         if not records:
             return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))

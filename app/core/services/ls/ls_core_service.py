@@ -20,7 +20,7 @@ Part of LsService decomposition (October 24, 2025)
 - Extends BaseService[BackendOperations[Ls], Ls] for unified infrastructure
 - Uses specialized Cypher queries for knowledge relationships
 - Class attributes match unified domain conventions
-- Accesses driver via self.backend.driver for graph-native operations
+- Uses self.backend.execute_query() for graph-native operations
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
     **Architecture (January 2026 Unified):**
     Extends BaseService[BackendOperations[Ls], Ls] for unified infrastructure.
     Uses specialized Cypher queries for knowledge relationships via
-    self.backend.driver (no wrapper backend needed).
+    self.backend.execute_query() (protocol-compliant).
 
     This service owns:
     - Step creation and persistence to Neo4j
@@ -135,90 +135,93 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         Returns:
             Result containing created Ls
         """
-        async with self.backend.driver.session() as session:
-            # GRAPH-NATIVE: Create step node with scalar properties only
-            # Relationships (knowledge, prerequisites, etc.) stored as edges
-            query = """
-            CREATE (s:Ku {
-                uid: $uid,
-                ku_type: 'learning_step',
-                title: $title,
-                intent: $intent,
-                description: $description,
-                learning_path_uid: $learning_path_uid,
-                sequence: $sequence,
-                mastery_threshold: $mastery_threshold,
-                current_mastery: $current_mastery,
-                estimated_hours: $estimated_hours,
-                step_difficulty: $step_difficulty,
-                status: $status,
-                completed: $completed,
-                completed_at: $completed_at,
-                domain: $domain,
-                priority: $priority
-            })
-            """
+        # GRAPH-NATIVE: Create step node with scalar properties only
+        # Relationships (knowledge, prerequisites, etc.) stored as edges
+        query = """
+        CREATE (s:Ku {
+            uid: $uid,
+            ku_type: 'learning_step',
+            title: $title,
+            intent: $intent,
+            description: $description,
+            learning_path_uid: $learning_path_uid,
+            sequence: $sequence,
+            mastery_threshold: $mastery_threshold,
+            current_mastery: $current_mastery,
+            estimated_hours: $estimated_hours,
+            step_difficulty: $step_difficulty,
+            status: $status,
+            completed: $completed,
+            completed_at: $completed_at,
+            domain: $domain,
+            priority: $priority
+        })
+        """
 
-            # Create relationships for primary knowledge units
-            if step.primary_knowledge_uids:
-                query += """
-                WITH s
-                UNWIND $primary_knowledge_uids AS ku_uid
-                MATCH (ku:Ku {uid: ku_uid})
-                CREATE (s)-[:REQUIRES_KNOWLEDGE {type: 'primary'}]->(ku)
-                """
-
-            # Create relationships for supporting knowledge units
-            if step.supporting_knowledge_uids:
-                query += """
-                WITH s
-                UNWIND $supporting_knowledge_uids AS ku_uid
-                MATCH (ku:Ku {uid: ku_uid})
-                CREATE (s)-[:REQUIRES_KNOWLEDGE {type: 'supporting'}]->(ku)
-                """
-
-            # Optionally link to path
-            if path_uid:
-                query += """
-                WITH s
-                MATCH (p:Ku {uid: $path_uid})
-                CREATE (p)-[:HAS_STEP {sequence: $sequence}]->(s)
-                """
-
+        # Create relationships for primary knowledge units
+        if step.primary_knowledge_uids:
             query += """
             WITH s
-            RETURN s
+            UNWIND $primary_knowledge_uids AS ku_uid
+            MATCH (ku:Ku {uid: ku_uid})
+            CREATE (s)-[:REQUIRES_KNOWLEDGE {type: 'primary'}]->(ku)
             """
 
-            # Build params with proper enum value extraction
-            params: dict[str, Any] = {
-                "uid": step.uid,
-                "title": step.title,
-                "intent": step.intent,
-                "description": step.description,
-                "learning_path_uid": step.learning_path_uid,
-                "sequence": step.sequence,
-                "mastery_threshold": step.mastery_threshold,
-                "current_mastery": step.current_mastery,
-                "estimated_hours": step.estimated_hours,
-                "step_difficulty": get_enum_value(step.step_difficulty),
-                "status": get_enum_value(step.status),
-                "completed": step.is_completed,
-                "completed_at": step.completed_at.isoformat() if step.completed_at else None,
-                "domain": get_enum_value(step.domain),
-                "priority": get_enum_value(step.priority),
-                "primary_knowledge_uids": list(step.primary_knowledge_uids),
-                "supporting_knowledge_uids": list(step.supporting_knowledge_uids),
-                "path_uid": path_uid,
-            }
+        # Create relationships for supporting knowledge units
+        if step.supporting_knowledge_uids:
+            query += """
+            WITH s
+            UNWIND $supporting_knowledge_uids AS ku_uid
+            MATCH (ku:Ku {uid: ku_uid})
+            CREATE (s)-[:REQUIRES_KNOWLEDGE {type: 'supporting'}]->(ku)
+            """
 
-            result = await session.run(query, params)
+        # Optionally link to path
+        if path_uid:
+            query += """
+            WITH s
+            MATCH (p:Ku {uid: $path_uid})
+            CREATE (p)-[:HAS_STEP {sequence: $sequence}]->(s)
+            """
 
-            record = await result.single()
-            if not record:
-                return Result.fail(
-                    Errors.database(operation="create_step", message="Step creation failed")
-                )
+        query += """
+        WITH s
+        RETURN s
+        """
+
+        # Build params with proper enum value extraction
+        params: dict[str, Any] = {
+            "uid": step.uid,
+            "title": step.title,
+            "intent": step.intent,
+            "description": step.description,
+            "learning_path_uid": step.learning_path_uid,
+            "sequence": step.sequence,
+            "mastery_threshold": step.mastery_threshold,
+            "current_mastery": step.current_mastery,
+            "estimated_hours": step.estimated_hours,
+            "step_difficulty": get_enum_value(step.step_difficulty),
+            "status": get_enum_value(step.status),
+            "completed": step.is_completed,
+            "completed_at": step.completed_at.isoformat() if step.completed_at else None,
+            "domain": get_enum_value(step.domain),
+            "priority": get_enum_value(step.priority),
+            "primary_knowledge_uids": list(step.primary_knowledge_uids),
+            "supporting_knowledge_uids": list(step.supporting_knowledge_uids),
+            "path_uid": path_uid,
+        }
+
+        result = await self.backend.execute_query(query, params)
+
+        if result.is_error:
+            return Result.fail(
+                Errors.database(operation="create_step", message="Step creation failed")
+            )
+
+        if not result.value:
+            return Result.fail(
+                Errors.database(operation="create_step", message="Step creation failed")
+            )
 
             logger.info(f"✅ Created learning step {step.uid}")
 
@@ -249,56 +252,59 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         Returns:
             Result containing Ls or None if not found
         """
-        async with self.backend.driver.session() as session:
-            # GRAPH-NATIVE: Query node + knowledge relationships
-            result = await session.run(
-                """
-                MATCH (s:Ku {uid: $uid})
-                OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
-                RETURN s, collect({uid: ku.uid, type: r.type}) as knowledge_rels
-                """,
-                uid=step_uid,
-            )
+        # GRAPH-NATIVE: Query node + knowledge relationships
+        result = await self.backend.execute_query(
+            """
+            MATCH (s:Ku {uid: $uid})
+            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
+            RETURN s, collect({uid: ku.uid, type: r.type}) as knowledge_rels
+            """,
+            {"uid": step_uid},
+        )
 
-            record = await result.single()
-            if not record:
-                return Result.ok(None)
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-            step_data = dict(record["s"])
-            knowledge_rels = record["knowledge_rels"]
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
 
-            # Separate primary and supporting knowledge from relationships
-            primary_uids = []
-            supporting_uids = []
-            for rel in knowledge_rels:
-                if rel["uid"]:  # Skip empty relationships
-                    if rel.get("type") == "supporting":
-                        supporting_uids.append(rel["uid"])
-                    else:
-                        # Default to primary if type not specified
-                        primary_uids.append(rel["uid"])
+        record = records[0]
+        step_data = record["s"]
+        knowledge_rels = record["knowledge_rels"]
 
-            step = Ku(
-                uid=step_data["uid"],
-                ku_type=KuType.LEARNING_STEP,
-                title=step_data.get("title", "Learning Step"),
-                intent=step_data.get("intent", "Complete this learning step"),
-                description=step_data.get("description"),
-                primary_knowledge_uids=tuple(primary_uids),
-                supporting_knowledge_uids=tuple(supporting_uids),
-                learning_path_uid=step_data.get("learning_path_uid"),
-                sequence=step_data.get("sequence"),
-                mastery_threshold=step_data.get("mastery_threshold", 0.7),
-                current_mastery=step_data.get("current_mastery", 0.0),
-                estimated_hours=step_data.get("estimated_hours", 1.0),
-                step_difficulty=step_data.get("step_difficulty"),
-                status=step_data.get("status"),
-                completed_at=step_data.get("completed_at"),
-                domain=step_data.get("domain", "PERSONAL"),
-                priority=step_data.get("priority", "MEDIUM"),
-            )
+        # Separate primary and supporting knowledge from relationships
+        primary_uids = []
+        supporting_uids = []
+        for rel in knowledge_rels:
+            if rel["uid"]:  # Skip empty relationships
+                if rel.get("type") == "supporting":
+                    supporting_uids.append(rel["uid"])
+                else:
+                    # Default to primary if type not specified
+                    primary_uids.append(rel["uid"])
 
-            return Result.ok(step)
+        step = Ku(
+            uid=step_data["uid"],
+            ku_type=KuType.LEARNING_STEP,
+            title=step_data.get("title", "Learning Step"),
+            intent=step_data.get("intent", "Complete this learning step"),
+            description=step_data.get("description"),
+            primary_knowledge_uids=tuple(primary_uids),
+            supporting_knowledge_uids=tuple(supporting_uids),
+            learning_path_uid=step_data.get("learning_path_uid"),
+            sequence=step_data.get("sequence"),
+            mastery_threshold=step_data.get("mastery_threshold", 0.7),
+            current_mastery=step_data.get("current_mastery", 0.0),
+            estimated_hours=step_data.get("estimated_hours", 1.0),
+            step_difficulty=step_data.get("step_difficulty"),
+            status=step_data.get("status"),
+            completed_at=step_data.get("completed_at"),
+            domain=step_data.get("domain", "PERSONAL"),
+            priority=step_data.get("priority", "MEDIUM"),
+        )
+
+        return Result.ok(step)
 
     @with_error_handling(operation="get_with_context", error_type="database", uid_param="uid")
     async def get_with_context(
@@ -337,187 +343,186 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         # Note: depth and min_confidence are accepted for API compatibility
         # but this implementation uses a fixed specialized query
         step_uid = uid  # Alias for backward compatibility in query
-        async with self.backend.driver.session() as session:
-            result = await session.run(
-                """
-                MATCH (ls:Ku {uid: $uid})
+        query_result = await self.backend.execute_query(
+            """
+            MATCH (ls:Ku {uid: $uid})
 
-                // 1. Primary and supporting knowledge
-                OPTIONAL MATCH (ls)-[r_ku:REQUIRES_KNOWLEDGE]->(ku:Ku)
-                WITH ls, collect({
-                    uid: ku.uid,
-                    title: ku.title,
-                    type: r_ku.type,
-                    confidence: coalesce(r_ku.confidence, 1.0)
-                }) as knowledge_rels
+            // 1. Primary and supporting knowledge
+            OPTIONAL MATCH (ls)-[r_ku:REQUIRES_KNOWLEDGE]->(ku:Ku)
+            WITH ls, collect({
+                uid: ku.uid,
+                title: ku.title,
+                type: r_ku.type,
+                confidence: coalesce(r_ku.confidence, 1.0)
+            }) as knowledge_rels
 
-                // 2. Prerequisite steps
-                OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:Ku {ku_type: 'learning_step'})
-                WITH ls, knowledge_rels, collect({
-                    uid: prereq_step.uid,
-                    title: prereq_step.title,
-                    completed: prereq_step.completed
-                }) as prereq_steps
+            // 2. Prerequisite steps
+            OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:Ku {ku_type: 'learning_step'})
+            WITH ls, knowledge_rels, collect({
+                uid: prereq_step.uid,
+                title: prereq_step.title,
+                completed: prereq_step.completed
+            }) as prereq_steps
 
-                // 3. Prerequisite knowledge (separate from content knowledge)
-                OPTIONAL MATCH (ls)-[:REQUIRES_KNOWLEDGE {type: 'prerequisite'}]->(prereq_ku:Ku)
-                WITH ls, knowledge_rels, prereq_steps, collect({
-                    uid: prereq_ku.uid,
-                    title: prereq_ku.title
-                }) as prereq_knowledge
+            // 3. Prerequisite knowledge (separate from content knowledge)
+            OPTIONAL MATCH (ls)-[:REQUIRES_KNOWLEDGE {type: 'prerequisite'}]->(prereq_ku:Ku)
+            WITH ls, knowledge_rels, prereq_steps, collect({
+                uid: prereq_ku.uid,
+                title: prereq_ku.title
+            }) as prereq_knowledge
 
-                // 4. Guiding principles
-                OPTIONAL MATCH (ls)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
-                WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, collect({
-                    uid: principle.uid,
-                    title: principle.title
-                }) as principles
+            // 4. Guiding principles
+            OPTIONAL MATCH (ls)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, collect({
+                uid: principle.uid,
+                title: principle.title
+            }) as principles
 
-                // 5. Offered choices
-                OPTIONAL MATCH (ls)-[:OFFERS_CHOICE]->(choice:Choice)
-                WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, collect({
-                    uid: choice.uid,
-                    title: choice.title
-                }) as choices
+            // 5. Offered choices
+            OPTIONAL MATCH (ls)-[:OFFERS_CHOICE]->(choice:Choice)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, collect({
+                uid: choice.uid,
+                title: choice.title
+            }) as choices
 
-                // 6. Practice opportunities: Habits
-                OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(habit:Habit)
-                WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, collect({
-                    uid: habit.uid,
-                    title: habit.title,
-                    current_streak: habit.current_streak
-                }) as habits
+            // 6. Practice opportunities: Habits
+            OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(habit:Habit)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, collect({
+                uid: habit.uid,
+                title: habit.title,
+                current_streak: habit.current_streak
+            }) as habits
 
-                // 7. Practice opportunities: Tasks
-                OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(task:Task)
-                WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, collect({
-                    uid: task.uid,
-                    title: task.title,
-                    status: task.status
-                }) as tasks
+            // 7. Practice opportunities: Tasks
+            OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(task:Task)
+            With ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, collect({
+                uid: task.uid,
+                title: task.title,
+                status: task.status
+            }) as tasks
 
-                // 8. Practice opportunities: Events
-                OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(event:Event)
-                WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, collect({
-                    uid: event.uid,
-                    title: event.title,
-                    event_date: event.event_date
-                }) as events
+            // 8. Practice opportunities: Events
+            OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(event:Event)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, collect({
+                uid: event.uid,
+                title: event.title,
+                event_date: event.event_date
+            }) as events
 
-                // 9. Learning path context (if part of sequence)
-                OPTIONAL MATCH (lp:Ku {ku_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
-                WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, {
-                    uid: lp.uid,
-                    name: lp.title,
-                    goal: lp.goal,
-                    sequence: coalesce(r_path.sequence, 0)
-                } as path_context
+            // 9. Learning path context (if part of sequence)
+            OPTIONAL MATCH (lp:Ku {ku_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, {
+                uid: lp.uid,
+                name: lp.title,
+                goal: lp.goal,
+                sequence: coalesce(r_path.sequence, 0)
+            } as path_context
 
-                // 10. Dependent steps (steps that require this one)
-                OPTIONAL MATCH (dependent:Ku {ku_type: 'learning_step'})-[:REQUIRES_STEP]->(ls)
-                WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, path_context, collect({
-                    uid: dependent.uid,
-                    title: dependent.title,
-                    completed: dependent.completed
-                }) as dependent_steps
+            // 10. Dependent steps (steps that require this one)
+            OPTIONAL MATCH (dependent:Ku {ku_type: 'learning_step'})-[:REQUIRES_STEP]->(ls)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, path_context, collect({
+                uid: dependent.uid,
+                title: dependent.title,
+                completed: dependent.completed
+            }) as dependent_steps
 
-                RETURN ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices,
-                       habits, tasks, events, path_context, dependent_steps
-                """,
-                uid=step_uid,
-            )
+            RETURN ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices,
+                   habits, tasks, events, path_context, dependent_steps
+            """,
+            {"uid": step_uid},
+        )
 
-            record = await result.single()
-            if not record:
-                return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
+        if query_result.is_error:
+            return Result.fail(query_result.expect_error())
 
-            step_data = dict(record["ls"])
+        records = query_result.value or []
+        if not records:
+            return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
 
-            # Separate primary and supporting knowledge from relationships
-            primary_uids = []
-            supporting_uids = []
-            for rel in record["knowledge_rels"]:
-                if rel.get("uid"):  # Skip empty relationships
-                    if rel.get("type") == "supporting":
-                        supporting_uids.append(rel["uid"])
-                    else:
-                        primary_uids.append(rel["uid"])
+        record = records[0]
+        step_data = record["ls"]
 
-            # Build Ku with knowledge UIDs
-            step = Ku(
-                uid=step_data["uid"],
-                ku_type=KuType.LEARNING_STEP,
-                title=step_data.get("title", "Learning Step"),
-                intent=step_data.get("intent", "Complete this learning step"),
-                description=step_data.get("description"),
-                primary_knowledge_uids=tuple(primary_uids),
-                supporting_knowledge_uids=tuple(supporting_uids),
-                learning_path_uid=step_data.get("learning_path_uid"),
-                sequence=step_data.get("sequence"),
-                mastery_threshold=step_data.get("mastery_threshold", 0.7),
-                current_mastery=step_data.get("current_mastery", 0.0),
-                estimated_hours=step_data.get("estimated_hours", 1.0),
-                step_difficulty=step_data.get("step_difficulty"),
-                status=step_data.get("status"),
-                completed_at=step_data.get("completed_at"),
-                domain=step_data.get("domain", "PERSONAL"),
-                priority=step_data.get("priority", "MEDIUM"),
-            )
+        # Separate primary and supporting knowledge from relationships
+        primary_uids = []
+        supporting_uids = []
+        for rel in record["knowledge_rels"]:
+            if rel.get("uid"):  # Skip empty relationships
+                if rel.get("type") == "supporting":
+                    supporting_uids.append(rel["uid"])
+                else:
+                    primary_uids.append(rel["uid"])
 
-            # Enrich with graph context in metadata
-            object.__setattr__(
-                step,
-                "metadata",
-                {
-                    "graph_context": {
-                        # Knowledge content (detailed)
-                        "knowledge_relationships": [
-                            rel for rel in record["knowledge_rels"] if rel.get("uid")
-                        ],
-                        # Prerequisites
-                        "prerequisite_steps": [s for s in record["prereq_steps"] if s.get("uid")],
-                        "prerequisite_knowledge": [
-                            k for k in record["prereq_knowledge"] if k.get("uid")
-                        ],
-                        # Learning guidance
-                        "guiding_principles": [p for p in record["principles"] if p.get("uid")],
-                        "offered_choices": [c for c in record["choices"] if c.get("uid")],
-                        # Practice opportunities
-                        "practice_habits": [h for h in record["habits"] if h.get("uid")],
-                        "practice_tasks": [t for t in record["tasks"] if t.get("uid")],
-                        "practice_events": [e for e in record["events"] if e.get("uid")],
-                        # Path integration
-                        "learning_path": record["path_context"]
-                        if record["path_context"].get("uid")
-                        else None,
-                        # Dependencies
-                        "dependent_steps": [d for d in record["dependent_steps"] if d.get("uid")],
-                        # Aggregates
-                        "total_prerequisites": len(
-                            [s for s in record["prereq_steps"] if s.get("uid")]
-                        ),
-                        "total_practice_opportunities": len(
-                            [h for h in record["habits"] if h.get("uid")]
-                        )
-                        + len([t for t in record["tasks"] if t.get("uid")])
-                        + len([e for e in record["events"] if e.get("uid")]),
-                        "is_sequenced": bool(record["path_context"].get("uid")),
-                        "has_dependents": len(
-                            [d for d in record["dependent_steps"] if d.get("uid")]
-                        )
-                        > 0,
-                    }
-                },
-            )
+        # Build Ku with knowledge UIDs
+        step = Ku(
+            uid=step_data["uid"],
+            ku_type=KuType.LEARNING_STEP,
+            title=step_data.get("title", "Learning Step"),
+            intent=step_data.get("intent", "Complete this learning step"),
+            description=step_data.get("description"),
+            primary_knowledge_uids=tuple(primary_uids),
+            supporting_knowledge_uids=tuple(supporting_uids),
+            learning_path_uid=step_data.get("learning_path_uid"),
+            sequence=step_data.get("sequence"),
+            mastery_threshold=step_data.get("mastery_threshold", 0.7),
+            current_mastery=step_data.get("current_mastery", 0.0),
+            estimated_hours=step_data.get("estimated_hours", 1.0),
+            step_difficulty=step_data.get("step_difficulty"),
+            status=step_data.get("status"),
+            completed_at=step_data.get("completed_at"),
+            domain=step_data.get("domain", "PERSONAL"),
+            priority=step_data.get("priority", "MEDIUM"),
+        )
 
-            logger.info(
-                f"✅ Retrieved step with context: {step_uid} "
-                f"(prereqs: {len([s for s in record['prereq_steps'] if s.get('uid')])}, "
-                f"practice: {len([h for h in record['habits'] if h.get('uid')]) + len([t for t in record['tasks'] if t.get('uid')])}, "
-                f"dependents: {len([d for d in record['dependent_steps'] if d.get('uid')])})"
-            )
+        # Enrich with graph context in metadata
+        object.__setattr__(
+            step,
+            "metadata",
+            {
+                "graph_context": {
+                    # Knowledge content (detailed)
+                    "knowledge_relationships": [
+                        rel for rel in record["knowledge_rels"] if rel.get("uid")
+                    ],
+                    # Prerequisites
+                    "prerequisite_steps": [s for s in record["prereq_steps"] if s.get("uid")],
+                    "prerequisite_knowledge": [
+                        k for k in record["prereq_knowledge"] if k.get("uid")
+                    ],
+                    # Learning guidance
+                    "guiding_principles": [p for p in record["principles"] if p.get("uid")],
+                    "offered_choices": [c for c in record["choices"] if c.get("uid")],
+                    # Practice opportunities
+                    "practice_habits": [h for h in record["habits"] if h.get("uid")],
+                    "practice_tasks": [t for t in record["tasks"] if t.get("uid")],
+                    "practice_events": [e for e in record["events"] if e.get("uid")],
+                    # Path integration
+                    "learning_path": record["path_context"]
+                    if record["path_context"].get("uid")
+                    else None,
+                    # Dependencies
+                    "dependent_steps": [d for d in record["dependent_steps"] if d.get("uid")],
+                    # Aggregates
+                    "total_prerequisites": len([s for s in record["prereq_steps"] if s.get("uid")]),
+                    "total_practice_opportunities": len(
+                        [h for h in record["habits"] if h.get("uid")]
+                    )
+                    + len([t for t in record["tasks"] if t.get("uid")])
+                    + len([e for e in record["events"] if e.get("uid")]),
+                    "is_sequenced": bool(record["path_context"].get("uid")),
+                    "has_dependents": len([d for d in record["dependent_steps"] if d.get("uid")])
+                    > 0,
+                }
+            },
+        )
 
-            return Result.ok(step)
+        logger.info(
+            f"Retrieved step with context: {step_uid} "
+            f"(prereqs: {len([s for s in record['prereq_steps'] if s.get('uid')])}, "
+            f"practice: {len([h for h in record['habits'] if h.get('uid')]) + len([t for t in record['tasks'] if t.get('uid')])}, "
+            f"dependents: {len([d for d in record['dependent_steps'] if d.get('uid')])})"
+        )
+
+        return Result.ok(step)
 
     @with_error_handling(operation="update_step", error_type="database", uid_param="step_uid")
     async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[Ku]:
@@ -570,71 +575,78 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
                 return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
             return Result.ok(get_result.value)
 
-        async with self.backend.driver.session() as session:
-            # GRAPH-NATIVE: Query includes knowledge relationships
-            query = f"""
-            MATCH (s:Ku {{uid: $uid}})
-            SET {", ".join(set_clauses)}
-            WITH s
-            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
-            RETURN s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
-            """
+        # GRAPH-NATIVE: Query includes knowledge relationships
+        query = f"""
+        MATCH (s:Ku {{uid: $uid}})
+        SET {", ".join(set_clauses)}
+        WITH s
+        OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
+        RETURN s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
+        """
 
-            result = await session.run(query, params)
-            record = await result.single()
+        result = await self.backend.execute_query(query, params)
 
-            if not record:
-                return Result.fail(
-                    Errors.database(
-                        operation="update_step", message=f"Failed to update step {step_uid}"
-                    )
+        if result.is_error:
+            return Result.fail(
+                Errors.database(
+                    operation="update_step", message=f"Failed to update step {step_uid}"
                 )
-
-            step_data = dict(record["s"])
-            knowledge_rels = record["knowledge_rels"]
-
-            # Separate primary and supporting knowledge
-            primary_uids = []
-            supporting_uids = []
-            for rel in knowledge_rels:
-                if rel["uid"]:
-                    if rel.get("type") == "supporting":
-                        supporting_uids.append(rel["uid"])
-                    else:
-                        primary_uids.append(rel["uid"])
-
-            updated_step = Ku(
-                uid=step_data["uid"],
-                ku_type=KuType.LEARNING_STEP,
-                title=step_data.get("title", "Learning Step"),
-                intent=step_data.get("intent", "Complete this learning step"),
-                description=step_data.get("description"),
-                primary_knowledge_uids=tuple(primary_uids),
-                supporting_knowledge_uids=tuple(supporting_uids),
-                learning_path_uid=step_data.get("learning_path_uid"),
-                sequence=step_data.get("sequence"),
-                mastery_threshold=step_data.get("mastery_threshold", 0.7),
-                current_mastery=step_data.get("current_mastery", 0.0),
-                estimated_hours=step_data.get("estimated_hours", 1.0),
-                step_difficulty=step_data.get("step_difficulty"),
-                status=step_data.get("status"),
-                completed_at=step_data.get("completed_at"),
-                domain=step_data.get("domain", "PERSONAL"),
-                priority=step_data.get("priority", "MEDIUM"),
             )
 
-            logger.info(f"✅ Updated learning step {step_uid}")
-
-            # Publish event
-            event = LearningStepUpdated(
-                ls_uid=step_uid,
-                occurred_at=datetime.now(UTC),
-                updated_fields=tuple(updates.keys()),
-                linked_lp_uid=updated_step.learning_path_uid,
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.database(
+                    operation="update_step", message=f"Failed to update step {step_uid}"
+                )
             )
-            await publish_event(self.event_bus, event, self.logger)
 
-            return Result.ok(updated_step)
+        record = records[0]
+        step_data = record["s"]
+        knowledge_rels = record["knowledge_rels"]
+
+        # Separate primary and supporting knowledge
+        primary_uids = []
+        supporting_uids = []
+        for rel in knowledge_rels:
+            if rel["uid"]:
+                if rel.get("type") == "supporting":
+                    supporting_uids.append(rel["uid"])
+                else:
+                    primary_uids.append(rel["uid"])
+
+        updated_step = Ku(
+            uid=step_data["uid"],
+            ku_type=KuType.LEARNING_STEP,
+            title=step_data.get("title", "Learning Step"),
+            intent=step_data.get("intent", "Complete this learning step"),
+            description=step_data.get("description"),
+            primary_knowledge_uids=tuple(primary_uids),
+            supporting_knowledge_uids=tuple(supporting_uids),
+            learning_path_uid=step_data.get("learning_path_uid"),
+            sequence=step_data.get("sequence"),
+            mastery_threshold=step_data.get("mastery_threshold", 0.7),
+            current_mastery=step_data.get("current_mastery", 0.0),
+            estimated_hours=step_data.get("estimated_hours", 1.0),
+            step_difficulty=step_data.get("step_difficulty"),
+            status=step_data.get("status"),
+            completed_at=step_data.get("completed_at"),
+            domain=step_data.get("domain", "PERSONAL"),
+            priority=step_data.get("priority", "MEDIUM"),
+        )
+
+        logger.info(f"Updated learning step {step_uid}")
+
+        # Publish event
+        event = LearningStepUpdated(
+            ls_uid=step_uid,
+            occurred_at=datetime.now(UTC),
+            updated_fields=tuple(updates.keys()),
+            linked_lp_uid=updated_step.learning_path_uid,
+        )
+        await publish_event(self.event_bus, event, self.logger)
+
+        return Result.ok(updated_step)
 
     @with_error_handling(operation="delete_step", error_type="database", uid_param="step_uid")
     async def delete_step(self, step_uid: str) -> Result[bool]:
@@ -659,26 +671,32 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         had_ku_links = bool(step.primary_knowledge_uids or step.supporting_knowledge_uids)
         linked_lp_uid = step.learning_path_uid
 
-        async with self.backend.driver.session() as session:
-            # Delete step and its relationships
-            result = await session.run(
-                """
-                MATCH (s:Ku {uid: $uid})
-                DETACH DELETE s
-                RETURN count(s) as deleted_count
-                """,
-                uid=step_uid,
+        # Delete step and its relationships
+        result = await self.backend.execute_query(
+            """
+            MATCH (s:Ku {uid: $uid})
+            DETACH DELETE s
+            RETURN count(s) as deleted_count
+            """,
+            {"uid": step_uid},
+        )
+
+        if result.is_error:
+            return Result.fail(
+                Errors.database(
+                    operation="delete_step", message=f"Failed to delete step {step_uid}"
+                )
             )
 
-            record = await result.single()
-            deleted_count = record["deleted_count"] if record else 0
+        records = result.value or []
+        deleted_count = records[0]["deleted_count"] if records else 0
 
-            if deleted_count == 0:
-                return Result.fail(
-                    Errors.database(
-                        operation="delete_step", message=f"Failed to delete step {step_uid}"
-                    )
+        if deleted_count == 0:
+            return Result.fail(
+                Errors.database(
+                    operation="delete_step", message=f"Failed to delete step {step_uid}"
                 )
+            )
 
             logger.info(f"✅ Deleted learning step {step_uid}")
 
@@ -721,85 +739,87 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         order_field = f"s.{order_by}" if order_by else "s.sequence"
         order_direction = "DESC" if order_desc else "ASC"
 
-        async with self.backend.driver.session() as session:
-            # Build WHERE clause for optional user_uid filtering
-            where_clause = ""
-            if user_uid:
-                where_clause = "WHERE s.user_uid = $user_uid "
+        # Build WHERE clause for optional user_uid filtering
+        where_clause = ""
+        if user_uid:
+            where_clause = "WHERE s.user_uid = $user_uid "
 
-            # GRAPH-NATIVE: Include knowledge relationships in query
-            if path_uid:
-                # Get steps for specific path
-                query = f"""
-                MATCH (p:Ku {{uid: $path_uid}})-[:HAS_STEP]->(s:Ku {{ku_type: 'learning_step'}})
-                {where_clause}
-                OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
-                WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
-                RETURN s, knowledge_rels
-                ORDER BY {order_field} {order_direction}
-                SKIP $offset
-                LIMIT $limit
-                """
-                params = {"path_uid": path_uid, "limit": limit, "offset": offset}
-            else:
-                # Get all steps
-                query = f"""
-                MATCH (s:Ku {{ku_type: 'learning_step'}})
-                {where_clause}
-                OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
-                WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
-                RETURN s, knowledge_rels
-                ORDER BY {order_field} {order_direction}
-                SKIP $offset
-                LIMIT $limit
-                """
-                params = {"limit": limit, "offset": offset}
+        # GRAPH-NATIVE: Include knowledge relationships in query
+        if path_uid:
+            # Get steps for specific path
+            query = f"""
+            MATCH (p:Ku {{uid: $path_uid}})-[:HAS_STEP]->(s:Ku {{ku_type: 'learning_step'}})
+            {where_clause}
+            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
+            WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
+            RETURN s, knowledge_rels
+            ORDER BY {order_field} {order_direction}
+            SKIP $offset
+            LIMIT $limit
+            """
+            params: dict[str, Any] = {"path_uid": path_uid, "limit": limit, "offset": offset}
+        else:
+            # Get all steps
+            query = f"""
+            MATCH (s:Ku {{ku_type: 'learning_step'}})
+            {where_clause}
+            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Ku)
+            WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
+            RETURN s, knowledge_rels
+            ORDER BY {order_field} {order_direction}
+            SKIP $offset
+            LIMIT $limit
+            """
+            params = {"limit": limit, "offset": offset}
 
-            # Add user_uid to params if filtering by user
-            if user_uid:
-                params["user_uid"] = user_uid
+        # Add user_uid to params if filtering by user
+        if user_uid:
+            params["user_uid"] = user_uid
 
-            result = await session.run(query, params)
+        result = await self.backend.execute_query(query, params)
 
-            steps = []
-            async for record in result:
-                step_data = dict(record["s"])
-                knowledge_rels = record["knowledge_rels"]
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-                # Separate primary and supporting knowledge
-                primary_uids = []
-                supporting_uids = []
-                for rel in knowledge_rels:
-                    if rel["uid"]:
-                        if rel.get("type") == "supporting":
-                            supporting_uids.append(rel["uid"])
-                        else:
-                            primary_uids.append(rel["uid"])
+        steps = []
+        for record in result.value or []:
+            step_data = record["s"]
+            knowledge_rels = record["knowledge_rels"]
 
-                steps.append(
-                    Ku(
-                        uid=step_data["uid"],
-                        ku_type=KuType.LEARNING_STEP,
-                        title=step_data.get("title", "Learning Step"),
-                        intent=step_data.get("intent", "Complete this learning step"),
-                        description=step_data.get("description"),
-                        primary_knowledge_uids=tuple(primary_uids),
-                        supporting_knowledge_uids=tuple(supporting_uids),
-                        learning_path_uid=step_data.get("learning_path_uid"),
-                        sequence=step_data.get("sequence"),
-                        mastery_threshold=step_data.get("mastery_threshold", 0.7),
-                        current_mastery=step_data.get("current_mastery", 0.0),
-                        estimated_hours=step_data.get("estimated_hours", 1.0),
-                        step_difficulty=step_data.get("step_difficulty"),
-                        status=step_data.get("status"),
-                        completed_at=step_data.get("completed_at"),
-                        domain=step_data.get("domain", "PERSONAL"),
-                        priority=step_data.get("priority", "MEDIUM"),
-                    )
+            # Separate primary and supporting knowledge
+            primary_uids = []
+            supporting_uids = []
+            for rel in knowledge_rels:
+                if rel["uid"]:
+                    if rel.get("type") == "supporting":
+                        supporting_uids.append(rel["uid"])
+                    else:
+                        primary_uids.append(rel["uid"])
+
+            steps.append(
+                Ku(
+                    uid=step_data["uid"],
+                    ku_type=KuType.LEARNING_STEP,
+                    title=step_data.get("title", "Learning Step"),
+                    intent=step_data.get("intent", "Complete this learning step"),
+                    description=step_data.get("description"),
+                    primary_knowledge_uids=tuple(primary_uids),
+                    supporting_knowledge_uids=tuple(supporting_uids),
+                    learning_path_uid=step_data.get("learning_path_uid"),
+                    sequence=step_data.get("sequence"),
+                    mastery_threshold=step_data.get("mastery_threshold", 0.7),
+                    current_mastery=step_data.get("current_mastery", 0.0),
+                    estimated_hours=step_data.get("estimated_hours", 1.0),
+                    step_difficulty=step_data.get("step_difficulty"),
+                    status=step_data.get("status"),
+                    completed_at=step_data.get("completed_at"),
+                    domain=step_data.get("domain", "PERSONAL"),
+                    priority=step_data.get("priority", "MEDIUM"),
                 )
+            )
 
-            logger.info(f"✅ Listed {len(steps)} learning steps")
-            return Result.ok(steps)
+        logger.info(f"✅ Listed {len(steps)} learning steps")
+        return Result.ok(steps)
 
     # ========================================================================
     # KNOWLEDGE RELATIONSHIP METHODS (Universal Hierarchical Pattern - 2026-01-30)
@@ -860,31 +880,22 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN r
         """
 
-        try:
-            result = await self.backend.driver.execute_query(
-                query, ls_uid=ls_uid, ku_uid=ku_uid, knowledge_type=knowledge_type
+        result = await self.backend.execute_query(
+            query, {"ls_uid": ls_uid, "ku_uid": ku_uid, "knowledge_type": knowledge_type}
+        )
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        success = len(result.value or []) > 0
+        if success:
+            self.logger.info(
+                f"Created CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid} (type={knowledge_type})"
             )
+        else:
+            self.logger.warning(f"Failed to create CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
 
-            success = len(result.records) > 0
-            if success:
-                self.logger.info(
-                    f"Created CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid} (type={knowledge_type})"
-                )
-            else:
-                self.logger.warning(f"Failed to create CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
-
-            return Result.ok(success)
-
-        except Exception as e:
-            self.logger.error(f"Error creating knowledge relationship: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation="create_knowledge_relationship",
-                    message=str(e),
-                    ls_uid=ls_uid,
-                    ku_uid=ku_uid,
-                )
-            )
+        return Result.ok(success)
 
     @track_query_metrics("ls_get_knowledge")
     @with_error_handling("get_contained_knowledge", error_type="database")
@@ -957,36 +968,27 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
             """
             params = {"ls_uid": ls_uid}
 
-        try:
-            result = await self.backend.driver.execute_query(query, **params)
+        result = await self.backend.execute_query(query, params)
 
-            knowledge = [
-                {
-                    "uid": record["uid"],
-                    "title": record["title"],
-                    "domain": record["domain"],
-                    "type": record["type"],
-                    "created_at": record["created_at"],
-                }
-                for record in result.records
-            ]
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-            self.logger.info(
-                f"Found {len(knowledge)} KUs for LS {ls_uid} (type={knowledge_type or 'all'})"
-            )
+        knowledge = [
+            {
+                "uid": record["uid"],
+                "title": record["title"],
+                "domain": record["domain"],
+                "type": record["type"],
+                "created_at": record["created_at"],
+            }
+            for record in result.value or []
+        ]
 
-            return Result.ok(knowledge)
+        self.logger.info(
+            f"Found {len(knowledge)} KUs for LS {ls_uid} (type={knowledge_type or 'all'})"
+        )
 
-        except Exception as e:
-            self.logger.error(f"Error querying knowledge relationships: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation="query_knowledge_relationships",
-                    message=str(e),
-                    ls_uid=ls_uid,
-                    knowledge_type=knowledge_type,
-                )
-            )
+        return Result.ok(knowledge)
 
     @track_query_metrics("ls_remove_knowledge")
     @with_error_handling("remove_knowledge_relationship", error_type="database")
@@ -1018,31 +1020,21 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         RETURN count(r) as deleted
         """
 
-        try:
-            result = await self.backend.driver.execute_query(query, ls_uid=ls_uid, ku_uid=ku_uid)
+        result = await self.backend.execute_query(query, {"ls_uid": ls_uid, "ku_uid": ku_uid})
 
-            deleted = result.records[0]["deleted"] if result.records else 0
-            success = deleted > 0
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-            if success:
-                self.logger.info(f"Removed CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
-            else:
-                self.logger.warning(
-                    f"No CONTAINS_KNOWLEDGE relationship found: {ls_uid} -> {ku_uid}"
-                )
+        records = result.value or []
+        deleted = records[0]["deleted"] if records else 0
+        success = deleted > 0
 
-            return Result.ok(success)
+        if success:
+            self.logger.info(f"Removed CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
+        else:
+            self.logger.warning(f"No CONTAINS_KNOWLEDGE relationship found: {ls_uid} -> {ku_uid}")
 
-        except Exception as e:
-            self.logger.error(f"Error removing knowledge relationship: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation="remove_knowledge_relationship",
-                    message=str(e),
-                    ls_uid=ls_uid,
-                    ku_uid=ku_uid,
-                )
-            )
+        return Result.ok(success)
 
     @track_query_metrics("ls_get_knowledge_summary")
     @with_error_handling("get_knowledge_summary", error_type="database")
@@ -1085,39 +1077,36 @@ class LsCoreService(BaseService["BackendOperations[Ku]", Ku]):
             collect(CASE WHEN r.type = 'supporting' THEN ku.uid END) as supporting_uids
         """
 
-        try:
-            result = await self.backend.driver.execute_query(query, ls_uid=ls_uid)
+        result = await self.backend.execute_query(query, {"ls_uid": ls_uid})
 
-            if not result.records:
-                return Result.ok(
-                    {
-                        "primary_count": 0,
-                        "supporting_count": 0,
-                        "total_count": 0,
-                        "primary_uids": [],
-                        "supporting_uids": [],
-                    }
-                )
+        if result.is_error:
+            return Result.fail(result.expect_error())
 
-            record = result.records[0]
-            summary = {
-                "primary_count": record["primary_count"],
-                "supporting_count": record["supporting_count"],
-                "total_count": record["total_count"],
-                "primary_uids": [uid for uid in record["primary_uids"] if uid],
-                "supporting_uids": [uid for uid in record["supporting_uids"] if uid],
-            }
-
-            self.logger.info(
-                f"Knowledge summary for {ls_uid}: "
-                f"{summary['primary_count']} primary, "
-                f"{summary['supporting_count']} supporting"
+        records = result.value or []
+        if not records:
+            return Result.ok(
+                {
+                    "primary_count": 0,
+                    "supporting_count": 0,
+                    "total_count": 0,
+                    "primary_uids": [],
+                    "supporting_uids": [],
+                }
             )
 
-            return Result.ok(summary)
+        record = records[0]
+        summary = {
+            "primary_count": record["primary_count"],
+            "supporting_count": record["supporting_count"],
+            "total_count": record["total_count"],
+            "primary_uids": [uid for uid in record["primary_uids"] if uid],
+            "supporting_uids": [uid for uid in record["supporting_uids"] if uid],
+        }
 
-        except Exception as e:
-            self.logger.error(f"Error getting knowledge summary: {e}")
-            return Result.fail(
-                Errors.database(operation="get_knowledge_summary", message=str(e), ls_uid=ls_uid)
-            )
+        self.logger.info(
+            f"Knowledge summary for {ls_uid}: "
+            f"{summary['primary_count']} primary, "
+            f"{summary['supporting_count']} supporting"
+        )
+
+        return Result.ok(summary)

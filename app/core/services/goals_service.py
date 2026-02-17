@@ -63,8 +63,6 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
-
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.goal.goal_request import GoalCreateRequest
     from core.services.protocols.infrastructure_protocols import EventBusOperations
@@ -198,7 +196,6 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
         backend: GoalsOperations,
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
-        driver: AsyncDriver | None = None,
         ai_service: GoalsAIService | None = None,
     ) -> None:
         """
@@ -208,7 +205,6 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
             backend: Protocol-based backend for goal operations
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
-            driver: Neo4j driver for event-driven integrations (Phase 4)
             ai_service: Optional AI service for LLM/embeddings features (January 2026)
 
         Note:
@@ -266,7 +262,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
 
         # Phase 4: Event-driven recommendation service
         self.recommendations = GoalsRecommendationService(
-            driver=driver,
+            backend=backend,
             event_bus=event_bus,
         )
 

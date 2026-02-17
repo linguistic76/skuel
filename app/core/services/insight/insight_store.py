@@ -14,7 +14,7 @@ The InsightStore follows SKUEL's graph-native philosophy - insights are
 first-class graph citizens with relationships to users and entities.
 
 Usage:
-    store = InsightStore(driver)
+    store = InsightStore(executor)
 
     # Create insight
     result = await store.create_insight(insight)
@@ -36,7 +36,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
+    from core.services.protocols import QueryExecutor
 
 
 class InsightStore:
@@ -59,18 +59,18 @@ class InsightStore:
     Thread Safety: Each method is atomic - safe for concurrent use.
     """
 
-    def __init__(self, driver: "AsyncDriver") -> None:
+    def __init__(self, executor: "QueryExecutor") -> None:
         """
-        Initialize InsightStore with Neo4j driver.
+        Initialize InsightStore with query executor.
 
         Args:
-            driver: Neo4j async driver for database operations
+            executor: Query executor for database operations
         """
-        if not driver:
+        if not executor:
             raise ValueError(
-                "InsightStore driver is REQUIRED. SKUEL follows fail-fast architecture."
+                "InsightStore executor is REQUIRED. SKUEL follows fail-fast architecture."
             )
-        self.driver = driver
+        self.executor = executor
         self.logger = get_logger("skuel.services.insight")
 
     async def create_insight(self, insight: PersistedInsight) -> Result[str]:
@@ -145,9 +145,18 @@ class InsightStore:
                 "actioned": insight.actioned,
             }
 
-            result = await self.driver.execute_query(query, params)
+            result = await self.executor.execute_query(query, params)
 
-            if result.records:
+            if result.is_error:
+                self.logger.error(f"Error creating insight: {result.error}")
+                return Result.fail(
+                    Errors.database(
+                        message=f"Failed to create insight: {result.error}",
+                        operation="create_insight",
+                    )
+                )
+
+            if result.value:
                 self.logger.info(
                     f"Created insight: {insight.uid}",
                     extra={
@@ -223,12 +232,21 @@ class InsightStore:
             if domain:
                 params["domain"] = domain
 
-            result = await self.driver.execute_query(query, params)
+            result = await self.executor.execute_query(query, params)
+
+            if result.is_error:
+                self.logger.error(f"Error getting active insights: {result.error}")
+                return Result.fail(
+                    Errors.database(
+                        message=f"Failed to get active insights: {result.error}",
+                        operation="get_active_insights",
+                    )
+                )
 
             insights = []
-            for record in result.records:
+            for record in result.value:
                 node = record["i"]
-                insight_data = dict(node)
+                insight_data = dict(node) if not isinstance(node, dict) else node
 
                 # Parse JSON fields
                 if isinstance(insight_data.get("related_entities"), str):
@@ -290,12 +308,21 @@ class InsightStore:
                 "user_uid": user_uid,
             }
 
-            result = await self.driver.execute_query(query, params)
+            result = await self.executor.execute_query(query, params)
+
+            if result.is_error:
+                self.logger.error(f"Error getting insights for entity {entity_uid}: {result.error}")
+                return Result.fail(
+                    Errors.database(
+                        message=f"Failed to get insights for entity: {result.error}",
+                        operation="get_insights_for_entity",
+                    )
+                )
 
             insights = []
-            for record in result.records:
+            for record in result.value:
                 node = record["i"]
-                insight_data = dict(node)
+                insight_data = dict(node) if not isinstance(node, dict) else node
 
                 # Parse JSON fields
                 if isinstance(insight_data.get("related_entities"), str):
@@ -343,11 +370,20 @@ class InsightStore:
             RETURN i.uid as uid
             """
 
-            result = await self.driver.execute_query(
+            result = await self.executor.execute_query(
                 query, {"uid": uid, "user_uid": user_uid, "notes": notes}
             )
 
-            if result.records:
+            if result.is_error:
+                self.logger.error(f"Error dismissing insight {uid}: {result.error}")
+                return Result.fail(
+                    Errors.database(
+                        message=f"Failed to dismiss insight: {result.error}",
+                        operation="dismiss_insight",
+                    )
+                )
+
+            if result.value:
                 self.logger.info(
                     f"Dismissed insight: {uid}",
                     extra={"insight_uid": uid, "user_uid": user_uid},
@@ -388,11 +424,20 @@ class InsightStore:
             RETURN i.uid as uid
             """
 
-            result = await self.driver.execute_query(
+            result = await self.executor.execute_query(
                 query, {"uid": uid, "user_uid": user_uid, "notes": notes}
             )
 
-            if result.records:
+            if result.is_error:
+                self.logger.error(f"Error marking insight actioned {uid}: {result.error}")
+                return Result.fail(
+                    Errors.database(
+                        message=f"Failed to mark insight actioned: {result.error}",
+                        operation="mark_actioned",
+                    )
+                )
+
+            if result.value:
                 self.logger.info(
                     f"Marked insight as actioned: {uid}",
                     extra={"insight_uid": uid, "user_uid": user_uid},
@@ -427,10 +472,19 @@ class InsightStore:
             RETURN count(i) as deleted_count
             """
 
-            result = await self.driver.execute_query(query)
+            result = await self.executor.execute_query(query)
 
-            if result.records:
-                deleted_count = result.records[0]["deleted_count"]
+            if result.is_error:
+                self.logger.error(f"Error cleaning up expired insights: {result.error}")
+                return Result.fail(
+                    Errors.database(
+                        message=f"Failed to cleanup expired insights: {result.error}",
+                        operation="cleanup_expired",
+                    )
+                )
+
+            if result.value:
+                deleted_count = result.value[0]["deleted_count"]
                 self.logger.info(f"Cleaned up {deleted_count} expired insights")
                 return Result.ok(deleted_count)
 
@@ -481,14 +535,25 @@ class InsightStore:
             LIMIT $limit
             """
 
-            result = await self.driver.execute_query(
+            result = await self.executor.execute_query(
                 query,
                 {"user_uid": user_uid, "limit": limit},
             )
 
+            if result.is_error:
+                self.logger.error(f"Error getting insight history: {result.error}")
+                return Result.fail(
+                    Errors.database(
+                        message=f"Failed to get insight history: {result.error}",
+                        operation="get_insight_history",
+                    )
+                )
+
             insights = []
-            for record in result.records:
-                node_data = dict(record["i"])
+            for record in result.value:
+                node_data = record["i"]
+                if not isinstance(node_data, dict):
+                    node_data = dict(node_data)
                 insight = PersistedInsight.from_dict(node_data)
                 insights.append(insight)
 
@@ -532,10 +597,19 @@ class InsightStore:
                 collect(DISTINCT i.domain) as domains
             """
 
-            result = await self.driver.execute_query(query, {"user_uid": user_uid})
+            result = await self.executor.execute_query(query, {"user_uid": user_uid})
 
-            if result.records:
-                record = result.records[0]
+            if result.is_error:
+                self.logger.error(f"Error getting insight stats: {result.error}")
+                return Result.fail(
+                    Errors.database(
+                        message=f"Failed to get insight stats: {result.error}",
+                        operation="get_insight_stats",
+                    )
+                )
+
+            if result.value:
+                record = result.value[0]
                 return Result.ok(
                     {
                         "total_insights": record["total_insights"],
@@ -604,11 +678,20 @@ class InsightStore:
             ORDER BY count DESC
             """
 
-            result = await self.driver.execute_query(query, {"user_uid": user_uid})
+            result = await self.executor.execute_query(query, {"user_uid": user_uid})
+
+            if result.is_error:
+                self.logger.error(f"Error getting insight counts by domain: {result.error}")
+                return Result.fail(
+                    Errors.database(
+                        message=f"Failed to get insight counts by domain: {result.error}",
+                        operation="get_insight_counts_by_domain",
+                    )
+                )
 
             # Build domain -> count dict
             domain_counts: dict[str, int] = {}
-            for record in result.records:
+            for record in result.value:
                 domain = record["domain"]
                 count = record["count"]
                 domain_counts[domain] = count

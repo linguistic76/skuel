@@ -67,32 +67,32 @@ class UserContextBuilder:
 
     def __init__(
         self,
-        driver: Any,
+        executor: Any,
         user_service: "UserService | None" = None,
     ) -> None:
         """
         Initialize context builder with composed modules.
 
         Args:
-            driver: Neo4j driver for graph queries
+            executor: Query executor for graph queries
             user_service: UserService for user resolution (enables simplified build() API)
 
         Raises:
-            ValueError: If driver is None
+            ValueError: If executor is None
 
         Note:
             user_service can be wired post-construction to resolve circular dependencies.
             When user_service is available, use build(user_uid) for the simplified API.
             When user_service is None, use build_user_context(user_uid, user) instead.
         """
-        if not driver:
-            raise ValueError("Neo4j driver is required for context building")
+        if not executor:
+            raise ValueError("QueryExecutor is required for context building")
 
-        self.driver = driver
+        self.executor = executor
         self.user_service = user_service
 
         # Compose modules for separation of concerns
-        self._query_executor = UserContextQueryExecutor(driver)
+        self._query_executor = UserContextQueryExecutor(executor)
         self._extractor = UserContextExtractor()
         self._populator = UserContextPopulator()
 

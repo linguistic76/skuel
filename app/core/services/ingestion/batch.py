@@ -358,7 +358,8 @@ async def ingest_directory(
     directory: Path,
     engines: dict[KuType | NonKuDomain, BulkIngestionEngine[Any]],  # noqa: ARG001 - Modified by get_engine
     get_engine: Any,  # Callable to get/create engine
-    driver: Any = None,  # Neo4j driver for ingestion tracking
+    driver: Any = None,  # Neo4j driver for raw queries (validation, existence checks)
+    executor: Any = None,  # QueryExecutor for ingestion tracking
     pattern: str = "*",
     batch_size: int = 500,
     max_concurrent: int = DEFAULT_MAX_CONCURRENT_PARSING,
@@ -401,12 +402,12 @@ async def ingest_directory(
     if not directory.exists():
         return Result.fail(Errors.not_found(f"Directory not found: {directory}"))
 
-    # Validate driver is provided for incremental modes and dry-run
-    if ingestion_mode != "full" and driver is None:
+    # Validate executor is provided for incremental modes and dry-run
+    if ingestion_mode != "full" and executor is None:
         return Result.fail(
             Errors.validation(
-                "Neo4j driver required for incremental/smart ingestion mode",
-                field="driver",
+                "QueryExecutor required for incremental/smart ingestion mode",
+                field="executor",
             )
         )
 
@@ -446,8 +447,8 @@ async def ingest_directory(
     skipped_hash_match = 0
     tracker: IngestionTracker | None = None
 
-    if ingestion_mode != "full" and driver is not None:
-        tracker = IngestionTracker(driver)
+    if ingestion_mode != "full" and executor is not None:
+        tracker = IngestionTracker(executor)
         await tracker.ensure_constraints()
 
         # Get existing ingestion metadata

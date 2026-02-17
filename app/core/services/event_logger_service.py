@@ -17,12 +17,15 @@ Date: 2025-10-16
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.events.base import BaseEvent
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.protocols import QueryExecutor
 
 
 @dataclass
@@ -122,14 +125,14 @@ class EventLoggerService:
     - No confidence scoring (event logging infrastructure only)
     """
 
-    def __init__(self, driver: Any) -> None:
+    def __init__(self, executor: "QueryExecutor") -> None:
         """
         Initialize event logger service.
 
         Args:
-            driver: Neo4j driver for persistent storage
+            executor: QueryExecutor for persistent storage
         """
-        self.driver = driver
+        self.executor = executor
         self.logger = get_logger("skuel.services.event_logger")
 
     # ========================================================================
@@ -180,18 +183,21 @@ class EventLoggerService:
         RETURN log
         """
 
-        async with self.driver.session() as session:
-            await session.run(
-                query,
-                log_id=log_entry.log_id,
-                event_type=log_entry.event_type,
-                event_data=str(log_entry.event_data),  # Store as JSON string
-                occurred_at=log_entry.occurred_at.isoformat(),
-                user_uid=log_entry.user_uid,
-                aggregate_id=log_entry.aggregate_id,
-                aggregate_type=log_entry.aggregate_type,
-                source_service=log_entry.source_service,
-            )
+        result = await self.executor.execute_query(
+            query,
+            {
+                "log_id": log_entry.log_id,
+                "event_type": log_entry.event_type,
+                "event_data": str(log_entry.event_data),  # Store as JSON string
+                "occurred_at": log_entry.occurred_at.isoformat(),
+                "user_uid": log_entry.user_uid,
+                "aggregate_id": log_entry.aggregate_id,
+                "aggregate_type": log_entry.aggregate_type,
+                "source_service": log_entry.source_service,
+            },
+        )
+        if result.is_error:
+            self.logger.warning(f"Failed to log event: {result.error}")
 
         self.logger.debug(f"Logged event: {log_entry.event_type} ({log_entry.log_id})")
         return Result.ok(log_entry)
@@ -232,9 +238,13 @@ class EventLoggerService:
         LIMIT 1000
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, user_uid=user_uid, start_date=start_date.isoformat())
-            records = await result.data()
+        result = await self.executor.execute_query(
+            query, {"user_uid": user_uid, "start_date": start_date.isoformat()}
+        )
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         # Convert to EventLogEntry objects
         entries = []
@@ -284,13 +294,15 @@ class EventLoggerService:
         ORDER BY log.occurred_at ASC
         """
 
-        async with self.driver.session() as session:
-            params = {"aggregate_id": aggregate_id}
-            if aggregate_type:
-                params["aggregate_type"] = aggregate_type
+        params: dict[str, Any] = {"aggregate_id": aggregate_id}
+        if aggregate_type:
+            params["aggregate_type"] = aggregate_type
 
-            result = await session.run(query, **params)
-            records = await result.data()
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         # Convert to EventLogEntry objects
         entries = [
@@ -367,9 +379,11 @@ class EventLoggerService:
         ORDER BY log.occurred_at ASC
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, **params)
-            records = await result.data()
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         # Replay each event
         replayed_count = 0
@@ -405,8 +419,12 @@ class EventLoggerService:
             log.replay_count = coalesce(log.replay_count, 0) + 1
         """
 
-        async with self.driver.session() as session:
-            await session.run(query, log_id=log_id)
+        try:
+            result = await self.executor.execute_query(query, {"log_id": log_id})
+            if result.is_error:
+                self.logger.warning(f"Failed to mark replayed: {result.error}")
+        except Exception as e:
+            self.logger.warning(f"Failed to mark replayed: {e}")
 
     # ========================================================================
     # ANALYTICS & AUDIT
@@ -444,9 +462,11 @@ class EventLoggerService:
         ORDER BY count DESC
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, **params)
-            records = await result.data()
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            return result
+
+        records = result.value or []
 
         # Build statistics
         stats = {

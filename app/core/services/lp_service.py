@@ -209,7 +209,6 @@ class LpService(FacadeDelegationMixin):
         self.progress = subs.progress
 
         # Store dependencies
-        self.driver = driver
         self.ls_service = ls_service
         self.ku_service = ku_service
         self.graph_intel = graph_intelligence_service

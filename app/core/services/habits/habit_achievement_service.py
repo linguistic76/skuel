@@ -15,7 +15,7 @@ Date: 2025-11-05
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.events import publish_event
 from core.events.habit_events import HabitStreakMilestone
@@ -24,7 +24,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
+    from core.services.protocols import BackendOperations
 
 
 class HabitAchievementService:
@@ -83,20 +83,20 @@ class HabitAchievementService:
 
     def __init__(
         self,
-        driver: "AsyncDriver",
+        backend: "BackendOperations[Any]",
         event_bus=None,
     ) -> None:
         """
         Initialize habit achievement service.
 
         Args:
-            driver: Neo4j driver for achievement storage (REQUIRED)
+            backend: Backend for executing graph queries (REQUIRED)
             event_bus: Optional event bus for publishing achievement events
 
         Migration Note (January 2026 - Fail-Fast):
-            Made driver REQUIRED - achievements need database access.
+            Made backend REQUIRED - achievements need database access.
         """
-        self.driver = driver
+        self.backend = backend
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.habits.achievements")
 
@@ -203,18 +203,22 @@ class HabitAchievementService:
         RETURN count(r) > 0 as already_earned
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {
-                    "user_uid": user_uid,
-                    "habit_uid": habit_uid,
-                    "badge_id": badge_id,
-                },
-            )
-            record = await result.single()
+        result = await self.backend.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "habit_uid": habit_uid,
+                "badge_id": badge_id,
+            },
+        )
+        if result.is_error:
+            self.logger.error(f"Failed to check badge: {result.error}")
+            return False
 
-        return record["already_earned"] if record else False
+        if not result.value:
+            return False
+
+        return result.value[0].get("already_earned", False)
 
     async def _award_badge(
         self,
@@ -263,21 +267,21 @@ class HabitAchievementService:
 
         RETURN badge.badge_id as badge_id
         """
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {
-                    "user_uid": user_uid,
-                    "habit_uid": habit_uid,
-                    "badge_id": badge_info["badge_id"],
-                    "badge_name": badge_info["name"],
-                    "badge_description": badge_info["description"],
-                    "badge_tier": badge_info["tier"],
-                    "streak_length": streak_length,
-                    "occurred_at": occurred_at.isoformat(),
-                },
-            )
-            await result.single()
+        result = await self.backend.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "habit_uid": habit_uid,
+                "badge_id": badge_info["badge_id"],
+                "badge_name": badge_info["name"],
+                "badge_description": badge_info["description"],
+                "badge_tier": badge_info["tier"],
+                "streak_length": streak_length,
+                "occurred_at": occurred_at.isoformat(),
+            },
+        )
+        if result.is_error:
+            return result
 
         return Result.ok(True)
 
@@ -308,9 +312,9 @@ class HabitAchievementService:
         ORDER BY r.earned_at DESC
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"user_uid": user_uid})
-            records = await result.data()
+        result = await self.backend.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return result
 
         badges = [
             {
@@ -322,7 +326,7 @@ class HabitAchievementService:
                 "streak_length": record["streak_length"],
                 "habit_uid": record["habit_uid"],
             }
-            for record in records
+            for record in result.value
         ]
 
         return Result.ok(badges)
@@ -347,9 +351,9 @@ class HabitAchievementService:
         ORDER BY badge.tier
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"habit_uid": habit_uid})
-            records = await result.data()
+        result = await self.backend.execute_query(query, {"habit_uid": habit_uid})
+        if result.is_error:
+            return result
 
         badges = [
             {
@@ -358,7 +362,7 @@ class HabitAchievementService:
                 "description": record["description"],
                 "tier": record["tier"],
             }
-            for record in records
+            for record in result.value
         ]
 
         return Result.ok(badges)

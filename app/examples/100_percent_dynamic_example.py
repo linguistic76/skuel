@@ -157,7 +157,7 @@ async def demonstrate_auto_indexes(driver):
     print("AUTO-INDEX DEMONSTRATION")
     print("=" * 80)
 
-    from core.utils.neo4j_schema_manager import Neo4jSchemaManager
+    from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 
     schema_manager = Neo4jSchemaManager(driver)
 

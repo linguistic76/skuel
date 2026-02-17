@@ -135,20 +135,19 @@ class AssignmentService(BaseService):
 
         # Create FOR_GROUP relationship for ASSIGNED scope
         if scope == ProjectScope.ASSIGNED and group_uid:
-            try:
-                await self.backend.driver.execute_query(
-                    f"""
-                    MATCH (project:Assignment {{uid: $project_uid}})
-                    MATCH (group:Group {{uid: $group_uid}})
-                    MERGE (project)-[:{RelationshipName.FOR_GROUP}]->(group)
-                    RETURN true as success
-                    """,
-                    project_uid=uid,
-                    group_uid=group_uid,
-                )
+            rel_result = await self.backend.execute_query(
+                f"""
+                MATCH (project:Assignment {{uid: $project_uid}})
+                MATCH (group:Group {{uid: $group_uid}})
+                MERGE (project)-[:{RelationshipName.FOR_GROUP}]->(group)
+                RETURN true as success
+                """,
+                {"project_uid": uid, "group_uid": group_uid},
+            )
+            if rel_result.is_error:
+                self.logger.warning(f"Failed to create FOR_GROUP relationship: {rel_result.error}")
+            else:
                 self.logger.info(f"FOR_GROUP relationship created: {uid} -> {group_uid}")
-            except Exception as e:
-                self.logger.warning(f"Failed to create FOR_GROUP relationship: {e}")
 
         self.logger.info(f"Assignment created: {uid} - {name} (scope={scope.value})")
         return Result.ok(project)
@@ -267,7 +266,7 @@ class AssignmentService(BaseService):
         Returns:
             Result containing list of assigned projects
         """
-        records, _, _ = await self.backend.driver.execute_query(
+        result = await self.backend.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
             MATCH (project:Assignment)-[:{RelationshipName.FOR_GROUP}]->(group)
@@ -275,12 +274,15 @@ class AssignmentService(BaseService):
             RETURN project
             ORDER BY project.due_date ASC, project.created_at DESC
             """,
-            user_uid=user_uid,
+            {"user_uid": user_uid},
         )
 
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
         projects = []
-        for record in records:
-            props = dict(record["project"])
+        for record in result.value or []:
+            props = record["project"]
             try:
                 project = Assignment(**props)
                 projects.append(project)

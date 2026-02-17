@@ -62,10 +62,10 @@ results = await (
 - Phase 5: APOC completely removed (October 20, 2025) ✓
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar
-
-from neo4j import AsyncDriver
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.query._query_models import QueryIntent
@@ -111,10 +111,10 @@ class ModelQueryBuilder[T]:
     """
 
     def __init__(
-        self, model: type[T], driver: AsyncDriver | None = None, label: str | None = None
+        self, model: type[T], executor: Any = None, label: str | None = None
     ) -> None:
         self.model = model
-        self.driver = driver
+        self.executor = executor
         self.label = label  # Neo4j label (e.g., "Report" instead of Python class name)
         self._filters: dict[str, Any] = {}
         self._limit_val: int | None = None
@@ -271,23 +271,23 @@ class ModelQueryBuilder[T]:
         """
         Execute query and return results.
 
-        Requires driver to be set during initialization.
+        Requires executor to be set during initialization.
         """
-        if not self.driver:
+        if not self.executor:
             raise ValueError(
-                "Driver is required for execution. Use .build() to get query without executing."
+                "Executor is required for execution. Use .build() to get query without executing."
             )
 
         query, params = self.build()
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            records = await result.data()
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            raise ValueError(f"Query execution failed: {result.expect_error().message}")
 
-            # Convert Neo4j records to model instances using generic mapper
-            data = [from_neo4j_node(dict(r["n"]), self.model) for r in records]
+        # Convert Neo4j records to model instances using generic mapper
+        data = [from_neo4j_node(dict(r["n"]), self.model) for r in result.value]
 
-            return QueryResult(data=data, cypher=query, parameters=params, strategy="cypher")
+        return QueryResult(data=data, cypher=query, parameters=params, strategy="cypher")
 
     async def count(self) -> int:
         """
@@ -299,13 +299,14 @@ class ModelQueryBuilder[T]:
             self.model, self._filters if self._filters else None, label=self.label
         )
 
-        if not self.driver:
-            raise ValueError("Driver is required for execution")
+        if not self.executor:
+            raise ValueError("Executor is required for execution")
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            record = await result.single()
-            return record["count"] if record else 0
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            raise ValueError(f"Count query failed: {result.expect_error().message}")
+
+        return result.value[0]["count"] if result.value else 0
 
 
 class SemanticQueryBuilder:
@@ -315,9 +316,9 @@ class SemanticQueryBuilder:
     Routes to build_semantic_context() internally.
     """
 
-    def __init__(self, uid: str, driver: AsyncDriver | None = None) -> None:
+    def __init__(self, uid: str, executor: Any = None) -> None:
         self.uid = uid
-        self.driver = driver
+        self.executor = executor
         self._semantic_types: list[SemanticRelationshipType] = []
         self._depth: int = 2
         self._min_confidence: float = 0.0
@@ -379,20 +380,20 @@ class SemanticQueryBuilder:
 
     async def execute(self) -> QueryResult:
         """Execute semantic query and return results."""
-        if not self.driver:
+        if not self.executor:
             raise ValueError(
-                "Driver is required for execution. Use .build() to get query without executing."
+                "Executor is required for execution. Use .build() to get query without executing."
             )
 
         query, params = self.build()
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            records = await result.data()
+        result = await self.executor.execute_query(query, params)
+        if result.is_error:
+            raise ValueError(f"Semantic query failed: {result.expect_error().message}")
 
-            return QueryResult(
-                data=records, cypher=query, parameters=params, strategy="cypher_semantic"
-            )
+        return QueryResult(
+            data=result.value, cypher=query, parameters=params, strategy="cypher_semantic"
+        )
 
 
 # BatchQueryBuilder removed - Pure Cypher migration (October 20, 2025)
@@ -466,26 +467,26 @@ class UnifiedQueryBuilder:
 
     Usage:
         # Model queries
-        await UnifiedQueryBuilder(driver).for_model(Task).filter(status='active').execute()
+        await UnifiedQueryBuilder(executor).for_model(Task).filter(status='active').execute()
 
         # Semantic queries
-        await UnifiedQueryBuilder(driver).semantic("ku.123").traverse(...).execute()
+        await UnifiedQueryBuilder(executor).semantic("ku.123").traverse(...).execute()
 
         # Template discovery
-        templates = UnifiedQueryBuilder(driver).list_templates()
+        templates = UnifiedQueryBuilder(executor).list_templates()
         print(f"Available templates: {list(templates.keys())}")
 
         # Templates (auto-initialized, validated)
-        await UnifiedQueryBuilder(driver).template("search").params(...).execute()
+        await UnifiedQueryBuilder(executor).template("search").params(...).execute()
 
         # Query optimization (NEW in Phase 2!)
-        result = await UnifiedQueryBuilder(driver).optimize_query(cypher_query)
+        result = await UnifiedQueryBuilder(executor).optimize_query(cypher_query)
 
         # Query validation (NEW in Phase 2!)
-        validation = await UnifiedQueryBuilder(driver).validate_query(cypher_query)
+        validation = await UnifiedQueryBuilder(executor).validate_query(cypher_query)
 
         # Query explanation (NEW in Phase 2!)
-        explanation = UnifiedQueryBuilder(driver).explain_query(cypher_query)
+        explanation = UnifiedQueryBuilder(executor).explain_query(cypher_query)
 
         # Graph context
         query = UnifiedQueryBuilder().graph_context("task.123", QueryIntent.HIERARCHICAL)
@@ -493,19 +494,19 @@ class UnifiedQueryBuilder:
 
     def __init__(
         self,
-        driver: AsyncDriver | None = None,
-        query_builder_service: "QueryBuilder | None" = None,
-        schema_service: "SchemaContext | None" = None,
+        executor: Any = None,
+        query_builder_service: QueryBuilder | None = None,
+        schema_service: SchemaContext | None = None,
     ) -> None:
         """
         Initialize unified query builder.
 
         Args:
-            driver: Neo4j AsyncDriver for query execution,
+            executor: QueryExecutor for query execution
             query_builder_service: Optional QueryBuilder service for template support
             schema_service: Optional SchemaContext for auto-creating QueryBuilder
         """
-        self.driver = driver
+        self.executor = executor
         self.query_builder_service: QueryBuilder | None = query_builder_service
         self._schema_service = schema_service
         self._template_library_cache: dict[str, Any] | None = None
@@ -528,7 +529,7 @@ class UnifiedQueryBuilder:
                 .limit(50)
                 .execute())
         """
-        return ModelQueryBuilder(model, self.driver, label=label)
+        return ModelQueryBuilder(model, self.executor, label=label)
 
     def semantic(self, uid: str) -> SemanticQueryBuilder:
         """
@@ -543,7 +544,7 @@ class UnifiedQueryBuilder:
                 .min_confidence(0.8)
                 .execute())  # GraphDepth.DEFAULT is default
         """
-        return SemanticQueryBuilder(uid, self.driver)
+        return SemanticQueryBuilder(uid, self.executor)
 
     # batch() method removed - Pure Cypher migration (October 20, 2025)
     # Use Pure Cypher UNWIND patterns for batch operations instead
@@ -784,15 +785,15 @@ class UnifiedQueryBuilder:
 
 
 # Convenience factory function
-def query(driver: AsyncDriver | None = None) -> UnifiedQueryBuilder:
+def query(executor: Any = None) -> UnifiedQueryBuilder:
     """
     Create unified query builder instance.
 
-    Shorthand for UnifiedQueryBuilder(driver).
+    Shorthand for UnifiedQueryBuilder(executor).
 
     Usage:
         from core.models.query import query
 
-        tasks = await query(driver).for_model(Task).filter(status='active').execute()
+        tasks = await query(executor).for_model(Task).filter(status='active').execute()
     """
-    return UnifiedQueryBuilder(driver)
+    return UnifiedQueryBuilder(executor)

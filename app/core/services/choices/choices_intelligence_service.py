@@ -1831,12 +1831,15 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             }) AS choice_details
         """
 
-        result = await self.backend.driver.execute_query(
+        result = await self.backend.execute_query(
             query,
             {"user_uid": user_uid, "period_days": period_days},
         )
 
-        if not result or not result[0]:
+        if result.is_error:
+            return result
+
+        if not result.value:
             return Result.ok(
                 {
                     "overall_adherence_score": 0.0,
@@ -1849,7 +1852,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
                 }
             )
 
-        record = result[0][0]
+        record = result.value[0]
         total_choices = record.get("total_choices", 0)
         aligned_count = record.get("aligned_count", 0)
         choice_details = record.get("choice_details", [])
@@ -1980,15 +1983,18 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             collect(DISTINCT core.uid) AS core_principle_uids
         """
 
-        result = await self.backend.driver.execute_query(
+        result = await self.backend.execute_query(
             query,
             {"choice_uid": choice_uid, "user_uid": user_uid},
         )
 
-        if not result or not result[0]:
+        if result.is_error:
+            return result
+
+        if not result.value:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
-        record = result[0][0]
+        record = result.value[0]
         aligned_uids = [u for u in record.get("aligned_uids", []) if u]
         conflicts = [c for c in record.get("conflicts", []) if c.get("uid")]
         core_principle_uids = [u for u in record.get("core_principle_uids", []) if u]
@@ -2108,15 +2114,15 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             count(c) AS total_choices
         """
 
-        hist_result = await self.backend.driver.execute_query(
+        hist_result = await self.backend.execute_query(
             historical_query,
             {"user_uid": user_uid},
         )
 
         historical_factor = 0.125  # Default neutral
         historical_correlation = 0.0
-        if hist_result and hist_result[0]:
-            record = hist_result[0][0]
+        if hist_result.is_ok and hist_result.value:
+            record = hist_result.value[0]
             aligned_avg = record.get("aligned_avg") or 3.0
             unaligned_avg = record.get("unaligned_avg") or 3.0
             total_choices = record.get("total_choices", 0)
@@ -2150,7 +2156,11 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
 
         # Calculate confidence based on data availability
         confidence = 0.5  # Base confidence
-        if hist_result and hist_result[0] and hist_result[0][0].get("total_choices", 0) >= 10:
+        if (
+            hist_result.is_ok
+            and hist_result.value
+            and hist_result.value[0].get("total_choices", 0) >= 10
+        ):
             confidence += 0.2
         if rels.is_principle_aligned():
             confidence += 0.15
@@ -2235,12 +2245,15 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
             }) AS principle_contributions
         """
 
-        result = await self.backend.driver.execute_query(
+        result = await self.backend.execute_query(
             query,
             {"choice_uid": choice_uid, "user_uid": user_uid},
         )
 
-        if not result or not result[0]:
+        if result.is_error:
+            return result
+
+        if not result.value:
             return Result.ok(
                 {
                     "total_contribution_score": 0.0,
@@ -2253,7 +2266,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
                 }
             )
 
-        record = result[0][0]
+        record = result.value[0]
         life_path_uid = record.get("life_path_uid")
 
         if not life_path_uid:

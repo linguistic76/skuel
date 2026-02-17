@@ -59,7 +59,7 @@ class EmbeddingBackgroundWorker:
         self,
         event_bus: EventBusOperations,
         embeddings_service: Any,  # Neo4jGenAIEmbeddingsService
-        driver: Any,  # AsyncDriver
+        executor: Any,  # QueryExecutor
         config: Any,  # UnifiedConfig for embedding version
         content_adapter: Any | None = None,  # Neo4jContentAdapter for chunk storage
         batch_size: int = 25,
@@ -72,7 +72,7 @@ class EmbeddingBackgroundWorker:
         Args:
             event_bus: Event bus for subscribing to embedding requests
             embeddings_service: Neo4jGenAIEmbeddingsService for generating embeddings
-            driver: Neo4j driver for updating nodes
+            executor: Query executor for updating nodes
             config: UnifiedConfig for accessing embedding version
             content_adapter: Neo4jContentAdapter for chunk embedding storage (optional)
             batch_size: Number of entities to process per batch
@@ -81,7 +81,7 @@ class EmbeddingBackgroundWorker:
         """
         self.event_bus = event_bus
         self.embeddings_service = embeddings_service
-        self.driver = driver
+        self.executor = executor
         self.config = config
         self.content_adapter = content_adapter
         self.batch_size = batch_size
@@ -322,19 +322,25 @@ class EmbeddingBackgroundWorker:
                 RETURN n.uid
             """
 
-            result = await self.driver.execute_query(
+            result = await self.executor.execute_query(
                 query,
-                uid=entity_uid,
-                embedding=embedding,
-                version=self.config.genai.embedding_version,
-                model=self.embeddings_service.model,
+                {
+                    "uid": entity_uid,
+                    "embedding": embedding,
+                    "version": self.config.genai.embedding_version,
+                    "model": self.embeddings_service.model,
+                },
             )
 
-            if result and len(result) > 0:
-                self.logger.debug(f"✅ Stored embedding for {entity_type} {entity_uid}")
+            if result.is_error:
+                self.logger.warning(f"Failed to store embedding for {entity_type} {entity_uid}: {result.error}")
+                return False
+
+            if result.value:
+                self.logger.debug(f"Stored embedding for {entity_type} {entity_uid}")
                 return True
             else:
-                self.logger.warning(f"⚠️ Entity not found: {entity_type} {entity_uid}")
+                self.logger.warning(f"Entity not found: {entity_type} {entity_uid}")
                 return False
 
         except Exception as e:
