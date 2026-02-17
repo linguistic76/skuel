@@ -45,9 +45,6 @@ for entity in enriched:
 
 This pattern is extensible (add new types by adding dict entries) and
 aligns with the entity_type discriminator in ContextualEntity subclasses.
-
-Version: 1.1.0
-Date: November 28, 2025
 """
 
 from __future__ import annotations

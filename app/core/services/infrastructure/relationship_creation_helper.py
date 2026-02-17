@@ -19,10 +19,6 @@ Total duplication: ~300-400 LOC across 8 services
 **The Solution:**
 Single generic helper that handles the common pattern, reducing
 each relationship service's creation methods from ~15 LOC → 3 LOC.
-
-Version: 1.0.0
-Date: October 24, 2025
-Phase: Consolidation Phase
 """
 
 from typing import Any, TypeVar

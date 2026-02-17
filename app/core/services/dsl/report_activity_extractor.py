@@ -43,9 +43,6 @@ if instructions.get("extract_activities", False):
         user_uid=report.user_uid,
     )
 ```
-
-Version: 0.3.0 (13-domain architecture)
-Date: 2025-11-27
 """
 
 from dataclasses import dataclass, field

@@ -32,9 +32,6 @@ and learning path integration for goal creation.
 - get_schedule_aware_next_goal(): Best goal to focus on now
 - assess_goal_achievability(): Can goal be achieved by target date?
 - get_goal_load_by_timeframe(): Distribution across timeframes
-
-Version: 1.0.0
-Date: 2026-01-19
 """
 
 from __future__ import annotations

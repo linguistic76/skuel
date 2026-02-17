@@ -39,9 +39,6 @@ SKUEL services. This maintains separation of concerns:
 - DSL Parser: Text → Intermediate Representation (type-safe KuType/NonKuDomain contexts)
 - Entity Converter: IR → Create Requests (protocol-verified)
 - Services: Create Requests → Domain Models → Neo4j
-
-Version: 0.4.0 (Protocol-verified conversion with KuType/NonKuDomain dispatch)
-Date: 2026-02-14
 """
 
 import re

@@ -3,9 +3,6 @@ Choices Learning Service - Learning Path Guidance
 ==================================================
 
 Handles learning path integration and guidance for choices.
-
-Version: 1.0.0
-- v1.0.0: Initial implementation extracted from EnhancedChoicesService (October 13, 2025)
 """
 
 from __future__ import annotations

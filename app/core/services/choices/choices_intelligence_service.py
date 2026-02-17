@@ -3,9 +3,6 @@ Choices Intelligence Service - Pure Cypher Graph Analytics
 ======================================================
 
 Handles Pure Cypher graph intelligence queries for choices.
-
-Version: 1.0.0
-- v1.0.0: Initial implementation extracted from EnhancedChoicesService (October 13, 2025)
 """
 
 from __future__ import annotations
@@ -231,7 +228,7 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
         return result
 
     # ================================================================================
-    # PHASE 1-4 INTEGRATION: APOC-OPTIMIZED GRAPH INTELLIGENCE METHODS
+    # GRAPH INTELLIGENCE METHODS
     # ================================================================================
 
     @requires_graph_intelligence("get_choice_with_context")

@@ -10,9 +10,6 @@ Features:
 - Event filtering and search
 - Analytics and audit trails
 - Event stream export
-
-Version: 1.0.0
-Date: 2025-10-16
 """
 
 from dataclasses import dataclass

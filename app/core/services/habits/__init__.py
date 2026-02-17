@@ -37,9 +37,6 @@ Documentation:
 
 Architecture Notes:
 - HabitsRelationshipService replaced by UnifiedRelationshipService (December 2025)
-
-Version: 3.1.0
-Date: 2026-01-29
 """
 
 from core.services.habits.habit_search_service import HabitSearchService

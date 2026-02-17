@@ -8,9 +8,6 @@ Responsibilities:
 - Track KU practice via event completion
 - Update practice counts and timestamps
 - Publish KnowledgePracticed events
-
-Version: 1.0.0
-Date: 2025-11-05
 """
 
 from datetime import datetime

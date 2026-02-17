@@ -13,7 +13,6 @@ The power comes from Neo4j context awareness:
 - UserContext for personalized editing
 - Processing instructions stored as Assignment nodes in Neo4j
 
-Version: 4.0.0 (February 2026)
 Renamed from ContentEnrichmentService to ContentEnrichmentService
 """
 

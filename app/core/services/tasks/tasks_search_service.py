@@ -18,12 +18,6 @@ Handles advanced task search and discovery operations.
 **Dependencies:**
 - TasksOperations (backend protocol)
 - UserContextService (optional - for context-aware operations)
-
-Version: 2.0.0
-Date: 2026-01-04
-Changes:
-- v2.0.0: Added graph_aware_faceted_search for One Path Forward decomposition
-- v1.0.0: Initial implementation
 """
 
 from __future__ import annotations

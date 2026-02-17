@@ -9,9 +9,6 @@ Responsibilities:
 - Automatic LP progress updates via events
 - Completion detection and celebration
 - Milestone management
-
-Version: 1.0.0
-Date: 2025-11-05
 """
 
 from datetime import datetime

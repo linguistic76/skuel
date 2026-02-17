@@ -11,9 +11,6 @@ Responsibilities:
 - Get event's knowledge reinforcement tracking
 
 Uses pure Cypher for 8-10x performance improvement over sequential queries.
-
-Version: 1.0.0
-Date: 2025-10-13
 """
 
 from typing import TYPE_CHECKING, Any

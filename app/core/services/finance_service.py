@@ -28,16 +28,6 @@ This facade:
 Security:
 ---------
 Finance is admin-only. Route-level security is enforced via @require_admin.
-
-Version: 8.0.0
-Date: 2026-01-17
-
-Changelog:
-- v8.0.0 (2026-01-17): Simplified to standalone bookkeeping - removed intelligence/search/unified architecture
-- v7.0.0 (2026-01-17): Unified Architecture Migration (reverted)
-- v6.1.0 (2025-11-28): Added documentation clarifying Finance as separate domain group
-- v6.0.0 (2025-10-24): Added FinanceRelationshipService for cross-domain links
-- v5.0.0 (2025-10-23): Refactored into Core + Facade pattern
 """
 
 from __future__ import annotations

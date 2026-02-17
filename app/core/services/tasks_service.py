@@ -3,17 +3,6 @@ Enhanced Tasks Service - Facade Pattern
 ========================================
 
 Tasks service facade that delegates to specialized sub-services.
-This service provides a unified interface while maintaining clean separation of concerns.
-
-Version: 6.1.0
-Date: 2025-11-28
-
-Changelog:
-- v6.1.0 (2025-11-28): Removed custom backend property (code smell) - using inherited BaseService.backend
-- v6.0.0 (2025-10-10): Facade pattern implementation with 5 specialized sub-services
-- v5.0.0 (2025-10-03): Phase 1-4 integration with pure Cypher graph intelligence
-- v4.0.0: Enhanced with learning integration and UserContext awareness
-- v3.0.0: Base implementation with protocol interfaces
 
 Sub-Services:
 - TasksCoreService: CRUD operations
@@ -21,8 +10,6 @@ Sub-Services:
 - TasksProgressService: Progress tracking and completion
 - TasksSchedulingService: Scheduling and learning path integration
 - UnifiedRelationshipService (TASKS_CONFIG): Dependencies and relationships
-
-Architecture: Zero breaking changes - all existing code continues to work unchanged.
 """
 
 from __future__ import annotations

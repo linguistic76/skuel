@@ -40,9 +40,6 @@ UserContextIntelligence = UserContext + 13 Domain Services
 6. get_cross_domain_synergies() - Cross-domain synergy detection
 7. calculate_life_path_alignment() - Life path alignment scoring
 8. get_schedule_aware_recommendations() - Schedule-aware recommendations
-
-Version: 4.0.0 (Refactored to mixin architecture)
-Date: January 2026
 """
 
 from __future__ import annotations

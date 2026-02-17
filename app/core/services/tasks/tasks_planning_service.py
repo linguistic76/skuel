@@ -24,9 +24,6 @@ to provide personalized, filtered, and ranked task queries.
 - _calculate_readiness_score: Check prerequisites met
 - _calculate_relevance_score: Check goal alignment
 - _identify_blocking_reasons: What's preventing engagement
-
-Version: 1.0.0
-Date: 2025-12-03
 """
 
 from __future__ import annotations

@@ -87,9 +87,6 @@ See Also:
 - /docs/reference/SUB_SERVICE_CATALOG.md - Domain-specific method catalog
 - /core/services/base_service.py - Implementation (7 mixins)
 - /core/services/mixins/ - Individual mixin implementations
-
-Version: 1.0.0
-Date: 2026-01-29
 """
 
 from __future__ import annotations

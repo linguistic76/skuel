@@ -19,9 +19,6 @@ The DailyPlanningMixin in UserContextIntelligence expects these domain-specific
 methods on all Activity Domain relationship services (UnifiedRelationshipService).
 Each method works regardless of the current domain but returns domain-appropriate
 results when called on the correct service.
-
-Version: 2.0.0
-Date: 2026-01-15
 """
 
 from __future__ import annotations

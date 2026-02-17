@@ -14,9 +14,6 @@ Handles event completion, attendance tracking, and quality metrics.
 Similar to TasksProgressService but focused on event-specific metrics.
 Events are calendar-based (not goal-based like tasks), so progress tracking
 focuses on attendance and quality rather than goal contribution.
-
-Version: 1.0.0
-Date: 2026-01-19
 """
 
 from datetime import date, datetime, timedelta

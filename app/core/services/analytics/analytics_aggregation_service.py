@@ -4,8 +4,6 @@ Analytics Aggregation Service
 
 Cross-layer synthesis and pattern detection for Life Analytics.
 
-Version: 2.0.0 (October 24, 2025) - Phase 3: Cross-Layer Synthesis
-
 This service provides holistic analytics that synthesize insights across
 ALL 4 architectural layers:
 - Layer 0: Curriculum (Knowledge, Learning Paths)

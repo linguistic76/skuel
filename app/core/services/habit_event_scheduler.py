@@ -4,9 +4,6 @@ Habit Event Scheduler Service
 
 Automatically schedules events from habits based on frequency, streaks,
 and learning reinforcement needs. Uses UserContext for intelligent scheduling.
-
-Version: 1.1.0
-Date: 2025-10-14
 """
 
 from __future__ import annotations

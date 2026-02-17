@@ -22,9 +22,6 @@ compile-time verification of entity type handling.
 Philosophy:
     "Applied knowledge, not pure theory" - SKUEL measures knowledge by how it's LIVED.
     This connector is the mechanism that tracks when knowledge moves from theory to practice.
-
-Version: 0.3.0 (KuType/NonKuDomain contexts)
-Date: 2026-02-14
 """
 
 from dataclasses import dataclass, field

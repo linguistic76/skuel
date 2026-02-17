@@ -35,9 +35,6 @@ Documentation:
 
 Architecture Notes:
 - PrinciplesRelationshipService replaced by UnifiedRelationshipService (December 2025)
-
-Version: 2.3.0
-Date: 2026-01-29
 """
 
 from core.services.principles.principles_alignment_service import PrinciplesAlignmentService

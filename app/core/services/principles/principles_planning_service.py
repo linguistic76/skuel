@@ -18,9 +18,6 @@ to provide personalized, filtered, and ranked principle queries.
 - _calculate_attention_score: Check reflection frequency and alignment trends
 - _identify_attention_reasons: Why principle needs attention
 - _suggest_attention_action: Actionable recommendation
-
-Version: 1.0.0
-Date: 2026-01-19
 """
 
 from __future__ import annotations

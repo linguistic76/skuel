@@ -38,9 +38,6 @@ Architecture Notes:
 - TasksGraphNativeService removed, replaced by UnifiedRelationshipService (January 2026 - ADR-029)
 - Intelligence/AI separation: IntelligenceService (analytics) vs AIService (LLM) - ADR-030
 - TasksAnalyticsService removed: KU analytics now direct KuAnalyticsEngine calls (January 2026)
-
-Version: 2.3.0
-Date: 2026-01-29
 """
 
 # Import implemented services

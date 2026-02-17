@@ -18,10 +18,6 @@ Protocol Categories:
 5. CypherOperations - Query execution
 6. SearchIndexOperations - Index management
 
-Version: 2.2.0
-Date: 2025-11-29
-Changes:
-- v2.2.0: Added domain-specific search protocols (EventsSearchOperations, etc.)
           completing the protocol layer per MyPy analysis
 - v2.1.0: Added search_filtered() method with BaseSearchFilters type
 - v2.0.0: Added DomainSearchOperations[T] protocol for activity domain search services

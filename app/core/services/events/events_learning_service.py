@@ -9,9 +9,6 @@ Responsibilities:
 - Get events reinforcing specific knowledge units
 - Create learning-aligned events
 - Track learning progress through events
-
-Version: 1.0.0
-Date: 2025-10-13
 """
 
 from datetime import date, datetime, time, timedelta

@@ -13,9 +13,6 @@ Responsibilities:
 Complementary to HabitsEventIntegrationService (which handles Events integration
 FROM the Habits perspective). This service manages actual Event entities and their
 habit-related lifecycle.
-
-Version: 1.0.0
-Date: 2025-10-13
 """
 
 from dataclasses import dataclass

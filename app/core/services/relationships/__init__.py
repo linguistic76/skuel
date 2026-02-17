@@ -27,9 +27,6 @@ tasks_relationship_service = UnifiedRelationshipService(
 await tasks_relationship_service.get_related_uids("knowledge", task_uid)
 await tasks_relationship_service.get_cross_domain_context(task_uid)
 ```
-
-Version: 3.0.0
-Date: 2026-02-07
 """
 
 from core.services.relationships.extended_config import (

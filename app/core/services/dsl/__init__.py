@@ -119,8 +119,6 @@ DSLKnowledgeConnector.plan_connections()
         |
 Graph Relationships (APPLIES_KNOWLEDGE, FULFILLS_GOAL, etc.)
 ```
-
-Version: 0.5.0 (KuType/NonKuDomain contexts)
 """
 
 # Re-export KuType and NonKuDomain for convenient access

@@ -4,38 +4,16 @@ Learning Step Service - Facade
 
 THE single owner for all learning step management in SKUEL.
 
-This facade coordinates specialized sub-services following unified Curriculum Domain patterns.
+Delegates to specialized sub-services following unified Curriculum Domain patterns.
 
-Decomposed Architecture (January 2026 - Unified Curriculum):
-- ls/ls_core_service.py: CRUD operations + persistence (extends BaseService)
-- ls/ls_search_service.py: Search operations (extends BaseService)
-- ls/ls_intelligence_service.py: Intelligence operations (extends BaseIntelligenceService)
+Sub-Services:
+- LsCoreService: CRUD operations + persistence (extends BaseService)
+- LsSearchService: Search operations (extends BaseService)
+- LsIntelligenceService: Intelligence operations (extends BaseIntelligenceService)
 - UnifiedRelationshipService: All relationship operations
 
-**Architecture (January 2026 Unified - ADR-030):**
-- Uses `create_curriculum_sub_services()` factory for consistent initialization
-- All 4 common sub-services: core, search, relationships, intelligence
-- All sub-services share a single UniversalNeo4jBackend[Ls] instance
-- graph_intel is REQUIRED (enables cross-domain intelligence)
-- Unified infrastructure with Activity Domains (no wrapper backends)
-
-This service is THE authority for:
-- Creating and managing learning steps (Ls)
-- Step CRUD operations
-- Step-to-path relationships (attach/detach)
-- Practice integration (habits, tasks, events)
-
-Following SKUEL principles:
-- One path forward: LsService is THE owner, no alternatives
-- Fail-fast: Requires driver AND graph_intel for persistence operations
-- Protocol-based: Backend accessed via unified protocol
-- Result[T]: Internal error handling with boundary conversion
-
-Curriculum Architecture:
-- Ls (Learning Step) is one of three core curriculum entities: Ku, Ls, Lp
-- Can exist standalone or as part of an Lp
-- Clusters Ku (Knowledge Units) with practice opportunities
-- Links to habits, tasks, events for embodiment
+Ls (Learning Step) is one of three core curriculum entities: Ku, Ls, Lp.
+Can exist standalone or as part of an Lp. Clusters KUs with practice opportunities.
 """
 
 from __future__ import annotations

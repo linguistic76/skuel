@@ -3,16 +3,6 @@ Enhanced Habits Service - Facade Pattern
 ==========================================
 
 Habits service facade that delegates to specialized sub-services.
-This service provides a unified interface while maintaining clean separation of concerns.
-
-Version: 7.0.0
-- v7.0.0: Added HabitsPlanningService and HabitsSchedulingService (January 2026)
-- v6.2.0: Typed Request Objects pattern - explicit API contracts (November 29, 2025)
-- v6.1.0: Added HabitSearchService for search/discovery (November 28, 2025)
-- v6.0.0: Facade pattern implementation with 6 specialized sub-services (October 13, 2025)
-- v5.0.0: Phase 1-4 integration with pure Cypher graph intelligence (October 3, 2025)
-- v4.0.0: Enhanced with learning integration and UserContext awareness
-- v3.0.0: Base implementation with protocol interfaces
 
 Sub-Services:
 - HabitsCoreService: CRUD operations
@@ -24,9 +14,7 @@ Sub-Services:
 - UnifiedRelationshipService (HABITS_CONFIG): Graph relationships and semantic connections
 - HabitsIntelligenceService: pure Cypher analytics
 - HabitsEventIntegrationService: Cross-domain event scheduling integration
-- HabitAchievementService: Achievement badge awarding (Phase 4)
-
-Architecture: Zero breaking changes - all existing code continues to work unchanged.
+- HabitAchievementService: Achievement badge awarding
 """
 
 from __future__ import annotations

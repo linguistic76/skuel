@@ -10,9 +10,6 @@ Responsibilities:
 - Habit-based progress updates
 - Velocity metrics and forecasting
 - Risk analysis and acceleration opportunities
-
-Version: 1.0.0
-Date: 2025-10-13
 """
 
 from datetime import date, datetime, timedelta

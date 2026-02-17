@@ -10,9 +10,6 @@ Responsibilities:
 - Suggest learning-aligned goals
 - Track learning contributions to goals
 - Identify goals needing habits or blocked by knowledge
-
-Version: 1.0.0
-Date: 2025-10-13
 """
 
 from datetime import datetime

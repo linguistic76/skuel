@@ -11,9 +11,6 @@ Responsibilities:
 - Detect principle conflicts
 
 Part of the PrincipleAlignmentService decomposition (October 13, 2025).
-
-Version: 1.0.0
-- v1.0.0: Initial implementation extracted from PrincipleAlignmentService (October 13, 2025)
 """
 
 from __future__ import annotations
@@ -232,7 +229,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, K
         return await self.assess_principle_alignment(uid, min_confidence)
 
     # ================================================================================
-    # PHASE 1-4 INTEGRATION: APOC-OPTIMIZED GRAPH INTELLIGENCE METHODS
+    # GRAPH INTELLIGENCE METHODS
     # ================================================================================
 
     @requires_graph_intelligence("get_principle_with_context")

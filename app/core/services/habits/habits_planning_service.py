@@ -27,9 +27,6 @@ to provide personalized, filtered, and ranked habit queries.
 - _calculate_relevance_score: Check goal and identity alignment
 - _calculate_urgency_score: Check streak risk
 - _identify_blocking_reasons: What's preventing engagement
-
-Version: 1.0.0
-Date: 2026-01-19
 """
 
 from __future__ import annotations

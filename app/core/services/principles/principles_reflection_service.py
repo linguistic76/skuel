@@ -20,9 +20,6 @@ Graph Schema:
                                         +-[:TRIGGERED_BY]->(Goal|Habit|Event|Choice)
                                         |
                                         +-[:REVEALS_CONFLICT]->(Principle)
-
-Version: 1.0.0
-Date: 2026-01-14
 """
 
 from collections.abc import Sequence

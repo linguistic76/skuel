@@ -10,9 +10,6 @@ Provides:
 - RelationshipCreationHelper[T, DTO]: Generic cross-domain relationship creation (Phase 5)
 - PrerequisiteHelper: Unified prerequisite checking for planning/scheduling (January 2026)
 - ProgressCalculationHelper: Unified progress calculation for all domains (January 2026)
-
-Version: 1.4.0 (January 2026: Added ProgressCalculationHelper)
-Date: 2026-01-19
 """
 
 from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper

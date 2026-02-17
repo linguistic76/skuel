@@ -3,9 +3,6 @@ Askesis Core Service - CRUD Operations
 ========================================
 
 Handles basic CRUD operations for Askesis AI assistant instances.
-
-Version: 1.0.0
-- v1.0.0: Initial implementation for Priority 1.1 (November 18, 2025)
 """
 
 from __future__ import annotations

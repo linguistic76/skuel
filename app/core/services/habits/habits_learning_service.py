@@ -10,9 +10,6 @@ Responsibilities:
 - Knowledge reinforcement tracking
 - Learning impact assessment
 - Habit-learning integration
-
-Version: 1.0.0
-Date: 2025-10-13
 """
 
 from datetime import datetime

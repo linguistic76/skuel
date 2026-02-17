@@ -25,9 +25,6 @@ UserContext (~240 fields) for personalized, filtered, and ranked queries.
 SKUEL runs at full capacity or not at all.
 
 **Naming Convention:** *_for_user() suffix indicates context-awareness
-
-Version: 1.0.0
-Date: 2026-01-19
 """
 
 from __future__ import annotations

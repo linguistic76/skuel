@@ -14,9 +14,6 @@ Handles task scheduling, context-aware creation, and learning path integration.
 **Dependencies:**
 - TasksOperations (backend protocol)
 - UserContextOperations (optional protocol - for context-aware operations)
-
-Version: 1.1.0
-Date: 2025-10-14
 """
 
 from __future__ import annotations

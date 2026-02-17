@@ -5,15 +5,7 @@ Knowledge Service - Facade
 Unified interface for all knowledge operations.
 Delegates to specialized sub-services for focused responsibilities.
 
-**Backward Compatibility:** This facade maintains the exact same API as the
-original monolithic service. External code requires zero changes.
-
-Version: 5.0 (Consolidated Architecture - January 2026 ADR-031)
-Date: 2026-01-11
-
-Architecture (v5.0 - KU Consolidation):
----------------------------------------
-Consolidated from 7 sub-services to 6:
+Sub-Services:
 - KuCoreService: CRUD operations
 - KuSearchService: Search and discovery
 - KuGraphService: Graph navigation and relationships
@@ -21,10 +13,7 @@ Consolidated from 7 sub-services to 6:
 - KuPracticeService: Event-driven practice tracking
 - KuInteractionService: Pedagogical tracking (VIEWED->IN_PROGRESS->MASTERED)
 
-DELETED (January 2026):
-- KuLpService: Redundant delegation to LpService (use LpService directly)
-
-Note: Graph and Semantic services are internal implementation details.
+Graph and Semantic services are internal implementation details.
 External callers should use the KuService facade methods.
 """
 

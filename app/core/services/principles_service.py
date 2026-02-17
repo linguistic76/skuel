@@ -3,21 +3,7 @@ Enhanced Principles Service - Facade Pattern
 =============================================
 
 Principles service facade that delegates to specialized sub-services.
-This service provides a unified interface while maintaining clean separation of concerns.
 Uses unified Ku model with KuType.PRINCIPLE discrimination.
-
-Version: 6.0.0
-Date: 2026-02-11
-
-Changelog:
-- v6.0.0 (2026-02-11): Migrated to unified Ku model — Principle → Ku with KuType.PRINCIPLE
-- v5.0.0 (2025-11-28): Added PrinciplesSearchService implementing DomainSearchOperations[Principle]
-  Removed custom backend property (code smell) - using inherited BaseService.backend
-  Delegated search methods to self.search sub-service
-- v4.0.0 (2025-11-09): Facade pattern harmonization - renamed from PrincipleAlignmentService
-- v3.0.0 (2025-10-13): Facade pattern implementation with 5 specialized sub-services
-- v2.0.0 (2025-10-03): Phase 1-4 integration with pure Cypher graph intelligence
-- v1.0.0: Base implementation
 
 Sub-Services:
 - PrinciplesCoreService: CRUD operations for principles
@@ -26,8 +12,6 @@ Sub-Services:
 - PrinciplesLearningService: Learning path integration and framing
 - UnifiedRelationshipService (PRINCIPLES_CONFIG): Cross-domain links and integrity calculation
 - PrinciplesIntelligenceService: Pure Cypher analytics
-
-Architecture: Zero breaking changes - all existing code continues to work unchanged.
 """
 
 from __future__ import annotations

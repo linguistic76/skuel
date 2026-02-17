@@ -30,8 +30,6 @@ else:
     # Use standard search
     result = await ku_service.search(...)
 ```
-
-Version: 1.0.0 (January 2026 - Phase 2)
 """
 
 from __future__ import annotations

@@ -17,10 +17,6 @@ Total duplication: ~930 LOC across 6 services
 **The Solution:**
 Single generic helper that handles the common pattern, reducing
 each relationship service's semantic methods from 155 LOC → 11 LOC.
-
-Version: 1.0.0
-Date: October 16, 2025
-Phase: 3
 """
 
 from datetime import datetime

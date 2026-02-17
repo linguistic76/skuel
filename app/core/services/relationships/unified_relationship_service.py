@@ -44,9 +44,6 @@ await tasks_relationship_service.has_relationship("prerequisites", task_uid)
 await tasks_relationship_service.get_cross_domain_context(task_uid)
 await tasks_relationship_service.get_with_context(task_uid)
 ```
-
-Version: 1.0.0
-Date: 2025-12-03
 """
 
 from __future__ import annotations

@@ -43,9 +43,6 @@ SKUEL Entities (Tasks, Habits, Goals, etc.)
 The bridge uses a two-phase approach:
 1. **Recognition Phase**: LLM identifies actionable items in the text
 2. **Tagging Phase**: LLM adds appropriate @context tags and attributes
-
-Version: 1.0.0 (13-domain architecture)
-Date: 2025-11-27
 """
 
 from dataclasses import dataclass, field

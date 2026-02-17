@@ -12,9 +12,6 @@ Features:
 - Cross-domain correlation analysis
 
 All analytics are built by subscribing to existing events - no service changes needed!
-
-Version: 1.0.0
-Date: 2025-10-16
 """
 
 from collections import defaultdict

@@ -11,9 +11,6 @@ Responsibilities:
 - Track principle development through learning
 
 Part of the PrincipleAlignmentService decomposition (October 13, 2025).
-
-Version: 1.0.0
-- v1.0.0: Initial implementation extracted from PrincipleAlignmentService (October 13, 2025)
 """
 
 from operator import itemgetter

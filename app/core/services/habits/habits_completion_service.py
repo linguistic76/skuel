@@ -10,9 +10,6 @@ Responsibilities:
 - Track streaks based on completions
 - Badge progress tracking
 - Export completion history
-
-Version: 1.0.0
-Date: 2025-10-14
 """
 
 from datetime import date, datetime, timedelta

@@ -5,9 +5,6 @@ Calendar Service
 Unified calendar service for displaying tasks, events, and habits in calendar views.
 Simplified implementation focusing on essential calendar functionality.
 
-Version: 1.0.0
-- v1.0.0: Original unified calendar implementation
-
 DESIGN DECISION (October 3, 2025):
 -----------------------------------
 This service intentionally keeps a SIMPLE, BASIC, FUNDAMENTAL design.

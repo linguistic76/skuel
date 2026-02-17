@@ -320,7 +320,7 @@ def create_curriculum_domain_config(
     Args:
         dto_class: The DTO class
         model_class: The domain model class
-        domain_name: Domain name (e.g., "ku", "ls", "lp", "moc")
+        domain_name: Domain name (e.g., "ku", "ls", "lp")
         search_fields: Fields for text search (default: ["title", "description"])
         search_order_by: Default sort field (default: "updated_at" for curriculum)
         category_field: Field for category filtering (default: "domain")

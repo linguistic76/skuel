@@ -13,13 +13,6 @@ Responsibilities:
   - Predict goal success probability
   - Analyze habit impact on goals
   - Run what-if scenario analysis
-
-Version: 3.0.0 (Analytics merge from GoalAnalyticsService)
-Date: 2025-11-25
-
-History:
-- v2.0.0: Phase 3 cross-domain context via BaseAnalyticsService._analyze_entity_with_context()
-- v3.0.0: Merged GoalAnalyticsService predictive analytics
 """
 
 import math

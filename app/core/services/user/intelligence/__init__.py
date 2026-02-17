@@ -51,9 +51,6 @@ from core.services.user.intelligence import (
     ScheduleAwareRecommendation,
 )
 ```
-
-Version: 5.0.0 (Removed GraphNativeMixin - One Path Forward)
-Date: 2026-01-08
 """
 
 # Core classes

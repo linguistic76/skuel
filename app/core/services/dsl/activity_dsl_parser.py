@@ -48,9 +48,6 @@ The `@context()` tag values are now parsed to `KuType` or `NonKuDomain` enum val
 - IDE autocomplete for entity types
 - Exhaustiveness checking in pattern matching
 - Clear error messages for invalid context strings
-
-Version: 0.5.0 (KuType/NonKuDomain contexts)
-Date: 2026-02-14
 """
 
 import re

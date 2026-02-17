@@ -35,9 +35,6 @@ Documentation:
 
 Architecture Notes:
 - EventsRelationshipService replaced by UnifiedRelationshipService (December 2025)
-
-Version: 2.1.0
-Date: 2026-01-29
 """
 
 from core.services.events.events_core_service import EventsCoreService

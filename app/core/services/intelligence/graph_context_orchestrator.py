@@ -19,9 +19,6 @@ Total duplication: ~2,224 LOC across 4 services
 **The Solution:**
 Single generic orchestrator that handles the common pattern, reducing
 each intelligence service's get_with_context() from 50 LOC → 5 LOC.
-
-Version: 1.0.0
-Date: October 16, 2025
 """
 
 from typing import Any, TypeVar

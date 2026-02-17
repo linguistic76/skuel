@@ -13,9 +13,6 @@ Responsibilities:
 - Generate event SUGGESTIONS based on habit frequency
 - Determine when habits should occur (recurrence logic)
 - Return event templates for EventsService to create
-
-Version: 1.0.0
-Date: 2025-10-13
 """
 
 from datetime import date, timedelta

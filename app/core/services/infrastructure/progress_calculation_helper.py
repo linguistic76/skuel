@@ -9,9 +9,6 @@ Consolidates duplicate progress calculation logic from:
 - GoalsProgressService._update_goal_from_habit_completion()
 
 Provides reusable calculation methods for all Activity Domain progress services.
-
-Version: 1.0.0
-Date: 2026-01-19
 """
 
 from __future__ import annotations

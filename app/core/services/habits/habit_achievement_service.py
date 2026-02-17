@@ -9,9 +9,6 @@ Responsibilities:
 - Award achievement badges for streak milestones
 - Track user achievements in Neo4j
 - Publish AchievementEarned events
-
-Version: 1.0.0
-Date: 2025-11-05
 """
 
 from datetime import datetime

@@ -14,9 +14,6 @@ Handles basic task lifecycle management.
 **Dependencies:**
 - BackendOperations[Ku] (backend protocol)
 - KuInferenceService (optional - automatic knowledge inference)
-
-Version: 1.0.0
-Date: 2025-10-10
 """
 
 from __future__ import annotations

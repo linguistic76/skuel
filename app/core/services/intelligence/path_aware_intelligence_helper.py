@@ -9,9 +9,6 @@ Provides reusable methods for:
 - Filtering by path strength
 - Calculating cascade impact
 - Generating path-strength-based recommendations
-
-Version: 1.0.0
-Date: November 15, 2025
 """
 
 from typing import TYPE_CHECKING, Any

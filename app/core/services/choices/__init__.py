@@ -36,9 +36,6 @@ Documentation:
 Architecture Notes:
 - ChoicesRelationshipService replaced by UnifiedRelationshipService (December 2025)
 - ChoicesAnalyticsService consolidated into ChoicesIntelligenceService (January 2026)
-
-Version: 3.2.0
-Date: 2026-01-29
 """
 
 from core.services.choices.choices_core_service import ChoicesCoreService

@@ -3,15 +3,6 @@ Enhanced Events Service - Facade Pattern
 ==========================================
 
 Events service facade that delegates to specialized sub-services.
-This service provides a unified interface while maintaining clean separation of concerns.
-
-Version: 7.2.0
-- v7.2.0: Typed Request Objects pattern - service methods accept typed request objects (November 29, 2025)
-- v7.1.0: Added EventsSearchService for search/discovery (November 28, 2025)
-- v7.0.0: Facade pattern implementation with 5 specialized sub-services (October 13, 2025)
-- v6.0.0: Phase 1-4 integration with pure Cypher graph intelligence (October 3, 2025)
-- v5.0.0: Enhanced with habit reinforcement and UserContext awareness
-- v4.0.0: Three-tier architecture implementation
 
 Sub-Services:
 - EventsCoreService: CRUD operations
@@ -19,9 +10,7 @@ Sub-Services:
 - EventsHabitIntegrationService: Cross-domain habits integration
 - EventsLearningService: Learning path integration
 - UnifiedRelationshipService (EVENTS_CONFIG): Graph relationships and semantic connections
-- EventsIntelligenceService: pure Cypher analytics
-
-Architecture: Zero breaking changes - all existing code continues to work unchanged.
+- EventsIntelligenceService: Pure Cypher analytics
 """
 
 from __future__ import annotations

@@ -4,8 +4,6 @@ Analytics Metrics Service
 
 Calculates statistical metrics for all domains AND layers.
 
-Version: 2.0.0 (October 24, 2025) - Added Layer 0 and Layer 2 metrics
-
 This service extracts metrics from:
 
 **Layer 1 Domains (7):**

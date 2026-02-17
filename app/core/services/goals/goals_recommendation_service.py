@@ -9,9 +9,6 @@ Responsibilities:
 - Suggest progressive goals based on domain/type
 - Identify goal sequences and learning paths
 - Publish recommendation events for UI display
-
-Version: 1.0.0
-Date: 2025-11-05
 """
 
 from datetime import datetime

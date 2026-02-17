@@ -10,9 +10,6 @@ Responsibilities:
 - Knowledge practice tracking
 - Goal support analysis
 - Cross-domain graph intelligence
-
-Version: 1.0.0
-Date: 2025-10-13
 """
 
 from typing import TYPE_CHECKING, Any
@@ -243,7 +240,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Ku]):
         return await self.analyze_habit_performance(uid, min_confidence)
 
     # ========================================================================
-    # PHASE 1-4 APOC-OPTIMIZED METHODS
+    # GRAPH INTELLIGENCE METHODS
     # ========================================================================
 
     @requires_graph_intelligence("get_habit_with_context")

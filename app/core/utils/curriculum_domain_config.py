@@ -155,7 +155,7 @@ def create_curriculum_sub_services(
     It eliminates repetitive initialization code and ensures consistent wiring.
 
     Args:
-        domain: Domain name ("ku", "ls", "lp", "moc")
+        domain: Domain name ("ku", "ls", "lp")
         backend: Domain backend operations (UniversalNeo4jBackend[T])
         graph_intel: GraphIntelligenceService for analytics (REQUIRED for consistency)
         event_bus: Event bus for domain events (optional)

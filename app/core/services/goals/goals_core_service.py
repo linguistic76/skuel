@@ -9,12 +9,6 @@ Responsibilities:
 - Delegates create/update/DETACH DELETE to backend via BaseService
 - Publishes domain events (GoalCreated, GoalAchieved, GoalProgressUpdated, GoalAbandoned)
 
-Version: 2.3.0
-Date: 2026-01-10
-
-Changelog:
-- v2.3.0 (2026-01-10): Phase 3 - Registry-driven get_with_context().
-  Removed custom override, now uses BaseService.get_with_context() with
   RelationshipRegistry (GOALS_CONFIG). Shared-neighbor pattern for
   related_goals is now defined in the registry.
   See: /core/models/relationship_registry.py

@@ -28,9 +28,6 @@ and learning path integration.
 - suggest_habit_frequency(): Recommend frequency
 - suggest_habit_stacking(): Find habits to stack
 - create_habit_from_learning_step(): Generate practice habit
-
-Version: 1.0.0
-Date: 2026-01-19
 """
 
 from __future__ import annotations

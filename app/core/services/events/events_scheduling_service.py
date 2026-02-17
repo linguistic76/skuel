@@ -15,9 +15,6 @@ Handles event scheduling, conflict detection, and learning path integration.
 Similar to TasksSchedulingService but focused on calendar-based scheduling.
 Events are temporal entities, so scheduling focuses on time slots and conflicts
 rather than prerequisites and dependencies.
-
-Version: 1.0.0
-Date: 2026-01-19
 """
 
 from datetime import date, datetime, time, timedelta

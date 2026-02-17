@@ -3,15 +3,6 @@ Enhanced Goals Service - Facade Pattern
 ========================================
 
 Goals service facade that delegates to specialized sub-services.
-This service provides a unified interface while maintaining clean separation of concerns.
-
-Version: 7.0.0
-- v7.0.0: Added GoalsSchedulingService for capacity and schedule management (January 19, 2026)
-- v6.1.0: Added GoalsSearchService for search/discovery (November 28, 2025)
-- v6.0.0: Facade pattern implementation with 5 specialized sub-services (October 13, 2025)
-- v5.0.0: Phase 1-4 integration with pure Cypher graph intelligence (October 3, 2025)
-- v4.0.0: Enhanced with learning integration and UserContext awareness
-- v3.0.0: Base implementation with protocol interfaces
 
 Sub-Services:
 - GoalsCoreService: CRUD operations
@@ -21,9 +12,7 @@ Sub-Services:
 - GoalsSchedulingService: Capacity management and schedule optimization (January 2026)
 - UnifiedRelationshipService (GOALS_CONFIG): Graph relationships and cross-domain links
 - GoalsIntelligenceService: pure Cypher analytics
-- GoalsRecommendationService: Intelligent goal recommendations (Phase 4 event-driven)
-
-Architecture: Zero breaking changes - all existing code continues to work unchanged.
+- GoalsRecommendationService: Intelligent goal recommendations
 """
 
 from __future__ import annotations

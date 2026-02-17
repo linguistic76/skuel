@@ -2,64 +2,15 @@
 Analytics Service - Facade Pattern (4-Service Architecture)
 ============================================================
 
-**ARCHITECTURAL PATTERN: Meta-Service (Statistical Aggregator)**
-----------------------------------------------------------------
-Analytics is NOT a domain - it's a meta-layer service that sits ABOVE all domains.
+Analytics is a meta-service (statistical aggregator) that sits above all domains.
+READ-ONLY aggregation across all domain services — no graph entities, no writes.
 
-**Unique Characteristics:**
-- NOT in Domain enum (no Domain.ANALYTICS)
-- NO graph entities (Analytics nodes don't exist in Neo4j)
-- NO relationship service (analytics don't create edges)
-- READ-ONLY aggregation (queries domains, never writes)
-- Spans ALL layers (0: Curriculum, 1: Activity, 2: Pipeline, 3: Life Path)
+Sub-Services:
+- AnalyticsMetricsService: Layer 0, 1, 2 metrics
+- AnalyticsAggregationService: Cross-domain synthesis
+- AnalyticsLifePathService: Life Path alignment tracking
 
-**What Analytics Does:**
-- Queries ALL domain services (tasks, habits, goals, events, finance, choices, etc.)
-- Aggregates data into statistical metrics (completion rates, totals, averages)
-- Generates cross-domain synthesis (Life Analytics)
-- Tracks life path alignment (Layer 3 meta-metric)
-- Optionally stores markdown analytics (file-based, NOT in graph)
-
-**What Analytics Does NOT Do:**
-- Create graph entities
-- Modify domain data
-- Create relationships
-- Store in Neo4j
-- Provide AI recommendations (metrics only)
-
-**See:** /docs/architecture/REPORTS_ARCHITECTURE.md for complete documentation
-
----
-
-Generates purely statistical analytics across ALL layers.
-
-Version: 3.1.0 - Cross-Layer Metrics (October 24, 2025)
-- v3.1.0: Extended AnalyticsMetricsService with Layer 0 and Layer 2 metrics (Phase 2)
-- v3.0.0: Added AnalyticsLifePathService for Life Path alignment tracking (Phase 1)
-- v2.0.0: Facade pattern with AnalyticsMetricsService + AnalyticsAggregationService
-- v1.0.0: Monolithic implementation
-
-NEW in v3.1.0: Cross-Layer Metrics (Phase 2 Complete)
-- Knowledge substance metrics (Layer 0: theoretical, applied, practiced, embodied)
-- Curriculum progress tracking (Layer 0: learning paths, steps, mastery)
-- Journal reflection patterns (Layer 2: themes, frequency, metacognition)
-- Complete metrics coverage across ALL 4 layers
-
-Architecture:
-AnalyticsService (Facade, ~530 lines) - this file
-├── AnalyticsMetricsService (~863 lines) - ALL layers: Layer 0, Layer 1, Layer 2
-├── AnalyticsAggregationService (~570 lines) - Cross-domain synthesis
-└── AnalyticsLifePathService (~500 lines) - Life Path alignment tracking
-
-This facade:
-1. Orchestrates analytics generation for ALL layers (0, 1, 2, 3)
-2. Enables cross-domain Life Analytics (Layer 1 synthesis)
-3. Enables Life Path alignment tracking (cross-layer synthesis)
-4. Handles markdown rendering and file storage
-5. Maintains backward compatibility
-
-SKUEL's approach: Listen and respond. User asks for analytics, system provides data.
-Philosophy: "Everything flows toward the life path"
+See: /docs/architecture/REPORTS_ARCHITECTURE.md
 """
 
 from calendar import monthrange

@@ -3,22 +3,13 @@ Enhanced Choices Service - Facade Pattern
 ==========================================
 
 Choices service facade that delegates to specialized sub-services.
-This service provides a unified interface while maintaining clean separation of concerns.
-
-Version: 3.1.0
-- v3.1.0: Added ChoicesSearchService for search/discovery (November 28, 2025)
-- v3.0.0: Facade pattern implementation with 5 specialized sub-services (October 13, 2025)
-- v2.0.0: Phase 1-4 integration with pure Cypher graph intelligence (October 3, 2025)
-- v1.0.0: Initial implementation with learning path guidance integration
 
 Sub-Services:
 - ChoicesCoreService: CRUD operations
 - ChoicesSearchService: Search and discovery (DomainSearchOperations[Choice] protocol)
 - ChoicesLearningService: Learning path guidance and integration
 - UnifiedRelationshipService (CHOICES_CONFIG): Cross-domain links and semantic connections
-- ChoicesIntelligenceService: Pure Cypher analytics + decision pattern analysis (consolidated January 2026)
-
-Architecture: Zero breaking changes - all existing code continues to work unchanged.
+- ChoicesIntelligenceService: Pure Cypher analytics + decision pattern analysis
 """
 
 from __future__ import annotations

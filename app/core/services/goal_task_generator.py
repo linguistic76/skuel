@@ -4,9 +4,6 @@ Goal Task Generator Service
 
 Automatically generates tasks from goals based on milestones, knowledge requirements,
 and habit dependencies. Uses UserContext for intelligent task creation.
-
-Version: 1.1.0
-Date: 2025-10-14
 """
 
 from __future__ import annotations

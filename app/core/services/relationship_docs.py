@@ -17,9 +17,6 @@ Usage:
 
         {semantic_docs}
         '''
-
-Version: 1.0.0
-Date: November 28, 2025
 """
 
 # Standard confidence scoring documentation

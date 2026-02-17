@@ -13,9 +13,6 @@ Provides:
 - MetricsCalculator: Shared calculation utilities (Phase 5 consolidation)
 - PatternAnalyzer: Pattern detection utilities (Phase 5 consolidation)
 - TrendAnalyzer: Trend classification utilities (Phase 5 consolidation)
-
-Version: 2.3.0 (Removed redundant CrossDomainContextService — BaseAnalyticsService covers this)
-Date: February 2026
 """
 
 from core.services.intelligence.cross_domain_contexts import (

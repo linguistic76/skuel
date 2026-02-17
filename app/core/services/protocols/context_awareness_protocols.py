@@ -41,9 +41,6 @@ Protocol Hierarchy:
 - ChoiceAwareness: pending choices, decision state
 - LearningPathAwareness: learning paths, steps, progress
 - FullAwareness: complete context (for Askesis, dashboards)
-
-Version: 1.0.0
-Date: November 26, 2025
 """
 
 from typing import Any, Protocol, runtime_checkable

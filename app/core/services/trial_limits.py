@@ -16,9 +16,6 @@ Current Policy (December 2025):
 - Rate limiting (API calls): Reserved for future use
 
 Use -1 to indicate unlimited for any limit.
-
-Version: 1.1.0
-Date: 2025-12-06
 """
 
 from dataclasses import dataclass

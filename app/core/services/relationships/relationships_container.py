@@ -8,9 +8,6 @@ TaskRelationships, GoalRelationships, etc.
 
 The container is dynamically configured based on RelationshipConfig,
 allowing a single class to serve all domains.
-
-Version: 1.0.0
-Date: 2025-12-03
 """
 
 from __future__ import annotations

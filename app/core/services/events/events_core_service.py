@@ -11,9 +11,6 @@ Responsibilities:
 - Count events
 - Basic event retrieval operations
 - Publishes domain events (CalendarEventCreated, CalendarEventUpdated, etc.)
-
-Version: 2.0.0
-Date: 2025-11-05
 """
 
 from __future__ import annotations

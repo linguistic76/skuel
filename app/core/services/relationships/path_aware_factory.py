@@ -8,9 +8,6 @@ produce typed context objects.
 
 The factory maps raw Neo4j query results to domain-specific path-aware
 types (PathAwareTask, PathAwareGoal, etc.) without hardcoding domain logic.
-
-Version: 1.0.0
-Date: 2025-12-03
 """
 
 from typing import Any

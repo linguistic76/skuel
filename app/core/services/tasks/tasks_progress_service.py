@@ -16,9 +16,6 @@ Handles task completion, progress tracking, and cascade effects.
 - TasksOperations (backend protocol)
 - UserContextOperations (optional protocol - for context invalidation)
 - KuAnalyticsEngine (optional - for analytics)
-
-Version: 1.1.0
-Date: 2025-10-14
 """
 
 from __future__ import annotations

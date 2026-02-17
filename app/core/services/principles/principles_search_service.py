@@ -15,13 +15,6 @@ Implements DomainSearchOperations[Principle] protocol plus principle-specific me
 **Pattern:**
 This service follows the SearchService pattern documented in:
 /docs/patterns/search_service_pattern.md
-
-Version: 1.0.0
-Date: 2025-11-28
-
-Changelog:
-- v1.0.0 (2025-11-28): Initial implementation extracted from PrinciplesService
-  Implements DomainSearchOperations[Principle] protocol
 """
 
 from datetime import date, timedelta

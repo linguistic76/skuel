@@ -27,12 +27,6 @@ filtered, and ranked goal queries for users.
 **Static Helpers:**
 - _calculate_readiness_score_static: Prerequisites met calculation
 - _calculate_relevance_score_static: Goal/principle alignment calculation
-
-Version: 2.0.0
-Date: 2026-01-08
-History:
-- v1.0.0: Initial extraction from GoalsRelationshipService
-- v2.0.0: Migrated from GoalsGraphNativeService to UnifiedRelationshipService
 """
 
 from __future__ import annotations

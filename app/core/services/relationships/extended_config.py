@@ -7,9 +7,6 @@ Extends RelationshipConfig with complete specifications for:
 2. Link method signatures with typed parameters
 3. Cross-domain context type mappings
 4. UserContext planning method specs
-
-Version: 1.0.0
-Date: 2025-12-03
 """
 
 from dataclasses import dataclass, field

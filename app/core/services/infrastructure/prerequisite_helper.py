@@ -7,9 +7,6 @@ Consolidates duplicate prerequisite checking logic from:
 - TasksSchedulingService._validate_task_prerequisites()
 
 Provides both scoring (0.0-1.0) and validation (Result) interfaces.
-
-Version: 1.0.0
-Date: 2026-01-18
 """
 
 from __future__ import annotations

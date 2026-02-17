@@ -18,10 +18,6 @@ Total duplication: ~723 LOC across 4 services
 **The Solution:**
 Single generic helper that handles the common pattern, reducing
 each learning service's methods from ~267 LOC → ~12 LOC.
-
-Version: 1.0.0
-Date: October 16, 2025
-Phase: 4
 """
 
 from collections.abc import Callable

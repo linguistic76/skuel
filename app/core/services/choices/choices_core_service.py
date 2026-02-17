@@ -3,9 +3,6 @@ Choices Core Service - CRUD Operations
 =======================================
 
 Handles basic CRUD operations for choices.
-
-Version: 1.0.0
-- v1.0.0: Initial implementation extracted from EnhancedChoicesService (October 13, 2025)
 """
 
 from __future__ import annotations

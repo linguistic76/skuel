@@ -37,9 +37,6 @@ Documentation:
 Architecture Notes:
 - GoalsRelationshipService replaced by UnifiedRelationshipService (December 2025)
 - GoalsGraphNativeService removed, replaced by UnifiedRelationshipService (January 2026 - ADR-029)
-
-Version: 6.1.0
-Date: 2026-01-29
 """
 
 from core.services.goals.goals_core_service import GoalsCoreService

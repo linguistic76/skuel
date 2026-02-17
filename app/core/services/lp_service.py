@@ -4,41 +4,14 @@ Learning Path Service - Facade
 
 THE single owner for all learning path management in SKUEL.
 
-This facade coordinates specialized sub-services following the unified domain pattern.
+Delegates to specialized sub-services following the unified domain pattern.
 
-**Architecture (January 2026 - LP Consolidation ADR-031, LS Alignment):**
-- lp/lp_core_service.py: CRUD operations + persistence (extends BaseService)
-- lp/lp_search_service.py: Search operations (extends BaseService)
-- lp/lp_progress_service.py: Progress tracking (event-driven)
+Sub-Services:
+- LpCoreService: CRUD operations + persistence (extends BaseService)
+- LpSearchService: Search operations (extends BaseService)
+- LpProgressService: Progress tracking (event-driven)
 - UnifiedRelationshipService: Path-step associations (shared with other domains)
-- LpIntelligenceService: ALL intelligence operations including:
-  - Validation: Prerequisites, blockers, optimal path recommendations
-  - Analysis: Knowledge scope, practice gaps
-  - Adaptive: Learning sequences, next step, recommendations
-  - Context: Path with full graph context
-
-**January 2026 - Unified Intelligence Pattern:**
-Intelligence service created internally (like all other domains).
-No longer external - dead parameters removed (vectors_backend, ku_service).
-
-Consolidated from 8 sub-services to 5:
-- DELETED: lp_validation_service.py (merged to intelligence)
-- DELETED: lp_context_service.py (merged to intelligence)
-- DELETED: lp_analysis_service.py (merged to intelligence)
-- DELETED: lp_adaptive_service.py (merged to intelligence)
-
-This service is THE authority for:
-- Creating learning paths (sequences of knowledge units)
-- Persisting paths to Neo4j graph
-- Retrieving and listing
-- Managing path progress and completion
-- Building paths from prerequisites
-
-Following SKUEL principles:
-- One path forward: LpService is THE owner, no alternatives
-- Fail-fast: Requires backend for persistence operations
-- Protocol-based: Backend accessed via unified protocol
-- Result[T]: Internal error handling with boundary conversion
+- LpIntelligenceService: Validation, analysis, adaptive learning, context
 """
 
 from __future__ import annotations
