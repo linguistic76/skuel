@@ -26,7 +26,7 @@ from fasthtml.common import (
 )
 from starlette.requests import Request
 
-from core.auth import get_current_user
+from core.auth import require_authenticated_user
 from core.ui.daisy_components import Button, ButtonT, Card, Div, Option, Select, Span, Textarea
 from core.utils.logging import get_logger
 from ui.patterns.sidebar import SidebarItem, SidebarPage
@@ -385,13 +385,13 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
     @rt("/askesis/api/submit")
     async def submit_message(request: Request):
         """Handle message submission (HTMX endpoint)."""
+        user_uid = require_authenticated_user(request)
+
         form_data = await request.form()
         message = form_data.get("message", "")
         form_data.get("model", "sonnet-4.5")
 
-        # Get user
-        user_uid = get_current_user(request)
-        user_name = user_uid.replace("user_", "").title() if user_uid else "User"
+        user_name = user_uid.replace("user_", "").title()
 
         if not message:
             return P("Please enter a message", cls="text-error text-sm")
@@ -401,9 +401,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
 
         if _askesis_service:
             try:
-                result = await _askesis_service.answer_user_question(
-                    user_uid or "demo_user", message
-                )
+                result = await _askesis_service.answer_user_question(user_uid, message)
 
                 # Check for errors FIRST, use error message if available
                 if result.is_error:

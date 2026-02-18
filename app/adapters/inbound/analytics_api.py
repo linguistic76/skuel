@@ -23,9 +23,10 @@ Date: 2025-11-06
 
 from datetime import datetime
 
+from core.auth import require_authenticated_user
 from core.utils.error_boundary import boundary_handler
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)
 
@@ -63,11 +64,7 @@ def register_analytics_routes(app, services):
             - velocity_trend (accelerating/steady/slowing)
             - compared_to_previous_period (% change)
         """
-        user_uid = request.query_params.get("user_uid")
-        if not user_uid:
-            return Result.fail(
-                Errors.validation(message="user_uid is required", field="user_uid", value=None)
-            )
+        user_uid = require_authenticated_user(request)
 
         days_back = int(request.query_params.get("days_back", 30))
 
@@ -111,11 +108,7 @@ def register_analytics_routes(app, services):
             - avg_expense_amount
             - expense_frequency_per_week
         """
-        user_uid = request.query_params.get("user_uid")
-        if not user_uid:
-            return Result.fail(
-                Errors.validation(message="user_uid is required", field="user_uid", value=None)
-            )
+        user_uid = require_authenticated_user(request)
 
         days_back = int(request.query_params.get("days_back", 30))
 
@@ -160,11 +153,7 @@ def register_analytics_routes(app, services):
             - entries_per_week
             - longest_streak
         """
-        user_uid = request.query_params.get("user_uid")
-        if not user_uid:
-            return Result.fail(
-                Errors.validation(message="user_uid is required", field="user_uid", value=None)
-            )
+        user_uid = require_authenticated_user(request)
 
         days_back = int(request.query_params.get("days_back", 30))
 
@@ -207,11 +196,7 @@ def register_analytics_routes(app, services):
             - last_completion_at
             - completion_velocity (tasks per week)
         """
-        user_uid = request.query_params.get("user_uid")
-        if not user_uid:
-            return Result.fail(
-                Errors.validation(message="user_uid is required", field="user_uid", value=None)
-            )
+        user_uid = require_authenticated_user(request)
 
         # Use analytics service (query moved from route to service layer)
         result = await analytics.get_productivity_metrics(user_uid)
@@ -254,11 +239,7 @@ def register_analytics_routes(app, services):
             - last_completion_at
             - consistency_score
         """
-        user_uid = request.query_params.get("user_uid")
-        if not user_uid:
-            return Result.fail(
-                Errors.validation(message="user_uid is required", field="user_uid", value=None)
-            )
+        user_uid = require_authenticated_user(request)
 
         # Use analytics service (query moved from route to service layer)
         result = await analytics.get_habit_consistency(user_uid)
@@ -303,11 +284,7 @@ def register_analytics_routes(app, services):
             - spending_patterns
             - mood_analysis
         """
-        user_uid = request.query_params.get("user_uid")
-        if not user_uid:
-            return Result.fail(
-                Errors.validation(message="user_uid is required", field="user_uid", value=None)
-            )
+        user_uid = require_authenticated_user(request)
 
         days_back = int(request.query_params.get("days_back", 30))
 

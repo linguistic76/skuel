@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
+from core.auth import require_authenticated_user
 from core.utils.error_boundary import boundary_handler
 from core.utils.result_simplified import Errors, Result
 
@@ -67,10 +68,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
             - gaps: Knowledge units needing practice
             - recommendations: Actionable next steps
         """
-        user_uid = request.query_params.get("user_uid")
-
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
+        user_uid = require_authenticated_user(request)
 
         return await analytics_service.calculate_life_path_alignment(user_uid)
 
@@ -96,10 +94,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
             - cross_layer_insights: Synthesis across layers
             - summary: Human-readable text
         """
-        user_uid = request.query_params.get("user_uid")
-
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
+        user_uid = require_authenticated_user(request)
 
         # Parse start_date or default to current week Monday
         start_date_str = request.query_params.get("start_date")
@@ -137,12 +132,9 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
             - monthly_trends: Completion trends over month
             - goal_progress_analysis: Goal achievement details
         """
-        user_uid = request.query_params.get("user_uid")
+        user_uid = require_authenticated_user(request)
         year_str = request.query_params.get("year")
         month_str = request.query_params.get("month")
-
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
         if not year_str or not month_str:
             return Result.fail(Errors.validation("year and month are required", field="year,month"))
@@ -179,12 +171,9 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
             - strategic_insights: Long-term assessment
             - quarter_summary: Strategic narrative
         """
-        user_uid = request.query_params.get("user_uid")
+        user_uid = require_authenticated_user(request)
         year_str = request.query_params.get("year")
         quarter_str = request.query_params.get("quarter")
-
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
         if not year_str or not quarter_str:
             return Result.fail(
@@ -225,11 +214,8 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
             - growth_opportunities: Areas for improvement
             - year_summary: Annual retrospective
         """
-        user_uid = request.query_params.get("user_uid")
+        user_uid = require_authenticated_user(request)
         year_str = request.query_params.get("year")
-
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
         if not year_str:
             return Result.fail(Errors.validation("year is required", field="year"))
@@ -266,12 +252,9 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
             - time_allocation
             - domain_balance
         """
-        user_uid = request.query_params.get("user_uid")
+        user_uid = require_authenticated_user(request)
         start_date_str = request.query_params.get("start_date")
         end_date_str = request.query_params.get("end_date")
-
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
         if not start_date_str or not end_date_str:
             return Result.fail(

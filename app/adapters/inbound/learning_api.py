@@ -18,6 +18,7 @@ from typing import Any
 
 from fasthtml.common import Request
 
+from core.auth import require_authenticated_user
 from core.infrastructure.routes import CRUDRouteFactory, IntelligenceRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
@@ -142,7 +143,7 @@ def create_learning_api_routes(
     @boundary_handler()
     async def get_progress_summary_route(request: Request) -> Result[Any]:
         """Get comprehensive learning progress summary for a user."""
-        request.query_params.get("user_uid", "demo_user")
+        require_authenticated_user(request)
 
         return Result.fail(
             Errors.system(
@@ -158,7 +159,7 @@ def create_learning_api_routes(
     @boundary_handler()
     async def get_path_recommendations_route(request: Request) -> Result[Any]:
         """Get recommended learning paths for a user."""
-        request.query_params.get("user_uid", "demo_user")
+        require_authenticated_user(request)
 
         return Result.fail(
             Errors.system(

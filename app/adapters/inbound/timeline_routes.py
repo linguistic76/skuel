@@ -25,6 +25,7 @@ from components.timeline_components import (
     render_timeline_error,
     render_timeline_viewer_page,
 )
+from core.auth import require_authenticated_user
 from core.infrastructure.routes import DomainRouteConfig, register_domain_routes
 from core.models.enums import KuStatus
 from core.utils.error_boundary import boundary_handler
@@ -66,6 +67,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
         Note: This route does NOT use @boundary_handler because it needs custom
         Content-Disposition headers for file downloads.
         """
+        require_authenticated_user(request)
         try:
             logger.info(
                 "Timeline API request received",
@@ -203,6 +205,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
         Same parameters as full timeline export but returns JSON with preview data.
         Useful for UI previews before full export.
         """
+        require_authenticated_user(request)
         try:
             # Use same parameter parsing as main endpoint
             start_date_parsed = None
@@ -304,16 +307,9 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
 
         Returns interactive Vis.js timeline viewer HTML page.
         """
+        user_uid = require_authenticated_user(request)
+
         try:
-            # Try to get user_uid from session
-            user_uid = None
-            try:
-                from core.auth import require_authenticated_user
-
-                user_uid = require_authenticated_user(request)
-            except Exception:
-                pass  # Anonymous viewing allowed
-
             # Render page using Vis.js Timeline component
             return Result.ok(
                 render_timeline_viewer_page(

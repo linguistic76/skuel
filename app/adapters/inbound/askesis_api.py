@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
+from core.auth import require_authenticated_user
 from core.models.askesis.askesis_request import (
     AskesisAnalyticsRequest,
     AskesisCreateRequest,
@@ -89,18 +90,8 @@ def create_askesis_api_routes(
         Example:
             GET /api/askesis/ask?user_uid=user.mike&question=What should I learn next?
         """
-        user_uid = request.query_params.get("user_uid")
+        user_uid = require_authenticated_user(request)
         question = request.query_params.get("question")
-
-        # Validate required parameters
-        if not user_uid:
-            return Result.fail(
-                Errors.validation(
-                    message="user_uid is required",
-                    field="user_uid",
-                    value=None,
-                )
-            )
 
         if not question:
             return Result.fail(
@@ -124,8 +115,9 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/user")
     @boundary_handler()
-    async def get_user_askesis_route(request: Request, user_uid: str) -> Result:
+    async def get_user_askesis_route(request: Request) -> Result:
         """Get user's Askesis AI assistant instance (or create if not exists)."""
+        user_uid = require_authenticated_user(request)
 
         if not askesis_core_service:
             return Result.fail(
@@ -142,19 +134,10 @@ def create_askesis_api_routes(
     @boundary_handler(success_status=201)
     async def create_askesis_instance_route(request: Request) -> Result:
         """Create new Askesis AI assistant instance."""
+        user_uid = require_authenticated_user(request)
         body = await request.json()
 
         askesis_request = AskesisCreateRequest.model_validate(body)
-        user_uid = body.get("user_uid")
-
-        if not user_uid:
-            return Result.fail(
-                Errors.validation(
-                    message="user_uid is required",
-                    field="user_uid",
-                    value=None,
-                )
-            )
 
         if not askesis_core_service:
             return Result.fail(
@@ -531,17 +514,17 @@ def create_askesis_api_routes(
 
         Uses the RAG pipeline to suggest relevant domains and entities.
         """
+        user_uid = require_authenticated_user(request)
         body = await request.json()
 
         DomainSuggestionRequest.model_validate(body)
-        user_uid = body.get("user_uid")
         query = body.get("query")
 
-        if not user_uid or not query:
+        if not query:
             return Result.fail(
                 Errors.validation(
-                    message="user_uid and query are required",
-                    field="user_uid/query",
+                    message="query is required",
+                    field="query",
                     value=None,
                 )
             )

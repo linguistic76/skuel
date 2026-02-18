@@ -11,11 +11,9 @@ UI for report projects following SKUEL's transparency principles:
 Uses DaisyUI/Tailwind components for clean, consistent design.
 """
 
-from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import H1, H2, H3, Code, Form, Li, P, Pre, Ul
-from starlette.requests import Request
 
 from core.auth import require_teacher
 from core.ui.daisy_components import (
@@ -53,9 +51,9 @@ class ReportProjectUIComponents:
 
         # Get user_uid from session if not provided
         if user_uid is None and request:
-            from core.auth import get_current_user
+            from core.auth import require_authenticated_user
 
-            user_uid = get_current_user(request) or "user.default"
+            user_uid = require_authenticated_user(request)
 
         return Div(
             navbar,
@@ -465,28 +463,6 @@ class ReportProjectUIComponents:
 # ============================================================================
 
 
-@dataclass
-class ReportProjectParams:
-    """Typed parameters for report project queries."""
-
-    user_uid: str
-
-
-def parse_report_project_params(request: Request) -> ReportProjectParams:
-    """
-    Extract report project parameters from request query params.
-
-    Args:
-        request: Starlette request object
-
-    Returns:
-        Typed ReportProjectParams with defaults applied
-    """
-    return ReportProjectParams(
-        user_uid=request.query_params.get("user_uid", "user.default"),
-    )
-
-
 # ============================================================================
 # ROUTE HANDLERS
 # ============================================================================
@@ -528,16 +504,15 @@ def create_assignments_ui_routes(
     async def report_projects_dashboard(request, current_user=None) -> Any:
         """Report projects dashboard."""
         try:
-            # Parse typed parameters
-            params = parse_report_project_params(request)
+            user_uid = current_user.uid if current_user else None
 
             # Get user's projects
-            result = await report_projects_service.list_user_projects(params.user_uid)
+            result = await report_projects_service.list_user_projects(user_uid)
 
             projects = [] if result.is_error else result.value
 
             return ReportProjectUIComponents.render_projects_dashboard(
-                projects=projects, request=request
+                projects=projects, request=request, user_uid=user_uid
             )
 
         except Exception as e:
@@ -548,12 +523,9 @@ def create_assignments_ui_routes(
     @require_teacher(get_user_service_instance)
     async def new_project_form(request, current_user=None) -> Any:
         """New project form."""
-        # Parse typed parameters
-        params = parse_report_project_params(request)
+        user_uid = current_user.uid if current_user else None
 
-        return ReportProjectUIComponents.render_project_editor(
-            user_uid=params.user_uid, mode="create"
-        )
+        return ReportProjectUIComponents.render_project_editor(user_uid=user_uid, mode="create")
 
     @app.get("/ui/report-projects/{uid}/edit")
     @require_teacher(get_user_service_instance)

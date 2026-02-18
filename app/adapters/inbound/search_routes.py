@@ -315,6 +315,8 @@ def create_search_routes(
                 "tags": "python,beginner"
             }
         """
+        require_authenticated_user(request)
+
         if not query.strip():
             return {"error": "Query is required", "total_count": 0, "results_by_domain": {}}
 

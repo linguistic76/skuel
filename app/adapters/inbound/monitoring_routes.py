@@ -15,6 +15,7 @@ from typing import Any
 from fasthtml.common import JSONResponse
 from starlette.requests import Request
 
+from core.auth import require_admin
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.monitoring")
@@ -48,10 +49,14 @@ def create_monitoring_routes(app: Any, rt: Any, services: Any) -> list[Any]:
             }
         )
 
+    def get_user_service():
+        return services.user_service
+
     @rt("/api/monitoring/embedding-worker")
-    async def embedding_worker_metrics(request: Request):
+    @require_admin(get_user_service)
+    async def embedding_worker_metrics(request: Request, current_user=None):
         """
-        Get embedding background worker metrics.
+        Get embedding background worker metrics. Requires ADMIN role.
 
         Returns worker performance statistics including:
         - Total entities processed
@@ -93,9 +98,10 @@ def create_monitoring_routes(app: Any, rt: Any, services: Any) -> list[Any]:
             )
 
     @rt("/api/monitoring/system")
-    async def system_metrics(request: Request):
+    @require_admin(get_user_service)
+    async def system_metrics(request: Request, current_user=None):
         """
-        Get overall system metrics.
+        Get overall system metrics. Requires ADMIN role.
 
         Returns:
             200: System statistics (JSON)

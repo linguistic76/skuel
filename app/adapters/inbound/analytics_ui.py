@@ -37,6 +37,7 @@ from fasthtml.common import (
 )
 from starlette.requests import Request
 
+from core.auth import require_authenticated_user
 from core.models.enums import AnalyticsDomain
 from core.ui.daisy_components import Button, ButtonT
 from core.ui.shared_components import MetricCard, QuickMetricCard
@@ -648,44 +649,10 @@ class PeriodParams:
     period: str
 
 
-@dataclass
-class AnalyticsViewParams:
-    """Typed parameters for analytics viewing."""
-
-    user_uid: str
-    analytics_domain: str
-    period: str
-
-
-@dataclass
-class UserAnalyticsParams:
-    """Typed parameters for user-specific analytics."""
-
-    user_uid: str
-    start_date: str | None
-
-
 def parse_period_params(request: Request) -> PeriodParams:
     """Extract period parameters from request query params."""
     return PeriodParams(
         period=request.query_params.get("period", ""),
-    )
-
-
-def parse_analytics_view_params(request: Request) -> AnalyticsViewParams:
-    """Extract analytics view parameters from request query params."""
-    return AnalyticsViewParams(
-        user_uid=request.query_params.get("user_uid", "user.default"),
-        analytics_domain=request.query_params.get("analytics_domain", "tasks"),
-        period=request.query_params.get("period", "month_current"),
-    )
-
-
-def parse_user_analytics_params(request: Request) -> UserAnalyticsParams:
-    """Extract user analytics parameters from request query params."""
-    return UserAnalyticsParams(
-        user_uid=request.query_params.get("user_uid", "user.default"),
-        start_date=request.query_params.get("start_date"),
     )
 
 
@@ -710,12 +677,13 @@ def create_analytics_ui_routes(app, rt, analytics_service):
     @app.get("/ui/analytics")
     async def analytics_dashboard(request) -> Any:
         """Analytics dashboard"""
+        require_authenticated_user(request)
         return AnalyticsUIComponents.render_analytics_dashboard(request)
 
     @app.get("/ui/analytics/period-fields")
     async def get_period_fields(request) -> Any:
         """Get dynamic period input fields"""
-        # Parse typed parameters
+        require_authenticated_user(request)
         params = parse_period_params(request)
 
         return AnalyticsUIComponents.render_period_fields(params.period)
@@ -723,29 +691,30 @@ def create_analytics_ui_routes(app, rt, analytics_service):
     @app.get("/ui/analytics/view")
     async def view_analytics(request) -> Any:
         """Generate and view analytics"""
+        user_uid = require_authenticated_user(request)
         try:
-            # Parse typed parameters
-            params = parse_analytics_view_params(request)
+            analytics_domain_str = request.query_params.get("analytics_domain", "tasks")
+            period = request.query_params.get("period", "month_current")
 
             # Parse analytics domain
-            analytics_domain = AnalyticsDomain(params.analytics_domain)
+            analytics_domain = AnalyticsDomain(analytics_domain_str)
 
             # Calculate dates based on period
-            if params.period == "week_current":
+            if period == "week_current":
                 today = date.today()
                 week_start = today - timedelta(days=today.weekday())
                 result = await analytics_service.generate_weekly_report(
-                    params.user_uid, analytics_domain, week_start
+                    user_uid, analytics_domain, week_start
                 )
-            elif params.period == "month_current":
+            elif period == "month_current":
                 today = date.today()
                 result = await analytics_service.generate_monthly_report(
-                    params.user_uid, analytics_domain, today.year, today.month
+                    user_uid, analytics_domain, today.year, today.month
                 )
-            elif params.period == "year_current":
+            elif period == "year_current":
                 today = date.today()
                 result = await analytics_service.generate_yearly_report(
-                    params.user_uid, analytics_domain, today.year
+                    user_uid, analytics_domain, today.year
                 )
             # Add more period handling...
             else:
@@ -776,12 +745,11 @@ def create_analytics_ui_routes(app, rt, analytics_service):
     @app.get("/ui/analytics/life-path-alignment")
     async def life_path_alignment_ui(request) -> Any:
         """Render Life Path alignment dashboard UI"""
-        # Parse typed parameters
-        params = parse_user_analytics_params(request)
+        user_uid = require_authenticated_user(request)
 
         try:
             # Get alignment data from service
-            result = await analytics_service.calculate_life_path_alignment(params.user_uid)
+            result = await analytics_service.calculate_life_path_alignment(user_uid)
 
             if result.is_error:
                 return Div(P(f"Error: {result.expect_error().message}", cls="text-error p-4"))
@@ -800,23 +768,23 @@ def create_analytics_ui_routes(app, rt, analytics_service):
     @app.get("/ui/analytics/weekly-life-summary")
     async def weekly_life_summary_ui(request) -> Any:
         """Render weekly life summary UI (ALL layers)"""
-        # Parse typed parameters
-        params = parse_user_analytics_params(request)
+        user_uid = require_authenticated_user(request)
+        start_date_str = request.query_params.get("start_date")
 
         try:
             # Parse start date if provided
-            if params.start_date:
+            if start_date_str:
                 try:
-                    start_date = date.fromisoformat(params.start_date)
+                    start_date = date.fromisoformat(start_date_str)
                 except ValueError:
                     return Div(P("Invalid date format. Use YYYY-MM-DD.", cls="text-error p-4"))
 
                 result = await analytics_service.generate_weekly_life_summary(
-                    params.user_uid, week_start=start_date
+                    user_uid, week_start=start_date
                 )
             else:
                 # Default to current week
-                result = await analytics_service.generate_weekly_life_summary(params.user_uid)
+                result = await analytics_service.generate_weekly_life_summary(user_uid)
 
             if result.is_error:
                 return Div(P(f"Error: {result.expect_error().message}", cls="text-error p-4"))
