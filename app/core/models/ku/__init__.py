@@ -58,6 +58,7 @@ from .assignment_request import (
     KuFeedbackGenerateRequest,
 )
 from .ku import Ku
+from .ku_base import KuBase
 from .ku_chunks import KuChunk, KuChunkType, chunk_content
 from .ku_content import KuContent
 from .ku_converters import ku_to_response
@@ -119,6 +120,7 @@ from .lp_position import LpPosition, create_lp_position
 __all__ = [
     # Core domain models
     "Ku",
+    "KuBase",
     "KuChunk",
     "KuChunkType",
     # Content models
