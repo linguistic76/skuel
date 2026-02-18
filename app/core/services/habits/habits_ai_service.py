@@ -23,7 +23,7 @@ The app works WITHOUT this service. It's an enhancement layer.
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.ku import Ku
+from core.models.ku.ku_habit import HabitKu
 from core.services.base_ai_service import BaseAIService
 from core.services.protocols import HabitsOperations
 from core.utils.result_simplified import Errors, Result
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
 
 
-class HabitsAIService(BaseAIService[HabitsOperations, Ku]):
+class HabitsAIService(BaseAIService[HabitsOperations, HabitKu]):
     """
     AI-powered features for Habits domain.
 

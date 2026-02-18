@@ -1042,6 +1042,7 @@ async def compose_services(
         from core.models.habit.completion import HabitCompletion
         from core.models.ku.ku import Ku
         from core.models.ku.ku_goal import GoalKu
+        from core.models.ku.ku_habit import HabitKu
         from core.models.ku.ku_task import TaskKu
 
         # NOTE: MapOfContent import removed (January 2026) - MOC is now KU-based
@@ -1068,10 +1069,10 @@ async def compose_services(
             prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "event"},
         )
-        habits_backend = UniversalNeo4jBackend[Ku](
+        habits_backend = UniversalNeo4jBackend[HabitKu](
             driver,
             NeoLabel.KU,
-            Ku,
+            HabitKu,
             prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "habit"},
         )

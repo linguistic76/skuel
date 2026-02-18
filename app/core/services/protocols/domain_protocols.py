@@ -90,8 +90,7 @@ if TYPE_CHECKING:
     from core.models.finance.finance_pure import BudgetPure, ExpensePure
     from core.models.finance.invoice import InvoicePure
     from core.models.ku.ku import Ku
-    from core.models.ku.ku import Ku as Habit
-    from core.models.ku.ku_goal import GoalKu  # noqa: F401 (used in BackendOperations["GoalKu"])
+    from core.models.ku.ku_habit import HabitKu
     from core.models.ku.ku_task import TaskKu
     from core.models.type_hints import EntityUID, Metadata
     from core.utils.result_simplified import Result
@@ -425,7 +424,7 @@ class EventsOperations(BackendOperations["Ku"], GraphRelationshipOperations, Pro
 
 
 @runtime_checkable
-class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, Protocol):
+class HabitsOperations(BackendOperations["HabitKu"], GraphRelationshipOperations, Protocol):
     """Core habit tracking operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -464,16 +463,16 @@ class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, 
         """Archive a habit. Returns Result[bool]."""
         ...
 
-    async def get_habit(self, habit_id: str) -> Result[Habit]:
+    async def get_habit(self, habit_id: str) -> Result[HabitKu]:
         """Get a habit by ID. Not found is an error."""
         ...
 
-    async def get(self, habit_id: str) -> Result[Habit | None]:
+    async def get(self, habit_id: str) -> Result[HabitKu | None]:
         """Get a habit by ID. Returns None if not found."""
         ...
 
-    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
-        """Get all habits for a user. Returns Result[list[Habit]]."""
+    async def get_user_habits(self, user_uid: str) -> Result[list[HabitKu]]:
+        """Get all habits for a user. Returns Result[list[HabitKu]]."""
         ...
 
     async def list(
@@ -483,12 +482,12 @@ class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, 
         filters: dict[str, Any] | None = None,
         sort_by: str | None = None,
         sort_order: str = "asc",
-    ) -> Result[tuple[builtins.list[Habit], int]]:
+    ) -> Result[tuple[builtins.list[HabitKu], int]]:
         """List habits with optional filters. Returns Result[(habits, total_count)]."""
         ...
 
-    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[builtins.list[Habit]]:
-        """List all habits for a user. Returns Result[list[Habit]]."""
+    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[builtins.list[HabitKu]]:
+        """List all habits for a user. Returns Result[list[HabitKu]]."""
         ...
 
     async def create_user_habit_relationship(self, user_uid: str, habit_uid: str) -> bool:
@@ -522,7 +521,7 @@ class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, 
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[builtins.list[Habit]]:
+    ) -> Result[builtins.list[HabitKu]]:
         """
         Get user's habits in date range - unified interface for meta-services.
 
@@ -533,7 +532,7 @@ class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, 
             include_completed: Include archived habits (default: False)
 
         Returns:
-            Result[list[Habit]] filtered by user and archived status
+            Result[list[HabitKu]] filtered by user and archived status
 
         Implementation:
             Filters by user_uid, excludes archived habits unless include_completed=True

@@ -53,8 +53,8 @@ if TYPE_CHECKING:
     from core.models.goal.goal_request import GoalCreateRequest
     from core.models.habit.habit_request import HabitCreateRequest
     from core.models.ku.ku import Ku
-    from core.models.ku.ku import Ku as Habit
     from core.models.ku.ku_goal import GoalKu
+    from core.models.ku.ku_habit import HabitKu
     from core.models.ku.ku_request import KuChoiceCreateRequest, KuUpdateRequest
     from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
     from core.models.ku.ku_task import TaskKu as Task
@@ -149,27 +149,29 @@ class GoalsCoreOperations(Protocol):
 class HabitsCoreOperations(Protocol):
     """Protocol for HabitsCoreService methods accessed via HabitsService.core"""
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Habit]:
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[HabitKu]:
         """Verify user owns the habit, return habit if owned."""
         ...
 
-    async def create(self, entity: Habit) -> Result[Habit]:
+    async def create(self, entity: HabitKu) -> Result[HabitKu]:
         """Create a new habit."""
         ...
 
-    async def create_habit(self, habit_request: HabitCreateRequest, user_uid: str) -> Result[Habit]:
+    async def create_habit(
+        self, habit_request: HabitCreateRequest, user_uid: str
+    ) -> Result[HabitKu]:
         """Create a habit from a request with user_uid."""
         ...
 
-    async def get_habit(self, uid: str) -> Result[Habit]:
+    async def get_habit(self, uid: str) -> Result[HabitKu]:
         """Get a habit by UID."""
         ...
 
-    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
+    async def get_user_habits(self, user_uid: str) -> Result[list[HabitKu]]:
         """Get all habits for a user."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Habit]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[HabitKu]:
         """Update a habit."""
         ...
 
@@ -1176,7 +1178,9 @@ class HabitsFacadeProtocol(Protocol):
     # Explicit facade methods (not delegated)
     # ========================================================================
 
-    async def create_habit(self, habit_request: HabitCreateRequest, user_uid: str) -> Result[Habit]:
+    async def create_habit(
+        self, habit_request: HabitCreateRequest, user_uid: str
+    ) -> Result[HabitKu]:
         """Create a habit from a request with user_uid."""
         ...
 

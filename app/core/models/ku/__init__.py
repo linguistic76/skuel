@@ -64,6 +64,7 @@ from .ku_content import KuContent
 from .ku_converters import ku_to_response
 from .ku_dto import KuDTO
 from .ku_goal import GoalKu
+from .ku_habit import HabitKu
 from .ku_metadata import KuMetadata
 from .ku_nested_types import (
     AlignmentAssessment,
@@ -125,6 +126,7 @@ __all__ = [
     "KuBase",
     "TaskKu",
     "GoalKu",
+    "HabitKu",
     "KU_TYPE_CLASS_MAP",
     "KuChunk",
     "KuChunkType",

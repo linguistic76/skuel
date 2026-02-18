@@ -19,8 +19,8 @@ from typing import Any
 from core.events import HabitCompleted, HabitStreakBroken, HabitStreakMilestone, publish_event
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.completion import HabitCompletion
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_habit import HabitKu
 from core.services.habits.habit_relationships import HabitRelationships
 from core.services.protocols.domain_protocols import HabitsOperations
 from core.services.protocols.query_types import HabitUpdatePayload
@@ -108,7 +108,9 @@ class HabitsProgressService:
     #
     # ========================================================================
 
-    def _get_habit_from_rich_context(self, habit_uid: str, user_context: UserContext) -> Ku | None:
+    def _get_habit_from_rich_context(
+        self, habit_uid: str, user_context: UserContext
+    ) -> HabitKu | None:
         """
         Try to get Habit entity from UserContext rich data.
 
@@ -173,7 +175,7 @@ class HabitsProgressService:
 
         return None
 
-    def _dict_to_habit(self, habit_dict: dict[str, Any]) -> Ku:
+    def _dict_to_habit(self, habit_dict: dict[str, Any]) -> HabitKu:
         """
         Convert a habit dict (from rich context) to Habit domain model.
 
@@ -211,7 +213,7 @@ class HabitsProgressService:
             created_at=habit_dict.get("created_at"),
             updated_at=habit_dict.get("updated_at"),
         )
-        return to_domain_model(dto, KuDTO, Ku)
+        return to_domain_model(dto, KuDTO, HabitKu)
 
     def _get_streak_from_context(self, habit_uid: str, user_context: UserContext) -> int | None:
         """
@@ -239,7 +241,7 @@ class HabitsProgressService:
         user_context: UserContext,
         quality_score: int = 4,  # 1-5 scale,
         completion_date: date | None = None,
-    ) -> Result[Ku]:
+    ) -> Result[HabitKu]:
         """
         Complete a habit with quality tracking and cascade effects.
 
@@ -275,7 +277,7 @@ class HabitsProgressService:
             habit_result = await self.backend.get_habit(habit_uid)
             if habit_result.is_error:
                 return Result.fail(habit_result.expect_error())
-            habit = to_domain_model(habit_result.value, KuDTO, Ku)
+            habit = to_domain_model(habit_result.value, KuDTO, HabitKu)
 
         if context_hit:
             self.logger.debug(f"Context-first HIT: habit {habit_uid} from rich context")
@@ -365,7 +367,7 @@ class HabitsProgressService:
         # Context invalidation happens via HabitCompleted/HabitStreakBroken/HabitStreakMilestone events (event-driven architecture)
         # Event handlers in bootstrap will call user_service.invalidate_context()
 
-        completed_habit = to_domain_model(update_result.value, KuDTO, Ku)
+        completed_habit = to_domain_model(update_result.value, KuDTO, HabitKu)
 
         # PUBLISH EVENTS
 
@@ -419,7 +421,7 @@ class HabitsProgressService:
 
     async def get_at_risk_habits(
         self, user_context: UserContext, _risk_threshold_days: int = 3
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[HabitKu]]:
         """
         Get habits at risk of breaking their streaks.
 
@@ -441,7 +443,7 @@ class HabitsProgressService:
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_ok:
                     context_misses += 1
-                    habit = to_domain_model(habit_result.value, KuDTO, Ku)
+                    habit = to_domain_model(habit_result.value, KuDTO, HabitKu)
                     at_risk.append(habit)
 
         if context_hits > 0 or context_misses > 0:
@@ -473,7 +475,7 @@ class HabitsProgressService:
             habit_result = await self.backend.get_habit(habit_uid)
             if habit_result.is_error:
                 return Result.fail(habit_result.expect_error())
-            habit = to_domain_model(habit_result.value, KuDTO, Ku)
+            habit = to_domain_model(habit_result.value, KuDTO, HabitKu)
             self.logger.debug(f"Context-first MISS: habit {habit_uid} queried for analysis")
         else:
             self.logger.debug(
@@ -539,7 +541,7 @@ class HabitsProgressService:
         return Result.ok(analysis)
 
     def _calculate_consistency_from_completions(
-        self, habit: Ku, completions: list[HabitCompletion], as_of_date: date
+        self, habit: HabitKu, completions: list[HabitCompletion], as_of_date: date
     ) -> float:
         """
         Calculate 30-day consistency score from HabitCompletion records.
@@ -570,7 +572,7 @@ class HabitsProgressService:
     # KEYSTONE HABIT MANAGEMENT
     # ========================================================================
 
-    async def get_keystone_habits(self, user_context: UserContext) -> Result[list[Ku]]:
+    async def get_keystone_habits(self, user_context: UserContext) -> Result[list[HabitKu]]:
         """
         Get user's keystone habits - habits that trigger other positive behaviors.
         """
@@ -579,14 +581,14 @@ class HabitsProgressService:
         for habit_uid in user_context.keystone_habits:
             habit_result = await self.backend.get_habit(habit_uid)
             if habit_result.is_ok:
-                habit = to_domain_model(habit_result.value, KuDTO, Ku)
+                habit = to_domain_model(habit_result.value, KuDTO, HabitKu)
                 keystone_habits.append(habit)
 
         return Result.ok(keystone_habits)
 
     async def identify_potential_keystone_habits(
         self, user_context: UserContext
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[HabitKu]]:
         """
         Identify habits that could become keystone habits based on their impact.
         """
@@ -596,7 +598,7 @@ class HabitsProgressService:
             if habit_uid not in user_context.keystone_habits:
                 habit_result = await self.backend.get_habit(habit_uid)
                 if habit_result.is_ok:
-                    habit = to_domain_model(habit_result.value, KuDTO, Ku)
+                    habit = to_domain_model(habit_result.value, KuDTO, HabitKu)
 
                     # GRAPH-NATIVE: Fetch relationships to check impact
                     rels = await HabitRelationships.fetch(habit_uid, self.relationships)
