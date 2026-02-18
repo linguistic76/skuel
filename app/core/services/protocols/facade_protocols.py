@@ -57,6 +57,23 @@ if TYPE_CHECKING:
     from core.models.ku.ku import Ku as Task
     from core.models.ku.ku_request import KuChoiceCreateRequest, KuUpdateRequest
     from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
+    from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
+    from core.services.events.events_intelligence_service import EventsIntelligenceService
+    from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
+    from core.services.habits.habits_completion_service import HabitsCompletionService
+    from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
+    from core.services.ku_intelligence_service import KuIntelligenceService
+    from core.services.lifepath.lifepath_intelligence_service import LifePathIntelligenceService
+    from core.services.ls.ls_intelligence_service import LsIntelligenceService
+    from core.services.principles.principles_alignment_service import PrinciplesAlignmentService
+    from core.services.principles.principles_intelligence_service import (
+        PrinciplesIntelligenceService,
+    )
+    from core.services.principles.principles_reflection_service import PrinciplesReflectionService
+    from core.services.protocols.infrastructure_protocols import UserOperations
+    from core.services.protocols.search_protocols import TasksSearchOperations
+    from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+    from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
     from core.services.user import UserContext
     from core.utils.result_simplified import Result
 
@@ -323,7 +340,7 @@ class GoalsFacadeProtocol(Protocol):
         ...
 
     @property
-    def intelligence(self) -> Any:
+    def intelligence(self) -> GoalsIntelligenceService:
         """Access to intelligence sub-service."""
         ...
 
@@ -526,17 +543,17 @@ class PrinciplesFacadeProtocol(Protocol):
         ...
 
     @property
-    def intelligence(self) -> Any:
+    def intelligence(self) -> PrinciplesIntelligenceService:
         """Access to intelligence sub-service."""
         ...
 
     @property
-    def reflection(self) -> Any:
+    def reflection(self) -> PrinciplesReflectionService:
         """Access to reflection sub-service for reflection-related operations."""
         ...
 
     @property
-    def alignment(self) -> Any:
+    def alignment(self) -> PrinciplesAlignmentService:
         """Access to alignment sub-service for alignment assessment operations."""
         ...
 
@@ -711,7 +728,7 @@ class LpFacadeProtocol(Protocol):
     # ========================================================================
 
     @property
-    def intelligence(self) -> Any:
+    def intelligence(self) -> LifePathIntelligenceService:
         """Access to intelligence sub-service."""
         ...
 
@@ -842,7 +859,7 @@ class TasksFacadeProtocol(Protocol):
         ...
 
     @property
-    def intelligence(self) -> Any:
+    def intelligence(self) -> TasksIntelligenceService:
         """Access to intelligence sub-service."""
         ...
 
@@ -961,7 +978,7 @@ class TasksFacadeProtocol(Protocol):
     # ========================================================================
 
     @property
-    def search(self) -> Any:
+    def search(self) -> TasksSearchOperations:
         """Access to search sub-service."""
         ...
 
@@ -1011,7 +1028,7 @@ class EventsFacadeProtocol(Protocol):
         ...
 
     @property
-    def intelligence(self) -> Any:
+    def intelligence(self) -> EventsIntelligenceService:
         """Access to intelligence sub-service."""
         ...
 
@@ -1140,7 +1157,7 @@ class HabitsFacadeProtocol(Protocol):
         ...
 
     @property
-    def intelligence(self) -> Any:
+    def intelligence(self) -> HabitsIntelligenceService:
         """Access to intelligence sub-service."""
         ...
 
@@ -1150,7 +1167,7 @@ class HabitsFacadeProtocol(Protocol):
         ...
 
     @property
-    def completions(self) -> Any:
+    def completions(self) -> HabitsCompletionService:
         """Access to completions sub-service for habit completion tracking."""
         ...
 
@@ -1294,7 +1311,7 @@ class LsFacadeProtocol(Protocol):
     # ========================================================================
 
     @property
-    def intelligence(self) -> Any:
+    def intelligence(self) -> LsIntelligenceService:
         """Access to intelligence sub-service."""
         ...
 
@@ -1335,7 +1352,7 @@ class LsFacadeProtocol(Protocol):
     # ========================================================================
 
     @property
-    def relationships(self) -> Any:
+    def relationships(self) -> UnifiedRelationshipService:
         """Access to relationships service."""
         ...
 
@@ -1369,7 +1386,7 @@ class ChoicesFacadeProtocol(Protocol):
         ...
 
     @property
-    def intelligence(self) -> Any:
+    def intelligence(self) -> ChoicesIntelligenceService:
         """Access to intelligence sub-service."""
         ...
 
@@ -1869,11 +1886,11 @@ class KuFacadeProtocol(Protocol):
         ...
 
     @property
-    def intelligence(self) -> Any:
+    def intelligence(self) -> KuIntelligenceService:
         """Access to intelligence sub-service."""
         ...
 
     @property
-    def user_service(self) -> Any:
+    def user_service(self) -> UserOperations:
         """Access to user service for context."""
         ...
