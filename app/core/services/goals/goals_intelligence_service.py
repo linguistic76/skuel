@@ -208,8 +208,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Ku]):
         "API contract defined, implementation deferred". Currently calculates analytics
         over ALL goals. Future enhancement: filter by created_at/updated_at within period.
         """
-        # Get all goals for user
-        # TODO: Filter by period_days when time-based filtering is implemented
+        # TODO [FEATURE]: Filter by period_days when time-based filtering is implemented
         goals_result = await self.backend.find_by(user_uid=user_uid)
         if goals_result.is_error:
             return Result.fail(goals_result.expect_error())

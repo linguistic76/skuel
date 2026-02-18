@@ -432,8 +432,8 @@ def TasksDomainView(context: UserContext, focus_uid: str | None = None) -> Div:
         is_overdue = uid in context.overdue_task_uids
         # Derive high priority from task_priorities dict (threshold >= 0.7)
         is_high_priority = context.task_priorities.get(uid, 0.0) >= 0.7
-        # Note: is_this_week would require due_date field - placeholder for now
-        is_this_week = False  # TODO: Calculate based on task.due_date
+        # TODO [FEATURE]: Calculate is_this_week from task.due_date
+        is_this_week = False
 
         items.append(
             {

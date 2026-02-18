@@ -264,7 +264,7 @@ def budget_dto_to_pure(dto: BudgetDTO) -> BudgetPure:
     Convert BudgetDTO to BudgetPure.
 
     NOTE: BudgetDTO is missing user_uid field.
-    TODO: Add user_uid field to BudgetDTO (should come from service layer context)
+    TODO [CLEANUP]: Add user_uid field to BudgetDTO (should come from service layer context)
     """
     return BudgetPure(
         uid=dto.uid,

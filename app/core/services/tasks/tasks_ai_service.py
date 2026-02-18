@@ -118,8 +118,7 @@ class TasksAIService(BaseAIService["BackendOperations[Ku]", Ku]):
         if task.description:
             search_text += f" {task.description}"
 
-        # Get all user's tasks as candidates
-        # TODO: Optimize to not fetch all tasks
+        # TODO [PERFORMANCE]: Use vector similarity or limit query instead of fetching all tasks
         all_tasks_result = await self.backend.find_by(user_uid=task.user_uid)
         if all_tasks_result.is_error:
             return Result.fail(all_tasks_result.expect_error())

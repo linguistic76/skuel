@@ -329,9 +329,9 @@ class GraphQLQueryHelpers:
               }
             }
         """
-        # GRAPH-NATIVE: Task knowledge relationships not accessible via GraphQL context
-        # TODO(graphql): Add tasks_relationships or tasks_backend to GraphQL context
-        # For now, return None since task.knowledge_uid field was removed
+        # GRAPH-NATIVE: Task knowledge relationships not accessible via GraphQL context.
+        # GraphQL context lacks tasks_backend — relationship data lives in Neo4j graph,
+        # queried via TasksService, not exposed here.
         return None
 
     # ========================================================================

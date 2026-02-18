@@ -1,216 +1,115 @@
-# Technical Debt - Ruff Linting Errors
+# Technical Debt & TODO Roadmap
 
-**Last Updated:** October 24, 2025
-**Total Production Errors:** 136 (down from 241)
+**Last Updated:** February 18, 2026
+**Total Production Ruff Errors:** 0
+**Active TODOs:** 7
 
 ## Philosophy
 
-We acknowledge these errors rather than suppress them. This document tracks **intentional** technical debt where fixing would provide minimal value or break working code.
+We track technical debt intentionally. Each TODO is categorized, each deferred feature has documented prerequisites. Dead TODOs are deleted, not left to rot.
 
-## Priority Levels
-
-- 🔴 **Critical:** Should fix soon (affects correctness)
-- 🟡 **Medium:** Should fix eventually (affects maintainability)
-- 🟢 **Low:** Acceptable debt (style preferences, protocol patterns)
+**Categories:** `[PERFORMANCE]` `[FEATURE]` `[ENHANCEMENT]` `[CLEANUP]`
 
 ---
 
-## 🟢 Low Priority - Acceptable Debt (106 errors)
+## Ruff Linting Status
 
-### ARG002: Unused Method Arguments (22 errors)
-**Why acceptable:** Protocol methods and interface signatures require consistent parameters even if implementations don't use them all.
+**All production errors resolved.**
 
-**Examples:**
-- Protocol methods with unused `user_uid` parameters
-- Interface methods matching third-party APIs
-- Event handler signatures with unused context parameters
+| Metric | Oct 2025 | Feb 2026 |
+|--------|----------|----------|
+| Total errors | 241 | **0** |
+| Critical | 0 | 0 |
+| Medium | 30 | **0** |
+| Low | 106 | **0** |
 
-**Action:** None - this is intentional design for interface consistency.
-
----
-
-### SIM105: Suppressible Exception (10 errors)
-**Why acceptable:** Intentional try-except-pass patterns in cleanup/finally blocks.
-
-**Examples:**
-- Database connection cleanup
-- Resource disposal in error paths
-- Logging failures that shouldn't crash the app
-
-**Action:** None - these are defensive programming patterns.
+Run: `poetry run ruff check core/ adapters/ routes/ ui/`
 
 ---
 
-### PERF401: Manual List Comprehension (8 errors)
-**Why acceptable:** Explicit loops are sometimes more readable than comprehensions.
+## Active TODOs (7 items)
 
-**Examples:**
-- Complex filtering with side effects
-- Multi-step transformations
-- Loops with early termination logic
+### Performance (1)
 
-**Action:** Convert on a case-by-case basis when refactoring nearby code.
+| File | Line | Description |
+|------|------|-------------|
+| `core/services/tasks/tasks_ai_service.py` | 122 | Fetches ALL user tasks for similarity detection. Use vector similarity search or limit query for users with many tasks. |
 
----
+### Features (3)
 
-### F401: Unused Import (8 errors)
-**Why acceptable:** Imports used in TYPE_CHECKING blocks or by dynamic code.
+| File | Line | Description |
+|------|------|-------------|
+| `ui/profile/domain_views.py` | 436 | `is_this_week` hardcoded to `False`. Calculate from `task.due_date` using week boundaries. |
+| `core/services/goals/goals_intelligence_service.py` | 212 | `_period_days` parameter accepted but unused. Filter goals by `created_at`/`updated_at` within period. |
+| `core/services/analytics/analytics_life_path_service.py` | 450 | `get_alignment_trend()` returns placeholder data. Needs historical alignment score snapshots in Neo4j + rolling average calculation. |
 
-**Action:** Review and remove if truly unused, or add `# noqa: F401` with explanation.
+### Enhancements (2)
 
----
+| File | Line | Description |
+|------|------|-------------|
+| `core/services/user/user_context_service.py` | 478 | After task completion, record: knowledge application tracking, time investment, learning progress, context cache invalidation. |
+| `core/services/query/faceted_query_builder.py` | 192 | Phase 2: Replace regex-based query parsing with `analyze_query_intent()` for semantic analysis of faceted queries. |
 
-### Minor Style Issues (58 errors)
-**Categories:**
-- ARG001/ARG002/ARG004: Unused arguments (protocol signatures, interface consistency)
-- ANN002/ANN003/ANN202: Missing type annotations (low priority in stable code)
-- ASYNC230: Blocking calls in async (intentional in some cleanup paths)
-- B007: Unused loop control variables (intentional unpacking)
-- RUF006: Asyncio dangling tasks (background workers)
-- RUF012: Mutable class defaults (class-level constants)
-- SIM: Simplification suggestions (readability trade-offs)
-- Others: Style preferences
+### Cleanup (1)
 
-**Action:** Fix incrementally during normal development.
+| File | Line | Description |
+|------|------|-------------|
+| `core/models/finance/finance_converters.py` | 267 | `BudgetDTO` missing `user_uid` field. Converter sets `user_uid=""` — service layer provides context as workaround. |
 
 ---
 
-## 🟡 Medium Priority - Should Fix Eventually (30 errors)
+## Placeholder Routes (Not TODOs)
 
-### F821: Undefined Name (17 errors)
-**Why medium:** Could indicate real bugs, but mostly in examples/demos.
+These routes exist with intentional 501 responses. They define the API contract; implementation is deferred.
 
-**Files affected:**
-- Examples and demo files (most errors)
-- Some route files with dynamic imports
-
-**Action:**
-1. Fix critical production files within 1 month
-2. Fix or remove broken examples
-3. Add proper imports where missing
-
-**Timeline:** Q1 2026
+| File | Lines | Route | Description |
+|------|-------|-------|-------------|
+| `adapters/inbound/learning_api.py` | 126 | `POST /api/learning/progress` | Progress tracking — requires progress service integration |
+| `adapters/inbound/learning_api.py` | 143 | `GET /api/learning/progress/summary` | Progress summary — requires progress service integration |
 
 ---
 
-### E402: Module Import Not at Top (12 errors)
-**Why medium:** Makes dependencies unclear, violates PEP 8.
+## Shelved Intelligence Features
 
-**Files affected:**
-- Complex bootstrap files with conditional imports
-- Files with `__version__` at top
-- Circular dependency workarounds
+These are documented, scoped, and have clear prerequisites. Not active debt — intentionally deferred until prerequisites are met.
 
-**Action:**
-1. Reorganize imports in high-traffic files
-2. Use TYPE_CHECKING for type-only imports
-3. Consider module restructuring to eliminate circular dependencies
-
-**Timeline:** Q1 2026
+| Feature | Doc | Prerequisite | Effort |
+|---------|-----|-------------|--------|
+| Semantic Analysis | `docs/intelligence/SEMANTIC_ANALYSIS_ROADMAP.md` | 50+ KUs with rich text | 3-4 days |
+| Discovery Analytics | `docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md` | 1000+ search queries logged | 2-3 days |
+| Real-time Intelligence | `docs/intelligence/REALTIME_INTELLIGENCE_ROADMAP.md` | 10+ daily active users | 3-4 days |
 
 ---
 
-### I001: Unsorted Imports (1 error)
-**Why medium:** Trivial to fix, just needs `--fix` flag.
+## Resolved Debt (Historical Summary)
 
-**Action:** Run `ruff check --fix` on affected file.
+**Oct 2025 - Feb 2026:** Major cleanup sprint.
 
-**Timeline:** Next sprint
-
----
-
-## 🔴 Critical Priority - Fix Soon (0 errors)
-
-**All critical errors have been resolved! 🎉**
-
-- ✅ No undefined critical functions (F821 in production core)
-- ✅ No import errors blocking execution (E402 in critical paths)
-- ✅ No exception handling issues (B904, B025 fixed)
-- ✅ No loop variable binding bugs (B023 fixed)
-- ✅ No ambiguous variable names (E741 fixed)
-
----
-
-## Automated Fixes Available
-
-**9 errors can be auto-fixed:**
-```bash
-poetry run ruff check core/ adapters/ --fix
-```
-
-These include:
-- F401: Unused imports (8)
-- I001: Unsorted imports (1)
-
-**Recommendation:** Run auto-fix monthly as part of maintenance.
+- **241 ruff errors eliminated** (critical, medium, and low priority — all zero)
+- **~20 stale TODOs resolved** across deleted/refactored services
+- **5 dead service files deleted** (yaml_ingestion, markdown_sync, context_aware_intelligence, event_converters, tasks_analytics)
+- **Journal model package deleted** (~1,400 lines of dead code)
+- **Transcription three-tier models deleted** (~1,540 lines)
+- **3 stale tracking files deleted** from `data/` directory
+- **Unified Ku model (ADR-041)** consolidated 15 domain types into single Ku + KuDTO
+- **ActivityStatus + GoalStatus consolidated** into KuStatus (14 values)
+- **Sync renamed to Ingestion** across entire codebase (one-way pipeline, not bidirectional)
+- **All ~72 Services dataclass fields typed** (zero `Any` remaining)
 
 ---
 
 ## Monitoring Strategy
 
-### Monthly Review
-- Check if error count is growing
-- Fix new high-priority errors immediately
-- Review if "acceptable" debt is still acceptable
-
-### Quarterly Cleanup
-- Target 10-15 medium-priority fixes
-- Re-evaluate priority levels
-- Update this document
+### Quarterly Review
+- Verify TODO count hasn't grown unchecked
+- Check if any shelved features have met prerequisites
+- Run `grep -rn "# TODO" core/ adapters/ routes/ ui/` to audit
 
 ### Before Major Releases
-- Resolve all critical errors
-- Consider resolving medium-priority errors
-- Document any new accepted debt
+- Review all `[PERFORMANCE]` TODOs for production impact
+- Verify placeholder routes are documented in API docs
 
 ---
 
-## Excluded from Linting
-
-These directories/patterns are intentionally excluded (see `pyproject.toml`):
-
-- `examples/` - Demonstration code, not production
-- `scripts/demos/` - One-off demo scripts  
-- `tests/` - Test code has different standards
-- `*.egg-info/` - Generated files
-
----
-
-## Philosophy Reminder
-
-> "Type errors as teachers, showing us where components don't flow together properly."
-
-We track this debt because:
-1. **Transparency** - We acknowledge what we're not fixing
-2. **Intentionality** - Each error is evaluated, not ignored
-3. **Evolution** - Debt may become important as code evolves
-4. **Teaching** - New developers learn why certain patterns exist
-
-This is **managed technical debt**, not swept-under-the-rug problems.
-
----
-
-## Statistics
-
-**Production Code Health:**
-- Total Python Files: ~450
-- Total Production Errors: 136
-- Error Rate: 0.30 errors per file
-- Critical Errors: 0 ✅
-- Medium Priority: 30 (22%)
-- Low Priority: 106 (78%)
-
-**Improvement Since Oct 24, 2025:**
-- Reduced from 241 → 136 errors (44% improvement)
-- Removed 30 deprecated test files
-- Fixed 105 production errors manually
-- Applied 103 automated fixes
-- Fixed all critical errors ✅
-
-**Next Milestone:** Reduce to <100 errors by Q1 2026
-
----
-
-**Last Reviewed:** October 24, 2025  
-**Next Review:** November 24, 2025  
-**Owner:** Development Team
+**Last Reviewed:** February 18, 2026
+**Next Review:** May 2026
