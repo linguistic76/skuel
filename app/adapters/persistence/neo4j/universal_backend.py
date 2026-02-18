@@ -88,6 +88,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Callable
 
     from neo4j import AsyncDriver
 
@@ -789,35 +790,24 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
         # Determine query intent
         query_intent = intent
 
-        # Check if entity has Phase 1-4 methods
+        # Use entity's domain logic to suggest intent if not provided
         if not query_intent:
-            try:
-                query_intent = entity.get_suggested_query_intent()
-            except AttributeError:
-                query_intent = QueryIntent.SPECIFIC  # Fallback
-            except Exception as e:
-                self.logger.warning(f"Failed to get suggested intent: {e}")
-                query_intent = QueryIntent.SPECIFIC  # Fallback
+            suggest_fn: Callable[[], QueryIntent] | None = getattr(
+                entity, "get_suggested_query_intent", None
+            )
+            if suggest_fn is not None:
+                try:
+                    query_intent = suggest_fn()
+                except Exception as e:
+                    self.logger.warning(f"Failed to get suggested intent: {e}")
 
-        # Use default if still not set
         if not query_intent:
             query_intent = QueryIntent.SPECIFIC
 
-        # Build query - check if entity can build its own
-        cypher_query = None
+        # Build query via infrastructure (not entity — entities express intent, not Cypher)
+        from core.models.query.graph_traversal import build_graph_context_query
 
-        # Try entity-specific query building
-        try:
-            builder_method = getattr(entity, f"build_{query_intent.value}_query")
-            cypher_query = builder_method(depth=depth)
-        except AttributeError:
-            pass  # Entity doesn't have custom query builder
-        except Exception as e:
-            self.logger.warning(f"Failed to use entity's query builder: {e}")
-
-        # Fallback: build generic context query
-        if not cypher_query:
-            cypher_query = self._build_generic_context_query(uid, query_intent, depth)
+        cypher_query = build_graph_context_query(node_uid=uid, intent=query_intent, depth=depth)
 
         # Execute query through GraphIntelligenceService
         try:
@@ -870,105 +860,6 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
             See: https://github.com/neo4j/neo4j-python-driver/issues/949
         """
         return getattr(self.driver, "_closed", False)
-
-    def _build_generic_context_query(self, _uid: str, intent: QueryIntent, _depth: int) -> str:
-        """
-        Build a generic graph context query for any entity type.
-
-        NOTE: Uses apoc.path.subgraphAll intentionally.
-
-        Why APOC is retained here (not replaced with pure Cypher):
-        1. Bidirectional traversal with relationship filtering in ONE call
-        2. Controlled depth in both directions simultaneously
-        3. Returns nodes AND relationships together
-        4. Pure Cypher equivalent requires multiple UNION queries or complex OPTIONAL MATCH chains
-
-        Pure Cypher alternative would be ~3x longer and harder to maintain:
-            MATCH (n)-[r1:REQUIRES|DEPENDS_ON*1..depth]-(prereq)
-            UNION
-            MATCH (n)-[r2:ENABLES|UNLOCKS*1..depth]->(enabled)
-            ... then manually collect nodes/relationships
-
-        If APOC is not available, this method will fail - callers should
-        check APOC availability or use simpler relationship queries.
-        """
-
-        if intent == QueryIntent.PREREQUISITE:
-            # Get prerequisites and dependencies
-            return f"""
-            MATCH (n:{self.label} {{uid: $uid}})
-
-            // Get prerequisites
-            CALL apoc.path.subgraphAll(n, {{
-                relationshipFilter: "<REQUIRES|<DEPENDS_ON",
-                maxLevel: $depth
-            }})
-            YIELD nodes as prereq_nodes, relationships as prereq_rels
-
-            // Get what this enables
-            CALL apoc.path.subgraphAll(n, {{
-                relationshipFilter: "ENABLES>|UNLOCKS>",
-                maxLevel: $depth
-            }})
-            YIELD nodes as enabled_nodes, relationships as enabled_rels
-
-            WITH n, prereq_nodes + enabled_nodes as all_nodes,
-                 prereq_rels + enabled_rels as all_rels
-
-            RETURN {{
-                origin: n,
-                nodes: all_nodes,
-                relationships: all_rels
-            }} as context
-            """
-
-        elif intent == QueryIntent.HIERARCHICAL:
-            # Get parent/child relationships
-            return f"""
-            MATCH (n:{self.label} {{uid: $uid}})
-
-            CALL apoc.path.subgraphAll(n, {{
-                relationshipFilter: "HAS_CHILD>|<PART_OF|<BELONGS_TO",
-                maxLevel: $depth
-            }})
-            YIELD nodes, relationships
-
-            RETURN {{
-                origin: n,
-                nodes: nodes,
-                relationships: relationships
-            }} as context
-            """
-
-        elif intent == QueryIntent.RELATIONSHIP:
-            # Get all related entities
-            return f"""
-            MATCH (n:{self.label} {{uid: $uid}})
-
-            CALL apoc.path.subgraphAll(n, {{
-                maxLevel: $depth
-            }})
-            YIELD nodes, relationships
-
-            RETURN {{
-                origin: n,
-                nodes: nodes,
-                relationships: relationships
-            }} as context
-            """
-
-        else:
-            # Default: get immediate connections
-            return f"""
-            MATCH (n:{self.label} {{uid: $uid}})
-            OPTIONAL MATCH (n)-[r]-(related)
-
-            RETURN {{
-                origin: n,
-                nodes: collect(DISTINCT related),
-                relationships: collect(DISTINCT r)
-            }} as context
-            """
 
     # ============================================================================
     # UNIVERSAL DOMAIN-SPECIFIC OPERATIONS

@@ -32,7 +32,6 @@ from core.models.askesis.askesis_intelligence import (
 from core.models.enums import GuidanceMode, Intent, Personality, ResponseTone
 from core.models.ku import KuDTO as KnowledgeUnitDTO
 from core.models.query import QueryIntent
-from core.models.query.graph_traversal import build_graph_context_query
 from core.models.query.search_models import FacetSetRequest as FacetSetSchema
 from core.models.query.search_models import SearchQueryRequest as SearchQuerySchema
 from core.models.query.search_models import SearchResultDTO as CrossDomainSearchResultsSchema
@@ -310,58 +309,8 @@ class AskesisRequest:
         return self.include_search and len(self.message.strip()) > 0
 
     # ==========================================================================
-    # PHASE 1-4 INTEGRATION: GRAPH INTELLIGENCE
+    # GRAPH INTELLIGENCE (Intent Suggestion)
     # ==========================================================================
-
-    def build_user_context_query(self, depth: int = 2) -> str:
-        """
-        Build pure Cypher query for user's complete context
-
-        Finds user's active learning, tasks, habits, and goals.
-
-        Args:
-            depth: Maximum context depth
-
-        Returns:
-            Pure Cypher query string
-        """
-        return build_graph_context_query(
-            node_uid=self.user.uid, intent=QueryIntent.EXPLORATORY, depth=depth
-        )
-
-    def build_learning_path_query(self, topic_uid: str, depth: int = 3) -> str:
-        """
-        Build pure Cypher query for learning path recommendation
-
-        Finds appropriate learning paths for topic and user level.
-
-        Args:
-            topic_uid: Learning topic UID
-            depth: Maximum knowledge graph depth
-
-        Returns:
-            Pure Cypher query string
-        """
-        return build_graph_context_query(
-            node_uid=topic_uid, intent=QueryIntent.HIERARCHICAL, depth=depth
-        )
-
-    def build_knowledge_search_query(self, search_uid: str, depth: int = 2) -> str:
-        """
-        Build pure Cypher query for knowledge search
-
-        Finds relevant knowledge based on search context.
-
-        Args:
-            search_uid: Search context UID
-            depth: Maximum knowledge graph depth
-
-        Returns:
-            Pure Cypher query string
-        """
-        return build_graph_context_query(
-            node_uid=search_uid, intent=QueryIntent.RELATIONSHIP, depth=depth
-        )
 
     def get_suggested_query_intent(self) -> QueryIntent:
         """

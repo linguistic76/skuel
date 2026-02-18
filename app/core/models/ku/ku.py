@@ -38,7 +38,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
-from core.constants import GraphDepth
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
 from core.models.enums.ku_enums import (
     AlignmentLevel,
@@ -66,7 +65,6 @@ from core.models.ku.ku_nested_types import (
     PrincipleExpression,
 )
 from core.models.query import QueryIntent
-from core.models.query.graph_traversal import build_graph_context_query
 
 
 @dataclass(frozen=True)
@@ -680,32 +678,8 @@ class Ku:
         return self.updated_at > self.created_at
 
     # =========================================================================
-    # GRAPH INTELLIGENCE (Query Building)
+    # GRAPH INTELLIGENCE (Intent Suggestion)
     # =========================================================================
-
-    def build_prerequisite_query(self, depth: int = 3) -> str:
-        """Build Cypher query for prerequisite chain."""
-        return build_graph_context_query(
-            node_uid=self.uid, intent=QueryIntent.PREREQUISITE, depth=depth
-        )
-
-    def build_enables_query(self, depth: int = 3) -> str:
-        """Build Cypher query for what this knowledge enables."""
-        return build_graph_context_query(
-            node_uid=self.uid, intent=QueryIntent.HIERARCHICAL, depth=depth
-        )
-
-    def build_related_query(self, depth: int = 2) -> str:
-        """Build Cypher query for related knowledge."""
-        return build_graph_context_query(
-            node_uid=self.uid, intent=QueryIntent.RELATIONSHIP, depth=depth
-        )
-
-    def build_practice_query(self) -> str:
-        """Build Cypher query for practice opportunities."""
-        return build_graph_context_query(
-            node_uid=self.uid, intent=QueryIntent.PRACTICE, depth=GraphDepth.DIRECT
-        )
 
     def get_suggested_query_intent(self) -> QueryIntent:
         """Get suggested QueryIntent based on knowledge characteristics."""

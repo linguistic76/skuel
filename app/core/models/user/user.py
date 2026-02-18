@@ -29,14 +29,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.constants import GraphDepth
 from core.infrastructure.utils.factory_functions import create_default_energy_pattern
 from core.models.base_models_consolidated import BaseEntity
-from core.models.enums import Domain, EnergyLevel, LearningLevel, TimeOfDay, UserRole
+from core.models.enums import EnergyLevel, LearningLevel, TimeOfDay, UserRole
 from core.models.query import QueryIntent
-
-# Phase 1: Query Infrastructure
-from core.models.query.graph_traversal import build_graph_context_query
 
 # ============================================================================
 # USER PREFERENCES
@@ -221,57 +217,8 @@ class User(BaseEntity):
         return self.role.is_trial()
 
     # ==========================================================================
-    # PHASE 1-4 INTEGRATION: GRAPH INTELLIGENCE
+    # GRAPH INTELLIGENCE (Intent Suggestion)
     # ==========================================================================
-
-    def build_activity_graph_query(self, depth: int = 2) -> str:
-        """
-        Build pure Cypher query for user's complete activity graph
-
-        Retrieves all tasks, events, habits, and goals associated with this user.
-
-        Args:
-            depth: Maximum depth for relationship traversal
-
-        Returns:
-            Pure Cypher query string
-        """
-        return build_graph_context_query(
-            node_uid=self.uid, intent=QueryIntent.HIERARCHICAL, depth=depth
-        )
-
-    def build_learning_progress_query(self, depth: int = 3) -> str:
-        """
-        Build pure Cypher query for user's learning progress
-
-        Finds all learning paths, knowledge units, and progress records.
-
-        Args:
-            depth: Maximum depth for learning graph traversal
-
-        Returns:
-            Pure Cypher query string
-        """
-        return build_graph_context_query(
-            node_uid=self.uid, intent=QueryIntent.EXPLORATORY, depth=depth
-        )
-
-    def build_recommendation_query(self, _domain: Domain | None = None) -> str:
-        """
-        Build pure Cypher query for personalized recommendations
-
-        Finds practice opportunities, related knowledge, and suggested activities
-        based on user's interests, active entities, and learning level.
-
-        Args:
-            domain: Optional domain to filter recommendations
-
-        Returns:
-            Pure Cypher query string
-        """
-        return build_graph_context_query(
-            node_uid=self.uid, intent=QueryIntent.PRACTICE, depth=GraphDepth.NEIGHBORHOOD
-        )
 
     def get_user_query_intent(self) -> QueryIntent:
         """
