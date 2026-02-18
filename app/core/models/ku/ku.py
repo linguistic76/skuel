@@ -65,6 +65,28 @@ from core.models.ku.ku_nested_types import (
     PrincipleExpression,
 )
 
+# =============================================================================
+# TYPE CLASS MAP — dispatcher for Ku decomposition (Phase 1+)
+#
+# Maps KuType to domain-specific subclass. Used by from_dto dispatcher and
+# cross-domain deserialization. During incremental migration, only migrated
+# types appear here — unmigrated types fall back to Ku (god object).
+# =============================================================================
+# Populated after class definitions to avoid circular imports
+KU_TYPE_CLASS_MAP: dict[KuType, type[KuBase]] = {}
+
+
+def _populate_type_class_map() -> None:
+    """Populate KU_TYPE_CLASS_MAP after all classes are defined."""
+    from core.models.ku.ku_goal import GoalKu
+    from core.models.ku.ku_task import TaskKu
+
+    KU_TYPE_CLASS_MAP[KuType.TASK] = TaskKu
+    KU_TYPE_CLASS_MAP[KuType.GOAL] = GoalKu
+
+
+# Called at module load time (after Ku class is defined, at bottom of file)
+
 
 @dataclass(frozen=True)
 class Ku(KuBase):
@@ -1183,3 +1205,7 @@ class Ku(KuBase):
             updated_at=self.updated_at,
             metadata=self.metadata if self.metadata is not None else {},
         )
+
+
+# Populate type class map now that Ku class is defined
+_populate_type_class_map()

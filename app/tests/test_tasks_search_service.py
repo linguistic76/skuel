@@ -24,8 +24,8 @@ import pytest
 from core.models.enums import Domain, KuStatus, Priority
 from core.models.enums.ku_enums import KuType
 from core.models.ku import Ku, LpPosition
-from core.models.ku.ku import Ku as Task
 from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.ku_task import TaskKu as Task
 from core.services.tasks.tasks_search_service import TasksSearchService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result

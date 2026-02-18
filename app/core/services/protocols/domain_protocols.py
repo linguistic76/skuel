@@ -91,13 +91,15 @@ if TYPE_CHECKING:
     from core.models.finance.invoice import InvoicePure
     from core.models.ku.ku import Ku
     from core.models.ku.ku import Ku as Habit
+    from core.models.ku.ku_goal import GoalKu  # noqa: F401 (used in BackendOperations["GoalKu"])
+    from core.models.ku.ku_task import TaskKu
     from core.models.type_hints import EntityUID, Metadata
     from core.utils.result_simplified import Result
 
 
 @runtime_checkable
-class TasksOperations(BackendOperations["Ku"], GraphRelationshipOperations, Protocol):
-    """Core task management operations. Uses unified Ku model with KuType.TASK.
+class TasksOperations(BackendOperations["TaskKu"], GraphRelationshipOperations, Protocol):
+    """Core task management operations. Uses TaskKu domain model (KuType.TASK).
 
     **Two Entry Point Patterns (by design):**
 
@@ -152,24 +154,24 @@ class TasksOperations(BackendOperations["Ku"], GraphRelationshipOperations, Prot
     # QUERY METHODS
     # ========================================================================
 
-    async def get_task(self, task_id: EntityUID) -> Result[Ku]:
+    async def get_task(self, task_id: EntityUID) -> Result[TaskKu]:
         """Get task by ID. Not found is an error."""
         ...
 
-    async def get_user_tasks(self, user_uid: str) -> Result[list[Ku]]:
-        """Get all tasks for a user. Returns Result[list[Ku]]."""
+    async def get_user_tasks(self, user_uid: str) -> Result[list[TaskKu]]:
+        """Get all tasks for a user."""
         ...
 
-    async def get_tasks_batch(self, uids: list[str]) -> Result[list[Ku | None]]:
-        """Batch load multiple tasks by UIDs. Returns Result[list[Ku | None]]."""
+    async def get_tasks_batch(self, uids: list[str]) -> Result[list[TaskKu | None]]:
+        """Batch load multiple tasks by UIDs."""
         ...
 
-    async def get_user_assigned_tasks(self, user_uid: str) -> Result[list[Ku]]:
-        """Get tasks assigned to a user. Returns Result[list[Ku]]."""
+    async def get_user_assigned_tasks(self, user_uid: str) -> Result[list[TaskKu]]:
+        """Get tasks assigned to a user."""
         ...
 
-    async def get_tasks_requiring_knowledge(self, knowledge_uid: str) -> Result[list[Ku]]:
-        """Get tasks that require a specific knowledge unit. Returns Result[list[Ku]]."""
+    async def get_tasks_requiring_knowledge(self, knowledge_uid: str) -> Result[list[TaskKu]]:
+        """Get tasks that require a specific knowledge unit."""
         ...
 
     async def get_user_entities(
@@ -181,7 +183,7 @@ class TasksOperations(BackendOperations["Ku"], GraphRelationshipOperations, Prot
         offset: int = 0,
         sort_by: str | None = None,
         sort_order: str = "desc",
-    ) -> Result[tuple[list[Ku], int]]:
+    ) -> Result[tuple[list[TaskKu], int]]:
         """
         Get all tasks for a user via relationship traversal.
 
@@ -198,7 +200,7 @@ class TasksOperations(BackendOperations["Ku"], GraphRelationshipOperations, Prot
             sort_order: "asc" or "desc" (default "desc")
 
         Returns:
-            Result containing (list of Ku tasks, total count)
+            Result containing (list of TaskKu, total count)
 
         Type Hint Example:
             filters: ActivityFilterSpec = {"status": "active", "priority": "high"}
@@ -210,8 +212,8 @@ class TasksOperations(BackendOperations["Ku"], GraphRelationshipOperations, Prot
     # DEPENDENCY METHODS
     # ========================================================================
 
-    async def get_task_dependencies(self, task_uid: str) -> Result[list[Ku]]:
-        """Get dependencies for a task. Returns Result[list[Ku]]."""
+    async def get_task_dependencies(self, task_uid: str) -> Result[list[TaskKu]]:
+        """Get dependencies for a task."""
         ...
 
     async def create_task_dependency(
@@ -770,7 +772,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
 
 
 @runtime_checkable
-class GoalsOperations(BackendOperations["Ku"], GraphRelationshipOperations, Protocol):
+class GoalsOperations(BackendOperations["GoalKu"], GraphRelationshipOperations, Protocol):
     """Core goal management operations.
 
     Inherits base CRUD operations from BackendOperations:

@@ -12,7 +12,7 @@ Handles basic task lifecycle management.
 - DTO/Model conversion
 
 **Dependencies:**
-- BackendOperations[Ku] (backend protocol)
+- BackendOperations[TaskKu] (backend protocol)
 - KuInferenceService (optional - automatic knowledge inference)
 """
 
@@ -27,9 +27,9 @@ if TYPE_CHECKING:
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.models.enums import KuStatus, Priority
 from core.models.enums.ku_enums import KuType
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.ku.ku_request import KuTaskCreateRequest
+from core.models.ku.ku_task import TaskKu
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -39,7 +39,7 @@ from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 
 
-class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
+class TasksCoreService(BaseService["BackendOperations[TaskKu]", TaskKu]):
     """
     Core CRUD operations for tasks.
 
@@ -64,7 +64,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
     def __init__(
         self,
-        backend: BackendOperations[Ku],
+        backend: BackendOperations[TaskKu],
         ku_inference_service: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:
@@ -86,10 +86,11 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=TaskKu,
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(KuStatus.COMPLETED.value,),
+        entity_label="Ku",
     )
 
     # ========================================================================
@@ -109,7 +110,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, task: Ku) -> Result[None] | None:
+    def _validate_create(self, task: TaskKu) -> Result[None] | None:
         """
         Validate task creation with business rules.
 
@@ -137,7 +138,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Ku, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: TaskKu, updates: dict[str, Any]) -> Result[None] | None:
         """
         Validate task updates with business rules.
 
@@ -224,7 +225,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         return Result.ok(enhanced_dto)
 
     @with_error_handling("create_task", error_type="database")
-    async def create_task(self, task_request: KuTaskCreateRequest, user_uid: str) -> Result[Ku]:
+    async def create_task(self, task_request: KuTaskCreateRequest, user_uid: str) -> Result[TaskKu]:
         """
         Create a task with automatic knowledge inference.
 
@@ -274,7 +275,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
             dto = inference_result.value
 
         # Create task via backend and convert to domain model (uses BaseService helper)
-        result = await self._create_and_convert(dto.to_dict(), KuDTO, Ku)
+        result = await self._create_and_convert(dto.to_dict(), KuDTO, TaskKu)
         if result.is_error:
             return result
         task = result.value
@@ -375,7 +376,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
     # READ OPERATIONS
     # ========================================================================
 
-    async def get_task(self, task_uid: str) -> Result[Ku]:
+    async def get_task(self, task_uid: str) -> Result[TaskKu]:
         """
         Get a specific task by UID.
 
@@ -391,7 +392,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         return await self.get(task_uid)
 
     @with_error_handling("get_user_tasks", error_type="database", uid_param="user_uid")
-    async def get_user_tasks(self, user_uid: str) -> Result[list[Ku]]:
+    async def get_user_tasks(self, user_uid: str) -> Result[list[TaskKu]]:
         """
         Get all tasks for a user, including learning relationships.
 
@@ -409,12 +410,14 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         entities, _total = result.value
 
         # Convert to enriched Task models
-        tasks = [self._to_domain_model(task_data, KuDTO, Ku) for task_data in entities]
+        tasks = [self._to_domain_model(task_data, KuDTO, TaskKu) for task_data in entities]
 
         self.logger.debug(f"Retrieved {len(tasks)} tasks for user {user_uid}")
         return Result.ok(tasks)
 
-    async def list_tasks(self, filters: dict | None = None, limit: int = 100) -> Result[list[Ku]]:
+    async def list_tasks(
+        self, filters: dict | None = None, limit: int = 100
+    ) -> Result[list[TaskKu]]:
         """
         List tasks with optional filters.
 
@@ -443,7 +446,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
     # ========================================================================
 
     @with_error_handling("update_task", error_type="database", uid_param="task_uid")
-    async def update_task(self, task_uid: str, updates: dict) -> Result[Ku]:
+    async def update_task(self, task_uid: str, updates: dict) -> Result[TaskKu]:
         """
         Update a task.
 
@@ -459,14 +462,14 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if "priority" in updates:
             old_result = await self.backend.get(task_uid)
             if old_result.is_ok:
-                old_task = self._to_domain_model(old_result.value, KuDTO, Ku)
+                old_task = self._to_domain_model(old_result.value, KuDTO, TaskKu)
 
         update_result = await self.backend.update(task_uid, updates)
         if update_result.is_error:
             return Result.fail(update_result)
 
         # Convert updated result to Task
-        task = self._to_domain_model(update_result.value, KuDTO, Ku)
+        task = self._to_domain_model(update_result.value, KuDTO, TaskKu)
 
         # Publish TaskUpdated event
         event = TaskUpdated(
@@ -570,7 +573,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
     # ========================================================================
 
     @with_error_handling("get_subtasks", error_type="database", uid_param="parent_uid")
-    async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Ku]]:
+    async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[TaskKu]]:
         """
         Get all subtasks of a parent task.
 
@@ -606,13 +609,13 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         tasks = []
         for record in result.value:
             task_data = record["subtask"]
-            task = self._to_domain_model(task_data, KuDTO, Ku)
+            task = self._to_domain_model(task_data, KuDTO, TaskKu)
             tasks.append(task)
 
         return Result.ok(tasks)
 
     @with_error_handling("get_parent_task", error_type="database", uid_param="subtask_uid")
-    async def get_parent_task(self, subtask_uid: str) -> Result[Ku | None]:
+    async def get_parent_task(self, subtask_uid: str) -> Result[TaskKu | None]:
         """
         Get immediate parent of a subtask (if any).
 
@@ -637,7 +640,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
             return Result.ok(None)
 
         parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, KuDTO, Ku)
+        parent = self._to_domain_model(parent_data, KuDTO, TaskKu)
         return Result.ok(parent)
 
     @with_error_handling("get_task_hierarchy", error_type="database", uid_param="task_uid")
@@ -694,7 +697,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_task = self._to_domain_model(current_result.value, KuDTO, Ku)
+        current_task = self._to_domain_model(current_result.value, KuDTO, TaskKu)
 
         ancestors_result = await self.backend.execute_query(ancestors_query, {"task_uid": task_uid})
         siblings_result = await self.backend.execute_query(siblings_query, {"task_uid": task_uid})
@@ -709,7 +712,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
         ):
             for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
                 task_data = node
-                ancestors.append(self._to_domain_model(task_data, KuDTO, Ku))
+                ancestors.append(self._to_domain_model(task_data, KuDTO, TaskKu))
 
         # Process siblings
         siblings = []
@@ -721,7 +724,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
             for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
                     task_data = node
-                    siblings.append(self._to_domain_model(task_data, KuDTO, Ku))
+                    siblings.append(self._to_domain_model(task_data, KuDTO, TaskKu))
 
         # Process children
         children = []
@@ -733,7 +736,7 @@ class TasksCoreService(BaseService["BackendOperations[Ku]", Ku]):
             for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
                     task_data = node
-                    children.append(self._to_domain_model(task_data, KuDTO, Ku))
+                    children.append(self._to_domain_model(task_data, KuDTO, TaskKu))
 
         return Result.ok(
             {

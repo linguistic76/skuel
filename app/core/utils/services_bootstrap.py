@@ -573,8 +573,8 @@ def _create_orchestration_services(
     Note: Choices and Principles are now created in _create_activity_services().
 
     Args:
-        goals_backend: UniversalNeo4jBackend[Ku]
-        tasks_backend: UniversalNeo4jBackend[Task]
+        goals_backend: UniversalNeo4jBackend[GoalKu]
+        tasks_backend: UniversalNeo4jBackend[TaskKu]
         habits_backend: UniversalNeo4jBackend[Habit]
         events_backend: UniversalNeo4jBackend[Ku] (with default_filters ku_type=event)
     """
@@ -1041,6 +1041,8 @@ async def compose_services(
         # Goal entities are now Ku nodes with ku_type="goal"
         from core.models.habit.completion import HabitCompletion
         from core.models.ku.ku import Ku
+        from core.models.ku.ku_goal import GoalKu
+        from core.models.ku.ku_task import TaskKu
 
         # NOTE: MapOfContent import removed (January 2026) - MOC is now KU-based
         # MOC is a KU with ORGANIZES relationships, not a separate entity
@@ -1052,10 +1054,10 @@ async def compose_services(
         # ACTIVITY DOMAINS - Use UniversalNeo4jBackend (requires DomainModelProtocol)
         # Labels use NeoLabel enum for type-safety and codebase self-awareness
         # Phase 2 (January 2026): Pass prometheus_metrics for database instrumentation
-        tasks_backend = UniversalNeo4jBackend[Ku](
+        tasks_backend = UniversalNeo4jBackend[TaskKu](
             driver,
             NeoLabel.KU,
-            Ku,
+            TaskKu,
             prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "task"},
         )
@@ -1079,10 +1081,10 @@ async def compose_services(
             HabitCompletion,
             prometheus_metrics=prometheus_metrics,
         )
-        goals_backend = UniversalNeo4jBackend[Ku](
+        goals_backend = UniversalNeo4jBackend[GoalKu](
             driver,
             NeoLabel.KU,
-            Ku,
+            GoalKu,
             default_filters={"ku_type": "goal"},
             prometheus_metrics=prometheus_metrics,
         )

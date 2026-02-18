@@ -39,8 +39,8 @@ from core.models.enums import CompletionStatus, Domain, KuStatus, Priority
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.enums.neo_labels import NeoLabel
 from core.models.graph_context import GraphContext
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_task import TaskKu
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -95,7 +95,7 @@ def _extract_completion_hour(task: Any) -> int | None:
     return task.completed_at.hour if task.completed_at else None
 
 
-class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
+class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[TaskKu]", TaskKu]):
     """
     Tasks intelligence service using shared utilities (graph-based, no AI).
 
@@ -128,7 +128,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
 
     def __init__(
         self,
-        backend: BackendOperations[Ku],
+        backend: BackendOperations[TaskKu],
         graph_intelligence_service: GraphIntelligenceService | None = None,
         relationship_service: TasksRelationshipOperations | None = None,
         event_bus: Any | None = None,
@@ -154,11 +154,11 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[TaskKu, KuDTO](
                 service=self,
                 backend_get_method="get_task",
                 dto_class=KuDTO,
-                model_class=Ku,
+                model_class=TaskKu,
                 domain=Domain.TASKS,
             )
 
@@ -168,7 +168,9 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[TaskKu, GraphContext]]:
         """
         Get task with full graph context.
 
@@ -1430,7 +1432,7 @@ class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]
         return Result.ok(insights)
 
     def _analyze_task_knowledge_patterns(
-        self, tasks: list[Ku], rels_list: list[TaskRelationships]
+        self, tasks: list[TaskKu], rels_list: list[TaskRelationships]
     ) -> KnowledgePatternAnalysis:
         """
         Analyze knowledge patterns across tasks using unified Task model.

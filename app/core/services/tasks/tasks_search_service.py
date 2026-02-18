@@ -30,8 +30,8 @@ if TYPE_CHECKING:
 
 from core.constants import QueryLimit
 from core.models.enums import KuStatus
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_task import TaskKu
 from core.models.ku.lp_position import LpPosition
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
@@ -42,7 +42,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 
 
-class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
+class TasksSearchService(BaseService["BackendOperations[TaskKu]", TaskKu]):
     """
     Advanced search and discovery for tasks.
 
@@ -69,13 +69,14 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # All configuration in one place, using centralized relationship registry
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=TaskKu,
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(KuStatus.COMPLETED.value,),
+        entity_label="Ku",
     )
 
-    def __init__(self, backend: BackendOperations[Ku]) -> None:
+    def __init__(self, backend: BackendOperations[TaskKu]) -> None:
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="tasks.search")
 
@@ -84,7 +85,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # ========================================================================
 
     @with_error_handling("get_tasks_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_tasks_for_goal(self, goal_uid: str) -> Result[list[Ku]]:
+    async def get_tasks_for_goal(self, goal_uid: str) -> Result[list[TaskKu]]:
         """
         Get all tasks that fulfill a specific goal.
 
@@ -102,7 +103,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        tasks = self._to_domain_models(result.value, KuDTO, Ku)
+        tasks = self._to_domain_models(result.value, KuDTO, TaskKu)
 
         # Sort by contribution percentage
         tasks.sort(key=attrgetter("goal_progress_contribution"), reverse=True)
@@ -111,7 +112,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         return Result.ok(tasks)
 
     @with_error_handling("get_tasks_for_habit", error_type="database", uid_param="habit_uid")
-    async def get_tasks_for_habit(self, habit_uid: str) -> Result[list[Ku]]:
+    async def get_tasks_for_habit(self, habit_uid: str) -> Result[list[TaskKu]]:
         """
         Get all tasks that reinforce a specific habit.
 
@@ -128,7 +129,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        tasks = self._to_domain_models(result.value, KuDTO, Ku)
+        tasks = self._to_domain_models(result.value, KuDTO, TaskKu)
 
         self.logger.debug(f"Found {len(tasks)} tasks for habit {habit_uid}")
         return Result.ok(tasks)
@@ -136,7 +137,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling(
         "get_tasks_applying_knowledge", error_type="database", uid_param="knowledge_uid"
     )
-    async def get_tasks_applying_knowledge(self, knowledge_uid: str) -> Result[list[Ku]]:
+    async def get_tasks_applying_knowledge(self, knowledge_uid: str) -> Result[list[TaskKu]]:
         """
         Get all tasks that apply specific knowledge.
 
@@ -162,7 +163,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for task_uid in task_uids:
             task_result = await self.backend.get(task_uid)
             if task_result.is_ok and task_result.value:
-                task = self._to_domain_model(task_result.value, KuDTO, Ku)
+                task = self._to_domain_model(task_result.value, KuDTO, TaskKu)
                 tasks.append(task)
 
         self.logger.debug(f"Found {len(tasks)} tasks applying knowledge {knowledge_uid}")
@@ -171,7 +172,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling(
         "get_blocked_by_prerequisites", error_type="database", uid_param="user_uid"
     )
-    async def get_blocked_by_prerequisites(self, user_uid: str) -> Result[list[Ku]]:
+    async def get_blocked_by_prerequisites(self, user_uid: str) -> Result[list[TaskKu]]:
         """
         Get tasks blocked by missing prerequisites.
 
@@ -195,7 +196,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         entities, _total = tasks_result.value
 
         # Filter tasks that have any prerequisites (using graph relationships)
-        all_tasks = self._to_domain_models(entities, KuDTO, Ku)
+        all_tasks = self._to_domain_models(entities, KuDTO, TaskKu)
         blocked_tasks = []
 
         for task in all_tasks:
@@ -231,7 +232,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("get_prioritized_tasks", error_type="database")
     async def get_prioritized_tasks(
         self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[TaskKu]]:
         """
         Get prioritized tasks based on impact score and context.
 
@@ -253,7 +254,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         entities, _total = tasks_result.value
 
         # Convert to Task models and filter completed
-        all_tasks = self._to_domain_models(entities, KuDTO, Ku)
+        all_tasks = self._to_domain_models(entities, KuDTO, TaskKu)
         tasks = [task for task in all_tasks if task.status != KuStatus.COMPLETED]
 
         # Sort by impact score (descending)
@@ -271,7 +272,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("get_learning_relevant_tasks", error_type="database", uid_param="user_uid")
     async def get_learning_relevant_tasks(
         self, user_uid: str, learning_position: LpPosition, limit: int = 10
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[TaskKu]]:
         """
         Get tasks most relevant to user's current learning path position.
 
@@ -292,7 +293,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         entities, _total = tasks_result.value
 
         # Score tasks by learning relevance
-        all_tasks = self._to_domain_models(entities, KuDTO, Ku)
+        all_tasks = self._to_domain_models(entities, KuDTO, TaskKu)
         task_scores = []
         for task in all_tasks:
             # Skip completed tasks
@@ -334,7 +335,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # ========================================================================
 
     @with_error_handling("get_curriculum_tasks", error_type="database")
-    async def get_curriculum_tasks(self) -> Result[list[Ku]]:
+    async def get_curriculum_tasks(self) -> Result[list[TaskKu]]:
         """
         Get all tasks that originated from the curriculum.
 
@@ -352,14 +353,14 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         tasks_data, _ = all_tasks_result.value
 
         # Filter using model method
-        all_tasks = self._to_domain_models(tasks_data, KuDTO, Ku)
+        all_tasks = self._to_domain_models(tasks_data, KuDTO, TaskKu)
         curriculum_tasks = [task for task in all_tasks if task.is_from_learning_step]
 
         self.logger.info(f"Found {len(curriculum_tasks)} curriculum-driven tasks")
         return Result.ok(curriculum_tasks)
 
     @with_error_handling("get_tasks_for_learning_step", error_type="database", uid_param="step_uid")
-    async def get_tasks_for_learning_step(self, step_uid: str) -> Result[list[Ku]]:
+    async def get_tasks_for_learning_step(self, step_uid: str) -> Result[list[TaskKu]]:
         """
         Get all tasks linked to a specific learning step.
 
@@ -378,7 +379,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         tasks_data, _ = all_tasks_result.value
 
         # Filter using model method
-        all_tasks = self._to_domain_models(tasks_data, KuDTO, Ku)
+        all_tasks = self._to_domain_models(tasks_data, KuDTO, TaskKu)
         step_tasks = [task for task in all_tasks if task.source_learning_step_uid == step_uid]
 
         self.logger.info(f"Found {len(step_tasks)} tasks for learning step {step_uid}")
@@ -392,7 +393,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("get_user_assigned_tasks", error_type="database", uid_param="user_uid")
     async def get_user_assigned_tasks(
         self, user_uid: str, include_completed: bool = False, limit: int = 100
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[TaskKu]]:
         """
         Get tasks assigned to user via graph traversal.
 
@@ -424,7 +425,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
         # Convert Neo4j records to domain models
         tasks = []
         for record in result.value:
-            task = self._to_domain_model(record["t"], KuDTO, Ku)
+            task = self._to_domain_model(record["t"], KuDTO, TaskKu)
             tasks.append(task)
 
         self.logger.debug(f"Found {len(tasks)} assigned tasks for user {user_uid}")
@@ -490,7 +491,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
         self, query: str, user_uid: str | None = None, limit: int = 50
-    ) -> Result[tuple[list[Ku], ParsedSearchQuery]]:
+    ) -> Result[tuple[list[TaskKu], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.
 
@@ -539,7 +540,7 @@ class TasksSearchService(BaseService["BackendOperations[Ku]", Ku]):
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
                 return Result.fail(result.expect_error())
-            tasks = self._to_domain_models(result.value, KuDTO, Ku)
+            tasks = self._to_domain_models(result.value, KuDTO, TaskKu)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)

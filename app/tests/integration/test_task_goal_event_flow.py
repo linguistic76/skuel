@@ -31,8 +31,8 @@ from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.task_events import TaskCompleted
 from core.models.enums import Domain, KuStatus, Priority
 from core.models.enums.ku_enums import GoalType, MeasurementType
-from core.models.ku.ku import Ku
-from core.models.ku.ku import Ku as Task
+from core.models.ku.ku_goal import GoalKu
+from core.models.ku.ku_task import TaskKu as Task
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.tasks.tasks_core_service import TasksCoreService
 
@@ -56,8 +56,8 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
-        return UniversalNeo4jBackend[Ku](
-            neo4j_driver, "Ku", Ku, default_filters={"ku_type": "goal"}
+        return UniversalNeo4jBackend[GoalKu](
+            neo4j_driver, "Ku", GoalKu, default_filters={"ku_type": "goal"}
         )
 
     @pytest_asyncio.fixture
@@ -82,7 +82,7 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def task_based_goal(self, goals_backend, test_user_uid):
         """Create a task-based goal in Neo4j."""
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.finish_python_course",
             user_uid=test_user_uid,
             title="Finish Python Course",
@@ -102,7 +102,7 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def mixed_goal(self, goals_backend, test_user_uid):
         """Create a mixed-measurement goal in Neo4j."""
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.become_python_expert",
             user_uid=test_user_uid,
             title="Become Python Expert",
@@ -343,7 +343,7 @@ class TestTaskGoalEventFlow:
         """Test that completing one task can update multiple goals."""
 
         # Create two goals
-        goal1 = Ku(
+        goal1 = GoalKu(
             uid="goal.learn_basics",
             user_uid=test_user_uid,
             title="Learn Python Basics",
@@ -351,7 +351,7 @@ class TestTaskGoalEventFlow:
             progress_percentage=0.0,
             status=KuStatus.ACTIVE,
         )
-        goal2 = Ku(
+        goal2 = GoalKu(
             uid="goal.complete_course",
             user_uid=test_user_uid,
             title="Complete Full Course",
@@ -453,7 +453,7 @@ class TestTaskGoalEventFlow:
         """Test that habit-based goals are NOT updated by task completion."""
 
         # Create habit-based goal
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.daily_practice",
             user_uid=test_user_uid,
             title="Daily Practice Goal",
@@ -582,7 +582,7 @@ class TestTaskGoalEventFlow:
         """Test that update error for one goal doesn't prevent updates to other goals."""
 
         # Create two goals
-        goal1 = Ku(
+        goal1 = GoalKu(
             uid="goal.valid",
             user_uid=test_user_uid,
             title="Valid Goal",
@@ -590,7 +590,7 @@ class TestTaskGoalEventFlow:
             progress_percentage=0.0,
             status=KuStatus.ACTIVE,
         )
-        goal2 = Ku(
+        goal2 = GoalKu(
             uid="goal.invalid",
             user_uid=test_user_uid,
             title="Invalid Goal",
@@ -662,7 +662,7 @@ class TestTaskGoalEventFlow:
         """Test that GoalAchieved event is only published once at 100%."""
 
         # Create goal with single task
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.single_task",
             user_uid=test_user_uid,
             title="Single Task Goal",
@@ -732,7 +732,7 @@ class TestTaskGoalEventFlow:
         not goal_type, so PROJECT goals should work identically to OUTCOME goals.
         """
         # Create PROJECT-type goal with task-based measurement
-        project_goal = Ku(
+        project_goal = GoalKu(
             uid="goal.build_api_project",
             user_uid=test_user_uid,
             title="Build REST API Project",

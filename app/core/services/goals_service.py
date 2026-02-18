@@ -20,8 +20,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import KuStatus, Priority
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_goal import GoalKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 
@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
-class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
+class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, GoalKu]):
     """
     Goals service facade with specialized sub-services.
 
@@ -95,8 +95,9 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
     # Facade services use same config as core/search sub-services
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=GoalKu,
         domain_name="goals",
+        entity_label="Ku",
         date_field="target_date",
         completed_statuses=(KuStatus.COMPLETED.value, KuStatus.CANCELLED.value),
         category_field="domain",  # Goals use 'domain' field for categorization
@@ -354,7 +355,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
 
     async def find_goals_requiring_knowledge(
         self, knowledge_uid: str, min_confidence: float = 0.8
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[GoalKu]]:
         """Find goals that require specific knowledge."""
         return await self.relationships.find_by_semantic_filter(
             target_uid=knowledge_uid, min_confidence=min_confidence, direction="incoming"
@@ -369,7 +370,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
 
     async def create_goal_with_context(
         self, goal_data: GoalCreateRequest, user_context: UserContext
-    ) -> Result[Ku]:
+    ) -> Result[GoalKu]:
         """
         Create a goal with full context awareness (orchestration method).
 
@@ -449,7 +450,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
         if goal_result.is_error:
             return Result.fail(goal_result.expect_error())
 
-        goal = to_domain_model(goal_result.value, KuDTO, Ku)
+        goal = to_domain_model(goal_result.value, KuDTO, GoalKu)
 
         # GRAPH-NATIVE: Fetch relationships from graph
         rels = await GoalRelationships.fetch(goal_uid, self.relationships)
@@ -508,7 +509,7 @@ class GoalsService(FacadeDelegationMixin, BaseService[GoalsOperations, Ku]):
         return Result.ok(task_suggestions)
 
     async def assess_goal_feasibility(
-        self, goal: Ku, user_context: UserContext
+        self, goal: GoalKu, user_context: UserContext
     ) -> Result[GoalFeasibilityAssessment]:
         """
         Assess if a goal is feasible given user's context (orchestration method).

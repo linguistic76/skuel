@@ -82,7 +82,7 @@ def build_search_query(
     if not is_dataclass(entity_class):
         raise ValueError(f"Entity class must be a dataclass, got {entity_class}")
 
-    label = label or entity_class.__name__
+    label = label or getattr(entity_class, "_neo4j_label", None) or entity_class.__name__
     field_names = {f.name for f in fields(entity_class)}
 
     where_clauses = []
@@ -618,7 +618,7 @@ def build_list_query(
     if not is_dataclass(entity_class):
         raise ValueError(f"Entity class must be a dataclass, got {entity_class}")
 
-    label = label or entity_class.__name__
+    label = label or getattr(entity_class, "_neo4j_label", None) or entity_class.__name__
 
     # Validate order_by field if provided
     if order_by:

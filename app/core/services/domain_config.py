@@ -240,6 +240,7 @@ def create_activity_domain_config(
     category_field: str = "category",
     search_fields: tuple[str, ...] | None = None,
     search_order_by: str | None = None,
+    entity_label: str | None = None,
 ) -> DomainConfig:
     """
     Factory for creating Activity Domain configurations.
@@ -257,6 +258,9 @@ def create_activity_domain_config(
         category_field: Field for category filtering
         search_fields: Fields for text search (default: ["title", "description"])
         search_order_by: Default sort field (default: "created_at")
+        entity_label: Neo4j node label override (default: model_class.__name__).
+            Use when model_class is a domain subclass (e.g., TaskKu) but the
+            Neo4j label remains the base type (e.g., "Ku").
 
     Returns:
         Configured DomainConfig for the activity domain
@@ -272,7 +276,7 @@ def create_activity_domain_config(
         generate_prerequisite_relationships,
     )
 
-    entity_label = model_class.__name__
+    entity_label = entity_label or model_class.__name__
 
     # FAIL-FAST: Validate entity exists in unified registry
     if entity_label not in LABEL_CONFIGS:
@@ -311,6 +315,7 @@ def create_curriculum_domain_config(
     user_ownership_relationship: str | None = None,
     prerequisite_relationships: tuple[str, ...] | None = None,
     enables_relationships: tuple[str, ...] | None = None,
+    entity_label: str | None = None,
 ) -> DomainConfig:
     """
     Factory for creating Curriculum Domain configurations.
@@ -331,6 +336,9 @@ def create_curriculum_domain_config(
         user_ownership_relationship: Ownership relationship type (default: None for shared)
         prerequisite_relationships: Override relationship types for prerequisites (default: from registry)
         enables_relationships: Override relationship types for enables (default: from registry)
+        entity_label: Neo4j node label override (default: model_class.__name__).
+            Use when model_class is a domain subclass but the Neo4j label
+            remains the base type.
 
     Returns:
         Configured DomainConfig for the curriculum domain
@@ -345,7 +353,7 @@ def create_curriculum_domain_config(
         generate_prerequisite_relationships,
     )
 
-    entity_label = model_class.__name__
+    entity_label = entity_label or model_class.__name__
 
     # FAIL-FAST: Validate entity exists in unified registry
     if entity_label not in LABEL_CONFIGS:

@@ -57,12 +57,13 @@ from .assignment_request import (
     AssignmentUpdateRequest,
     KuFeedbackGenerateRequest,
 )
-from .ku import Ku
+from .ku import KU_TYPE_CLASS_MAP, Ku
 from .ku_base import KuBase
 from .ku_chunks import KuChunk, KuChunkType, chunk_content
 from .ku_content import KuContent
 from .ku_converters import ku_to_response
 from .ku_dto import KuDTO
+from .ku_goal import GoalKu
 from .ku_metadata import KuMetadata
 from .ku_nested_types import (
     AlignmentAssessment,
@@ -115,12 +116,16 @@ from .ku_schedule import (
     ku_schedule_domain_to_dto,
     ku_schedule_dto_to_domain,
 )
+from .ku_task import TaskKu
 from .lp_position import LpPosition, create_lp_position
 
 __all__ = [
     # Core domain models
     "Ku",
     "KuBase",
+    "TaskKu",
+    "GoalKu",
+    "KU_TYPE_CLASS_MAP",
     "KuChunk",
     "KuChunkType",
     # Content models

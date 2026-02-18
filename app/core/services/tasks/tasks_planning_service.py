@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.ku import Ku
+from core.models.ku.ku_task import TaskKu
 from core.services.base_planning_service import BasePlanningService
 from core.services.infrastructure import PrerequisiteHelper
 from core.utils.decorators import with_error_handling
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
 
 
-class TasksPlanningService(BasePlanningService["BackendOperations[Ku]", Ku]):
+class TasksPlanningService(BasePlanningService["BackendOperations[TaskKu]", TaskKu]):
     """
     Context-aware task planning service.
 
@@ -63,7 +63,7 @@ class TasksPlanningService(BasePlanningService["BackendOperations[Ku]", Ku]):
 
     def __init__(
         self,
-        backend: BackendOperations[Ku],
+        backend: BackendOperations[TaskKu],
         relationship_service: Any | None = None,
     ) -> None:
         """
@@ -79,13 +79,13 @@ class TasksPlanningService(BasePlanningService["BackendOperations[Ku]", Ku]):
     # PRIVATE HELPER METHODS (Domain-Specific)
     # ========================================================================
 
-    async def _get_tasks_by_uids(self, uids: list[str]) -> list[Ku]:
+    async def _get_tasks_by_uids(self, uids: list[str]) -> list[TaskKu]:
         """Alias for base class method with domain-specific naming."""
         return await self._get_entities_by_uids(uids)
 
     async def _find_tasks_for_knowledge(
         self, knowledge_uid: str, user_uid: str, limit: int = 20
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[TaskKu]]:
         """
         Find tasks that apply a specific knowledge unit for a user.
 
@@ -100,7 +100,7 @@ class TasksPlanningService(BasePlanningService["BackendOperations[Ku]", Ku]):
         Returns:
             Result containing list of Tasks that apply the knowledge unit
         """
-        from core.models.ku.ku import Ku
+        from core.models.ku.ku_task import TaskKu
         from core.utils.neo4j_mapper import from_neo4j_node
 
         query = """
@@ -115,7 +115,7 @@ class TasksPlanningService(BasePlanningService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        tasks = [from_neo4j_node(record["t"], Ku) for record in result.value]
+        tasks = [from_neo4j_node(record["t"], TaskKu) for record in result.value]
         return Result.ok(tasks)
 
     # ========================================================================

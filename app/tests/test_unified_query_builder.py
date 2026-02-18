@@ -10,7 +10,7 @@ from datetime import date
 import pytest
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.ku.ku import Ku as Task
+from core.models.ku.ku_task import TaskKu as Task
 from core.models.query import UnifiedQueryBuilder, query
 
 
@@ -231,7 +231,7 @@ class TestUnifiedQueryBuilder:
         builder = query().for_model(Task).filter(status="active")
 
         # Should raise ValueError when trying to execute without driver
-        with pytest.raises(ValueError, match="Driver is required"):
+        with pytest.raises(ValueError, match="Executor is required"):
             await builder.execute()
 
 

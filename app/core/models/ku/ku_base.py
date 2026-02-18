@@ -12,10 +12,14 @@ See: /docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md
 See: /.claude/plans/ku-decomposition-domain-types.md
 """
 
+import dataclasses
 from dataclasses import dataclass
 from datetime import datetime
 from math import exp, log
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar, Self
+
+if TYPE_CHECKING:
+    from core.models.ku.ku_dto import KuDTO
 
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
 from core.models.enums.ku_enums import KuStatus, KuType
@@ -35,6 +39,9 @@ class KuBase:
     Domain-specific subclasses (TaskKu, GoalKu, HabitKu, etc.) inherit
     from KuBase and add their own fields and methods.
     """
+
+    # Neo4j node label — all KuType subclasses share the :Ku label
+    _neo4j_label: ClassVar[str] = "Ku"
 
     # =========================================================================
     # IDENTITY
@@ -645,6 +652,58 @@ class KuBase:
     def key_topics(self) -> tuple[str, ...]:
         """Key topics — alias for tags."""
         return self.tags
+
+    # =========================================================================
+    # GENERIC CONVERSION (used by domain subclasses — TaskKu, GoalKu, etc.)
+    # =========================================================================
+
+    @classmethod
+    def _from_dto(cls, dto: "KuDTO") -> Self:
+        """
+        Generic: extract only fields defined on THIS class from the unified DTO.
+
+        Uses dataclasses.fields(cls) to determine which fields to extract,
+        ensuring each subclass only gets its own fields + inherited KuBase fields.
+        Converts lists to tuples for frozen dataclass compatibility.
+        """
+        field_names = {f.name for f in dataclasses.fields(cls) if not f.name.startswith("_")}
+        kwargs: dict[str, Any] = {}
+        for name in field_names:
+            value = getattr(dto, name, None)
+            if isinstance(value, list):
+                value = tuple(value)
+            kwargs[name] = value
+        return cls(**kwargs)
+
+    def to_dto(self) -> "KuDTO":
+        """
+        Generic: convert any KuBase subclass to unified KuDTO.
+
+        Creates KuDTO with fields from this instance. Fields not present on
+        the subclass get KuDTO defaults (None, 0, empty list, etc.).
+        Converts tuples back to lists for DTO mutability.
+
+        Skips infrastructure fields (embedding, cache) that don't exist on KuDTO
+        per ADR-037 (embedding infrastructure separation).
+        """
+        from core.models.ku.ku_dto import KuDTO
+
+        dto_field_names = {f.name for f in dataclasses.fields(KuDTO)}
+        kwargs: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            if f.name not in dto_field_names:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, tuple):
+                value = list(value)
+            kwargs[f.name] = value
+        return KuDTO(**kwargs)
+
+    # =========================================================================
+    # DISPLAY
+    # =========================================================================
 
     def __str__(self) -> str:
         return f"Ku(uid={self.uid}, type={self.ku_type.value}, title='{self.title}')"

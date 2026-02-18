@@ -214,7 +214,7 @@ class TestEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title + description
         """
-        from core.models.ku.ku import Ku as Task
+        from core.models.ku.ku_task import TaskKu as Task
 
         task = Task(
             uid="task.test",
@@ -236,7 +236,7 @@ class TestEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title only
         """
-        from core.models.ku.ku import Ku as Task
+        from core.models.ku.ku_task import TaskKu as Task
 
         task = Task(
             uid="task.test",
@@ -330,9 +330,9 @@ class TestGoalEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns all three fields combined
         """
-        from core.models.ku.ku import Ku
+        from core.models.ku.ku_goal import GoalKu
 
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.test",
             user_uid="user.test",
             title="Learn Machine Learning",
@@ -353,9 +353,9 @@ class TestGoalEmbeddingTextExtraction:
         WHEN: Building embedding text
         THEN: Returns title only
         """
-        from core.models.ku.ku import Ku
+        from core.models.ku.ku_goal import GoalKu
 
-        goal = Ku(
+        goal = GoalKu(
             uid="goal.test",
             user_uid="user.test",
             title="Get fit",

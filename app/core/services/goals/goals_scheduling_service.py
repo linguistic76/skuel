@@ -44,8 +44,8 @@ from core.events import GoalCreated, publish_event
 from core.models.enums import Domain, KuStatus, Priority
 from core.models.enums.ku_enums import GoalTimeframe, GoalType
 from core.models.goal.goal_request import GoalCreateRequest
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_goal import GoalKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentHelper
@@ -163,7 +163,7 @@ class GoalSequenceItem:
     enabled_by: tuple[str, ...]
 
 
-class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
+class GoalsSchedulingService(BaseService[GoalsOperations, GoalKu]):
     """
     Smart goal scheduling and capacity management service.
 
@@ -194,10 +194,11 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=GoalKu,
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(KuStatus.COMPLETED.value,),
+        entity_label="Ku",
     )
 
     # Configure BaseService
@@ -221,13 +222,13 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
         self.event_bus = event_bus
 
         # Initialize LearningAlignmentHelper for curriculum integration
-        self.learning_helper = LearningAlignmentHelper[Ku, KuDTO, GoalCreateRequest](
+        self.learning_helper = LearningAlignmentHelper[GoalKu, KuDTO, GoalCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="get_user_goals",
             backend_create_method="create_goal",
             dto_class=KuDTO,
-            model_class=Ku,
+            model_class=GoalKu,
             domain=Domain.KNOWLEDGE,  # Default domain for goals
             entity_name="goal",
         )
@@ -365,13 +366,13 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
             )
         )
 
-    def _calculate_goal_complexity(self, goal: Ku) -> float:
+    def _calculate_goal_complexity(self, goal: GoalKu) -> float:
         """Calculate complexity score for a goal."""
         type_score = COMPLEXITY_BY_TYPE.get(goal.goal_type, 3)
         timeframe_score = COMPLEXITY_BY_TIMEFRAME.get(goal.timeframe, 3)
         return (type_score * timeframe_score) / 10.0  # Normalize
 
-    def _analyze_priority_distribution(self, goals: list[Ku]) -> dict[str, int]:
+    def _analyze_priority_distribution(self, goals: list[GoalKu]) -> dict[str, int]:
         """Analyze how goals are distributed across priorities."""
         distribution = {"critical": 0, "high": 0, "medium": 0, "low": 0}
 
@@ -384,7 +385,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
 
         return distribution
 
-    def _analyze_timeframe_distribution(self, goals: list[Ku]) -> dict[str, int]:
+    def _analyze_timeframe_distribution(self, goals: list[GoalKu]) -> dict[str, int]:
         """Analyze how goals are distributed across timeframes."""
         distribution = {tf.value: 0 for tf in GoalTimeframe}
 
@@ -405,7 +406,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
         goal_data: GoalCreateRequest,
         user_context: UserContext,
         check_capacity: bool = True,
-    ) -> Result[Ku]:
+    ) -> Result[GoalKu]:
         """
         Create a goal with context validation and capacity checking.
 
@@ -485,7 +486,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
         if create_result.is_error:
             return Result.fail(create_result.expect_error())
 
-        goal = self._to_domain_model(create_result.value, KuDTO, Ku)
+        goal = self._to_domain_model(create_result.value, KuDTO, GoalKu)
 
         # Step 5: Publish event
         event = GoalCreated(
@@ -515,7 +516,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
         goal_data: GoalCreateRequest,
         learning_position: LpPosition | None,
         user_context: UserContext,
-    ) -> Result[Ku]:
+    ) -> Result[GoalKu]:
         """
         Create a goal aligned with learning path.
 
@@ -733,7 +734,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
         if not goal_result.value:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
-        goal = to_domain_model(goal_result.value, KuDTO, Ku)
+        goal = to_domain_model(goal_result.value, KuDTO, GoalKu)
 
         # Calculate velocity
         current_progress = goal.progress_percentage
@@ -830,7 +831,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
     async def get_schedule_aware_next_goal(
         self,
         user_context: UserContext,
-    ) -> Result[Ku | None]:
+    ) -> Result[GoalKu | None]:
         """
         Get the best goal to focus on right now.
 
@@ -858,7 +859,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
             return Result.ok(None)
 
         # Score each goal
-        scored_goals: list[tuple[float, Ku]] = []
+        scored_goals: list[tuple[float, GoalKu]] = []
 
         for goal in active_goals:
             score = 0.0
@@ -912,7 +913,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
         return Result.ok(None)
 
     @staticmethod
-    def _get_goal_score(scored_goal: tuple[float, Ku]) -> float:
+    def _get_goal_score(scored_goal: tuple[float, GoalKu]) -> float:
         """Extract score from scored goal tuple (avoids lambda)."""
         return scored_goal[0]
 
@@ -941,11 +942,11 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Ku]):
             return Result.ok([])
 
         # Get all goals
-        goals_dict: dict[str, Ku] = {}
+        goals_dict: dict[str, GoalKu] = {}
         for uid in goal_uids:
             result = await self.backend.get_goal(uid)
             if result.is_ok and result.value:
-                goals_dict[uid] = to_domain_model(result.value, KuDTO, Ku)
+                goals_dict[uid] = to_domain_model(result.value, KuDTO, GoalKu)
 
         if not goals_dict:
             return Result.fail(Errors.not_found(resource="Goals", identifier=str(goal_uids)))

@@ -181,7 +181,7 @@ class ModelQueryBuilder[T]:
             self._fulltext_index = index_name
         else:
             # Default index name: {model_name}_fulltext
-            model_name = self.model.__name__
+            model_name = getattr(self.model, "_neo4j_label", None) or self.model.__name__
             self._fulltext_index = f"{model_name.lower()}_fulltext"
         return self
 

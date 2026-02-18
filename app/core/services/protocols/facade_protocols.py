@@ -54,9 +54,10 @@ if TYPE_CHECKING:
     from core.models.habit.habit_request import HabitCreateRequest
     from core.models.ku.ku import Ku
     from core.models.ku.ku import Ku as Habit
-    from core.models.ku.ku import Ku as Task
+    from core.models.ku.ku_goal import GoalKu
     from core.models.ku.ku_request import KuChoiceCreateRequest, KuUpdateRequest
     from core.models.ku.ku_request import KuTaskCreateRequest as TaskCreateRequest
+    from core.models.ku.ku_task import TaskKu as Task
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.events.events_intelligence_service import EventsIntelligenceService
     from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
@@ -119,23 +120,23 @@ class TasksCoreOperations(Protocol):
 class GoalsCoreOperations(Protocol):
     """Protocol for GoalsCoreService methods accessed via GoalsService.core"""
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Ku]:
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[GoalKu]:
         """Verify user owns the goal, return goal if owned."""
         ...
 
-    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: str) -> Result[Ku]:
+    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: str) -> Result[GoalKu]:
         """Create a new goal."""
         ...
 
-    async def get_goal(self, goal_uid: str) -> Result[Ku]:
+    async def get_goal(self, goal_uid: str) -> Result[GoalKu]:
         """Get a goal by UID."""
         ...
 
-    async def get_user_goals(self, user_uid: str) -> Result[list[Ku]]:
+    async def get_user_goals(self, user_uid: str) -> Result[list[GoalKu]]:
         """Get all goals for a user."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[GoalKu]:
         """Update a goal."""
         ...
 
@@ -348,15 +349,15 @@ class GoalsFacadeProtocol(Protocol):
     # Explicit facade methods (not delegated)
     # ========================================================================
 
-    async def create_goal(self, request: Any, user_uid: str) -> Result[Ku]:
+    async def create_goal(self, request: Any, user_uid: str) -> Result[GoalKu]:
         """Create a new goal."""
         ...
 
-    async def get(self, uid: str) -> Result[Ku | None]:
+    async def get(self, uid: str) -> Result[GoalKu | None]:
         """Get a goal by UID (direct access)."""
         ...
 
-    async def get_for_user(self, uid: str, user_uid: str) -> Result[Ku | None]:
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[GoalKu | None]:
         """Get a goal with ownership verification."""
         ...
 
@@ -405,35 +406,35 @@ class GoalsFacadeProtocol(Protocol):
     # Search delegations (→ GoalsSearchService)
     # ========================================================================
 
-    async def search_goals(self, query: str, limit: int = 50) -> Result[list[Ku]]:
+    async def search_goals(self, query: str, limit: int = 50) -> Result[list[GoalKu]]:
         """Text search on goal title/description."""
         ...
 
-    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[Ku]]:
+    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[GoalKu]]:
         """Filter goals by status."""
         ...
 
     async def get_goals_by_category(
         self, category: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[GoalKu]]:
         """Filter goals by category."""
         ...
 
-    async def get_goals_due_soon(self, days_ahead: int = 7) -> Result[list[Ku]]:
+    async def get_goals_due_soon(self, days_ahead: int = 7) -> Result[list[GoalKu]]:
         """Get goals with target dates within specified days."""
         ...
 
-    async def get_overdue_goals(self, limit: int = 100) -> Result[list[Ku]]:
+    async def get_overdue_goals(self, limit: int = 100) -> Result[list[GoalKu]]:
         """Get goals past their target date."""
         ...
 
-    async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Ku]]:
+    async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[GoalKu]]:
         """Filter goals by domain."""
         ...
 
     async def get_prioritized_goals(
         self, user_context: UserContext | None, limit: int = 10
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[GoalKu]]:
         """Get goals prioritized for user's context."""
         ...
 
@@ -449,33 +450,33 @@ class GoalsFacadeProtocol(Protocol):
     # Core delegations (→ GoalsCoreService)
     # ========================================================================
 
-    async def get_goal(self, uid: str) -> Result[Ku | None]:
+    async def get_goal(self, uid: str) -> Result[GoalKu | None]:
         """Get a goal by UID."""
         ...
 
-    async def get_user_goals(self, user_uid: str, limit: int = 100) -> Result[list[Ku]]:
+    async def get_user_goals(self, user_uid: str, limit: int = 100) -> Result[list[GoalKu]]:
         """Get goals for a specific user."""
         ...
 
     async def get_user_items_in_range(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[GoalKu]]:
         """Get user goals within date range."""
         ...
 
-    async def activate_goal(self, uid: str) -> Result[Ku]:
+    async def activate_goal(self, uid: str) -> Result[GoalKu]:
         """Activate a goal."""
         ...
 
-    async def pause_goal(self, uid: str) -> Result[Ku]:
+    async def pause_goal(self, uid: str) -> Result[GoalKu]:
         """Pause a goal."""
         ...
 
-    async def complete_goal(self, uid: str) -> Result[Ku]:
+    async def complete_goal(self, uid: str) -> Result[GoalKu]:
         """Mark goal as completed."""
         ...
 
-    async def archive_goal(self, uid: str) -> Result[Ku]:
+    async def archive_goal(self, uid: str) -> Result[GoalKu]:
         """Archive a goal."""
         ...
 
@@ -483,7 +484,7 @@ class GoalsFacadeProtocol(Protocol):
     # Intelligence delegations (→ GoalsIntelligenceService)
     # ========================================================================
 
-    async def get_goal_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, Any]]:
+    async def get_goal_with_context(self, uid: str, depth: int = 2) -> Result[tuple[GoalKu, Any]]:
         """Get goal with full graph context."""
         ...
 

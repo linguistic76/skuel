@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.ku.ku import Ku
+from core.models.ku.ku_task import TaskKu
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from core.services.protocols import BackendOperations
 
 
-class TasksAIService(BaseAIService["BackendOperations[Ku]", Ku]):
+class TasksAIService(BaseAIService["BackendOperations[TaskKu]", TaskKu]):
     """
     AI-powered features for Tasks domain.
 
@@ -60,7 +60,7 @@ class TasksAIService(BaseAIService["BackendOperations[Ku]", Ku]):
 
     def __init__(
         self,
-        backend: BackendOperations[Ku],
+        backend: BackendOperations[TaskKu],
         llm_service: LLMService,
         embeddings_service: Neo4jGenAIEmbeddingsService,
         event_bus: Any | None = None,

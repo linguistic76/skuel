@@ -33,8 +33,8 @@ from core.events.goal_events import (
 )
 from core.models.enums import KuStatus
 from core.models.enums.ku_enums import KuType
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_goal import GoalKu
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -48,7 +48,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class GoalsCoreService(BaseService[GoalsOperations, Ku]):
+class GoalsCoreService(BaseService[GoalsOperations, GoalKu]):
     """
     Core CRUD operations for goals.
 
@@ -113,16 +113,17 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=GoalKu,
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(KuStatus.COMPLETED.value,),
+        entity_label="Ku",
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, goal: Ku) -> Result[None] | None:
+    def _validate_create(self, goal: GoalKu) -> Result[None] | None:
         """
         Validate goal creation with business rules.
 
@@ -130,7 +131,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         1. Target date must be after start date (timeline consistency)
 
         Args:
-            goal: Goal domain model being created
+            goal: GoalKu domain model being created
 
         Returns:
             None if valid, Result.fail() with validation error if invalid
@@ -148,7 +149,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Ku, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: GoalKu, updates: dict[str, Any]) -> Result[None] | None:
         """
         Validate goal updates with business rules.
 
@@ -227,7 +228,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
     # See: /core/services/base_service.py - get_with_context()
     # ========================================================================
 
-    async def get_goal(self, goal_uid: str) -> Result[Ku]:
+    async def get_goal(self, goal_uid: str) -> Result[GoalKu]:
         """
         Get a specific goal by UID.
 
@@ -238,11 +239,11 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
             goal_uid: Goal UID
 
         Returns:
-            Result[Ku] - success contains Goal, not found is an error
+            Result[GoalKu] - success contains Goal, not found is an error
         """
         return await self.get(goal_uid)
 
-    async def get_user_goals(self, user_uid: str) -> Result[list[Ku]]:
+    async def get_user_goals(self, user_uid: str) -> Result[list[GoalKu]]:
         """
         Get all goals for a user, including learning relationships.
 
@@ -257,7 +258,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
             return result
 
         # Convert to enriched Goal models using helper
-        goals = self._to_domain_models(result.value, KuDTO, Ku)
+        goals = self._to_domain_models(result.value, KuDTO, GoalKu)
 
         self.logger.info(f"Retrieved {len(goals)} goals for user {user_uid}")
         return Result.ok(goals)
@@ -270,7 +271,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
     # EVENT-DRIVEN CRUD OPERATIONS
     # ========================================================================
 
-    async def create(self, entity: Ku) -> Result[Ku]:
+    async def create(self, entity: GoalKu) -> Result[GoalKu]:
         """
         Create a goal and publish GoalCreated event.
 
@@ -284,11 +285,11 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
             - GoalCreated: When goal is successfully created
         """
         # Call parent create
-        result: Result[Ku] = await super().create(entity)
+        result: Result[GoalKu] = await super().create(entity)
 
         # Publish GoalCreated event
         if result.is_ok:
-            goal: Ku = result.value  # Type hint to help MyPy
+            goal: GoalKu = result.value  # Type hint to help MyPy
             event = GoalCreated(
                 goal_uid=goal.uid,
                 user_uid=goal.user_uid,
@@ -301,7 +302,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
 
         return result
 
-    async def create_goal(self, goal_request: "GoalCreateRequest", user_uid: str) -> Result[Ku]:
+    async def create_goal(self, goal_request: "GoalCreateRequest", user_uid: str) -> Result[GoalKu]:
         """
         Create a goal from a request with user_uid.
 
@@ -338,7 +339,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         )
 
         # Create goal via backend and convert to domain model (uses BaseService helper)
-        result = await self._create_and_convert(dto.to_dict(), KuDTO, Ku)
+        result = await self._create_and_convert(dto.to_dict(), KuDTO, GoalKu)
         if result.is_error:
             return result
         goal = result.value
@@ -373,7 +374,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
 
         return Result.ok(goal)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[GoalKu]:
         """
         Update a goal and publish appropriate events.
 
@@ -447,10 +448,10 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
                 old_progress = getattr(old_goal, "progress", 0.0) or 0.0
 
         # Call parent update
-        result: Result[Ku] = await super().update(uid, updates)
+        result: Result[GoalKu] = await super().update(uid, updates)
 
         if result.is_ok:
-            goal: Ku = result.value  # Type hint to help MyPy
+            goal: GoalKu = result.value  # Type hint to help MyPy
 
             # Publish GoalProgressUpdated event if progress changed
             if "progress" in updates and old_progress is not None:
@@ -664,7 +665,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         categories = [record["category"] for record in result.value if record.get("category")]
         return Result.ok(categories)
 
-    async def get_goals_by_category(self, category: str, limit: int = 100) -> Result[list[Ku]]:
+    async def get_goals_by_category(self, category: str, limit: int = 100) -> Result[list[GoalKu]]:
         """
         Get goals in a specific category.
 
@@ -679,10 +680,10 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         if result.is_error:
             return result
 
-        goals = self._to_domain_models(result.value, KuDTO, Ku)
+        goals = self._to_domain_models(result.value, KuDTO, GoalKu)
         return Result.ok(goals)
 
-    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[Ku]]:
+    async def get_goals_by_status(self, status: str, limit: int = 100) -> Result[list[GoalKu]]:
         """
         Get goals by status.
 
@@ -697,10 +698,10 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         if result.is_error:
             return result
 
-        goals = self._to_domain_models(result.value, KuDTO, Ku)
+        goals = self._to_domain_models(result.value, KuDTO, GoalKu)
         return Result.ok(goals)
 
-    async def search_goals(self, query: str, limit: int = 50) -> Result[list[Ku]]:
+    async def search_goals(self, query: str, limit: int = 50) -> Result[list[GoalKu]]:
         """
         Search goals by title or description.
 
@@ -730,7 +731,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         for record in result.value:
             goal_node = record["g"]
             dto = KuDTO.from_dict(goal_node)
-            goals.append(Ku.from_dto(dto))
+            goals.append(GoalKu.from_dto(dto))
 
         return Result.ok(goals)
 
@@ -753,7 +754,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
     # SPECIALIZED OPERATIONS
     # ========================================================================
 
-    async def mark_achieved(self, uid: str) -> Result[Ku]:
+    async def mark_achieved(self, uid: str) -> Result[GoalKu]:
         """
         Mark a goal as achieved and publish GoalAchieved event.
 
@@ -814,7 +815,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
     # ========================================================================
 
     @with_error_handling("get_subgoals", error_type="database", uid_param="parent_uid")
-    async def get_subgoals(self, parent_uid: str, depth: int = 1) -> Result[list[Ku]]:
+    async def get_subgoals(self, parent_uid: str, depth: int = 1) -> Result[list[GoalKu]]:
         """
         Get all subgoals of a parent goal.
 
@@ -850,13 +851,13 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         goals = []
         for record in result.value:
             goal_data = record["subgoal"]
-            goal = self._to_domain_model(goal_data, KuDTO, Ku)
+            goal = self._to_domain_model(goal_data, KuDTO, GoalKu)
             goals.append(goal)
 
         return Result.ok(goals)
 
     @with_error_handling("get_parent_goal", error_type="database", uid_param="subgoal_uid")
-    async def get_parent_goal(self, subgoal_uid: str) -> Result[Ku | None]:
+    async def get_parent_goal(self, subgoal_uid: str) -> Result[GoalKu | None]:
         """
         Get immediate parent of a subgoal (if any).
 
@@ -881,7 +882,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
             return Result.ok(None)
 
         parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, KuDTO, Ku)
+        parent = self._to_domain_model(parent_data, KuDTO, GoalKu)
         return Result.ok(parent)
 
     @with_error_handling("get_goal_hierarchy", error_type="database", uid_param="goal_uid")
@@ -938,7 +939,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_goal = self._to_domain_model(current_result.value, KuDTO, Ku)
+        current_goal = self._to_domain_model(current_result.value, KuDTO, GoalKu)
 
         ancestors_result = await self.backend.execute_query(ancestors_query, {"goal_uid": goal_uid})
         siblings_result = await self.backend.execute_query(siblings_query, {"goal_uid": goal_uid})
@@ -953,7 +954,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
         ):
             for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
                 goal_data = node
-                ancestors.append(self._to_domain_model(goal_data, KuDTO, Ku))
+                ancestors.append(self._to_domain_model(goal_data, KuDTO, GoalKu))
 
         # Process siblings
         siblings = []
@@ -965,7 +966,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
             for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
                     goal_data = node
-                    siblings.append(self._to_domain_model(goal_data, KuDTO, Ku))
+                    siblings.append(self._to_domain_model(goal_data, KuDTO, GoalKu))
 
         # Process children
         children = []
@@ -977,7 +978,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Ku]):
             for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
                     goal_data = node
-                    children.append(self._to_domain_model(goal_data, KuDTO, Ku))
+                    children.append(self._to_domain_model(goal_data, KuDTO, GoalKu))
 
         return Result.ok(
             {

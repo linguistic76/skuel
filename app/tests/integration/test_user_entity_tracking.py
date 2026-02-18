@@ -27,7 +27,8 @@ from core.models.enums import Domain, KuStatus, Priority, RecurrencePattern
 from core.models.enums.ku_enums import KuStatus as HabitStatus
 from core.models.ku.ku import Ku
 from core.models.ku.ku import Ku as Habit
-from core.models.ku.ku import Ku as Task
+from core.models.ku.ku_goal import GoalKu
+from core.models.ku.ku_task import TaskKu as Task
 
 # ============================================================================
 # FIXTURES
@@ -119,7 +120,6 @@ async def test_task_relationship_auto_creation(tasks_backend, test_user_uid, cre
 @pytest.mark.asyncio
 async def test_event_relationship_auto_creation(events_backend, test_user_uid, create_test_users):
     """Test automatic user relationship creation for events."""
-    from core.models.ku.ku import Ku
 
     event = Ku(
         uid="event_test_001",
@@ -182,7 +182,7 @@ async def test_habit_relationship_auto_creation(habits_backend, test_user_uid, c
 @pytest.mark.asyncio
 async def test_goal_relationship_auto_creation(goals_backend, test_user_uid, create_test_users):
     """Test automatic user relationship creation for goals."""
-    goal = Ku(
+    goal = GoalKu(
         uid="goal_test_001",
         user_uid=test_user_uid,
         title="Test Goal",
@@ -318,7 +318,7 @@ async def test_user_isolation_cross_domain(
     task_u1_result = await tasks_backend.create(task_u1)
     assert task_u1_result.is_ok, "Setup failed: Could not create user 1 task"
 
-    goal_u1 = Ku(
+    goal_u1 = GoalKu(
         uid="goal_iso_u1",
         user_uid=test_user_uid,
         title="User 1 Goal",
@@ -344,7 +344,7 @@ async def test_user_isolation_cross_domain(
     task_u2_result = await tasks_backend.create(task_u2)
     assert task_u2_result.is_ok, "Setup failed: Could not create user 2 task"
 
-    goal_u2 = Ku(
+    goal_u2 = GoalKu(
         uid="goal_iso_u2",
         user_uid=test_user_uid_2,
         title="User 2 Goal",

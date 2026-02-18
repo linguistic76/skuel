@@ -20,8 +20,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from core.models.enums import KuStatus, Priority
-from core.models.ku.ku import Ku as Task
 from core.models.ku.ku_dto import KuDTO as TaskDTO
+from core.models.ku.ku_task import TaskKu as Task
 from core.services.tasks.tasks_progress_service import TasksProgressService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result

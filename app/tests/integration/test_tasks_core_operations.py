@@ -28,7 +28,7 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import KuStatus, Priority
 from core.models.enums.ku_enums import KuType
-from core.models.ku.ku import Ku as Task
+from core.models.ku.ku_task import TaskKu as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
 
 
