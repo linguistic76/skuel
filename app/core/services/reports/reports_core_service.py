@@ -40,6 +40,7 @@ from core.events import publish_event
 from core.events.submission_events import AssessmentCreated, SubmissionDeleted
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
 from core.models.ku import Ku, KuDTO
+from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations
@@ -142,7 +143,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         search_fields=("title", "original_filename", "processed_content"),
         search_order_by="created_at",
         category_field="ku_type",
-        user_ownership_relationship="OWNS",  # User-owned content
+        user_ownership_relationship=RelationshipName.OWNS,  # User-owned content
     )
 
     def __init__(

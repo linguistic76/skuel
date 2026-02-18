@@ -24,6 +24,7 @@ from typing import Any
 from core.events import publish_event
 from core.models.enums.ku_enums import KuStatus, KuType
 from core.models.ku import Ku, KuDTO
+from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations, BaseUpdatePayload
@@ -86,7 +87,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Ku], Ku]):
         entity_label="Ku",
         search_fields=("title", "content", "processed_content"),
         search_order_by="created_at",
-        user_ownership_relationship="OWNS",  # User-owned content
+        user_ownership_relationship=RelationshipName.OWNS,  # User-owned content
     )
 
     def __init__(

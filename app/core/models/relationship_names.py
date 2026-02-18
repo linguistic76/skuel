@@ -191,6 +191,7 @@ class RelationshipName(str, Enum):
     # USER/OWNERSHIP RELATIONSHIPS
     # User-to-entity ownership and progress
     # =========================================================================
+    OWNS = "OWNS"  # (user)-[:OWNS]->(entity) - Universal ownership relationship
     HAS_TASK = "HAS_TASK"
     HAS_EVENT = "HAS_EVENT"
     HAS_HABIT = "HAS_HABIT"

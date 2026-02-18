@@ -58,6 +58,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from core.models.relationship_names import RelationshipName
+
 
 @dataclass(frozen=True)
 class DomainConfig:
@@ -135,7 +137,7 @@ class DomainConfig:
 
     # Graph-Aware Search
     graph_enrichment_patterns: tuple[tuple[str, str, str, str], ...] = ()
-    user_ownership_relationship: str | None = "OWNS"  # None for shared content (KU)
+    user_ownership_relationship: str | None = RelationshipName.OWNS  # None for shared content (KU)
 
     # Prerequisites & Curriculum
     prerequisite_relationships: tuple[str, ...] = ()
@@ -292,7 +294,7 @@ def create_activity_domain_config(
         graph_enrichment_patterns=tuple(generate_graph_enrichment(entity_label)),
         prerequisite_relationships=tuple(generate_prerequisite_relationships(entity_label)),
         enables_relationships=tuple(generate_enables_relationships(entity_label)),
-        user_ownership_relationship="OWNS",
+        user_ownership_relationship=RelationshipName.OWNS,
         supports_user_progress=True,
     )
 

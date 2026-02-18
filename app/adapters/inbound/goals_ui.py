@@ -19,6 +19,7 @@ __version__ = "2.0"
 import contextlib
 from dataclasses import dataclass
 from datetime import date
+from enum import Enum
 from typing import Any, Protocol
 
 from fasthtml.common import H1, H2, H3, Form, P, Script
@@ -660,14 +661,14 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsFacadeProtocol, service
     def get_status_str(goal) -> str:
         """Extract status as lowercase string, handling both enum and string."""
         status = getattr(goal, "status", "active")
-        if hasattr(status, "value"):
+        if isinstance(status, Enum):
             return str(status.value).lower()
         return str(status).lower()
 
     def get_priority_str(goal) -> str:
         """Extract priority as lowercase string, handling both enum and string."""
         priority = getattr(goal, "priority", "medium")
-        if hasattr(priority, "value"):
+        if isinstance(priority, Enum):
             return str(priority.value).lower()
         return str(priority).lower()
 

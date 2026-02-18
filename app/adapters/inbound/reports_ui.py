@@ -110,7 +110,7 @@ def _render_report_card(report: Any, is_pinned: bool = False) -> Any:
     """
     from components.shared.pin_button import PinButton
 
-    file_size_mb = (report.file_size / 1024 / 1024) if hasattr(report, "file_size") else 0
+    file_size_mb = (report.file_size / 1024 / 1024) if report.file_size else 0
     identifier = _get_report_identifier(report)
     return Div(
         Div(
@@ -162,7 +162,7 @@ def _render_reports_grid(reports: list[Any]) -> Any:
 
 def _render_report_detail(report: Any) -> Any:
     """Render report detail info as HTML fragment."""
-    file_size_mb = (report.file_size / 1024 / 1024) if hasattr(report, "file_size") else 0
+    file_size_mb = (report.file_size / 1024 / 1024) if report.file_size else 0
     processing_duration = getattr(report, "processing_duration_seconds", None)
     created_at = getattr(report, "created_at", None)
     identifier = _get_report_identifier(report)
@@ -224,9 +224,7 @@ def _render_processed_content(content: str | None, has_content: bool) -> Any:
 
 def _render_category_selector(report: Any) -> Any:
     """Render category selector for report."""
-    current_category = (
-        getattr(report.metadata, "category", None) if hasattr(report, "metadata") else None
-    )
+    current_category = report.metadata.get("category") if report.metadata else None
     categories = ["daily", "weekly", "reflection", "work", "personal", "other"]
 
     return Div(
@@ -250,9 +248,7 @@ def _render_category_selector(report: Any) -> Any:
 
 def _render_category_display(report: Any) -> Any:
     """Render category display with edit button."""
-    current_category = (
-        getattr(report.metadata, "category", "none") if hasattr(report, "metadata") else "none"
-    )
+    current_category = report.metadata.get("category", "none") if report.metadata else "none"
 
     return Div(
         Span(f"Category: {current_category.title()}", cls="badge badge-primary"),
@@ -269,7 +265,7 @@ def _render_category_display(report: Any) -> Any:
 
 def _render_tags_manager(report: Any) -> Any:
     """Render tags manager for report."""
-    tags = getattr(report.metadata, "tags", []) if hasattr(report, "metadata") else []
+    tags = report.metadata.get("tags", []) if report.metadata else []
 
     tag_elements = [
         Span(

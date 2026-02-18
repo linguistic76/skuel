@@ -432,11 +432,12 @@ def create_principles_ui_routes(
 
             # Calculate average adherence from alignment service if available
             overall_adherence = 0.0
-            if principles_service and hasattr(principles_service, "alignment"):
+            alignment = (
+                getattr(principles_service, "alignment", None) if principles_service else None
+            )
+            if alignment:
                 try:
-                    adherence_result = (
-                        await principles_service.alignment.calculate_average_alignment(user_uid)
-                    )
+                    adherence_result = await alignment.calculate_average_alignment(user_uid)
                     if not adherence_result.is_error:
                         overall_adherence = adherence_result.value
                 except Exception as e:
@@ -444,9 +445,12 @@ def create_principles_ui_routes(
 
             # Get recent reflections from reflection service
             recent_reflections: list = []
-            if principles_service and hasattr(principles_service, "reflection"):
+            reflection = (
+                getattr(principles_service, "reflection", None) if principles_service else None
+            )
+            if reflection:
                 try:
-                    reflections_result = await principles_service.reflection.get_recent_reflections(
+                    reflections_result = await reflection.get_recent_reflections(
                         user_uid, days=7, limit=10
                     )
                     if not reflections_result.is_error:

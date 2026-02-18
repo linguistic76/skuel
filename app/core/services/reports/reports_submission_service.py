@@ -24,6 +24,7 @@ from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.ku_enums import KuStatus, KuType, ProcessorType
 from core.models.ku import Ku, KuDTO
+from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations
@@ -51,7 +52,7 @@ class KuSubmissionService(BaseService[BackendOperations[Ku], Ku]):
         search_fields=("title", "original_filename", "file_type"),
         search_order_by="created_at",
         category_field="ku_type",
-        user_ownership_relationship="OWNS",
+        user_ownership_relationship=RelationshipName.OWNS,
     )
 
     def __init__(

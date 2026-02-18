@@ -12,6 +12,7 @@ Layout: Unified sidebar (Tailwind + Alpine) with teaching navigation.
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
@@ -137,7 +138,7 @@ def _render_feedback_item(fb: dict[str, Any]) -> Div:
 
     time_display = ""
     if created_at:
-        if hasattr(created_at, "strftime"):
+        if isinstance(created_at, datetime):
             time_display = created_at.strftime("%b %d, %H:%M")
         else:
             time_display = str(created_at)[:16]

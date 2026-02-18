@@ -17,6 +17,7 @@ from typing import Any
 from core.constants import QueryLimit
 from core.models.enums.ku_enums import KuType
 from core.models.ku import Ku, KuDTO
+from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.protocols import BackendOperations
@@ -54,7 +55,7 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         search_fields=("title", "original_filename", "processed_content"),
         search_order_by="created_at",
         category_field="ku_type",
-        user_ownership_relationship="OWNS",
+        user_ownership_relationship=RelationshipName.OWNS,
     )
 
     def __init__(self, ku_backend: BackendOperations[Ku], event_bus=None) -> None:

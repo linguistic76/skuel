@@ -40,7 +40,7 @@ class GroupService(BaseService):
         entity_label="Group",
         search_fields=("name", "description"),
         search_order_by="created_at",
-        user_ownership_relationship="OWNS",
+        user_ownership_relationship=RelationshipName.OWNS,
     )
 
     def __init__(self, backend: Any, event_bus: Any = None) -> None:

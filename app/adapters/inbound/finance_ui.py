@@ -231,7 +231,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             if expenses_result and expenses_result.is_ok and expenses_result.value:
                 expenses_list, _ = expenses_result.value
                 for expense in expenses_list:
-                    if hasattr(expense, "amount") and expense.amount:
+                    if expense.amount:
                         total_spent += expense.amount
                 # Get recent expenses for dashboard
                 recent_expenses = [
@@ -248,7 +248,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             budgets_result = await finance_service.get_active_budgets()
             if budgets_result and budgets_result.is_ok and budgets_result.value:
                 for budget in budgets_result.value:
-                    if hasattr(budget, "amount_limit") and budget.amount_limit:
+                    if budget.amount_limit:
                         total_budget += budget.amount_limit
                     # Check for alerts
                     spent = getattr(budget, "amount_spent", 0) or 0

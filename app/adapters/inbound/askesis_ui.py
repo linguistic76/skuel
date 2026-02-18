@@ -411,7 +411,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                     # Use error message if available, otherwise fallback
                     ai_response = (
                         result.error.message
-                        if hasattr(result.error, "message") and result.error.message
+                        if result.error.message
                         else "I'm having trouble right now. Please try again."
                     )
                 else:

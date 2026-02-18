@@ -10,6 +10,7 @@ Layout: Standard BasePage (no sidebar needed — simple list view).
 See: /docs/architecture/SUBMISSION_FEEDBACK_LOOP.md
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
@@ -67,12 +68,8 @@ def _notification_card(notif: dict[str, Any]) -> Div:
     created_at = notif.get("created_at", "")
     time_display = ""
     if created_at:
-        if hasattr(created_at, "isoformat"):
-            time_display = (
-                created_at.strftime("%b %d, %H:%M")
-                if hasattr(created_at, "strftime")
-                else str(created_at)
-            )
+        if isinstance(created_at, datetime):
+            time_display = created_at.strftime("%b %d, %H:%M")
         else:
             time_display = str(created_at)[:16]
 

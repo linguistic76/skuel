@@ -19,6 +19,7 @@ __version__ = "2.0"
 import contextlib
 from dataclasses import dataclass
 from datetime import date, datetime, time
+from enum import Enum
 from typing import Any
 
 from fasthtml.common import H1, H2, Form, P
@@ -307,7 +308,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
         status = getattr(event, "status", None)
         if status is None:
             return "scheduled"
-        if hasattr(status, "value"):
+        if isinstance(status, Enum):
             return str(status.value).lower()
         return str(status).lower()
 
@@ -340,12 +341,15 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
 
         def get_sort_datetime(event: Any) -> datetime:
             event_date = getattr(event, "event_date", None) or date.today()
-            if not isinstance(event_date, date) and hasattr(event_date, "year"):
+            if not isinstance(event_date, date) and getattr(event_date, "year", None) is not None:
                 event_date = date(event_date.year, event_date.month, event_date.day)
             start_time_val = getattr(event, "start_time", None)
             if start_time_val is None:
                 return datetime.combine(event_date, time(0, 0))
-            if not isinstance(start_time_val, time) and hasattr(start_time_val, "hour"):
+            if (
+                not isinstance(start_time_val, time)
+                and getattr(start_time_val, "hour", None) is not None
+            ):
                 start_time_val = time(
                     start_time_val.hour,
                     start_time_val.minute,
@@ -704,7 +708,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                 return None
             if isinstance(t, time):
                 return t
-            if hasattr(t, "hour"):  # Neo4j Time
+            if getattr(t, "hour", None) is not None:  # Neo4j Time
                 return time(t.hour, t.minute, getattr(t, "second", 0) or 0)
             return None
 
@@ -714,7 +718,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsFacadeProtocol):
                 return None
             if isinstance(d, date):
                 return d
-            if hasattr(d, "year"):  # Neo4j Date
+            if getattr(d, "year", None) is not None:  # Neo4j Date
                 return date(d.year, d.month, d.day)
             return None
 

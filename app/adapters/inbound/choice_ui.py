@@ -19,6 +19,7 @@ __version__ = "2.0"
 import contextlib
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from typing import Any, Protocol
 
 from fasthtml.common import H1, H2, H3, Form, P
@@ -194,7 +195,7 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
         if value is None:
             return default
         # Handle enum with .value attribute
-        if hasattr(value, "value"):
+        if isinstance(value, Enum):
             return str(value.value).lower()
         return str(value).lower()
 
@@ -773,13 +774,18 @@ def create_choice_ui_routes(_app, rt, choices_service: ChoicesFacadeProtocol, se
             )
 
         # Build option selection
+        from core.models.ku.ku_nested_types import ChoiceOption
+
         option_buttons = []
         for opt in options:
-            opt_uid = opt.uid if hasattr(opt, "uid") else opt.get("uid", "")
-            opt_title = opt.title if hasattr(opt, "title") else opt.get("title", "Untitled")
-            opt_desc = (
-                opt.description if hasattr(opt, "description") else opt.get("description", "")
-            )
+            if isinstance(opt, ChoiceOption):
+                opt_uid = opt.uid
+                opt_title = opt.title
+                opt_desc = opt.description
+            else:
+                opt_uid = opt.get("uid", "")
+                opt_title = opt.get("title", "Untitled")
+                opt_desc = opt.get("description", "")
             option_buttons.append(
                 Div(
                     Input(

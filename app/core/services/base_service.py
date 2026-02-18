@@ -89,6 +89,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
 # Import protocols for type constraints and runtime validation
 from core.models.protocols import DomainModelProtocol, DTOProtocol
+from core.models.relationship_names import RelationshipName
 from core.services.mixins import (
     ContextOperationsMixin,
     ConversionHelpersMixin,
@@ -476,7 +477,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     ] = ()
 
     # User ownership relationship (None for shared content like KU)
-    _user_ownership_relationship: ClassVar[str | None] = "OWNS"
+    _user_ownership_relationship: ClassVar[str | None] = RelationshipName.OWNS
 
     # ========================================================================
     # CURRICULUM/PREREQUISITE CONFIGURATION (January 2026 - Unified)

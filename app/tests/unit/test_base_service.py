@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 import pytest
 
+from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.utils.result_simplified import Errors, Result
 
@@ -95,7 +96,7 @@ class ConcreteTestService(BaseService["BackendOperations[MockModel]", MockModel]
     _dto_class = MockDTO
     _model_class = MockModel
     _search_fields: ClassVar[list[str]] = ["title", "description"]
-    _user_ownership_relationship: ClassVar[str | None] = "OWNS"
+    _user_ownership_relationship: ClassVar[str | None] = RelationshipName.OWNS
     _completed_statuses: ClassVar[list[str]] = ["completed", "archived"]
 
 

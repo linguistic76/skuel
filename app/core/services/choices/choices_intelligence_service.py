@@ -1871,9 +1871,10 @@ class ChoicesIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", K
         overall_score = aligned_count / total_choices
 
         # Build principle breakdown
-        principle_breakdown: dict[str, dict[str, Any]] = defaultdict(
-            lambda: {"aligned_count": 0, "choice_uids": [], "avg_satisfaction": 0.0}
-        )
+        def _empty_principle_entry() -> dict[str, Any]:
+            return {"aligned_count": 0, "choice_uids": [], "avg_satisfaction": 0.0}
+
+        principle_breakdown: dict[str, dict[str, Any]] = defaultdict(_empty_principle_entry)
         satisfaction_sums: dict[str, float] = defaultdict(float)
 
         for detail in choice_details:

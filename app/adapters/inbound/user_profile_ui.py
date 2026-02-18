@@ -720,7 +720,7 @@ def setup_user_profile_routes(rt, services):
         curriculum_items = _build_curriculum_items(context)
         display_name = user.display_name if user.display_name else user.username
         domain_title = DEFAULT_DOMAIN_NAMES.get(domain, domain.title())
-        is_admin = user.can_manage_users() if hasattr(user, "can_manage_users") else False
+        is_admin = user.can_manage_users()
 
         return await create_profile_page(
             content=content,
@@ -863,7 +863,7 @@ def setup_user_profile_routes(rt, services):
         domain_items = _build_domain_items(context, insight_counts)
         curriculum_items = _build_curriculum_items(context)
         display_name = user.display_name if user.display_name else user.username
-        is_admin = user.can_manage_users() if hasattr(user, "can_manage_users") else False
+        is_admin = user.can_manage_users()
 
         return await create_profile_page(
             content=content,

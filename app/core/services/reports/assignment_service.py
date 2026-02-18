@@ -46,7 +46,7 @@ class AssignmentService(BaseService):
         entity_label="Assignment",
         search_fields=("name", "instructions"),
         search_order_by="created_at",
-        user_ownership_relationship="OWNS",
+        user_ownership_relationship=RelationshipName.OWNS,
     )
 
     def __init__(self, backend) -> None:
