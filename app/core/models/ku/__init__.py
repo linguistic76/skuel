@@ -63,6 +63,7 @@ from .ku_chunks import KuChunk, KuChunkType, chunk_content
 from .ku_content import KuContent
 from .ku_converters import ku_to_response
 from .ku_dto import KuDTO
+from .ku_event import EventKu
 from .ku_goal import GoalKu
 from .ku_habit import HabitKu
 from .ku_metadata import KuMetadata
@@ -127,6 +128,7 @@ __all__ = [
     "TaskKu",
     "GoalKu",
     "HabitKu",
+    "EventKu",
     "KU_TYPE_CLASS_MAP",
     "KuChunk",
     "KuChunkType",

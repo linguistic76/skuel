@@ -1041,6 +1041,7 @@ async def compose_services(
         # Goal entities are now Ku nodes with ku_type="goal"
         from core.models.habit.completion import HabitCompletion
         from core.models.ku.ku import Ku
+        from core.models.ku.ku_event import EventKu
         from core.models.ku.ku_goal import GoalKu
         from core.models.ku.ku_habit import HabitKu
         from core.models.ku.ku_task import TaskKu
@@ -1062,10 +1063,10 @@ async def compose_services(
             prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "task"},
         )
-        events_backend = UniversalNeo4jBackend[Ku](
+        events_backend = UniversalNeo4jBackend[EventKu](
             driver,
             NeoLabel.KU,
-            Ku,
+            EventKu,
             prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "event"},
         )

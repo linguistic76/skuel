@@ -19,8 +19,8 @@ from core.constants import GraphDepth
 from core.models.enums import Domain
 from core.models.enums.activity_enums import EngagementLevel
 from core.models.graph_context import GraphContext
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_event import EventKu
 from core.models.shared.dual_track import DualTrackResult
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.events.event_relationships import EventRelationships
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from core.services.protocols.domain_protocols import EventsRelationshipOperations
 
 
-class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
+class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[EventKu]", EventKu]):
     """
     Graph intelligence service for events using pure Cypher graph intelligence.
 
@@ -73,7 +73,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku
 
     def __init__(
         self,
-        backend: "BackendOperations[Ku]",
+        backend: "BackendOperations[EventKu]",
         graph_intelligence_service=None,
         relationship_service: "EventsRelationshipOperations | None" = None,
     ) -> None:
@@ -92,11 +92,11 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku
         )
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Ku, KuDTO](
+            self.orchestrator = GraphContextOrchestrator[EventKu, KuDTO](
                 service=self,
                 backend_get_method="get",  # EventsService uses generic 'get'
                 dto_class=KuDTO,
-                model_class=Ku,
+                model_class=EventKu,
                 domain=Domain.EVENTS,
             )
 
@@ -106,7 +106,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku
     # with IntelligenceRouteFactory.
     # ========================================================================
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[EventKu, GraphContext]]:
         """
         Get event with full graph context.
 
@@ -214,7 +214,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku
     @with_error_handling("get_event_with_context", error_type="system", uid_param="uid")
     async def get_event_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Ku, GraphContext]]:
+    ) -> Result[tuple[EventKu, GraphContext]]:
         """
         Get event with full graph context using pure Cypher graph intelligence.
 
@@ -502,7 +502,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku
     # PRIVATE ANALYSIS HELPERS
     # ========================================================================
 
-    async def _analyze_goal_support(self, event: Ku, _context: GraphContext) -> dict[str, Any]:
+    async def _analyze_goal_support(self, event: EventKu, _context: GraphContext) -> dict[str, Any]:
         """
         Analyze how event supports goals.
 
@@ -535,7 +535,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku
             "completed": event.status == "completed",
         }
 
-    async def _analyze_habit_impact(self, event: Ku, _context: GraphContext) -> dict[str, Any]:
+    async def _analyze_habit_impact(self, event: EventKu, _context: GraphContext) -> dict[str, Any]:
         """
         Analyze habit reinforcement impact.
 
@@ -553,7 +553,7 @@ class EventsIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku
             "completed": event.status == "completed",
         }
 
-    async def _analyze_knowledge_impact(self, event: Ku, _context: GraphContext) -> dict[str, Any]:
+    async def _analyze_knowledge_impact(self, event: EventKu, _context: GraphContext) -> dict[str, Any]:
         """
         Analyze knowledge reinforcement.
 

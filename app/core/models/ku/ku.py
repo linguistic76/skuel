@@ -78,6 +78,7 @@ KU_TYPE_CLASS_MAP: dict[KuType, type[KuBase]] = {}
 
 def _populate_type_class_map() -> None:
     """Populate KU_TYPE_CLASS_MAP after all classes are defined."""
+    from core.models.ku.ku_event import EventKu
     from core.models.ku.ku_goal import GoalKu
     from core.models.ku.ku_habit import HabitKu
     from core.models.ku.ku_task import TaskKu
@@ -85,6 +86,7 @@ def _populate_type_class_map() -> None:
     KU_TYPE_CLASS_MAP[KuType.TASK] = TaskKu
     KU_TYPE_CLASS_MAP[KuType.GOAL] = GoalKu
     KU_TYPE_CLASS_MAP[KuType.HABIT] = HabitKu
+    KU_TYPE_CLASS_MAP[KuType.EVENT] = EventKu
 
 
 # Called at module load time (after Ku class is defined, at bottom of file)

@@ -28,8 +28,8 @@ if TYPE_CHECKING:
     from core.services.protocols import BackendOperations
 
 from core.models.enums import KuStatus
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_event import EventKu
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.services.base_service import BaseService
@@ -40,7 +40,7 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
 
 
-class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
+class EventsSearchService(BaseService["BackendOperations[EventKu]", EventKu]):
     """
     Event search and discovery operations.
 
@@ -91,14 +91,15 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=EventKu,
+        entity_label="Ku",
         domain_name="events",
         date_field="event_date",
         completed_statuses=(KuStatus.COMPLETED.value,),
         search_order_by="event_date",  # Events ordered by event date, not created_at
     )
 
-    def __init__(self, backend: BackendOperations[Ku]) -> None:
+    def __init__(self, backend: BackendOperations[EventKu]) -> None:
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="events.search")
 
@@ -113,7 +114,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
     # get_by_category(), list_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")
-    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Ku]]:
+    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[EventKu]]:
         """
         Get events prioritized for the user's current context.
 
@@ -142,7 +143,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        all_events = self._to_domain_models(result.value, KuDTO, Ku)
+        all_events = self._to_domain_models(result.value, KuDTO, EventKu)
 
         # Filter out completed/cancelled
         active_events = [
@@ -171,7 +172,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         self.logger.info(f"Prioritized {len(prioritized)} events for user {user_context.user_uid}")
         return Result.ok(prioritized)
 
-    def _calculate_priority_score(self, event: Ku, user_context: UserContext) -> float:
+    def _calculate_priority_score(self, event: EventKu, user_context: UserContext) -> float:
         """
         Calculate priority score for an event based on user context.
 
@@ -232,7 +233,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         days_ahead: int = 7,
         user_uid: str | None = None,
         limit: int = 100,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[EventKu]]:
         """
         Get events within specified number of days.
 
@@ -273,7 +274,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
             return Result.fail(result.expect_error())
 
         # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, Ku)
+        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, EventKu)
 
         self.logger.debug(f"Found {len(events)} events within {days_ahead} days")
         return Result.ok(events)
@@ -283,7 +284,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         self,
         user_uid: str | None = None,
         limit: int = 100,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[EventKu]]:
         """
         Get events that are past their date and not completed.
 
@@ -317,7 +318,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
             return Result.fail(result.expect_error())
 
         # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, Ku)
+        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, EventKu)
 
         self.logger.debug(f"Found {len(events)} overdue events")
         return Result.ok(events)
@@ -333,7 +334,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         end_date: date,
         user_uid: str | None = None,
         limit: int = 100,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[EventKu]]:
         """
         Get events within a date range.
 
@@ -383,7 +384,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
             return Result.fail(result.expect_error())
 
         # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, Ku)
+        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, EventKu)
 
         self.logger.debug(f"Found {len(events)} events between {start_date} and {end_date}")
         return Result.ok(events)
@@ -391,7 +392,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("get_recurring", error_type="database")
     async def get_recurring(
         self, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[EventKu]]:
         """
         Get recurring events.
 
@@ -428,13 +429,13 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
             return Result.fail(result.expect_error())
 
         # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, Ku)
+        events = self._to_domain_models([record["e"] for record in result.value], KuDTO, EventKu)
 
         self.logger.debug(f"Found {len(events)} recurring events")
         return Result.ok(events)
 
     @with_error_handling("get_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_for_goal(self, goal_uid: str, user_uid: str | None = None) -> Result[list[Ku]]:
+    async def get_for_goal(self, goal_uid: str, user_uid: str | None = None) -> Result[list[EventKu]]:
         """
         Get events that support a specific goal.
 
@@ -465,7 +466,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         return Result.ok(events)
 
     @with_error_handling("get_conflicting", error_type="database", uid_param="event_uid")
-    async def get_conflicting(self, event_uid: str) -> Result[list[Ku]]:
+    async def get_conflicting(self, event_uid: str) -> Result[list[EventKu]]:
         """
         Get events that conflict with a given event.
 
@@ -482,7 +483,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if event_result.is_error:
             return Result.fail(event_result.expect_error())
 
-        event = self._to_domain_model(event_result.value, KuDTO, Ku)
+        event = self._to_domain_model(event_result.value, KuDTO, EventKu)
 
         if not event.event_date:
             return Result.ok([])  # No date = no conflicts
@@ -513,7 +514,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             event_node = record["e"]
             dto = KuDTO.from_dict(dict(event_node))
-            other_event = Ku.from_dto(dto)
+            other_event = EventKu.from_dto(dto)
 
             # Check time overlap if both have times
             if (
@@ -538,7 +539,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("get_by_type", error_type="database")
     async def get_by_type(
         self, event_type: str, user_uid: str | None = None, limit: int = 100
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[EventKu]]:
         """
         Get events by event type.
 
@@ -560,7 +561,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         if result.is_error:
             return result
 
-        events = self._to_domain_models(result.value, KuDTO, Ku)
+        events = self._to_domain_models(result.value, KuDTO, EventKu)
 
         self.logger.debug(f"Found {len(events)} events of type '{event_type}'")
         return Result.ok(events)
@@ -568,7 +569,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("get_upcoming", error_type="database", uid_param="user_uid")
     async def get_upcoming(
         self, user_uid: str, days_ahead: int = 30, limit: int = 100
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[EventKu]]:
         """
         Get upcoming events for a user.
 
@@ -593,7 +594,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("get_history", error_type="database", uid_param="user_uid")
     async def get_history(
         self, user_uid: str, days_back: int = 90, limit: int = 100
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[EventKu]]:
         """
         Get completed/past events for a user.
 
@@ -637,13 +638,13 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         for record in result.value:
             event_node = record["e"]
             dto = KuDTO.from_dict(dict(event_node))
-            events.append(Ku.from_dto(dto))
+            events.append(EventKu.from_dto(dto))
 
         self.logger.debug(f"Found {len(events)} events in history for user {user_uid}")
         return Result.ok(events)
 
     @with_error_handling("get_for_habit", error_type="database", uid_param="habit_uid")
-    async def get_for_habit(self, habit_uid: str, user_uid: str | None = None) -> Result[list[Ku]]:
+    async def get_for_habit(self, habit_uid: str, user_uid: str | None = None) -> Result[list[EventKu]]:
         """
         Get events that reinforce a specific habit.
 
@@ -680,7 +681,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
         start_date: date | None = None,
         end_date: date | None = None,
         limit: int = 100,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[EventKu]]:
         """
         Get events for calendar display.
 
@@ -727,7 +728,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
         self, query: str, user_uid: str | None = None, limit: int = 50
-    ) -> Result[tuple[list[Ku], ParsedSearchQuery]]:
+    ) -> Result[tuple[list[EventKu], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.
 
@@ -822,7 +823,7 @@ class EventsSearchService(BaseService["BackendOperations[Ku]", Ku]):
                 result = await self.backend.find_by(limit=limit, **filters)
                 if result.is_error:
                     return Result.fail(result.expect_error())
-                events = self._to_domain_models(result.value, KuDTO, Ku)
+                events = self._to_domain_models(result.value, KuDTO, EventKu)
             else:
                 result = await self.search(parsed.text_query, limit=limit)
                 if result.is_error:

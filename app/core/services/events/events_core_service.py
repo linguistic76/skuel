@@ -29,8 +29,8 @@ from core.events.calendar_event_events import (
 )
 from core.models.enums import KuStatus
 from core.models.enums.ku_enums import KuType
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_event import EventKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.protocols import get_enum_value
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from core.services.protocols import BackendOperations
 
 
-class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
+class EventsCoreService(BaseService["BackendOperations[EventKu]", EventKu]):
     """
     Core CRUD service for events.
 
@@ -79,7 +79,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
     """
 
-    def __init__(self, backend: BackendOperations[Ku], event_bus=None) -> None:
+    def __init__(self, backend: BackendOperations[EventKu], event_bus=None) -> None:
         """
         Initialize events core service.
 
@@ -113,7 +113,8 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=EventKu,
+        entity_label="Ku",
         domain_name="events",
         date_field="event_date",
         completed_statuses=(KuStatus.COMPLETED.value,),
@@ -122,7 +123,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, event: Ku) -> Result[None] | None:
+    def _validate_create(self, event: EventKu) -> Result[None] | None:
         """
         Validate event creation with business rules.
 
@@ -161,7 +162,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Ku, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: EventKu, updates: dict[str, Any]) -> Result[None] | None:
         """
         Validate event updates with business rules.
 
@@ -221,7 +222,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
     # BASIC CRUD OPERATIONS
     # ========================================================================
 
-    async def get_event(self, event_uid: str) -> Result[Ku]:
+    async def get_event(self, event_uid: str) -> Result[EventKu]:
         """
         Get a specific event by UID.
 
@@ -236,7 +237,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         """
         return await self.get(event_uid)
 
-    async def get_user_events(self, user_uid: str) -> Result[list[Ku]]:
+    async def get_user_events(self, user_uid: str) -> Result[list[EventKu]]:
         """
         Get all events for a user, including learning relationships.
 
@@ -261,7 +262,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> Result[list[Ku]]:
+    ) -> Result[list[EventKu]]:
         """
         Find events with filters and pagination.
 
@@ -285,7 +286,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         events_data, _ = result.value
 
         # Use BaseService helper for batch DTO conversion
-        events = self._to_domain_models(events_data, KuDTO, Ku)
+        events = self._to_domain_models(events_data, KuDTO, EventKu)
 
         # Sort if requested
         if order_by and events:
@@ -322,7 +323,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
     # EVENT-DRIVEN CRUD OPERATIONS
     # ========================================================================
 
-    async def create(self, entity: Ku) -> Result[Ku]:
+    async def create(self, entity: EventKu) -> Result[EventKu]:
         """
         Create a calendar event and publish CalendarEventCreated event.
 
@@ -372,7 +373,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
 
         return result
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Ku]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[EventKu]:
         """
         Update a calendar event and publish appropriate events.
 
@@ -489,7 +490,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
     # ========================================================================
 
     @with_error_handling("get_subevents", error_type="database", uid_param="parent_uid")
-    async def get_subevents(self, parent_uid: str, depth: int = 1) -> Result[list[Ku]]:
+    async def get_subevents(self, parent_uid: str, depth: int = 1) -> Result[list[EventKu]]:
         """
         Get all subevents of a parent event.
 
@@ -525,13 +526,13 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         events = []
         for record in result.value:
             event_data = record["subevent"]
-            event = self._to_domain_model(event_data, KuDTO, Ku)
+            event = self._to_domain_model(event_data, KuDTO, EventKu)
             events.append(event)
 
         return Result.ok(events)
 
     @with_error_handling("get_parent_event", error_type="database", uid_param="subevent_uid")
-    async def get_parent_event(self, subevent_uid: str) -> Result[Ku | None]:
+    async def get_parent_event(self, subevent_uid: str) -> Result[EventKu | None]:
         """
         Get immediate parent of a subevent (if any).
 
@@ -556,7 +557,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
             return Result.ok(None)
 
         parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, KuDTO, Ku)
+        parent = self._to_domain_model(parent_data, KuDTO, EventKu)
         return Result.ok(parent)
 
     @with_error_handling("get_event_hierarchy", error_type="database", uid_param="event_uid")
@@ -613,7 +614,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         if current_result.is_error:
             return Result.fail(current_result)
 
-        current_event = self._to_domain_model(current_result.value, KuDTO, Ku)
+        current_event = self._to_domain_model(current_result.value, KuDTO, EventKu)
 
         ancestors_result = await self.backend.execute_query(
             ancestors_query, {"event_uid": event_uid}
@@ -630,7 +631,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
         ):
             for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
                 event_data = node
-                ancestors.append(self._to_domain_model(event_data, KuDTO, Ku))
+                ancestors.append(self._to_domain_model(event_data, KuDTO, EventKu))
 
         # Process siblings
         siblings = []
@@ -642,7 +643,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
             for node in siblings_result.value[0]["siblings"]:
                 if node:  # Skip None values
                     event_data = node
-                    siblings.append(self._to_domain_model(event_data, KuDTO, Ku))
+                    siblings.append(self._to_domain_model(event_data, KuDTO, EventKu))
 
         # Process children
         children = []
@@ -654,7 +655,7 @@ class EventsCoreService(BaseService["BackendOperations[Ku]", Ku]):
             for node in children_result.value[0]["children"]:
                 if node:  # Skip None values
                     event_data = node
-                    children.append(self._to_domain_model(event_data, KuDTO, Ku))
+                    children.append(self._to_domain_model(event_data, KuDTO, EventKu))
 
         return Result.ok(
             {

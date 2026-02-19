@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import CalendarEventCompleted, publish_event
 from core.models.enums import KuStatus
-from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.ku.ku_event import EventKu
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from core.services.protocols import BackendOperations
 
 
-class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
+class EventsProgressService(BaseService["BackendOperations[EventKu]", EventKu]):
     """
     Progress tracking and completion for events.
 
@@ -57,7 +57,8 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
 
     _config = create_activity_domain_config(
         dto_class=KuDTO,
-        model_class=Ku,
+        model_class=EventKu,
+        entity_label="Ku",
         domain_name="events",
         date_field="event_date",
         completed_statuses=(KuStatus.COMPLETED.value,),
@@ -67,7 +68,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
     _date_field = "event_date"
     _completed_statuses = (KuStatus.COMPLETED.value, KuStatus.CANCELLED.value)
 
-    def __init__(self, backend: "BackendOperations[Ku]", event_bus=None) -> None:
+    def __init__(self, backend: "BackendOperations[EventKu]", event_bus=None) -> None:
         """
         Initialize progress service.
 
@@ -91,7 +92,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
     # CONTEXT-FIRST HELPERS
     # ========================================================================
 
-    def _get_event_from_rich_context(self, event_uid: str, user_context: UserContext) -> Ku | None:
+    def _get_event_from_rich_context(self, event_uid: str, user_context: UserContext) -> EventKu | None:
         """Try to get Ku from UserContext.active_events_rich."""
         if not user_context.active_events_rich:
             return None
@@ -102,12 +103,12 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
                 return self._dict_to_event(event_dict)
         return None
 
-    def _dict_to_event(self, event_dict: dict[str, Any]) -> Ku | None:
-        """Convert raw Neo4j dict to Ku domain model."""
+    def _dict_to_event(self, event_dict: dict[str, Any]) -> EventKu | None:
+        """Convert raw Neo4j dict to EventKu domain model."""
         if not event_dict or not event_dict.get("uid"):
             return None
         dto = KuDTO.from_dict(event_dict)
-        return Ku.from_dto(dto)
+        return EventKu.from_dto(dto)
 
     # ========================================================================
     # EVENT COMPLETION
@@ -122,7 +123,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
         user_context: UserContext,
         quality_score: int | None = None,
         notes: str | None = None,
-    ) -> Result[Ku]:
+    ) -> Result[EventKu]:
         """
         Complete an event and cascade updates through the system.
 
@@ -151,7 +152,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
                 return Result.fail(event_result.expect_error())
             if not event_result.value:
                 return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
-            event = self._to_domain_model(event_result.value, KuDTO, Ku)
+            event = self._to_domain_model(event_result.value, KuDTO, EventKu)
             self.logger.debug(f"Event {event_uid} fetched from Neo4j")
         else:
             self.logger.debug(f"Event {event_uid} found in rich context")
@@ -186,7 +187,7 @@ class EventsProgressService(BaseService["BackendOperations[Ku]", Ku]):
             f"habit={event.reinforces_habit_uid}, quality={quality_score}"
         )
 
-        completed_event = self._to_domain_model(update_result.value, KuDTO, Ku)
+        completed_event = self._to_domain_model(update_result.value, KuDTO, EventKu)
         return Result.ok(completed_event)
 
     # ========================================================================
