@@ -59,6 +59,7 @@ from .assignment_request import (
 )
 from .ku import KU_TYPE_CLASS_MAP, Ku
 from .ku_base import KuBase
+from .ku_choice import ChoiceKu
 from .ku_chunks import KuChunk, KuChunkType, chunk_content
 from .ku_content import KuContent
 from .ku_converters import ku_to_response
@@ -129,6 +130,7 @@ __all__ = [
     "GoalKu",
     "HabitKu",
     "EventKu",
+    "ChoiceKu",
     "KU_TYPE_CLASS_MAP",
     "KuChunk",
     "KuChunkType",

@@ -1125,10 +1125,12 @@ async def compose_services(
             prometheus_metrics=prometheus_metrics,
         )
         # February 2026: Unified Ku model — choice_backend uses :Ku label with ku_type filter
-        choice_backend = UniversalNeo4jBackend[Ku](
+        from core.models.ku.ku_choice import ChoiceKu
+
+        choice_backend = UniversalNeo4jBackend[ChoiceKu](
             driver,
             NeoLabel.KU,
-            Ku,
+            ChoiceKu,
             prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "choice"},
         )
