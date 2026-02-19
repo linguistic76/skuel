@@ -74,6 +74,7 @@ from .ku_nested_types import (
     Milestone,
     PrincipleExpression,
 )
+from .ku_principle import PrincipleKu
 from .ku_request import (
     # Route-specific
     AddTagsRequest,
@@ -131,6 +132,7 @@ __all__ = [
     "HabitKu",
     "EventKu",
     "ChoiceKu",
+    "PrincipleKu",
     "KU_TYPE_CLASS_MAP",
     "KuChunk",
     "KuChunkType",

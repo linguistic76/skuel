@@ -1111,10 +1111,12 @@ async def compose_services(
         knowledge_backend = UniversalNeo4jBackend[Ku](
             driver, NeoLabel.KU, Ku, prometheus_metrics=prometheus_metrics
         )
-        principle_backend = UniversalNeo4jBackend[Ku](
+        from core.models.ku.ku_principle import PrincipleKu
+
+        principle_backend = UniversalNeo4jBackend[PrincipleKu](
             driver,
             NeoLabel.KU,
-            Ku,
+            PrincipleKu,
             prometheus_metrics=prometheus_metrics,
             default_filters={"ku_type": "principle"},
         )
