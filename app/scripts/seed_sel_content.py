@@ -18,7 +18,8 @@ from pathlib import Path
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from adapters.persistence.neo4j_adapter import Neo4jAdapter
 from core.models.enums import Domain, LearningLevel, SELCategory
-from core.models.ku.ku import Ku
+from core.models.ku.ku_base import KuBase
+from core.models.ku.ku_curriculum import CurriculumKu
 from core.utils.logging import get_logger
 
 # Add project root to path
@@ -653,7 +654,7 @@ async def seed_sel_content(ku_backend):
         try:
             # Create Ku object (prerequisites and enables are graph relationships, not fields)
             content_body = ku_data.get("content", "")
-            ku = Ku(
+            ku = CurriculumKu(
                 uid=ku_data["uid"],
                 title=ku_data["title"],
                 domain=ku_data["domain"],
@@ -756,7 +757,7 @@ async def main():
         driver = adapter.get_driver()
 
         # Create backend for Knowledge
-        ku_backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
+        ku_backend = UniversalNeo4jBackend[KuBase](driver, "Ku", KuBase)
 
         # Seed KUs
         ku_count = await seed_sel_content(ku_backend)
